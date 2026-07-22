@@ -17,7 +17,7 @@ COPY tsconfig.base.json ./
 COPY apps/api apps/api
 RUN pnpm --filter @markmysteps/api db:generate \
  && pnpm --filter @markmysteps/api build \
- && pnpm --filter @markmysteps/api --prod deploy /out
+ && pnpm --filter @markmysteps/api --prod deploy --legacy /out
 
 # ---- Runtime ----
 FROM node:22-alpine AS runtime
@@ -29,5 +29,6 @@ COPY --from=build --chown=node:node /out/package.json ./
 COPY --from=build --chown=node:node /out/prisma ./prisma
 USER node
 EXPOSE 3000
-# Apply pending migrations, then start the API.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+# Apply pending migrations, then start the API. prisma is a regular
+# dependency, so the CLI is present offline in node_modules.
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/main.js"]

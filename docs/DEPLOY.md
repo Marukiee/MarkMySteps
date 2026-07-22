@@ -114,3 +114,16 @@ pnpm --filter @markmysteps/api db:generate
 pnpm --filter @markmysteps/api db:deploy
 pnpm dev        # API :3000 + web :5173
 ```
+
+---
+
+## Verwijderen (uninstall)
+
+```bash
+cd ~/MarkMySteps && ./uninstall.sh
+```
+
+Verwijdert alleen de MarkMySteps-containers, -images en het interne netwerk —
+de rest van de server (Immich, Home Assistant, cloudflared) blijft onaangeraakt.
+Het script vraagt apart of je ook het database-volume (alle data) wilt wissen;
+bewaar je dat, dan pakt een nieuwe install met dezelfde `.env` je data weer op.
