@@ -17,7 +17,10 @@ COPY tsconfig.base.json ./
 COPY apps/api apps/api
 RUN pnpm --filter @markmysteps/api db:generate \
  && pnpm --filter @markmysteps/api build \
- && pnpm --filter @markmysteps/api --prod deploy --legacy /out
+ && pnpm --filter @markmysteps/api --prod deploy --legacy /out \
+ # pnpm deploy installs a fresh @prisma/client without the generated code;
+ # regenerate inside the deploy output so the runtime image works offline.
+ && cd /out && node_modules/.bin/prisma generate
 
 # ---- Runtime ----
 FROM node:22-alpine AS runtime
