@@ -270,17 +270,28 @@ export function PlanPage() {
   return (
     <main className="plan-page fade-in">
       <aside className="plan-side">
-        <Link to={`/trips/${tripId}`} className="muted plan-back">
-          ← Terug naar de reis
-        </Link>
-        <h1>{trip?.title ?? '…'} — routeplanner</h1>
-        {trip && (
-          <p className="muted">
-            {formatDate(trip.startDate)} — {formatDate(trip.endDate)} · versleep stops om te
-            herordenen
-          </p>
-        )}
+        <div className="plan-head">
+          <Link to={`/trips/${tripId}`} className="muted plan-back">
+            ← Terug naar de reis
+          </Link>
+          <h1>Routeplanner</h1>
+          {trip && (
+            <p className="muted">
+              {trip.title} · {stops.length} stop{stops.length === 1 ? '' : 's'}
+            </p>
+          )}
+        </div>
         {error && <p className="error-text">{error}</p>}
+
+        {stops.length === 0 && (
+          <div className="plan-empty">
+            <span>🧭</span>
+            <p className="muted">
+              Nog geen stops. Zoek hieronder een stad en bouw je route op — versleep om te
+              herordenen, tik het icoontje tussen stops voor een vlucht.
+            </p>
+          </div>
+        )}
 
         <ol className="stop-list">
           {stops.map((stop, index) => (
