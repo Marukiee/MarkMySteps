@@ -46,7 +46,9 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
 
     function size() {
       const parent = canvas!.parentElement!;
-      const s = Math.min(parent.clientWidth, 820);
+      // Fill the hero: diameter tracks the smaller of width/height, but larger
+      // than before so continents and trip labels read clearly.
+      const s = Math.min(parent.clientWidth, Math.max(parent.clientHeight * 1.4, 320), 900);
       canvas!.width = s * dpr;
       canvas!.height = s * dpr;
       canvas!.style.width = `${s}px`;
@@ -82,15 +84,28 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
         const projected = projection(trip.anchor);
         if (!projected) continue;
         if (center && distance(center, trip.anchor) > 90) continue;
-        ctx!.beginPath();
-        ctx!.arc(projected[0], projected[1], 5 * dpr, 0, 2 * Math.PI);
-        ctx!.fillStyle = '#e8613c';
-        ctx!.fill();
+        // Pulsing marker.
         ctx!.beginPath();
         ctx!.arc(projected[0], projected[1], 9 * dpr, 0, 2 * Math.PI);
         ctx!.strokeStyle = 'rgba(232,97,60,0.4)';
         ctx!.lineWidth = 1.5 * dpr;
         ctx!.stroke();
+        ctx!.beginPath();
+        ctx!.arc(projected[0], projected[1], 5 * dpr, 0, 2 * Math.PI);
+        ctx!.fillStyle = '#e8613c';
+        ctx!.fill();
+        // Label pill with the trip title.
+        const label = trip.title;
+        ctx!.font = `${11 * dpr}px 'Inter Variable', sans-serif`;
+        const tw = ctx!.measureText(label).width;
+        const px = projected[0] + 9 * dpr;
+        const py = projected[1] - 8 * dpr;
+        ctx!.fillStyle = 'rgba(255,255,255,0.92)';
+        roundRect(ctx!, px, py, tw + 12 * dpr, 18 * dpr, 9 * dpr);
+        ctx!.fill();
+        ctx!.fillStyle = '#1e2a35';
+        ctx!.textBaseline = 'middle';
+        ctx!.fillText(label, px + 6 * dpr, py + 9 * dpr);
       }
 
       if (!dragging) rotation += velocity;
@@ -149,6 +164,23 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       <canvas ref={canvasRef} />
     </div>
   );
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 function distance(a: [number, number], b: [number, number]): number {

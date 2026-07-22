@@ -2,16 +2,16 @@
   position: relative;
 }
 
+/* Globe hero — a real, prominent element (not a faint backdrop). */
 .globe-backdrop {
-  position: absolute;
-  top: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 0;
-  opacity: 0.5;
-  filter: saturate(0.92);
-  mask-image: radial-gradient(circle at center, #000 60%, transparent 75%);
-  -webkit-mask-image: radial-gradient(circle at center, #000 60%, transparent 75%);
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: clamp(260px, 42vh, 520px);
+  margin: -1rem 0 0.5rem;
+  overflow: hidden;
+  mask-image: radial-gradient(circle at center 42%, #000 62%, transparent 82%);
+  -webkit-mask-image: radial-gradient(circle at center 42%, #000 62%, transparent 82%);
 }
 
 .globe-backdrop canvas {
@@ -24,7 +24,6 @@
   cursor: grabbing;
 }
 
-/* Keep page content above the globe. */
 .page > *:not(.globe-backdrop) {
   position: relative;
   z-index: 1;

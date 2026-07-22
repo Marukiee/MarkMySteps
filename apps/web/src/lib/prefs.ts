@@ -1,6 +1,8 @@
+import type { StyleSpecification } from 'maplibre-gl';
+
 /** Local display preferences (device-scoped, no server round-trip). */
 
-export type MapStyleId = 'positron' | 'bright' | 'liberty';
+export type MapStyleId = 'positron' | 'bright' | 'liberty' | 'satellite';
 
 const MAP_STYLE_KEY = 'mms.mapstyle';
 
@@ -8,12 +10,25 @@ export const MAP_STYLES: { id: MapStyleId; label: string }[] = [
   { id: 'positron', label: 'Licht & minimaal' },
   { id: 'bright', label: 'Helder & kleurrijk' },
   { id: 'liberty', label: 'Klassiek' },
+  { id: 'satellite', label: 'Satelliet' },
 ];
 
-export function getMapStyle(): string {
-  const id = (localStorage.getItem(MAP_STYLE_KEY) as MapStyleId | null) ?? 'positron';
-  return `https://tiles.openfreemap.org/styles/${id}`;
-}
+// Keyless satellite raster (Esri World Imagery). No Google, no API key.
+const SATELLITE_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    sat: {
+      type: 'raster',
+      tiles: [
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      ],
+      tileSize: 256,
+      attribution: 'Imagery © Esri',
+      maxzoom: 19,
+    },
+  },
+  layers: [{ id: 'sat', type: 'raster', source: 'sat' }],
+};
 
 export function getMapStyleId(): MapStyleId {
   return (localStorage.getItem(MAP_STYLE_KEY) as MapStyleId | null) ?? 'positron';
@@ -21,4 +36,11 @@ export function getMapStyleId(): MapStyleId {
 
 export function setMapStyleId(id: MapStyleId): void {
   localStorage.setItem(MAP_STYLE_KEY, id);
+}
+
+/** Returns a MapLibre style: a URL for vector styles, or a spec for satellite. */
+export function getMapStyle(): string | StyleSpecification {
+  const id = getMapStyleId();
+  if (id === 'satellite') return SATELLITE_STYLE;
+  return `https://tiles.openfreemap.org/styles/${id}`;
 }

@@ -1,4 +1,4 @@
-import maplibregl, { LngLatBounds, Map as MapLibreMap } from 'maplibre-gl';
+import maplibregl, { LngLatBounds, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { fetchBlobUrl } from '../api/client';
@@ -24,7 +24,7 @@ interface TripMapProps {
   onPhotoOpen?: (mediaId: string) => void;
   onPhotoFocus?: (mediaId: string) => void;
   clickMode?: boolean;
-  styleUrl: string;
+  styleUrl: string | StyleSpecification;
 }
 
 export function TripMap({
