@@ -29,7 +29,9 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   const url = new URL('https://photon.komoot.io/api/');
   url.searchParams.set('q', query);
   url.searchParams.set('limit', '6');
-  url.searchParams.set('lang', 'default');
+  // 'default' returns every language variant glued together
+  // ("Marrakech ⵎⵔⴰⴽⵛ مراكش"); 'en' gives clean single names.
+  url.searchParams.set('lang', 'en');
   // Bias towards cities/towns — that's what trip stops usually are.
   url.searchParams.append('osm_tag', 'place');
 

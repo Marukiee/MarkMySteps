@@ -63,7 +63,9 @@ export class UsersService {
   async setAvatar(id: string, buffer: Buffer, mime: string): Promise<void> {
     await this.prisma.user.update({
       where: { id },
-      data: { avatar: buffer, avatarMime: mime },
+      // Explicit copy into a plain Uint8Array: Prisma's Bytes type does not
+      // accept Node's Buffer<ArrayBufferLike> under strict TS.
+      data: { avatar: new Uint8Array(buffer), avatarMime: mime },
     });
   }
 

@@ -175,6 +175,28 @@
   box-shadow: var(--shadow-m);
   max-height: 260px;
   overflow-y: auto;
+  animation: suggestIn 0.18s var(--ease);
+}
+
+.stop-suggestions li {
+  animation: fadeIn 0.22s var(--ease) backwards;
+}
+
+.stop-suggestions li:nth-child(2) { animation-delay: 30ms; }
+.stop-suggestions li:nth-child(3) { animation-delay: 60ms; }
+.stop-suggestions li:nth-child(4) { animation-delay: 90ms; }
+.stop-suggestions li:nth-child(5) { animation-delay: 120ms; }
+.stop-suggestions li:nth-child(6) { animation-delay: 150ms; }
+
+@keyframes suggestIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .stop-suggestions button {
