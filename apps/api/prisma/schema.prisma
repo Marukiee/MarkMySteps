@@ -24,9 +24,88 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  refreshTokens RefreshToken[]
+  refreshTokens    RefreshToken[]
+  immichConnection ImmichConnection?
+  ownedTrips       Trip[]
+  tripMemberships  TripMember[]
+  mediaRefs        MediaRef[]
 
   @@map("users")
+}
+
+/// Per-user link to an external Immich server. The API key is encrypted at
+/// rest with AES-256-GCM (CryptoService); the plaintext only ever lives in
+/// memory while talking to Immich.
+model ImmichConnection {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @unique @db.Uuid
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serverUrl       String
+  apiKeyEncrypted String
+  lastSyncAt      DateTime?
+  lastSyncError   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("immich_connections")
+}
+
+model Trip {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  description String?
+  startDate   DateTime @db.Date
+  endDate     DateTime @db.Date
+  ownerId     String   @db.Uuid
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members   TripMember[]
+  mediaRefs MediaRef[]
+
+  @@map("trips")
+}
+
+enum TripRole {
+  OWNER
+  MEMBER
+}
+
+model TripMember {
+  tripId   String   @db.Uuid
+  trip     Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId   String   @db.Uuid
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     TripRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  @@id([tripId, userId])
+  @@map("trip_members")
+}
+
+/// Reference to a photo/video that lives in Immich. MarkMySteps never stores
+/// the actual media file — only the asset id plus the metadata needed to
+/// place it on the map and timeline.
+model MediaRef {
+  id            String   @id @default(uuid()) @db.Uuid
+  tripId        String   @db.Uuid
+  trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId        String   @db.Uuid
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  immichAssetId String
+  assetType     String // IMAGE | VIDEO
+  takenAt       DateTime
+  latitude      Float?
+  longitude     Float?
+  /// Generated column (see migration): ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
+  geom          Unsupported("geometry(Point, 4326)")?
+  createdAt     DateTime @default(now())
+
+  @@unique([tripId, userId, immichAssetId])
+  @@index([tripId, takenAt])
+  @@index([geom], type: Gist)
+  @@map("media_refs")
 }
 
 model RefreshToken {
