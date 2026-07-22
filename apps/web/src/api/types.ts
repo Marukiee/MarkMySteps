@@ -16,7 +16,7 @@ export interface User {
 export interface TripMember {
   userId: string;
   role: 'OWNER' | 'MEMBER';
-  user: { displayName: string; username: string };
+  user: { displayName: string; username: string; hasAvatar: boolean };
 }
 
 export interface ShareLinkInfo {
@@ -61,6 +61,7 @@ export interface RouteCollection {
 
 export interface ConnectionStatus {
   serverUrl: string;
+  publicUrl: string | null;
   apiKeyPreview: string;
   lastSyncAt: string | null;
   lastSyncError: string | null;

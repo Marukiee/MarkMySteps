@@ -1,21 +1,185 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
+import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { formatDate } from '../lib/colors';
+import { MAP_STYLES, MapStyleId, getMapStyleId, setMapStyleId } from '../lib/prefs';
+import {
+  TrackerState,
+  isNative,
+  onTrackerChange,
+  startTracking,
+  stopTracking,
+} from '../tracking/tracker';
 import './settings.css';
+
+type SectionId = 'profile' | 'display' | 'immich' | 'import' | 'tracking' | 'accounts' | 'about';
 
 export function SettingsPage() {
   const { user } = useAuth();
+  const [section, setSection] = useState<SectionId>('profile');
+
+  const sections: { id: SectionId; label: string; show: boolean }[] = [
+    { id: 'profile', label: 'Profiel', show: true },
+    { id: 'display', label: 'Weergave', show: true },
+    { id: 'immich', label: 'Immich', show: true },
+    { id: 'import', label: 'Importeren', show: true },
+    { id: 'tracking', label: 'Tracking', show: isNative() },
+    { id: 'accounts', label: 'Accounts', show: user?.role === 'ADMIN' },
+    { id: 'about', label: 'Over', show: true },
+  ];
+
   return (
     <main className="page fade-in settings-page">
       <h1>Instellingen</h1>
-      <ProfileSection />
-      <ImmichSection />
-      <PolarstepsSection />
-      {user?.role === 'ADMIN' && <AccountsSection />}
+      <div className="settings-layout">
+        <nav className="settings-nav">
+          {sections
+            .filter((s) => s.show)
+            .map((s) => (
+              <button
+                key={s.id}
+                className={section === s.id ? 'active' : ''}
+                onClick={() => setSection(s.id)}
+              >
+                {s.label}
+              </button>
+            ))}
+        </nav>
+        <div className="settings-content">
+          {section === 'profile' && <ProfileSection />}
+          {section === 'display' && <DisplaySection />}
+          {section === 'immich' && <ImmichSection />}
+          {section === 'import' && <PolarstepsSection />}
+          {section === 'tracking' && <TrackingSection />}
+          {section === 'accounts' && <AccountsSection />}
+          {section === 'about' && <AboutSection />}
+        </div>
+      </div>
     </main>
+  );
+}
+
+function DisplaySection() {
+  const [style, setStyle] = useState<MapStyleId>(getMapStyleId());
+
+  return (
+    <section className="card settings-card">
+      <h2>Weergave</h2>
+      <div className="field">
+        <label htmlFor="ds-map">Kaartstijl</label>
+        <select
+          id="ds-map"
+          value={style}
+          onChange={(e) => {
+            const id = e.target.value as MapStyleId;
+            setStyle(id);
+            setMapStyleId(id);
+          }}
+        >
+          {MAP_STYLES.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <span className="muted">Geldt voor alle kaarten op dit apparaat.</span>
+      </div>
+    </section>
+  );
+}
+
+/** Native-only: route tracking lives here, not on the trip page. */
+function TrackingSection() {
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [selected, setSelected] = useState('');
+  const [tracker, setTracker] = useState<TrackerState>({
+    tripId: null,
+    buffered: 0,
+    lastError: null,
+  });
+
+  useEffect(() => {
+    api<Trip[]>('/trips').then(setTrips).catch(() => undefined);
+    return onTrackerChange(setTracker);
+  }, []);
+
+  const activeTrip = trips.find((t) => t.id === tracker.tripId);
+
+  return (
+    <section className="card settings-card">
+      <h2>Route-tracking</h2>
+      <p className="muted">
+        Zuinig met batterij: alleen een GPS-punt bij ≥50 m verplaatsing. Offline wordt alles
+        gebufferd en later geüpload. Vereist locatie op “Altijd toestaan”.
+      </p>
+
+      {tracker.tripId ? (
+        <div className="tracking-status">
+          <span className="settings-ok">● Actief — {activeTrip?.title ?? 'reis'}</span>
+          {tracker.buffered > 0 && (
+            <span className="muted">{tracker.buffered} punten in buffer (wacht op netwerk)</span>
+          )}
+          {tracker.lastError && <span className="error-text">{tracker.lastError}</span>}
+          <button className="btn btn-danger" onClick={() => void stopTracking()}>
+            ■ Stop tracking
+          </button>
+        </div>
+      ) : (
+        <div className="settings-form">
+          <div className="field">
+            <label htmlFor="tr-trip">Reis</label>
+            <select id="tr-trip" value={selected} onChange={(e) => setSelected(e.target.value)}>
+              <option value="">Kies een reis…</option>
+              {trips.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
+              ))}
+            </select>
+          </div>
+          {tracker.lastError && <p className="error-text">{tracker.lastError}</p>}
+          <div className="settings-actions">
+            <button
+              className="btn btn-primary"
+              disabled={!selected}
+              onClick={() => void startTracking(selected)}
+            >
+              ● Start tracking
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AboutSection() {
+  return (
+    <section className="card settings-card">
+      <h2>Over MarkMySteps</h2>
+      <p className="muted">
+        Self-hosted reis-tracker over je eigen Immich-server. Open source (AGPL-3.0).
+      </p>
+      <ul className="about-list">
+        <li>
+          <a href="https://github.com/Marukiee/MarkMySteps" target="_blank" rel="noreferrer">
+            Broncode op GitHub ↗
+          </a>
+        </li>
+        <li>
+          <a
+            href="https://github.com/Marukiee/MarkMySteps/actions"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Android-app (APK) downloaden ↗
+          </a>
+        </li>
+      </ul>
+    </section>
   );
 }
 
@@ -181,6 +345,7 @@ function ProfileSection() {
 function ImmichSection() {
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [serverUrl, setServerUrl] = useState('');
+  const [publicUrl, setPublicUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -191,6 +356,7 @@ function ImmichSection() {
       .then((s) => {
         setStatus(s);
         setServerUrl(s.serverUrl);
+        setPublicUrl(s.publicUrl ?? '');
       })
       .catch((err: unknown) => {
         // 404 simply means: not configured yet.
@@ -208,7 +374,7 @@ function ImmichSection() {
     try {
       const s = await api<ConnectionStatus>('/immich/connection', {
         method: 'PUT',
-        body: { serverUrl, apiKey },
+        body: { serverUrl, apiKey, publicUrl: publicUrl || undefined },
       });
       setStatus(s);
       setApiKey('');
@@ -270,6 +436,20 @@ function ImmichSection() {
           />
           <span className="muted">
             Immich → Accountinstellingen → API-keys. Wordt AES-256 versleuteld opgeslagen.
+          </span>
+        </div>
+        <div className="field">
+          <label htmlFor="im-public">Publieke URL (optioneel)</label>
+          <input
+            id="im-public"
+            type="url"
+            placeholder="https://fotos.markmaaktmedia.nl"
+            value={publicUrl}
+            onChange={(e) => setPublicUrl(e.target.value)}
+          />
+          <span className="muted">
+            Voor de “Openen in Immich”-knop. De server-URL hierboven mag een intern LAN-adres zijn;
+            deze is het adres waarmee jij Immich in je browser/app opent.
           </span>
         </div>
         <div className="settings-actions">
@@ -393,7 +573,7 @@ function AccountsSection() {
                 {row.displayName} <small className="muted">@{row.username}</small>
               </strong>
               <span className="muted">
-                {row.email} · {row.tripCount} reis{row.tripCount === 1 ? '' : 'zen'}
+                {row.email} · {row.tripCount} {row.tripCount === 1 ? 'reis' : 'reizen'}
                 {row.role === 'ADMIN' && ' · admin'}
                 {row.mustChangePassword && ' · tijdelijk wachtwoord'}
               </span>

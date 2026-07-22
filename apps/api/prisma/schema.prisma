@@ -56,6 +56,9 @@ model ImmichConnection {
   userId          String    @unique @db.Uuid
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   serverUrl       String
+  /// Public URL used for "open in Immich" links (e.g. https://fotos.example.com);
+  /// serverUrl often points at a LAN address that only the backend can reach.
+  publicUrl       String?
   apiKeyEncrypted String
   lastSyncAt      DateTime?
   lastSyncError   String?

@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { colorForUser } from '../lib/colors';
+import { Avatar } from './Avatar';
 import './members.css';
 
 export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () => void }) {
@@ -41,9 +41,12 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
       <ul className="members-list">
         {trip.members.map((member) => (
           <li key={member.userId}>
-            <span className="member-dot" style={{ background: colorForUser(member.userId) }}>
-              {member.user.displayName[0]}
-            </span>
+            <Avatar
+              userId={member.userId}
+              displayName={member.user.displayName}
+              hasAvatar={member.user.hasAvatar}
+              size={30}
+            />
             <span className="members-name">
               {member.user.displayName}
               <small> @{member.user.username}</small>

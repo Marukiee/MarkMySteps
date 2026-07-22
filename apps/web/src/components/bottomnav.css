@@ -1,0 +1,64 @@
+.bottomnav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: none;
+  grid-template-columns: repeat(3, 1fr);
+  background: rgb(255 255 255 / 0.92);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--line);
+  padding: 0.35rem 0 calc(0.35rem + env(safe-area-inset-bottom));
+}
+
+.bottomnav a {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 0.3rem 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+  transition: color 0.15s;
+}
+
+.bottomnav a svg {
+  width: 24px;
+  height: 24px;
+}
+
+.bottomnav a.active {
+  color: var(--accent-ink);
+}
+
+/* Show the tab bar on phones; the native app forces it via .native-app. */
+@media (max-width: 720px) {
+  .bottomnav {
+    display: grid;
+  }
+
+  body {
+    padding-bottom: 68px;
+  }
+}
+
+.native-app .bottomnav {
+  display: grid;
+}
+
+.native-app body,
+body.native-app {
+  padding-bottom: 68px;
+}
+
+/* In the APK there is no top navbar at all — app feel, tab bar only. */
+.native-app .topbar {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .topbar-nav {
+    display: none;
+  }
+}

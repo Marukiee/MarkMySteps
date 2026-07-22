@@ -24,7 +24,7 @@ export class ImmichController {
   @Put()
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   set(@CurrentUser() user: JwtPayload, @Body() dto: SetConnectionDto): Promise<ConnectionStatus> {
-    return this.connections.setConnection(user.sub, dto.serverUrl, dto.apiKey);
+    return this.connections.setConnection(user.sub, dto.serverUrl, dto.apiKey, dto.publicUrl);
   }
 
   @Get()

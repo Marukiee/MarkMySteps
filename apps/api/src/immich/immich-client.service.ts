@@ -96,6 +96,37 @@ export class ImmichClientService {
     );
   }
 
+  /** Streams video playback with Range support (seeking). */
+  async fetchVideo(
+    serverUrl: string,
+    apiKey: string,
+    assetId: string,
+    range?: string,
+  ): Promise<Response> {
+    const url = new URL(
+      `/api/assets/${encodeURIComponent(assetId)}/video/playback`,
+      serverUrl.endsWith('/') ? serverUrl : `${serverUrl}/`,
+    );
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: {
+          'x-api-key': apiKey,
+          ...(range ? { range } : {}),
+        },
+        signal: AbortSignal.timeout(60_000),
+        redirect: 'error',
+      });
+    } catch (err) {
+      this.logger.warn(`Immich video request failed: ${String(err)}`);
+      throw new BadGatewayException('Could not reach the Immich server');
+    }
+    if (!res.ok && res.status !== 206) {
+      throw new BadGatewayException(`Immich responded with ${res.status}`);
+    }
+    return res;
+  }
+
   private async request(
     serverUrl: string,
     apiKey: string,

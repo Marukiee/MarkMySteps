@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { api, ApiError } from '../api/client';
+import { api, ApiError, getServerBase } from '../api/client';
 import type { ConnectionStatus, MediaItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { formatDay } from '../lib/colors';
+import { openExternal } from '../lib/native';
 import { AuthImage } from './AuthImage';
 import './lightbox.css';
 
@@ -20,7 +21,23 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   const { user } = useAuth();
   const [immichUrl, setImmichUrl] = useState<string | null>(null);
   const [coverSaved, setCoverSaved] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const item = items[index];
+
+  // Fetch a short-lived playback URL when a video is shown.
+  useEffect(() => {
+    setVideoUrl(null);
+    if (item?.assetType !== 'VIDEO') return;
+    let cancelled = false;
+    api<{ url: string }>(`/media/${item.id}/video-url`)
+      .then((res) => {
+        if (!cancelled) setVideoUrl(`${getServerBase()}${res.url}`);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [item?.id, item?.assetType]);
 
   async function setAsCover() {
     if (!coverTripId || !item) return;
@@ -30,11 +47,11 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
     onCoverSet?.();
   }
 
-  // Own Immich server URL → deep link to the asset. Only for own photos;
+  // Public Immich URL → deep link to the asset. Only for own photos;
   // friends' photos live on their server.
   useEffect(() => {
     api<ConnectionStatus>('/immich/connection')
-      .then((s) => setImmichUrl(s.serverUrl))
+      .then((s) => setImmichUrl(s.publicUrl ?? s.serverUrl))
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 404) setImmichUrl(null);
       });
@@ -85,9 +102,13 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
       )}
 
       <figure className="lightbox-stage" onClick={(e) => e.stopPropagation()}>
-        <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="lightbox-img" />
-        {item.assetType === 'VIDEO' && (
-          <p className="lightbox-videohint">Video — afspelen kan in Immich</p>
+        {item.assetType === 'VIDEO' && videoUrl ? (
+          <video className="lightbox-img" src={videoUrl} controls autoPlay playsInline />
+        ) : (
+          <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="lightbox-img" />
+        )}
+        {item.assetType === 'VIDEO' && !videoUrl && (
+          <p className="lightbox-videohint">Video laden…</p>
         )}
         <figcaption className="lightbox-bar">
           <span>{formatDay(item.takenAt)}</span>
@@ -100,14 +121,12 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
             </button>
           )}
           {isOwn && immichUrl && (
-            <a
+            <button
               className="btn btn-primary lightbox-immich"
-              href={`${immichUrl}/photos/${item.immichAssetId}`}
-              target="_blank"
-              rel="noreferrer"
+              onClick={() => openExternal(`${immichUrl}/photos/${item.immichAssetId}`)}
             >
               Openen in Immich ↗
-            </a>
+            </button>
           )}
         </figcaption>
       </figure>

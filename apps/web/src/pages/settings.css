@@ -1,11 +1,87 @@
 .settings-page {
-  display: grid;
-  gap: 1.25rem;
-  max-width: 640px;
+  max-width: 900px;
 }
 
 .settings-page h1 {
   font-size: 2rem;
+  margin-bottom: 1.25rem;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.settings-nav {
+  display: grid;
+  gap: 2px;
+  position: sticky;
+  top: 72px;
+}
+
+.settings-nav button {
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-s);
+  font-weight: 550;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  transition: all 0.15s var(--ease);
+}
+
+.settings-nav button:hover {
+  background: var(--paper-sunken);
+}
+
+.settings-nav button.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.settings-content {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-nav {
+    position: static;
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    overflow-x: auto;
+    gap: 0.35rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .settings-nav button {
+    white-space: nowrap;
+  }
+}
+
+.about-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.about-list a {
+  color: var(--accent-ink);
+  font-weight: 550;
+}
+
+.tracking-status {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
 }
 
 .settings-card {

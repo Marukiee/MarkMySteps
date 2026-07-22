@@ -1,9 +1,12 @@
 import { ReactNode } from 'react';
 import { BrowserRouter, Link, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
+import { BottomNav } from './components/BottomNav';
 import { TopBar } from './components/TopBar';
+import { isNativeApp, isOnboarded } from './lib/native';
 import { FriendsPage } from './pages/FriendsPage';
 import { LoginPage } from './pages/LoginPage';
+import { OnboardingPage } from './pages/OnboardingPage';
 import { PlanPage } from './pages/PlanPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SharePage } from './pages/SharePage';
@@ -14,6 +17,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth();
   if (!ready) return null;
   if (!user) return <Navigate to="/login" replace />;
+  if (isNativeApp() && !isOnboarded()) return <Navigate to="/onboarding" replace />;
   return <>{children}</>;
 }
 
@@ -29,6 +33,7 @@ function Shell() {
         </div>
       )}
       <Outlet />
+      <BottomNav />
     </>
   );
 }
@@ -38,6 +43,7 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/s/:slug" element={<SharePage />} />
         <Route
           element={

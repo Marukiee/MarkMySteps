@@ -80,20 +80,16 @@
 /* Ghost slots: dashed outlines fading out to suggest room for more trips. */
 .trip-ghost {
   height: 236px;
-  border: 2px dashed var(--line);
+  border: 2px dashed #cdbfa8;
   border-radius: var(--radius-l);
 }
 
-.trip-ghost {
-  opacity: 0.8;
-}
-
 .trip-ghost + .trip-ghost {
-  opacity: 0.5;
+  border-color: #d8ccb8;
 }
 
 .trip-ghost + .trip-ghost + .trip-ghost {
-  opacity: 0.22;
+  border-color: #e4dcce;
 }
 
 @media (max-width: 720px) {

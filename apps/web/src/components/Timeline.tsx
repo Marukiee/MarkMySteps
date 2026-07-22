@@ -45,6 +45,7 @@ export function Timeline({
             {items.map((item) => (
               <figure
                 key={item.id}
+                data-media-id={item.id}
                 className="timeline-photo"
                 onClick={() => onPhotoClick?.(item)}
                 role={onPhotoClick ? 'button' : undefined}

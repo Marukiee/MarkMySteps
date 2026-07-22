@@ -6,9 +6,10 @@ import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { flagEmoji, formatDate } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
+import { getMapStyle } from '../lib/prefs';
 import './plan.css';
 
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+const MAP_STYLE = getMapStyle();
 
 interface PlannedStop {
   id: string;

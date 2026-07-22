@@ -6,31 +6,40 @@ import type { MediaItem, RouteCollection } from '../api/types';
 import { colorForUser } from '../lib/colors';
 import './tripmap.css';
 
-// Open vector tiles, no API key, no Google — https://openfreemap.org
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
-
 interface TripMapProps {
   routes: RouteCollection | null;
   media: MediaItem[];
   visibleUsers: Set<string>;
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
+  onPhotoOpen?: (mediaId: string) => void;
   clickMode?: boolean;
+  styleUrl: string;
 }
 
-export function TripMap({ routes, media, visibleUsers, onMapClick, clickMode }: TripMapProps) {
+export function TripMap({
+  routes,
+  media,
+  visibleUsers,
+  onMapClick,
+  onPhotoOpen,
+  clickMode,
+  styleUrl,
+}: TripMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const loadedRef = useRef(false);
   const clickHandlerRef = useRef(onMapClick);
   clickHandlerRef.current = onMapClick;
+  const photoOpenRef = useRef(onPhotoOpen);
+  photoOpenRef.current = onPhotoOpen;
 
   // Init once.
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: MAP_STYLE,
+      style: styleUrl,
       center: [4.9, 52.37],
       zoom: 3,
       attributionControl: { compact: true },
@@ -165,16 +174,18 @@ export function TripMap({ routes, media, visibleUsers, onMapClick, clickMode }: 
           })
           .catch(() => el.classList.add('photo-marker-error'));
 
-        // Zoom into the cluster on click.
-        if (items.length > 1) {
-          el.addEventListener('click', (e) => {
-            e.stopPropagation();
+        // Single photo → open it; a cluster → zoom in to split it.
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (items.length > 1) {
             map.easeTo({
               center: [representative.longitude!, representative.latitude!],
               zoom: Math.min(zoom + 2.5, 16),
             });
-          });
-        }
+          } else {
+            photoOpenRef.current?.(representative.id);
+          }
+        });
 
         // Anchor on the representative photo's own location (a real point on
         // the route) — averaging pulls markers off the travelled line.

@@ -7,9 +7,9 @@ import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
 import { SharePanel } from '../components/SharePanel';
 import { Timeline } from '../components/Timeline';
-import { TrackButton } from '../components/TrackButton';
 import { TripMap } from '../components/TripMap';
 import { colorForUser, formatDate } from '../lib/colors';
+import { getMapStyle } from '../lib/prefs';
 import './tripdetail.css';
 
 export function TripDetailPage() {
@@ -101,6 +101,26 @@ export function TripDetailPage() {
     [media, visibleUsers],
   );
 
+  // Keep the timeline in sync with the open photo: switch to the Tijdlijn tab
+  // and scroll the matching thumbnail into view.
+  const openPhoto = useCallback(
+    (mediaId: string) => {
+      const idx = visibleMedia.findIndex((m) => m.id === mediaId);
+      if (idx === -1) return;
+      setLightboxIndex(idx);
+    },
+    [visibleMedia],
+  );
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const item = visibleMedia[lightboxIndex];
+    if (!item) return;
+    setSideTab('timeline');
+    const el = document.querySelector(`[data-media-id="${item.id}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [lightboxIndex, visibleMedia]);
+
   if (error) {
     return (
       <main className="page">
@@ -120,7 +140,9 @@ export function TripDetailPage() {
           media={media}
           visibleUsers={visibleUsers}
           onMapClick={handleMapClick}
+          onPhotoOpen={openPhoto}
           clickMode={addPointMode}
+          styleUrl={getMapStyle()}
         />
 
         {trip && trip.members.length > 1 && (
@@ -220,9 +242,8 @@ export function TripDetailPage() {
         {sideTab === 'manage' && (
           <div className="manage-panel">
             <section className="manage-section">
-              <h2 className="trip-side-heading">Tracking &amp; route</h2>
+              <h2 className="trip-side-heading">Route</h2>
               <div className="trip-actions">
-                {tripId && <TrackButton tripId={tripId} />}
                 <button
                   className={`btn ${addPointMode ? 'btn-primary' : 'btn-ghost'}`}
                   onClick={() => {

@@ -9,15 +9,42 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 
-export type TripWithMembers = Trip & {
-  members: { userId: string; role: TripRole; user: { displayName: string; username: string } }[];
+export type TripMemberView = {
+  userId: string;
+  role: TripRole;
+  user: { displayName: string; username: string; hasAvatar: boolean };
 };
+export type TripWithMembers = Trip & { members: TripMemberView[] };
 
 const MEMBERS_INCLUDE = {
   members: {
-    include: { user: { select: { displayName: true, username: true } } },
+    include: { user: { select: { displayName: true, username: true, avatarMime: true } } },
   },
 } as const;
+
+/** Maps Prisma rows (avatarMime) to the API shape (hasAvatar). */
+function mapMembers<T extends { members: RawMember[] }>(trip: T): Omit<T, 'members'> & {
+  members: TripMemberView[];
+} {
+  return {
+    ...trip,
+    members: trip.members.map((m) => ({
+      userId: m.userId,
+      role: m.role,
+      user: {
+        displayName: m.user.displayName,
+        username: m.user.username,
+        hasAvatar: m.user.avatarMime !== null,
+      },
+    })),
+  };
+}
+
+type RawMember = {
+  userId: string;
+  role: TripRole;
+  user: { displayName: string; username: string; avatarMime: string | null };
+};
 
 @Injectable()
 export class TripsService {
@@ -25,7 +52,7 @@ export class TripsService {
 
   async create(ownerId: string, dto: CreateTripDto): Promise<TripWithMembers> {
     const { startDate, endDate } = parseDates(dto.startDate, dto.endDate);
-    return this.prisma.trip.create({
+    const trip = await this.prisma.trip.create({
       data: {
         title: dto.title.trim(),
         description: dto.description?.trim(),
@@ -36,14 +63,16 @@ export class TripsService {
       },
       include: MEMBERS_INCLUDE,
     });
+    return mapMembers(trip);
   }
 
-  listForUser(userId: string): Promise<TripWithMembers[]> {
-    return this.prisma.trip.findMany({
+  async listForUser(userId: string): Promise<TripWithMembers[]> {
+    const trips = await this.prisma.trip.findMany({
       where: { members: { some: { userId } } },
       orderBy: { startDate: 'desc' },
       include: MEMBERS_INCLUDE,
     });
+    return trips.map(mapMembers);
   }
 
   /** Returns the trip if `userId` is a member; 404 otherwise (no existence leak). */
@@ -55,7 +84,7 @@ export class TripsService {
     if (!trip) {
       throw new NotFoundException('Trip not found');
     }
-    return trip;
+    return mapMembers(trip);
   }
 
   async update(tripId: string, userId: string, dto: UpdateTripDto): Promise<TripWithMembers> {
@@ -77,7 +106,7 @@ export class TripsService {
       }
     }
 
-    return this.prisma.trip.update({
+    const updated = await this.prisma.trip.update({
       where: { id: tripId },
       data: {
         title: dto.title?.trim(),
@@ -88,6 +117,7 @@ export class TripsService {
       },
       include: MEMBERS_INCLUDE,
     });
+    return mapMembers(updated);
   }
 
   async remove(tripId: string, userId: string): Promise<void> {

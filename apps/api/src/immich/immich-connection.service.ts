@@ -6,6 +6,7 @@ import { ImmichClientService } from './immich-client.service';
 /** Connection info safe to return to the client — never includes the key. */
 export interface ConnectionStatus {
   serverUrl: string;
+  publicUrl: string | null;
   apiKeyPreview: string; // e.g. "hZk3…"
   lastSyncAt: Date | null;
   lastSyncError: string | null;
@@ -26,8 +27,14 @@ export class ImmichConnectionService {
   ) {}
 
   /** Validates against the Immich server, then stores the key encrypted. */
-  async setConnection(userId: string, serverUrl: string, apiKey: string): Promise<ConnectionStatus> {
+  async setConnection(
+    userId: string,
+    serverUrl: string,
+    apiKey: string,
+    publicUrl?: string,
+  ): Promise<ConnectionStatus> {
     const normalizedUrl = serverUrl.replace(/\/+$/, '');
+    const normalizedPublicUrl = publicUrl?.replace(/\/+$/, '') ?? null;
 
     try {
       await this.client.ping(normalizedUrl, apiKey);
@@ -42,16 +49,18 @@ export class ImmichConnectionService {
       create: {
         userId,
         serverUrl: normalizedUrl,
+        publicUrl: normalizedPublicUrl,
         apiKeyEncrypted: this.crypto.encrypt(apiKey),
       },
       update: {
         serverUrl: normalizedUrl,
+        publicUrl: normalizedPublicUrl,
         apiKeyEncrypted: this.crypto.encrypt(apiKey),
         lastSyncError: null,
       },
     });
 
-    return this.toStatus(connection.serverUrl, apiKey, connection.lastSyncAt, null);
+    return this.toStatus(connection, apiKey);
   }
 
   async getStatus(userId: string): Promise<ConnectionStatus> {
@@ -60,12 +69,7 @@ export class ImmichConnectionService {
       throw new NotFoundException('No Immich connection configured');
     }
     const apiKey = this.crypto.decrypt(connection.apiKeyEncrypted);
-    return this.toStatus(
-      connection.serverUrl,
-      apiKey,
-      connection.lastSyncAt,
-      connection.lastSyncError,
-    );
+    return this.toStatus(connection, apiKey);
   }
 
   async removeConnection(userId: string): Promise<void> {
@@ -90,16 +94,20 @@ export class ImmichConnectionService {
   }
 
   private toStatus(
-    serverUrl: string,
+    connection: {
+      serverUrl: string;
+      publicUrl: string | null;
+      lastSyncAt: Date | null;
+      lastSyncError: string | null;
+    },
     apiKey: string,
-    lastSyncAt: Date | null,
-    lastSyncError: string | null,
   ): ConnectionStatus {
     return {
-      serverUrl,
+      serverUrl: connection.serverUrl,
+      publicUrl: connection.publicUrl,
       apiKeyPreview: `${apiKey.slice(0, 4)}…`,
-      lastSyncAt,
-      lastSyncError,
+      lastSyncAt: connection.lastSyncAt,
+      lastSyncError: connection.lastSyncError,
     };
   }
 }
