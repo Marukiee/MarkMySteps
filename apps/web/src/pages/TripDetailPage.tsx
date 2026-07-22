@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import type { MediaItem, RouteCollection, SyncResult, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Timeline } from '../components/Timeline';
+import { TrackButton } from '../components/TrackButton';
 import { TripMap } from '../components/TripMap';
 import { colorForUser, formatDate } from '../lib/colors';
 import './tripdetail.css';
@@ -182,6 +183,10 @@ export function TripDetailPage() {
           <button className="btn btn-primary" onClick={runSync} disabled={syncing}>
             {syncing ? 'Bezig…' : "Foto's syncen"}
           </button>
+          <Link to={`/trips/${tripId}/plan`} className="btn btn-ghost">
+            Planning
+          </Link>
+          {tripId && <TrackButton tripId={tripId} />}
           <button
             className={`btn ${addPointMode ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => {

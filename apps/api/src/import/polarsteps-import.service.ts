@@ -9,6 +9,7 @@ export interface ImportedTripSummary {
   startDate: string;
   endDate: string;
   pointsImported: number;
+  stopsImported: number;
 }
 
 /** Shape of trip.json inside a Polarsteps "Download my data" export. */
@@ -17,6 +18,20 @@ interface PolarstepsTrip {
   summary?: string;
   start_date?: number; // epoch seconds
   end_date?: number;
+  all_steps?: PolarstepsStep[];
+}
+
+interface PolarstepsStep {
+  name?: string | null;
+  display_name?: string | null;
+  description?: string | null;
+  start_time?: number; // epoch seconds
+  location?: {
+    name?: string | null;
+    detail?: string | null;
+    lat?: number;
+    lon?: number;
+  };
 }
 
 interface PolarstepsLocation {
@@ -122,13 +137,49 @@ export class PolarstepsImportService {
       imported += count;
     }
 
+    const stopsImported = await this.importSteps(trip.id, meta, endDate);
+
     return {
       tripId: trip.id,
       title: trip.title,
       startDate: trip.startDate.toISOString(),
       endDate: trip.endDate.toISOString(),
       pointsImported: imported,
+      stopsImported,
     };
+  }
+
+  /**
+   * Polarsteps "steps" → planner stops. Nights per stop are derived from the
+   * time gap to the next step (or to the trip end for the last one).
+   */
+  private async importSteps(tripId: string, meta: PolarstepsTrip, tripEnd: Date): Promise<number> {
+    const steps = (meta.all_steps ?? [])
+      .filter((s) => typeof s.start_time === 'number')
+      .sort((a, b) => a.start_time! - b.start_time!);
+    if (steps.length === 0) return 0;
+
+    const data = steps.map((step, index) => {
+      const nextTime =
+        index + 1 < steps.length ? steps[index + 1]!.start_time! * 1000 : tripEnd.getTime();
+      const nights = Math.max(0, Math.round((nextTime - step.start_time! * 1000) / 86_400_000));
+      return {
+        tripId,
+        name:
+          step.display_name?.trim() ||
+          step.name?.trim() ||
+          step.location?.name?.trim() ||
+          `Stop ${index + 1}`,
+        notes: step.description?.trim() || undefined,
+        nights,
+        orderIndex: index,
+        latitude: step.location?.lat,
+        longitude: step.location?.lon,
+      };
+    });
+
+    const { count } = await this.prisma.stop.createMany({ data });
+    return count;
   }
 }
 

@@ -1,0 +1,158 @@
+.plan-page {
+  display: grid;
+  grid-template-columns: 440px 1fr;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  height: calc(100vh - 57px);
+}
+
+@media (max-width: 900px) {
+  .plan-page {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 45vh;
+    height: auto;
+  }
+}
+
+.plan-side {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-right: 0.25rem;
+}
+
+.plan-side h1 {
+  font-size: 1.6rem;
+}
+
+.plan-back {
+  font-weight: 600;
+}
+
+.stop-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.stop-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.8rem 1rem;
+  cursor: grab;
+  transition: box-shadow 0.2s var(--ease), opacity 0.2s;
+}
+
+.stop-item.dragging {
+  opacity: 0.55;
+  box-shadow: var(--shadow-m);
+}
+
+.stop-number {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  display: grid;
+  place-content: center;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.stop-info {
+  display: grid;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.stop-info .muted {
+  font-size: 0.8rem;
+}
+
+.stop-nights {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.stop-nights small {
+  font-weight: 450;
+  color: var(--ink-faint);
+}
+
+.nights-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  font-weight: 700;
+  color: var(--ink-soft);
+  transition: all 0.15s;
+}
+
+.nights-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.stop-delete {
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+  padding: 0.3rem;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.stop-delete:hover {
+  color: #b3402a;
+  background: #fbeae4;
+}
+
+.stop-add {
+  padding: 1rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.plan-map {
+  position: relative;
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  min-height: 320px;
+}
+
+.plan-map-inner {
+  position: absolute;
+  inset: 0;
+}
+
+.stop-marker {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  display: grid;
+  place-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 2.5px solid #fff;
+  box-shadow: var(--shadow-m);
+  cursor: pointer;
+}
+
+.stop-marker-pending {
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}

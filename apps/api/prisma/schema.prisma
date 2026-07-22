@@ -65,6 +65,7 @@ model Trip {
   members        TripMember[]
   mediaRefs      MediaRef[]
   locationPoints LocationPoint[]
+  stops          Stop[]
 
   @@map("trips")
 }
@@ -84,6 +85,27 @@ model TripMember {
 
   @@id([tripId, userId])
   @@map("trip_members")
+}
+
+/// A planned stop on a trip. Dates are never stored — they are derived from
+/// the trip start date plus the cumulative nights of all preceding stops, so
+/// changing one stop's nights automatically shifts everything after it.
+model Stop {
+  id         String   @id @default(uuid()) @db.Uuid
+  tripId     String   @db.Uuid
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  name       String
+  notes      String?
+  nights     Int      @default(1)
+  orderIndex Int
+  latitude   Float?
+  longitude  Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([tripId, orderIndex])
+  @@index([tripId])
+  @@map("stops")
 }
 
 enum PointSource {

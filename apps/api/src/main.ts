@@ -14,7 +14,13 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
 
   app.enableCors({
-    origin: process.env.WEB_ORIGIN?.split(',') ?? [],
+    origin: [
+      ...(process.env.WEB_ORIGIN?.split(',') ?? []),
+      // Capacitor WebView origins of the Android app.
+      'capacitor://localhost',
+      'https://localhost',
+      'http://localhost',
+    ],
     credentials: true,
   });
 

@@ -5,6 +5,20 @@
 
 const ACCESS_KEY = 'mms.access';
 const REFRESH_KEY = 'mms.refresh';
+const SERVER_KEY = 'mms.server';
+
+/**
+ * In the browser/PWA the API lives on the same origin (empty base). The
+ * Android app is served from capacitor://localhost, so it needs the full
+ * server URL — entered once on the login screen.
+ */
+export function getServerBase(): string {
+  return localStorage.getItem(SERVER_KEY) ?? '';
+}
+
+export function setServerBase(url: string): void {
+  localStorage.setItem(SERVER_KEY, url.replace(/\/+$/, ''));
+}
 
 let onLogout: (() => void) | null = null;
 
@@ -47,7 +61,7 @@ async function tryRefresh(): Promise<boolean> {
     const refreshToken = localStorage.getItem(REFRESH_KEY);
     if (!refreshToken) return false;
     try {
-      const res = await fetch('/api/auth/refresh', {
+      const res = await fetch(`${getServerBase()}/api/auth/refresh`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -71,7 +85,7 @@ export async function api<T>(
   isRetry = false,
 ): Promise<T> {
   const token = getAccessToken();
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${getServerBase()}/api${path}`, {
     method: options.method ?? 'GET',
     headers: {
       ...(token ? { authorization: `Bearer ${token}` } : {}),
@@ -107,7 +121,7 @@ export async function api<T>(
 /** Authorized binary fetch → object URL (for Immich thumbnail proxying). */
 export async function fetchBlobUrl(path: string): Promise<string> {
   const token = getAccessToken();
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${getServerBase()}/api${path}`, {
     headers: token ? { authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) throw new ApiError(res.status, 'Kon afbeelding niet laden');

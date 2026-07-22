@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MarkMySteps</string>
+    <string name="title_activity_main">MarkMySteps</string>
+    <string name="package_name">nl.markmaaktmedia.markmysteps</string>
+    <string name="custom_url_scheme">nl.markmaaktmedia.markmysteps</string>
+</resources>
