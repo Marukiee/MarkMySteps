@@ -8,7 +8,7 @@ import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
 import { SharePanel } from '../components/SharePanel';
 import { Timeline } from '../components/Timeline';
-import { TripMap } from '../components/TripMap';
+import { TripMap, Waypoint } from '../components/TripMap';
 import type { TripNote } from '../components/DayNote';
 import type { StopPoint } from '../lib/arc';
 import { colorForUser, flagEmoji, formatDate } from '../lib/colors';
@@ -40,6 +40,7 @@ export function TripDetailPage() {
   const [stops, setStops] = useState<StopPoint[]>([]);
   const [stats, setStats] = useState<TripStats | null>(null);
   const [notes, setNotes] = useState<TripNote[]>([]);
+  const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
 
   const loadData = useCallback(() => {
     if (!tripId) return;
@@ -54,7 +55,18 @@ export function TripDetailPage() {
     api<StopPoint[]>(`/trips/${tripId}/stops`).then(setStops).catch(() => undefined);
     api<TripStats>(`/trips/${tripId}/stats`).then(setStats).catch(() => undefined);
     api<TripNote[]>(`/trips/${tripId}/notes`).then(setNotes).catch(() => undefined);
+    api<Waypoint[]>(`/trips/${tripId}/points`).then(setWaypoints).catch(() => undefined);
   }, [tripId]);
+
+  const deleteWaypoint = useCallback(
+    async (id: string) => {
+      if (!tripId) return;
+      await api(`/trips/${tripId}/points/${id}`, { method: 'DELETE' });
+      setWaypoints((cur) => cur.filter((w) => w.id !== id));
+      api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
+    },
+    [tripId],
+  );
 
   const saveNote = useCallback(
     async (day: string, body: string) => {
@@ -113,8 +125,8 @@ export function TripDetailPage() {
         },
       });
       setPendingPoint(null);
-      setAddPointMode(false);
       api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
+      api<Waypoint[]>(`/trips/${tripId}/points`).then(setWaypoints).catch(() => undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Punt opslaan mislukt');
     }
@@ -179,6 +191,8 @@ export function TripDetailPage() {
           routes={routes}
           media={media}
           stops={stops}
+          waypoints={waypoints}
+          onWaypointDelete={sideTab === 'manage' && addPointMode ? deleteWaypoint : undefined}
           visibleUsers={visibleUsers}
           onMapClick={handleMapClick}
           onPhotoOpen={openPhoto}
@@ -358,9 +372,15 @@ export function TripDetailPage() {
                     setPendingPoint(null);
                   }}
                 >
-                  {addPointMode ? 'Klik op de kaart…' : '+ Routepunt'}
+                  {addPointMode ? 'Klaar met punten' : '+ Tussenpunten'}
                 </button>
               </div>
+              {addPointMode && (
+                <p className="muted">
+                  Klik op de kaart voor een tussenpunt om de route te verfijnen. Klik op een
+                  bestaand punt (oranje stip) om het te verwijderen.
+                </p>
+              )}
             </section>
             {trip && <MembersPanel trip={trip} onChanged={loadData} />}
             {trip && trip.ownerId === user?.id && tripId && <SharePanel tripId={tripId} />}

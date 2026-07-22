@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+// (Get is used by the new manual-points listing endpoint.)
 import { Throttle } from '@nestjs/throttler';
 import { LocationPoint } from '@prisma/client';
 import type { JwtPayload } from '../auth/auth.service';
@@ -33,6 +34,15 @@ export class TrackingController {
     @Body() dto: TrackBatchDto,
   ): Promise<BatchResult> {
     return this.tracking.ingestBatch(tripId, user.sub, dto.points);
+  }
+
+  /** Manual waypoints (for shaping/detailing the route). */
+  @Get('points')
+  listManual(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+  ): Promise<{ id: string; latitude: number; longitude: number; recordedAt: string }[]> {
+    return this.tracking.listManualPoints(tripId, user.sub);
   }
 
   /** Hand-placed point to complete the route. */

@@ -7,10 +7,18 @@ import { greatCircleArc, StopPoint } from '../lib/arc';
 import { colorForUser, flagEmoji } from '../lib/colors';
 import './tripmap.css';
 
+export interface Waypoint {
+  id: string;
+  latitude: number;
+  longitude: number;
+}
+
 interface TripMapProps {
   routes: RouteCollection | null;
   media: MediaItem[];
   stops?: StopPoint[];
+  waypoints?: Waypoint[];
+  onWaypointDelete?: (id: string) => void;
   visibleUsers: Set<string>;
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
   onPhotoOpen?: (mediaId: string) => void;
@@ -23,6 +31,8 @@ export function TripMap({
   routes,
   media,
   stops,
+  waypoints,
+  onWaypointDelete,
   visibleUsers,
   onMapClick,
   onPhotoOpen,
@@ -34,6 +44,9 @@ export function TripMap({
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const stopMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const waypointMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const waypointDeleteRef = useRef(onWaypointDelete);
+  waypointDeleteRef.current = onWaypointDelete;
   const loadedRef = useRef(false);
   const clickHandlerRef = useRef(onMapClick);
   clickHandlerRef.current = onMapClick;
@@ -282,6 +295,29 @@ export function TripMap({
     if (map.isStyleLoaded()) apply();
     else map.once('load', apply);
   }, [stops]);
+
+  // Manual waypoints as small dots; click to delete when editing.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    for (const marker of waypointMarkersRef.current) marker.remove();
+    waypointMarkersRef.current = [];
+    for (const wp of waypoints ?? []) {
+      const el = document.createElement('div');
+      el.className = 'waypoint-dot';
+      if (waypointDeleteRef.current) {
+        el.classList.add('deletable');
+        el.title = 'Klik om te verwijderen';
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          waypointDeleteRef.current?.(wp.id);
+        });
+      }
+      waypointMarkersRef.current.push(
+        new maplibregl.Marker({ element: el }).setLngLat([wp.longitude, wp.latitude]).addTo(map),
+      );
+    }
+  }, [waypoints]);
 
   return (
     <div

@@ -28,6 +28,25 @@
   background: var(--paper-sunken);
 }
 
+.waypoint-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: var(--shadow-s);
+}
+
+.waypoint-dot.deletable {
+  cursor: pointer;
+  transition: transform 0.15s var(--ease);
+}
+
+.waypoint-dot.deletable:hover {
+  transform: scale(1.5);
+  background: #b3402a;
+}
+
 .photo-marker-count {
   position: absolute;
   top: -7px;

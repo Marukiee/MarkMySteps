@@ -20,7 +20,13 @@
   position: relative;
   display: grid;
   gap: 0.65rem;
+  animation: rise 0.4s var(--ease) backwards;
 }
+
+.timeline-day:nth-child(2) { animation-delay: 40ms; }
+.timeline-day:nth-child(3) { animation-delay: 80ms; }
+.timeline-day:nth-child(4) { animation-delay: 120ms; }
+.timeline-day:nth-child(5) { animation-delay: 160ms; }
 
 .timeline-day h3 {
   display: flex;
@@ -55,6 +61,13 @@
   overflow: hidden;
   background: var(--paper-sunken);
   cursor: pointer;
+  transition: transform 0.18s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.timeline-photo:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-m);
+  z-index: 2;
 }
 
 .timeline-img {

@@ -61,6 +61,20 @@ export class TrackingService {
     return { received: points.length, added: count };
   }
 
+  /** Manual/imported waypoints for shaping the route, oldest first. */
+  async listManualPoints(
+    tripId: string,
+    userId: string,
+  ): Promise<{ id: string; latitude: number; longitude: number; recordedAt: string }[]> {
+    await this.trips.getForMember(tripId, userId);
+    const points = await this.prisma.locationPoint.findMany({
+      where: { tripId, source: PointSource.MANUAL },
+      orderBy: { recordedAt: 'asc' },
+      select: { id: true, latitude: true, longitude: true, recordedAt: true },
+    });
+    return points.map((p) => ({ ...p, recordedAt: p.recordedAt.toISOString() }));
+  }
+
   /** Hand-placed point to complete a route where tracking has gaps. */
   async addManualPoint(
     tripId: string,
