@@ -1,0 +1,65 @@
+.flight-summary {
+  justify-self: start;
+  margin: 0.2rem 0 0.3rem 0.9rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: #eef0fc;
+  color: #3f4ec0;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.flight-editor {
+  margin: 0.3rem 0 0.4rem 0.9rem;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.flight-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.airport-field {
+  position: relative;
+}
+
+.airport-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  margin-top: 4px;
+  padding: 0.25rem;
+  list-style: none;
+  display: grid;
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-m);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.airport-results button {
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.airport-results button:hover {
+  background: var(--paper-sunken);
+}
+
+.airport-results small {
+  color: var(--ink-faint);
+}
+
+.flight-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

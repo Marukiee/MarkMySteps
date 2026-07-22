@@ -5,7 +5,9 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { CityThumb } from '../components/CityThumb';
+import { FlightEditor } from '../components/FlightEditor';
 import { WeatherBadge } from '../components/WeatherBadge';
+import { airportByCode } from '../lib/airports';
 import { estimateDuration, greatCircleArc, haversineKm } from '../lib/arc';
 import { flagEmoji, formatDate } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
@@ -24,6 +26,9 @@ interface PlannedStop {
   longitude: number | null;
   countryCode: string | null;
   travelMode: 'GROUND' | 'FLIGHT';
+  flightNumber: string | null;
+  fromAirport: string | null;
+  toAirport: string | null;
   arrivalDate: string;
   departureDate: string;
 }
@@ -120,8 +125,14 @@ export function PlanPage() {
       for (let i = 1; i < located.length; i++) {
         const prev = located[i - 1]!;
         const cur = located[i]!;
-        const from: [number, number] = [prev.longitude!, prev.latitude!];
-        const to: [number, number] = [cur.longitude!, cur.latitude!];
+        const depAp = airportByCode(cur.fromAirport);
+        const arrAp = airportByCode(cur.toAirport);
+        const from: [number, number] = depAp
+          ? [depAp.lon, depAp.lat]
+          : [prev.longitude!, prev.latitude!];
+        const to: [number, number] = arrAp
+          ? [arrAp.lon, arrAp.lat]
+          : [cur.longitude!, cur.latitude!];
         const feature =
           cur.travelMode === 'FLIGHT'
             ? greatCircleArc(from, to)
@@ -228,6 +239,19 @@ export function PlanPage() {
       await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, {
         method: 'PATCH',
         body: { travelMode: stop.travelMode === 'FLIGHT' ? 'GROUND' : 'FLIGHT' },
+      }),
+    );
+  }
+
+  async function saveFlight(
+    stop: PlannedStop,
+    data: { flightNumber?: string; fromAirport?: string; toAirport?: string },
+  ) {
+    if (!tripId) return;
+    refresh(
+      await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, {
+        method: 'PATCH',
+        body: data,
       }),
     );
   }
@@ -343,6 +367,14 @@ export function PlanPage() {
                     'Over land'
                   )}
                 </button>
+              )}
+              {index > 0 && stop.travelMode === 'FLIGHT' && (
+                <FlightEditor
+                  flightNumber={stop.flightNumber}
+                  fromAirport={stop.fromAirport}
+                  toAirport={stop.toAirport}
+                  onSave={(data) => void saveFlight(stop, data)}
+                />
               )}
               <div
                 className={`card stop-item ${dragIndex === index ? 'dragging' : ''}`}

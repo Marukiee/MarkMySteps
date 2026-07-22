@@ -3,6 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { fetchBlobUrl } from '../api/client';
 import type { MediaItem, RouteCollection } from '../api/types';
+import { airportByCode } from '../lib/airports';
 import { greatCircleArc, StopPoint } from '../lib/arc';
 import { colorForUser, flagEmoji } from '../lib/colors';
 import './tripmap.css';
@@ -267,9 +268,15 @@ export function TripMap({
         // Leg from the previous stop to this one.
         if (i > 0) {
           const prev = located[i - 1]!;
-          const from: [number, number] = [prev.longitude!, prev.latitude!];
-          const to: [number, number] = [stop.longitude!, stop.latitude!];
           const isFlight = stop.travelMode === 'FLIGHT';
+          const depAp = airportByCode(stop.fromAirport);
+          const arrAp = airportByCode(stop.toAirport);
+          const from: [number, number] = depAp
+            ? [depAp.lon, depAp.lat]
+            : [prev.longitude!, prev.latitude!];
+          const to: [number, number] = arrAp
+            ? [arrAp.lon, arrAp.lat]
+            : [stop.longitude!, stop.latitude!];
           const id = `leg-${stop.id}`;
           map.addSource(id, {
             type: 'geojson',

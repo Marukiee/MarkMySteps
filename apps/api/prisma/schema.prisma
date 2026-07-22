@@ -141,6 +141,10 @@ model Stop {
   /// How you travelled TO this stop from the previous one. FLIGHT draws a
   /// great-circle arc; GROUND follows a straight/route line.
   travelMode TravelMode @default(GROUND)
+  /// Flight details for a FLIGHT leg (all optional / manual).
+  flightNumber String?
+  fromAirport  String? @db.VarChar(4) // IATA code
+  toAirport    String? @db.VarChar(4)
   /// ISO 3166-1 alpha-2, e.g. "VN" — drives the flag on the map.
   countryCode String? @db.VarChar(2)
   createdAt  DateTime @default(now())

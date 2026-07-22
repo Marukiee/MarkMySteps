@@ -55,6 +55,21 @@ export class CreateStopDto {
   @IsEnum(TravelModeDto)
   travelMode?: TravelModeDto;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  flightNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 4)
+  fromAirport?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 4)
+  toAirport?: string;
+
   /** Insert after this stop; omitted = append at the end. */
   @IsOptional()
   @IsUUID()
@@ -98,6 +113,21 @@ export class UpdateStopDto {
   @IsOptional()
   @IsEnum(TravelModeDto)
   travelMode?: TravelModeDto;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  flightNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 4)
+  fromAirport?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 4)
+  toAirport?: string;
 }
 
 export class ReorderStopsDto {

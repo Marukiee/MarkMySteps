@@ -41,6 +41,9 @@ export interface StopPoint {
   longitude: number | null;
   countryCode: string | null;
   travelMode: 'GROUND' | 'FLIGHT';
+  flightNumber: string | null;
+  fromAirport: string | null;
+  toAirport: string | null;
   orderIndex: number;
   arrivalDate: string;
   departureDate: string;
