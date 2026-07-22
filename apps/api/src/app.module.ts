@@ -11,6 +11,7 @@ import { HealthModule } from './health/health.module';
 import { ImmichModule } from './immich/immich.module';
 import { ImportModule } from './import/import.module';
 import { MediaModule } from './media/media.module';
+import { NotesModule } from './notes/notes.module';
 import { TrackingModule } from './tracking/tracking.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ShareModule } from './share/share.module';
@@ -41,6 +42,7 @@ import { UsersModule } from './users/users.module';
     StopsModule,
     ShareModule,
     AdminModule,
+    NotesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -1,0 +1,47 @@
+.track-prompt {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 60;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius-m);
+  padding: 0.85rem 1rem;
+  box-shadow: var(--shadow-l);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  animation: slideUp 0.35s var(--ease);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.track-prompt-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.track-prompt-actions button {
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: rgb(255 255 255 / 0.7);
+}
+
+.track-prompt-actions button.primary {
+  background: var(--accent);
+  color: #fff;
+}

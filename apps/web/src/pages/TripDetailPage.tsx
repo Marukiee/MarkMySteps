@@ -9,6 +9,7 @@ import { MembersPanel } from '../components/MembersPanel';
 import { SharePanel } from '../components/SharePanel';
 import { Timeline } from '../components/Timeline';
 import { TripMap } from '../components/TripMap';
+import type { TripNote } from '../components/DayNote';
 import type { StopPoint } from '../lib/arc';
 import { colorForUser, flagEmoji, formatDate } from '../lib/colors';
 import { getMapStyle } from '../lib/prefs';
@@ -38,6 +39,7 @@ export function TripDetailPage() {
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<StopPoint[]>([]);
   const [stats, setStats] = useState<TripStats | null>(null);
+  const [notes, setNotes] = useState<TripNote[]>([]);
 
   const loadData = useCallback(() => {
     if (!tripId) return;
@@ -51,7 +53,25 @@ export function TripDetailPage() {
     api<MediaItem[]>(`/trips/${tripId}/media`).then(setMedia).catch(() => undefined);
     api<StopPoint[]>(`/trips/${tripId}/stops`).then(setStops).catch(() => undefined);
     api<TripStats>(`/trips/${tripId}/stats`).then(setStats).catch(() => undefined);
+    api<TripNote[]>(`/trips/${tripId}/notes`).then(setNotes).catch(() => undefined);
   }, [tripId]);
+
+  const saveNote = useCallback(
+    async (day: string, body: string) => {
+      if (!tripId) return;
+      setNotes(await api<TripNote[]>(`/trips/${tripId}/notes`, { method: 'PUT', body: { day, body } }));
+    },
+    [tripId],
+  );
+
+  const deleteNote = useCallback(
+    async (noteId: string) => {
+      if (!tripId) return;
+      await api(`/trips/${tripId}/notes/${noteId}`, { method: 'DELETE' });
+      setNotes((cur) => cur.filter((n) => n.id !== noteId));
+    },
+    [tripId],
+  );
 
   useEffect(loadData, [loadData]);
 
@@ -301,6 +321,11 @@ export function TripDetailPage() {
             visibleUsers={visibleUsers}
             showOwner={(trip?.members.length ?? 0) > 1}
             onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
+            notes={notes}
+            canEditNotes={!!user && trip?.members.some((m) => m.userId === user.id)}
+            ownUserId={user?.id}
+            onSaveNote={saveNote}
+            onDeleteNote={deleteNote}
           />
         )}
 

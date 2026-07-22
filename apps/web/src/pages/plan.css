@@ -112,6 +112,12 @@
   color: var(--ink-faint);
 }
 
+.weather-badge {
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
 .stop-item.dragging {
   opacity: 0.55;
   box-shadow: var(--shadow-m);

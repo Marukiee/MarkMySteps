@@ -4,6 +4,7 @@ import { DragEvent, FormEvent, useCallback, useEffect, useRef, useState } from '
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
+import { WeatherBadge } from '../components/WeatherBadge';
 import { greatCircleArc } from '../lib/arc';
 import { flagEmoji, formatDate } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
@@ -305,6 +306,12 @@ export function PlanPage() {
                   <strong>{stop.name}</strong>
                   <span className="muted">
                     {formatDate(stop.arrivalDate)} → {formatDate(stop.departureDate)}
+                    {stop.latitude !== null && stop.longitude !== null && (
+                      <>
+                        {' · '}
+                        <WeatherBadge lat={stop.latitude} lon={stop.longitude} />
+                      </>
+                    )}
                   </span>
                 </div>
                 <div className="stop-nights">
