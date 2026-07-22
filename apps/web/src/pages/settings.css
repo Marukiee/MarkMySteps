@@ -143,6 +143,29 @@
   gap: 0.9rem;
 }
 
+.file-drop {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1rem 1.1rem;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius-m);
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-weight: 550;
+  transition: all 0.18s var(--ease);
+}
+
+.file-drop:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.file-drop-icon {
+  font-size: 1.5rem;
+}
+
 .avatar-upload {
   cursor: pointer;
 }

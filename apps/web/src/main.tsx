@@ -4,7 +4,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { AuthProvider } from './auth/AuthContext';
-import { initBackButton, isNativeApp } from './lib/native';
+import { initBackButton, initStatusBar, isNativeApp } from './lib/native';
 import { resumeIfTracking } from './tracking/tracker';
 import './styles/global.css';
 
@@ -12,6 +12,8 @@ import './styles/global.css';
 resumeIfTracking();
 // Android back gesture support.
 initBackButton();
+// Overlay + style the native status bar.
+initStatusBar();
 // Lets CSS style the APK differently (no topbar, tab bar always on).
 if (isNativeApp()) document.documentElement.classList.add('native-app');
 

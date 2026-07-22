@@ -676,11 +676,16 @@ function PolarstepsSection() {
       </p>
 
       <form onSubmit={upload} className="settings-form">
-        <input
-          type="file"
-          accept=".zip,application/zip"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        />
+        <label className="file-drop">
+          <input
+            type="file"
+            accept=".zip,application/zip"
+            hidden
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+          <span className="file-drop-icon">📦</span>
+          <span>{file ? file.name : 'Kies je Polarsteps-zip'}</span>
+        </label>
         <div className="settings-actions">
           <button className="btn btn-primary" disabled={!file || busy}>
             {busy ? 'Importeren…' : 'Importeren'}

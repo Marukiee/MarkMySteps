@@ -1,8 +1,16 @@
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { Style, StatusBar } from '@capacitor/status-bar';
 
 export function isNativeApp(): boolean {
   return Capacitor.isNativePlatform();
+}
+
+/** Native status bar: overlay the web content and use dark icons on paper. */
+export function initStatusBar(): void {
+  if (!isNativeApp()) return;
+  void StatusBar.setOverlaysWebView({ overlay: true });
+  void StatusBar.setStyle({ style: Style.Light }); // dark icons for light UI
 }
 
 /** Android back gesture: navigate back in history, exit the app at the root. */

@@ -57,6 +57,17 @@ body.native-app {
   display: none;
 }
 
+/* Status bar overlays the WebView natively — push content below it. */
+.native-app .page {
+  padding-top: calc(1.5rem + env(safe-area-inset-top));
+}
+
+/* Full-bleed pages (trip detail / planner) handle their own top inset. */
+.native-app .trip-detail,
+.native-app .plan-page {
+  padding-top: calc(0.5rem + env(safe-area-inset-top));
+}
+
 @media (max-width: 720px) {
   .topbar-nav {
     display: none;
