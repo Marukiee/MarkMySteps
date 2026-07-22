@@ -1,30 +1,46 @@
-import { useEffect, useState } from 'react';
+import { ReactNode } from 'react';
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { useAuth } from './auth/AuthContext';
+import { TopBar } from './components/TopBar';
+import { LoginPage } from './pages/LoginPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { TripDetailPage } from './pages/TripDetailPage';
+import { TripsPage } from './pages/TripsPage';
 
-interface HealthResponse {
-  status: string;
-  postgis: string;
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { user, ready } = useAuth();
+  if (!ready) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function Shell() {
+  return (
+    <>
+      <TopBar />
+      <Outlet />
+    </>
+  );
 }
 
 export function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
-      .then(setHealth)
-      .catch(() => setError(true));
-  }, []);
-
   return (
-    <main className="shell">
-      <h1>MarkMySteps</h1>
-      <p className="tagline">Your journey, your server.</p>
-      <p className="status">
-        {health && `API online — PostGIS ${health.postgis}`}
-        {error && 'API unreachable'}
-        {!health && !error && 'Connecting…'}
-      </p>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          element={
+            <RequireAuth>
+              <Shell />
+            </RequireAuth>
+          }
+        >
+          <Route path="/" element={<TripsPage />} />
+          <Route path="/trips/:tripId" element={<TripDetailPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

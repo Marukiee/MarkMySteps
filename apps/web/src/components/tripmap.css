@@ -1,0 +1,40 @@
+.trip-map {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.trip-map-clickmode {
+  cursor: crosshair;
+}
+
+.photo-marker {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  background: var(--paper-sunken) center / cover no-repeat;
+  box-shadow: var(--shadow-m);
+  cursor: pointer;
+  transition: transform 0.18s var(--ease);
+}
+
+.photo-marker:hover {
+  transform: scale(1.35);
+  z-index: 10;
+}
+
+.photo-marker-error {
+  background: var(--paper-sunken);
+}
+
+.img-placeholder {
+  background: var(--paper-sunken);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}

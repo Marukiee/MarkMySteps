@@ -3,6 +3,16 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // MapLibre is by far the heaviest dep; load it as its own chunk.
+          maplibre: ['maplibre-gl'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
