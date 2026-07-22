@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError, getServerBase } from '../api/client';
 import type { ConnectionStatus, MediaItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { DEFAULT_IMMICH_PUBLIC_URL } from '../config';
 import { formatDay } from '../lib/colors';
 import { openExternal } from '../lib/native';
 import { AuthImage } from './AuthImage';
@@ -51,9 +52,10 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   // friends' photos live on their server.
   useEffect(() => {
     api<ConnectionStatus>('/immich/connection')
-      .then((s) => setImmichUrl(s.publicUrl ?? s.serverUrl))
+      .then((s) => setImmichUrl(s.publicUrl ?? DEFAULT_IMMICH_PUBLIC_URL))
       .catch((err: unknown) => {
-        if (err instanceof ApiError && err.status === 404) setImmichUrl(null);
+        if (err instanceof ApiError && err.status === 404)
+          setImmichUrl(DEFAULT_IMMICH_PUBLIC_URL);
       });
   }, []);
 

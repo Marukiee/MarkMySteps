@@ -9,6 +9,9 @@ export default defineConfig({
         manualChunks: {
           // MapLibre is by far the heaviest dep; load it as its own chunk.
           maplibre: ['maplibre-gl'],
+          // Globe libs in their own chunk (world-atlas is a JSON import,
+          // not a resolvable package entry, so it's not listed here).
+          globe: ['d3-geo', 'topojson-client'],
         },
       },
     },

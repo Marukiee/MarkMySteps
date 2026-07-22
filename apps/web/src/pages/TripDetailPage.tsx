@@ -112,14 +112,21 @@ export function TripDetailPage() {
     [visibleMedia],
   );
 
+  const scrollTimelineTo = useCallback((mediaId: string) => {
+    setSideTab('timeline');
+    // Wait for the tab to render before scrolling.
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-media-id="${mediaId}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, []);
+
   useEffect(() => {
     if (lightboxIndex === null) return;
     const item = visibleMedia[lightboxIndex];
     if (!item) return;
-    setSideTab('timeline');
-    const el = document.querySelector(`[data-media-id="${item.id}"]`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [lightboxIndex, visibleMedia]);
+    scrollTimelineTo(item.id);
+  }, [lightboxIndex, visibleMedia, scrollTimelineTo]);
 
   if (error) {
     return (
@@ -141,6 +148,7 @@ export function TripDetailPage() {
           visibleUsers={visibleUsers}
           onMapClick={handleMapClick}
           onPhotoOpen={openPhoto}
+          onPhotoFocus={scrollTimelineTo}
           clickMode={addPointMode}
           styleUrl={getMapStyle()}
         />
@@ -235,6 +243,7 @@ export function TripDetailPage() {
           <Timeline
             media={visibleMedia}
             visibleUsers={visibleUsers}
+            showOwner={(trip?.members.length ?? 0) > 1}
             onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
           />
         )}

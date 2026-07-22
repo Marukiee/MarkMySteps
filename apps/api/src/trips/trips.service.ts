@@ -14,20 +14,58 @@ export type TripMemberView = {
   role: TripRole;
   user: { displayName: string; username: string; hasAvatar: boolean };
 };
-export type TripWithMembers = Trip & { members: TripMemberView[] };
+export type TripWithMembers = Trip & {
+  members: TripMemberView[];
+  /** coverMediaId when set, else the first trip photo — for the card cover. */
+  resolvedCoverId: string | null;
+  /** [lng, lat] anchor for the globe, if any stop has coordinates. */
+  anchor: [number, number] | null;
+};
 
 const MEMBERS_INCLUDE = {
   members: {
     include: { user: { select: { displayName: true, username: true, avatarMime: true } } },
   },
+  // One photo to fall back on as an automatic cover.
+  mediaRefs: {
+    take: 1,
+    orderBy: { takenAt: 'asc' },
+    select: { id: true },
+  },
+  // A geo anchor for the globe overview: prefer a planned stop's city.
+  stops: {
+    where: { latitude: { not: null } },
+    take: 1,
+    orderBy: { orderIndex: 'asc' },
+    select: { latitude: true, longitude: true },
+  },
 } as const;
 
-/** Maps Prisma rows (avatarMime) to the API shape (hasAvatar). */
-function mapMembers<T extends { members: RawMember[] }>(trip: T): Omit<T, 'members'> & {
+type RawStop = { latitude: number | null; longitude: number | null };
+
+/** Maps Prisma rows (avatarMime, mediaRefs, stops) to the API shape. */
+function mapMembers<
+  T extends {
+    members: RawMember[];
+    coverMediaId: string | null;
+    mediaRefs: { id: string }[];
+    stops: RawStop[];
+  },
+>(
+  trip: T,
+): Omit<T, 'members' | 'mediaRefs' | 'stops'> & {
   members: TripMemberView[];
+  resolvedCoverId: string | null;
+  anchor: [number, number] | null;
 } {
+  const { mediaRefs, stops, ...rest } = trip;
+  const stop = stops[0];
+  const anchor: [number, number] | null =
+    stop?.latitude != null && stop.longitude != null ? [stop.longitude, stop.latitude] : null;
   return {
-    ...trip,
+    ...rest,
+    resolvedCoverId: trip.coverMediaId ?? mediaRefs[0]?.id ?? null,
+    anchor,
     members: trip.members.map((m) => ({
       userId: m.userId,
       role: m.role,

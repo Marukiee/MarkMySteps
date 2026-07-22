@@ -3,17 +3,25 @@
  * transparently refreshes once on 401, and logs out when refresh fails.
  */
 
+import { DEFAULT_SERVER_URL } from '../config';
+
 const ACCESS_KEY = 'mms.access';
 const REFRESH_KEY = 'mms.refresh';
 const SERVER_KEY = 'mms.server';
 
 /**
  * In the browser/PWA the API lives on the same origin (empty base). The
- * Android app is served from capacitor://localhost, so it needs the full
- * server URL — entered once on the login screen.
+ * Android app is served from its own WebView origin, so it needs the full
+ * server URL. It defaults to DEFAULT_SERVER_URL so a fresh install just
+ * works; without this the app would fetch its own bundled index.html and
+ * choke on "Unexpected token '<'".
  */
 export function getServerBase(): string {
-  return localStorage.getItem(SERVER_KEY) ?? '';
+  const stored = localStorage.getItem(SERVER_KEY);
+  if (stored) return stored;
+  // Capacitor exposes this global; treat any non-http(s) page origin as native.
+  const isNative = !location.protocol.startsWith('http');
+  return isNative ? DEFAULT_SERVER_URL : '';
 }
 
 export function setServerBase(url: string): void {

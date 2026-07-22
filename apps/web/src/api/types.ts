@@ -34,6 +34,8 @@ export interface Trip {
   startDate: string;
   endDate: string;
   coverMediaId: string | null;
+  resolvedCoverId: string | null;
+  anchor: [number, number] | null;
   ownerId: string;
   members: TripMember[];
 }

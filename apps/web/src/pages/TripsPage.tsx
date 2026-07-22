@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
+import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { colorForUser, formatDate } from '../lib/colors';
 import './trips.css';
 
@@ -20,8 +21,14 @@ export function TripsPage() {
 
   useEffect(load, []);
 
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = trips?.filter((t) => t.endDate.slice(0, 10) >= today) ?? [];
+  const past = trips?.filter((t) => t.endDate.slice(0, 10) < today) ?? [];
+
   return (
     <main className="page fade-in">
+      <GlobeBackdrop trips={trips ?? []} />
+
       <div className="trips-head">
         <h1>Reizen</h1>
         <button className="btn btn-primary" onClick={() => setShowNew((v) => !v)}>
@@ -49,19 +56,39 @@ export function TripsPage() {
         </div>
       )}
 
-      <div className="trips-grid">
-        {trips?.map((trip, i) => (
-          <TripCard key={trip.id} trip={trip} index={i} onChanged={load} />
-        ))}
-        {/* Decorative ghost slots so a sparse grid still feels inviting. */}
-        {trips && trips.length > 0 && trips.length < 6 && (
-          <>
-            <div className="trip-ghost" />
-            <div className="trip-ghost" />
-            <div className="trip-ghost" />
-          </>
-        )}
-      </div>
+      {upcoming.length > 0 && (
+        <>
+          <h2 className="trips-section-title">Aankomend &amp; onderweg</h2>
+          <div className="trips-grid">
+            {upcoming.map((trip, i) => (
+              <TripCard key={trip.id} trip={trip} index={i} onChanged={load} />
+            ))}
+            <button className="trip-ghost" onClick={() => setShowNew(true)} aria-label="Nieuwe reis">
+              <span>+ Nieuwe reis</span>
+            </button>
+          </div>
+        </>
+      )}
+
+      {past.length > 0 && (
+        <>
+          <h2 className="trips-section-title">Afgelopen reizen</h2>
+          <div className="trips-grid">
+            {past.map((trip, i) => (
+              <TripCard key={trip.id} trip={trip} index={i} onChanged={load} />
+            ))}
+            {upcoming.length === 0 && (
+              <button
+                className="trip-ghost"
+                onClick={() => setShowNew(true)}
+                aria-label="Nieuwe reis"
+              >
+                <span>+ Nieuwe reis</span>
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </main>
   );
 }
@@ -124,9 +151,9 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
       }}
     >
       <div className="trip-card-cover" style={{ background: coverGradient(trip.id) }}>
-        {trip.coverMediaId && (
+        {trip.resolvedCoverId && (
           <AuthImage
-            path={`/media/${trip.coverMediaId}/thumbnail`}
+            path={`/media/${trip.resolvedCoverId}/thumbnail`}
             alt=""
             className="trip-card-photo"
           />

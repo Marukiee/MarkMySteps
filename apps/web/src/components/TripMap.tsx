@@ -12,6 +12,7 @@ interface TripMapProps {
   visibleUsers: Set<string>;
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
   onPhotoOpen?: (mediaId: string) => void;
+  onPhotoFocus?: (mediaId: string) => void;
   clickMode?: boolean;
   styleUrl: string;
 }
@@ -22,6 +23,7 @@ export function TripMap({
   visibleUsers,
   onMapClick,
   onPhotoOpen,
+  onPhotoFocus,
   clickMode,
   styleUrl,
 }: TripMapProps) {
@@ -33,6 +35,8 @@ export function TripMap({
   clickHandlerRef.current = onMapClick;
   const photoOpenRef = useRef(onPhotoOpen);
   photoOpenRef.current = onPhotoOpen;
+  const photoFocusRef = useRef(onPhotoFocus);
+  photoFocusRef.current = onPhotoFocus;
 
   // Init once.
   useEffect(() => {
@@ -182,6 +186,7 @@ export function TripMap({
               center: [representative.longitude!, representative.latitude!],
               zoom: Math.min(zoom + 2.5, 16),
             });
+            photoFocusRef.current?.(representative.id);
           } else {
             photoOpenRef.current?.(representative.id);
           }

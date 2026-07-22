@@ -8,10 +8,13 @@ export function Timeline({
   media,
   visibleUsers,
   onPhotoClick,
+  showOwner = false,
 }: {
   media: MediaItem[];
   visibleUsers: Set<string>;
   onPhotoClick?: (item: MediaItem) => void;
+  /** Owner-color dot only makes sense with multiple travellers. */
+  showOwner?: boolean;
 }) {
   const days = useMemo(() => {
     const groups = new Map<string, MediaItem[]>();
@@ -51,10 +54,12 @@ export function Timeline({
                 role={onPhotoClick ? 'button' : undefined}
               >
                 <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="timeline-img" />
-                <span
-                  className="timeline-owner"
-                  style={{ background: colorForUser(item.userId) }}
-                />
+                {showOwner && (
+                  <span
+                    className="timeline-owner"
+                    style={{ background: colorForUser(item.userId) }}
+                  />
+                )}
                 {item.assetType === 'VIDEO' && <span className="timeline-video">▶</span>}
               </figure>
             ))}

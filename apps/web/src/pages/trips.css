@@ -77,19 +77,33 @@
   z-index: 1;
 }
 
-/* Ghost slots: dashed outlines fading out to suggest room for more trips. */
+/* Single dashed "add trip" slot. */
 .trip-ghost {
   height: 236px;
   border: 2px dashed #cdbfa8;
   border-radius: var(--radius-l);
+  display: grid;
+  place-content: center;
+  color: var(--ink-faint);
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.2s var(--ease);
 }
 
-.trip-ghost + .trip-ghost {
-  border-color: #d8ccb8;
+.trip-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  background: var(--accent-soft);
 }
 
-.trip-ghost + .trip-ghost + .trip-ghost {
-  border-color: #e4dcce;
+.trips-section-title {
+  font-size: 1.15rem;
+  margin: 1.5rem 0 0.9rem;
+  color: var(--ink-soft);
+}
+
+.trips-section-title:first-of-type {
+  margin-top: 1rem;
 }
 
 @media (max-width: 720px) {

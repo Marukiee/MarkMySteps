@@ -4,6 +4,7 @@ import { getServerBase, setServerBase } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_SERVER_URL } from '../config';
 import { isNative } from '../tracking/tracker';
+import { PasswordInput } from '../components/PasswordInput';
 import './login.css';
 
 export function LoginPage() {
@@ -118,9 +119,8 @@ export function LoginPage() {
 
         <div className="field">
           <label htmlFor="password">Wachtwoord</label>
-          <input
+          <PasswordInput
             id="password"
-            type="password"
             required
             minLength={10}
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
