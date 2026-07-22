@@ -1,58 +1,44 @@
 # MarkMySteps — installatie & testen
 
-## Op je server zetten (exacte stappen)
+## Op je server zetten (één commando)
 
-Kopieer dit blok regel voor regel (of in één keer) op je Ubuntu-server.
-Vereist: Docker + docker compose (heb je al voor Immich).
+Vereist: Docker + docker compose (heb je al voor Immich). Alles in één keer:
 
 ```bash
-# 1. Code ophalen
-cd ~
-git clone https://github.com/Marukiee/MarkMySteps.git
-cd MarkMySteps
-
-# 2. Secrets genereren en .env schrijven (één keer; daarna nooit meer aanpassen,
-#    anders kun je bestaande versleutelde API-keys en logins niet meer lezen!)
-DB_PASS=$(openssl rand -hex 24)
-cat > .env <<EOF
-NODE_ENV=production
-API_PORT=3000
-WEB_ORIGIN=https://reis.markmaaktmedia.nl
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
-POSTGRES_DB=markmysteps
-POSTGRES_USER=markmysteps
-POSTGRES_PASSWORD=${DB_PASS}
-DATABASE_URL=postgresql://markmysteps:${DB_PASS}@db:5432/markmysteps?schema=public
-JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n')
-JWT_EXPIRES_IN=15m
-REFRESH_TOKEN_EXPIRES_IN=30d
-MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32 | tr -d '\n')
-EOF
-chmod 600 .env
-
-# 3. Bouwen en starten (eerste keer duurt een paar minuten)
-docker compose up -d --build
-
-# 4. Controleren
-docker compose ps                            # alle services "healthy"
-curl -s http://127.0.0.1:8080/api/health     # → {"status":"ok","postgis":"3.5.7"}
+cd ~ && git clone https://github.com/Marukiee/MarkMySteps.git && cd MarkMySteps && ./install.sh
 ```
 
-> `WEB_ORIGIN` hierboven aanpassen als je een ander subdomein kiest.
+Het script vraagt éénmalig je publieke URL (Enter = `https://reis.markmaaktmedia.nl`),
+genereert alle secrets, bouwt de containers, wacht tot de API gezond is en
+print daarna precies wat je in Cloudflare moet invullen.
+
+Standaard draait de app op **poort 18790** (bewust ongebruikelijk — botst niet
+met Home Assistant e.d.). Andere poort? Vóór de eerste run:
+`WEB_PORT=12345 ./install.sh`, of later `WEB_PORT` in `.env` aanpassen en
+`docker compose up -d` draaien.
+
+> `.env` daarna **nooit meer weggooien of opnieuw genereren** — daar staan de
+> sleutels in waarmee je logins en versleutelde Immich-keys leesbaar blijven.
+
+Controleren:
+
+```bash
+docker compose ps                             # alle services "healthy"
+curl -s http://127.0.0.1:18790/api/health     # → {"status":"ok","postgis":"3.5.7"}
+```
 
 ### Cloudflare Tunnel koppelen (dashboard, geen config-bestand)
-
-Je beheert je tunnel via het Cloudflare-dashboard, dus:
 
 1. **Cloudflare Zero Trust** → **Networks → Tunnels** → jouw bestaande tunnel
    → tab **Public Hostname** → **Add a public hostname**
 2. Subdomain: `reis` · Domain: `markmaaktmedia.nl`
-3. Service type: **HTTP** · URL: `localhost:8080`
+3. Service type: **HTTP** · URL: `localhost:18790`
 4. Opslaan — het DNS-record wordt automatisch aangemaakt.
 
-DNS koppel je nooit aan een poort: hostname → tunnel → `localhost:8080` op de
-server waar cloudflared en Docker draaien.
+**`localhost` letterlijk zo laten staan** — cloudflared draait op dezelfde
+server als Docker, dus het wijst naar de eigen machine. Alleen als cloudflared
+op een ándere machine zou draaien, vul je hier het LAN-IP van de Docker-server
+in. DNS koppel je nooit aan een poort: hostname → tunnel → `localhost:18790`.
 
 Klaar: **https://reis.markmaaktmedia.nl**
 

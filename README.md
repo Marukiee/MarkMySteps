@@ -46,13 +46,14 @@ pnpm dev
 ## Production
 
 ```bash
-cp .env.example .env   # fill in real secrets
-docker compose up -d --build
+git clone https://github.com/Marukiee/MarkMySteps.git && cd MarkMySteps && ./install.sh
 ```
 
-The stack exposes exactly one port: `127.0.0.1:8080` (web + API proxy), meant
-to be published through a Cloudflare Tunnel. The database has **no** host
-ports and lives on an internal Docker network only.
+The installer generates secrets, builds the stack and waits for a healthy
+API. The stack exposes exactly one port: `127.0.0.1:18790` by default
+(web + API proxy, configurable via `WEB_PORT`), meant to be published through
+a Cloudflare Tunnel. The database has **no** host ports and lives on an
+internal Docker network only. See [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## License
 

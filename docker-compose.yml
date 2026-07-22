@@ -3,7 +3,7 @@
 # Security posture:
 # - `db` has NO ports mapping: reachable only on the internal network.
 # - Only `web` is exposed, and only on localhost — the Cloudflare Tunnel
-#   (cloudflared) running on the host connects to 127.0.0.1:8080.
+#   (cloudflared) running on the host connects to 127.0.0.1:${WEB_PORT}.
 # - Every service has CPU/memory limits so a leak can't take down the host.
 
 name: markmysteps
@@ -67,7 +67,9 @@ services:
       - internal
     ports:
       # Localhost only — cloudflared on the host proxies markmaaktmedia.nl here.
-      - '127.0.0.1:8080:80'
+      # Port is configurable via WEB_PORT in .env (default 18790, deliberately
+      # uncommon to avoid clashing with Home Assistant & friends).
+      - '127.0.0.1:${WEB_PORT:-18790}:80'
     deploy:
       resources:
         limits:
