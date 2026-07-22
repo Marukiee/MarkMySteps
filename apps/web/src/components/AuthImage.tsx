@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { CSSProperties, useEffect, useRef, useState } from 'react';
 import { fetchBlobUrl } from '../api/client';
 
 // Object-URL cache so re-renders and repeated thumbnails don't refetch.
@@ -9,10 +9,26 @@ const cache = new Map<string, string>();
  * it scrolls near the viewport (IntersectionObserver), so photo-heavy
  * timelines don't fire hundreds of fetches up front.
  */
-export function AuthImage({ path, alt, className }: { path: string; alt: string; className?: string }) {
+export function AuthImage({
+  path,
+  alt,
+  className,
+  style,
+}: {
+  path: string;
+  alt: string;
+  className?: string;
+  style?: CSSProperties;
+}) {
   const [src, setSrc] = useState<string | undefined>(cache.get(path));
   const [visible, setVisible] = useState(false);
   const placeholderRef = useRef<HTMLDivElement>(null);
+
+  // When the path prop changes (e.g. lightbox navigation), swap to the new
+  // image instead of keeping the previous one on screen.
+  useEffect(() => {
+    setSrc(cache.get(path));
+  }, [path]);
 
   useEffect(() => {
     if (src || !placeholderRef.current) return;
@@ -48,7 +64,14 @@ export function AuthImage({ path, alt, className }: { path: string; alt: string;
   }, [visible, path, src]);
 
   if (!src) {
-    return <div ref={placeholderRef} className={`${className ?? ''} img-placeholder`} aria-label={alt} />;
+    return (
+      <div
+        ref={placeholderRef}
+        className={`${className ?? ''} img-placeholder`}
+        style={style}
+        aria-label={alt}
+      />
+    );
   }
-  return <img src={src} alt={alt} className={className} loading="lazy" />;
+  return <img src={src} alt={alt} className={className} style={style} loading="lazy" />;
 }

@@ -216,6 +216,21 @@ textarea {
   }
 }
 
+/* ---------- Temporary-password banner ---------- */
+
+.pw-banner {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  padding: 0.55rem 1.4rem;
+  font-size: 0.9rem;
+  font-weight: 550;
+  border-bottom: 1px solid #f2cdbd;
+}
+
+.pw-banner a {
+  text-decoration: underline;
+}
+
 /* ---------- Scrollbars ---------- */
 
 * {

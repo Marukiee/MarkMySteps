@@ -11,12 +11,24 @@ interface LightboxProps {
   index: number;
   onClose: () => void;
   onNavigate: (index: number) => void;
+  /** When set (trip owner), shows the "set as cover" action. */
+  coverTripId?: string;
+  onCoverSet?: () => void;
 }
 
-export function Lightbox({ items, index, onClose, onNavigate }: LightboxProps) {
+export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCoverSet }: LightboxProps) {
   const { user } = useAuth();
   const [immichUrl, setImmichUrl] = useState<string | null>(null);
+  const [coverSaved, setCoverSaved] = useState(false);
   const item = items[index];
+
+  async function setAsCover() {
+    if (!coverTripId || !item) return;
+    await api(`/trips/${coverTripId}`, { method: 'PATCH', body: { coverMediaId: item.id } });
+    setCoverSaved(true);
+    window.setTimeout(() => setCoverSaved(false), 1600);
+    onCoverSet?.();
+  }
 
   // Own Immich server URL → deep link to the asset. Only for own photos;
   // friends' photos live on their server.
@@ -82,6 +94,11 @@ export function Lightbox({ items, index, onClose, onNavigate }: LightboxProps) {
           <span className="lightbox-count">
             {index + 1} / {items.length}
           </span>
+          {coverTripId && (
+            <button className="btn btn-ghost lightbox-cover" onClick={() => void setAsCover()}>
+              {coverSaved ? 'Cover ingesteld ✓' : 'Als cover'}
+            </button>
+          )}
           {isOwn && immichUrl && (
             <a
               className="btn btn-primary lightbox-immich"

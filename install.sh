@@ -9,8 +9,10 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 WEB_PORT="${WEB_PORT:-18790}"
+FIRST_INSTALL=false
 
 if [[ ! -f .env ]]; then
+  FIRST_INSTALL=true
   read -rp "Publieke URL van de app [https://reis.markmaaktmedia.nl]: " WEB_ORIGIN
   WEB_ORIGIN="${WEB_ORIGIN:-https://reis.markmaaktmedia.nl}"
 
@@ -48,12 +50,15 @@ for _ in $(seq 1 60); do
   if curl -fsS "http://127.0.0.1:${WEB_PORT}/api/health" >/dev/null 2>&1; then
     echo
     echo "✔ MarkMySteps draait op http://127.0.0.1:${WEB_PORT}"
-    echo
-    echo "Volgende stap (eenmalig): Cloudflare Zero Trust → Networks → Tunnels"
-    echo "→ jouw tunnel → Public Hostname → Add:"
-    echo "    subdomain:  reis (of eigen keuze)"
-    echo "    domain:     markmaaktmedia.nl"
-    echo "    service:    HTTP → localhost:${WEB_PORT}"
+    if [[ "$FIRST_INSTALL" == true ]]; then
+      echo
+      echo "Volgende stap (eenmalig): Cloudflare Zero Trust → Networks → Tunnels"
+      echo "→ jouw tunnel → Public Hostname → Add:"
+      echo "    subdomain:  reis (of eigen keuze)"
+      echo "    domain:     markmaaktmedia.nl"
+      echo "    service:    HTTP → <LAN-IP van deze server>:${WEB_PORT}"
+      echo "    (LAN-IP nodig omdat cloudflared vaak in Docker draait; check: hostname -I)"
+    fi
     exit 0
   fi
   sleep 2

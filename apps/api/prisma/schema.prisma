@@ -16,6 +16,11 @@ datasource db {
   extensions = [postgis, postgis_topology, fuzzystrmatch, postgis_tiger_geocoder]
 }
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique
@@ -23,6 +28,13 @@ model User {
   username     String   @unique
   displayName  String
   passwordHash String
+  role         UserRole @default(USER)
+  /// Set on admin-created accounts with a temporary password; cleared when
+  /// the user picks their own. UI nags until then.
+  mustChangePassword Boolean @default(false)
+  /// Small avatar image, stored inline (kept tiny by client-side resize).
+  avatar     Bytes?
+  avatarMime String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -59,6 +71,8 @@ model Trip {
   description String?
   startDate   DateTime @db.Date
   endDate     DateTime @db.Date
+  /// MediaRef used as the card/hero cover; falls back to a gradient.
+  coverMediaId String? @db.Uuid
   ownerId     String   @db.Uuid
   owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())

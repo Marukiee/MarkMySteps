@@ -2,17 +2,37 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { Avatar } from '../components/Avatar';
 import { formatDate } from '../lib/colors';
 import './settings.css';
 
 export function SettingsPage() {
+  const { user } = useAuth();
   return (
     <main className="page fade-in settings-page">
       <h1>Instellingen</h1>
       <ProfileSection />
       <ImmichSection />
       <PolarstepsSection />
+      {user?.role === 'ADMIN' && <AccountsSection />}
     </main>
+  );
+}
+
+/** Client-side resize to keep stored avatars tiny. */
+async function resizeImage(file: File, maxSize = 256): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return new Promise((resolve, reject) =>
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('resize failed'))),
+      'image/jpeg',
+      0.85,
+    ),
   );
 }
 
@@ -54,9 +74,49 @@ function ProfileSection() {
     }
   }
 
+  async function uploadAvatar(file: File) {
+    setError(null);
+    try {
+      const resized = await resizeImage(file);
+      const formData = new FormData();
+      formData.append('file', resized, 'avatar.jpg');
+      await api('/users/me/avatar', { method: 'POST', formData });
+      setMessage('Profielfoto opgeslagen — zichtbaar na opnieuw laden.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload mislukt');
+    }
+  }
+
   return (
     <section className="card settings-card">
       <h2>Profiel</h2>
+
+      <div className="avatar-row">
+        {user && (
+          <Avatar userId={user.id} displayName={user.displayName} hasAvatar={user.hasAvatar} size={64} />
+        )}
+        <label className="btn btn-ghost avatar-upload">
+          Profielfoto kiezen
+          <input
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void uploadAvatar(file);
+            }}
+          />
+        </label>
+        {user?.hasAvatar && (
+          <button
+            className="btn btn-danger"
+            onClick={() => void api('/users/me/avatar', { method: 'DELETE' }).then(() => setMessage('Profielfoto verwijderd — zichtbaar na opnieuw laden.'))}
+          >
+            Verwijderen
+          </button>
+        )}
+      </div>
+
       <form onSubmit={saveName} className="settings-form">
         <div className="field">
           <label htmlFor="pr-name">Naam</label>
@@ -221,6 +281,178 @@ function ImmichSection() {
               Verbinding verwijderen
             </button>
           )}
+        </div>
+      </form>
+
+      {message && <p className="settings-ok">{message}</p>}
+      {error && <p className="error-text">{error}</p>}
+    </section>
+  );
+}
+
+interface AdminUserRow {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string;
+  role: 'ADMIN' | 'USER';
+  mustChangePassword: boolean;
+  tripCount: number;
+}
+
+/** Admin-only: manage every account on this server. */
+function AccountsSection() {
+  const { user: me } = useAuth();
+  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [tempPassword, setTempPassword] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function load() {
+    api<AdminUserRow[]>('/admin/users').then(setUsers).catch(() => undefined);
+  }
+  useEffect(load, []);
+
+  function generatePassword() {
+    const raw = crypto.getRandomValues(new Uint8Array(9));
+    setTempPassword(btoa(String.fromCharCode(...raw)).replace(/[+/=]/g, 'x'));
+  }
+
+  async function createAccount(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setMessage(null);
+    try {
+      await api('/admin/users', {
+        method: 'POST',
+        body: { email, username, displayName, tempPassword },
+      });
+      setMessage(
+        `Account @${username} aangemaakt. Geef het tijdelijke wachtwoord door: ${tempPassword}`,
+      );
+      setEmail('');
+      setUsername('');
+      setDisplayName('');
+      setTempPassword('');
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Aanmaken mislukt');
+    }
+  }
+
+  async function resetPassword(row: AdminUserRow) {
+    const temp = window.prompt(`Nieuw tijdelijk wachtwoord voor @${row.username} (min. 10 tekens):`);
+    if (!temp) return;
+    try {
+      await api(`/admin/users/${row.id}/reset-password`, {
+        method: 'POST',
+        body: { tempPassword: temp },
+      });
+      setMessage(`Wachtwoord van @${row.username} gereset — alle sessies uitgelogd.`);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Reset mislukt');
+    }
+  }
+
+  async function removeAccount(row: AdminUserRow) {
+    if (
+      !window.confirm(
+        `Account @${row.username} verwijderen? Ook hun eigen reizen en routes verdwijnen.`,
+      )
+    )
+      return;
+    await api(`/admin/users/${row.id}`, { method: 'DELETE' });
+    load();
+  }
+
+  async function toggleRole(row: AdminUserRow) {
+    await api(`/admin/users/${row.id}/role`, {
+      method: 'POST',
+      body: { role: row.role === 'ADMIN' ? 'USER' : 'ADMIN' },
+    });
+    load();
+  }
+
+  return (
+    <section className="card settings-card">
+      <h2>Accounts (beheer)</h2>
+      <p className="muted">
+        Maak accounts voor vrienden met een tijdelijk wachtwoord — bij de eerste login worden ze
+        gevraagd een eigen wachtwoord te kiezen (overslaan kan, ze blijven een herinnering zien).
+      </p>
+
+      <ul className="admin-users">
+        {users.map((row) => (
+          <li key={row.id}>
+            <div className="admin-user-info">
+              <strong>
+                {row.displayName} <small className="muted">@{row.username}</small>
+              </strong>
+              <span className="muted">
+                {row.email} · {row.tripCount} reis{row.tripCount === 1 ? '' : 'zen'}
+                {row.role === 'ADMIN' && ' · admin'}
+                {row.mustChangePassword && ' · tijdelijk wachtwoord'}
+              </span>
+            </div>
+            {row.id !== me?.id && (
+              <div className="admin-user-actions">
+                <button className="btn btn-ghost" onClick={() => void resetPassword(row)}>
+                  Reset
+                </button>
+                <button className="btn btn-ghost" onClick={() => void toggleRole(row)}>
+                  {row.role === 'ADMIN' ? 'Demoveer' : 'Maak admin'}
+                </button>
+                <button className="btn btn-danger" onClick={() => void removeAccount(row)}>
+                  ✕
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      <form onSubmit={createAccount} className="settings-form">
+        <div className="admin-create-grid">
+          <div className="field">
+            <label htmlFor="ac-name">Naam</label>
+            <input id="ac-name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="ac-user">Gebruikersnaam</label>
+            <input
+              id="ac-user"
+              required
+              pattern="[a-zA-Z0-9._\-]{3,30}"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="ac-mail">E-mail</label>
+            <input id="ac-mail" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="ac-pass">Tijdelijk wachtwoord</label>
+            <div className="admin-pass-row">
+              <input
+                id="ac-pass"
+                required
+                minLength={10}
+                value={tempPassword}
+                onChange={(e) => setTempPassword(e.target.value)}
+              />
+              <button type="button" className="btn btn-ghost" onClick={generatePassword}>
+                🎲
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="settings-actions">
+          <button className="btn btn-primary">Account aanmaken</button>
         </div>
       </form>
 

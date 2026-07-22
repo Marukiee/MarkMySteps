@@ -67,6 +67,16 @@ export class TripsService {
       dto.endDate ?? trip.endDate.toISOString(),
     );
 
+    // Cover must reference a photo that actually belongs to this trip.
+    if (dto.coverMediaId) {
+      const media = await this.prisma.mediaRef.findFirst({
+        where: { id: dto.coverMediaId, tripId },
+      });
+      if (!media) {
+        throw new BadRequestException('coverMediaId is not a photo of this trip');
+      }
+    }
+
     return this.prisma.trip.update({
       where: { id: tripId },
       data: {
@@ -74,6 +84,7 @@ export class TripsService {
         description: dto.description?.trim(),
         startDate,
         endDate,
+        ...(dto.coverMediaId !== undefined ? { coverMediaId: dto.coverMediaId } : {}),
       },
       include: MEMBERS_INCLUDE,
     });

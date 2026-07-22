@@ -67,8 +67,10 @@ export class ImmichClientService {
           page: Number(page),
           withExif: true,
           // Archived assets are deliberately hidden in Immich — keep them
-          // out of trip timelines too.
+          // out of trip timelines too. Newer Immich versions use the
+          // `visibility` enum; older ones use `isArchived`. Send both.
           isArchived: false,
+          visibility: 'timeline',
         },
       });
 

@@ -60,3 +60,72 @@
   display: grid;
   gap: 0.3rem;
 }
+
+.avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.avatar-upload {
+  cursor: pointer;
+}
+
+.admin-users {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.admin-users li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--paper-sunken);
+  border-radius: var(--radius-s);
+}
+
+.admin-user-info {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-user-info .muted {
+  font-size: 0.8rem;
+}
+
+.admin-user-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.admin-user-actions .btn {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.admin-create-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+@media (max-width: 600px) {
+  .admin-create-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-pass-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.admin-pass-row input {
+  flex: 1;
+  min-width: 0;
+}

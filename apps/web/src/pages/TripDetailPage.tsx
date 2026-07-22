@@ -24,6 +24,7 @@ export function TripDetailPage() {
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [addPointMode, setAddPointMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [sideTab, setSideTab] = useState<'timeline' | 'manage'>('timeline');
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
 
@@ -190,28 +191,53 @@ export function TripDetailPage() {
           <Link to={`/trips/${tripId}/plan`} className="btn btn-ghost">
             Planning
           </Link>
-          {tripId && <TrackButton tripId={tripId} />}
-          <button
-            className={`btn ${addPointMode ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => {
-              setAddPointMode((v) => !v);
-              setPendingPoint(null);
-            }}
-          >
-            {addPointMode ? 'Klik op de kaart…' : '+ Routepunt'}
-          </button>
         </div>
         {syncMessage && <p className="muted">{syncMessage}</p>}
 
-        {trip && <MembersPanel trip={trip} onChanged={loadData} />}
-        {trip && trip.ownerId === user?.id && tripId && <SharePanel tripId={tripId} />}
+        <div className="side-tabs" role="tablist">
+          <button
+            className={sideTab === 'timeline' ? 'active' : ''}
+            onClick={() => setSideTab('timeline')}
+          >
+            Tijdlijn
+          </button>
+          <button
+            className={sideTab === 'manage' ? 'active' : ''}
+            onClick={() => setSideTab('manage')}
+          >
+            Beheer
+          </button>
+        </div>
 
-        <h2 className="trip-side-heading">Tijdlijn</h2>
-        <Timeline
-          media={visibleMedia}
-          visibleUsers={visibleUsers}
-          onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
-        />
+        {sideTab === 'timeline' && (
+          <Timeline
+            media={visibleMedia}
+            visibleUsers={visibleUsers}
+            onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
+          />
+        )}
+
+        {sideTab === 'manage' && (
+          <div className="manage-panel">
+            <section className="manage-section">
+              <h2 className="trip-side-heading">Tracking &amp; route</h2>
+              <div className="trip-actions">
+                {tripId && <TrackButton tripId={tripId} />}
+                <button
+                  className={`btn ${addPointMode ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => {
+                    setAddPointMode((v) => !v);
+                    setPendingPoint(null);
+                  }}
+                >
+                  {addPointMode ? 'Klik op de kaart…' : '+ Routepunt'}
+                </button>
+              </div>
+            </section>
+            {trip && <MembersPanel trip={trip} onChanged={loadData} />}
+            {trip && trip.ownerId === user?.id && tripId && <SharePanel tripId={tripId} />}
+          </div>
+        )}
       </aside>
 
       {lightboxIndex !== null && (
@@ -220,6 +246,8 @@ export function TripDetailPage() {
           index={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onNavigate={setLightboxIndex}
+          coverTripId={trip?.ownerId === user?.id ? tripId : undefined}
+          onCoverSet={loadData}
         />
       )}
     </main>

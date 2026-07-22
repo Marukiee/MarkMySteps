@@ -20,7 +20,8 @@
 }
 
 .topbar-brand:hover {
-  color: var(--accent-ink);
+  opacity: 0.85;
+  transition: opacity 0.2s var(--ease);
 }
 
 .topbar-nav {
@@ -61,21 +62,15 @@
   position: relative;
 }
 
-.topbar-avatar {
-  width: 36px;
-  height: 36px;
+.topbar-avatar-btn {
+  padding: 0;
   border-radius: 50%;
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.95rem;
-  display: grid;
-  place-content: center;
-  border: 2px solid var(--paper-raised);
   box-shadow: var(--shadow-s);
   transition: transform 0.15s var(--ease), box-shadow 0.2s;
+  display: block;
 }
 
-.topbar-avatar:hover {
+.topbar-avatar-btn:hover {
   transform: scale(1.06);
   box-shadow: var(--shadow-m);
 }

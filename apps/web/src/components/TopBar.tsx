@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { colorForUser } from '../lib/colors';
+import { Avatar } from './Avatar';
 import './topbar.css';
 
 export function TopBar() {
@@ -34,12 +34,18 @@ export function TopBar() {
 
       <div className="topbar-user" ref={menuRef}>
         <button
-          className="topbar-avatar"
-          style={{ background: user ? colorForUser(user.id) : 'var(--ink)' }}
+          className="topbar-avatar-btn"
           onClick={() => setMenuOpen((v) => !v)}
           aria-label="Accountmenu"
         >
-          {user?.displayName[0]?.toUpperCase()}
+          {user && (
+            <Avatar
+              userId={user.id}
+              displayName={user.displayName}
+              hasAvatar={user.hasAvatar}
+              size={36}
+            />
+          )}
         </button>
 
         {menuOpen && (

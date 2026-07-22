@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Link, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { TopBar } from './components/TopBar';
 import { FriendsPage } from './pages/FriendsPage';
@@ -18,9 +18,16 @@ function RequireAuth({ children }: { children: ReactNode }) {
 }
 
 function Shell() {
+  const { user } = useAuth();
   return (
     <>
       <TopBar />
+      {user?.mustChangePassword && (
+        <div className="pw-banner">
+          Je gebruikt nog een tijdelijk wachtwoord — kies een eigen wachtwoord bij{' '}
+          <Link to="/settings">Instellingen</Link>.
+        </div>
+      )}
       <Outlet />
     </>
   );

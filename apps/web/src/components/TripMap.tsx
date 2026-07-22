@@ -136,9 +136,10 @@ export function TripMap({ routes, media, visibleUsers, onMapClick, clickMode }: 
         (m) => m.latitude !== null && m.longitude !== null && visibleUsers.has(m.userId),
       );
 
-      // Grid-cluster: cell size shrinks as you zoom in.
+      // Grid-cluster: cell size shrinks as you zoom in. Small enough that
+      // photo spots along the route stay individually visible.
       const zoom = map.getZoom();
-      const cell = 160 / 2 ** zoom; // degrees per cluster cell
+      const cell = 40 / 2 ** zoom; // degrees per cluster cell
       const clusters = new Map<string, MediaItem[]>();
       for (const item of withGps) {
         const key = `${Math.round(item.latitude! / cell)}:${Math.round(item.longitude! / cell)}`;
@@ -175,10 +176,12 @@ export function TripMap({ routes, media, visibleUsers, onMapClick, clickMode }: 
           });
         }
 
-        const avgLat = items.reduce((s, m) => s + m.latitude!, 0) / items.length;
-        const avgLng = items.reduce((s, m) => s + m.longitude!, 0) / items.length;
+        // Anchor on the representative photo's own location (a real point on
+        // the route) — averaging pulls markers off the travelled line.
         markersRef.current.push(
-          new maplibregl.Marker({ element: el }).setLngLat([avgLng, avgLat]).addTo(map),
+          new maplibregl.Marker({ element: el })
+            .setLngLat([representative.longitude!, representative.latitude!])
+            .addTo(map),
         );
       }
     };

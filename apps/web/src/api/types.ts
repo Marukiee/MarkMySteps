@@ -8,6 +8,9 @@ export interface User {
   email: string;
   username: string;
   displayName: string;
+  role: 'ADMIN' | 'USER';
+  mustChangePassword: boolean;
+  hasAvatar: boolean;
 }
 
 export interface TripMember {
@@ -30,6 +33,7 @@ export interface Trip {
   description: string | null;
   startDate: string;
   endDate: string;
+  coverMediaId: string | null;
   ownerId: string;
   members: TripMember[];
 }

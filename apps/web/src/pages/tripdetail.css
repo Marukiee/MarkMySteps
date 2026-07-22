@@ -110,3 +110,37 @@
   font-size: 1.2rem;
   margin-top: 1rem;
 }
+
+.side-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--paper-sunken);
+  border-radius: 999px;
+  padding: 4px;
+  margin-top: 0.75rem;
+}
+
+.side-tabs button {
+  padding: 0.45rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-faint);
+  transition: all 0.2s var(--ease);
+}
+
+.side-tabs button.active {
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-s);
+}
+
+.manage-panel {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.manage-section {
+  display: grid;
+  gap: 0.5rem;
+}

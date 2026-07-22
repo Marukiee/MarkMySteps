@@ -43,6 +43,16 @@
   margin-left: auto;
 }
 
+.lightbox-cover {
+  border-color: rgb(255 255 255 / 0.3);
+  color: rgb(255 255 255 / 0.85);
+}
+
+.lightbox-cover:hover {
+  background: rgb(255 255 255 / 0.12) !important;
+  color: #fff;
+}
+
 .lightbox-videohint {
   color: rgb(255 255 255 / 0.7);
   text-align: center;

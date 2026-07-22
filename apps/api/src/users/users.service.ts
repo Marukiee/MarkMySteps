@@ -12,6 +12,9 @@ export interface PublicUser {
   email: string;
   username: string;
   displayName: string;
+  role: 'ADMIN' | 'USER';
+  mustChangePassword: boolean;
+  hasAvatar: boolean;
   createdAt: Date;
 }
 
@@ -20,8 +23,27 @@ const PUBLIC_USER_SELECT = {
   email: true,
   username: true,
   displayName: true,
+  role: true,
+  mustChangePassword: true,
+  avatarMime: true,
   createdAt: true,
 } as const;
+
+type SelectedUser = {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string;
+  role: 'ADMIN' | 'USER';
+  mustChangePassword: boolean;
+  avatarMime: string | null;
+  createdAt: Date;
+};
+
+function toPublic(user: SelectedUser): PublicUser {
+  const { avatarMime, ...rest } = user;
+  return { ...rest, hasAvatar: avatarMime !== null };
+}
 
 @Injectable()
 export class UsersService {
@@ -35,7 +57,32 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return user;
+    return toPublic(user);
+  }
+
+  async setAvatar(id: string, buffer: Buffer, mime: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { avatar: buffer, avatarMime: mime },
+    });
+  }
+
+  async removeAvatar(id: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { avatar: null, avatarMime: null },
+    });
+  }
+
+  async getAvatar(id: string): Promise<{ buffer: Buffer; mime: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { avatar: true, avatarMime: true },
+    });
+    if (!user?.avatar || !user.avatarMime) {
+      throw new NotFoundException('No avatar');
+    }
+    return { buffer: Buffer.from(user.avatar), mime: user.avatarMime };
   }
 
   async updateProfile(id: string, displayName: string, username?: string): Promise<PublicUser> {
@@ -48,11 +95,12 @@ export class UsersService {
         throw new ConflictException('This username is taken');
       }
     }
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: { displayName: displayName.trim(), username: normalizedUsername },
       select: PUBLIC_USER_SELECT,
     });
+    return toPublic(updated);
   }
 
   async changePassword(id: string, currentPassword: string, newPassword: string): Promise<void> {
@@ -63,7 +111,10 @@ export class UsersService {
     }
     await this.prisma.user.update({
       where: { id },
-      data: { passwordHash: await argon2.hash(newPassword, { type: argon2.argon2id }) },
+      data: {
+        passwordHash: await argon2.hash(newPassword, { type: argon2.argon2id }),
+        mustChangePassword: false,
+      },
     });
     // Changing the password invalidates every other session.
     await this.prisma.refreshToken.updateMany({

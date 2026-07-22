@@ -1,8 +1,9 @@
 import { FormEvent, MouseEvent, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { AuthImage } from '../components/AuthImage';
 import { colorForUser, formatDate } from '../lib/colors';
 import './trips.css';
 
@@ -52,6 +53,14 @@ export function TripsPage() {
         {trips?.map((trip, i) => (
           <TripCard key={trip.id} trip={trip} index={i} onChanged={load} />
         ))}
+        {/* Decorative ghost slots so a sparse grid still feels inviting. */}
+        {trips && trips.length > 0 && trips.length < 6 && (
+          <>
+            <div className="trip-ghost" />
+            <div className="trip-ghost" />
+            <div className="trip-ghost" />
+          </>
+        )}
       </div>
     </main>
   );
@@ -59,6 +68,7 @@ export function TripsPage() {
 
 function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onChanged: () => void }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [newTitle, setNewTitle] = useState(trip.title);
@@ -75,13 +85,13 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
   }, [menuOpen]);
 
   function stop(e: MouseEvent) {
-    e.preventDefault();
     e.stopPropagation();
   }
 
   async function rename(e: FormEvent) {
     e.preventDefault();
-    await api(`/trips/${trip.id}`, { method: 'PATCH', body: { title: newTitle } });
+    e.stopPropagation();
+    await api(`/trips/${trip.id}`, { method: 'PATCH', body: { title: newTitle.trim() } });
     setRenaming(false);
     onChanged();
   }
@@ -98,13 +108,29 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
     onChanged();
   }
 
+  // A <div> with programmatic navigation instead of a <Link>: nesting the
+  // rename <form> inside an anchor makes Enter navigate instead of submit.
   return (
-    <Link
-      to={`/trips/${trip.id}`}
+    <div
       className="card trip-card"
       style={{ animationDelay: `${index * 40}ms` }}
+      role="link"
+      tabIndex={0}
+      onClick={() => {
+        if (!renaming) navigate(`/trips/${trip.id}`);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !renaming) navigate(`/trips/${trip.id}`);
+      }}
     >
       <div className="trip-card-cover" style={{ background: coverGradient(trip.id) }}>
+        {trip.coverMediaId && (
+          <AuthImage
+            path={`/media/${trip.coverMediaId}/thumbnail`}
+            alt=""
+            className="trip-card-photo"
+          />
+        )}
         <span className="trip-card-dates">
           {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
         </span>
@@ -163,8 +189,12 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
             <input
               autoFocus
               value={newTitle}
+              onClick={stop}
               onChange={(e) => setNewTitle(e.target.value)}
-              onKeyDown={(e) => e.key === 'Escape' && setRenaming(false)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Escape') setRenaming(false);
+              }}
             />
             <button className="btn btn-primary" type="submit">
               OK
@@ -187,7 +217,7 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
           ))}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 
