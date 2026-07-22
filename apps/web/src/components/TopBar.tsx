@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { Logo } from './Logo';
 import './topbar.css';
 
 export function TopBar() {
@@ -8,12 +9,14 @@ export function TopBar() {
   return (
     <header className="topbar">
       <Link to="/" className="topbar-brand">
+        <Logo />
         MarkMySteps
       </Link>
       <nav className="topbar-nav">
         <NavLink to="/" end>
           Reizen
         </NavLink>
+        <NavLink to="/friends">Vrienden</NavLink>
         <NavLink to="/settings">Instellingen</NavLink>
       </nav>
       <div className="topbar-user">

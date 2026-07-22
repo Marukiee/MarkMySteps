@@ -28,6 +28,23 @@
   background: var(--paper-sunken);
 }
 
+.photo-marker-count {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: grid;
+  place-content: center;
+  border: 2px solid #fff;
+}
+
 .img-placeholder {
   background: var(--paper-sunken);
   animation: pulse 1.4s ease-in-out infinite;

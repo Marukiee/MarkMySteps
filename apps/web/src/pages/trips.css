@@ -52,10 +52,73 @@
 }
 
 .trip-card-cover {
+  position: relative;
   height: 120px;
   display: flex;
   align-items: flex-end;
   padding: 0.75rem;
+}
+
+.trip-card-menu {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+}
+
+.trip-menu-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.85);
+  backdrop-filter: blur(4px);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--ink);
+  display: grid;
+  place-content: center;
+  box-shadow: var(--shadow-s);
+}
+
+.trip-menu {
+  position: absolute;
+  right: 0;
+  top: 36px;
+  z-index: 20;
+  min-width: 150px;
+  padding: 0.35rem;
+  display: grid;
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-m);
+}
+
+.trip-menu button {
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-radius: 7px;
+  font-weight: 550;
+  font-size: 0.9rem;
+}
+
+.trip-menu button:hover {
+  background: var(--paper-sunken);
+}
+
+.trip-menu-danger {
+  color: #b3402a;
+}
+
+.trip-rename {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.trip-rename input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-s);
+  font: inherit;
 }
 
 .trip-card-dates {

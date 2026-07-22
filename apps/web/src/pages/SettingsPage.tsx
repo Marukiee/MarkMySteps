@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { formatDate } from '../lib/colors';
 import './settings.css';
 
@@ -8,9 +9,98 @@ export function SettingsPage() {
   return (
     <main className="page fade-in settings-page">
       <h1>Instellingen</h1>
+      <ProfileSection />
       <ImmichSection />
       <PolarstepsSection />
     </main>
+  );
+}
+
+function ProfileSection() {
+  const { user, logout } = useAuth();
+  const [displayName, setDisplayName] = useState(user?.displayName ?? '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function saveName(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    try {
+      await api('/users/me', { method: 'PATCH', body: { displayName } });
+      setMessage('Naam bijgewerkt — zichtbaar na opnieuw laden.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Opslaan mislukt');
+    }
+  }
+
+  async function savePassword(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setMessage(null);
+    try {
+      await api('/users/me/password', {
+        method: 'POST',
+        body: { currentPassword, newPassword },
+      });
+      setMessage('Wachtwoord gewijzigd. Andere sessies zijn uitgelogd — log opnieuw in.');
+      setCurrentPassword('');
+      setNewPassword('');
+      window.setTimeout(logout, 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Wijzigen mislukt');
+    }
+  }
+
+  return (
+    <section className="card settings-card">
+      <h2>Profiel</h2>
+      <form onSubmit={saveName} className="settings-form settings-inline">
+        <div className="field">
+          <label htmlFor="pr-name">Naam</label>
+          <input
+            id="pr-name"
+            required
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
+        </div>
+        <button className="btn btn-ghost">Opslaan</button>
+      </form>
+
+      <form onSubmit={savePassword} className="settings-form">
+        <div className="field">
+          <label htmlFor="pr-cur">Huidig wachtwoord</label>
+          <input
+            id="pr-cur"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="pr-new">Nieuw wachtwoord</label>
+          <input
+            id="pr-new"
+            type="password"
+            required
+            minLength={10}
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+        </div>
+        <div className="settings-actions">
+          <button className="btn btn-primary">Wachtwoord wijzigen</button>
+        </div>
+      </form>
+
+      {message && <p className="settings-ok">{message}</p>}
+      {error && <p className="error-text">{error}</p>}
+    </section>
   );
 }
 

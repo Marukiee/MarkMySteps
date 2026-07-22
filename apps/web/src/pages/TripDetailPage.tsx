@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { MediaItem, RouteCollection, SyncResult, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { MembersPanel } from '../components/MembersPanel';
 import { Timeline } from '../components/Timeline';
 import { TrackButton } from '../components/TrackButton';
 import { TripMap } from '../components/TripMap';
@@ -198,6 +199,8 @@ export function TripDetailPage() {
           </button>
         </div>
         {syncMessage && <p className="muted">{syncMessage}</p>}
+
+        {trip && <MembersPanel trip={trip} onChanged={loadData} />}
 
         <h2 className="trip-side-heading">Tijdlijn</h2>
         <Timeline media={visibleMedia} visibleUsers={visibleUsers} />

@@ -63,6 +63,7 @@ export class StopsService {
           nights: dto.nights,
           latitude: dto.latitude,
           longitude: dto.longitude,
+          countryCode: dto.countryCode?.toUpperCase(),
           notes: dto.notes?.trim(),
           orderIndex: insertAt,
         },
@@ -87,6 +88,7 @@ export class StopsService {
         nights: dto.nights,
         latitude: dto.latitude,
         longitude: dto.longitude,
+        countryCode: dto.countryCode?.toUpperCase(),
         notes: dto.notes?.trim(),
       },
     });

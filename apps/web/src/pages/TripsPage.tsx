@@ -1,7 +1,8 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, MouseEvent, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { colorForUser, formatDate } from '../lib/colors';
 import './trips.css';
 
@@ -49,40 +50,144 @@ export function TripsPage() {
 
       <div className="trips-grid">
         {trips?.map((trip, i) => (
-          <Link
-            key={trip.id}
-            to={`/trips/${trip.id}`}
-            className="card trip-card"
-            style={{ animationDelay: `${i * 40}ms` }}
-          >
-            <div
-              className="trip-card-cover"
-              style={{ background: coverGradient(trip.id) }}
-            >
-              <span className="trip-card-dates">
-                {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
-              </span>
-            </div>
-            <div className="trip-card-body">
-              <h2>{trip.title}</h2>
-              {trip.description && <p className="muted">{trip.description}</p>}
-              <div className="trip-card-members">
-                {trip.members.map((m) => (
-                  <span
-                    key={m.userId}
-                    className="member-dot"
-                    style={{ background: colorForUser(m.userId) }}
-                    title={m.user.displayName}
-                  >
-                    {m.user.displayName[0]}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </Link>
+          <TripCard key={trip.id} trip={trip} index={i} onChanged={load} />
         ))}
       </div>
     </main>
+  );
+}
+
+function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onChanged: () => void }) {
+  const { user } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [newTitle, setNewTitle] = useState(trip.title);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const isOwner = trip.ownerId === user?.id;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: Event) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [menuOpen]);
+
+  function stop(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  async function rename(e: FormEvent) {
+    e.preventDefault();
+    await api(`/trips/${trip.id}`, { method: 'PATCH', body: { title: newTitle } });
+    setRenaming(false);
+    onChanged();
+  }
+
+  async function remove() {
+    if (!window.confirm(`"${trip.title}" en alle routes/foto-koppelingen verwijderen?`)) return;
+    await api(`/trips/${trip.id}`, { method: 'DELETE' });
+    onChanged();
+  }
+
+  async function leave() {
+    if (!window.confirm(`Reis "${trip.title}" verlaten?`)) return;
+    await api(`/trips/${trip.id}/members/${user!.id}`, { method: 'DELETE' });
+    onChanged();
+  }
+
+  return (
+    <Link
+      to={`/trips/${trip.id}`}
+      className="card trip-card"
+      style={{ animationDelay: `${index * 40}ms` }}
+    >
+      <div className="trip-card-cover" style={{ background: coverGradient(trip.id) }}>
+        <span className="trip-card-dates">
+          {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
+        </span>
+        <div className="trip-card-menu" ref={menuRef} onClick={stop}>
+          <button
+            className="trip-menu-btn"
+            aria-label="Reis-opties"
+            onClick={(e) => {
+              stop(e);
+              setMenuOpen((v) => !v);
+            }}
+          >
+            ⋯
+          </button>
+          {menuOpen && (
+            <div className="trip-menu card fade-in">
+              {isOwner ? (
+                <>
+                  <button
+                    onClick={(e) => {
+                      stop(e);
+                      setMenuOpen(false);
+                      setRenaming(true);
+                    }}
+                  >
+                    Hernoemen
+                  </button>
+                  <button
+                    className="trip-menu-danger"
+                    onClick={(e) => {
+                      stop(e);
+                      void remove();
+                    }}
+                  >
+                    Verwijderen
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="trip-menu-danger"
+                  onClick={(e) => {
+                    stop(e);
+                    void leave();
+                  }}
+                >
+                  Reis verlaten
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="trip-card-body">
+        {renaming ? (
+          <form onSubmit={rename} onClick={stop} className="trip-rename">
+            <input
+              autoFocus
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && setRenaming(false)}
+            />
+            <button className="btn btn-primary" type="submit">
+              OK
+            </button>
+          </form>
+        ) : (
+          <h2>{trip.title}</h2>
+        )}
+        {trip.description && <p className="muted">{trip.description}</p>}
+        <div className="trip-card-members">
+          {trip.members.map((m) => (
+            <span
+              key={m.userId}
+              className="member-dot"
+              style={{ background: colorForUser(m.userId) }}
+              title={m.user.displayName}
+            >
+              {m.user.displayName[0]}
+            </span>
+          ))}
+        </div>
+      </div>
+    </Link>
   );
 }
 

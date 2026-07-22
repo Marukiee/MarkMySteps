@@ -25,13 +25,19 @@ interface PolarstepsStep {
   name?: string | null;
   display_name?: string | null;
   description?: string | null;
-  start_time?: number; // epoch seconds
+  start_time?: number; // epoch seconds (sometimes milliseconds)
   location?: {
     name?: string | null;
     detail?: string | null;
     lat?: number;
     lon?: number;
+    country_code?: string | null;
   };
+}
+
+/** Polarsteps exports use epoch seconds, but be tolerant of milliseconds. */
+function toMs(epoch: number): number {
+  return epoch > 1e11 ? epoch : epoch * 1000;
 }
 
 interface PolarstepsLocation {
@@ -128,7 +134,7 @@ export class PolarstepsImportService {
         data: chunk.map((p) => ({
           tripId: trip.id,
           userId,
-          recordedAt: new Date(p.time * 1000),
+          recordedAt: new Date(toMs(p.time)),
           latitude: p.lat,
           longitude: p.lon,
           source: PointSource.IMPORTED,
@@ -137,7 +143,12 @@ export class PolarstepsImportService {
       imported += count;
     }
 
-    const stopsImported = await this.importSteps(trip.id, meta, endDate);
+    const stopsImported = await this.importSteps(trip.id, meta, endDate).catch((err) => {
+      // A failing steps import must never lose the trip + route that were
+      // already created; log loudly and report 0 stops instead.
+      this.logger.error(`Steps import failed for trip "${trip.title}": ${String(err)}`);
+      return 0;
+    });
 
     return {
       tripId: trip.id,
@@ -157,12 +168,18 @@ export class PolarstepsImportService {
     const steps = (meta.all_steps ?? [])
       .filter((s) => typeof s.start_time === 'number')
       .sort((a, b) => a.start_time! - b.start_time!);
-    if (steps.length === 0) return 0;
+    if (steps.length === 0) {
+      this.logger.warn(
+        `trip.json has no usable all_steps (keys: ${Object.keys(meta).join(', ')})`,
+      );
+      return 0;
+    }
 
     const data = steps.map((step, index) => {
       const nextTime =
-        index + 1 < steps.length ? steps[index + 1]!.start_time! * 1000 : tripEnd.getTime();
-      const nights = Math.max(0, Math.round((nextTime - step.start_time! * 1000) / 86_400_000));
+        index + 1 < steps.length ? toMs(steps[index + 1]!.start_time!) : tripEnd.getTime();
+      const nights = Math.max(0, Math.round((nextTime - toMs(step.start_time!)) / 86_400_000));
+      const countryCode = step.location?.country_code?.trim().toUpperCase();
       return {
         tripId,
         name:
@@ -175,6 +192,7 @@ export class PolarstepsImportService {
         orderIndex: index,
         latitude: step.location?.lat,
         longitude: step.location?.lon,
+        countryCode: countryCode?.length === 2 ? countryCode : undefined,
       };
     });
 

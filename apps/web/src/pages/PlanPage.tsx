@@ -4,7 +4,8 @@ import { DragEvent, FormEvent, useCallback, useEffect, useRef, useState } from '
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
-import { formatDate } from '../lib/colors';
+import { flagEmoji, formatDate } from '../lib/colors';
+import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import './plan.css';
 
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
@@ -17,6 +18,7 @@ interface PlannedStop {
   orderIndex: number;
   latitude: number | null;
   longitude: number | null;
+  countryCode: string | null;
   arrivalDate: string;
   departureDate: string;
 }
@@ -28,8 +30,12 @@ export function PlanPage() {
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [newNights, setNewNights] = useState(2);
+  const [newCountry, setNewCountry] = useState<string | undefined>();
   const [pendingCoords, setPendingCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const searchTimerRef = useRef<number | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -85,7 +91,8 @@ export function PlanPage() {
       for (const stop of located) {
         const el = document.createElement('div');
         el.className = 'stop-marker';
-        el.textContent = String(stop.orderIndex + 1);
+        const flag = flagEmoji(stop.countryCode);
+        el.textContent = flag || String(stop.orderIndex + 1);
         markersRef.current.push(
           new maplibregl.Marker({ element: el })
             .setLngLat([stop.longitude!, stop.latitude!])
@@ -139,6 +146,29 @@ export function PlanPage() {
     [tripId],
   );
 
+  /** Debounced place search (Photon/OSM) while typing the stop name. */
+  function onNameInput(value: string) {
+    setNewName(value);
+    setNewCountry(undefined);
+    if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = window.setTimeout(() => {
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+      searchPlaces(value, controller.signal)
+        .then(setSuggestions)
+        .catch(() => undefined);
+    }, 280);
+  }
+
+  function pickSuggestion(place: PlaceSuggestion) {
+    setNewName(place.name);
+    setNewCountry(place.countryCode);
+    setPendingCoords({ lat: place.latitude, lng: place.longitude });
+    setSuggestions([]);
+    mapRef.current?.easeTo({ center: [place.longitude, place.latitude], zoom: 8 });
+  }
+
   async function addStop(event: FormEvent) {
     event.preventDefault();
     if (!tripId) return;
@@ -150,11 +180,14 @@ export function PlanPage() {
           nights: newNights,
           latitude: pendingCoords?.lat,
           longitude: pendingCoords?.lng,
+          countryCode: newCountry,
         },
       });
       refresh(updated);
       setNewName('');
       setNewNights(2);
+      setNewCountry(undefined);
+      setSuggestions([]);
       setPendingCoords(null);
       pendingMarkerRef.current?.remove();
     } catch (err) {
@@ -232,7 +265,9 @@ export function PlanPage() {
             >
               <span className="stop-number">{index + 1}</span>
               <div className="stop-info">
-                <strong>{stop.name}</strong>
+                <strong>
+                  {flagEmoji(stop.countryCode)} {stop.name}
+                </strong>
                 <span className="muted">
                   {formatDate(stop.arrivalDate)} → {formatDate(stop.departureDate)}
                 </span>
@@ -256,15 +291,31 @@ export function PlanPage() {
         </ol>
 
         <form className="card stop-add" onSubmit={addStop}>
-          <div className="field">
+          <div className="field stop-search">
             <label htmlFor="st-name">Nieuwe stop</label>
             <input
               id="st-name"
               required
-              placeholder="Bijv. Hanoi"
+              autoComplete="off"
+              placeholder="Zoek een stad, bijv. Hanoi"
               value={newName}
-              onChange={(e) => setNewName(e.target.value)}
+              onChange={(e) => onNameInput(e.target.value)}
             />
+            {suggestions.length > 0 && (
+              <ul className="stop-suggestions card">
+                {suggestions.map((place, i) => (
+                  <li key={i}>
+                    <button type="button" onClick={() => pickSuggestion(place)}>
+                      <span>{flagEmoji(place.countryCode)}</span>
+                      <span>
+                        <strong>{place.name}</strong>
+                        {place.region && <small> {place.region}</small>}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="field">
             <label htmlFor="st-nights">Nachten</label>

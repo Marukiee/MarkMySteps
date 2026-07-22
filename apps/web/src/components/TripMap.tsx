@@ -122,33 +122,72 @@ export function TripMap({ routes, media, visibleUsers, onMapClick, clickMode }: 
     }
   }, [routes, media, visibleUsers]);
 
-  // Photo markers.
+  // Photo markers — clustered per zoom level so hundreds of photos never
+  // become hundreds of DOM nodes (each with its own thumbnail fetch).
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    for (const marker of markersRef.current) marker.remove();
-    markersRef.current = [];
+    const draw = () => {
+      for (const marker of markersRef.current) marker.remove();
+      markersRef.current = [];
 
-    const withGps = media.filter(
-      (m) => m.latitude !== null && m.longitude !== null && visibleUsers.has(m.userId),
-    );
+      const withGps = media.filter(
+        (m) => m.latitude !== null && m.longitude !== null && visibleUsers.has(m.userId),
+      );
 
-    for (const item of withGps) {
-      const el = document.createElement('div');
-      el.className = 'photo-marker';
-      el.style.borderColor = colorForUser(item.userId);
-      void fetchBlobUrl(`/media/${item.id}/thumbnail`)
-        .then((url) => {
-          el.style.backgroundImage = `url(${url})`;
-        })
-        .catch(() => el.classList.add('photo-marker-error'));
+      // Grid-cluster: cell size shrinks as you zoom in.
+      const zoom = map.getZoom();
+      const cell = 160 / 2 ** zoom; // degrees per cluster cell
+      const clusters = new Map<string, MediaItem[]>();
+      for (const item of withGps) {
+        const key = `${Math.round(item.latitude! / cell)}:${Math.round(item.longitude! / cell)}`;
+        const list = clusters.get(key) ?? [];
+        list.push(item);
+        clusters.set(key, list);
+      }
 
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([item.longitude!, item.latitude!])
-        .addTo(map);
-      markersRef.current.push(marker);
-    }
+      for (const items of clusters.values()) {
+        const representative = items[0]!;
+        const el = document.createElement('div');
+        el.className = 'photo-marker';
+        el.style.borderColor = colorForUser(representative.userId);
+        if (items.length > 1) {
+          const badge = document.createElement('span');
+          badge.className = 'photo-marker-count';
+          badge.textContent = items.length > 99 ? '99+' : String(items.length);
+          el.appendChild(badge);
+        }
+        void fetchBlobUrl(`/media/${representative.id}/thumbnail`)
+          .then((url) => {
+            el.style.backgroundImage = `url(${url})`;
+          })
+          .catch(() => el.classList.add('photo-marker-error'));
+
+        // Zoom into the cluster on click.
+        if (items.length > 1) {
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            map.easeTo({
+              center: [representative.longitude!, representative.latitude!],
+              zoom: Math.min(zoom + 2.5, 16),
+            });
+          });
+        }
+
+        const avgLat = items.reduce((s, m) => s + m.latitude!, 0) / items.length;
+        const avgLng = items.reduce((s, m) => s + m.longitude!, 0) / items.length;
+        markersRef.current.push(
+          new maplibregl.Marker({ element: el }).setLngLat([avgLng, avgLat]).addTo(map),
+        );
+      }
+    };
+
+    draw();
+    map.on('zoomend', draw);
+    return () => {
+      map.off('zoomend', draw);
+    };
   }, [media, visibleUsers]);
 
   return (

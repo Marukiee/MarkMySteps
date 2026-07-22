@@ -16,3 +16,11 @@ export function formatDate(iso: string): string {
 export function formatDay(iso: string): string {
   return new Date(iso).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' });
 }
+
+/** "NL" → 🇳🇱 (regional indicator pair); empty for unknown codes. */
+export function flagEmoji(countryCode?: string | null): string {
+  if (!countryCode || countryCode.length !== 2) return '';
+  const base = 0x1f1e6 - 65;
+  const code = countryCode.toUpperCase();
+  return String.fromCodePoint(base + code.charCodeAt(0), base + code.charCodeAt(1));
+}

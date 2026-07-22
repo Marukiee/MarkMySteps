@@ -39,6 +39,12 @@ export class CreateStopDto {
   @MaxLength(2000)
   notes?: string;
 
+  /** ISO 3166-1 alpha-2 country code (e.g. "VN"). */
+  @IsOptional()
+  @IsString()
+  @Length(2, 2)
+  countryCode?: string;
+
   /** Insert after this stop; omitted = append at the end. */
   @IsOptional()
   @IsUUID()
@@ -73,6 +79,11 @@ export class UpdateStopDto {
   @IsString()
   @MaxLength(2000)
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(2, 2)
+  countryCode?: string;
 }
 
 export class ReorderStopsDto {

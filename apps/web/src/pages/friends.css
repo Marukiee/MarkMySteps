@@ -1,0 +1,40 @@
+.friends-page {
+  display: grid;
+  gap: 1rem;
+  max-width: 720px;
+}
+
+.friends-page h1 {
+  font-size: 2rem;
+}
+
+.friends-empty {
+  padding: 2.5rem 2rem;
+  text-align: center;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.friends-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.friend-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+}
+
+.friend-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}

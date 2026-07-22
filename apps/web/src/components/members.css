@@ -1,0 +1,52 @@
+.members-panel {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.members-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.members-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.members-name small {
+  color: var(--ink-faint);
+}
+
+.members-remove {
+  margin-left: auto;
+  color: var(--ink-faint);
+  padding: 0.25rem 0.45rem;
+  border-radius: 6px;
+}
+
+.members-remove:hover {
+  color: #b3402a;
+  background: #fbeae4;
+}
+
+.members-add {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.members-add input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.8rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+}
+
+.members-hint {
+  font-size: 0.82rem;
+}

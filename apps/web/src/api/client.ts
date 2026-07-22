@@ -118,12 +118,37 @@ export async function api<T>(
   return (await res.json()) as T;
 }
 
+// Thumbnails go through a small concurrency gate: photo-heavy trips would
+// otherwise fire hundreds of parallel fetches and freeze the UI.
+const MAX_CONCURRENT_BLOBS = 6;
+let activeBlobFetches = 0;
+const blobQueue: (() => void)[] = [];
+
+function acquireBlobSlot(): Promise<void> {
+  if (activeBlobFetches < MAX_CONCURRENT_BLOBS) {
+    activeBlobFetches++;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => blobQueue.push(resolve));
+}
+
+function releaseBlobSlot(): void {
+  const next = blobQueue.shift();
+  if (next) next();
+  else activeBlobFetches--;
+}
+
 /** Authorized binary fetch → object URL (for Immich thumbnail proxying). */
 export async function fetchBlobUrl(path: string): Promise<string> {
-  const token = getAccessToken();
-  const res = await fetch(`${getServerBase()}/api${path}`, {
-    headers: token ? { authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new ApiError(res.status, 'Kon afbeelding niet laden');
-  return URL.createObjectURL(await res.blob());
+  await acquireBlobSlot();
+  try {
+    const token = getAccessToken();
+    const res = await fetch(`${getServerBase()}/api${path}`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new ApiError(res.status, 'Kon afbeelding niet laden');
+    return URL.createObjectURL(await res.blob());
+  } finally {
+    releaseBlobSlot();
+  }
 }
