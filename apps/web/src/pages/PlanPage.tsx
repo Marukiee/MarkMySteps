@@ -315,16 +315,17 @@ export function PlanPage() {
                   </span>
                 </div>
                 <div className="stop-nights">
-                  <button className="nights-btn" onClick={() => changeNights(stop, -1)}>
-                    −
-                  </button>
                   <span className="nights-count">
-                    {stop.nights}
-                    <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
+                    {stop.nights} {stop.nights === 1 ? 'nacht' : 'nachten'}
                   </span>
-                  <button className="nights-btn" onClick={() => changeNights(stop, 1)}>
-                    +
-                  </button>
+                  <div className="nights-buttons">
+                    <button className="nights-btn" onClick={() => changeNights(stop, -1)}>
+                      −
+                    </button>
+                    <button className="nights-btn" onClick={() => changeNights(stop, 1)}>
+                      +
+                    </button>
+                  </div>
                 </div>
                 <button className="stop-delete" onClick={() => removeStop(stop)} title="Verwijderen">
                   ✕

@@ -1,29 +1,31 @@
+.page {
+  position: relative;
+}
+
 .globe-backdrop {
   position: absolute;
-  top: -80px;
-  right: -120px;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 0;
-  pointer-events: none;
-  opacity: 0.35;
-  filter: saturate(0.9);
-  mask-image: radial-gradient(circle at center, #000 55%, transparent 78%);
-  -webkit-mask-image: radial-gradient(circle at center, #000 55%, transparent 78%);
+  opacity: 0.5;
+  filter: saturate(0.92);
+  mask-image: radial-gradient(circle at center, #000 60%, transparent 75%);
+  -webkit-mask-image: radial-gradient(circle at center, #000 60%, transparent 75%);
 }
 
 .globe-backdrop canvas {
   display: block;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.globe-backdrop canvas:active {
+  cursor: grabbing;
 }
 
 /* Keep page content above the globe. */
 .page > *:not(.globe-backdrop) {
   position: relative;
   z-index: 1;
-}
-
-@media (max-width: 720px) {
-  .globe-backdrop {
-    top: -40px;
-    right: -40%;
-    opacity: 0.25;
-  }
 }

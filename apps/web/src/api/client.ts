@@ -3,6 +3,7 @@
  * transparently refreshes once on 401, and logs out when refresh fails.
  */
 
+import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SERVER_URL } from '../config';
 
 const ACCESS_KEY = 'mms.access';
@@ -19,9 +20,9 @@ const SERVER_KEY = 'mms.server';
 export function getServerBase(): string {
   const stored = localStorage.getItem(SERVER_KEY);
   if (stored) return stored;
-  // Capacitor exposes this global; treat any non-http(s) page origin as native.
-  const isNative = !location.protocol.startsWith('http');
-  return isNative ? DEFAULT_SERVER_URL : '';
+  // In the native app the WebView origin is not the API — default to the
+  // real server. On the web the API is same-origin (empty base).
+  return Capacitor.isNativePlatform() ? DEFAULT_SERVER_URL : '';
 }
 
 export function setServerBase(url: string): void {

@@ -99,17 +99,23 @@
   transform: translateX(2px);
 }
 
-.nights-count {
-  display: grid;
-  text-align: center;
-  line-height: 1.05;
-  font-weight: 700;
+.stop-nights {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
 }
 
-.nights-count small {
-  font-weight: 500;
-  font-size: 0.68rem;
-  color: var(--ink-faint);
+.nights-count {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.nights-buttons {
+  display: flex;
+  gap: 0.3rem;
 }
 
 .weather-badge {

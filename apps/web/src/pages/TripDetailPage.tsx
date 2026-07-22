@@ -269,24 +269,24 @@ export function TripDetailPage() {
         )}
         {trip?.description && <p>{trip.description}</p>}
 
-        {stats && (
+        {stats && (stats.distanceKm > 0 || stats.photoCount > 0) && (
           <div className="trip-stats">
-            <div className="stat">
-              <strong>{stats.distanceKm.toLocaleString('nl-NL')}</strong>
-              <span>km</span>
-            </div>
+            {stats.distanceKm > 0 && (
+              <div className="stat">
+                <strong>{stats.distanceKm.toLocaleString('nl-NL')}</strong>
+                <span>km</span>
+              </div>
+            )}
             <div className="stat">
               <strong>{stats.days}</strong>
               <span>dagen</span>
             </div>
-            <div className="stat">
-              <strong>{stats.countries.length}</strong>
-              <span>{stats.countries.map((c) => flagEmoji(c)).join('')} landen</span>
-            </div>
-            <div className="stat">
-              <strong>{stats.photoCount}</strong>
-              <span>foto's</span>
-            </div>
+            {stats.photoCount > 0 && (
+              <div className="stat">
+                <strong>{stats.photoCount}</strong>
+                <span>foto's</span>
+              </div>
+            )}
           </div>
         )}
 

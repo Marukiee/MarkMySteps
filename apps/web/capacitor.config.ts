@@ -5,9 +5,10 @@ const config: CapacitorConfig = {
   appName: 'MarkMySteps',
   webDir: 'dist',
   server: {
-    // Present the WebView as the real domain so password managers associate
-    // saved credentials with the same site as the web app (not "localhost").
-    hostname: 'reis.markmaaktmedia.nl',
+    // NOTE: do NOT set hostname to the real server domain — the WebView would
+    // then hijack requests to that domain and serve bundled files instead of
+    // reaching the actual API ("Unexpected token '<'"). Keep the default
+    // localhost origin; CORS allows https://localhost.
     androidScheme: 'https',
   },
   android: {
