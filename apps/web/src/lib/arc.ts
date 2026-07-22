@@ -22,4 +22,6 @@ export interface StopPoint {
   countryCode: string | null;
   travelMode: 'GROUND' | 'FLIGHT';
   orderIndex: number;
+  arrivalDate: string;
+  departureDate: string;
 }

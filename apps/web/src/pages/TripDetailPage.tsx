@@ -283,7 +283,7 @@ export function TripDetailPage() {
         )}
         {trip?.description && <p>{trip.description}</p>}
 
-        {stats && (stats.distanceKm > 0 || stats.photoCount > 0) && (
+        {stats && (
           <div className="trip-stats">
             {stats.distanceKm > 0 && (
               <div className="stat">
@@ -295,6 +295,12 @@ export function TripDetailPage() {
               <strong>{stats.days}</strong>
               <span>dagen</span>
             </div>
+            {stats.countries.length > 0 && (
+              <div className="stat">
+                <strong>{stats.countries.length}</strong>
+                <span>{stats.countries.slice(0, 4).map((c) => flagEmoji(c)).join('')} landen</span>
+              </div>
+            )}
             {stats.photoCount > 0 && (
               <div className="stat">
                 <strong>{stats.photoCount}</strong>
@@ -329,6 +335,7 @@ export function TripDetailPage() {
           </button>
         </div>
 
+        <div key={sideTab} className="tab-content fade-in">
         {sideTab === 'timeline' && (
           <Timeline
             media={visibleMedia}
@@ -340,6 +347,14 @@ export function TripDetailPage() {
             ownUserId={user?.id}
             onSaveNote={saveNote}
             onDeleteNote={deleteNote}
+            stops={stops.map((s) => ({
+              name: s.name,
+              countryCode: s.countryCode,
+              latitude: s.latitude,
+              longitude: s.longitude,
+              arrivalDate: s.arrivalDate,
+              departureDate: s.departureDate,
+            }))}
           />
         )}
 
@@ -386,6 +401,7 @@ export function TripDetailPage() {
             {trip && trip.ownerId === user?.id && tripId && <SharePanel tripId={tripId} />}
           </div>
         )}
+        </div>
       </aside>
 
       {lightboxIndex !== null && (

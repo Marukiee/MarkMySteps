@@ -26,6 +26,23 @@
   font-family: var(--font-body);
 }
 
+.day-note-add {
+  justify-self: start;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px dashed var(--line);
+  transition: all 0.15s var(--ease);
+}
+
+.day-note-add:hover {
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .day-note-edit textarea {
   width: 100%;
   padding: 0.6rem 0.8rem;

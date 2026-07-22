@@ -300,9 +300,10 @@ export function PlanPage() {
                 <button
                   className={`leg-toggle ${stop.travelMode === 'FLIGHT' ? 'flight' : ''}`}
                   onClick={() => toggleMode(stop)}
-                  title="Wissel vervoer (auto/vlucht)"
+                  title="Klik om te wisselen tussen over land en vlucht"
                 >
-                  {stop.travelMode === 'FLIGHT' ? '✈' : '🚗'}
+                  <span className="leg-icon">{stop.travelMode === 'FLIGHT' ? '✈' : '🚗'}</span>
+                  {stop.travelMode === 'FLIGHT' ? 'Vlucht' : 'Over land'}
                 </button>
               )}
               <div
@@ -320,7 +321,11 @@ export function PlanPage() {
                     {stop.latitude !== null && stop.longitude !== null && (
                       <>
                         {' · '}
-                        <WeatherBadge lat={stop.latitude} lon={stop.longitude} />
+                        <WeatherBadge
+                          lat={stop.latitude}
+                          lon={stop.longitude}
+                          day={stop.arrivalDate}
+                        />
                       </>
                     )}
                   </span>

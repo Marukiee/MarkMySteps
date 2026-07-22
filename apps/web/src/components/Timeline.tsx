@@ -1,9 +1,19 @@
 import { useMemo } from 'react';
 import type { MediaItem } from '../api/types';
-import { colorForUser, formatDay } from '../lib/colors';
+import { colorForUser, flagEmoji, formatDay } from '../lib/colors';
 import { AuthImage } from './AuthImage';
 import { DayNote, TripNote } from './DayNote';
+import { WeatherBadge } from './WeatherBadge';
 import './timeline.css';
+
+export interface TimelineStop {
+  name: string;
+  countryCode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  arrivalDate: string;
+  departureDate: string;
+}
 
 interface TimelineProps {
   media: MediaItem[];
@@ -16,6 +26,7 @@ interface TimelineProps {
   ownUserId?: string;
   onSaveNote?: (day: string, body: string) => Promise<void>;
   onDeleteNote?: (noteId: string) => Promise<void>;
+  stops?: TimelineStop[];
 }
 
 export function Timeline({
@@ -28,7 +39,26 @@ export function Timeline({
   ownUserId,
   onSaveNote,
   onDeleteNote,
+  stops = [],
 }: TimelineProps) {
+  // Resolve a day's location: prefer the planned stop covering that day,
+  // else the coordinates of the first photo taken that day.
+  const locationForDay = (day: string, dayMedia: MediaItem[]) => {
+    const stop = stops.find((s) => day >= s.arrivalDate && day < s.departureDate);
+    if (stop && stop.latitude !== null && stop.longitude !== null) {
+      return {
+        name: stop.name,
+        countryCode: stop.countryCode,
+        lat: stop.latitude,
+        lon: stop.longitude,
+      };
+    }
+    const withGps = dayMedia.find((m) => m.latitude !== null && m.longitude !== null);
+    if (withGps) {
+      return { name: null, countryCode: null, lat: withGps.latitude!, lon: withGps.longitude! };
+    }
+    return null;
+  };
   const days = useMemo(() => {
     const groups = new Map<string, MediaItem[]>();
     for (const item of media) {
@@ -63,11 +93,25 @@ export function Timeline({
 
   return (
     <div className="timeline">
-      {days.map(([day, items]) => (
+      {days.map(([day, items]) => {
+        const loc = locationForDay(day, items);
+        return (
         <section key={day} className="timeline-day">
           <h3>
             <span className="timeline-dot" />
-            {formatDay(items[0]?.takenAt ?? day)}
+            <span className="timeline-day-label">
+              {formatDay(items[0]?.takenAt ?? day)}
+              {loc && (
+                <span className="timeline-day-meta">
+                  {loc.name && (
+                    <span className="timeline-place">
+                      {flagEmoji(loc.countryCode)} {loc.name}
+                    </span>
+                  )}
+                  <WeatherBadge lat={loc.lat} lon={loc.lon} day={day} />
+                </span>
+              )}
+            </span>
           </h3>
 
           {(canEditNotes || (notesByDay.get(day)?.length ?? 0) > 0) && onSaveNote && onDeleteNote && (
@@ -101,7 +145,8 @@ export function Timeline({
             ))}
           </div>
         </section>
-      ))}
+        );
+      })}
     </div>
   );
 }

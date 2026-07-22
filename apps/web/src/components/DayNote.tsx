@@ -59,20 +59,26 @@ export function DayNote({ day, notes, canEdit, ownUserId, onSave, onDelete }: Da
         </blockquote>
       )}
 
-      {canEdit && (editing || !own) && (
+      {/* Collapsed prompt until clicked, so the timeline stays clean. */}
+      {canEdit && !own && !editing && (
+        <button className="day-note-add" onClick={() => setEditing(true)}>
+          ✎ Vertel iets over deze dag
+        </button>
+      )}
+
+      {canEdit && (editing || (own && editing)) && (
         <div className="day-note-edit">
           <textarea
+            autoFocus
             placeholder="Schrijf iets over deze dag…"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             rows={3}
           />
           <div className="day-note-actions">
-            {editing && (
-              <button onClick={() => setEditing(false)}>Annuleren</button>
-            )}
+            <button onClick={() => setEditing(false)}>Annuleren</button>
             <button className="primary" disabled={busy || !draft.trim()} onClick={() => void save()}>
-              {own ? 'Opslaan' : 'Toevoegen'}
+              Opslaan
             </button>
           </div>
         </div>

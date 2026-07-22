@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
 import { fetchWeather, Weather } from '../lib/weather';
 
-/** Small current-weather chip for a located stop. */
-export function WeatherBadge({ lat, lon }: { lat: number; lon: number }) {
+/** Small weather chip for a located stop on a given day. */
+export function WeatherBadge({ lat, lon, day }: { lat: number; lon: number; day?: string }) {
   const [weather, setWeather] = useState<Weather | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetchWeather(lat, lon).then((w) => {
+    fetchWeather(lat, lon, day).then((w) => {
       if (!cancelled) setWeather(w);
     });
     return () => {
       cancelled = true;
     };
-  }, [lat, lon]);
+  }, [lat, lon, day]);
 
   if (!weather) return null;
   return (
