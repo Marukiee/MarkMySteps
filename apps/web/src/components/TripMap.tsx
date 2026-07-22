@@ -3,12 +3,14 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { fetchBlobUrl } from '../api/client';
 import type { MediaItem, RouteCollection } from '../api/types';
-import { colorForUser } from '../lib/colors';
+import { greatCircleArc, StopPoint } from '../lib/arc';
+import { colorForUser, flagEmoji } from '../lib/colors';
 import './tripmap.css';
 
 interface TripMapProps {
   routes: RouteCollection | null;
   media: MediaItem[];
+  stops?: StopPoint[];
   visibleUsers: Set<string>;
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
   onPhotoOpen?: (mediaId: string) => void;
@@ -20,6 +22,7 @@ interface TripMapProps {
 export function TripMap({
   routes,
   media,
+  stops,
   visibleUsers,
   onMapClick,
   onPhotoOpen,
@@ -30,6 +33,7 @@ export function TripMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const stopMarkersRef = useRef<maplibregl.Marker[]>([]);
   const loadedRef = useRef(false);
   const clickHandlerRef = useRef(onMapClick);
   clickHandlerRef.current = onMapClick;
@@ -49,6 +53,11 @@ export function TripMap({
       attributionControl: { compact: true },
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    map.on('style.load', () => {
+      // Globe projection: zoomed out shows a 3D globe, zooming in eases to a
+      // flat map — MapLibre handles the transition natively.
+      map.setProjection({ type: 'globe' });
+    });
     map.on('load', () => {
       loadedRef.current = true;
       // Trigger a re-render pass by dispatching a resize; route effect below
@@ -208,6 +217,71 @@ export function TripMap({
       map.off('zoomend', draw);
     };
   }, [media, visibleUsers]);
+
+  // Planned stops: numbered/flag markers + connecting legs (flights as arcs).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const apply = () => {
+      for (const marker of stopMarkersRef.current) marker.remove();
+      stopMarkersRef.current = [];
+      for (const layerId of map.getLayersOrder().filter((l) => l.startsWith('leg-'))) {
+        map.removeLayer(layerId);
+      }
+      for (const sourceId of Object.keys(map.getStyle().sources).filter((s) =>
+        s.startsWith('leg-'),
+      )) {
+        map.removeSource(sourceId);
+      }
+
+      const located = (stops ?? []).filter(
+        (s) => s.latitude !== null && s.longitude !== null,
+      );
+
+      for (let i = 0; i < located.length; i++) {
+        const stop = located[i]!;
+        const el = document.createElement('div');
+        el.className = 'stop-marker';
+        el.textContent = flagEmoji(stop.countryCode) || String(stop.orderIndex + 1);
+        stopMarkersRef.current.push(
+          new maplibregl.Marker({ element: el })
+            .setLngLat([stop.longitude!, stop.latitude!])
+            .setPopup(new maplibregl.Popup({ offset: 18 }).setText(stop.name))
+            .addTo(map),
+        );
+
+        // Leg from the previous stop to this one.
+        if (i > 0) {
+          const prev = located[i - 1]!;
+          const from: [number, number] = [prev.longitude!, prev.latitude!];
+          const to: [number, number] = [stop.longitude!, stop.latitude!];
+          const isFlight = stop.travelMode === 'FLIGHT';
+          const id = `leg-${stop.id}`;
+          map.addSource(id, {
+            type: 'geojson',
+            data: isFlight
+              ? greatCircleArc(from, to)
+              : { type: 'Feature', geometry: { type: 'LineString', coordinates: [from, to] }, properties: {} },
+          });
+          map.addLayer({
+            id,
+            type: 'line',
+            source: id,
+            paint: {
+              'line-color': isFlight ? '#5b6ee1' : '#8a94a3',
+              'line-width': isFlight ? 2.5 : 2,
+              'line-dasharray': isFlight ? [1, 1.5] : [2, 2],
+            },
+            layout: { 'line-cap': 'round' },
+          });
+        }
+      }
+    };
+
+    if (map.isStyleLoaded()) apply();
+    else map.once('load', apply);
+  }, [stops]);
 
   return (
     <div

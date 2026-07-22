@@ -4,6 +4,7 @@ import { DragEvent, FormEvent, useCallback, useEffect, useRef, useState } from '
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
+import { greatCircleArc } from '../lib/arc';
 import { flagEmoji, formatDate } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
@@ -20,6 +21,7 @@ interface PlannedStop {
   latitude: number | null;
   longitude: number | null;
   countryCode: string | null;
+  travelMode: 'GROUND' | 'FLIGHT';
   arrivalDate: string;
   departureDate: string;
 }
@@ -60,6 +62,7 @@ export function PlanPage() {
       attributionControl: { compact: true },
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    map.on('style.load', () => map.setProjection({ type: 'globe' }));
     map.on('click', (e) => {
       setPendingCoords(e.lngLat);
       pendingMarkerRef.current?.remove();
@@ -103,27 +106,41 @@ export function PlanPage() {
         bounds.extend([stop.longitude!, stop.latitude!]);
       }
 
-      const lineData = {
-        type: 'Feature' as const,
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: located.map((s) => [s.longitude!, s.latitude!]),
-        },
-        properties: {},
+      // Legs: one line feature per pair, flights as great-circle arcs.
+      const legFeatures: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+      for (let i = 1; i < located.length; i++) {
+        const prev = located[i - 1]!;
+        const cur = located[i]!;
+        const from: [number, number] = [prev.longitude!, prev.latitude!];
+        const to: [number, number] = [cur.longitude!, cur.latitude!];
+        const feature =
+          cur.travelMode === 'FLIGHT'
+            ? greatCircleArc(from, to)
+            : ({
+                type: 'Feature',
+                geometry: { type: 'LineString', coordinates: [from, to] },
+                properties: {},
+              } as GeoJSON.Feature<GeoJSON.LineString>);
+        feature.properties = { flight: cur.travelMode === 'FLIGHT' };
+        legFeatures.push(feature);
+      }
+      const legData: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: legFeatures,
       };
       const existing = map.getSource('plan-line') as maplibregl.GeoJSONSource | undefined;
       if (existing) {
-        existing.setData(lineData);
+        existing.setData(legData);
       } else if (located.length >= 2) {
-        map.addSource('plan-line', { type: 'geojson', data: lineData });
+        map.addSource('plan-line', { type: 'geojson', data: legData });
         map.addLayer({
           id: 'plan-line',
           type: 'line',
           source: 'plan-line',
           paint: {
-            'line-color': '#e8613c',
+            'line-color': ['case', ['get', 'flight'], '#5b6ee1', '#e8613c'],
             'line-width': 2.5,
-            'line-dasharray': [0.5, 1.8],
+            'line-dasharray': [1, 1.6],
           },
           layout: { 'line-cap': 'round' },
         });
@@ -196,6 +213,16 @@ export function PlanPage() {
     }
   }
 
+  async function toggleMode(stop: PlannedStop) {
+    if (!tripId) return;
+    refresh(
+      await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, {
+        method: 'PATCH',
+        body: { travelMode: stop.travelMode === 'FLIGHT' ? 'GROUND' : 'FLIGHT' },
+      }),
+    );
+  }
+
   async function changeNights(stop: PlannedStop, delta: number) {
     if (!tripId) return;
     const nights = Math.max(0, stop.nights + delta);
@@ -245,7 +272,7 @@ export function PlanPage() {
         <Link to={`/trips/${tripId}`} className="muted plan-back">
           ← Terug naar de reis
         </Link>
-        <h1>{trip?.title ?? '…'} — planning</h1>
+        <h1>{trip?.title ?? '…'} — routeplanner</h1>
         {trip && (
           <p className="muted">
             {formatDate(trip.startDate)} — {formatDate(trip.endDate)} · versleep stops om te
@@ -256,37 +283,46 @@ export function PlanPage() {
 
         <ol className="stop-list">
           {stops.map((stop, index) => (
-            <li
-              key={stop.id}
-              className={`card stop-item ${dragIndex === index ? 'dragging' : ''}`}
-              draggable
-              onDragStart={() => onDragStart(index)}
-              onDragOver={(e) => onDragOver(e, index)}
-              onDragEnd={onDrop}
-            >
-              <span className="stop-number">{index + 1}</span>
-              <div className="stop-info">
-                <strong>
-                  {flagEmoji(stop.countryCode)} {stop.name}
-                </strong>
-                <span className="muted">
-                  {formatDate(stop.arrivalDate)} → {formatDate(stop.departureDate)}
-                </span>
-              </div>
-              <div className="stop-nights">
-                <button className="nights-btn" onClick={() => changeNights(stop, -1)}>
-                  −
+            <li key={stop.id} className="stop-row">
+              {index > 0 && (
+                <button
+                  className={`leg-toggle ${stop.travelMode === 'FLIGHT' ? 'flight' : ''}`}
+                  onClick={() => toggleMode(stop)}
+                  title="Wissel vervoer (auto/vlucht)"
+                >
+                  {stop.travelMode === 'FLIGHT' ? '✈' : '🚗'}
                 </button>
-                <span>
-                  {stop.nights} <small>nacht{stop.nights === 1 ? '' : 'en'}</small>
-                </span>
-                <button className="nights-btn" onClick={() => changeNights(stop, 1)}>
-                  +
+              )}
+              <div
+                className={`card stop-item ${dragIndex === index ? 'dragging' : ''}`}
+                draggable
+                onDragStart={() => onDragStart(index)}
+                onDragOver={(e) => onDragOver(e, index)}
+                onDragEnd={onDrop}
+              >
+                <span className="stop-number">{flagEmoji(stop.countryCode) || index + 1}</span>
+                <div className="stop-info">
+                  <strong>{stop.name}</strong>
+                  <span className="muted">
+                    {formatDate(stop.arrivalDate)} → {formatDate(stop.departureDate)}
+                  </span>
+                </div>
+                <div className="stop-nights">
+                  <button className="nights-btn" onClick={() => changeNights(stop, -1)}>
+                    −
+                  </button>
+                  <span className="nights-count">
+                    {stop.nights}
+                    <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
+                  </span>
+                  <button className="nights-btn" onClick={() => changeNights(stop, 1)}>
+                    +
+                  </button>
+                </div>
+                <button className="stop-delete" onClick={() => removeStop(stop)} title="Verwijderen">
+                  ✕
                 </button>
               </div>
-              <button className="stop-delete" onClick={() => removeStop(stop)} title="Verwijderen">
-                ✕
-              </button>
             </li>
           ))}
         </ol>

@@ -95,6 +95,121 @@
   font-size: 1.8rem;
 }
 
+.trip-hero {
+  position: relative;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  margin-bottom: 0.4rem;
+  box-shadow: var(--shadow-s);
+  animation: heroIn 0.5s var(--ease);
+}
+
+@keyframes heroIn {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.trip-hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.trip-hero-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1rem 1.15rem;
+  background: linear-gradient(to top, rgb(20 26 33 / 0.82), transparent 62%);
+  color: #fff;
+}
+
+.trip-hero-overlay h1 {
+  font-size: 1.7rem;
+  color: #fff;
+}
+
+.trip-hero-overlay p {
+  opacity: 0.9;
+  font-size: 0.9rem;
+}
+
+.trip-back-hero {
+  align-self: flex-start;
+  background: rgb(255 255 255 / 0.9);
+  color: var(--ink);
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: auto;
+}
+
+.trip-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.trip-stats .stat {
+  background: var(--paper-sunken);
+  border-radius: var(--radius-s);
+  padding: 0.6rem 0.4rem;
+  text-align: center;
+  display: grid;
+  gap: 1px;
+}
+
+.trip-stats .stat strong {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+}
+
+.trip-stats .stat span {
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+}
+
+.manage-stops {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.manage-stops li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.92rem;
+}
+
+.manage-stop-badge {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  display: grid;
+  place-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 .trip-back {
   font-weight: 600;
 }

@@ -3,14 +3,23 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { MediaItem, RouteCollection, SyncResult, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { AuthImage } from '../components/AuthImage';
 import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
 import { SharePanel } from '../components/SharePanel';
 import { Timeline } from '../components/Timeline';
 import { TripMap } from '../components/TripMap';
-import { colorForUser, formatDate } from '../lib/colors';
+import type { StopPoint } from '../lib/arc';
+import { colorForUser, flagEmoji, formatDate } from '../lib/colors';
 import { getMapStyle } from '../lib/prefs';
 import './tripdetail.css';
+
+interface TripStats {
+  distanceKm: number;
+  countries: string[];
+  days: number;
+  photoCount: number;
+}
 
 export function TripDetailPage() {
   const { tripId } = useParams<{ tripId: string }>();
@@ -27,6 +36,8 @@ export function TripDetailPage() {
   const [sideTab, setSideTab] = useState<'timeline' | 'manage'>('timeline');
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
+  const [stops, setStops] = useState<StopPoint[]>([]);
+  const [stats, setStats] = useState<TripStats | null>(null);
 
   const loadData = useCallback(() => {
     if (!tripId) return;
@@ -38,6 +49,8 @@ export function TripDetailPage() {
       .catch((err: Error) => setError(err.message));
     api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
     api<MediaItem[]>(`/trips/${tripId}/media`).then(setMedia).catch(() => undefined);
+    api<StopPoint[]>(`/trips/${tripId}/stops`).then(setStops).catch(() => undefined);
+    api<TripStats>(`/trips/${tripId}/stats`).then(setStats).catch(() => undefined);
   }, [tripId]);
 
   useEffect(loadData, [loadData]);
@@ -145,6 +158,7 @@ export function TripDetailPage() {
         <TripMap
           routes={routes}
           media={media}
+          stops={stops}
           visibleUsers={visibleUsers}
           onMapClick={handleMapClick}
           onPhotoOpen={openPhoto}
@@ -203,23 +217,65 @@ export function TripDetailPage() {
       </div>
 
       <aside className="trip-side">
-        <Link to="/" className="trip-back muted">
-          ← Alle reizen
-        </Link>
-        <h1>{trip?.title ?? '…'}</h1>
-        {trip && (
-          <p className="muted">
-            {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
-          </p>
+        {trip?.resolvedCoverId ? (
+          <div className="trip-hero">
+            <AuthImage
+              path={`/media/${trip.resolvedCoverId}/thumbnail`}
+              alt=""
+              className="trip-hero-img"
+            />
+            <div className="trip-hero-overlay">
+              <Link to="/" className="trip-back-hero">
+                ← Alle reizen
+              </Link>
+              <h1>{trip.title}</h1>
+              <p>
+                {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Link to="/" className="trip-back muted">
+              ← Alle reizen
+            </Link>
+            <h1>{trip?.title ?? '…'}</h1>
+            {trip && (
+              <p className="muted">
+                {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
+              </p>
+            )}
+          </>
         )}
         {trip?.description && <p>{trip.description}</p>}
+
+        {stats && (
+          <div className="trip-stats">
+            <div className="stat">
+              <strong>{stats.distanceKm.toLocaleString('nl-NL')}</strong>
+              <span>km</span>
+            </div>
+            <div className="stat">
+              <strong>{stats.days}</strong>
+              <span>dagen</span>
+            </div>
+            <div className="stat">
+              <strong>{stats.countries.length}</strong>
+              <span>{stats.countries.map((c) => flagEmoji(c)).join('')} landen</span>
+            </div>
+            <div className="stat">
+              <strong>{stats.photoCount}</strong>
+              <span>foto's</span>
+            </div>
+          </div>
+        )}
 
         <div className="trip-actions">
           <button className="btn btn-primary" onClick={runSync} disabled={syncing}>
             {syncing ? 'Bezig…' : "Foto's syncen"}
           </button>
           <Link to={`/trips/${tripId}/plan`} className="btn btn-ghost">
-            Planning
+            Routeplanner
           </Link>
         </div>
         {syncMessage && <p className="muted">{syncMessage}</p>}
@@ -251,8 +307,25 @@ export function TripDetailPage() {
         {sideTab === 'manage' && (
           <div className="manage-panel">
             <section className="manage-section">
-              <h2 className="trip-side-heading">Route</h2>
+              <h2 className="trip-side-heading">Route &amp; stops</h2>
+              {stops.length > 0 && (
+                <ol className="manage-stops">
+                  {stops.map((stop, i) => (
+                    <li key={stop.id}>
+                      <span className="manage-stop-badge">
+                        {stop.travelMode === 'FLIGHT' ? '✈' : i + 1}
+                      </span>
+                      <span>
+                        {flagEmoji(stop.countryCode)} {stop.name}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
               <div className="trip-actions">
+                <Link to={`/trips/${tripId}/plan`} className="btn btn-ghost">
+                  Stops &amp; vluchten bewerken
+                </Link>
                 <button
                   className={`btn ${addPointMode ? 'btn-primary' : 'btn-ghost'}`}
                   onClick={() => {

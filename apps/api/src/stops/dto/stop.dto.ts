@@ -1,6 +1,7 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -11,6 +12,11 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+
+export enum TravelModeDto {
+  GROUND = 'GROUND',
+  FLIGHT = 'FLIGHT',
+}
 
 export class CreateStopDto {
   @IsString()
@@ -44,6 +50,10 @@ export class CreateStopDto {
   @IsString()
   @Length(2, 2)
   countryCode?: string;
+
+  @IsOptional()
+  @IsEnum(TravelModeDto)
+  travelMode?: TravelModeDto;
 
   /** Insert after this stop; omitted = append at the end. */
   @IsOptional()
@@ -84,6 +94,10 @@ export class UpdateStopDto {
   @IsString()
   @Length(2, 2)
   countryCode?: string;
+
+  @IsOptional()
+  @IsEnum(TravelModeDto)
+  travelMode?: TravelModeDto;
 }
 
 export class ReorderStopsDto {

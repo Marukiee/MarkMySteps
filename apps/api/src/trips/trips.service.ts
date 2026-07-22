@@ -41,24 +41,24 @@ const MEMBERS_INCLUDE = {
   },
 } as const;
 
+export interface TripStats {
+  distanceKm: number;
+  countries: string[];
+  days: number;
+  photoCount: number;
+}
+
 type RawStop = { latitude: number | null; longitude: number | null };
 
+type RawTripRow = Trip & {
+  members: RawMember[];
+  mediaRefs: { id: string }[];
+  stops: RawStop[];
+};
+
 /** Maps Prisma rows (avatarMime, mediaRefs, stops) to the API shape. */
-function mapMembers<
-  T extends {
-    members: RawMember[];
-    coverMediaId: string | null;
-    mediaRefs: { id: string }[];
-    stops: RawStop[];
-  },
->(
-  trip: T,
-): Omit<T, 'members' | 'mediaRefs' | 'stops'> & {
-  members: TripMemberView[];
-  resolvedCoverId: string | null;
-  anchor: [number, number] | null;
-} {
-  const { mediaRefs, stops, ...rest } = trip;
+function mapMembers(trip: RawTripRow): TripWithMembers {
+  const { mediaRefs, stops, members, ...rest } = trip;
   const stop = stops[0];
   const anchor: [number, number] | null =
     stop?.latitude != null && stop.longitude != null ? [stop.longitude, stop.latitude] : null;
@@ -66,7 +66,7 @@ function mapMembers<
     ...rest,
     resolvedCoverId: trip.coverMediaId ?? mediaRefs[0]?.id ?? null,
     anchor,
-    members: trip.members.map((m) => ({
+    members: members.map((m) => ({
       userId: m.userId,
       role: m.role,
       user: {
@@ -156,6 +156,40 @@ export class TripsService {
       include: MEMBERS_INCLUDE,
     });
     return mapMembers(updated);
+  }
+
+  /** Headline numbers for the trip: distance, countries, days, photos. */
+  async getStats(tripId: string, userId: string): Promise<TripStats> {
+    const trip = await this.getForMember(tripId, userId);
+
+    const [distanceRow] = await this.prisma.$queryRaw<{ meters: number | null }[]>`
+      SELECT ST_Length(
+        ST_MakeLine(geom ORDER BY "recordedAt")::geography
+      ) AS meters
+      FROM location_points
+      WHERE "tripId" = ${tripId}::uuid
+    `;
+
+    const [photoCount, stopCountries] = await Promise.all([
+      this.prisma.mediaRef.count({ where: { tripId } }),
+      this.prisma.stop.findMany({
+        where: { tripId, countryCode: { not: null } },
+        select: { countryCode: true },
+        distinct: ['countryCode'],
+      }),
+    ]);
+
+    const days =
+      Math.round(
+        (trip.endDate.getTime() - trip.startDate.getTime()) / 86_400_000,
+      ) + 1;
+
+    return {
+      distanceKm: Math.round((distanceRow?.meters ?? 0) / 1000),
+      countries: stopCountries.map((s) => s.countryCode!).filter(Boolean),
+      days,
+      photoCount,
+    };
   }
 
   async remove(tripId: string, userId: string): Promise<void> {

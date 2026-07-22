@@ -17,7 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AddMemberDto } from './dto/add-member.dto';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
-import { TripsService, TripWithMembers } from './trips.service';
+import { TripsService, TripStats, TripWithMembers } from './trips.service';
 
 @Controller('trips')
 @UseGuards(JwtAuthGuard)
@@ -40,6 +40,14 @@ export class TripsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<TripWithMembers> {
     return this.trips.getForMember(id, user.sub);
+  }
+
+  @Get(':id/stats')
+  stats(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TripStats> {
+    return this.trips.getStats(id, user.sub);
   }
 
   @Patch(':id')

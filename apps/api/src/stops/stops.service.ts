@@ -70,6 +70,7 @@ export class StopsService {
           latitude: dto.latitude,
           longitude: dto.longitude,
           countryCode: dto.countryCode?.toUpperCase(),
+          travelMode: dto.travelMode,
           notes: dto.notes?.trim(),
           orderIndex: insertAt,
         },
@@ -95,6 +96,7 @@ export class StopsService {
         latitude: dto.latitude,
         longitude: dto.longitude,
         countryCode: dto.countryCode?.toUpperCase(),
+        travelMode: dto.travelMode,
         notes: dto.notes?.trim(),
       },
     });
