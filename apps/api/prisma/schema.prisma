@@ -1,0 +1,45 @@
+// MarkMySteps — Prisma schema
+// M1 scope: users + refresh tokens. Trip/Stop/LocationPoint/MediaRef land in
+// later milestones; the PostGIS extension is enabled from the start so geo
+// columns can be added without a disruptive migration.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  // postgis_topology / fuzzystrmatch / tiger geocoder are pre-installed by the
+  // postgis/postgis Docker image; declaring them prevents false drift detection.
+  extensions = [postgis, postgis_topology, fuzzystrmatch, postgis_tiger_geocoder]
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  displayName  String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  // SHA-256 hash of the opaque token; the raw value is only ever held by the client.
+  tokenHash String   @unique
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  // Set when the token is used or explicitly revoked (logout); enables reuse detection.
+  revokedAt DateTime?
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}

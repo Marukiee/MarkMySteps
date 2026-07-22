@@ -1,0 +1,29 @@
+# Development database only. API + web run on the host (pnpm dev).
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# The localhost port mapping is a DEV convenience; the production compose file
+# (docker-compose.yml) exposes no database ports at all.
+
+name: markmysteps-dev
+
+services:
+  db:
+    image: postgis/postgis:16-3.5-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: markmysteps
+      POSTGRES_USER: markmysteps
+      POSTGRES_PASSWORD: dev-only-password
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - db-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U markmysteps -d markmysteps']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  db-dev-data:

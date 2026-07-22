@@ -1,0 +1,38 @@
+/* Temporary M1 shell — the real design system lands in M4. */
+
+:root {
+  --bg: #10151b;
+  --fg: #e8edf2;
+  --muted: #8fa1b3;
+  --accent: #e8734a;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+}
+
+.shell {
+  display: grid;
+  place-content: center;
+  gap: 0.5rem;
+  min-height: 100vh;
+  text-align: center;
+}
+
+.tagline {
+  color: var(--muted);
+}
+
+.status {
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--accent);
+}

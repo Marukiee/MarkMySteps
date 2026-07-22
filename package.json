@@ -1,0 +1,19 @@
+{
+  "name": "markmysteps",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted, open-source travel tracker — a lightweight shell over your Immich server.",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@11.15.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @markmysteps/api --filter @markmysteps/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "db:migrate": "pnpm --filter @markmysteps/api db:migrate",
+    "db:studio": "pnpm --filter @markmysteps/api db:studio"
+  }
+}
