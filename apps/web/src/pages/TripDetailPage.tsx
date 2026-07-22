@@ -251,6 +251,7 @@ export function TripDetailPage() {
       </div>
 
       <aside className="trip-side">
+        <div className="sheet-grab" aria-hidden="true" />
         {trip?.resolvedCoverId ? (
           <div className="trip-hero">
             <AuthImage

@@ -6,11 +6,83 @@
   height: calc(100vh - 57px); /* minus topbar */
 }
 
+.sheet-grab {
+  display: none;
+}
+
+/* --- Mobile / app: Polarsteps-style bottom sheet over a fixed map --- */
 @media (max-width: 900px) {
   .trip-detail {
-    grid-template-columns: 1fr;
-    grid-template-rows: 55vh auto;
+    display: block;
     height: auto;
+    padding: 0;
+  }
+
+  .trip-map-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60vh;
+    border-radius: 0;
+    z-index: 0;
+  }
+
+  .trip-side {
+    position: relative;
+    z-index: 1;
+    margin-top: 52vh;
+    min-height: 52vh;
+    background: var(--paper);
+    border-radius: var(--radius-l) var(--radius-l) 0 0;
+    box-shadow: 0 -8px 30px rgb(16 21 27 / 0.18);
+    padding: 0.5rem 1.15rem calc(80px + env(safe-area-inset-bottom));
+    overflow: visible;
+  }
+
+  .sheet-grab {
+    display: block;
+    width: 42px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--line);
+    margin: 0.5rem auto 0.75rem;
+  }
+
+  /* Person toggles sit on the fixed map. */
+  .person-toggles {
+    top: calc(0.9rem + env(safe-area-inset-top));
+  }
+
+  /* In the sheet the map is the visual — collapse the hero to a title. */
+  .trip-hero {
+    aspect-ratio: auto;
+    box-shadow: none;
+    margin: 0;
+  }
+
+  .trip-hero-img {
+    display: none;
+  }
+
+  .trip-hero-overlay {
+    position: static;
+    background: none;
+    color: var(--ink);
+    padding: 0;
+  }
+
+  .trip-hero-overlay h1 {
+    color: var(--ink);
+  }
+
+  .trip-hero-overlay p {
+    opacity: 1;
+    color: var(--ink-soft);
+  }
+
+  .trip-back-hero {
+    display: none;
   }
 }
 
