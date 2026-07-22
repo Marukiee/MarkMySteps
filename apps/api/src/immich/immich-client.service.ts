@@ -66,6 +66,9 @@ export class ImmichClientService {
           size: PAGE_SIZE,
           page: Number(page),
           withExif: true,
+          // Archived assets are deliberately hidden in Immich — keep them
+          // out of trip timelines too.
+          isArchived: false,
         },
       });
 

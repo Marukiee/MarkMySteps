@@ -29,6 +29,7 @@ model User {
   ownedTrips       Trip[]
   tripMemberships  TripMember[]
   mediaRefs        MediaRef[]
+  locationPoints   LocationPoint[]
 
   @@map("users")
 }
@@ -61,8 +62,9 @@ model Trip {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members   TripMember[]
-  mediaRefs MediaRef[]
+  members        TripMember[]
+  mediaRefs      MediaRef[]
+  locationPoints LocationPoint[]
 
   @@map("trips")
 }
@@ -82,6 +84,43 @@ model TripMember {
 
   @@id([tripId, userId])
   @@map("trip_members")
+}
+
+enum PointSource {
+  /// Recorded by the mobile background tracker
+  TRACKED
+  /// Placed by hand to complete a route
+  MANUAL
+  /// Imported from an external source (e.g. Polarsteps export)
+  IMPORTED
+}
+
+/// A single GPS fix on a trip route. Written in batches by the mobile
+/// tracker (offline buffer → idempotent upload via clientId), by hand,
+/// or by an importer.
+model LocationPoint {
+  id         String      @id @default(uuid()) @db.Uuid
+  /// Client-generated id; makes offline batch uploads idempotent.
+  clientId   String?
+  tripId     String      @db.Uuid
+  trip       Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId     String      @db.Uuid
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recordedAt DateTime
+  latitude   Float
+  longitude  Float
+  /// Horizontal accuracy in meters, if the device reported it.
+  accuracy   Float?
+  altitude   Float?
+  source     PointSource @default(TRACKED)
+  /// Generated column (see migration): ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
+  geom       Unsupported("geometry(Point, 4326)")?
+  createdAt  DateTime    @default(now())
+
+  @@unique([tripId, userId, clientId])
+  @@index([tripId, recordedAt])
+  @@index([geom], type: Gist)
+  @@map("location_points")
 }
 
 /// Reference to a photo/video that lives in Immich. MarkMySteps never stores

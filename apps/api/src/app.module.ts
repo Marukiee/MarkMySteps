@@ -8,7 +8,9 @@ import { CryptoModule } from './common/crypto/crypto.module';
 import { validateEnv } from './config/env.validation';
 import { HealthModule } from './health/health.module';
 import { ImmichModule } from './immich/immich.module';
+import { ImportModule } from './import/import.module';
 import { MediaModule } from './media/media.module';
+import { TrackingModule } from './tracking/tracking.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TripsModule } from './trips/trips.module';
 import { UsersModule } from './users/users.module';
@@ -31,6 +33,8 @@ import { UsersModule } from './users/users.module';
     TripsModule,
     ImmichModule,
     MediaModule,
+    TrackingModule,
+    ImportModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
