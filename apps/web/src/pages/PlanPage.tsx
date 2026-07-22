@@ -4,8 +4,9 @@ import { DragEvent, FormEvent, useCallback, useEffect, useRef, useState } from '
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
+import { CityThumb } from '../components/CityThumb';
 import { WeatherBadge } from '../components/WeatherBadge';
-import { greatCircleArc } from '../lib/arc';
+import { estimateDuration, greatCircleArc, haversineKm } from '../lib/arc';
 import { flagEmoji, formatDate } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
@@ -40,6 +41,13 @@ export function PlanPage() {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchTimerRef = useRef<number | null>(null);
+
+  const plannedNights = stops.reduce((sum, s) => sum + s.nights, 0);
+  const tripNights = trip
+    ? Math.round(
+        (new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86_400_000,
+      )
+    : 0;
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -277,8 +285,16 @@ export function PlanPage() {
           <h1>Routeplanner</h1>
           {trip && (
             <p className="muted">
-              {trip.title} · {stops.length} stop{stops.length === 1 ? '' : 's'}
+              {trip.title} · {formatDate(trip.startDate)} → {formatDate(trip.endDate)}
             </p>
+          )}
+          {trip && (
+            <div className="nights-planned">
+              <span className="nights-ring" data-full={plannedNights >= tripNights}>
+                ●
+              </span>
+              {plannedNights}/{tripNights} nachten gepland
+            </div>
           )}
         </div>
         {error && <p className="error-text">{error}</p>}
@@ -294,7 +310,20 @@ export function PlanPage() {
         )}
 
         <ol className="stop-list">
-          {stops.map((stop, index) => (
+          {stops.map((stop, index) => {
+            const prev = index > 0 ? stops[index - 1] : null;
+            const legKm =
+              prev &&
+              prev.latitude !== null &&
+              prev.longitude !== null &&
+              stop.latitude !== null &&
+              stop.longitude !== null
+                ? haversineKm(
+                    [prev.longitude, prev.latitude],
+                    [stop.longitude, stop.latitude],
+                  )
+                : null;
+            return (
             <li key={stop.id} className="stop-row">
               {index > 0 && (
                 <button
@@ -303,7 +332,16 @@ export function PlanPage() {
                   title="Klik om te wisselen tussen over land en vlucht"
                 >
                   <span className="leg-icon">{stop.travelMode === 'FLIGHT' ? '✈' : '🚗'}</span>
-                  {stop.travelMode === 'FLIGHT' ? 'Vlucht' : 'Over land'}
+                  {legKm !== null ? (
+                    <>
+                      {legKm.toLocaleString('nl-NL')} km
+                      <span className="leg-dur">· {estimateDuration(legKm, stop.travelMode)}</span>
+                    </>
+                  ) : stop.travelMode === 'FLIGHT' ? (
+                    'Vlucht'
+                  ) : (
+                    'Over land'
+                  )}
                 </button>
               )}
               <div
@@ -313,11 +351,12 @@ export function PlanPage() {
                 onDragOver={(e) => onDragOver(e, index)}
                 onDragEnd={onDrop}
               >
-                <span className="stop-number">{flagEmoji(stop.countryCode) || index + 1}</span>
+                <CityThumb name={stop.name} index={index} countryCode={stop.countryCode} />
                 <div className="stop-info">
                   <strong>{stop.name}</strong>
                   <span className="muted">
-                    {formatDate(stop.arrivalDate)} → {formatDate(stop.departureDate)}
+                    {formatDate(stop.arrivalDate)}
+                    {stop.nights > 0 && ` → ${formatDate(stop.departureDate)}`}
                     {stop.latitude !== null && stop.longitude !== null && (
                       <>
                         {' · '}
@@ -348,7 +387,8 @@ export function PlanPage() {
                 </button>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ol>
 
         <form className="card stop-add" onSubmit={addStop}>
