@@ -36,6 +36,8 @@ export interface Trip {
   coverMediaId: string | null;
   resolvedCoverId: string | null;
   anchor: [number, number] | null;
+  distanceKm?: number;
+  autoTrack: boolean;
   ownerId: string;
   members: TripMember[];
 }

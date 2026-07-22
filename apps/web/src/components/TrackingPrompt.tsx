@@ -32,7 +32,13 @@ export function TrackingPrompt() {
           const end = new Date(t.endDate).getTime() + DAY;
           return now >= start - DAY && now <= end;
         });
-        setTrip(active ?? null);
+        if (!active) return;
+        // autoTrack trips start silently once begun; others show the prompt.
+        if (active.autoTrack && now >= new Date(active.startDate).getTime()) {
+          void startTracking(active.id);
+        } else {
+          setTrip(active);
+        }
       })
       .catch(() => undefined);
   }, []);

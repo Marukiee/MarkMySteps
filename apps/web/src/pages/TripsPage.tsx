@@ -135,12 +135,18 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
     onChanged();
   }
 
-  // A <div> with programmatic navigation instead of a <Link>: nesting the
-  // rename <form> inside an anchor makes Enter navigate instead of submit.
+  const month = new Date(trip.startDate).toLocaleDateString('nl-NL', { month: 'long' });
+  const year = new Date(trip.startDate).getFullYear();
+  const days =
+    Math.round(
+      (new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86_400_000,
+    ) + 1;
+
+  // Full-bleed photo card (Polarsteps-style): title + meta overlaid, ⋯ bottom-right.
   return (
     <div
-      className="card trip-card"
-      style={{ animationDelay: `${index * 40}ms` }}
+      className="trip-card"
+      style={{ animationDelay: `${index * 40}ms`, background: coverGradient(trip.id) }}
       role="link"
       tabIndex={0}
       onClick={() => {
@@ -150,67 +156,14 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
         if (e.key === 'Enter' && !renaming) navigate(`/trips/${trip.id}`);
       }}
     >
-      <div className="trip-card-cover" style={{ background: coverGradient(trip.id) }}>
-        {trip.resolvedCoverId && (
-          <AuthImage
-            path={`/media/${trip.resolvedCoverId}/thumbnail`}
-            alt=""
-            className="trip-card-photo"
-          />
-        )}
-        <span className="trip-card-dates">
-          {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
-        </span>
-        <div className="trip-card-menu" ref={menuRef} onClick={stop}>
-          <button
-            className="trip-menu-btn"
-            aria-label="Reis-opties"
-            onClick={(e) => {
-              stop(e);
-              setMenuOpen((v) => !v);
-            }}
-          >
-            ⋯
-          </button>
-          {menuOpen && (
-            <div className="trip-menu card fade-in">
-              {isOwner ? (
-                <>
-                  <button
-                    onClick={(e) => {
-                      stop(e);
-                      setMenuOpen(false);
-                      setRenaming(true);
-                    }}
-                  >
-                    Hernoemen
-                  </button>
-                  <button
-                    className="trip-menu-danger"
-                    onClick={(e) => {
-                      stop(e);
-                      void remove();
-                    }}
-                  >
-                    Verwijderen
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="trip-menu-danger"
-                  onClick={(e) => {
-                    stop(e);
-                    void leave();
-                  }}
-                >
-                  Reis verlaten
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="trip-card-body">
+      {trip.resolvedCoverId && (
+        <AuthImage
+          path={`/media/${trip.resolvedCoverId}/thumbnail`}
+          alt=""
+          className="trip-card-photo"
+        />
+      )}
+      <div className="trip-card-overlay">
         {renaming ? (
           <form onSubmit={rename} onClick={stop} className="trip-rename">
             <input
@@ -230,18 +183,94 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
         ) : (
           <h2>{trip.title}</h2>
         )}
-        {trip.description && <p className="muted">{trip.description}</p>}
-        <div className="trip-card-members">
-          {trip.members.map((m) => (
-            <span
-              key={m.userId}
-              className="member-dot"
-              style={{ background: colorForUser(m.userId) }}
-              title={m.user.displayName}
-            >
-              {m.user.displayName[0]}
-            </span>
-          ))}
+        <div className="trip-card-meta">
+          <div className="tcm">
+            <strong>
+              {month} <small>{year}</small>
+            </strong>
+          </div>
+          <div className="tcm">
+            <strong>
+              {days} <small>dagen</small>
+            </strong>
+          </div>
+          {trip.distanceKm != null && trip.distanceKm > 0 && (
+            <div className="tcm">
+              <strong>
+                {trip.distanceKm.toLocaleString('nl-NL')} <small>km</small>
+              </strong>
+            </div>
+          )}
+          <div className="trip-card-members">
+            {trip.members.map((m) => (
+              <span
+                key={m.userId}
+                className="member-dot"
+                style={{ background: colorForUser(m.userId) }}
+                title={m.user.displayName}
+              >
+                {m.user.displayName[0]}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="trip-card-menu" ref={menuRef} onClick={stop}>
+          <button
+            className="trip-menu-btn"
+            aria-label="Reis-opties"
+            onClick={(e) => {
+              stop(e);
+              setMenuOpen((v) => !v);
+            }}
+          >
+            ⋯
+          </button>
+          {menuOpen && (
+            <div className="trip-menu card fade-in">
+              {isOwner && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      stop(e);
+                      navigate(`/trips/${trip.id}/settings`);
+                    }}
+                  >
+                    Instellingen
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      stop(e);
+                      setMenuOpen(false);
+                      setRenaming(true);
+                    }}
+                  >
+                    Hernoemen
+                  </button>
+                  <button
+                    className="trip-menu-danger"
+                    onClick={(e) => {
+                      stop(e);
+                      void remove();
+                    }}
+                  >
+                    Verwijderen
+                  </button>
+                </>
+              )}
+              {!isOwner && (
+                <button
+                  className="trip-menu-danger"
+                  onClick={(e) => {
+                    stop(e);
+                    void leave();
+                  }}
+                >
+                  Reis verlaten
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -77,6 +77,8 @@ model Trip {
   endDate     DateTime @db.Date
   /// MediaRef used as the card/hero cover; falls back to a gradient.
   coverMediaId String? @db.Uuid
+  /// Auto-start route tracking (native app) once the trip has begun.
+  autoTrack    Boolean @default(false)
   ownerId     String   @db.Uuid
   owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())

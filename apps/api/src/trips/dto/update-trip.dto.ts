@@ -1,5 +1,5 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsOptional, IsUUID, ValidateIf } from 'class-validator';
+import { IsBoolean, IsOptional, IsUUID, ValidateIf } from 'class-validator';
 import { CreateTripDto } from './create-trip.dto';
 
 export class UpdateTripDto extends PartialType(CreateTripDto) {
@@ -8,4 +8,8 @@ export class UpdateTripDto extends PartialType(CreateTripDto) {
   @ValidateIf((_, value) => value !== null)
   @IsUUID()
   coverMediaId?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  autoTrack?: boolean;
 }

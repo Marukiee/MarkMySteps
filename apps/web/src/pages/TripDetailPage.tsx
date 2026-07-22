@@ -317,6 +317,11 @@ export function TripDetailPage() {
           <Link to={`/trips/${tripId}/plan`} className="btn btn-ghost">
             Routeplanner
           </Link>
+          {trip?.ownerId === user?.id && (
+            <Link to={`/trips/${tripId}/settings`} className="btn btn-ghost" aria-label="Instellingen">
+              ⚙
+            </Link>
+          )}
         </div>
         {syncMessage && <p className="muted">{syncMessage}</p>}
 

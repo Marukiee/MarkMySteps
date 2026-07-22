@@ -20,6 +20,8 @@ export type TripWithMembers = Trip & {
   resolvedCoverId: string | null;
   /** [lng, lat] anchor for the globe, if any stop has coordinates. */
   anchor: [number, number] | null;
+  /** Route distance in km (0 when unknown); only populated by listForUser. */
+  distanceKm?: number;
 };
 
 const MEMBERS_INCLUDE = {
@@ -110,7 +112,20 @@ export class TripsService {
       orderBy: { startDate: 'desc' },
       include: MEMBERS_INCLUDE,
     });
-    return trips.map(mapMembers);
+    if (trips.length === 0) return [];
+
+    // One grouped query for route distance per trip (cheap panel stat).
+    const distances = await this.prisma.$queryRaw<{ tripId: string; meters: number | null }[]>`
+      SELECT "tripId", ST_Length(ST_MakeLine(geom ORDER BY "recordedAt")::geography) AS meters
+      FROM location_points
+      WHERE "tripId" = ANY(${trips.map((t) => t.id)}::uuid[])
+      GROUP BY "tripId"
+    `;
+    const kmByTrip = new Map(
+      distances.map((d) => [d.tripId, Math.round((d.meters ?? 0) / 1000)]),
+    );
+
+    return trips.map((t) => ({ ...mapMembers(t), distanceKm: kmByTrip.get(t.id) ?? 0 }));
   }
 
   /** Returns the trip if `userId` is a member; 404 otherwise (no existence leak). */
@@ -152,6 +167,7 @@ export class TripsService {
         startDate,
         endDate,
         ...(dto.coverMediaId !== undefined ? { coverMediaId: dto.coverMediaId } : {}),
+        ...(dto.autoTrack !== undefined ? { autoTrack: dto.autoTrack } : {}),
       },
       include: MEMBERS_INCLUDE,
     });

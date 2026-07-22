@@ -35,6 +35,30 @@
 * {
   box-sizing: border-box;
   margin: 0;
+  /* Kill the blue tap-highlight square on Android/iOS WebViews. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* UI chrome shouldn't be text-selectable like a document; inputs/content stay. */
+button,
+.btn,
+.topbar,
+.bottomnav,
+nav,
+.trip-card-overlay,
+.side-tabs,
+.leg-toggle,
+.nights-btn {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+html {
+  overscroll-behavior-y: none;
 }
 
 html,

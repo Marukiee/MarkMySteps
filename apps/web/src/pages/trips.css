@@ -37,9 +37,14 @@
   gap: 1.25rem;
 }
 
+/* Full-bleed photo card, Polarsteps style. */
 .trip-card {
+  position: relative;
   overflow: hidden;
   border-radius: var(--radius-l);
+  aspect-ratio: 3 / 2;
+  cursor: pointer;
+  box-shadow: var(--shadow-s);
   transition:
     transform 0.25s var(--ease),
     box-shadow 0.25s var(--ease);
@@ -48,20 +53,7 @@
 
 .trip-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-m);
-}
-
-.trip-card {
-  cursor: pointer;
-}
-
-.trip-card-cover {
-  position: relative;
-  height: 120px;
-  display: flex;
-  align-items: flex-end;
-  padding: 0.75rem;
-  overflow: hidden;
+  box-shadow: var(--shadow-l);
 }
 
 .trip-card-photo {
@@ -72,14 +64,54 @@
   object-fit: cover;
 }
 
-.trip-card-dates {
-  position: relative;
+.trip-card-overlay {
+  position: absolute;
+  inset: 0;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1.1rem 1.25rem;
+  background: linear-gradient(to top, rgb(16 21 27 / 0.78), rgb(16 21 27 / 0.05) 55%, transparent);
+  color: #fff;
+}
+
+.trip-card-overlay h2 {
+  font-size: 1.6rem;
+  color: #fff;
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.4);
+}
+
+.trip-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  margin-top: 0.55rem;
+}
+
+.tcm strong {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.tcm small {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.72rem;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.trip-card-meta .trip-card-members {
+  margin-left: auto;
 }
 
 /* Single dashed "add trip" slot. */
 .trip-ghost {
-  height: 236px;
+  aspect-ratio: 3 / 2;
+  height: auto;
   border: 2px dashed #cdbfa8;
   border-radius: var(--radius-l);
   display: grid;
@@ -114,18 +146,19 @@
 
 .trip-card-menu {
   position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
+  bottom: 0.8rem;
+  right: 0.9rem;
+  z-index: 2;
 }
 
 .trip-menu-btn {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: rgb(255 255 255 / 0.85);
-  backdrop-filter: blur(4px);
+  background: rgb(255 255 255 / 0.9);
+  backdrop-filter: blur(6px);
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.1rem;
   color: var(--ink);
   display: grid;
   place-content: center;
@@ -135,7 +168,7 @@
 .trip-menu {
   position: absolute;
   right: 0;
-  top: 36px;
+  bottom: 42px;
   z-index: 20;
   min-width: 150px;
   padding: 0.35rem;

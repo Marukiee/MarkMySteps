@@ -9,6 +9,7 @@ import { FriendsPage } from './pages/FriendsPage';
 import { LoginPage } from './pages/LoginPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { PlanPage } from './pages/PlanPage';
+import { TripSettingsPage } from './pages/TripSettingsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SharePage } from './pages/SharePage';
 import { TripDetailPage } from './pages/TripDetailPage';
@@ -57,6 +58,7 @@ export function App() {
           <Route path="/" element={<TripsPage />} />
           <Route path="/trips/:tripId" element={<TripDetailPage />} />
           <Route path="/trips/:tripId/plan" element={<PlanPage />} />
+          <Route path="/trips/:tripId/settings" element={<TripSettingsPage />} />
           <Route path="/friends" element={<FriendsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
