@@ -9,6 +9,7 @@ export interface SyncResult {
   usersSynced: number;
   assetsFound: number;
   assetsAdded: number;
+  assetsRemoved: number;
 }
 
 /** Extra window after a trip's end date; photos often sync to Immich late. */
@@ -66,7 +67,13 @@ export class ImmichSyncService {
     const from = trip.startDate;
     const to = new Date(trip.endDate.getTime() + DAY_MS);
 
-    const result: SyncResult = { tripId, usersSynced: 0, assetsFound: 0, assetsAdded: 0 };
+    const result: SyncResult = {
+      tripId,
+      usersSynced: 0,
+      assetsFound: 0,
+      assetsAdded: 0,
+      assetsRemoved: 0,
+    };
 
     for (const { userId } of trip.members) {
       const credentials = await this.connections.getCredentials(userId);
@@ -98,6 +105,21 @@ export class ImmichSyncService {
             skipDuplicates: true,
           });
           result.assetsAdded += count;
+        }
+
+        // Reconcile: drop references that Immich no longer returns for this
+        // range — assets that were archived or deleted since the last sync.
+        // (searchAssets caps at MAX_PAGES; the guard prevents mass-deletion
+        // on a truncated result.)
+        if (assets.length < 250 * 40) {
+          const { count: removed } = await this.prisma.mediaRef.deleteMany({
+            where: {
+              tripId,
+              userId,
+              immichAssetId: { notIn: assets.map((a) => a.id) },
+            },
+          });
+          result.assetsRemoved += removed;
         }
 
         await this.connections.recordSyncResult(userId, null);

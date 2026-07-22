@@ -15,14 +15,14 @@ export class AuthController {
   @Post('register')
   @Throttle(CREDENTIAL_THROTTLE)
   register(@Body() dto: RegisterDto): Promise<AuthTokens> {
-    return this.auth.register(dto.email, dto.displayName, dto.password);
+    return this.auth.register(dto.email, dto.username, dto.displayName, dto.password);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle(CREDENTIAL_THROTTLE)
   login(@Body() dto: LoginDto): Promise<AuthTokens> {
-    return this.auth.login(dto.email, dto.password);
+    return this.auth.login(dto.identifier, dto.password);
   }
 
   @Post('refresh')

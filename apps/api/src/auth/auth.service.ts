@@ -29,24 +29,43 @@ export class AuthService {
     this.refreshTtlMs = parseDuration(config.get<string>('REFRESH_TOKEN_EXPIRES_IN') ?? '30d');
   }
 
-  async register(email: string, displayName: string, password: string): Promise<AuthTokens> {
+  async register(
+    email: string,
+    username: string,
+    displayName: string,
+    password: string,
+  ): Promise<AuthTokens> {
     const normalizedEmail = email.trim().toLowerCase();
-    const existing = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    const normalizedUsername = username.trim().toLowerCase();
+    const existing = await this.prisma.user.findFirst({
+      where: { OR: [{ email: normalizedEmail }, { username: normalizedUsername }] },
+    });
     if (existing) {
-      throw new ConflictException('An account with this email already exists');
+      throw new ConflictException(
+        existing.email === normalizedEmail
+          ? 'An account with this email already exists'
+          : 'This username is taken',
+      );
     }
 
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
     const user = await this.prisma.user.create({
-      data: { email: normalizedEmail, displayName: displayName.trim(), passwordHash },
+      data: {
+        email: normalizedEmail,
+        username: normalizedUsername,
+        displayName: displayName.trim(),
+        passwordHash,
+      },
     });
 
     return this.issueTokens(user.id, user.email);
   }
 
-  async login(email: string, password: string): Promise<AuthTokens> {
-    const user = await this.prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
+  /** `identifier` is an email address or a username. */
+  async login(identifier: string, password: string): Promise<AuthTokens> {
+    const normalized = identifier.trim().toLowerCase();
+    const user = await this.prisma.user.findFirst({
+      where: normalized.includes('@') ? { email: normalized } : { username: normalized },
     });
 
     // Verify against a dummy hash when the user doesn't exist, so response

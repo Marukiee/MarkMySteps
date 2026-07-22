@@ -7,7 +7,7 @@ import './members.css';
 
 export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () => void }) {
   const { user } = useAuth();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const isOwner = trip.ownerId === user?.id;
@@ -17,8 +17,8 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
     setBusy(true);
     setError(null);
     try {
-      await api(`/trips/${trip.id}/members`, { method: 'POST', body: { email } });
-      setEmail('');
+      await api(`/trips/${trip.id}/members`, { method: 'POST', body: { username } });
+      setUsername('');
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Toevoegen mislukt');
@@ -26,6 +26,8 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
       setBusy(false);
     }
   }
+
+  const canRemove = (memberId: string) => isOwner && memberId !== user?.id;
 
   async function removeMember(memberId: string, name: string) {
     if (!window.confirm(`${name} uit de reis verwijderen?`)) return;
@@ -44,10 +46,10 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
             </span>
             <span className="members-name">
               {member.user.displayName}
-              {member.userId === user?.id && ' (ik)'}
+              <small> @{member.user.username}</small>
               {member.role === 'OWNER' && <small> · organisator</small>}
             </span>
-            {isOwner && member.userId !== user?.id && (
+            {canRemove(member.userId) && (
               <button
                 className="members-remove"
                 onClick={() => void removeMember(member.userId, member.user.displayName)}
@@ -63,11 +65,10 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
       {isOwner && (
         <form className="members-add" onSubmit={addMember}>
           <input
-            type="email"
             required
-            placeholder="e-mail van je reisgenoot"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            placeholder="@gebruikersnaam"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
           />
           <button className="btn btn-ghost" disabled={busy}>
             + Toevoegen
@@ -75,12 +76,6 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
         </form>
       )}
       {error && <p className="error-text">{error}</p>}
-      {isOwner && (
-        <p className="muted members-hint">
-          Je reisgenoot maakt eerst zelf een account aan op deze server; daarna voeg je ze hier toe
-          op e-mailadres. Hun route en foto's komen dan in deze reis.
-        </p>
-      )}
     </section>
   );
 }

@@ -13,8 +13,8 @@ import type { AuthTokens, User } from '../api/types';
 interface AuthState {
   user: User | null;
   ready: boolean;
-  login(email: string, password: string): Promise<void>;
-  register(email: string, displayName: string, password: string): Promise<void>;
+  login(identifier: string, password: string): Promise<void>;
+  register(email: string, username: string, displayName: string, password: string): Promise<void>;
   logout(): void;
 }
 
@@ -41,23 +41,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setReady(true));
   }, [logout]);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (identifier: string, password: string) => {
     const tokens = await api<AuthTokens>('/auth/login', {
       method: 'POST',
-      body: { email, password },
+      body: { identifier, password },
     });
     setTokens(tokens.accessToken, tokens.refreshToken);
     setUser(await api<User>('/users/me'));
   }, []);
 
-  const register = useCallback(async (email: string, displayName: string, password: string) => {
-    const tokens = await api<AuthTokens>('/auth/register', {
-      method: 'POST',
-      body: { email, displayName, password },
-    });
-    setTokens(tokens.accessToken, tokens.refreshToken);
-    setUser(await api<User>('/users/me'));
-  }, []);
+  const register = useCallback(
+    async (email: string, username: string, displayName: string, password: string) => {
+      const tokens = await api<AuthTokens>('/auth/register', {
+        method: 'POST',
+        body: { email, username, displayName, password },
+      });
+      setTokens(tokens.accessToken, tokens.refreshToken);
+      setUser(await api<User>('/users/me'));
+    },
+    [],
+  );
 
   const value = useMemo(
     () => ({ user, ready, login, register, logout }),

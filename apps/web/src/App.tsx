@@ -6,6 +6,7 @@ import { FriendsPage } from './pages/FriendsPage';
 import { LoginPage } from './pages/LoginPage';
 import { PlanPage } from './pages/PlanPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { SharePage } from './pages/SharePage';
 import { TripDetailPage } from './pages/TripDetailPage';
 import { TripsPage } from './pages/TripsPage';
 
@@ -30,6 +31,7 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/s/:slug" element={<SharePage />} />
         <Route
           element={
             <RequireAuth>

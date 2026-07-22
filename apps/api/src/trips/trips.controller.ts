@@ -66,7 +66,7 @@ export class TripsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AddMemberDto,
   ): Promise<TripWithMembers> {
-    return this.trips.addMemberByEmail(id, user.sub, dto.email);
+    return this.trips.addMemberByUsername(id, user.sub, dto.username);
   }
 
   @Delete(':id/members/:memberId')

@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { MediaItem, RouteCollection, SyncResult, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
+import { SharePanel } from '../components/SharePanel';
 import { Timeline } from '../components/Timeline';
 import { TrackButton } from '../components/TrackButton';
 import { TripMap } from '../components/TripMap';
@@ -21,6 +23,7 @@ export function TripDetailPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [addPointMode, setAddPointMode] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
 
@@ -201,10 +204,24 @@ export function TripDetailPage() {
         {syncMessage && <p className="muted">{syncMessage}</p>}
 
         {trip && <MembersPanel trip={trip} onChanged={loadData} />}
+        {trip && trip.ownerId === user?.id && tripId && <SharePanel tripId={tripId} />}
 
         <h2 className="trip-side-heading">Tijdlijn</h2>
-        <Timeline media={visibleMedia} visibleUsers={visibleUsers} />
+        <Timeline
+          media={visibleMedia}
+          visibleUsers={visibleUsers}
+          onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
+        />
       </aside>
+
+      {lightboxIndex !== null && (
+        <Lightbox
+          items={visibleMedia}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onNavigate={setLightboxIndex}
+        />
+      )}
     </main>
   );
 }

@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getServerBase, setServerBase } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { DEFAULT_SERVER_URL } from '../config';
 import { isNative } from '../tracking/tracker';
 import './login.css';
 
@@ -11,6 +12,7 @@ export function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [server, setServer] = useState(getServerBase());
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -21,11 +23,11 @@ export function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      if (isNative()) setServerBase(server);
+      if (isNative()) setServerBase(server.trim() || DEFAULT_SERVER_URL);
       if (mode === 'login') {
         await login(email, password);
       } else {
-        await register(email, displayName, password);
+        await register(email, username, displayName, password);
       }
       navigate('/');
     } catch (err) {
@@ -66,37 +68,52 @@ export function LoginPage() {
             <input
               id="server"
               type="url"
-              required
-              placeholder="https://reis.markmaaktmedia.nl"
+              placeholder={DEFAULT_SERVER_URL}
               value={server}
               onChange={(e) => setServer(e.target.value)}
             />
+            <span className="muted">Leeg laten = standaard server</span>
           </div>
         )}
 
         <div className="field">
-          <label htmlFor="email">E-mail</label>
+          <label htmlFor="email">{mode === 'login' ? 'E-mail of gebruikersnaam' : 'E-mail'}</label>
           <input
             id="email"
-            type="email"
+            type={mode === 'login' ? 'text' : 'email'}
             required
-            autoComplete="email"
+            autoComplete={mode === 'login' ? 'username' : 'email'}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
 
         {mode === 'register' && (
-          <div className="field">
-            <label htmlFor="name">Naam</label>
-            <input
-              id="name"
-              required
-              autoComplete="name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          </div>
+          <>
+            <div className="field">
+              <label htmlFor="username">Gebruikersnaam</label>
+              <input
+                id="username"
+                required
+                pattern="[a-zA-Z0-9._\-]{3,30}"
+                autoComplete="username"
+                placeholder="bijv. mark"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+              <span className="muted">Hiermee voegen vrienden je toe aan reizen</span>
+            </div>
+            <div className="field">
+              <label htmlFor="name">Naam</label>
+              <input
+                id="name"
+                required
+                autoComplete="name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+            </div>
+          </>
         )}
 
         <div className="field">

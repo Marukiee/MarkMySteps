@@ -20,7 +20,13 @@ export class StopsService {
   ) {}
 
   async list(tripId: string, userId: string): Promise<PlannedStop[]> {
-    const trip = await this.trips.getForMember(tripId, userId);
+    await this.trips.getForMember(tripId, userId);
+    return this.listUnchecked(tripId);
+  }
+
+  /** No membership check — caller must have authorized access (share links). */
+  async listUnchecked(tripId: string): Promise<PlannedStop[]> {
+    const trip = await this.prisma.trip.findUniqueOrThrow({ where: { id: tripId } });
     const stops = await this.prisma.stop.findMany({
       where: { tripId },
       orderBy: { orderIndex: 'asc' },

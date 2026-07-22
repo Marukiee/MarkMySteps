@@ -1,10 +1,16 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface PublicUser {
   id: string;
   email: string;
+  username: string;
   displayName: string;
   createdAt: Date;
 }
@@ -12,6 +18,7 @@ export interface PublicUser {
 const PUBLIC_USER_SELECT = {
   id: true,
   email: true,
+  username: true,
   displayName: true,
   createdAt: true,
 } as const;
@@ -31,10 +38,19 @@ export class UsersService {
     return user;
   }
 
-  async updateProfile(id: string, displayName: string): Promise<PublicUser> {
+  async updateProfile(id: string, displayName: string, username?: string): Promise<PublicUser> {
+    const normalizedUsername = username?.trim().toLowerCase();
+    if (normalizedUsername) {
+      const taken = await this.prisma.user.findFirst({
+        where: { username: normalizedUsername, id: { not: id } },
+      });
+      if (taken) {
+        throw new ConflictException('This username is taken');
+      }
+    }
     return this.prisma.user.update({
       where: { id },
-      data: { displayName: displayName.trim() },
+      data: { displayName: displayName.trim(), username: normalizedUsername },
       select: PUBLIC_USER_SELECT,
     });
   }
@@ -56,17 +72,22 @@ export class UsersService {
     });
   }
 
-  /** Everyone you share at least one trip with. */
-  async listFriends(id: string): Promise<(PublicUser & { sharedTrips: number })[]> {
+  /** Everyone you share at least one trip with. Never exposes their email. */
+  async listFriends(
+    id: string,
+  ): Promise<{ id: string; username: string; displayName: string; sharedTrips: number }[]> {
     const rows = await this.prisma.tripMember.findMany({
       where: {
         userId: { not: id },
         trip: { members: { some: { userId: id } } },
       },
-      include: { user: { select: PUBLIC_USER_SELECT } },
+      include: { user: { select: { id: true, username: true, displayName: true } } },
     });
 
-    const byUser = new Map<string, PublicUser & { sharedTrips: number }>();
+    const byUser = new Map<
+      string,
+      { id: string; username: string; displayName: string; sharedTrips: number }
+    >();
     for (const row of rows) {
       const existing = byUser.get(row.userId);
       if (existing) existing.sharedTrips++;

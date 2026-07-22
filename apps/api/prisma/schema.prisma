@@ -19,6 +19,8 @@ datasource db {
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique
+  /// Unique handle for adding friends to trips (never exposes the email).
+  username     String   @unique
   displayName  String
   passwordHash String
   createdAt    DateTime @default(now())
@@ -66,6 +68,7 @@ model Trip {
   mediaRefs      MediaRef[]
   locationPoints LocationPoint[]
   stops          Stop[]
+  shareLinks     ShareLink[]
 
   @@map("trips")
 }
@@ -85,6 +88,20 @@ model TripMember {
 
   @@id([tripId, userId])
   @@map("trip_members")
+}
+
+/// Public, read-only share link for a trip. The slug is a high-entropy
+/// random token (unguessable URL); optionally protected with a password.
+model ShareLink {
+  id           String    @id @default(uuid()) @db.Uuid
+  tripId       String    @db.Uuid
+  trip         Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  slug         String    @unique
+  passwordHash String?
+  createdAt    DateTime  @default(now())
+
+  @@index([tripId])
+  @@map("share_links")
 }
 
 /// A planned stop on a trip. Dates are never stored — they are derived from

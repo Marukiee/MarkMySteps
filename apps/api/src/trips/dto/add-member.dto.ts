@@ -1,7 +1,7 @@
-import { IsEmail, MaxLength } from 'class-validator';
+import { IsString, Matches } from 'class-validator';
 
 export class AddMemberDto {
-  @IsEmail()
-  @MaxLength(254)
-  email: string;
+  @IsString()
+  @Matches(/^@?[a-zA-Z0-9._-]{3,30}$/, { message: 'Invalid username' })
+  username: string;
 }

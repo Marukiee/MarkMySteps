@@ -4,7 +4,15 @@ import { colorForUser, formatDay } from '../lib/colors';
 import { AuthImage } from './AuthImage';
 import './timeline.css';
 
-export function Timeline({ media, visibleUsers }: { media: MediaItem[]; visibleUsers: Set<string> }) {
+export function Timeline({
+  media,
+  visibleUsers,
+  onPhotoClick,
+}: {
+  media: MediaItem[];
+  visibleUsers: Set<string>;
+  onPhotoClick?: (item: MediaItem) => void;
+}) {
   const days = useMemo(() => {
     const groups = new Map<string, MediaItem[]>();
     for (const item of media) {
@@ -35,7 +43,12 @@ export function Timeline({ media, visibleUsers }: { media: MediaItem[]; visibleU
           </h3>
           <div className="timeline-grid">
             {items.map((item) => (
-              <figure key={item.id} className="timeline-photo">
+              <figure
+                key={item.id}
+                className="timeline-photo"
+                onClick={() => onPhotoClick?.(item)}
+                role={onPhotoClick ? 'button' : undefined}
+              >
                 <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="timeline-img" />
                 <span
                   className="timeline-owner"

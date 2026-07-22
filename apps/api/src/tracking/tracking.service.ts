@@ -106,6 +106,14 @@ export class TrackingService {
     options: { userIds?: string[]; tolerance?: number; includePhotos?: boolean } = {},
   ): Promise<RouteCollection> {
     await this.trips.getForMember(tripId, requesterId);
+    return this.getRoutesUnchecked(tripId, options);
+  }
+
+  /** No membership check — caller must have authorized access (share links). */
+  async getRoutesUnchecked(
+    tripId: string,
+    options: { userIds?: string[]; tolerance?: number; includePhotos?: boolean } = {},
+  ): Promise<RouteCollection> {
 
     const tolerance = Math.min(Math.abs(options.tolerance ?? DEFAULT_TOLERANCE), MAX_TOLERANCE);
     const includePhotos = options.includePhotos ?? true;

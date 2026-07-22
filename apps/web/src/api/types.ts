@@ -6,13 +6,22 @@ export interface AuthTokens {
 export interface User {
   id: string;
   email: string;
+  username: string;
   displayName: string;
 }
 
 export interface TripMember {
   userId: string;
   role: 'OWNER' | 'MEMBER';
-  user: { displayName: string; email: string };
+  user: { displayName: string; username: string };
+}
+
+export interface ShareLinkInfo {
+  id: string;
+  slug: string;
+  url: string;
+  hasPassword: boolean;
+  createdAt: string;
 }
 
 export interface Trip {

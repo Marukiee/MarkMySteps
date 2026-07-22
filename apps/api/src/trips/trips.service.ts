@@ -10,12 +10,12 @@ import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 
 export type TripWithMembers = Trip & {
-  members: { userId: string; role: TripRole; user: { displayName: string; email: string } }[];
+  members: { userId: string; role: TripRole; user: { displayName: string; username: string } }[];
 };
 
 const MEMBERS_INCLUDE = {
   members: {
-    include: { user: { select: { displayName: true, email: true } } },
+    include: { user: { select: { displayName: true, username: true } } },
   },
 } as const;
 
@@ -85,15 +85,19 @@ export class TripsService {
     await this.prisma.trip.delete({ where: { id: tripId } });
   }
 
-  async addMemberByEmail(tripId: string, userId: string, email: string): Promise<TripWithMembers> {
+  async addMemberByUsername(
+    tripId: string,
+    userId: string,
+    username: string,
+  ): Promise<TripWithMembers> {
     const trip = await this.getForMember(tripId, userId);
     this.assertOwner(trip, userId);
 
     const invitee = await this.prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
+      where: { username: username.trim().toLowerCase().replace(/^@/, '') },
     });
     if (!invitee) {
-      throw new NotFoundException('No account with that email on this server');
+      throw new NotFoundException('No account with that username on this server');
     }
 
     await this.prisma.tripMember.upsert({

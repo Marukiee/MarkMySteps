@@ -54,6 +54,7 @@
   border-radius: var(--radius-s);
   overflow: hidden;
   background: var(--paper-sunken);
+  cursor: pointer;
 }
 
 .timeline-img {

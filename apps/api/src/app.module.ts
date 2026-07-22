@@ -12,6 +12,7 @@ import { ImportModule } from './import/import.module';
 import { MediaModule } from './media/media.module';
 import { TrackingModule } from './tracking/tracking.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ShareModule } from './share/share.module';
 import { StopsModule } from './stops/stops.module';
 import { TripsModule } from './trips/trips.module';
 import { UsersModule } from './users/users.module';
@@ -37,6 +38,7 @@ import { UsersModule } from './users/users.module';
     TrackingModule,
     ImportModule,
     StopsModule,
+    ShareModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

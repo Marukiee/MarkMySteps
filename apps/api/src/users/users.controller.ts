@@ -18,7 +18,7 @@ export class UsersController {
 
   @Patch('me')
   updateProfile(@CurrentUser() user: JwtPayload, @Body() dto: UpdateProfileDto): Promise<PublicUser> {
-    return this.users.updateProfile(user.sub, dto.displayName);
+    return this.users.updateProfile(user.sub, dto.displayName, dto.username);
   }
 
   @Post('me/password')
@@ -32,7 +32,9 @@ export class UsersController {
   }
 
   @Get('friends')
-  friends(@CurrentUser() user: JwtPayload): Promise<(PublicUser & { sharedTrips: number })[]> {
+  friends(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ id: string; username: string; displayName: string; sharedTrips: number }[]> {
     return this.users.listFriends(user.sub);
   }
 }

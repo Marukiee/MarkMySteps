@@ -1,0 +1,56 @@
+.share-panel {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.share-hint {
+  margin-top: -0.4rem;
+}
+
+.share-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.share-url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.83rem;
+  color: var(--ink-soft);
+  font-family: ui-monospace, monospace;
+}
+
+.share-btn {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.82rem;
+}
+
+.share-delete {
+  color: var(--ink-faint);
+  padding: 0.25rem 0.4rem;
+  border-radius: 6px;
+}
+
+.share-delete:hover {
+  color: #b3402a;
+  background: #fbeae4;
+}
+
+.share-create {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.share-create input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.8rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+}

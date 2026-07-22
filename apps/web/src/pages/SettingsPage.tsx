@@ -19,6 +19,7 @@ export function SettingsPage() {
 function ProfileSection() {
   const { user, logout } = useAuth();
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
+  const [username, setUsername] = useState(user?.username ?? '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState<string | null>(null);
@@ -28,8 +29,8 @@ function ProfileSection() {
     event.preventDefault();
     setError(null);
     try {
-      await api('/users/me', { method: 'PATCH', body: { displayName } });
-      setMessage('Naam bijgewerkt — zichtbaar na opnieuw laden.');
+      await api('/users/me', { method: 'PATCH', body: { displayName, username } });
+      setMessage('Profiel bijgewerkt — zichtbaar na opnieuw laden.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Opslaan mislukt');
     }
@@ -56,7 +57,7 @@ function ProfileSection() {
   return (
     <section className="card settings-card">
       <h2>Profiel</h2>
-      <form onSubmit={saveName} className="settings-form settings-inline">
+      <form onSubmit={saveName} className="settings-form">
         <div className="field">
           <label htmlFor="pr-name">Naam</label>
           <input
@@ -66,7 +67,20 @@ function ProfileSection() {
             onChange={(e) => setDisplayName(e.target.value)}
           />
         </div>
-        <button className="btn btn-ghost">Opslaan</button>
+        <div className="field">
+          <label htmlFor="pr-user">Gebruikersnaam</label>
+          <input
+            id="pr-user"
+            required
+            pattern="[a-zA-Z0-9._\-]{3,30}"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <span className="muted">Hiermee voegen vrienden je toe aan reizen</span>
+        </div>
+        <div className="settings-actions">
+          <button className="btn btn-ghost">Profiel opslaan</button>
+        </div>
       </form>
 
       <form onSubmit={savePassword} className="settings-form">

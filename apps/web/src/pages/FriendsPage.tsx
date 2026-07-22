@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import type { User } from '../api/types';
 import { colorForUser } from '../lib/colors';
 import './friends.css';
 
-type Friend = User & { sharedTrips: number };
+interface Friend {
+  id: string;
+  username: string;
+  displayName: string;
+  sharedTrips: number;
+}
 
 export function FriendsPage() {
   const [friends, setFriends] = useState<Friend[] | null>(null);
@@ -17,8 +21,8 @@ export function FriendsPage() {
     <main className="page fade-in friends-page">
       <h1>Vrienden</h1>
       <p className="muted">
-        Iedereen met wie je een reis deelt. Vrienden toevoegen doe je per reis: open een reis →
-        Reisgenoten → e-mailadres invullen (ze hebben eerst zelf een account op deze server nodig).
+        Iedereen met wie je een reis deelt. Toevoegen doe je per reis: open een reis → Reisgenoten
+        → @gebruikersnaam invullen.
       </p>
 
       {friends === null && <p className="muted">Laden…</p>}
@@ -40,7 +44,7 @@ export function FriendsPage() {
             <div>
               <strong>{friend.displayName}</strong>
               <p className="muted">
-                {friend.email} · {friend.sharedTrips} gedeelde reis
+                @{friend.username} · {friend.sharedTrips} gedeelde reis
                 {friend.sharedTrips === 1 ? '' : 'zen'}
               </p>
             </div>
