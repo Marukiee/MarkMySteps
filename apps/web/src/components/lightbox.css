@@ -1,7 +1,7 @@
 .lightbox {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 200;
   background: rgb(16 21 27 / 0.92);
   backdrop-filter: blur(6px);
   display: grid;
@@ -64,7 +64,7 @@
   top: calc(1rem + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 101;
+  z-index: 201;
   max-width: 70vw;
   text-align: center;
   color: rgb(255 255 255 / 0.85);
@@ -86,7 +86,7 @@
   background: rgb(0 0 0 / 0.35);
   backdrop-filter: blur(6px);
   color: rgb(255 255 255 / 0.9);
-  z-index: 101;
+  z-index: 201;
 }
 
 .lightbox-nav {
@@ -98,7 +98,7 @@
   justify-content: center;
   color: rgb(255 255 255 / 0.75);
   padding: 0.75rem;
-  z-index: 101;
+  z-index: 201;
   transition: color 0.15s;
 }
 

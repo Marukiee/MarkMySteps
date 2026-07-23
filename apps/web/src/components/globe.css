@@ -17,6 +17,13 @@
   overflow: hidden;
 }
 
+/* In the app the globe runs up under the (transparent) status bar so it flows
+   seamlessly — the clock/battery sit on top in their own colour. */
+.native-app .globe-backdrop {
+  margin-top: calc(-1.5rem - env(safe-area-inset-top));
+  height: clamp(300px, 46vh, 560px);
+}
+
 /* Soft fade at the bottom so the globe melts into the page instead of a hard
    edge above the trips. */
 .globe-backdrop::after {

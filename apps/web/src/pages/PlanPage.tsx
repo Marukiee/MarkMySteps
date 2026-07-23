@@ -400,6 +400,14 @@ export function PlanPage() {
               );
             }
             const prev = index > 0 ? stops[index - 1] : null;
+            // A preceding standalone flight card already brought you here — no
+            // extra ground toggle for this stop.
+            const prevIsFlightLeg =
+              !!prev &&
+              prev.travelMode === 'FLIGHT' &&
+              prev.latitude === null &&
+              prev.longitude === null;
+            const isFlight = stop.travelMode === 'FLIGHT';
             const legKm =
               prev &&
               prev.latitude !== null &&
@@ -413,30 +421,44 @@ export function PlanPage() {
                 : null;
             return (
             <li key={stop.id} className="stop-row">
-              <button
-                className={`leg-toggle ${stop.travelMode === 'FLIGHT' ? 'flight' : ''}`}
-                onClick={() => cycleMode(stop)}
-                title="Tik om te wisselen: auto, trein, bus, boot, vlucht"
-              >
-                <span className="leg-icon">
-                  <Icon name={MODE_ICON[stop.travelMode] ?? 'car'} size={16} />
-                </span>
-                <span className="leg-mode">{MODE_LABEL[stop.travelMode]}</span>
-                {legKm !== null && (
-                  <span className="leg-dur">
-                    · {legKm.toLocaleString('nl-NL')} km · {estimateDuration(legKm, stop.travelMode)}
+              {/* Ground modes cycle through a pill; a flight shows its editor
+                  instead (with a way back to ground). */}
+              {!prevIsFlightLeg && !isFlight && (
+                <button
+                  className="leg-toggle"
+                  onClick={() => cycleMode(stop)}
+                  title="Tik om te wisselen: auto, trein, bus, boot, vlucht"
+                >
+                  <span className="leg-icon">
+                    <Icon name={MODE_ICON[stop.travelMode] ?? 'car'} size={16} />
                   </span>
-                )}
-                <Icon name="chevron-right" size={13} className="leg-switch" />
-              </button>
-              {stop.travelMode === 'FLIGHT' && (
-                <FlightEditor
-                  flightNumber={stop.flightNumber}
-                  fromAirport={stop.fromAirport}
-                  toAirport={stop.toAirport}
-                        viaAirports={stop.viaAirports}
-                  onSave={(data) => void saveFlight(stop, data)}
-                />
+                  <span className="leg-mode">{MODE_LABEL[stop.travelMode]}</span>
+                  {legKm !== null && (
+                    <span className="leg-dur">
+                      · {legKm.toLocaleString('nl-NL')} km ·{' '}
+                      {estimateDuration(legKm, stop.travelMode)}
+                    </span>
+                  )}
+                  <Icon name="chevron-right" size={13} className="leg-switch" />
+                </button>
+              )}
+              {!prevIsFlightLeg && isFlight && (
+                <div className="leg-flight">
+                  <button
+                    className="leg-flight-revert"
+                    onClick={() => cycleMode(stop)}
+                    title="Terug naar vervoer over land"
+                  >
+                    <Icon name="plane" size={15} /> Vlucht
+                  </button>
+                  <FlightEditor
+                    flightNumber={stop.flightNumber}
+                    fromAirport={stop.fromAirport}
+                    toAirport={stop.toAirport}
+                    viaAirports={stop.viaAirports}
+                    onSave={(data) => void saveFlight(stop, data)}
+                  />
+                </div>
               )}
               <div
                 className={`card stop-item ${dragIndex === index ? 'dragging' : ''}`}

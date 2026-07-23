@@ -1,5 +1,6 @@
 import { Style, StatusBar } from '@capacitor/status-bar';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api, ApiError, getServerBase } from '../api/client';
 import type { ConnectionStatus, MediaItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -85,7 +86,9 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   if (!item) return null;
   const isOwn = item.userId === user?.id;
 
-  return (
+  // Portal to <body> so it sits above the fixed tab bar and any page stacking
+  // context (the trip detail is itself position:fixed on mobile).
+  return createPortal(
     <div className="lightbox" onClick={onClose} role="dialog" aria-modal="true">
       <div className="lightbox-date">{formatDay(item.takenAt)}</div>
 
@@ -152,6 +155,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
           )}
         </figcaption>
       </figure>
-    </div>
+    </div>,
+    document.body,
   );
 }

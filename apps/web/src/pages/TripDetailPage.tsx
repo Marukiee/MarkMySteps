@@ -53,29 +53,16 @@ export function TripDetailPage() {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    let raf = 0;
     let focusTimer = 0;
     let lastKey = '';
 
-    // Live, every-frame: just resize the sticky map (smooth, no camera moves).
-    let lastMapH = -1;
-    const resizeMap = () => {
-      raf = 0;
-      const vh = window.innerHeight / 100;
-      const mapH = Math.round(Math.max(38, 56 - el.scrollTop / vh) * 2) / 2; // 0.5vh steps
-      if (mapH === lastMapH) return;
-      lastMapH = mapH;
-      el.style.setProperty('--map-h', `${mapH}vh`);
-    };
-
-    // Debounced: only move the camera once scrolling settles, so it never
-    // jitters/flickers mid-scroll.
+    // The map shrink is driven purely by CSS (scroll-timeline) so it stays on
+    // the compositor and never janks. Here we only move the camera to follow
+    // the timeline, and only once scrolling settles.
     const focusVisible = () => {
       const api = mapApiRef.current;
       if (!api) return;
-      const mapBottom = el.style.getPropertyValue('--map-h')
-        ? window.innerHeight * (parseFloat(el.style.getPropertyValue('--map-h')) / 100)
-        : window.innerHeight * 0.5;
+      const mapBottom = window.innerHeight * 0.42;
       const coords: [number, number][] = [];
       const seen = new Set<string>();
       for (const node of document.querySelectorAll<HTMLElement>('[data-media-id]')) {
@@ -95,14 +82,12 @@ export function TripDetailPage() {
     };
 
     const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(resizeMap);
       window.clearTimeout(focusTimer);
-      focusTimer = window.setTimeout(focusVisible, 180);
+      focusTimer = window.setTimeout(focusVisible, 200);
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       el.removeEventListener('scroll', onScroll);
-      if (raf) cancelAnimationFrame(raf);
       window.clearTimeout(focusTimer);
     };
   }, [trip]);
@@ -382,15 +367,12 @@ export function TripDetailPage() {
               <strong>{stats.days}</strong>
               <span>dagen</span>
             </div>
-            {stats.countries.length > 0 && (
-              <div className="stat">
-                <strong>{stats.countries.length}</strong>
-                <span>
-                  <span className="stat-flags">
-                    {stats.countries.slice(0, 5).map((c) => flagEmoji(c)).join('')}
-                  </span>
-                  landen
-                </span>
+            {stats.countries.length > 1 && (
+              <div className="stat stat-countries">
+                <strong className="stat-flags-big">
+                  {stats.countries.slice(0, 4).map((c) => flagEmoji(c)).join(' ')}
+                </strong>
+                <span>{stats.countries.length} landen</span>
               </div>
             )}
             {stats.photoCount > 0 && (

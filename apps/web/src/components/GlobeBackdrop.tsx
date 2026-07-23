@@ -5,7 +5,7 @@ import * as topojson from 'topojson-client';
 // Low-res land outline bundled locally (no CDN); ~110m resolution.
 import land110m from 'world-atlas/land-110m.json';
 import type { Trip } from '../api/types';
-import { flightArc, splitOnGaps } from '../lib/arc';
+import { splitOnGaps } from '../lib/arc';
 import './globe.css';
 
 // Minimal shape of the TopoJSON we consume (avoids a types-only dep).
@@ -203,22 +203,6 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
           ctx!.stroke();
         }
 
-        // Flight arcs across the gaps, in a lighter tint of the trip colour.
-        if (segs.length > 1) {
-          const lr = Math.round(r + (255 - r) * 0.5);
-          const lg = Math.round(g + (255 - g) * 0.5);
-          const lb = Math.round(b + (255 - b) * 0.5);
-          ctx!.setLineDash([3 * dpr, 4 * dpr]);
-          ctx!.strokeStyle = `rgba(${lr},${lg},${lb},0.85)`;
-          ctx!.lineWidth = 1.8 * dpr;
-          for (let s = 1; s < segs.length; s++) {
-            const a = segs[s - 1]![segs[s - 1]!.length - 1]!;
-            const arc = flightArc(a, segs[s]![0]!, 40);
-            ctx!.beginPath();
-            path({ type: 'LineString', coordinates: arc } as GeoPermissibleObjects);
-            ctx!.stroke();
-          }
-        }
       }
       ctx!.setLineDash([]);
 

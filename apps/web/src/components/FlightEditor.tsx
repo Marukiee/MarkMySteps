@@ -59,7 +59,7 @@ export function FlightEditor({
     setVia((cur) => cur.map((c, idx) => (idx === i ? v : c)));
 
   return (
-    <div className="flight-editor card">
+    <div className="flight-editor">
       <div className="flight-row">
         <AirportField label="Van" value={from} onChange={setFrom} />
         <AirportField label="Naar" value={to} onChange={setTo} />

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Trip, TripRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { airportCoord } from '../common/airports';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 
@@ -186,33 +187,58 @@ export class TripsService {
       }
     }
 
-    // Planned-stop fallback for trips without a tracked route (planned trips).
-    // Flight legs are drawn as great-circle arcs so they read as flights.
+    // Planned route for trips without a tracked route. Flight legs are drawn as
+    // great-circle arcs (through any airports/layovers) so they read as flights,
+    // even standalone heen-/terugvlucht stops that have no city coordinates.
     const plannedStops = await this.prisma.stop.findMany({
-      where: { tripId: { in: tripIds }, latitude: { not: null }, longitude: { not: null } },
+      where: { tripId: { in: tripIds } },
       orderBy: [{ tripId: 'asc' }, { orderIndex: 'asc' }],
-      select: { tripId: true, latitude: true, longitude: true, travelMode: true },
+      select: {
+        tripId: true,
+        latitude: true,
+        longitude: true,
+        travelMode: true,
+        fromAirport: true,
+        toAirport: true,
+        viaAirports: true,
+      },
     });
-    const rawStops = new Map<string, { pt: [number, number]; flight: boolean }[]>();
+    const asLngLat = (c: [number, number] | null): [number, number] | null =>
+      c ? [c[1], c[0]] : null; // airportCoord is [lat,lon]
+    const rawByTrip = new Map<string, (typeof plannedStops)[number][]>();
     for (const s of plannedStops) {
-      const list = rawStops.get(s.tripId) ?? [];
-      list.push({ pt: [s.longitude!, s.latitude!], flight: s.travelMode === 'FLIGHT' });
-      rawStops.set(s.tripId, list);
+      const list = rawByTrip.get(s.tripId) ?? [];
+      list.push(s);
+      rawByTrip.set(s.tripId, list);
     }
     const stopsByTrip = new Map<string, [number, number][]>();
-    for (const [tripId, list] of rawStops) {
+    for (const [tripId, list] of rawByTrip) {
       const line: [number, number][] = [];
-      for (let i = 0; i < list.length; i++) {
-        const cur = list[i]!;
-        if (i === 0) {
-          line.push(cur.pt);
-        } else if (cur.flight) {
-          line.push(...greatCircle(list[i - 1]!.pt, cur.pt, 14).slice(1));
+      let prev: [number, number] | null = null;
+      for (const s of list) {
+        const dep = asLngLat(airportCoord(s.fromAirport));
+        const arr = asLngLat(airportCoord(s.toAirport));
+        const city: [number, number] | null =
+          s.longitude != null && s.latitude != null ? [s.longitude, s.latitude] : null;
+        const from = dep ?? prev;
+        const to = arr ?? city;
+        if (!to) continue;
+        if (s.travelMode === 'FLIGHT' && from) {
+          const via = (s.viaAirports ?? [])
+            .map((c) => asLngLat(airportCoord(c)))
+            .filter((c): c is [number, number] => !!c);
+          const pts = [from, ...via, to];
+          for (let k = 1; k < pts.length; k++) {
+            const arc = greatCircle(pts[k - 1]!, pts[k]!, 12);
+            line.push(...(line.length === 0 && k === 1 ? arc : arc.slice(1)));
+          }
         } else {
-          line.push(cur.pt);
+          if (line.length === 0 && from) line.push(from);
+          line.push(to);
         }
+        prev = to;
       }
-      stopsByTrip.set(tripId, line);
+      if (line.length >= 2) stopsByTrip.set(tripId, line);
     }
 
     // Photo-GPS fallback: trips with no track and no planned stops still show

@@ -24,22 +24,35 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: 0;
-    --map-h: 56vh;
   }
 
-  /* Sticky map that shrinks as you scroll (its rounded bottom peeks over the
-     sheet). The GL canvas keeps a constant height and is just clipped, so the
-     shrink is smooth — no per-frame map resize. */
+  /* Sticky map that shrinks as you scroll. Driven by a scroll-timeline so the
+     browser runs it off the main thread (smooth, no JS jank). The GL canvas
+     keeps a constant height and is just clipped by the panel. */
   .trip-detail .trip-map-panel {
     position: sticky;
     top: 0;
-    height: var(--map-h);
+    height: 56vh;
     min-height: 0;
     overflow: hidden;
     border-radius: 0 0 var(--radius-l) var(--radius-l);
     z-index: 2;
-    will-change: height;
-    contain: paint;
+  }
+
+  /* Scroll-driven shrink where supported (Chromium/Android WebView). Falls back
+     to a fixed-height map otherwise — no jank either way. */
+  @supports (animation-timeline: scroll()) {
+    .trip-detail .trip-map-panel {
+      animation: mapShrink linear both;
+      animation-timeline: scroll(nearest);
+      animation-range: 0 24vh;
+    }
+  }
+
+  @keyframes mapShrink {
+    to {
+      height: 38vh;
+    }
   }
 
   .trip-detail .trip-map {
@@ -278,6 +291,13 @@
 .trip-stats .stat-flags {
   font-size: 0.8rem;
   line-height: 1;
+}
+
+/* Countries tile: flags are the visual, count is the label. */
+.stat-countries .stat-flags-big {
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
 }
 
 /* Floating action buttons, top-right of the page over the map. */
