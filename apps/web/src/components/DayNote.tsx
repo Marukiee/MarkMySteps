@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Icon } from './Icon';
 
 export interface TripNote {
   id: string;
@@ -15,12 +14,24 @@ interface DayNoteProps {
   notes: TripNote[];
   canEdit: boolean;
   ownUserId?: string;
+  /** Open the editor immediately (triggered by the pencil in the day header). */
+  startEditing?: boolean;
+  onEditDone?: () => void;
   onSave: (day: string, body: string) => Promise<void>;
   onDelete: (noteId: string) => Promise<void>;
 }
 
 /** Polarsteps-style day story: read others', edit your own note per day. */
-export function DayNote({ day, notes, canEdit, ownUserId, onSave, onDelete }: DayNoteProps) {
+export function DayNote({
+  day,
+  notes,
+  canEdit,
+  ownUserId,
+  startEditing,
+  onEditDone,
+  onSave,
+  onDelete,
+}: DayNoteProps) {
   const own = notes.find((n) => n.authorId === ownUserId);
   const others = notes.filter((n) => n.authorId !== ownUserId);
   const [editing, setEditing] = useState(false);
@@ -28,12 +39,20 @@ export function DayNote({ day, notes, canEdit, ownUserId, onSave, onDelete }: Da
   const [busy, setBusy] = useState(false);
 
   useEffect(() => setDraft(own?.body ?? ''), [own?.body]);
+  useEffect(() => {
+    if (startEditing) setEditing(true);
+  }, [startEditing]);
+
+  function stopEditing() {
+    setEditing(false);
+    onEditDone?.();
+  }
 
   async function save() {
     setBusy(true);
     try {
       await onSave(day, draft);
-      setEditing(false);
+      stopEditing();
     } finally {
       setBusy(false);
     }
@@ -60,14 +79,7 @@ export function DayNote({ day, notes, canEdit, ownUserId, onSave, onDelete }: Da
         </blockquote>
       )}
 
-      {/* Collapsed prompt until clicked, so the timeline stays clean. */}
-      {canEdit && !own && !editing && (
-        <button className="day-note-add" onClick={() => setEditing(true)}>
-          <Icon name="pencil" size={14} /> Vertel iets over deze dag
-        </button>
-      )}
-
-      {canEdit && (editing || (own && editing)) && (
+      {canEdit && editing && (
         <div className="day-note-edit">
           <textarea
             autoFocus
@@ -77,7 +89,7 @@ export function DayNote({ day, notes, canEdit, ownUserId, onSave, onDelete }: Da
             rows={3}
           />
           <div className="day-note-actions">
-            <button onClick={() => setEditing(false)}>Annuleren</button>
+            <button onClick={stopEditing}>Annuleren</button>
             <button className="primary" disabled={busy || !draft.trim()} onClick={() => void save()}>
               Opslaan
             </button>

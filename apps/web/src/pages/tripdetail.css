@@ -1,4 +1,5 @@
 .trip-detail {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 400px;
   gap: 1.25rem;
@@ -10,36 +11,42 @@
   display: none;
 }
 
-/* --- Mobile / app: Polarsteps-style bottom sheet over a fixed map --- */
+/* --- Mobile / app: collapsing map that pins to the top --- */
 @media (max-width: 900px) {
+  /* The page itself is the scroll container; the map is a sticky child that
+     shrinks (JS drives --map-h) down to a minimum and then holds, while the
+     sheet scrolls up and tucks underneath it. */
   .trip-detail {
     display: block;
-    height: auto;
-    padding: 0;
-  }
-
-  .trip-map-panel {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 54vh;
-    border-radius: 0;
-    z-index: 0;
+    inset: 0;
+    height: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0;
+    --map-h: 55vh;
   }
 
-  /* Higher specificity than the base .trip-side so the symmetric padding
-     wins over the desktop `padding-right` (which otherwise shifts the whole
-     sheet off-centre). */
+  .trip-detail .trip-map-panel {
+    position: sticky;
+    top: 0;
+    height: var(--map-h);
+    min-height: 0;
+    border-radius: 0;
+    z-index: 2;
+  }
+
+  /* Higher specificity than the base .trip-side so its symmetric padding wins
+     over the desktop `padding-right` (which otherwise shifts it off-centre). */
   .trip-detail .trip-side {
     position: relative;
     z-index: 1;
-    margin-top: 46vh;
-    min-height: 54vh;
+    margin-top: 0;
+    min-height: 62vh;
     background: var(--paper);
     border-radius: var(--radius-l) var(--radius-l) 0 0;
-    box-shadow: 0 -8px 30px rgb(16 21 27 / 0.18);
-    padding: 0.5rem 1.15rem calc(88px + env(safe-area-inset-bottom));
+    box-shadow: 0 -10px 30px rgb(16 21 27 / 0.22);
+    padding: 0.4rem 1.15rem calc(92px + env(safe-area-inset-bottom));
     overflow: visible;
   }
 
@@ -52,40 +59,25 @@
     margin: 0.5rem auto 0.75rem;
   }
 
-  /* Person toggles sit on the fixed map. */
+  /* Person toggles sit on the map, clear of the status bar. */
   .person-toggles {
     top: calc(0.9rem + env(safe-area-inset-top));
   }
 
-  /* In the sheet the map is the visual — collapse the hero to a title. */
+  /* Cover photo as a compact banner at the top of the sheet. */
   .trip-hero {
     aspect-ratio: auto;
-    box-shadow: none;
-    margin: 0;
-  }
-
-  .trip-hero-img {
-    display: none;
+    height: 140px;
+    margin: 0 0 0.6rem;
+    box-shadow: var(--shadow-s);
   }
 
   .trip-hero-overlay {
-    position: static;
-    background: none;
-    color: var(--ink);
-    padding: 0;
+    padding: 0.9rem 1rem;
   }
 
   .trip-hero-overlay h1 {
-    color: var(--ink);
-  }
-
-  .trip-hero-overlay p {
-    opacity: 1;
-    color: var(--ink-soft);
-  }
-
-  .trip-back-hero {
-    display: none;
+    font-size: 1.5rem;
   }
 }
 
@@ -273,11 +265,34 @@
   line-height: 1;
 }
 
-/* Icon-only ghost button (settings gear). */
-.btn-icon {
-  padding: 0.62rem;
+/* Floating settings gear, top-right of the page over the map. */
+.trip-fab-gear {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 6;
   width: 42px;
   height: 42px;
+  display: grid;
+  place-content: center;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.92);
+  backdrop-filter: blur(8px);
+  color: var(--ink);
+  box-shadow: var(--shadow-m);
+  transition: transform 0.15s var(--ease);
+}
+
+.trip-fab-gear:hover {
+  transform: scale(1.06);
+}
+
+@media (max-width: 900px) {
+  .trip-fab-gear {
+    position: fixed;
+    top: calc(0.9rem + env(safe-area-inset-top));
+    right: 1rem;
+  }
 }
 
 .trip-back,

@@ -86,15 +86,22 @@ export function OnboardingPage() {
       <h1>“Altijd toestaan”</h1>
       <p className="muted">
         Android staat tracking met het scherm uit alleen toe als locatie op{' '}
-        <strong>“Altijd toestaan”</strong> staat. Zet dat in de app-instellingen van Android:
+        <strong>“Altijd toestaan”</strong> staat. Volg dit pad in de app-instellingen van Android:
       </p>
+      <div className="onb-path">
+        {['Apps', 'MarkMySteps', 'Rechten', 'Locatie', 'Altijd toestaan'].map((step, i) => (
+          <span key={step} className="onb-path-step">
+            {i > 0 && <Icon name="chevron-right" size={13} />}
+            <span>{step}</span>
+          </span>
+        ))}
+      </div>
       <button
         className="btn btn-primary"
         onClick={() => void BackgroundGeolocation.openSettings()}
       >
         Open systeeminstellingen
       </button>
-      <p className="muted">Apps → MarkMySteps → Rechten → Locatie → Altijd toestaan</p>
       <button className="btn btn-ghost" onClick={finish}>
         Klaar
       </button>

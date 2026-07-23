@@ -91,7 +91,6 @@
   padding: 1rem 1.15rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-m);
-  background: var(--paper-sunken);
 }
 
 .ts-sync > div {

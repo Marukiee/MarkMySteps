@@ -140,7 +140,80 @@
 .avatar-row {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 1rem;
+}
+
+.avatar-edit {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.avatar-edit-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  background: var(--accent);
+  color: #fff;
+  border: 2px solid var(--paper-raised);
+  box-shadow: var(--shadow-s);
+  transition: transform 0.15s var(--ease);
+}
+
+.avatar-edit:hover .avatar-edit-badge {
+  transform: scale(1.1);
+}
+
+.avatar-meta {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.avatar-meta strong {
+  font-size: 1rem;
+}
+
+.avatar-remove {
+  justify-self: start;
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #b3402a;
+}
+
+.avatar-remove:hover {
+  text-decoration: underline;
+}
+
+/* Inline breadcrumb path inside body text. */
+.inline-path {
+  display: inline;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.inline-path svg {
+  display: inline;
+  vertical-align: -1px;
+  color: var(--ink-faint);
+}
+
+.ext-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.btn-icon-sm {
+  padding: 0.5rem;
 }
 
 .file-drop {
@@ -163,11 +236,8 @@
 }
 
 .file-drop-icon {
-  font-size: 1.5rem;
-}
-
-.avatar-upload {
-  cursor: pointer;
+  display: inline-flex;
+  color: var(--ink-soft);
 }
 
 .admin-users {

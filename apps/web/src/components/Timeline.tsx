@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { MediaItem } from '../api/types';
 import { colorForUser, flagEmoji, formatDay } from '../lib/colors';
 import { AuthImage } from './AuthImage';
 import { DayNote, TripNote } from './DayNote';
+import { Icon } from './Icon';
 import { WeatherBadge } from './WeatherBadge';
 import './timeline.css';
 
@@ -83,6 +84,8 @@ export function Timeline({
     return map;
   }, [notes]);
 
+  const [editingDay, setEditingDay] = useState<string | null>(null);
+
   if (days.length === 0) {
     return (
       <p className="muted timeline-empty">
@@ -100,7 +103,18 @@ export function Timeline({
           <h3>
             <span className="timeline-dot" />
             <span className="timeline-day-label">
-              {formatDay(items[0]?.takenAt ?? day)}
+              <span className="timeline-day-top">
+                {formatDay(items[0]?.takenAt ?? day)}
+                {canEditNotes && (notesByDay.get(day)?.length ?? 0) === 0 && (
+                  <button
+                    className="timeline-note-add"
+                    aria-label="Notitie toevoegen"
+                    onClick={() => setEditingDay(day)}
+                  >
+                    <Icon name="pencil" size={14} />
+                  </button>
+                )}
+              </span>
               {loc && (
                 <span className="timeline-day-meta">
                   {loc.name && (
@@ -114,16 +128,20 @@ export function Timeline({
             </span>
           </h3>
 
-          {(canEditNotes || (notesByDay.get(day)?.length ?? 0) > 0) && onSaveNote && onDeleteNote && (
-            <DayNote
-              day={day}
-              notes={notesByDay.get(day) ?? []}
-              canEdit={canEditNotes}
-              ownUserId={ownUserId}
-              onSave={onSaveNote}
-              onDelete={onDeleteNote}
-            />
-          )}
+          {((notesByDay.get(day)?.length ?? 0) > 0 || editingDay === day) &&
+            onSaveNote &&
+            onDeleteNote && (
+              <DayNote
+                day={day}
+                notes={notesByDay.get(day) ?? []}
+                canEdit={canEditNotes}
+                ownUserId={ownUserId}
+                startEditing={editingDay === day}
+                onEditDone={() => setEditingDay((d) => (d === day ? null : d))}
+                onSave={onSaveNote}
+                onDelete={onDeleteNote}
+              />
+            )}
           <div className="timeline-grid">
             {items.map((item) => (
               <figure

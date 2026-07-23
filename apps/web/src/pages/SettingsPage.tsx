@@ -4,6 +4,7 @@ import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
+import { Icon } from '../components/Icon';
 import { formatDate } from '../lib/colors';
 import { MAP_STYLES, MapStyleId, getMapStyleId, setMapStyleId } from '../lib/prefs';
 import {
@@ -165,8 +166,13 @@ function AboutSection() {
       </p>
       <ul className="about-list">
         <li>
-          <a href="https://github.com/Marukiee/MarkMySteps" target="_blank" rel="noreferrer">
-            Broncode op GitHub ↗
+          <a
+            href="https://github.com/Marukiee/MarkMySteps"
+            target="_blank"
+            rel="noreferrer"
+            className="ext-link"
+          >
+            Broncode op GitHub <Icon name="chevron-right" size={14} />
           </a>
         </li>
         <li>
@@ -174,8 +180,9 @@ function AboutSection() {
             href="https://github.com/Marukiee/MarkMySteps/actions"
             target="_blank"
             rel="noreferrer"
+            className="ext-link"
           >
-            Android-app (APK) downloaden ↗
+            Android-app (APK) downloaden <Icon name="chevron-right" size={14} />
           </a>
         </li>
       </ul>
@@ -256,11 +263,18 @@ function ProfileSection() {
       <h2>Profiel</h2>
 
       <div className="avatar-row">
-        {user && (
-          <Avatar userId={user.id} displayName={user.displayName} hasAvatar={user.hasAvatar} size={64} />
-        )}
-        <label className="btn btn-ghost avatar-upload">
-          Profielfoto kiezen
+        <label className="avatar-edit" title="Profielfoto wijzigen">
+          {user && (
+            <Avatar
+              userId={user.id}
+              displayName={user.displayName}
+              hasAvatar={user.hasAvatar}
+              size={72}
+            />
+          )}
+          <span className="avatar-edit-badge">
+            <Icon name="camera" size={15} />
+          </span>
           <input
             type="file"
             accept="image/*"
@@ -271,14 +285,22 @@ function ProfileSection() {
             }}
           />
         </label>
-        {user?.hasAvatar && (
-          <button
-            className="btn btn-danger"
-            onClick={() => void api('/users/me/avatar', { method: 'DELETE' }).then(() => setMessage('Profielfoto verwijderd — zichtbaar na opnieuw laden.'))}
-          >
-            Verwijderen
-          </button>
-        )}
+        <div className="avatar-meta">
+          <strong>{user?.displayName}</strong>
+          <span className="muted">Tik op de foto om te wijzigen</span>
+          {user?.hasAvatar && (
+            <button
+              className="avatar-remove"
+              onClick={() =>
+                void api('/users/me/avatar', { method: 'DELETE' }).then(() =>
+                  setMessage('Profielfoto verwijderd — zichtbaar na opnieuw laden.'),
+                )
+              }
+            >
+              Verwijderen
+            </button>
+          )}
+        </div>
       </div>
 
       <form onSubmit={saveName} className="settings-form">
@@ -586,8 +608,12 @@ function AccountsSection() {
                 <button className="btn btn-ghost" onClick={() => void toggleRole(row)}>
                   {row.role === 'ADMIN' ? 'Demoveer' : 'Maak admin'}
                 </button>
-                <button className="btn btn-danger" onClick={() => void removeAccount(row)}>
-                  ✕
+                <button
+                  className="btn btn-danger btn-icon-sm"
+                  aria-label="Account verwijderen"
+                  onClick={() => void removeAccount(row)}
+                >
+                  <Icon name="trash" size={16} />
                 </button>
               </div>
             )}
@@ -626,7 +652,7 @@ function AccountsSection() {
                 onChange={(e) => setTempPassword(e.target.value)}
               />
               <button type="button" className="btn btn-ghost" onClick={generatePassword}>
-                🎲
+                Genereer
               </button>
             </div>
           </div>
@@ -671,8 +697,13 @@ function PolarstepsSection() {
     <section className="card settings-card">
       <h2>Polarsteps importeren</h2>
       <p className="muted">
-        Vraag je export op via polarsteps.com → Settings → Privacy → “Download my data” en upload
-        de zip hier. Elke reis in de export wordt aangemaakt met de volledige GPS-route.
+        Vraag je export op via{' '}
+        <span className="inline-path">
+          polarsteps.com <Icon name="chevron-right" size={12} /> Settings{' '}
+          <Icon name="chevron-right" size={12} /> Privacy <Icon name="chevron-right" size={12} />
+          “Download my data”
+        </span>{' '}
+        en upload de zip hier. Elke reis in de export wordt aangemaakt met de volledige GPS-route.
       </p>
 
       <form onSubmit={upload} className="settings-form">
@@ -683,7 +714,9 @@ function PolarstepsSection() {
             hidden
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
-          <span className="file-drop-icon">📦</span>
+          <span className="file-drop-icon">
+            <Icon name="archive" size={26} />
+          </span>
           <span>{file ? file.name : 'Kies je Polarsteps-zip'}</span>
         </label>
         <div className="settings-actions">

@@ -41,6 +41,28 @@
   gap: 0.2rem;
 }
 
+.timeline-day-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.timeline-note-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--ink-faint);
+  transition: all 0.15s var(--ease);
+}
+
+.timeline-note-add:hover {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
 .timeline-day-meta {
   display: flex;
   align-items: center;

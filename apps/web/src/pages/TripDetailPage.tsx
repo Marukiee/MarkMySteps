@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { MediaItem, RouteCollection, Trip } from '../api/types';
@@ -40,6 +40,39 @@ export function TripDetailPage() {
   const [stats, setStats] = useState<TripStats | null>(null);
   const [notes, setNotes] = useState<TripNote[]>([]);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
+  const scrollRef = useRef<HTMLElement>(null);
+
+  // Collapsing map: as the sheet scrolls up, shrink the pinned map from its
+  // start height down to a minimum, then hold — the map always stays in view.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const mq = window.matchMedia('(max-width: 900px)');
+    let raf = 0;
+    const START = 55;
+    const MIN = 30;
+    const apply = () => {
+      raf = 0;
+      if (!mq.matches) {
+        el.style.removeProperty('--map-h');
+        return;
+      }
+      const vh = window.innerHeight / 100;
+      const h = Math.max(MIN, START - el.scrollTop / vh);
+      el.style.setProperty('--map-h', `${h}vh`);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+    apply();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', apply);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', apply);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [trip]);
 
   const loadData = useCallback(() => {
     if (!tripId) return;
@@ -167,7 +200,16 @@ export function TripDetailPage() {
   }
 
   return (
-    <main className="trip-detail fade-in">
+    <main className="trip-detail fade-in" ref={scrollRef}>
+      {trip?.ownerId === user?.id && (
+        <Link
+          to={`/trips/${tripId}/settings`}
+          className="trip-fab-gear"
+          aria-label="Reisinstellingen"
+        >
+          <Icon name="gear" size={20} />
+        </Link>
+      )}
       <div className="trip-map-panel card">
         <TripMap
           routes={routes}
@@ -302,15 +344,6 @@ export function TripDetailPage() {
           <Link to={`/trips/${tripId}/plan`} className="btn btn-primary">
             <Icon name="compass" size={18} /> Routeplanner
           </Link>
-          {trip?.ownerId === user?.id && (
-            <Link
-              to={`/trips/${tripId}/settings`}
-              className="btn btn-ghost btn-icon"
-              aria-label="Reisinstellingen"
-            >
-              <Icon name="gear" size={18} />
-            </Link>
-          )}
         </div>
 
         <div className="side-tabs" role="tablist">

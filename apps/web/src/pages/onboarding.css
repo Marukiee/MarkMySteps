@@ -27,3 +27,27 @@
   font-weight: 600;
   color: var(--teal);
 }
+
+.onb-path {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem 0.15rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.onb-path-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.onb-path-step svg {
+  color: var(--ink-faint);
+}

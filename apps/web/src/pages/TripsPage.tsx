@@ -5,6 +5,7 @@ import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
+import { Icon } from '../components/Icon';
 import { colorForUser, formatDate } from '../lib/colors';
 import './trips.css';
 
@@ -224,7 +225,7 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
               setMenuOpen((v) => !v);
             }}
           >
-            ⋯
+            <Icon name="dots" size={22} />
           </button>
           {menuOpen && (
             <div className="trip-menu card fade-in">

@@ -71,8 +71,8 @@ body.native-app {
   }
 }
 
-/* Full-bleed pages (trip detail / planner) handle their own top inset. */
-.native-app .trip-detail,
+/* Planner handles its own top inset; trip detail is immersive (map under the
+   status bar) so it gets no top padding. */
 .native-app .plan-page {
   padding-top: calc(0.5rem + env(safe-area-inset-top));
 }

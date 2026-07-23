@@ -19,7 +19,9 @@ export type IconName =
   | 'check'
   | 'dots'
   | 'pin'
-  | 'trash';
+  | 'trash'
+  | 'archive'
+  | 'camera';
 
 // Single source of truth for line icons. 24×24 viewbox, 2px stroke,
 // currentColor — so an icon inherits text color and sizes with `size`.
@@ -124,6 +126,19 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M10 11v6M14 11v6" />
       <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
       <path d="M9 7V4h6v3" />
+    </>
+  ),
+  archive: (
+    <>
+      <rect x="3" y="4" width="18" height="4" rx="1" />
+      <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
+      <path d="M10 12h4" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
+      <circle cx="12" cy="13" r="3.2" />
     </>
   ),
 };
