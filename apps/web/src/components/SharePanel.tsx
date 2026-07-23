@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { ShareLinkInfo } from '../api/types';
+import { webBase } from '../lib/native';
 import './share.css';
 
 export function SharePanel({ tripId }: { tripId: string }) {
@@ -34,7 +35,7 @@ export function SharePanel({ tripId }: { tripId: string }) {
   }
 
   function copy(link: ShareLinkInfo) {
-    const url = `${window.location.origin}${link.url}`;
+    const url = `${webBase()}${link.url}`;
     void navigator.clipboard.writeText(url).then(() => {
       setCopied(link.id);
       window.setTimeout(() => setCopied(null), 1600);
@@ -50,7 +51,7 @@ export function SharePanel({ tripId }: { tripId: string }) {
 
       {links.map((link) => (
         <div key={link.id} className="share-link card">
-          <span className="share-url">{`${window.location.host}${link.url}`}</span>
+          <span className="share-url">{`${webBase().replace(/^https?:\/\//, '')}${link.url}`}</span>
           {link.hasPassword && <span className="share-lock" title="Met wachtwoord">🔒</span>}
           <button className="btn btn-ghost share-btn" onClick={() => copy(link)}>
             {copied === link.id ? 'Gekopieerd ✓' : 'Kopieer'}

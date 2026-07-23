@@ -285,6 +285,17 @@ export function PlanPage() {
     refresh(await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, { method: 'DELETE' }));
   }
 
+  /** Append a final flight leg (e.g. the trip home) — set airports via its editor. */
+  async function addFlightLeg() {
+    if (!tripId) return;
+    refresh(
+      await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
+        method: 'POST',
+        body: { name: 'Terugvlucht', nights: 0, travelMode: 'FLIGHT' },
+      }),
+    );
+  }
+
   function onDragStart(index: number) {
     setDragIndex(index);
   }
@@ -446,6 +457,12 @@ export function PlanPage() {
             );
           })}
         </ol>
+
+        {stops.length > 0 && (
+          <button type="button" className="add-flight-leg" onClick={() => void addFlightLeg()}>
+            <Icon name="plane" size={16} /> Vlucht toevoegen aan het einde
+          </button>
+        )}
 
         <form className="card stop-add" onSubmit={addStop}>
           <div className="field stop-search">

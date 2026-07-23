@@ -56,13 +56,15 @@ export interface TrackerState {
   tripId: string | null;
   buffered: number;
   lastError: string | null;
+  /** Most recent GPS fix — proof tracking is alive. */
+  lastFix: { lat: number; lng: number; at: number; accuracy?: number } | null;
 }
 
 let watcherId: string | null = null;
 let webWatchId: number | null = null;
 let flushTimer: number | null = null;
 let listeners: Listener[] = [];
-let state: TrackerState = { tripId: null, buffered: 0, lastError: null };
+let state: TrackerState = { tripId: null, buffered: 0, lastError: null, lastFix: null };
 
 function emit(patch: Partial<TrackerState>): void {
   state = { ...state, ...patch };
@@ -92,7 +94,15 @@ async function record(tripId: string, position: NativePosition): Promise<void> {
     altitude: position.altitude,
   };
   await bufferPoint(point);
-  emit({ buffered: await bufferedCount() });
+  emit({
+    buffered: await bufferedCount(),
+    lastFix: {
+      lat: position.latitude,
+      lng: position.longitude,
+      at: Date.now(),
+      accuracy: position.accuracy,
+    },
+  });
 }
 
 export async function flush(): Promise<void> {

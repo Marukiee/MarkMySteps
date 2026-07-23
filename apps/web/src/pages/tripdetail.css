@@ -24,13 +24,12 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: 0;
-    --map-h: 55vh;
   }
 
   .trip-detail .trip-map-panel {
     position: sticky;
     top: 0;
-    height: var(--map-h);
+    height: 44vh;
     min-height: 0;
     border-radius: 0;
     z-index: 2;

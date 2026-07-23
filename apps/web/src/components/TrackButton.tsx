@@ -12,6 +12,7 @@ export function TrackButton({ tripId }: { tripId: string }) {
     tripId: null,
     buffered: 0,
     lastError: null,
+    lastFix: null,
   });
 
   useEffect(() => onTrackerChange(setTracker), []);

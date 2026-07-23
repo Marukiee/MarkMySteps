@@ -110,6 +110,16 @@
   margin-top: -0.75rem;
 }
 
+.ts-actions-bottom {
+  margin-top: 0.5rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+}
+
+.ts-actions-bottom .btn-primary {
+  margin-left: auto;
+}
+
 /* Clear the fixed tab bar so the last field (travellers) stays reachable. */
 .native-app .trip-settings {
   padding-bottom: calc(88px + env(safe-area-inset-bottom));

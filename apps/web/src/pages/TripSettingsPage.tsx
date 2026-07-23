@@ -39,8 +39,8 @@ export function TripSettingsPage() {
 
   const isOwner = trip?.ownerId === user?.id;
 
-  async function save(e: FormEvent) {
-    e.preventDefault();
+  async function save(e?: FormEvent) {
+    e?.preventDefault();
     if (!tripId) return;
     setError(null);
     try {
@@ -136,12 +136,6 @@ export function TripSettingsPage() {
             />
           </label>
 
-          <div className="ts-actions">
-            <button className="btn btn-primary">{saved ? 'Opgeslagen ✓' : 'Opslaan'}</button>
-            <button type="button" className="btn btn-danger" onClick={remove}>
-              Reis verwijderen
-            </button>
-          </div>
           {error && <p className="error-text">{error}</p>}
         </form>
       ) : (
@@ -162,6 +156,17 @@ export function TripSettingsPage() {
       {syncMessage && <p className="muted ts-sync-msg">{syncMessage}</p>}
 
       {trip && <MembersPanel trip={trip} onChanged={load} />}
+
+      {isOwner && (
+        <div className="ts-actions ts-actions-bottom">
+          <button className="btn btn-danger" onClick={remove}>
+            Reis verwijderen
+          </button>
+          <button className="btn btn-primary" onClick={() => void save()}>
+            {saved ? 'Opgeslagen ✓' : 'Wijzigingen opslaan'}
+          </button>
+        </div>
+      )}
     </main>
   );
 }

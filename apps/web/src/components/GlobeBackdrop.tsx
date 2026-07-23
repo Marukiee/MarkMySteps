@@ -46,7 +46,13 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
     const velocity = 0.02; // gentle idle sweep speed
     let sweepDir = 1; // +1 / -1 — flips at the edges of the trip spread
     let dragging = false;
-    let lastX = 0;
+    let scale = 1; // current zoom (1 = whole globe)
+    let targetScale = 1;
+    let tilt = 0; // extra vertical look-around, degrees
+    let lastInteract = 0;
+    let moved = 0; // drag distance, to tell a pan from a tap
+    const pointers = new Map<number, { x: number; y: number }>();
+    let pinchStart = 0;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const today = new Date().toISOString().slice(0, 10);
 
@@ -80,10 +86,13 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       const h = canvas!.height;
       const trips = globeTrips();
 
+      const now = performance.now();
+      const idle = !dragging && now - lastInteract > 1400;
+
       // --- Auto-rotate: sweep back and forth across the trips (pendulum) so
       // they always stay in view. At the edge of the spread the direction just
-      // flips — no snap-back. ---
-      if (!dragging) {
+      // flips — no snap-back. Paused while the user is interacting. ---
+      if (idle) {
         if (trips.length > 0) {
           const lngs = trips.map((t) => t.anchor[0]);
           const lo = Math.min(...lngs) - 35;
@@ -91,17 +100,22 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
           const centerLng = -rotation;
           if (centerLng <= lo) sweepDir = 1;
           else if (centerLng >= hi) sweepDir = -1;
-          // dir on centreLng; rotation moves opposite.
           rotation -= velocity * sweepDir;
         } else {
           rotation += velocity;
         }
+        // Ease zoom + tilt back to the default overview.
+        targetScale += (1 - targetScale) * 0.04;
+        tilt += (0 - tilt) * 0.04;
       }
 
+      // Smooth zoom toward the target every frame (no jumps).
+      scale += (targetScale - scale) * 0.15;
+
       projection
-        .scale(w / 2 - 2 * dpr)
+        .scale((w / 2 - 2 * dpr) * scale)
         .translate([w / 2, h / 2])
-        .rotate([rotation, -CENTER_LAT, 0]);
+        .rotate([rotation, -(CENTER_LAT + tilt), 0]);
 
       ctx!.clearRect(0, 0, w, h);
 
@@ -168,22 +182,55 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
     }
     draw();
 
-    // --- Interaction: drag to spin, click a marker to open the trip ---
+    // --- Interaction: drag to spin/tilt, pinch or wheel to zoom, tap a marker
+    // to open the trip. After you let go it eases back to the auto-sweep. ---
+    const pinchDist = () => {
+      const p = [...pointers.values()];
+      return Math.hypot(p[0]!.x - p[1]!.x, p[0]!.y - p[1]!.y);
+    };
+
     function onDown(e: PointerEvent) {
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       dragging = true;
-      lastX = e.clientX;
+      moved = 0;
+      lastInteract = performance.now();
+      if (pointers.size === 2) pinchStart = pinchDist();
       canvas!.setPointerCapture(e.pointerId);
     }
     function onMove(e: PointerEvent) {
-      if (!dragging) return;
-      rotation += (e.clientX - lastX) * 0.25;
-      lastX = e.clientX;
+      const prev = pointers.get(e.pointerId);
+      if (!prev) return;
+      lastInteract = performance.now();
+      if (pointers.size === 2) {
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pinchStart > 0) {
+          targetScale = Math.min(5, Math.max(1, targetScale * (pinchDist() / pinchStart)));
+          pinchStart = pinchDist();
+        }
+        return;
+      }
+      const dx = e.clientX - prev.x;
+      const dy = e.clientY - prev.y;
+      moved += Math.abs(dx) + Math.abs(dy);
+      // Pan slower when zoomed in so it stays controllable.
+      rotation += (dx * 0.25) / scale;
+      tilt = Math.max(-60, Math.min(60, tilt + (dy * 0.25) / scale));
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     }
     function onUp(e: PointerEvent) {
-      dragging = false;
-      canvas!.releasePointerCapture(e.pointerId);
+      pointers.delete(e.pointerId);
+      lastInteract = performance.now();
+      if (pointers.size < 2) pinchStart = 0;
+      if (pointers.size === 0) dragging = false;
+      canvas!.releasePointerCapture?.(e.pointerId);
+    }
+    function onWheel(e: WheelEvent) {
+      e.preventDefault();
+      lastInteract = performance.now();
+      targetScale = Math.min(5, Math.max(1, targetScale * (1 - e.deltaY * 0.0015)));
     }
     function onClick(e: PointerEvent) {
+      if (moved > 8) return; // it was a pan, not a tap
       const rect = canvas!.getBoundingClientRect();
       const inverted = projection.invert!([
         (e.clientX - rect.left) * dpr,
@@ -193,7 +240,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       let best: { id: string; d: number } | null = null;
       for (const trip of globeTrips()) {
         const d = distance(inverted, trip.anchor);
-        if (d < 6 && (!best || d < best.d)) best = { id: trip.id, d };
+        if (d < 6 / scale && (!best || d < best.d)) best = { id: trip.id, d };
       }
       if (best) navigate(`/trips/${best.id}`);
     }
@@ -201,6 +248,8 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
     canvas.addEventListener('pointerdown', onDown);
     canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', onUp);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
     canvas.addEventListener('click', (e) => onClick(e as PointerEvent));
 
     const onResize = () => size();
@@ -211,6 +260,8 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerup', onUp);
+      canvas.removeEventListener('pointercancel', onUp);
+      canvas.removeEventListener('wheel', onWheel);
     };
   }, [navigate]);
 

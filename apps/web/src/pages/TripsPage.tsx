@@ -98,15 +98,25 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
   const { user } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuClosing, setMenuClosing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [newTitle, setNewTitle] = useState(trip.title);
   const menuRef = useRef<HTMLDivElement>(null);
   const isOwner = trip.ownerId === user?.id;
 
+  // Animate the menu out before unmounting.
+  const closeMenu = () => {
+    setMenuClosing(true);
+    window.setTimeout(() => {
+      setMenuOpen(false);
+      setMenuClosing(false);
+    }, 150);
+  };
+
   useEffect(() => {
     if (!menuOpen) return;
     const close = (e: Event) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+      if (!menuRef.current?.contains(e.target as Node)) closeMenu();
     };
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
@@ -222,13 +232,14 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
             aria-label="Reis-opties"
             onClick={(e) => {
               stop(e);
-              setMenuOpen((v) => !v);
+              if (menuOpen) closeMenu();
+              else setMenuOpen(true);
             }}
           >
             <Icon name="dots" size={22} />
           </button>
           {menuOpen && (
-            <div className="trip-menu card fade-in">
+            <div className={`trip-menu card ${menuClosing ? 'closing' : 'fade-in'}`}>
               {isOwner && (
                 <>
                   <button

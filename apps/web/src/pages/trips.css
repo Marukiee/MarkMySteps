@@ -191,8 +191,23 @@
   background: var(--paper-sunken);
 }
 
-.trip-menu-danger {
+.trip-menu button.trip-menu-danger {
   color: #b3402a;
+}
+
+.trip-menu.closing {
+  animation: menuOut 0.15s var(--ease) forwards;
+}
+
+@keyframes menuOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
 }
 
 .trip-rename {

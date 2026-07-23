@@ -216,6 +216,46 @@
   padding: 0.5rem;
 }
 
+.tracking-live {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+}
+
+.tracking-live > div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.tracking-live strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.tracking-live-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 0 0 rgb(42 143 133 / 0.5);
+  animation: livePulse 1.6s ease-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes livePulse {
+  to {
+    box-shadow: 0 0 0 10px rgb(42 143 133 / 0);
+  }
+}
+
+.tracking-view-link {
+  align-self: start;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
 .file-drop {
   display: flex;
   align-items: center;

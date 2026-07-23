@@ -1,9 +1,19 @@
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { Style, StatusBar } from '@capacitor/status-bar';
+import { DEFAULT_SERVER_URL } from '../config';
 
 export function isNativeApp(): boolean {
   return Capacitor.isNativePlatform();
+}
+
+/**
+ * Public web origin for building shareable links. In the APK
+ * `window.location.origin` is the WebView's internal scheme (localhost), so
+ * fall back to the configured public site URL.
+ */
+export function webBase(): string {
+  return isNativeApp() ? DEFAULT_SERVER_URL : window.location.origin;
 }
 
 /** Native status bar: overlay the web content and use dark icons on paper. */

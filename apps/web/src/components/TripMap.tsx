@@ -26,6 +26,13 @@ interface TripMapProps {
   onPhotoFocus?: (mediaId: string) => void;
   clickMode?: boolean;
   styleUrl: string | StyleSpecification;
+  /** Exposes an imperative focus API once the map is ready. */
+  onReady?: (api: TripMapApi) => void;
+}
+
+export interface TripMapApi {
+  /** Ease the camera to fit the given [lng,lat] points (e.g. a day's photos). */
+  focusOn: (coords: [number, number][]) => void;
 }
 
 export function TripMap({
@@ -40,6 +47,7 @@ export function TripMap({
   onPhotoFocus,
   clickMode,
   styleUrl,
+  onReady,
 }: TripMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -55,6 +63,11 @@ export function TripMap({
   photoOpenRef.current = onPhotoOpen;
   const photoFocusRef = useRef(onPhotoFocus);
   photoFocusRef.current = onPhotoFocus;
+  // Once a trip has real tracked GPS, the planned dashed legs are noise — show
+  // only the tracked line (the stop markers still stand).
+  const hasTracked = !!routes?.features.some((f) => f.geometry.coordinates.length >= 2);
+  const hasTrackedRef = useRef(hasTracked);
+  hasTrackedRef.current = hasTracked;
 
   // Init once.
   useEffect(() => {
@@ -80,6 +93,19 @@ export function TripMap({
     });
     map.on('click', (e) => clickHandlerRef.current?.(e.lngLat));
     mapRef.current = map;
+
+    onReady?.({
+      focusOn: (coords) => {
+        if (coords.length === 0) return;
+        const b = new LngLatBounds();
+        for (const c of coords) b.extend(c);
+        map.fitBounds(b, {
+          padding: { top: 50, bottom: 50, left: 50, right: 50 },
+          maxZoom: 12,
+          duration: 700,
+        });
+      },
+    });
 
     // Keep the canvas matched to its container. The bottom-sheet layout
     // resizes this panel (fixed height, sheet sliding over it); without this
@@ -274,8 +300,9 @@ export function TripMap({
         );
 
         // Leg to this stop (from the previous stop, or a departure airport for
-        // an arrival flight into the very first stop).
-        {
+        // an arrival flight into the very first stop). Skipped once real tracked
+        // GPS exists — the tracked line then tells the true story.
+        if (!hasTrackedRef.current) {
           const prev = i > 0 ? located[i - 1]! : null;
           const isFlight = stop.travelMode === 'FLIGHT';
           const depAp = airportByCode(stop.fromAirport);
@@ -313,7 +340,7 @@ export function TripMap({
 
     if (map.isStyleLoaded()) apply();
     else map.once('load', apply);
-  }, [stops]);
+  }, [stops, hasTracked]);
 
   // Manual waypoints as small dots; click to delete when editing.
   useEffect(() => {

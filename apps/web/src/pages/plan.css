@@ -321,6 +321,26 @@
   background: #fbeae4;
 }
 
+.add-flight-leg {
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.2rem 0 0.2rem 0.9rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1.5px dashed #b9c0ea;
+  color: #3f4ec0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.15s var(--ease);
+}
+
+.add-flight-leg:hover {
+  background: #eef0fc;
+  border-style: solid;
+}
+
 .stop-add {
   padding: 1rem;
   display: grid;

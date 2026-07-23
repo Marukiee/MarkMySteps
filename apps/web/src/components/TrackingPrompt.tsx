@@ -18,6 +18,7 @@ export function TrackingPrompt() {
     tripId: null,
     buffered: 0,
     lastError: null,
+    lastFix: null,
   });
 
   useEffect(() => onTrackerChange(setTracker), []);

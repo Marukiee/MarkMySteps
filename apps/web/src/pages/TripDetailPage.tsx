@@ -9,7 +9,7 @@ import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
 import { SharePanel } from '../components/SharePanel';
 import { Timeline } from '../components/Timeline';
-import { TripMap, Waypoint } from '../components/TripMap';
+import { TripMap, TripMapApi, Waypoint } from '../components/TripMap';
 import type { TripNote } from '../components/DayNote';
 import type { StopPoint } from '../lib/arc';
 import { colorForUser, flagEmoji, formatDate } from '../lib/colors';
@@ -41,35 +41,46 @@ export function TripDetailPage() {
   const [notes, setNotes] = useState<TripNote[]>([]);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const scrollRef = useRef<HTMLElement>(null);
+  const mapApiRef = useRef<TripMapApi | null>(null);
+  const mediaRef = useRef<MediaItem[]>([]);
+  mediaRef.current = media;
 
-  // Collapsing map: as the sheet scrolls up, shrink the pinned map from its
-  // start height down to a minimum, then hold — the map always stays in view.
+  // Map follows the timeline: as you scroll, focus the camera on the photos
+  // currently visible in the list, so the map shows where you are in the trip.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const mq = window.matchMedia('(max-width: 900px)');
     let raf = 0;
-    const START = 55;
-    const MIN = 30;
+    let lastKey = '';
     const apply = () => {
       raf = 0;
-      if (!mq.matches) {
-        el.style.removeProperty('--map-h');
-        return;
+      const api = mapApiRef.current;
+      if (!api) return;
+      const mapBottom = window.innerHeight * 0.44;
+      const coords: [number, number][] = [];
+      const seen = new Set<string>();
+      for (const node of document.querySelectorAll<HTMLElement>('[data-media-id]')) {
+        const r = node.getBoundingClientRect();
+        if (r.bottom < mapBottom || r.top > window.innerHeight) continue;
+        const id = node.dataset.mediaId!;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const m = mediaRef.current.find((x) => x.id === id);
+        if (m && m.latitude !== null && m.longitude !== null) coords.push([m.longitude, m.latitude]);
       }
-      const vh = window.innerHeight / 100;
-      const h = Math.max(MIN, START - el.scrollTop / vh);
-      el.style.setProperty('--map-h', `${h}vh`);
+      if (coords.length === 0) return;
+      // Only re-focus when the visible set meaningfully changes.
+      const key = `${coords.length}:${coords[0]![0].toFixed(2)},${coords[0]![1].toFixed(2)}`;
+      if (key === lastKey) return;
+      lastKey = key;
+      api.focusOn(coords);
     };
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(apply);
     };
-    apply();
     el.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', apply);
     return () => {
       el.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', apply);
       if (raf) cancelAnimationFrame(raf);
     };
   }, [trip]);
@@ -223,6 +234,7 @@ export function TripDetailPage() {
           onPhotoFocus={scrollTimelineTo}
           clickMode={addPointMode}
           styleUrl={getMapStyle()}
+          onReady={(api) => (mapApiRef.current = api)}
         />
 
         {trip && trip.members.length > 1 && (

@@ -31,7 +31,8 @@
 .globe-backdrop canvas {
   display: block;
   cursor: grab;
-  touch-action: pan-y;
+  /* The globe consumes drag + pinch gestures itself. */
+  touch-action: none;
 }
 
 .globe-backdrop canvas:active {

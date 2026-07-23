@@ -100,14 +100,24 @@ function TrackingSection() {
     tripId: null,
     buffered: 0,
     lastError: null,
+    lastFix: null,
   });
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     api<Trip[]>('/trips').then(setTrips).catch(() => undefined);
     return onTrackerChange(setTracker);
   }, []);
 
+  // Tick so the "x sec geleden" freshness stays live while tracking.
+  useEffect(() => {
+    if (!tracker.tripId) return;
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [tracker.tripId]);
+
   const activeTrip = trips.find((t) => t.id === tracker.tripId);
+  const fixAge = tracker.lastFix ? Math.round((now - tracker.lastFix.at) / 1000) : null;
 
   return (
     <section className="card settings-card">
@@ -120,6 +130,31 @@ function TrackingSection() {
       {tracker.tripId ? (
         <div className="tracking-status">
           <span className="settings-ok">● Actief — {activeTrip?.title ?? 'reis'}</span>
+
+          <div className="tracking-live">
+            {tracker.lastFix ? (
+              <>
+                <span className="tracking-live-dot" />
+                <div>
+                  <strong>
+                    {tracker.lastFix.lat.toFixed(5)}, {tracker.lastFix.lng.toFixed(5)}
+                  </strong>
+                  <span className="muted">
+                    laatste fix {fixAge === null ? '' : fixAge < 2 ? 'zojuist' : `${fixAge}s geleden`}
+                    {tracker.lastFix.accuracy ? ` · ±${Math.round(tracker.lastFix.accuracy)} m` : ''}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <span className="muted">Wachten op eerste GPS-fix…</span>
+            )}
+          </div>
+          {activeTrip && (
+            <a className="tracking-view-link" href={`/trips/${activeTrip.id}`}>
+              Bekijk het gelopen pad op de kaart
+            </a>
+          )}
+
           {tracker.buffered > 0 && (
             <span className="muted">{tracker.buffered} punten in buffer (wacht op netwerk)</span>
           )}
