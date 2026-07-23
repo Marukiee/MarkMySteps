@@ -87,6 +87,8 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
 
   return (
     <div className="lightbox" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="lightbox-date">{formatDay(item.takenAt)}</div>
+
       <button className="lightbox-close" aria-label="Sluiten">
         <Icon name="close" size={22} />
       </button>
@@ -126,7 +128,6 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
           <p className="lightbox-videohint">Video laden…</p>
         )}
         <figcaption className="lightbox-bar">
-          <span>{formatDay(item.takenAt)}</span>
           <span className="lightbox-count">
             {index + 1} / {items.length}
           </span>

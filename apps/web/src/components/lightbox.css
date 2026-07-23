@@ -59,6 +59,24 @@
   margin: 0;
 }
 
+.lightbox-date {
+  position: fixed;
+  top: calc(1rem + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 101;
+  max-width: 70vw;
+  text-align: center;
+  color: rgb(255 255 255 / 0.92);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-transform: capitalize;
+  background: rgb(0 0 0 / 0.38);
+  backdrop-filter: blur(6px);
+  padding: 0.32rem 0.95rem;
+  border-radius: 999px;
+}
+
 .lightbox-close {
   position: fixed;
   top: calc(0.9rem + env(safe-area-inset-top));
