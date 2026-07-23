@@ -6,7 +6,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.55rem 1.5rem;
-  background: rgb(250 246 239 / 0.82);
+  background: var(--glass);
   backdrop-filter: blur(16px) saturate(1.1);
   border-bottom: 1px solid var(--line);
 }

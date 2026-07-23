@@ -14,6 +14,7 @@ import type { TripNote } from '../components/DayNote';
 import type { StopPoint } from '../lib/arc';
 import { colorForUser, flagEmoji, formatDate } from '../lib/colors';
 import { getMapStyle } from '../lib/prefs';
+import { onTrackerChange } from '../tracking/tracker';
 import './tripdetail.css';
 
 interface TripStats {
@@ -57,10 +58,13 @@ export function TripDetailPage() {
     let lastKey = '';
 
     // Live, every-frame: just resize the sticky map (smooth, no camera moves).
+    let lastMapH = -1;
     const resizeMap = () => {
       raf = 0;
       const vh = window.innerHeight / 100;
-      const mapH = Math.max(38, 56 - el.scrollTop / vh);
+      const mapH = Math.round(Math.max(38, 56 - el.scrollTop / vh) * 2) / 2; // 0.5vh steps
+      if (mapH === lastMapH) return;
+      lastMapH = mapH;
       el.style.setProperty('--map-h', `${mapH}vh`);
     };
 
@@ -103,16 +107,28 @@ export function TripDetailPage() {
     };
   }, [trip]);
 
-  // Show the live "you are here" dot on the map while the trip is open.
+  // Live "you are here" dot. Prefer the tracker's fixes (its background plugin
+  // already holds the location permission and is recording); also try the web
+  // geolocation as a fallback when not actively tracking.
   useEffect(() => {
-    if (!('geolocation' in navigator)) return;
-    const id = navigator.geolocation.watchPosition(
-      (pos) => setCurrentLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => undefined,
-      { enableHighAccuracy: true, maximumAge: 15_000 },
-    );
-    return () => navigator.geolocation.clearWatch(id);
-  }, []);
+    const off = onTrackerChange((s) => {
+      if (s.lastFix && (s.tripId === tripId || !tripId)) {
+        setCurrentLoc({ lat: s.lastFix.lat, lng: s.lastFix.lng });
+      }
+    });
+    let watchId: number | null = null;
+    if ('geolocation' in navigator) {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => setCurrentLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => undefined,
+        { enableHighAccuracy: true, maximumAge: 15_000 },
+      );
+    }
+    return () => {
+      off();
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [tripId]);
 
   const loadData = useCallback(() => {
     if (!tripId) return;
@@ -336,9 +352,6 @@ export function TripDetailPage() {
               className="trip-hero-img"
             />
             <div className="trip-hero-overlay">
-              <Link to="/" className="trip-back-hero">
-                <Icon name="arrow-left" size={15} /> Alle reizen
-              </Link>
               <h1>{trip.title}</h1>
               <p>
                 {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
@@ -347,9 +360,6 @@ export function TripDetailPage() {
           </div>
         ) : (
           <>
-            <Link to="/" className="trip-back muted">
-              <Icon name="arrow-left" size={15} /> Alle reizen
-            </Link>
             <h1>{trip?.title ?? '…'}</h1>
             {trip && (
               <p className="muted">

@@ -5,6 +5,7 @@ import * as topojson from 'topojson-client';
 // Low-res land outline bundled locally (no CDN); ~110m resolution.
 import land110m from 'world-atlas/land-110m.json';
 import type { Trip } from '../api/types';
+import { flightArc, splitOnGaps } from '../lib/arc';
 import './globe.css';
 
 // Minimal shape of the TopoJSON we consume (avoids a types-only dep).
@@ -87,6 +88,8 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
     let tourPhase = 0; // 0 = overview, 1 = focus
     let phaseStart = performance.now();
     let tourIdx = 0; // which trip is being framed during a focus phase
+    // Screen rects of the drawn labels, so tapping a name opens its trip.
+    let labelRects: { id: string; x: number; y: number; w: number; h: number }[] = [];
 
     function size() {
       const parent = canvas!.parentElement!;
@@ -177,26 +180,45 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       ctx!.fillStyle = dark ? '#2d3742' : '#d8c9ad';
       ctx!.fill();
 
-      // --- Trip routes ---
+      // --- Trip routes (solid ground segments + lighter bowed flight arcs) ---
       for (const trip of trips) {
         if (!trip.path) continue;
         const [r, g, b] = tripColor(trip.id);
-        ctx!.beginPath();
-        path({ type: 'LineString', coordinates: trip.path } as GeoPermissibleObjects);
-        if (trip.upcoming) {
-          // Planned (incl. flight arcs): faint + dashed so it clearly isn't a
-          // real, walked route.
-          ctx!.setLineDash([3 * dpr, 5 * dpr]);
-          ctx!.strokeStyle = `rgba(${r},${g},${b},0.55)`;
-          ctx!.lineWidth = 1.8 * dpr;
-        } else {
-          ctx!.setLineDash([]);
-          ctx!.strokeStyle = `rgba(${r},${g},${b},0.95)`;
-          ctx!.lineWidth = 2.4 * dpr;
-        }
+        const segs = splitOnGaps(trip.path, 500);
+
         ctx!.lineJoin = 'round';
         ctx!.lineCap = 'round';
-        ctx!.stroke();
+        for (const seg of segs) {
+          ctx!.beginPath();
+          path({ type: 'LineString', coordinates: seg } as GeoPermissibleObjects);
+          if (trip.upcoming) {
+            ctx!.setLineDash([3 * dpr, 5 * dpr]);
+            ctx!.strokeStyle = `rgba(${r},${g},${b},0.55)`;
+            ctx!.lineWidth = 1.8 * dpr;
+          } else {
+            ctx!.setLineDash([]);
+            ctx!.strokeStyle = `rgba(${r},${g},${b},0.95)`;
+            ctx!.lineWidth = 2.4 * dpr;
+          }
+          ctx!.stroke();
+        }
+
+        // Flight arcs across the gaps, in a lighter tint of the trip colour.
+        if (segs.length > 1) {
+          const lr = Math.round(r + (255 - r) * 0.5);
+          const lg = Math.round(g + (255 - g) * 0.5);
+          const lb = Math.round(b + (255 - b) * 0.5);
+          ctx!.setLineDash([3 * dpr, 4 * dpr]);
+          ctx!.strokeStyle = `rgba(${lr},${lg},${lb},0.85)`;
+          ctx!.lineWidth = 1.8 * dpr;
+          for (let s = 1; s < segs.length; s++) {
+            const a = segs[s - 1]![segs[s - 1]!.length - 1]!;
+            const arc = flightArc(a, segs[s]![0]!, 40);
+            ctx!.beginPath();
+            path({ type: 'LineString', coordinates: arc } as GeoPermissibleObjects);
+            ctx!.stroke();
+          }
+        }
       }
       ctx!.setLineDash([]);
 
@@ -232,6 +254,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       // in/out so names pop up softly rather than snapping. ---
       const maxLabels = Math.max(2, Math.round(2 + (scale - 1) * 3));
       const showIds = new Set(frontFacing.slice(0, maxLabels).map((t) => t.id));
+      labelRects = [];
       for (const trip of trips) {
         const target = showIds.has(trip.id) ? 1 : 0;
         const cur = labelOpacity.get(trip.id) ?? 0;
@@ -246,9 +269,12 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
         const tw = ctx!.measureText(label).width;
         const px = projected[0] + 9 * dpr;
         const py = projected[1] - 8 * dpr - (1 - next) * 6 * dpr; // slide up as it appears
+        const pw = tw + 12 * dpr;
+        const ph = 18 * dpr;
+        if (next > 0.6) labelRects.push({ id: trip.id, x: px, y: py, w: pw, h: ph });
         ctx!.globalAlpha = Math.min(1, next);
         ctx!.fillStyle = 'rgba(255,255,255,0.94)';
-        roundRect(ctx!, px, py, tw + 12 * dpr, 18 * dpr, 9 * dpr);
+        roundRect(ctx!, px, py, pw, ph, 9 * dpr);
         ctx!.fill();
         ctx!.fillStyle = '#1e2a35';
         ctx!.textBaseline = 'middle';
@@ -310,10 +336,16 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
     function onClick(e: PointerEvent) {
       if (moved > 8) return; // it was a pan, not a tap
       const rect = canvas!.getBoundingClientRect();
-      const inverted = projection.invert!([
-        (e.clientX - rect.left) * dpr,
-        (e.clientY - rect.top) * dpr,
-      ]);
+      const cx = (e.clientX - rect.left) * dpr;
+      const cy = (e.clientY - rect.top) * dpr;
+      // A tap on a trip's name pill opens it.
+      for (const r of labelRects) {
+        if (cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h) {
+          navigate(`/trips/${r.id}`);
+          return;
+        }
+      }
+      const inverted = projection.invert!([cx, cy]);
       if (!inverted) return;
       let best: { id: string; d: number } | null = null;
       for (const trip of globeTrips()) {

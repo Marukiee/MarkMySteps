@@ -19,6 +19,18 @@
   box-shadow: var(--shadow-m);
   cursor: pointer;
   transition: transform 0.18s var(--ease);
+  /* Soft fade as clusters split/merge on zoom (opacity only — maplibre drives
+     the marker's transform for positioning). */
+  animation: markerFade 0.32s var(--ease) backwards;
+}
+
+@keyframes markerFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .photo-marker:hover {

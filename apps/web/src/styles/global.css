@@ -30,6 +30,9 @@
   --font-display: 'Fraunces Variable', Georgia, serif;
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Frosted surfaces (nav bar, top bar, floating buttons). */
+  --glass: rgb(255 255 255 / 0.92);
+  --glass-border: var(--line);
   color-scheme: light;
 }
 
@@ -51,6 +54,8 @@
   --shadow-m: 0 6px 24px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.35);
   --shadow-l: 0 18px 48px rgb(0 0 0 / 0.6);
 
+  --glass: rgb(24 30 37 / 0.9);
+  --glass-border: #2b333d;
   color-scheme: dark;
 }
 
@@ -81,6 +86,12 @@ nav,
 
 html {
   overscroll-behavior-y: none;
+  /* Never allow stray sideways scrolling (e.g. from the full-bleed globe). */
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
 }
 
 html,

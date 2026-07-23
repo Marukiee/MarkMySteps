@@ -15,14 +15,46 @@ export function greatCircleArc(
   return { type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: {} };
 }
 
-/** Chained great-circle arcs through waypoints (e.g. a flight with layovers). */
+/**
+ * A deliberately bowed flight arc between two points — a quadratic curve that
+ * bulges perpendicular to the chord, so on a flat map it clearly reads as a
+ * flight (a plain geodesic looks almost straight for short hops).
+ */
+export function flightArc(
+  from: [number, number],
+  to: [number, number],
+  steps = 48,
+): [number, number][] {
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  const len = Math.hypot(dx, dy) || 1;
+  // Perpendicular unit vector; always bow to the same (upper) side.
+  let px = -dy / len;
+  let py = dx / len;
+  if (py < 0) {
+    px = -px;
+    py = -py;
+  }
+  const bow = Math.min(len * 0.28, 22); // degrees, capped
+  const cx = (from[0] + to[0]) / 2 + px * bow;
+  const cy = (from[1] + to[1]) / 2 + py * bow;
+  const coords: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const mt = 1 - t;
+    coords.push([
+      mt * mt * from[0] + 2 * mt * t * cx + t * t * to[0],
+      mt * mt * from[1] + 2 * mt * t * cy + t * t * to[1],
+    ]);
+  }
+  return coords;
+}
+
+/** Chained bowed flight arcs through waypoints (a flight with layovers). */
 export function multiArc(points: [number, number][]): GeoJSON.Feature<GeoJSON.LineString> {
   const coordinates: [number, number][] = [];
   for (let i = 1; i < points.length; i++) {
-    const seg = greatCircleArc(points[i - 1]!, points[i]!, 32).geometry.coordinates as [
-      number,
-      number,
-    ][];
+    const seg = flightArc(points[i - 1]!, points[i]!, 36);
     coordinates.push(...(i === 1 ? seg : seg.slice(1)));
   }
   return { type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: {} };

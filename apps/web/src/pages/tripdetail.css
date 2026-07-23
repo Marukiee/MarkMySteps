@@ -38,6 +38,8 @@
     overflow: hidden;
     border-radius: 0 0 var(--radius-l) var(--radius-l);
     z-index: 2;
+    will-change: height;
+    contain: paint;
   }
 
   .trip-detail .trip-map {
@@ -117,7 +119,7 @@
   gap: 0.45rem;
   padding: 0.4rem 0.85rem;
   border-radius: 999px;
-  background: rgb(255 255 255 / 0.9);
+  background: var(--glass);
   backdrop-filter: blur(8px);
   border: 1px solid var(--line);
   font-weight: 600;
@@ -294,7 +296,7 @@
   display: grid;
   place-content: center;
   border-radius: 50%;
-  background: rgb(255 255 255 / 0.92);
+  background: var(--glass);
   backdrop-filter: blur(8px);
   color: var(--ink);
   box-shadow: var(--shadow-m);

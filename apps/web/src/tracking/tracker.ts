@@ -49,6 +49,31 @@ const FLUSH_INTERVAL_MS = 60_000;
 const BATCH_SIZE = 500;
 
 const ACTIVE_TRIP_KEY = 'mms.tracking.trip';
+const LOG_KEY = 'mms.tracking.log';
+
+export interface FixLogEntry {
+  lat: number;
+  lng: number;
+  at: number;
+}
+
+/** Recent GPS fixes (newest first), persisted so you can see it kept running. */
+export function getTrackingLog(): FixLogEntry[] {
+  try {
+    return JSON.parse(localStorage.getItem(LOG_KEY) ?? '[]') as FixLogEntry[];
+  } catch {
+    return [];
+  }
+}
+
+function pushLog(entry: FixLogEntry): void {
+  try {
+    const log = [entry, ...getTrackingLog()].slice(0, 60);
+    localStorage.setItem(LOG_KEY, JSON.stringify(log));
+  } catch {
+    /* storage full — log is best-effort */
+  }
+}
 
 type Listener = (state: TrackerState) => void;
 
@@ -94,6 +119,7 @@ async function record(tripId: string, position: NativePosition): Promise<void> {
     altitude: position.altitude,
   };
   await bufferPoint(point);
+  pushLog({ lat: position.latitude, lng: position.longitude, at: Date.now() });
   emit({
     buffered: await bufferedCount(),
     lastFix: {

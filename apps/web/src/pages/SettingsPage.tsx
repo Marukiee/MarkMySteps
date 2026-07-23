@@ -17,6 +17,7 @@ import {
 } from '../lib/prefs';
 import {
   TrackerState,
+  getTrackingLog,
   isNative,
   onTrackerChange,
   startTracking,
@@ -222,7 +223,36 @@ function TrackingSection() {
           </div>
         </div>
       )}
+
+      <TrackingLog now={now} />
     </section>
+  );
+}
+
+/** Persisted recent-fix log — proof tracking keeps recording, even backgrounded. */
+function TrackingLog({ now }: { now: number }) {
+  const log = getTrackingLog();
+  if (log.length === 0) return null;
+  return (
+    <details className="tracking-log">
+      <summary>Locatie-log · {log.length} fixes</summary>
+      <ul>
+        {log.slice(0, 25).map((e, i) => {
+          const ago = Math.round((now - e.at) / 1000);
+          return (
+            <li key={i}>
+              <span>
+                {new Date(e.at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+                {ago < 3600 ? ` · ${Math.max(0, Math.round(ago / 60))}m geleden` : ''}
+              </span>
+              <span className="muted">
+                {e.lat.toFixed(4)}, {e.lng.toFixed(4)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </details>
   );
 }
 

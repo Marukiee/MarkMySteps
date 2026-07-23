@@ -256,6 +256,36 @@
   color: var(--accent-ink);
 }
 
+.tracking-log {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  padding: 0.6rem 0.85rem;
+}
+
+.tracking-log summary {
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+
+.tracking-log ul {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.tracking-log li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .theme-choice {
   display: inline-flex;
   gap: 4px;

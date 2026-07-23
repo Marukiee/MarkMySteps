@@ -3,8 +3,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { fetchBlobUrl } from '../api/client';
 import type { MediaItem, RouteCollection } from '../api/types';
-import { buildLegs, splitOnGaps, StopPoint } from '../lib/arc';
-import { colorForUser, flagEmoji } from '../lib/colors';
+import { buildLegs, flightArc, splitOnGaps, StopPoint } from '../lib/arc';
+import { colorForUser, flagEmoji, lighten } from '../lib/colors';
 import './tripmap.css';
 
 export interface Waypoint {
@@ -177,6 +177,39 @@ export function TripMap({
           },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         });
+
+        // Bowed flight arcs bridge the flight-sized gaps we split above, in a
+        // lighter tint of the route colour so they read as flights.
+        const gapArcs: [number, number][][] = [];
+        for (let s = 1; s < segments.length; s++) {
+          const a = segments[s - 1]![segments[s - 1]!.length - 1]!;
+          const b = segments[s]![0]!;
+          gapArcs.push(flightArc(a, b, 40));
+        }
+        if (gapArcs.length) {
+          const fid = `route-flight-${userId}`;
+          map.addSource(fid, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              geometry: { type: 'MultiLineString', coordinates: gapArcs },
+              properties: {},
+            },
+          });
+          map.addLayer({
+            id: `${fid}-line`,
+            type: 'line',
+            source: fid,
+            paint: {
+              'line-color': lighten(colorForUser(userId), 0.5),
+              'line-width': 2.2,
+              'line-dasharray': [1.5, 1.8],
+            },
+            layout: { 'line-cap': 'round' },
+          });
+          for (const arc of gapArcs) for (const c of arc) bounds.extend(c);
+        }
+
         for (const coordinate of feature.geometry.coordinates) {
           bounds.extend(coordinate);
           hasPoints = true;

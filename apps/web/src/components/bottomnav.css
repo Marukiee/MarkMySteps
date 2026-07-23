@@ -6,9 +6,9 @@
   z-index: 50;
   display: none;
   grid-template-columns: repeat(3, 1fr);
-  background: rgb(255 255 255 / 0.92);
+  background: var(--glass);
   backdrop-filter: blur(16px);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--glass-border);
   padding: 0.35rem 0 calc(0.35rem + env(safe-area-inset-bottom));
 }
 
