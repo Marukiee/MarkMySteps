@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { MediaItem, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -25,6 +25,7 @@ interface TripStats {
 
 export function TripDetailPage() {
   const { tripId } = useParams<{ tripId: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [routes, setRoutes] = useState<RouteCollection | null>(null);
@@ -378,10 +379,13 @@ export function TripDetailPage() {
           </div>
         )}
 
-        <div className="trip-actions">
-          <Link to={`/trips/${tripId}/plan`} className="btn btn-primary">
-            <Icon name="compass" size={18} /> Routeplanner
-          </Link>
+        <div className="side-tabs" role="tablist">
+          <button className="active" role="tab" aria-selected="true">
+            Tijdlijn
+          </button>
+          <button role="tab" onClick={() => navigate(`/trips/${tripId}/plan`)}>
+            Routeplanner
+          </button>
         </div>
 
         <Timeline

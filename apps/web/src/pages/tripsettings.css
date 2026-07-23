@@ -83,6 +83,53 @@
   gap: 0.5rem;
 }
 
+.ts-section-title {
+  font-size: 1.15rem;
+  margin-bottom: 0.2rem;
+}
+
+.ts-tracking {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ts-track-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+}
+
+.ts-track-box > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.ts-track-box span {
+  font-size: 0.82rem;
+}
+
+.ts-track-danger {
+  border-color: #ecc5ba;
+}
+
+.ts-wipe-day {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.ts-wipe-day input {
+  padding: 0.45rem 0.6rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+  font: inherit;
+}
+
 .ts-sync {
   display: flex;
   align-items: center;

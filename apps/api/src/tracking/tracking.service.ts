@@ -105,6 +105,33 @@ export class TrackingService {
   }
 
   /**
+   * Wipes the caller's own tracked/imported route data for a trip (keeps
+   * manual waypoints). With `day` (YYYY-MM-DD) only that calendar day is
+   * cleared. The trip itself is untouched.
+   */
+  async clearTracked(
+    tripId: string,
+    userId: string,
+    day?: string,
+  ): Promise<{ deleted: number }> {
+    await this.trips.getForMember(tripId, userId);
+    const where: Prisma.LocationPointWhereInput = {
+      tripId,
+      userId,
+      source: { in: [PointSource.TRACKED, PointSource.IMPORTED] },
+    };
+    if (day) {
+      const start = new Date(`${day}T00:00:00.000Z`);
+      if (Number.isNaN(start.getTime())) {
+        throw new NotFoundException('Invalid day');
+      }
+      where.recordedAt = { gte: start, lt: new Date(start.getTime() + 86_400_000) };
+    }
+    const { count } = await this.prisma.locationPoint.deleteMany({ where });
+    return { deleted: count };
+  }
+
+  /**
    * Per-traveller simplified routes as GeoJSON.
    *
    * Point sources are merged on the server: recorded GPS fixes plus photo

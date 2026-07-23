@@ -55,6 +55,16 @@ export class TrackingController {
     return this.tracking.addManualPoint(tripId, user.sub, dto);
   }
 
+  /** Wipe the caller's tracked route data (optionally just one day). */
+  @Delete('tracked')
+  clearTracked(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Query('day') day?: string,
+  ): Promise<{ deleted: number }> {
+    return this.tracking.clearTracked(tripId, user.sub, day);
+  }
+
   @Delete('points/:pointId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async removePoint(

@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
 import { Icon } from '../components/Icon';
 import { MembersPanel } from '../components/MembersPanel';
+import { TrackButton } from '../components/TrackButton';
 import { isNative, startTracking } from '../tracking/tracker';
 import './tripsettings.css';
 
@@ -23,6 +24,9 @@ export function TripSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [clearDay, setClearDay] = useState('');
+  const [wiping, setWiping] = useState(false);
+  const [clearMsg, setClearMsg] = useState<string | null>(null);
 
   function load() {
     if (!tripId) return;
@@ -69,6 +73,26 @@ export function TripSettingsPage() {
     if (!tripId || !window.confirm(`"${trip?.title}" definitief verwijderen?`)) return;
     await api(`/trips/${tripId}`, { method: 'DELETE' });
     navigate('/');
+  }
+
+  async function wipeTracked(day?: string) {
+    if (!tripId) return;
+    const scope = day ? `de tracking van ${day}` : 'ALLE getrackte data van deze reis';
+    if (!window.confirm(`Weet je zeker dat je ${scope} wilt verwijderen?`)) return;
+    setWiping(true);
+    setClearMsg(null);
+    try {
+      const res = await api<{ deleted: number }>(
+        `/trips/${tripId}/tracked${day ? `?day=${day}` : ''}`,
+        { method: 'DELETE' },
+      );
+      setClearMsg(`${res.deleted} trackpunten verwijderd.`);
+      if (day) setClearDay('');
+    } catch (err) {
+      setClearMsg(err instanceof Error ? err.message : 'Wissen mislukt');
+    } finally {
+      setWiping(false);
+    }
   }
 
   async function runSync() {
@@ -134,25 +158,66 @@ export function TripSettingsPage() {
             </div>
           </div>
 
-          <label className="ts-toggle">
-            <div>
-              <strong>Automatisch tracken</strong>
-              <span className="muted">
-                Start route-tracking automatisch zodra de reis begint (app, op de achtergrond).
-              </span>
-            </div>
-            <input
-              type="checkbox"
-              checked={autoTrack}
-              onChange={(e) => setAutoTrack(e.target.checked)}
-            />
-          </label>
-
           {error && <p className="error-text">{error}</p>}
         </form>
       ) : (
         <p className="muted">Alleen de organisator kan de reisinstellingen wijzigen.</p>
       )}
+
+      <section className="ts-tracking">
+        <h2 className="ts-section-title">Tracking</h2>
+
+        {isNative() && tripId && (
+          <div className="ts-track-box">
+            <div>
+              <strong>Route nu bijhouden</strong>
+              <span className="muted">Start of stop het volgen van je route voor deze reis.</span>
+            </div>
+            <TrackButton tripId={tripId} />
+          </div>
+        )}
+
+        <label className="ts-toggle">
+          <div>
+            <strong>Automatisch tracken</strong>
+            <span className="muted">
+              Start route-tracking automatisch zodra de reis begint (app, op de achtergrond).
+            </span>
+          </div>
+          <input
+            type="checkbox"
+            checked={autoTrack}
+            disabled={!isOwner}
+            onChange={(e) => {
+              setAutoTrack(e.target.checked);
+              if (isOwner) void save();
+            }}
+          />
+        </label>
+
+        <div className="ts-track-box ts-track-danger">
+          <div>
+            <strong>Getrackte data wissen</strong>
+            <span className="muted">
+              Verwijdert jouw GPS-route (de reis en foto's blijven). Kies een dag, of wis alles.
+            </span>
+            <div className="ts-wipe-day">
+              <input type="date" value={clearDay} onChange={(e) => setClearDay(e.target.value)} />
+              <button
+                className="btn btn-ghost"
+                disabled={!clearDay || wiping}
+                onClick={() => void wipeTracked(clearDay)}
+              >
+                Wis dag
+              </button>
+            </div>
+          </div>
+          <button className="btn btn-danger" disabled={wiping} onClick={() => void wipeTracked()}>
+            Alles wissen
+          </button>
+        </div>
+        {clearMsg && <p className="muted">{clearMsg}</p>}
+      </section>
 
       <section className="ts-sync">
         <div>
