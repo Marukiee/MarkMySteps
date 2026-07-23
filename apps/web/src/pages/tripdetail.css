@@ -24,15 +24,29 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: 0;
+    --map-h: 56vh;
   }
 
+  /* Sticky map that shrinks as you scroll (its rounded bottom peeks over the
+     sheet). The GL canvas keeps a constant height and is just clipped, so the
+     shrink is smooth — no per-frame map resize. */
   .trip-detail .trip-map-panel {
     position: sticky;
     top: 0;
-    height: 44vh;
+    height: var(--map-h);
     min-height: 0;
-    border-radius: 0;
+    overflow: hidden;
+    border-radius: 0 0 var(--radius-l) var(--radius-l);
     z-index: 2;
+  }
+
+  .trip-detail .trip-map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 56vh;
+    bottom: auto;
   }
 
   /* Higher specificity than the base .trip-side so its symmetric padding wins
@@ -264,12 +278,17 @@
   line-height: 1;
 }
 
-/* Floating settings gear, top-right of the page over the map. */
-.trip-fab-gear {
+/* Floating action buttons, top-right of the page over the map. */
+.trip-fabs {
   position: absolute;
   top: 1.25rem;
   right: 1.25rem;
   z-index: 6;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.trip-fab {
   width: 42px;
   height: 42px;
   display: grid;
@@ -282,16 +301,88 @@
   transition: transform 0.15s var(--ease);
 }
 
-.trip-fab-gear:hover {
+.trip-fab:hover {
   transform: scale(1.06);
 }
 
+.trip-fab:active {
+  transform: scale(0.94);
+}
+
 @media (max-width: 900px) {
-  .trip-fab-gear {
+  .trip-fabs {
     position: fixed;
     top: calc(0.9rem + env(safe-area-inset-top));
     right: 1rem;
   }
+}
+
+/* Reisgenoten & delen — modal sheet. */
+.people-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgb(16 21 27 / 0.5);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: end center;
+  animation: fadeIn 0.2s var(--ease);
+}
+
+@media (min-width: 601px) {
+  .people-sheet-backdrop {
+    place-items: center;
+  }
+}
+
+.people-sheet {
+  width: min(560px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 1.1rem 1.15rem calc(1.15rem + env(safe-area-inset-bottom));
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+  animation: sheetUp 0.28s var(--ease);
+}
+
+@media (min-width: 601px) {
+  .people-sheet {
+    border-radius: var(--radius-l);
+  }
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.people-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.people-sheet-head h2 {
+  font-size: 1.3rem;
+}
+
+.people-sheet-close {
+  display: grid;
+  place-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+}
+
+.people-sheet-close:hover {
+  background: var(--paper-sunken);
 }
 
 .trip-back,

@@ -7,7 +7,9 @@ android {
         applicationId "nl.markmaaktmedia.markmysteps"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // CI bumps versionCode per build (GITHUB_RUN_NUMBER) so updates install
+        // over each other; falls back to 1 for local builds.
+        versionCode System.getenv("MMS_VERSION_CODE") ? System.getenv("MMS_VERSION_CODE").toInteger() : 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -16,10 +18,26 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Stable release signing from CI secrets (a keystore decoded to a file).
+    // Without the env vars set (local dev) the release config stays unsigned.
+    signingConfigs {
+        release {
+            def ksFile = System.getenv("MMS_KEYSTORE_FILE")
+            if (ksFile) {
+                storeFile file(ksFile)
+                storePassword System.getenv("MMS_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("MMS_KEY_ALIAS")
+                keyPassword System.getenv("MMS_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (System.getenv("MMS_KEYSTORE_FILE")) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

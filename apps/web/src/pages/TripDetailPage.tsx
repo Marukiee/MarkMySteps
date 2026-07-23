@@ -33,7 +33,8 @@ export function TripDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [addPointMode, setAddPointMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [sideTab, setSideTab] = useState<'timeline' | 'manage'>('timeline');
+  const [peopleOpen, setPeopleOpen] = useState(false);
+  const [currentLoc, setCurrentLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<StopPoint[]>([]);
@@ -54,9 +55,15 @@ export function TripDetailPage() {
     let lastKey = '';
     const apply = () => {
       raf = 0;
+      // Shrink the sticky map as the sheet scrolls up (bigger → smaller),
+      // clamped so it always stays visible.
+      const vh = window.innerHeight / 100;
+      const mapH = Math.max(38, 56 - el.scrollTop / vh);
+      el.style.setProperty('--map-h', `${mapH}vh`);
+
       const api = mapApiRef.current;
       if (!api) return;
-      const mapBottom = window.innerHeight * 0.44;
+      const mapBottom = window.innerHeight * (mapH / 100);
       const coords: [number, number][] = [];
       const seen = new Set<string>();
       for (const node of document.querySelectorAll<HTMLElement>('[data-media-id]')) {
@@ -84,6 +91,17 @@ export function TripDetailPage() {
       if (raf) cancelAnimationFrame(raf);
     };
   }, [trip]);
+
+  // Show the live "you are here" dot on the map while the trip is open.
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => setCurrentLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => undefined,
+      { enableHighAccuracy: true, maximumAge: 15_000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, []);
 
   const loadData = useCallback(() => {
     if (!tripId) return;
@@ -184,8 +202,6 @@ export function TripDetailPage() {
   );
 
   const scrollTimelineTo = useCallback((mediaId: string) => {
-    setSideTab('timeline');
-    // Wait for the tab to render before scrolling.
     requestAnimationFrame(() => {
       const el = document.querySelector(`[data-media-id="${mediaId}"]`);
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -212,28 +228,38 @@ export function TripDetailPage() {
 
   return (
     <main className="trip-detail fade-in" ref={scrollRef}>
-      {trip?.ownerId === user?.id && (
-        <Link
-          to={`/trips/${tripId}/settings`}
-          className="trip-fab-gear"
-          aria-label="Reisinstellingen"
+      <div className="trip-fabs">
+        <button
+          className="trip-fab"
+          aria-label="Reisgenoten & delen"
+          onClick={() => setPeopleOpen(true)}
         >
-          <Icon name="gear" size={20} />
-        </Link>
-      )}
+          <Icon name="people" size={20} />
+        </button>
+        {trip?.ownerId === user?.id && (
+          <Link
+            to={`/trips/${tripId}/settings`}
+            className="trip-fab"
+            aria-label="Reisinstellingen"
+          >
+            <Icon name="gear" size={20} />
+          </Link>
+        )}
+      </div>
       <div className="trip-map-panel card">
         <TripMap
           routes={routes}
           media={media}
           stops={stops}
           waypoints={waypoints}
-          onWaypointDelete={sideTab === 'manage' && addPointMode ? deleteWaypoint : undefined}
+          onWaypointDelete={addPointMode ? deleteWaypoint : undefined}
           visibleUsers={visibleUsers}
           onMapClick={handleMapClick}
           onPhotoOpen={openPhoto}
           onPhotoFocus={scrollTimelineTo}
           clickMode={addPointMode}
           styleUrl={getMapStyle()}
+          currentLocation={currentLoc}
           onReady={(api) => (mapApiRef.current = api)}
         />
 
@@ -358,89 +384,45 @@ export function TripDetailPage() {
           </Link>
         </div>
 
-        <div className="side-tabs" role="tablist">
-          <button
-            className={sideTab === 'timeline' ? 'active' : ''}
-            onClick={() => setSideTab('timeline')}
-          >
-            Tijdlijn
-          </button>
-          <button
-            className={sideTab === 'manage' ? 'active' : ''}
-            onClick={() => setSideTab('manage')}
-          >
-            Beheer
-          </button>
-        </div>
-
-        <div key={sideTab} className="tab-content fade-in">
-        {sideTab === 'timeline' && (
-          <Timeline
-            media={visibleMedia}
-            visibleUsers={visibleUsers}
-            showOwner={(trip?.members.length ?? 0) > 1}
-            onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
-            notes={notes}
-            canEditNotes={!!user && trip?.members.some((m) => m.userId === user.id)}
-            ownUserId={user?.id}
-            onSaveNote={saveNote}
-            onDeleteNote={deleteNote}
-            stops={stops.map((s) => ({
-              name: s.name,
-              countryCode: s.countryCode,
-              latitude: s.latitude,
-              longitude: s.longitude,
-              arrivalDate: s.arrivalDate,
-              departureDate: s.departureDate,
-            }))}
-          />
-        )}
-
-        {sideTab === 'manage' && (
-          <div className="manage-panel">
-            <section className="manage-section">
-              <h2 className="trip-side-heading">Route &amp; stops</h2>
-              {stops.length > 0 && (
-                <ol className="manage-stops">
-                  {stops.map((stop, i) => (
-                    <li key={stop.id}>
-                      <span className="manage-stop-badge">
-                        {stop.travelMode === 'FLIGHT' ? <Icon name="plane" size={14} /> : i + 1}
-                      </span>
-                      <span>
-                        {flagEmoji(stop.countryCode)} {stop.name}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-              <div className="trip-actions">
-                <Link to={`/trips/${tripId}/plan`} className="btn btn-ghost">
-                  Stops &amp; vluchten bewerken
-                </Link>
-                <button
-                  className={`btn ${addPointMode ? 'btn-primary' : 'btn-ghost'}`}
-                  onClick={() => {
-                    setAddPointMode((v) => !v);
-                    setPendingPoint(null);
-                  }}
-                >
-                  {addPointMode ? 'Klaar met punten' : '+ Tussenpunten'}
-                </button>
-              </div>
-              {addPointMode && (
-                <p className="muted">
-                  Klik op de kaart voor een tussenpunt om de route te verfijnen. Klik op een
-                  bestaand punt (oranje stip) om het te verwijderen.
-                </p>
-              )}
-            </section>
-            {trip && <MembersPanel trip={trip} onChanged={loadData} />}
-            {trip && trip.ownerId === user?.id && tripId && <SharePanel tripId={tripId} />}
-          </div>
-        )}
-        </div>
+        <Timeline
+          media={visibleMedia}
+          visibleUsers={visibleUsers}
+          showOwner={(trip?.members.length ?? 0) > 1}
+          onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
+          notes={notes}
+          canEditNotes={!!user && trip?.members.some((m) => m.userId === user.id)}
+          ownUserId={user?.id}
+          onSaveNote={saveNote}
+          onDeleteNote={deleteNote}
+          stops={stops.map((s) => ({
+            name: s.name,
+            countryCode: s.countryCode,
+            latitude: s.latitude,
+            longitude: s.longitude,
+            arrivalDate: s.arrivalDate,
+            departureDate: s.departureDate,
+          }))}
+        />
       </aside>
+
+      {peopleOpen && trip && (
+        <div className="people-sheet-backdrop" onClick={() => setPeopleOpen(false)}>
+          <div className="people-sheet card" onClick={(e) => e.stopPropagation()}>
+            <div className="people-sheet-head">
+              <h2>Reisgenoten &amp; delen</h2>
+              <button
+                className="people-sheet-close"
+                aria-label="Sluiten"
+                onClick={() => setPeopleOpen(false)}
+              >
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+            <MembersPanel trip={trip} onChanged={loadData} />
+            {trip.ownerId === user?.id && tripId && <SharePanel tripId={tripId} />}
+          </div>
+        </div>
+      )}
 
       {lightboxIndex !== null && (
         <Lightbox

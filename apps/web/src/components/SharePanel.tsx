@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { ShareLinkInfo } from '../api/types';
 import { webBase } from '../lib/native';
+import { Icon } from './Icon';
 import './share.css';
 
 export function SharePanel({ tripId }: { tripId: string }) {
@@ -52,16 +53,26 @@ export function SharePanel({ tripId }: { tripId: string }) {
       {links.map((link) => (
         <div key={link.id} className="share-link card">
           <span className="share-url">{`${webBase().replace(/^https?:\/\//, '')}${link.url}`}</span>
-          {link.hasPassword && <span className="share-lock" title="Met wachtwoord">🔒</span>}
+          {link.hasPassword && (
+            <span className="share-lock" title="Met wachtwoord">
+              <Icon name="lock" size={14} />
+            </span>
+          )}
           <button className="btn btn-ghost share-btn" onClick={() => copy(link)}>
-            {copied === link.id ? 'Gekopieerd ✓' : 'Kopieer'}
+            {copied === link.id ? (
+              <>
+                <Icon name="check" size={15} /> Gekopieerd
+              </>
+            ) : (
+              'Kopieer'
+            )}
           </button>
           <button
             className="share-delete"
             onClick={() => void removeLink(link.id)}
-            title="Link intrekken"
+            aria-label="Link intrekken"
           >
-            ✕
+            <Icon name="trash" size={15} />
           </button>
         </div>
       ))}
@@ -74,7 +85,9 @@ export function SharePanel({ tripId }: { tripId: string }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <button className="btn btn-ghost">+ Deellink</button>
+        <button className="btn btn-ghost">
+          <Icon name="plus" size={16} /> Deellink
+        </button>
       </form>
       {error && <p className="error-text">{error}</p>}
     </section>

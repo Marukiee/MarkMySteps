@@ -21,7 +21,13 @@ export type IconName =
   | 'pin'
   | 'trash'
   | 'archive'
-  | 'camera';
+  | 'camera'
+  | 'lock'
+  | 'play'
+  | 'stop'
+  | 'external'
+  | 'share'
+  | 'people';
 
 // Single source of truth for line icons. 24×24 viewbox, 2px stroke,
 // currentColor — so an icon inherits text color and sizes with `size`.
@@ -139,6 +145,37 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
       <circle cx="12" cy="13" r="3.2" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </>
+  ),
+  play: <path d="M7 5v14l12-7z" fill="currentColor" stroke="none" />,
+  stop: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />,
+  external: (
+    <>
+      <path d="M14 4h6v6" />
+      <path d="M20 4 10 14" />
+      <path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
+    </>
+  ),
+  share: (
+    <>
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="6" r="2.5" />
+      <circle cx="18" cy="18" r="2.5" />
+      <path d="m8.2 10.8 7.6-4M8.2 13.2l7.6 4" />
+    </>
+  ),
+  people: (
+    <>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3 20a6 6 0 0 1 12 0" />
+      <circle cx="17.5" cy="9.5" r="2.4" />
+      <path d="M16 14.5a5 5 0 0 1 5 5.5" />
     </>
   ),
 };

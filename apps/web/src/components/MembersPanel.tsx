@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from './Avatar';
+import { Icon } from './Icon';
 import './members.css';
 
 export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () => void }) {
@@ -56,9 +57,9 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
               <button
                 className="members-remove"
                 onClick={() => void removeMember(member.userId, member.user.displayName)}
-                title="Verwijderen"
+                aria-label="Verwijderen"
               >
-                ✕
+                <Icon name="close" size={15} />
               </button>
             )}
           </li>
@@ -74,7 +75,7 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
             onChange={(e) => setUsername(e.target.value)}
           />
           <button className="btn btn-ghost" disabled={busy}>
-            + Toevoegen
+            <Icon name="plus" size={16} /> Toevoegen
           </button>
         </form>
       )}

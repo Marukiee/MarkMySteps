@@ -21,8 +21,8 @@ export function FriendsPage() {
     <main className="page fade-in friends-page">
       <h1>Vrienden</h1>
       <p className="muted">
-        Iedereen met wie je een reis deelt. Toevoegen doe je per reis: open een reis → Reisgenoten
-        → @gebruikersnaam invullen.
+        Iedereen met wie je een reis deelt. Toevoegen doe je per reis: open een reis, tik het
+        mensen-icoon en vul de @gebruikersnaam van je vriend in.
       </p>
 
       {friends === null && <p className="muted">Laden…</p>}

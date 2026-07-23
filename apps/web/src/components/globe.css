@@ -10,8 +10,6 @@
   height: clamp(260px, 42vh, 520px);
   margin: -1rem 0 0.5rem;
   overflow: hidden;
-  mask-image: radial-gradient(circle at center 42%, #000 62%, transparent 82%);
-  -webkit-mask-image: radial-gradient(circle at center 42%, #000 62%, transparent 82%);
 }
 
 /* Soft fade at the bottom so the globe melts into the page instead of a hard

@@ -83,7 +83,6 @@ export function PlanPage() {
       zoom: 3,
       attributionControl: { compact: true },
     });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.on('style.load', () => map.setProjection({ type: 'globe' }));
     map.on('click', (e) => {
       setPendingCoords(e.lngLat);
@@ -332,8 +331,10 @@ export function PlanPage() {
           </Link>
           <h1>Routeplanner</h1>
           {trip && (
-            <p className="muted">
-              {trip.title} · {formatDate(trip.startDate)} → {formatDate(trip.endDate)}
+            <p className="muted plan-daterange">
+              {trip.title} · {formatDate(trip.startDate)}
+              <Icon name="chevron-right" size={12} />
+              {formatDate(trip.endDate)}
             </p>
           )}
           {trip && (
@@ -349,7 +350,9 @@ export function PlanPage() {
 
         {stops.length === 0 && (
           <div className="plan-empty">
-            <span>🧭</span>
+            <span className="plan-empty-icon">
+              <Icon name="compass" size={30} />
+            </span>
             <p className="muted">
               Nog geen stops. Zoek hieronder een stad en bouw je route op — versleep om te
               herordenen. Tik het vervoer-pilletje bij een stop om te wisselen tussen auto, trein,
@@ -410,7 +413,7 @@ export function PlanPage() {
                   <strong>{stop.name}</strong>
                   <span className="muted">
                     {formatDate(stop.arrivalDate)}
-                    {stop.nights > 0 && ` → ${formatDate(stop.departureDate)}`}
+                    {stop.nights > 0 && ` – ${formatDate(stop.departureDate)}`}
                     {stop.latitude !== null && stop.longitude !== null && (
                       <>
                         {' · '}
@@ -460,7 +463,7 @@ export function PlanPage() {
 
         {stops.length > 0 && (
           <button type="button" className="add-flight-leg" onClick={() => void addFlightLeg()}>
-            <Icon name="plane" size={16} /> Vlucht toevoegen aan het einde
+            <Icon name="plane" size={16} /> Terugvlucht
           </button>
         )}
 

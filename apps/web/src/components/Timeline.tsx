@@ -158,7 +158,11 @@ export function Timeline({
                     style={{ background: colorForUser(item.userId) }}
                   />
                 )}
-                {item.assetType === 'VIDEO' && <span className="timeline-video">▶</span>}
+                {item.assetType === 'VIDEO' && (
+                  <span className="timeline-video">
+                    <Icon name="play" size={22} />
+                  </span>
+                )}
               </figure>
             ))}
           </div>

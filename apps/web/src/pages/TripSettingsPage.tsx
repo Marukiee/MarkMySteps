@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
 import { Icon } from '../components/Icon';
 import { MembersPanel } from '../components/MembersPanel';
+import { isNative, startTracking } from '../tracking/tracker';
 import './tripsettings.css';
 
 /** Polarsteps-style "Edit trip" screen. */
@@ -50,6 +51,15 @@ export function TripSettingsPage() {
       });
       setSaved(true);
       window.setTimeout(() => setSaved(false), 1600);
+      // If you switch auto-track on while the trip is already running, start
+      // tracking now instead of waiting for the next app launch.
+      const now = Date.now();
+      const started =
+        autoTrack &&
+        isNative() &&
+        now >= new Date(startDate).getTime() &&
+        now <= new Date(endDate).getTime() + 86_400_000;
+      if (started && tripId) void startTracking(tripId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Opslaan mislukt');
     }
@@ -89,7 +99,9 @@ export function TripSettingsPage() {
       {trip?.resolvedCoverId && (
         <div className="ts-cover">
           <AuthImage path={`/media/${trip.resolvedCoverId}/thumbnail`} alt="" className="ts-cover-img" />
-          <span className="ts-cover-hint">Kies een coverfoto via een foto → “Als cover”</span>
+          <span className="ts-cover-hint">
+            Kies een coverfoto: tik een foto <Icon name="chevron-right" size={12} /> “Als cover”
+          </span>
         </div>
       )}
 
@@ -163,7 +175,13 @@ export function TripSettingsPage() {
             Reis verwijderen
           </button>
           <button className="btn btn-primary" onClick={() => void save()}>
-            {saved ? 'Opgeslagen ✓' : 'Wijzigingen opslaan'}
+            {saved ? (
+              <>
+                <Icon name="check" size={16} /> Opgeslagen
+              </>
+            ) : (
+              'Wijzigingen opslaan'
+            )}
           </button>
         </div>
       )}

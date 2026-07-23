@@ -26,6 +26,8 @@ interface TripMapProps {
   onPhotoFocus?: (mediaId: string) => void;
   clickMode?: boolean;
   styleUrl: string | StyleSpecification;
+  /** Live device location, shown as a Google-Maps-style dot. */
+  currentLocation?: { lat: number; lng: number } | null;
   /** Exposes an imperative focus API once the map is ready. */
   onReady?: (api: TripMapApi) => void;
 }
@@ -47,6 +49,7 @@ export function TripMap({
   onPhotoFocus,
   clickMode,
   styleUrl,
+  currentLocation,
   onReady,
 }: TripMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -54,6 +57,7 @@ export function TripMap({
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const stopMarkersRef = useRef<maplibregl.Marker[]>([]);
   const waypointMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const meMarkerRef = useRef<maplibregl.Marker | null>(null);
   const waypointDeleteRef = useRef(onWaypointDelete);
   waypointDeleteRef.current = onWaypointDelete;
   const loadedRef = useRef(false);
@@ -79,7 +83,6 @@ export function TripMap({
       zoom: 3,
       attributionControl: { compact: true },
     });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.on('style.load', () => {
       // Globe projection: zoomed out shows a 3D globe, zooming in eases to a
       // flat map — MapLibre handles the transition natively.
@@ -341,6 +344,28 @@ export function TripMap({
     if (map.isStyleLoaded()) apply();
     else map.once('load', apply);
   }, [stops, hasTracked]);
+
+  // Live "you are here" dot.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!currentLocation) {
+      meMarkerRef.current?.remove();
+      meMarkerRef.current = null;
+      return;
+    }
+    if (!meMarkerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'me-marker';
+      el.innerHTML = '<span class="me-marker-pulse"></span><span class="me-marker-dot"></span>';
+      meMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat([
+        currentLocation.lng,
+        currentLocation.lat,
+      ]).addTo(map);
+    } else {
+      meMarkerRef.current.setLngLat([currentLocation.lng, currentLocation.lat]);
+    }
+  }, [currentLocation]);
 
   // Manual waypoints as small dots; click to delete when editing.
   useEffect(() => {

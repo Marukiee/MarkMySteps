@@ -160,7 +160,7 @@ function TrackingSection() {
           )}
           {tracker.lastError && <span className="error-text">{tracker.lastError}</span>}
           <button className="btn btn-danger" onClick={() => void stopTracking()}>
-            ■ Stop tracking
+            <Icon name="stop" size={15} /> Stop tracking
           </button>
         </div>
       ) : (
@@ -183,7 +183,7 @@ function TrackingSection() {
               disabled={!selected}
               onClick={() => void startTracking(selected)}
             >
-              ● Start tracking
+              <Icon name="play" size={15} /> Start tracking
             </button>
           </div>
         </div>
@@ -491,8 +491,9 @@ function ImmichSection() {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
           />
-          <span className="muted">
-            Immich → Accountinstellingen → API-keys. Wordt AES-256 versleuteld opgeslagen.
+          <span className="muted inline-path">
+            Immich <Icon name="chevron-right" size={12} /> Accountinstellingen{' '}
+            <Icon name="chevron-right" size={12} /> API-keys. Wordt AES-256 versleuteld opgeslagen.
           </span>
         </div>
         <div className="field">

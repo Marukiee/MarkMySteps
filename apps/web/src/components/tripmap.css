@@ -66,6 +66,47 @@
   border: 2px solid #fff;
 }
 
+/* Live location (Google-Maps-style blue dot with a pulse). */
+.me-marker {
+  position: relative;
+  width: 18px;
+  height: 18px;
+}
+
+.me-marker-dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #1a73e8;
+  border: 2.5px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+
+.me-marker-pulse {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgb(26 115 232 / 0.35);
+  animation: mePulse 1.8s ease-out infinite;
+}
+
+@keyframes mePulse {
+  from {
+    width: 18px;
+    height: 18px;
+    opacity: 0.7;
+  }
+  to {
+    width: 54px;
+    height: 54px;
+    opacity: 0;
+  }
+}
+
 .img-placeholder {
   background: var(--paper-sunken);
   animation: pulse 1.4s ease-in-out infinite;

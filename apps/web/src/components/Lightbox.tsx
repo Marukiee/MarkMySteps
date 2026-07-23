@@ -129,7 +129,13 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
           </span>
           {coverTripId && (
             <button className="btn btn-ghost lightbox-cover" onClick={() => void setAsCover()}>
-              {coverSaved ? 'Cover ingesteld ✓' : 'Als cover'}
+              {coverSaved ? (
+                <>
+                  <Icon name="check" size={15} /> Cover ingesteld
+                </>
+              ) : (
+                'Als cover'
+              )}
             </button>
           )}
           {isOwn && immichUrl && (
@@ -137,7 +143,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
               className="btn btn-primary lightbox-immich"
               onClick={() => openExternal(`${immichUrl}/photos/${item.immichAssetId}`)}
             >
-              Openen in Immich ↗
+              Openen in Immich <Icon name="external" size={15} />
             </button>
           )}
         </figcaption>

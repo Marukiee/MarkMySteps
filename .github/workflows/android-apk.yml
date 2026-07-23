@@ -37,13 +37,40 @@ jobs:
         working-directory: apps/web
         run: pnpm exec cap sync android
 
-      - name: Build debug APK
+      # Decode the signing keystore from a secret, if configured. When the
+      # secret is absent we fall back to an (unsigned) debug build so forks
+      # still get an APK.
+      - name: Decode keystore
+        id: keystore
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build signed release APK
+        if: steps.keystore.outputs.signed == 'true'
+        working-directory: apps/web/android
+        env:
+          MMS_KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          MMS_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MMS_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          MMS_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          MMS_VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Build debug APK (fallback, unsigned)
+        if: steps.keystore.outputs.signed != 'true'
         working-directory: apps/web/android
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: markmysteps-debug-apk
-          path: apps/web/android/app/build/outputs/apk/debug/app-debug.apk
+          name: markmysteps-apk
+          path: apps/web/android/app/build/outputs/apk/**/*.apk
           retention-days: 30

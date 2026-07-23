@@ -6,6 +6,7 @@ import {
   startTracking,
   stopTracking,
 } from '../tracking/tracker';
+import { Icon } from './Icon';
 
 export function TrackButton({ tripId }: { tripId: string }) {
   const [tracker, setTracker] = useState<TrackerState>({
@@ -25,7 +26,15 @@ export function TrackButton({ tripId }: { tripId: string }) {
         className={`btn ${activeHere ? 'btn-danger' : 'btn-ghost'}`}
         onClick={() => (activeHere ? void stopTracking() : void startTracking(tripId))}
       >
-        {activeHere ? '■ Stop tracking' : '● Start tracking'}
+        {activeHere ? (
+          <>
+            <Icon name="stop" size={15} /> Stop tracking
+          </>
+        ) : (
+          <>
+            <Icon name="play" size={15} /> Start tracking
+          </>
+        )}
       </button>
       {activeHere && (
         <p className="muted">

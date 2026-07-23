@@ -17,13 +17,21 @@ export function FlightEditor({ flightNumber, fromAirport, toAirport, onSave }: F
   const [to, setTo] = useState(toAirport ?? '');
   const [flight, setFlight] = useState(flightNumber ?? '');
 
-  const summary = [fromAirport, toAirport].filter(Boolean).join(' → ');
+  const hasRoute = fromAirport && toAirport;
 
   if (!open) {
     return (
       <button className="flight-summary" onClick={() => setOpen(true)}>
         <Icon name="plane" size={14} />
-        {flightNumber || summary || 'Vluchtgegevens toevoegen'}
+        {flightNumber ? (
+          flightNumber
+        ) : hasRoute ? (
+          <>
+            {fromAirport} <Icon name="chevron-right" size={12} /> {toAirport}
+          </>
+        ) : (
+          'Vluchtgegevens toevoegen'
+        )}
       </button>
     );
   }

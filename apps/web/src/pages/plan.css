@@ -72,8 +72,20 @@
   border-radius: var(--radius-m);
 }
 
-.plan-empty span {
-  font-size: 2rem;
+.plan-empty-icon {
+  display: inline-flex;
+  color: var(--ink-faint);
+}
+
+.plan-daterange {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.plan-daterange svg {
+  color: var(--ink-faint);
 }
 
 .nights-planned {
@@ -242,9 +254,7 @@
 
 .nights-count small {
   font-weight: 500;
-  font-size: 0.6rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-size: 0.62rem;
   color: var(--ink-faint);
 }
 
