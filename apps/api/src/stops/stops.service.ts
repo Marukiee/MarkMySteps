@@ -74,6 +74,7 @@ export class StopsService {
           flightNumber: dto.flightNumber?.trim().toUpperCase(),
           fromAirport: dto.fromAirport?.trim().toUpperCase(),
           toAirport: dto.toAirport?.trim().toUpperCase(),
+          viaAirports: dto.viaAirports?.map((a) => a.trim().toUpperCase()),
           notes: dto.notes?.trim(),
           orderIndex: insertAt,
         },
@@ -103,6 +104,7 @@ export class StopsService {
         flightNumber: dto.flightNumber?.trim().toUpperCase(),
         fromAirport: dto.fromAirport?.trim().toUpperCase(),
         toAirport: dto.toAirport?.trim().toUpperCase(),
+        viaAirports: dto.viaAirports?.map((a) => a.trim().toUpperCase()),
         notes: dto.notes?.trim(),
       },
     });

@@ -61,6 +61,64 @@
   color: var(--ink-faint);
 }
 
+.flight-summary-route {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.flight-summary-route > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.flight-via {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.flight-via-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.flight-via-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
+.flight-via-row .airport-field {
+  flex: 1;
+}
+
+.flight-via-remove {
+  display: grid;
+  place-content: center;
+  width: 38px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: var(--radius-s);
+  color: var(--ink-faint);
+}
+
+.flight-via-remove:hover {
+  background: var(--paper-sunken);
+  color: #b3402a;
+}
+
+.flight-via-add {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
 .flight-actions {
   display: flex;
   justify-content: flex-end;

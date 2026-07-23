@@ -3,8 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { fetchBlobUrl } from '../api/client';
 import type { MediaItem, RouteCollection } from '../api/types';
-import { airportByCode } from '../lib/airports';
-import { greatCircleArc, StopPoint } from '../lib/arc';
+import { buildLegs, splitOnGaps, StopPoint } from '../lib/arc';
 import { colorForUser, flagEmoji } from '../lib/colors';
 import './tripmap.css';
 
@@ -147,7 +146,15 @@ export function TripMap({
         const { userId } = feature.properties;
         if (!visibleUsers.has(userId)) continue;
         const id = `route-${userId}`;
-        map.addSource(id, { type: 'geojson', data: feature });
+        // Break the line at flight-sized jumps so it isn't drawn straight
+        // across the ocean; the flight arc bridges that gap instead.
+        const segments = splitOnGaps(feature.geometry.coordinates as [number, number][]);
+        const routeGeo: GeoJSON.Feature<GeoJSON.MultiLineString> = {
+          type: 'Feature',
+          geometry: { type: 'MultiLineString', coordinates: segments },
+          properties: {},
+        };
+        map.addSource(id, { type: 'geojson', data: routeGeo });
         // Soft halo under the line for the hand-drawn journal look.
         map.addLayer({
           id: `${id}-halo`,
@@ -286,58 +293,37 @@ export function TripMap({
         map.removeSource(sourceId);
       }
 
-      const located = (stops ?? []).filter(
-        (s) => s.latitude !== null && s.longitude !== null,
-      );
-
-      for (let i = 0; i < located.length; i++) {
-        const stop = located[i]!;
+      // Markers only for real places (cities); standalone flights have none.
+      for (const stop of stops ?? []) {
+        if (stop.latitude === null || stop.longitude === null) continue;
         const el = document.createElement('div');
         el.className = 'stop-marker';
         el.textContent = flagEmoji(stop.countryCode) || String(stop.orderIndex + 1);
         stopMarkersRef.current.push(
           new maplibregl.Marker({ element: el })
-            .setLngLat([stop.longitude!, stop.latitude!])
+            .setLngLat([stop.longitude, stop.latitude])
             .setPopup(new maplibregl.Popup({ offset: 18 }).setText(stop.name))
             .addTo(map),
         );
+      }
 
-        // Leg to this stop (from the previous stop, or a departure airport for
-        // an arrival flight into the very first stop). Skipped once real tracked
-        // GPS exists — the tracked line then tells the true story.
-        if (!hasTrackedRef.current) {
-          const prev = i > 0 ? located[i - 1]! : null;
-          const isFlight = stop.travelMode === 'FLIGHT';
-          const depAp = airportByCode(stop.fromAirport);
-          const arrAp = airportByCode(stop.toAirport);
-          const from: [number, number] | null = depAp
-            ? [depAp.lon, depAp.lat]
-            : prev
-              ? [prev.longitude!, prev.latitude!]
-              : null;
-          const to: [number, number] = arrAp
-            ? [arrAp.lon, arrAp.lat]
-            : [stop.longitude!, stop.latitude!];
-          if (!from) continue;
-          const id = `leg-${stop.id}`;
-          map.addSource(id, {
-            type: 'geojson',
-            data: isFlight
-              ? greatCircleArc(from, to)
-              : { type: 'Feature', geometry: { type: 'LineString', coordinates: [from, to] }, properties: {} },
-          });
-          map.addLayer({
-            id,
-            type: 'line',
-            source: id,
-            paint: {
-              'line-color': isFlight ? '#5b6ee1' : '#8a94a3',
-              'line-width': isFlight ? 2.5 : 2,
-              'line-dasharray': isFlight ? [1, 1.5] : [2, 2],
-            },
-            layout: { 'line-cap': 'round' },
-          });
-        }
+      // Legs. Flight arcs always show (they bridge gaps the tracked line leaves
+      // open). Ground legs are hidden once real tracked GPS tells the story.
+      for (const leg of buildLegs(stops ?? [])) {
+        if (!leg.isFlight && hasTrackedRef.current) continue;
+        const id = `leg-${leg.id}`;
+        map.addSource(id, { type: 'geojson', data: leg.feature });
+        map.addLayer({
+          id,
+          type: 'line',
+          source: id,
+          paint: {
+            'line-color': leg.isFlight ? '#8a94a3' : '#a9846a',
+            'line-width': leg.isFlight ? 2.2 : 2,
+            'line-dasharray': leg.isFlight ? [1.5, 1.8] : [2, 2],
+          },
+          layout: { 'line-cap': 'round' },
+        });
       }
     };
 

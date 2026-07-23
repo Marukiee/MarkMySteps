@@ -7,17 +7,31 @@ interface FlightEditorProps {
   flightNumber: string | null;
   fromAirport: string | null;
   toAirport: string | null;
-  onSave: (data: { flightNumber?: string; fromAirport?: string; toAirport?: string }) => void;
+  viaAirports?: string[];
+  onSave: (data: {
+    flightNumber?: string;
+    fromAirport?: string;
+    toAirport?: string;
+    viaAirports?: string[];
+  }) => void;
 }
 
-/** Compact flight leg editor: airport pickers (bundled) + manual flight number. */
-export function FlightEditor({ flightNumber, fromAirport, toAirport, onSave }: FlightEditorProps) {
+/** Compact flight leg editor: airport pickers (bundled) + layovers + number. */
+export function FlightEditor({
+  flightNumber,
+  fromAirport,
+  toAirport,
+  viaAirports,
+  onSave,
+}: FlightEditorProps) {
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState(fromAirport ?? '');
   const [to, setTo] = useState(toAirport ?? '');
+  const [via, setVia] = useState<string[]>(viaAirports ?? []);
   const [flight, setFlight] = useState(flightNumber ?? '');
 
   const hasRoute = fromAirport && toAirport;
+  const summaryStops = [fromAirport, ...(viaAirports ?? []), toAirport].filter(Boolean);
 
   if (!open) {
     return (
@@ -26,9 +40,14 @@ export function FlightEditor({ flightNumber, fromAirport, toAirport, onSave }: F
         {flightNumber ? (
           flightNumber
         ) : hasRoute ? (
-          <>
-            {fromAirport} <Icon name="chevron-right" size={12} /> {toAirport}
-          </>
+          <span className="flight-summary-route">
+            {summaryStops.map((code, i) => (
+              <span key={i}>
+                {i > 0 && <Icon name="chevron-right" size={12} />}
+                {code}
+              </span>
+            ))}
+          </span>
         ) : (
           'Vluchtgegevens toevoegen'
         )}
@@ -36,12 +55,40 @@ export function FlightEditor({ flightNumber, fromAirport, toAirport, onSave }: F
     );
   }
 
+  const setViaAt = (i: number, v: string) =>
+    setVia((cur) => cur.map((c, idx) => (idx === i ? v : c)));
+
   return (
     <div className="flight-editor card">
       <div className="flight-row">
         <AirportField label="Van" value={from} onChange={setFrom} />
         <AirportField label="Naar" value={to} onChange={setTo} />
       </div>
+
+      <div className="flight-via">
+        <label className="flight-via-label">Tussenstops (overstap)</label>
+        {via.map((v, i) => (
+          <div key={i} className="flight-via-row">
+            <AirportField label="" value={v} onChange={(val) => setViaAt(i, val)} />
+            <button
+              type="button"
+              className="flight-via-remove"
+              aria-label="Overstap verwijderen"
+              onClick={() => setVia((cur) => cur.filter((_, idx) => idx !== i))}
+            >
+              <Icon name="close" size={15} />
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          className="flight-via-add"
+          onClick={() => setVia((cur) => [...cur, ''])}
+        >
+          <Icon name="plus" size={14} /> Overstap toevoegen
+        </button>
+      </div>
+
       <div className="field">
         <label>Vluchtnummer (handmatig)</label>
         <input
@@ -61,6 +108,7 @@ export function FlightEditor({ flightNumber, fromAirport, toAirport, onSave }: F
               flightNumber: flight || undefined,
               fromAirport: from || undefined,
               toAirport: to || undefined,
+              viaAirports: via.map((v) => v.trim().toUpperCase()).filter(Boolean),
             });
             setOpen(false);
           }}

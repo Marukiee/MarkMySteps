@@ -86,6 +86,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
     // region, so trips are shown big first, then explored up close.
     let tourPhase = 0; // 0 = overview, 1 = focus
     let phaseStart = performance.now();
+    let tourIdx = 0; // which trip is being framed during a focus phase
 
     function size() {
       const parent = canvas!.parentElement!;
@@ -117,17 +118,23 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
         phaseStart = now;
         tourPhase = 0;
       } else if (trips.length > 0) {
-        const OVERVIEW_MS = 9000;
-        const FOCUS_MS = 7000;
+        const OVERVIEW_MS = 6000;
+        const FOCUS_MS = 6500;
         const dur = tourPhase === 0 ? OVERVIEW_MS : FOCUS_MS;
-        if (now - phaseStart > dur && trips.length > 2) {
-          tourPhase = tourPhase === 0 ? 1 : 0;
+        if (now - phaseStart > dur) {
+          if (tourPhase === 0) {
+            // Entering a focus: frame the next trip (biggest first).
+            tourPhase = 1;
+            tourIdx = (tourIdx + 1) % trips.length;
+          } else {
+            tourPhase = 0;
+          }
           phaseStart = now;
         }
 
-        const lngs = trips.map((t) => t.anchor[0]);
         if (tourPhase === 0) {
-          // Overview: sweep + ease back out.
+          // Overview: sweep across all trips + ease back out.
+          const lngs = trips.map((t) => t.anchor[0]);
           const lo = Math.min(...lngs) - 35;
           const hi = Math.max(...lngs) + 35;
           const centerLng = -rotation;
@@ -137,13 +144,14 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
           targetScale += (1 - targetScale) * 0.04;
           tilt += (0 - tilt) * 0.04;
         } else {
-          // Focus: ease toward the trips' centroid at a closer zoom.
-          const cLng = lngs.reduce((s, v) => s + v, 0) / lngs.length;
-          const cLat = trips.reduce((s, t) => s + t.anchor[1], 0) / trips.length;
-          const targetRot = -cLng;
-          rotation += (((targetRot - rotation + 540) % 360) - 180) * 0.02;
-          tilt += (cLat - CENTER_LAT - tilt) * 0.03;
-          targetScale += (2.3 - targetScale) * 0.03;
+          // Focus: ease onto one real trip and frame it. Zoom adapts to how
+          // spread out its route is, so a big trip fills the view nicely.
+          const trip = trips[Math.min(tourIdx, trips.length - 1)]!;
+          const spread = tripSpread(trip);
+          const zoom = Math.max(1.6, Math.min(3.4, 70 / (spread + 12)));
+          rotation += (((-trip.anchor[0] - rotation + 540) % 360) - 180) * 0.03;
+          tilt += (trip.anchor[1] - CENTER_LAT - tilt) * 0.04;
+          targetScale += (zoom - targetScale) * 0.035;
         }
       }
 
@@ -172,17 +180,18 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       // --- Trip routes ---
       for (const trip of trips) {
         if (!trip.path) continue;
+        const [r, g, b] = tripColor(trip.id);
         ctx!.beginPath();
         path({ type: 'LineString', coordinates: trip.path } as GeoPermissibleObjects);
         if (trip.upcoming) {
           // Planned (incl. flight arcs): faint + dashed so it clearly isn't a
           // real, walked route.
           ctx!.setLineDash([3 * dpr, 5 * dpr]);
-          ctx!.strokeStyle = 'rgba(42,143,133,0.5)';
+          ctx!.strokeStyle = `rgba(${r},${g},${b},0.55)`;
           ctx!.lineWidth = 1.8 * dpr;
         } else {
           ctx!.setLineDash([]);
-          ctx!.strokeStyle = 'rgba(232,97,60,0.9)'; // solid accent for past
+          ctx!.strokeStyle = `rgba(${r},${g},${b},0.95)`;
           ctx!.lineWidth = 2.4 * dpr;
         }
         ctx!.lineJoin = 'round';
@@ -197,16 +206,26 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       for (const trip of frontFacing) {
         const projected = projection(trip.anchor);
         if (!projected) continue;
-        const color = trip.upcoming ? '#2a8f85' : '#e8613c';
+        const [r, g, b] = tripColor(trip.id);
         ctx!.beginPath();
         ctx!.arc(projected[0], projected[1], 9 * dpr, 0, 2 * Math.PI);
-        ctx!.strokeStyle = trip.upcoming ? 'rgba(42,143,133,0.4)' : 'rgba(232,97,60,0.4)';
+        ctx!.strokeStyle = `rgba(${r},${g},${b},0.4)`;
         ctx!.lineWidth = 1.5 * dpr;
         ctx!.stroke();
         ctx!.beginPath();
         ctx!.arc(projected[0], projected[1], 5 * dpr, 0, 2 * Math.PI);
-        ctx!.fillStyle = color;
+        ctx!.fillStyle = `rgb(${r},${g},${b})`;
         ctx!.fill();
+        // A faint ring marks a planned/upcoming trip.
+        if (trip.upcoming) {
+          ctx!.beginPath();
+          ctx!.arc(projected[0], projected[1], 12 * dpr, 0, 2 * Math.PI);
+          ctx!.strokeStyle = `rgba(${r},${g},${b},0.3)`;
+          ctx!.setLineDash([2 * dpr, 2 * dpr]);
+          ctx!.lineWidth = 1.2 * dpr;
+          ctx!.stroke();
+          ctx!.setLineDash([]);
+        }
       }
 
       // --- Labels: only a few, biggest first; more as you zoom in. Each fades
@@ -346,6 +365,36 @@ function roundRect(
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+/** Rough angular spread (degrees) of a trip's route around its anchor. */
+function tripSpread(trip: GlobeTrip): number {
+  if (!trip.path) return 0;
+  let max = 0;
+  for (const p of trip.path) {
+    const d = distance(trip.anchor, p);
+    if (d > max) max = d;
+  }
+  return max;
+}
+
+// Distinct, legible marker/route colours; assigned deterministically per trip.
+const TRIP_PALETTE: [number, number, number][] = [
+  [232, 97, 60], // coral
+  [42, 143, 133], // teal
+  [90, 110, 225], // indigo
+  [214, 141, 51], // amber
+  [176, 84, 168], // magenta
+  [76, 160, 92], // green
+  [223, 92, 120], // rose
+  [64, 158, 197], // sky
+  [150, 122, 74], // olive
+];
+
+function tripColor(id: string): [number, number, number] {
+  let hash = 0;
+  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return TRIP_PALETTE[hash % TRIP_PALETTE.length]!;
 }
 
 function distance(a: [number, number], b: [number, number]): number {

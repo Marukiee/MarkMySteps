@@ -73,6 +73,12 @@ export class CreateStopDto {
   @Length(3, 4)
   toAirport?: string;
 
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Length(3, 4, { each: true })
+  viaAirports?: string[];
+
   /** Insert after this stop; omitted = append at the end. */
   @IsOptional()
   @IsUUID()
@@ -131,6 +137,12 @@ export class UpdateStopDto {
   @IsString()
   @Length(3, 4)
   toAirport?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Length(3, 4, { each: true })
+  viaAirports?: string[];
 }
 
 export class ReorderStopsDto {

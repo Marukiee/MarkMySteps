@@ -8,10 +8,9 @@ import { CityThumb } from '../components/CityThumb';
 import { FlightEditor } from '../components/FlightEditor';
 import { Icon, MODE_ICON } from '../components/Icon';
 import { WeatherBadge } from '../components/WeatherBadge';
-import { airportByCode } from '../lib/airports';
 import {
+  buildLegs,
   estimateDuration,
-  greatCircleArc,
   haversineKm,
   MODE_LABEL,
   TRAVEL_MODES,
@@ -37,6 +36,7 @@ interface PlannedStop {
   flightNumber: string | null;
   fromAirport: string | null;
   toAirport: string | null;
+  viaAirports: string[];
   arrivalDate: string;
   departureDate: string;
 }
@@ -127,34 +127,9 @@ export function PlanPage() {
         bounds.extend([stop.longitude!, stop.latitude!]);
       }
 
-      // Legs: one line feature per stop. A between-stops leg connects prev→cur;
-      // the first stop can still be a flight (arc from its departure airport).
-      const legFeatures: GeoJSON.Feature<GeoJSON.LineString>[] = [];
-      for (let i = 0; i < located.length; i++) {
-        const cur = located[i]!;
-        const prev = i > 0 ? located[i - 1]! : null;
-        const isFlight = cur.travelMode === 'FLIGHT';
-        const depAp = airportByCode(cur.fromAirport);
-        const arrAp = airportByCode(cur.toAirport);
-        const fromCoord: [number, number] | null = depAp
-          ? [depAp.lon, depAp.lat]
-          : prev
-            ? [prev.longitude!, prev.latitude!]
-            : null;
-        const to: [number, number] = arrAp
-          ? [arrAp.lon, arrAp.lat]
-          : [cur.longitude!, cur.latitude!];
-        if (!fromCoord) continue; // first stop with no departure airport → nothing to draw
-        const feature = isFlight
-          ? greatCircleArc(fromCoord, to)
-          : ({
-              type: 'Feature',
-              geometry: { type: 'LineString', coordinates: [fromCoord, to] },
-              properties: {},
-            } as GeoJSON.Feature<GeoJSON.LineString>);
-        feature.properties = { flight: isFlight };
-        legFeatures.push(feature);
-      }
+      // Legs (flights = arcs through any layovers, ground = straight). Uses the
+      // full stop list so standalone heen-/terugvlucht cards draw too.
+      const legFeatures = buildLegs(stops).map((l) => l.feature);
       const legData: GeoJSON.FeatureCollection = {
         type: 'FeatureCollection',
         features: legFeatures,
@@ -169,9 +144,9 @@ export function PlanPage() {
           type: 'line',
           source: 'plan-line',
           paint: {
-            'line-color': ['case', ['get', 'flight'], '#5b6ee1', '#e8613c'],
+            'line-color': ['case', ['get', 'flight'], '#8a94a3', '#e8613c'],
             'line-width': 2.5,
-            'line-dasharray': [1, 1.6],
+            'line-dasharray': [1.5, 1.8],
           },
           layout: { 'line-cap': 'round' },
         });
@@ -257,7 +232,12 @@ export function PlanPage() {
 
   async function saveFlight(
     stop: PlannedStop,
-    data: { flightNumber?: string; fromAirport?: string; toAirport?: string },
+    data: {
+      flightNumber?: string;
+      fromAirport?: string;
+      toAirport?: string;
+      viaAirports?: string[];
+    },
   ) {
     if (!tripId) return;
     refresh(
@@ -404,6 +384,7 @@ export function PlanPage() {
                         flightNumber={stop.flightNumber}
                         fromAirport={stop.fromAirport}
                         toAirport={stop.toAirport}
+                        viaAirports={stop.viaAirports}
                         onSave={(data) => void saveFlight(stop, data)}
                       />
                     </div>
@@ -453,6 +434,7 @@ export function PlanPage() {
                   flightNumber={stop.flightNumber}
                   fromAirport={stop.fromAirport}
                   toAirport={stop.toAirport}
+                        viaAirports={stop.viaAirports}
                   onSave={(data) => void saveFlight(stop, data)}
                 />
               )}
