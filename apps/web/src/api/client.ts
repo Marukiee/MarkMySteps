@@ -5,6 +5,12 @@
 
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SERVER_URL } from '../config';
+import {
+  cacheGetJson,
+  cachePutJson,
+  thumbCacheMatch,
+  thumbCachePut,
+} from '../lib/offlineCache';
 
 const ACCESS_KEY = 'mms.access';
 const REFRESH_KEY = 'mms.refresh';
@@ -94,14 +100,28 @@ export async function api<T>(
   isRetry = false,
 ): Promise<T> {
   const token = getAccessToken();
-  const res = await fetch(`${getServerBase()}/api${path}`, {
-    method: options.method ?? 'GET',
-    headers: {
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
-    },
-    body: options.formData ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
-  });
+  const method = options.method ?? 'GET';
+  const isGet = method === 'GET';
+
+  let res: Response;
+  try {
+    res = await fetch(`${getServerBase()}/api${path}`, {
+      method,
+      headers: {
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
+      },
+      body:
+        options.formData ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
+    });
+  } catch (netError) {
+    // No network: fall back to the offline read cache for GETs.
+    if (isGet) {
+      const cached = await cacheGetJson<T>(path);
+      if (cached !== null) return cached;
+    }
+    throw netError;
+  }
 
   if (res.status === 401 && !isRetry && !path.startsWith('/auth/')) {
     if (await tryRefresh()) {
@@ -124,7 +144,10 @@ export async function api<T>(
   }
 
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  const data = (await res.json()) as T;
+  // Keep a copy of GET responses for offline viewing of opened trips.
+  if (isGet) void cachePutJson(path, data);
+  return data;
 }
 
 // Thumbnails go through a small concurrency gate: photo-heavy trips would
@@ -152,10 +175,24 @@ export async function fetchBlobUrl(path: string): Promise<string> {
   await acquireBlobSlot();
   try {
     const token = getAccessToken();
-    const res = await fetch(`${getServerBase()}/api${path}`, {
-      headers: token ? { authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) throw new ApiError(res.status, 'Kon afbeelding niet laden');
+    let res: Response;
+    try {
+      res = await fetch(`${getServerBase()}/api${path}`, {
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+      });
+    } catch (netError) {
+      // Offline: serve the thumbnail from cache if we've seen it before.
+      const cached = await thumbCacheMatch(path);
+      if (cached) return URL.createObjectURL(await cached.blob());
+      throw netError;
+    }
+    if (!res.ok) {
+      const cached = await thumbCacheMatch(path);
+      if (cached) return URL.createObjectURL(await cached.blob());
+      throw new ApiError(res.status, 'Kon afbeelding niet laden');
+    }
+    // Cache a copy for offline viewing (clone before reading the body).
+    void thumbCachePut(path, res.clone());
     return URL.createObjectURL(await res.blob());
   } finally {
     releaseBlobSlot();

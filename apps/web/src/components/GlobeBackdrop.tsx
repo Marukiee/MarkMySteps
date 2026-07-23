@@ -18,6 +18,8 @@ interface GlobeTrip {
   anchor: [number, number];
   path: [number, number][] | null;
   upcoming: boolean;
+  /** Relative importance (km, else days) — drives label priority. */
+  size: number;
 }
 
 /**
@@ -56,6 +58,14 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const today = new Date().toISOString().slice(0, 10);
 
+    const dayCount = (t: Trip) =>
+      Math.max(
+        1,
+        Math.round(
+          (new Date(t.endDate).getTime() - new Date(t.startDate).getTime()) / 86_400_000,
+        ),
+      );
+
     const globeTrips = (): GlobeTrip[] =>
       tripsRef.current
         .filter((t): t is Trip & { anchor: [number, number] } => t.anchor !== null)
@@ -65,7 +75,17 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
           anchor: t.anchor,
           path: t.routePath && t.routePath.length >= 2 ? t.routePath : null,
           upcoming: t.endDate.slice(0, 10) >= today,
-        }));
+          size: t.distanceKm && t.distanceKm > 0 ? t.distanceKm : dayCount(t) * 40,
+        }))
+        // Biggest trips first — they get labelled first / at the lowest zoom.
+        .sort((a, b) => b.size - a.size);
+
+    // Per-trip label opacity, eased across frames for a soft pop-in.
+    const labelOpacity = new Map<string, number>();
+    // Auto-tour state: alternate a wide overview with a zoom into the busiest
+    // region, so trips are shown big first, then explored up close.
+    let tourPhase = 0; // 0 = overview, 1 = focus
+    let phaseStart = performance.now();
 
     function size() {
       const parent = canvas!.parentElement!;
@@ -89,24 +109,42 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       const now = performance.now();
       const idle = !dragging && now - lastInteract > 1400;
 
-      // --- Auto-rotate: sweep back and forth across the trips (pendulum) so
-      // they always stay in view. At the edge of the spread the direction just
-      // flips — no snap-back. Paused while the user is interacting. ---
-      if (idle) {
-        if (trips.length > 0) {
-          const lngs = trips.map((t) => t.anchor[0]);
+      // --- Auto-tour (idle only) ---
+      // Phase 0: wide overview, pendulum-sweep across all trips.
+      // Phase 1: ease in on the busiest region (centroid of the trips) so more
+      // names pop up up close. Interaction resets to overview.
+      if (!idle) {
+        phaseStart = now;
+        tourPhase = 0;
+      } else if (trips.length > 0) {
+        const OVERVIEW_MS = 9000;
+        const FOCUS_MS = 7000;
+        const dur = tourPhase === 0 ? OVERVIEW_MS : FOCUS_MS;
+        if (now - phaseStart > dur && trips.length > 2) {
+          tourPhase = tourPhase === 0 ? 1 : 0;
+          phaseStart = now;
+        }
+
+        const lngs = trips.map((t) => t.anchor[0]);
+        if (tourPhase === 0) {
+          // Overview: sweep + ease back out.
           const lo = Math.min(...lngs) - 35;
           const hi = Math.max(...lngs) + 35;
           const centerLng = -rotation;
           if (centerLng <= lo) sweepDir = 1;
           else if (centerLng >= hi) sweepDir = -1;
           rotation -= velocity * sweepDir;
+          targetScale += (1 - targetScale) * 0.04;
+          tilt += (0 - tilt) * 0.04;
         } else {
-          rotation += velocity;
+          // Focus: ease toward the trips' centroid at a closer zoom.
+          const cLng = lngs.reduce((s, v) => s + v, 0) / lngs.length;
+          const cLat = trips.reduce((s, t) => s + t.anchor[1], 0) / trips.length;
+          const targetRot = -cLng;
+          rotation += (((targetRot - rotation + 540) % 360) - 180) * 0.02;
+          tilt += (cLat - CENTER_LAT - tilt) * 0.03;
+          targetScale += (2.3 - targetScale) * 0.03;
         }
-        // Ease zoom + tilt back to the default overview.
-        targetScale += (1 - targetScale) * 0.04;
-        tilt += (0 - tilt) * 0.04;
       }
 
       // Smooth zoom toward the target every frame (no jumps).
@@ -148,12 +186,12 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       }
       ctx!.setLineDash([]);
 
-      // --- Markers + labels ---
+      // --- Markers (all front-facing trips) ---
       const center = projection.invert!([w / 2, h / 2]);
-      for (const trip of trips) {
+      const frontFacing = trips.filter((t) => !center || distance(center, t.anchor) <= 90);
+      for (const trip of frontFacing) {
         const projected = projection(trip.anchor);
         if (!projected) continue;
-        if (center && distance(center, trip.anchor) > 90) continue;
         const color = trip.upcoming ? '#2a8f85' : '#e8613c';
         ctx!.beginPath();
         ctx!.arc(projected[0], projected[1], 9 * dpr, 0, 2 * Math.PI);
@@ -164,18 +202,34 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
         ctx!.arc(projected[0], projected[1], 5 * dpr, 0, 2 * Math.PI);
         ctx!.fillStyle = color;
         ctx!.fill();
-        // Label pill with the trip title.
+      }
+
+      // --- Labels: only a few, biggest first; more as you zoom in. Each fades
+      // in/out so names pop up softly rather than snapping. ---
+      const maxLabels = Math.max(2, Math.round(2 + (scale - 1) * 3));
+      const showIds = new Set(frontFacing.slice(0, maxLabels).map((t) => t.id));
+      for (const trip of trips) {
+        const target = showIds.has(trip.id) ? 1 : 0;
+        const cur = labelOpacity.get(trip.id) ?? 0;
+        const next = cur + (target - cur) * 0.12;
+        labelOpacity.set(trip.id, next);
+        if (next < 0.03) continue;
+        const projected = projection(trip.anchor);
+        if (!projected) continue;
+        if (center && distance(center, trip.anchor) > 90) continue;
         const label = trip.title;
         ctx!.font = `${11 * dpr}px 'Inter Variable', sans-serif`;
         const tw = ctx!.measureText(label).width;
         const px = projected[0] + 9 * dpr;
-        const py = projected[1] - 8 * dpr;
-        ctx!.fillStyle = 'rgba(255,255,255,0.92)';
+        const py = projected[1] - 8 * dpr - (1 - next) * 6 * dpr; // slide up as it appears
+        ctx!.globalAlpha = Math.min(1, next);
+        ctx!.fillStyle = 'rgba(255,255,255,0.94)';
         roundRect(ctx!, px, py, tw + 12 * dpr, 18 * dpr, 9 * dpr);
         ctx!.fill();
         ctx!.fillStyle = '#1e2a35';
         ctx!.textBaseline = 'middle';
         ctx!.fillText(label, px + 6 * dpr, py + 9 * dpr);
+        ctx!.globalAlpha = 1;
       }
 
       raf = requestAnimationFrame(draw);
