@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
-import type { MediaItem, RouteCollection, SyncResult, Trip } from '../api/types';
+import type { MediaItem, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
+import { Icon } from '../components/Icon';
 import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
 import { SharePanel } from '../components/SharePanel';
@@ -30,8 +31,6 @@ export function TripDetailPage() {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [visibleUsers, setVisibleUsers] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [addPointMode, setAddPointMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [sideTab, setSideTab] = useState<'timeline' | 'manage'>('timeline');
@@ -86,23 +85,6 @@ export function TripDetailPage() {
   );
 
   useEffect(loadData, [loadData]);
-
-  async function runSync() {
-    if (!tripId) return;
-    setSyncing(true);
-    setSyncMessage(null);
-    try {
-      const result = await api<SyncResult>(`/trips/${tripId}/sync`, { method: 'POST' });
-      setSyncMessage(
-        `${result.assetsAdded} nieuwe foto's (${result.assetsFound} gevonden, ${result.usersSynced} reiziger${result.usersSynced === 1 ? '' : 's'})`,
-      );
-      loadData();
-    } catch (err) {
-      setSyncMessage(err instanceof Error ? err.message : 'Sync mislukt');
-    } finally {
-      setSyncing(false);
-    }
-  }
 
   const handleMapClick = useCallback(
     (lngLat: { lng: number; lat: number }) => {
@@ -178,7 +160,7 @@ export function TripDetailPage() {
       <main className="page">
         <p className="error-text">{error}</p>
         <Link to="/" className="btn btn-ghost">
-          ← Terug naar reizen
+          <Icon name="arrow-left" size={16} /> Terug naar reizen
         </Link>
       </main>
     );
@@ -261,7 +243,7 @@ export function TripDetailPage() {
             />
             <div className="trip-hero-overlay">
               <Link to="/" className="trip-back-hero">
-                ← Alle reizen
+                <Icon name="arrow-left" size={15} /> Alle reizen
               </Link>
               <h1>{trip.title}</h1>
               <p>
@@ -272,7 +254,7 @@ export function TripDetailPage() {
         ) : (
           <>
             <Link to="/" className="trip-back muted">
-              ← Alle reizen
+              <Icon name="arrow-left" size={15} /> Alle reizen
             </Link>
             <h1>{trip?.title ?? '…'}</h1>
             {trip && (
@@ -299,7 +281,12 @@ export function TripDetailPage() {
             {stats.countries.length > 0 && (
               <div className="stat">
                 <strong>{stats.countries.length}</strong>
-                <span>{stats.countries.slice(0, 4).map((c) => flagEmoji(c)).join('')} landen</span>
+                <span>
+                  <span className="stat-flags">
+                    {stats.countries.slice(0, 5).map((c) => flagEmoji(c)).join('')}
+                  </span>
+                  landen
+                </span>
               </div>
             )}
             {stats.photoCount > 0 && (
@@ -312,19 +299,19 @@ export function TripDetailPage() {
         )}
 
         <div className="trip-actions">
-          <button className="btn btn-primary" onClick={runSync} disabled={syncing}>
-            {syncing ? 'Bezig…' : "Foto's syncen"}
-          </button>
-          <Link to={`/trips/${tripId}/plan`} className="btn btn-ghost">
-            Routeplanner
+          <Link to={`/trips/${tripId}/plan`} className="btn btn-primary">
+            <Icon name="compass" size={18} /> Routeplanner
           </Link>
           {trip?.ownerId === user?.id && (
-            <Link to={`/trips/${tripId}/settings`} className="btn btn-ghost" aria-label="Instellingen">
-              ⚙
+            <Link
+              to={`/trips/${tripId}/settings`}
+              className="btn btn-ghost btn-icon"
+              aria-label="Reisinstellingen"
+            >
+              <Icon name="gear" size={18} />
             </Link>
           )}
         </div>
-        {syncMessage && <p className="muted">{syncMessage}</p>}
 
         <div className="side-tabs" role="tablist">
           <button
@@ -373,7 +360,7 @@ export function TripDetailPage() {
                   {stops.map((stop, i) => (
                     <li key={stop.id}>
                       <span className="manage-stop-badge">
-                        {stop.travelMode === 'FLIGHT' ? '✈' : i + 1}
+                        {stop.travelMode === 'FLIGHT' ? <Icon name="plane" size={14} /> : i + 1}
                       </span>
                       <span>
                         {flagEmoji(stop.countryCode)} {stop.name}

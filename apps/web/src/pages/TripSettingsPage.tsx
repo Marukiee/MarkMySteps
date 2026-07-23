@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Trip } from '../api/types';
+import type { SyncResult, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
+import { Icon } from '../components/Icon';
 import { MembersPanel } from '../components/MembersPanel';
 import './tripsettings.css';
 
@@ -19,6 +20,8 @@ export function TripSettingsPage() {
   const [autoTrack, setAutoTrack] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   function load() {
     if (!tripId) return;
@@ -58,11 +61,27 @@ export function TripSettingsPage() {
     navigate('/');
   }
 
+  async function runSync() {
+    if (!tripId) return;
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const result = await api<SyncResult>(`/trips/${tripId}/sync`, { method: 'POST' });
+      setSyncMessage(
+        `${result.assetsAdded} nieuwe foto's (${result.assetsFound} gevonden, ${result.usersSynced} reiziger${result.usersSynced === 1 ? '' : 's'})`,
+      );
+    } catch (err) {
+      setSyncMessage(err instanceof Error ? err.message : 'Sync mislukt');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <main className="page fade-in trip-settings">
       <div className="ts-head">
         <Link to={`/trips/${tripId}`} className="btn btn-ghost">
-          ← Terug
+          <Icon name="arrow-left" size={16} /> Terug
         </Link>
         <h1>Reisinstellingen</h1>
       </div>
@@ -128,6 +147,19 @@ export function TripSettingsPage() {
       ) : (
         <p className="muted">Alleen de organisator kan de reisinstellingen wijzigen.</p>
       )}
+
+      <section className="ts-sync">
+        <div>
+          <strong>Foto's syncen</strong>
+          <span className="muted">
+            Haal nieuwe foto's met GPS uit Immich op voor deze reis.
+          </span>
+        </div>
+        <button className="btn btn-ghost" onClick={runSync} disabled={syncing}>
+          {syncing ? 'Bezig…' : "Foto's syncen"}
+        </button>
+      </section>
+      {syncMessage && <p className="muted ts-sync-msg">{syncMessage}</p>}
 
       {trip && <MembersPanel trip={trip} onChanged={load} />}
     </main>

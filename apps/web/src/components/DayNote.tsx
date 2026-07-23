@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Icon } from './Icon';
 
 export interface TripNote {
   id: string;
@@ -62,7 +63,7 @@ export function DayNote({ day, notes, canEdit, ownUserId, onSave, onDelete }: Da
       {/* Collapsed prompt until clicked, so the timeline stays clean. */}
       {canEdit && !own && !editing && (
         <button className="day-note-add" onClick={() => setEditing(true)}>
-          ✎ Vertel iets over deze dag
+          <Icon name="pencil" size={14} /> Vertel iets over deze dag
         </button>
       )}
 

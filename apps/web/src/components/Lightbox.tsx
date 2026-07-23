@@ -1,11 +1,13 @@
+import { Style, StatusBar } from '@capacitor/status-bar';
 import { useEffect, useState } from 'react';
 import { api, ApiError, getServerBase } from '../api/client';
 import type { ConnectionStatus, MediaItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_IMMICH_PUBLIC_URL } from '../config';
 import { formatDay } from '../lib/colors';
-import { openExternal } from '../lib/native';
+import { isNativeApp, openExternal } from '../lib/native';
 import { AuthImage } from './AuthImage';
+import { Icon } from './Icon';
 import './lightbox.css';
 
 interface LightboxProps {
@@ -59,6 +61,14 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
       });
   }, []);
 
+  // The lightbox is a dark overlay — flip the native status bar to light icons
+  // so the clock/battery stay legible, then restore on close.
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    void StatusBar.setStyle({ style: Style.Dark });
+    return () => void StatusBar.setStyle({ style: Style.Light });
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -75,7 +85,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   return (
     <div className="lightbox" onClick={onClose} role="dialog" aria-modal="true">
       <button className="lightbox-close" aria-label="Sluiten">
-        ✕
+        <Icon name="close" size={22} />
       </button>
 
       {index > 0 && (
@@ -87,7 +97,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
             onNavigate(index - 1);
           }}
         >
-          ‹
+          <Icon name="chevron-left" size={30} />
         </button>
       )}
       {index < items.length - 1 && (
@@ -99,7 +109,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
             onNavigate(index + 1);
           }}
         >
-          ›
+          <Icon name="chevron-right" size={30} />
         </button>
       )}
 

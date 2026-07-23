@@ -6,9 +6,17 @@ import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { CityThumb } from '../components/CityThumb';
 import { FlightEditor } from '../components/FlightEditor';
+import { Icon, MODE_ICON } from '../components/Icon';
 import { WeatherBadge } from '../components/WeatherBadge';
 import { airportByCode } from '../lib/airports';
-import { estimateDuration, greatCircleArc, haversineKm } from '../lib/arc';
+import {
+  estimateDuration,
+  greatCircleArc,
+  haversineKm,
+  MODE_LABEL,
+  TRAVEL_MODES,
+  TravelMode,
+} from '../lib/arc';
 import { flagEmoji, formatDate } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
@@ -25,7 +33,7 @@ interface PlannedStop {
   latitude: number | null;
   longitude: number | null;
   countryCode: string | null;
-  travelMode: 'GROUND' | 'FLIGHT';
+  travelMode: TravelMode;
   flightNumber: string | null;
   fromAirport: string | null;
   toAirport: string | null;
@@ -120,28 +128,32 @@ export function PlanPage() {
         bounds.extend([stop.longitude!, stop.latitude!]);
       }
 
-      // Legs: one line feature per pair, flights as great-circle arcs.
+      // Legs: one line feature per stop. A between-stops leg connects prev→cur;
+      // the first stop can still be a flight (arc from its departure airport).
       const legFeatures: GeoJSON.Feature<GeoJSON.LineString>[] = [];
-      for (let i = 1; i < located.length; i++) {
-        const prev = located[i - 1]!;
+      for (let i = 0; i < located.length; i++) {
         const cur = located[i]!;
+        const prev = i > 0 ? located[i - 1]! : null;
+        const isFlight = cur.travelMode === 'FLIGHT';
         const depAp = airportByCode(cur.fromAirport);
         const arrAp = airportByCode(cur.toAirport);
-        const from: [number, number] = depAp
+        const fromCoord: [number, number] | null = depAp
           ? [depAp.lon, depAp.lat]
-          : [prev.longitude!, prev.latitude!];
+          : prev
+            ? [prev.longitude!, prev.latitude!]
+            : null;
         const to: [number, number] = arrAp
           ? [arrAp.lon, arrAp.lat]
           : [cur.longitude!, cur.latitude!];
-        const feature =
-          cur.travelMode === 'FLIGHT'
-            ? greatCircleArc(from, to)
-            : ({
-                type: 'Feature',
-                geometry: { type: 'LineString', coordinates: [from, to] },
-                properties: {},
-              } as GeoJSON.Feature<GeoJSON.LineString>);
-        feature.properties = { flight: cur.travelMode === 'FLIGHT' };
+        if (!fromCoord) continue; // first stop with no departure airport → nothing to draw
+        const feature = isFlight
+          ? greatCircleArc(fromCoord, to)
+          : ({
+              type: 'Feature',
+              geometry: { type: 'LineString', coordinates: [fromCoord, to] },
+              properties: {},
+            } as GeoJSON.Feature<GeoJSON.LineString>);
+        feature.properties = { flight: isFlight };
         legFeatures.push(feature);
       }
       const legData: GeoJSON.FeatureCollection = {
@@ -151,7 +163,7 @@ export function PlanPage() {
       const existing = map.getSource('plan-line') as maplibregl.GeoJSONSource | undefined;
       if (existing) {
         existing.setData(legData);
-      } else if (located.length >= 2) {
+      } else if (legFeatures.length > 0) {
         map.addSource('plan-line', { type: 'geojson', data: legData });
         map.addLayer({
           id: 'plan-line',
@@ -233,12 +245,13 @@ export function PlanPage() {
     }
   }
 
-  async function toggleMode(stop: PlannedStop) {
+  async function cycleMode(stop: PlannedStop) {
     if (!tripId) return;
+    const next = TRAVEL_MODES[(TRAVEL_MODES.indexOf(stop.travelMode) + 1) % TRAVEL_MODES.length]!;
     refresh(
       await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, {
         method: 'PATCH',
-        body: { travelMode: stop.travelMode === 'FLIGHT' ? 'GROUND' : 'FLIGHT' },
+        body: { travelMode: next },
       }),
     );
   }
@@ -304,7 +317,7 @@ export function PlanPage() {
       <aside className="plan-side">
         <div className="plan-head">
           <Link to={`/trips/${tripId}`} className="muted plan-back">
-            ← Terug naar de reis
+            <Icon name="arrow-left" size={16} /> Terug naar de reis
           </Link>
           <h1>Routeplanner</h1>
           {trip && (
@@ -328,7 +341,8 @@ export function PlanPage() {
             <span>🧭</span>
             <p className="muted">
               Nog geen stops. Zoek hieronder een stad en bouw je route op — versleep om te
-              herordenen, tik het icoontje tussen stops voor een vlucht.
+              herordenen. Tik het vervoer-pilletje bij een stop om te wisselen tussen auto, trein,
+              bus, boot of vlucht.
             </p>
           </div>
         )}
@@ -349,26 +363,23 @@ export function PlanPage() {
                 : null;
             return (
             <li key={stop.id} className="stop-row">
-              {index > 0 && (
-                <button
-                  className={`leg-toggle ${stop.travelMode === 'FLIGHT' ? 'flight' : ''}`}
-                  onClick={() => toggleMode(stop)}
-                  title="Klik om te wisselen tussen over land en vlucht"
-                >
-                  <span className="leg-icon">{stop.travelMode === 'FLIGHT' ? '✈' : '🚗'}</span>
-                  {legKm !== null ? (
-                    <>
-                      {legKm.toLocaleString('nl-NL')} km
-                      <span className="leg-dur">· {estimateDuration(legKm, stop.travelMode)}</span>
-                    </>
-                  ) : stop.travelMode === 'FLIGHT' ? (
-                    'Vlucht'
-                  ) : (
-                    'Over land'
-                  )}
-                </button>
-              )}
-              {index > 0 && stop.travelMode === 'FLIGHT' && (
+              <button
+                className={`leg-toggle ${stop.travelMode === 'FLIGHT' ? 'flight' : ''}`}
+                onClick={() => cycleMode(stop)}
+                title="Tik om te wisselen: auto, trein, bus, boot, vlucht"
+              >
+                <span className="leg-icon">
+                  <Icon name={MODE_ICON[stop.travelMode] ?? 'car'} size={16} />
+                </span>
+                <span className="leg-mode">{MODE_LABEL[stop.travelMode]}</span>
+                {legKm !== null && (
+                  <span className="leg-dur">
+                    · {legKm.toLocaleString('nl-NL')} km · {estimateDuration(legKm, stop.travelMode)}
+                  </span>
+                )}
+                <Icon name="chevron-right" size={13} className="leg-switch" />
+              </button>
+              {stop.travelMode === 'FLIGHT' && (
                 <FlightEditor
                   flightNumber={stop.flightNumber}
                   fromAirport={stop.fromAirport}
@@ -402,20 +413,33 @@ export function PlanPage() {
                   </span>
                 </div>
                 <div className="stop-nights">
-                  <span className="nights-count">
-                    {stop.nights} {stop.nights === 1 ? 'nacht' : 'nachten'}
-                  </span>
                   <div className="nights-buttons">
-                    <button className="nights-btn" onClick={() => changeNights(stop, -1)}>
-                      −
+                    <button
+                      className="nights-btn"
+                      onClick={() => changeNights(stop, -1)}
+                      aria-label="Minder nachten"
+                    >
+                      <Icon name="minus" size={16} />
                     </button>
-                    <button className="nights-btn" onClick={() => changeNights(stop, 1)}>
-                      +
+                    <span className="nights-count">
+                      {stop.nights}
+                      <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
+                    </span>
+                    <button
+                      className="nights-btn"
+                      onClick={() => changeNights(stop, 1)}
+                      aria-label="Meer nachten"
+                    >
+                      <Icon name="plus" size={16} />
                     </button>
                   </div>
                 </div>
-                <button className="stop-delete" onClick={() => removeStop(stop)} title="Verwijderen">
-                  ✕
+                <button
+                  className="stop-delete"
+                  onClick={() => removeStop(stop)}
+                  aria-label="Stop verwijderen"
+                >
+                  <Icon name="close" size={15} />
                 </button>
               </div>
             </li>

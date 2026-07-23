@@ -157,6 +157,9 @@ model Stop {
 
 enum TravelMode {
   GROUND
+  TRAIN
+  BUS
+  BOAT
   FLIGHT
 }
 

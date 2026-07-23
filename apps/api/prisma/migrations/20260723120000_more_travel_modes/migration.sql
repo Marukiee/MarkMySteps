@@ -1,0 +1,4 @@
+-- Add ground transport variants alongside GROUND/FLIGHT.
+ALTER TYPE "TravelMode" ADD VALUE IF NOT EXISTS 'TRAIN';
+ALTER TYPE "TravelMode" ADD VALUE IF NOT EXISTS 'BUS';
+ALTER TYPE "TravelMode" ADD VALUE IF NOT EXISTS 'BOAT';

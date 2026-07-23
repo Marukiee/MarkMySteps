@@ -57,9 +57,18 @@ body.native-app {
   display: none;
 }
 
-/* Status bar overlays the WebView natively — push content below it. */
+/* Status bar overlays the WebView natively — push content below it, and clear
+   the fixed tab bar at the bottom so the last row is never hidden. */
 .native-app .page {
   padding-top: calc(1.5rem + env(safe-area-inset-top));
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+}
+
+/* Phones (browser + app) also need to clear the tab bar. */
+@media (max-width: 720px) {
+  .page {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
 }
 
 /* Full-bleed pages (trip detail / planner) handle their own top inset. */

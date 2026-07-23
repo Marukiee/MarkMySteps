@@ -19,3 +19,11 @@
 .onb-step h1 {
   font-size: 1.7rem;
 }
+
+.onb-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: var(--teal);
+}

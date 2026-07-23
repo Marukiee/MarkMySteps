@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { airportByCode, searchAirports } from '../lib/airports';
+import { Icon } from './Icon';
 import './flighteditor.css';
 
 interface FlightEditorProps {
@@ -21,7 +22,8 @@ export function FlightEditor({ flightNumber, fromAirport, toAirport, onSave }: F
   if (!open) {
     return (
       <button className="flight-summary" onClick={() => setOpen(true)}>
-        ✈ {flightNumber || summary || 'Vluchtgegevens toevoegen'}
+        <Icon name="plane" size={14} />
+        {flightNumber || summary || 'Vluchtgegevens toevoegen'}
       </button>
     );
   }

@@ -1,6 +1,7 @@
 import { registerPlugin } from '@capacitor/core';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Icon } from '../components/Icon';
 import { Logo } from '../components/Logo';
 import { markOnboarded } from '../lib/native';
 import './onboarding.css';
@@ -61,14 +62,22 @@ export function OnboardingPage() {
         Voor route-tracking vraagt de app om je locatie. Er wordt alléén een GPS-punt bewaard als
         je ≥50 meter verplaatst — dat spaart je batterij.
       </p>
-      <button className="btn btn-primary" onClick={() => void requestLocation()}>
-        Toestemming vragen
-      </button>
-      {permissionState === 'granted' && <p className="settings-ok">Toestemming gegeven ✓</p>}
+      {permissionState === 'granted' ? (
+        <p className="onb-ok">
+          <Icon name="check" size={18} /> Toestemming gegeven
+        </p>
+      ) : (
+        <button className="btn btn-primary" onClick={() => void requestLocation()}>
+          Toestemming vragen
+        </button>
+      )}
       {permissionState === 'denied' && (
         <p className="error-text">Geweigerd — je kunt dit later aanzetten via Instellingen.</p>
       )}
-      <button className="btn btn-ghost" onClick={() => setStep(2)}>
+      <button
+        className={`btn ${permissionState === 'granted' ? 'btn-primary' : 'btn-ghost'}`}
+        onClick={() => setStep(2)}
+      >
         Verder
       </button>
     </section>,

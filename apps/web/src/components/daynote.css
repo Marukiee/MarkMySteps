@@ -28,19 +28,18 @@
 
 .day-note-add {
   justify-self: start;
-  font-size: 0.82rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: var(--ink-faint);
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  border: 1px dashed var(--line);
-  transition: all 0.15s var(--ease);
+  padding: 0.28rem 0.2rem;
+  transition: color 0.15s var(--ease);
 }
 
 .day-note-add:hover {
   color: var(--accent-ink);
-  border-color: var(--accent);
-  background: var(--accent-soft);
 }
 
 .day-note-edit textarea {

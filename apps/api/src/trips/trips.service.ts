@@ -22,6 +22,8 @@ export type TripWithMembers = Trip & {
   anchor: [number, number] | null;
   /** Route distance in km (0 when unknown); only populated by listForUser. */
   distanceKm?: number;
+  /** Simplified [lng,lat] polyline for the globe overview (listForUser only). */
+  routePath?: [number, number][];
 };
 
 const MEMBERS_INCLUDE = {
@@ -125,7 +127,52 @@ export class TripsService {
       distances.map((d) => [d.tripId, Math.round((d.meters ?? 0) / 1000)]),
     );
 
-    return trips.map((t) => ({ ...mapMembers(t), distanceKm: kmByTrip.get(t.id) ?? 0 }));
+    // Simplified tracked route per trip, as GeoJSON, for the globe overview.
+    const tripIds = trips.map((t) => t.id);
+    const routeRows = await this.prisma.$queryRaw<{ tripId: string; geojson: string | null }[]>`
+      SELECT "tripId",
+             ST_AsGeoJSON(ST_Simplify(ST_MakeLine(geom ORDER BY "recordedAt"), 0.35)) AS geojson
+      FROM location_points
+      WHERE "tripId" = ANY(${tripIds}::uuid[])
+      GROUP BY "tripId"
+    `;
+    const routeByTrip = new Map<string, [number, number][]>();
+    for (const row of routeRows) {
+      if (!row.geojson) continue;
+      try {
+        const geom = JSON.parse(row.geojson) as { type: string; coordinates: number[][] };
+        if (geom.type === 'LineString' && geom.coordinates.length >= 2) {
+          routeByTrip.set(row.tripId, geom.coordinates as [number, number][]);
+        }
+      } catch {
+        /* ignore malformed geometry */
+      }
+    }
+
+    // Planned-stop fallback for trips without a tracked route (planned trips).
+    const plannedStops = await this.prisma.stop.findMany({
+      where: { tripId: { in: tripIds }, latitude: { not: null }, longitude: { not: null } },
+      orderBy: [{ tripId: 'asc' }, { orderIndex: 'asc' }],
+      select: { tripId: true, latitude: true, longitude: true },
+    });
+    const stopsByTrip = new Map<string, [number, number][]>();
+    for (const s of plannedStops) {
+      const list = stopsByTrip.get(s.tripId) ?? [];
+      list.push([s.longitude!, s.latitude!]);
+      stopsByTrip.set(s.tripId, list);
+    }
+
+    return trips.map((t) => {
+      const tracked = routeByTrip.get(t.id);
+      const planned = stopsByTrip.get(t.id);
+      const routePath =
+        tracked && tracked.length >= 2
+          ? tracked
+          : planned && planned.length >= 2
+            ? planned
+            : undefined;
+      return { ...mapMembers(t), distanceKm: kmByTrip.get(t.id) ?? 0, routePath };
+    });
   }
 
   /** Returns the trip if `userId` is a member; 404 otherwise (no existence leak). */

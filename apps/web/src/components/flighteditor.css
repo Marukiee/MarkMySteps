@@ -1,7 +1,10 @@
 .flight-summary {
   justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   margin: 0.2rem 0 0.3rem 0.9rem;
-  padding: 0.25rem 0.7rem;
+  padding: 0.28rem 0.75rem;
   border-radius: 999px;
   background: #eef0fc;
   color: #3f4ec0;

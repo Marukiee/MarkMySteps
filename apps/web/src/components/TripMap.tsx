@@ -80,7 +80,15 @@ export function TripMap({
     });
     map.on('click', (e) => clickHandlerRef.current?.(e.lngLat));
     mapRef.current = map;
+
+    // Keep the canvas matched to its container. The bottom-sheet layout
+    // resizes this panel (fixed height, sheet sliding over it); without this
+    // the GL canvas keeps its initial size and renders as a thin sliver.
+    const ro = new ResizeObserver(() => map.resize());
+    ro.observe(containerRef.current);
+
     return () => {
+      ro.disconnect();
       map.remove();
       mapRef.current = null;
       loadedRef.current = false;
@@ -265,18 +273,22 @@ export function TripMap({
             .addTo(map),
         );
 
-        // Leg from the previous stop to this one.
-        if (i > 0) {
-          const prev = located[i - 1]!;
+        // Leg to this stop (from the previous stop, or a departure airport for
+        // an arrival flight into the very first stop).
+        {
+          const prev = i > 0 ? located[i - 1]! : null;
           const isFlight = stop.travelMode === 'FLIGHT';
           const depAp = airportByCode(stop.fromAirport);
           const arrAp = airportByCode(stop.toAirport);
-          const from: [number, number] = depAp
+          const from: [number, number] | null = depAp
             ? [depAp.lon, depAp.lat]
-            : [prev.longitude!, prev.latitude!];
+            : prev
+              ? [prev.longitude!, prev.latitude!]
+              : null;
           const to: [number, number] = arrAp
             ? [arrAp.lon, arrAp.lat]
             : [stop.longitude!, stop.latitude!];
+          if (!from) continue;
           const id = `leg-${stop.id}`;
           map.addSource(id, {
             type: 'geojson',

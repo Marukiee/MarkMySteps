@@ -15,6 +15,9 @@ import {
 
 export enum TravelModeDto {
   GROUND = 'GROUND',
+  TRAIN = 'TRAIN',
+  BUS = 'BUS',
+  BOAT = 'BOAT',
   FLIGHT = 'FLIGHT',
 }
 

@@ -12,10 +12,19 @@ type LandTopology = Parameters<typeof topojson.feature>[0] & {
   objects: { land: Parameters<typeof topojson.feature>[1] };
 };
 
+interface GlobeTrip {
+  id: string;
+  title: string;
+  anchor: [number, number];
+  path: [number, number][] | null;
+  upcoming: boolean;
+}
+
 /**
- * Subtle rotating 3D globe behind the trips overview. Orthographic
- * projection on a canvas — genuine sphere, cheap, starts on Europe and
- * drifts slowly. Trip start points glow as markers.
+ * Rotating 3D globe behind the trips overview. Orthographic projection on a
+ * canvas — a genuine sphere. Each trip draws its route (dashed if it hasn't
+ * happened yet) plus a glowing marker; the globe auto-rotates back whenever it
+ * would drift to an empty hemisphere so a trip is always in view.
  */
 export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -38,16 +47,21 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
     let dragging = false;
     let lastX = 0;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const today = new Date().toISOString().slice(0, 10);
 
-    const anchored = () =>
-      tripsRef.current.filter(
-        (t): t is Trip & { anchor: [number, number] } => t.anchor !== null,
-      );
+    const globeTrips = (): GlobeTrip[] =>
+      tripsRef.current
+        .filter((t): t is Trip & { anchor: [number, number] } => t.anchor !== null)
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          anchor: t.anchor,
+          path: t.routePath && t.routePath.length >= 2 ? t.routePath : null,
+          upcoming: t.endDate.slice(0, 10) >= today,
+        }));
 
     function size() {
       const parent = canvas!.parentElement!;
-      // Fill the hero: diameter tracks the smaller of width/height, but larger
-      // than before so continents and trip labels read clearly.
       const s = Math.min(parent.clientWidth, Math.max(parent.clientHeight * 1.4, 320), 900);
       canvas!.width = s * dpr;
       canvas!.height = s * dpr;
@@ -58,14 +72,39 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
 
     const projection = geoOrthographic().clipAngle(90);
     const path = geoPath(projection, ctx);
+    const CENTER_LAT = 18;
 
     function draw() {
       const w = canvas!.width;
       const h = canvas!.height;
+      const trips = globeTrips();
+
+      // --- Auto-rotate: idle-spin, but steer back if we'd lose every trip ---
+      if (!dragging) {
+        const centerLng = -rotation;
+        let nearest: GlobeTrip | null = null;
+        let best = Infinity;
+        for (const t of trips) {
+          const d = distance([centerLng, CENTER_LAT], t.anchor);
+          if (d < best) {
+            best = d;
+            nearest = t;
+          }
+        }
+        if (nearest && best > 55) {
+          // Ease the nearest trip back toward the centre.
+          const target = -nearest.anchor[0];
+          const diff = ((target - rotation + 540) % 360) - 180;
+          rotation += diff * 0.035;
+        } else {
+          rotation += velocity;
+        }
+      }
+
       projection
         .scale(w / 2 - 2 * dpr)
         .translate([w / 2, h / 2])
-        .rotate([rotation, -18, 0]);
+        .rotate([rotation, -CENTER_LAT, 0]);
 
       ctx!.clearRect(0, 0, w, h);
 
@@ -79,20 +118,40 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       ctx!.fillStyle = '#d8c9ad';
       ctx!.fill();
 
+      // --- Trip routes ---
+      for (const trip of trips) {
+        if (!trip.path) continue;
+        ctx!.beginPath();
+        path({ type: 'LineString', coordinates: trip.path } as GeoPermissibleObjects);
+        if (trip.upcoming) {
+          ctx!.setLineDash([4 * dpr, 4 * dpr]);
+          ctx!.strokeStyle = 'rgba(42,143,133,0.9)'; // teal for planned
+        } else {
+          ctx!.setLineDash([]);
+          ctx!.strokeStyle = 'rgba(232,97,60,0.9)'; // accent for past
+        }
+        ctx!.lineWidth = 2.4 * dpr;
+        ctx!.lineJoin = 'round';
+        ctx!.lineCap = 'round';
+        ctx!.stroke();
+      }
+      ctx!.setLineDash([]);
+
+      // --- Markers + labels ---
       const center = projection.invert!([w / 2, h / 2]);
-      for (const trip of anchored()) {
+      for (const trip of trips) {
         const projected = projection(trip.anchor);
         if (!projected) continue;
         if (center && distance(center, trip.anchor) > 90) continue;
-        // Pulsing marker.
+        const color = trip.upcoming ? '#2a8f85' : '#e8613c';
         ctx!.beginPath();
         ctx!.arc(projected[0], projected[1], 9 * dpr, 0, 2 * Math.PI);
-        ctx!.strokeStyle = 'rgba(232,97,60,0.4)';
+        ctx!.strokeStyle = trip.upcoming ? 'rgba(42,143,133,0.4)' : 'rgba(232,97,60,0.4)';
         ctx!.lineWidth = 1.5 * dpr;
         ctx!.stroke();
         ctx!.beginPath();
         ctx!.arc(projected[0], projected[1], 5 * dpr, 0, 2 * Math.PI);
-        ctx!.fillStyle = '#e8613c';
+        ctx!.fillStyle = color;
         ctx!.fill();
         // Label pill with the trip title.
         const label = trip.title;
@@ -108,7 +167,6 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
         ctx!.fillText(label, px + 6 * dpr, py + 9 * dpr);
       }
 
-      if (!dragging) rotation += velocity;
       raf = requestAnimationFrame(draw);
     }
     draw();
@@ -136,7 +194,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       ]);
       if (!inverted) return;
       let best: { id: string; d: number } | null = null;
-      for (const trip of anchored()) {
+      for (const trip of globeTrips()) {
         const d = distance(inverted, trip.anchor);
         if (d < 6 && (!best || d < best.d)) best = { id: trip.id, d };
       }

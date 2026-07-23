@@ -82,3 +82,36 @@
   justify-content: space-between;
   gap: 0.5rem;
 }
+
+.ts-sync {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+}
+
+.ts-sync > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.ts-sync span {
+  font-size: 0.82rem;
+}
+
+.ts-sync .btn {
+  flex-shrink: 0;
+}
+
+.ts-sync-msg {
+  margin-top: -0.75rem;
+}
+
+/* Clear the fixed tab bar so the last field (travellers) stays reachable. */
+.native-app .trip-settings {
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+}
