@@ -183,6 +183,8 @@
   border-radius: 7px;
   font-weight: 550;
   font-size: 0.9rem;
+  color: var(--ink); /* overlay sets #fff; force readable text on the white menu */
+  text-shadow: none;
 }
 
 .trip-menu button:hover {

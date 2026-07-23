@@ -14,6 +14,20 @@
   -webkit-mask-image: radial-gradient(circle at center 42%, #000 62%, transparent 82%);
 }
 
+/* Soft fade at the bottom so the globe melts into the page instead of a hard
+   edge above the trips. */
+.globe-backdrop::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 42%;
+  background: linear-gradient(to bottom, transparent, var(--paper) 88%);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .globe-backdrop canvas {
   display: block;
   cursor: grab;

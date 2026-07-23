@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import './bottomnav.css';
 
 const ICONS = {
@@ -26,20 +26,26 @@ const ICONS = {
 
 /** App-style tab bar; the primary navigation on phones and in the APK. */
 export function BottomNav() {
+  const { pathname } = useLocation();
+  // "Reizen" stays highlighted inside a trip (/trips/...), not only on the root.
+  const tripsActive = pathname === '/' || pathname.startsWith('/trips');
+  const friendsActive = pathname.startsWith('/friends');
+  const settingsActive = pathname.startsWith('/settings');
+
   return (
     <nav className="bottomnav">
-      <NavLink to="/" end>
+      <Link to="/" className={tripsActive ? 'active' : ''}>
         {ICONS.trips}
         <span>Reizen</span>
-      </NavLink>
-      <NavLink to="/friends">
+      </Link>
+      <Link to="/friends" className={friendsActive ? 'active' : ''}>
         {ICONS.friends}
         <span>Vrienden</span>
-      </NavLink>
-      <NavLink to="/settings">
+      </Link>
+      <Link to="/settings" className={settingsActive ? 'active' : ''}>
         {ICONS.settings}
         <span>Instellingen</span>
-      </NavLink>
+      </Link>
     </nav>
   );
 }

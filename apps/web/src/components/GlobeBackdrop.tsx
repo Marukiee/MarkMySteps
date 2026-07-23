@@ -43,7 +43,8 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
 
     let raf = 0;
     let rotation = 10; // start over Europe/Africa
-    const velocity = 0.015; // gentle idle auto-spin
+    const velocity = 0.02; // gentle idle sweep speed
+    let sweepDir = 1; // +1 / -1 — flips at the edges of the trip spread
     let dragging = false;
     let lastX = 0;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -79,23 +80,19 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       const h = canvas!.height;
       const trips = globeTrips();
 
-      // --- Auto-rotate: idle-spin, but steer back if we'd lose every trip ---
+      // --- Auto-rotate: sweep back and forth across the trips (pendulum) so
+      // they always stay in view. At the edge of the spread the direction just
+      // flips — no snap-back. ---
       if (!dragging) {
-        const centerLng = -rotation;
-        let nearest: GlobeTrip | null = null;
-        let best = Infinity;
-        for (const t of trips) {
-          const d = distance([centerLng, CENTER_LAT], t.anchor);
-          if (d < best) {
-            best = d;
-            nearest = t;
-          }
-        }
-        if (nearest && best > 55) {
-          // Ease the nearest trip back toward the centre.
-          const target = -nearest.anchor[0];
-          const diff = ((target - rotation + 540) % 360) - 180;
-          rotation += diff * 0.035;
+        if (trips.length > 0) {
+          const lngs = trips.map((t) => t.anchor[0]);
+          const lo = Math.min(...lngs) - 35;
+          const hi = Math.max(...lngs) + 35;
+          const centerLng = -rotation;
+          if (centerLng <= lo) sweepDir = 1;
+          else if (centerLng >= hi) sweepDir = -1;
+          // dir on centreLng; rotation moves opposite.
+          rotation -= velocity * sweepDir;
         } else {
           rotation += velocity;
         }
