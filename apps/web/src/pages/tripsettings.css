@@ -108,6 +108,11 @@
   gap: 0.15rem;
 }
 
+.ts-track-box .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .ts-track-box span {
   font-size: 0.82rem;
 }

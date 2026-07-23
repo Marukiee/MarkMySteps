@@ -66,3 +66,31 @@
   justify-content: flex-end;
   gap: 0.5rem;
 }
+
+/* --- Mobile: stack the airport fields and use tap-friendly sizes --- */
+@media (max-width: 600px) {
+  .flight-editor {
+    margin-left: 0.5rem;
+    padding: 0.7rem 0.5rem;
+  }
+
+  .flight-row {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+  }
+
+  .airport-results {
+    max-height: 46vh;
+  }
+
+  .airport-results button {
+    padding: 0.6rem 0.6rem;
+    font-size: 0.95rem;
+  }
+
+  /* 16px inputs stop iOS/Android from zooming the page on focus. */
+  .flight-editor input {
+    font-size: 16px;
+    padding: 0.7rem 0.8rem;
+  }
+}

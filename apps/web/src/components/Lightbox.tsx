@@ -66,7 +66,10 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   useEffect(() => {
     if (!isNativeApp()) return;
     void StatusBar.setStyle({ style: Style.Dark });
-    return () => void StatusBar.setStyle({ style: Style.Light });
+    return () =>
+      void StatusBar.setStyle({
+        style: document.documentElement.dataset.theme === 'dark' ? Style.Dark : Style.Light,
+      });
   }, []);
 
   useEffect(() => {

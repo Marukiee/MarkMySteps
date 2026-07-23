@@ -82,6 +82,43 @@ function mapMembers(trip: RawTripRow): TripWithMembers {
   };
 }
 
+/** Great-circle arc between two [lng,lat] points as `steps`+1 points. */
+function greatCircle(a: [number, number], b: [number, number], steps: number): [number, number][] {
+  const toRad = Math.PI / 180;
+  const toDeg = 180 / Math.PI;
+  const [lon1, lat1] = [a[0] * toRad, a[1] * toRad];
+  const [lon2, lat2] = [b[0] * toRad, b[1] * toRad];
+  const d =
+    2 *
+    Math.asin(
+      Math.sqrt(
+        Math.sin((lat2 - lat1) / 2) ** 2 +
+          Math.cos(lat1) * Math.cos(lat2) * Math.sin((lon2 - lon1) / 2) ** 2,
+      ),
+    );
+  if (d === 0) return [a, b];
+  const out: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const f = i / steps;
+    const A = Math.sin((1 - f) * d) / Math.sin(d);
+    const B = Math.sin(f * d) / Math.sin(d);
+    const x = A * Math.cos(lat1) * Math.cos(lon1) + B * Math.cos(lat2) * Math.cos(lon2);
+    const y = A * Math.cos(lat1) * Math.sin(lon1) + B * Math.cos(lat2) * Math.sin(lon2);
+    const z = A * Math.sin(lat1) + B * Math.sin(lat2);
+    out.push([Math.atan2(y, x) * toDeg, Math.atan2(z, Math.sqrt(x * x + y * y)) * toDeg]);
+  }
+  return out;
+}
+
+/** Evenly thins a polyline to at most `max` points (keeps first & last). */
+function downsample(points: [number, number][], max: number): [number, number][] {
+  if (points.length <= max) return points;
+  const step = (points.length - 1) / (max - 1);
+  const out: [number, number][] = [];
+  for (let i = 0; i < max; i++) out.push(points[Math.round(i * step)]!);
+  return out;
+}
+
 type RawMember = {
   userId: string;
   role: TripRole;
@@ -150,28 +187,63 @@ export class TripsService {
     }
 
     // Planned-stop fallback for trips without a tracked route (planned trips).
+    // Flight legs are drawn as great-circle arcs so they read as flights.
     const plannedStops = await this.prisma.stop.findMany({
       where: { tripId: { in: tripIds }, latitude: { not: null }, longitude: { not: null } },
       orderBy: [{ tripId: 'asc' }, { orderIndex: 'asc' }],
+      select: { tripId: true, latitude: true, longitude: true, travelMode: true },
+    });
+    const rawStops = new Map<string, { pt: [number, number]; flight: boolean }[]>();
+    for (const s of plannedStops) {
+      const list = rawStops.get(s.tripId) ?? [];
+      list.push({ pt: [s.longitude!, s.latitude!], flight: s.travelMode === 'FLIGHT' });
+      rawStops.set(s.tripId, list);
+    }
+    const stopsByTrip = new Map<string, [number, number][]>();
+    for (const [tripId, list] of rawStops) {
+      const line: [number, number][] = [];
+      for (let i = 0; i < list.length; i++) {
+        const cur = list[i]!;
+        if (i === 0) {
+          line.push(cur.pt);
+        } else if (cur.flight) {
+          line.push(...greatCircle(list[i - 1]!.pt, cur.pt, 14).slice(1));
+        } else {
+          line.push(cur.pt);
+        }
+      }
+      stopsByTrip.set(tripId, line);
+    }
+
+    // Photo-GPS fallback: trips with no track and no planned stops still show
+    // on the globe from their geotagged Immich photos (ordered by time).
+    const photos = await this.prisma.mediaRef.findMany({
+      where: { tripId: { in: tripIds }, latitude: { not: null }, longitude: { not: null } },
+      orderBy: [{ tripId: 'asc' }, { takenAt: 'asc' }],
       select: { tripId: true, latitude: true, longitude: true },
     });
-    const stopsByTrip = new Map<string, [number, number][]>();
-    for (const s of plannedStops) {
-      const list = stopsByTrip.get(s.tripId) ?? [];
-      list.push([s.longitude!, s.latitude!]);
-      stopsByTrip.set(s.tripId, list);
+    const photosByTrip = new Map<string, [number, number][]>();
+    for (const p of photos) {
+      const list = photosByTrip.get(p.tripId) ?? [];
+      list.push([p.longitude!, p.latitude!]);
+      photosByTrip.set(p.tripId, list);
     }
 
     return trips.map((t) => {
+      const base = mapMembers(t);
       const tracked = routeByTrip.get(t.id);
       const planned = stopsByTrip.get(t.id);
+      const photoLine = photosByTrip.get(t.id);
       const routePath =
         tracked && tracked.length >= 2
           ? tracked
           : planned && planned.length >= 2
             ? planned
-            : undefined;
-      return { ...mapMembers(t), distanceKm: kmByTrip.get(t.id) ?? 0, routePath };
+            : photoLine && photoLine.length >= 2
+              ? downsample(photoLine, 80)
+              : undefined;
+      const anchor = base.anchor ?? photoLine?.[0] ?? null;
+      return { ...base, anchor, distanceKm: kmByTrip.get(t.id) ?? 0, routePath };
     });
   }
 

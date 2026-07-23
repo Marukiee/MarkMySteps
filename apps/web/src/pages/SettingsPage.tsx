@@ -6,7 +6,15 @@ import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/Icon';
 import { formatDate } from '../lib/colors';
-import { MAP_STYLES, MapStyleId, getMapStyleId, setMapStyleId } from '../lib/prefs';
+import {
+  MAP_STYLES,
+  MapStyleId,
+  ThemeId,
+  getMapStyleId,
+  getThemeId,
+  setMapStyleId,
+  setThemeId,
+} from '../lib/prefs';
 import {
   TrackerState,
   isNative,
@@ -65,10 +73,36 @@ export function SettingsPage() {
 
 function DisplaySection() {
   const [style, setStyle] = useState<MapStyleId>(getMapStyleId());
+  const [theme, setTheme] = useState<ThemeId>(getThemeId());
+
+  const themes: { id: ThemeId; label: string }[] = [
+    { id: 'system', label: 'Systeem' },
+    { id: 'light', label: 'Licht' },
+    { id: 'dark', label: 'Donker' },
+  ];
 
   return (
     <section className="card settings-card">
       <h2>Weergave</h2>
+      <div className="field">
+        <label>Thema</label>
+        <div className="theme-choice">
+          {themes.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`theme-opt ${theme === t.id ? 'active' : ''}`}
+              onClick={() => {
+                setTheme(t.id);
+                setThemeId(t.id);
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <span className="muted">“Systeem” volgt de licht/donker-stand van je toestel.</span>
+      </div>
       <div className="field">
         <label htmlFor="ds-map">Kaartstijl</label>
         <select

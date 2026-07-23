@@ -157,14 +157,16 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
 
       ctx!.clearRect(0, 0, w, h);
 
+      const dark = document.documentElement.dataset.theme === 'dark';
+
       ctx!.beginPath();
       path({ type: 'Sphere' });
-      ctx!.fillStyle = '#eadfce';
+      ctx!.fillStyle = dark ? '#1a2028' : '#eadfce';
       ctx!.fill();
 
       ctx!.beginPath();
       path(land);
-      ctx!.fillStyle = '#d8c9ad';
+      ctx!.fillStyle = dark ? '#2d3742' : '#d8c9ad';
       ctx!.fill();
 
       // --- Trip routes ---
@@ -173,13 +175,16 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
         ctx!.beginPath();
         path({ type: 'LineString', coordinates: trip.path } as GeoPermissibleObjects);
         if (trip.upcoming) {
-          ctx!.setLineDash([4 * dpr, 4 * dpr]);
-          ctx!.strokeStyle = 'rgba(42,143,133,0.9)'; // teal for planned
+          // Planned (incl. flight arcs): faint + dashed so it clearly isn't a
+          // real, walked route.
+          ctx!.setLineDash([3 * dpr, 5 * dpr]);
+          ctx!.strokeStyle = 'rgba(42,143,133,0.5)';
+          ctx!.lineWidth = 1.8 * dpr;
         } else {
           ctx!.setLineDash([]);
-          ctx!.strokeStyle = 'rgba(232,97,60,0.9)'; // accent for past
+          ctx!.strokeStyle = 'rgba(232,97,60,0.9)'; // solid accent for past
+          ctx!.lineWidth = 2.4 * dpr;
         }
-        ctx!.lineWidth = 2.4 * dpr;
         ctx!.lineJoin = 'round';
         ctx!.lineCap = 'round';
         ctx!.stroke();

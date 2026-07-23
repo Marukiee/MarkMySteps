@@ -44,3 +44,32 @@ export function getMapStyle(): string | StyleSpecification {
   if (id === 'satellite') return SATELLITE_STYLE;
   return `https://tiles.openfreemap.org/styles/${id}`;
 }
+
+/* ---------- Theme (light / dark / follow system) ---------- */
+
+export type ThemeId = 'system' | 'light' | 'dark';
+const THEME_KEY = 'mms.theme';
+
+export function getThemeId(): ThemeId {
+  return (localStorage.getItem(THEME_KEY) as ThemeId | null) ?? 'system';
+}
+
+/** The effective theme after resolving "system". */
+export function resolvedTheme(id: ThemeId = getThemeId()): 'light' | 'dark' {
+  if (id === 'system') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return id;
+}
+
+/** Applies the theme to <html data-theme> and notifies listeners. */
+export function applyTheme(id: ThemeId = getThemeId()): void {
+  const theme = resolvedTheme(id);
+  document.documentElement.dataset.theme = theme;
+  window.dispatchEvent(new CustomEvent('mms-theme', { detail: theme }));
+}
+
+export function setThemeId(id: ThemeId): void {
+  localStorage.setItem(THEME_KEY, id);
+  applyTheme(id);
+}

@@ -16,11 +16,20 @@ export function webBase(): string {
   return isNativeApp() ? DEFAULT_SERVER_URL : window.location.origin;
 }
 
-/** Native status bar: overlay the web content and use dark icons on paper. */
+/** Native status bar: overlay the web content, icon colour follows the theme. */
 export function initStatusBar(): void {
   if (!isNativeApp()) return;
   void StatusBar.setOverlaysWebView({ overlay: true });
-  void StatusBar.setStyle({ style: Style.Light }); // dark icons for light UI
+  syncStatusBarTheme();
+  // Re-sync whenever the app theme changes.
+  window.addEventListener('mms-theme', syncStatusBarTheme);
+}
+
+function syncStatusBarTheme(): void {
+  if (!isNativeApp()) return;
+  const dark = document.documentElement.dataset.theme === 'dark';
+  // Style.Dark = light icons (for a dark UI); Style.Light = dark icons.
+  void StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light });
 }
 
 /** Android back gesture: navigate back in history, exit the app at the root. */

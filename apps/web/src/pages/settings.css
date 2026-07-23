@@ -256,6 +256,30 @@
   color: var(--accent-ink);
 }
 
+.theme-choice {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  align-self: flex-start;
+}
+
+.theme-opt {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--ink-faint);
+  transition: all 0.15s var(--ease);
+}
+
+.theme-opt.active {
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-s);
+}
+
 .file-drop {
   display: flex;
   align-items: center;

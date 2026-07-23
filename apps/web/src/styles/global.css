@@ -30,6 +30,28 @@
   --font-display: 'Fraunces Variable', Georgia, serif;
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: light;
+}
+
+/* Dark theme — set by JS (applyTheme) via <html data-theme="dark">. */
+:root[data-theme='dark'] {
+  --paper: #14181d;
+  --paper-raised: #1d242c;
+  --paper-sunken: #0f141a;
+  --ink: #eef1f4;
+  --ink-soft: #a7b2bd;
+  --ink-faint: #6d7a87;
+  --line: #2b333d;
+  --accent: #f0714d;
+  --accent-soft: #3a231a;
+  --accent-ink: #f6926f;
+  --teal: #38a89c;
+
+  --shadow-s: 0 1px 3px rgb(0 0 0 / 0.4), 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-m: 0 6px 24px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.35);
+  --shadow-l: 0 18px 48px rgb(0 0 0 / 0.6);
+
+  color-scheme: dark;
 }
 
 * {

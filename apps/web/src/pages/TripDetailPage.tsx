@@ -53,18 +53,25 @@ export function TripDetailPage() {
     const el = scrollRef.current;
     if (!el) return;
     let raf = 0;
+    let focusTimer = 0;
     let lastKey = '';
-    const apply = () => {
+
+    // Live, every-frame: just resize the sticky map (smooth, no camera moves).
+    const resizeMap = () => {
       raf = 0;
-      // Shrink the sticky map as the sheet scrolls up (bigger → smaller),
-      // clamped so it always stays visible.
       const vh = window.innerHeight / 100;
       const mapH = Math.max(38, 56 - el.scrollTop / vh);
       el.style.setProperty('--map-h', `${mapH}vh`);
+    };
 
+    // Debounced: only move the camera once scrolling settles, so it never
+    // jitters/flickers mid-scroll.
+    const focusVisible = () => {
       const api = mapApiRef.current;
       if (!api) return;
-      const mapBottom = window.innerHeight * (mapH / 100);
+      const mapBottom = el.style.getPropertyValue('--map-h')
+        ? window.innerHeight * (parseFloat(el.style.getPropertyValue('--map-h')) / 100)
+        : window.innerHeight * 0.5;
       const coords: [number, number][] = [];
       const seen = new Set<string>();
       for (const node of document.querySelectorAll<HTMLElement>('[data-media-id]')) {
@@ -77,19 +84,22 @@ export function TripDetailPage() {
         if (m && m.latitude !== null && m.longitude !== null) coords.push([m.longitude, m.latitude]);
       }
       if (coords.length === 0) return;
-      // Only re-focus when the visible set meaningfully changes.
       const key = `${coords.length}:${coords[0]![0].toFixed(2)},${coords[0]![1].toFixed(2)}`;
       if (key === lastKey) return;
       lastKey = key;
       api.focusOn(coords);
     };
+
     const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(apply);
+      if (!raf) raf = requestAnimationFrame(resizeMap);
+      window.clearTimeout(focusTimer);
+      focusTimer = window.setTimeout(focusVisible, 180);
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       el.removeEventListener('scroll', onScroll);
       if (raf) cancelAnimationFrame(raf);
+      window.clearTimeout(focusTimer);
     };
   }, [trip]);
 
@@ -229,6 +239,9 @@ export function TripDetailPage() {
 
   return (
     <main className="trip-detail fade-in" ref={scrollRef}>
+      <Link to="/" className="trip-fab trip-fab-back" aria-label="Alle reizen">
+        <Icon name="arrow-left" size={20} />
+      </Link>
       <div className="trip-fabs">
         <button
           className="trip-fab"

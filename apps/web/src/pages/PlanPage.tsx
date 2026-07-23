@@ -295,6 +295,24 @@ export function PlanPage() {
     );
   }
 
+  /** Add an outbound flight leg at the very start of the trip. */
+  async function addOutboundFlight() {
+    if (!tripId) return;
+    const created = await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
+      method: 'POST',
+      body: { name: 'Heenvlucht', nights: 0, travelMode: 'FLIGHT' },
+    });
+    const added = created[created.length - 1];
+    if (!added) return refresh(created);
+    // The new stop is appended; move it to the front.
+    refresh(
+      await api<PlannedStop[]>(`/trips/${tripId}/stops/order`, {
+        method: 'PUT',
+        body: { stopIds: [added.id, ...created.filter((s) => s.id !== added.id).map((s) => s.id)] },
+      }),
+    );
+  }
+
   function onDragStart(index: number) {
     setDragIndex(index);
   }
@@ -361,8 +379,45 @@ export function PlanPage() {
           </div>
         )}
 
+        {stops.length > 0 && (
+          <button type="button" className="add-flight-leg" onClick={() => void addOutboundFlight()}>
+            <Icon name="plane" size={16} /> Heenvlucht
+          </button>
+        )}
+
         <ol className="stop-list">
           {stops.map((stop, index) => {
+            // A standalone outbound/return flight (no city) renders as its own
+            // flight card, not a fake stop with a photo + nights.
+            const isFlightLeg =
+              stop.travelMode === 'FLIGHT' && stop.latitude === null && stop.longitude === null;
+            if (isFlightLeg) {
+              return (
+                <li key={stop.id} className="stop-row">
+                  <div className="flight-leg card">
+                    <span className="flight-leg-icon">
+                      <Icon name="plane" size={18} />
+                    </span>
+                    <div className="flight-leg-main">
+                      <strong>{stop.name}</strong>
+                      <FlightEditor
+                        flightNumber={stop.flightNumber}
+                        fromAirport={stop.fromAirport}
+                        toAirport={stop.toAirport}
+                        onSave={(data) => void saveFlight(stop, data)}
+                      />
+                    </div>
+                    <button
+                      className="stop-delete"
+                      onClick={() => removeStop(stop)}
+                      aria-label="Vlucht verwijderen"
+                    >
+                      <Icon name="close" size={15} />
+                    </button>
+                  </div>
+                </li>
+              );
+            }
             const prev = index > 0 ? stops[index - 1] : null;
             const legKm =
               prev &&
