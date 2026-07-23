@@ -67,14 +67,10 @@
   z-index: 101;
   max-width: 70vw;
   text-align: center;
-  color: rgb(255 255 255 / 0.92);
+  color: rgb(255 255 255 / 0.85);
   font-weight: 600;
   font-size: 0.95rem;
   text-transform: capitalize;
-  background: rgb(0 0 0 / 0.38);
-  backdrop-filter: blur(6px);
-  padding: 0.32rem 0.95rem;
-  border-radius: 999px;
 }
 
 .lightbox-close {
