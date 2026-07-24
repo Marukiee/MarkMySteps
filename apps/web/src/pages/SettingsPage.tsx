@@ -169,6 +169,7 @@ function DisplaySection() {
                 setMapStyleId(s.id);
               }}
             >
+              <span className={`map-style-preview map-style-${s.id}`} aria-hidden="true" />
               {s.label}
             </button>
           ))}
@@ -308,7 +309,10 @@ function TrackingLog({ now }: { now: number }) {
   if (log.length === 0) return null;
   return (
     <details className="tracking-log">
-      <summary>Locatie-log · {log.length} fixes</summary>
+      <summary>
+        <Icon name="chevron-right" size={16} className="tracking-log-caret" />
+        Locatie-log · {log.length} fixes
+      </summary>
       <ul>
         {log.slice(0, 25).map((e, i) => {
           const ago = Math.round((now - e.at) / 1000);

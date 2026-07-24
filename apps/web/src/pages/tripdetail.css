@@ -28,12 +28,13 @@
 
   .trip-detail .trip-map-panel {
     position: relative;
-    height: 46vh;
+    height: 55vh; /* JS shrinks this toward 30vh as the sheet scrolls */
     flex-shrink: 0;
     min-height: 0;
     overflow: hidden;
     border-radius: 0;
     z-index: 1;
+    transition: height 0.08s linear;
   }
 
   .trip-detail .trip-map {
@@ -60,13 +61,27 @@
     padding: 0.4rem 1.15rem calc(92px + env(safe-area-inset-bottom));
   }
 
+  /* Grab handle stays pinned at the top of the sheet while it scrolls. */
   .sheet-grab {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    display: block;
+    width: calc(100% + 2.3rem);
+    margin: 0 -1.15rem 0.4rem;
+    padding: 0.5rem 0 0.55rem;
+    background: var(--paper);
+    border-radius: var(--radius-l) var(--radius-l) 0 0;
+  }
+
+  .sheet-grab::before {
+    content: '';
     display: block;
     width: 42px;
     height: 5px;
+    margin: 0 auto;
     border-radius: 3px;
     background: var(--line);
-    margin: 0.5rem auto 0.75rem;
   }
 
   /* Person toggles sit on the map, clear of the status bar. */

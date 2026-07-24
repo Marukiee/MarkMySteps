@@ -285,9 +285,26 @@
 }
 
 .tracking-log summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   font-weight: 600;
   cursor: pointer;
   color: var(--ink-soft);
+  list-style: none;
+}
+
+.tracking-log summary::-webkit-details-marker {
+  display: none;
+}
+
+.tracking-log-caret {
+  color: var(--ink-faint);
+  transition: transform 0.2s var(--ease);
+}
+
+.tracking-log[open] .tracking-log-caret {
+  transform: rotate(90deg);
 }
 
 .tracking-log ul {
@@ -450,7 +467,10 @@
 }
 
 .map-style-opt {
-  padding: 0.7rem 0.6rem;
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  padding: 0.6rem 0.6rem 0.7rem;
   border: 1.5px solid var(--line);
   border-radius: var(--radius-s);
   background: var(--paper-raised);
@@ -459,6 +479,40 @@
   color: var(--ink-soft);
   text-align: center;
   transition: all 0.15s var(--ease);
+}
+
+/* Little preview thumbnail of what each style looks like. */
+.map-style-preview {
+  width: 100%;
+  height: 54px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background-size: cover;
+  background-position: center;
+}
+
+.map-style-positron {
+  background:
+    linear-gradient(115deg, transparent 44%, #cfd6dd 44% 47%, transparent 47%),
+    linear-gradient(200deg, transparent 60%, #d7ddb9 60%), #f3f1ec;
+}
+
+.map-style-bright {
+  background:
+    radial-gradient(circle at 70% 30%, #7fc8f0 0 18%, transparent 18%),
+    linear-gradient(120deg, #bfe3a6 40%, #e9d79a 40%), #d9efc7;
+}
+
+.map-style-liberty {
+  background:
+    linear-gradient(135deg, transparent 46%, #b9a98a 46% 49%, transparent 49%),
+    linear-gradient(#efe7d6, #e2d7bf);
+}
+
+.map-style-satellite {
+  background:
+    radial-gradient(circle at 40% 60%, #3f5d3a 0 30%, transparent 30%),
+    linear-gradient(150deg, #2f4a63, #47624a 60%, #6b6a45);
 }
 
 .map-style-opt.active {

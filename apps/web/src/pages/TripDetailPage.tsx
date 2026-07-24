@@ -51,6 +51,7 @@ export function TripDetailPage() {
   const [notes, setNotes] = useState<TripNote[]>([]);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const scrollRef = useRef<HTMLElement>(null);
+  const mapPanelRef = useRef<HTMLDivElement>(null);
   const mapApiRef = useRef<TripMapApi | null>(null);
   const mediaRef = useRef<MediaItem[]>([]);
   mediaRef.current = media;
@@ -88,7 +89,21 @@ export function TripDetailPage() {
       api.focusOn(coords);
     };
 
+    // Mobile: shrink the map as the sheet scrolls (more room for content), but
+    // never below a floor so it always stays visible.
+    const isMobile = window.matchMedia('(max-width: 900px)').matches;
+    const vh = window.innerHeight / 100;
+    const startH = 55 * vh;
+    const minH = 30 * vh;
+    const shrinkMap = () => {
+      const panel = mapPanelRef.current;
+      if (!panel || !isMobile) return;
+      panel.style.height = `${Math.max(minH, startH - el.scrollTop)}px`;
+    };
+    shrinkMap();
+
     const onScroll = () => {
+      shrinkMap();
       window.clearTimeout(focusTimer);
       focusTimer = window.setTimeout(focusVisible, 200);
     };
@@ -305,7 +320,7 @@ export function TripDetailPage() {
 
   return (
     <main className="trip-detail fade-in">
-      <div className="trip-map-panel card">
+      <div className="trip-map-panel card" ref={mapPanelRef}>
         <Link to="/" className="trip-fab trip-fab-back" aria-label="Alle reizen">
           <Icon name="arrow-left" size={20} />
         </Link>
