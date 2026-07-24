@@ -4,6 +4,14 @@ import { fetchBlobUrl } from '../api/client';
 // Object-URL cache so re-renders and repeated thumbnails don't refetch.
 const cache = new Map<string, string>();
 
+/** Drop a cached image so the next render refetches it (e.g. after an avatar
+ *  upload replaces the same URL). */
+export function evictImage(path: string): void {
+  const url = cache.get(path);
+  if (url) URL.revokeObjectURL(url);
+  cache.delete(path);
+}
+
 /**
  * <img> that loads through the authorized thumbnail proxy — but only once
  * it scrolls near the viewport (IntersectionObserver), so photo-heavy

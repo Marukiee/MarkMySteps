@@ -16,6 +16,8 @@ interface AuthState {
   login(identifier: string, password: string): Promise<void>;
   register(email: string, username: string, displayName: string, password: string): Promise<void>;
   logout(): void;
+  /** Re-fetch the current user (e.g. after changing the profile photo). */
+  refresh(): Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -62,9 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const refresh = useCallback(async () => {
+    setUser(await api<User>('/users/me').catch(() => null));
+  }, []);
+
   const value = useMemo(
-    () => ({ user, ready, login, register, logout }),
-    [user, ready, login, register, logout],
+    () => ({ user, ready, login, register, logout, refresh }),
+    [user, ready, login, register, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

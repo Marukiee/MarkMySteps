@@ -3,7 +3,7 @@ import { api, ApiError } from '../api/client';
 import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { Avatar } from '../components/Avatar';
+import { Avatar, bumpAvatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
 import { Icon } from '../components/Icon';
 import { formatDate } from '../lib/colors';
@@ -384,7 +384,7 @@ async function resizeImage(file: File, maxSize = 256): Promise<Blob> {
 }
 
 function ProfileSection() {
-  const { user, logout } = useAuth();
+  const { user, logout, refresh } = useAuth();
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
   const [username, setUsername] = useState(user?.username ?? '');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -428,7 +428,9 @@ function ProfileSection() {
       const formData = new FormData();
       formData.append('file', resized, 'avatar.jpg');
       await api('/users/me/avatar', { method: 'POST', formData });
-      setMessage('Profielfoto opgeslagen — zichtbaar na opnieuw laden.');
+      await refresh(); // ensure hasAvatar is set
+      if (user) bumpAvatar(user.id); // reload the image everywhere, now
+      setMessage('Profielfoto opgeslagen.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload mislukt');
     }
