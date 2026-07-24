@@ -60,7 +60,9 @@ export function TripSettingsPage() {
 
   const isOwner = trip?.ownerId === user?.id;
   const me = trip?.members.find((m) => m.userId === user?.id);
-  const canTrack = !!me && (me.role === 'OWNER' || (me.role === 'MEMBER' && me.canTrack));
+  const ended = !!trip && new Date(trip.endDate).getTime() + 86_400_000 < Date.now();
+  const canTrack =
+    !ended && !!me && (me.role === 'OWNER' || (me.role === 'MEMBER' && me.canTrack));
 
   async function save(e?: FormEvent) {
     e?.preventDefault();
@@ -246,13 +248,15 @@ export function TripSettingsPage() {
         )}
         {isNative() && tripId && !canTrack && (
           <p className="muted">
-            {me?.role === 'GUEST'
-              ? 'Je bent gast op deze reis en kunt alleen meekijken.'
-              : 'De organisator heeft tracken voor jou uitgezet.'}
+            {ended
+              ? 'Deze reis is afgelopen — tracken kan niet meer.'
+              : me?.role === 'GUEST'
+                ? 'Je bent gast op deze reis en kunt alleen meekijken.'
+                : 'De organisator heeft tracken voor jou uitgezet.'}
           </p>
         )}
 
-        <label className="ts-toggle">
+        <label className={`ts-toggle ${ended ? 'ts-disabled' : ''}`}>
           <div>
             <strong>Automatisch tracken</strong>
             <span className="muted">
@@ -262,7 +266,7 @@ export function TripSettingsPage() {
           <input
             type="checkbox"
             checked={autoTrack}
-            disabled={!isOwner}
+            disabled={!isOwner || ended}
             onChange={(e) => {
               setAutoTrack(e.target.checked);
               if (isOwner) void save();

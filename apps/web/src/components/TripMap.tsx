@@ -443,7 +443,9 @@ export function TripMap({
       const seenFlights = new Set<string>();
       const roundPt = (c: number) => Math.round(c / 0.8);
       for (const leg of buildLegs(stops ?? [])) {
-        if (!leg.isFlight && hasTrackedRef.current) continue;
+        // Once a real route is drawn/tracked, the planned dashed legs are just
+        // noise (and would double up), so drop them entirely.
+        if (hasTrackedRef.current) continue;
         if (leg.isFlight) {
           const c = (leg.feature.geometry as GeoJSON.LineString).coordinates as [number, number][];
           const a = c[0]!;

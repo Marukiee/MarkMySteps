@@ -242,12 +242,12 @@ export function TripPlanner({
             return (
               <li key={stop.id} className="stop-row">
                 <div className="flight-leg card">
-                  <span className="flight-leg-icon">
-                    <Icon name={MODE_ICON[stop.travelMode] ?? 'car'} size={18} />
-                  </span>
                   <div className="flight-leg-main">
                     <div className="flight-leg-head">
-                      <strong>{stop.name}</strong>
+                      <span className="flight-leg-icon">
+                        <Icon name={MODE_ICON[stop.travelMode] ?? 'car'} size={18} />
+                      </span>
+                      <strong className="flight-leg-name">{stop.name}</strong>
                       <ModeMenu
                         current={stop.travelMode}
                         compact

@@ -11,30 +11,29 @@
   display: none;
 }
 
-/* --- Mobile / app: fixed map on top, sheet scrolls inside below it --- */
+/* --- Mobile / app: the page scrolls; a fixed map on top shrinks as you scroll
+   (JS), and the content slides up underneath it at normal speed. --- */
 @media (max-width: 900px) {
-  /* Column layout that fills the screen; nothing scrolls at the page level —
-     only the sheet does, so the map stays partly visible with the sheet's
-     rounded top resting over it. */
   .trip-detail {
-    display: flex;
-    flex-direction: column;
+    display: block;
     position: fixed;
     inset: 0;
     height: auto;
-    overflow: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 0;
   }
 
   .trip-detail .trip-map-panel {
-    position: relative;
-    height: 55vh; /* JS shrinks this toward 30vh as the sheet scrolls */
-    flex-shrink: 0;
-    min-height: 0;
-    overflow: hidden;
-    border-radius: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 55vh; /* JS shrinks this toward 32vh as you scroll */
     z-index: 1;
-    transition: height 0.08s linear;
+    overflow: hidden;
+    border-radius: 0 0 var(--radius-l) var(--radius-l);
+    box-shadow: 0 8px 22px rgb(16 21 27 / 0.28);
   }
 
   .trip-detail .trip-map {
@@ -44,42 +43,23 @@
     height: 100%;
   }
 
-  /* The sheet takes the rest of the screen and scrolls internally; its rounded
-     top overlaps the map a touch so it reads as sitting over it. */
+  /* Content slides up UNDER the fixed map (map covers its top). Starts below the
+     full-size map and scrolls at 1×. */
   .trip-detail .trip-side {
     position: relative;
-    flex: 1;
-    min-height: 0;
-    z-index: 2;
-    margin-top: -20px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    z-index: 0;
+    margin-top: 55vh;
+    min-height: 100vh;
     background: var(--paper);
-    border-radius: var(--radius-l) var(--radius-l) 0 0;
-    box-shadow: 0 -10px 30px rgb(16 21 27 / 0.22);
-    padding: 0.4rem 1.15rem calc(92px + env(safe-area-inset-bottom));
+    padding: 0.2rem 1.15rem calc(96px + env(safe-area-inset-bottom));
   }
 
-  /* Grab handle stays pinned at the top of the sheet while it scrolls. */
+  /* Grab handle scrolls with the content, just under the map. */
   .sheet-grab {
-    position: sticky;
-    top: 0;
-    z-index: 4;
-    display: block;
-    width: calc(100% + 2.3rem);
-    margin: 0 -1.15rem 0.4rem;
-    padding: 0.5rem 0 0.55rem;
-    background: var(--paper);
-    border-radius: var(--radius-l) var(--radius-l) 0 0;
-  }
-
-  .sheet-grab::before {
-    content: '';
     display: block;
     width: 42px;
     height: 5px;
-    margin: 0 auto;
+    margin: 0.5rem auto 0.7rem;
     border-radius: 3px;
     background: var(--line);
   }
@@ -108,6 +88,7 @@
 
 .trip-map-panel {
   position: relative;
+  border: none; /* the .card border shows as an ugly light hairline over the map */
   border-radius: var(--radius-l);
   overflow: hidden;
   min-height: 320px;
@@ -257,6 +238,21 @@
 
 .person-select-menu svg {
   color: var(--accent);
+  animation: checkPop 0.28s var(--ease);
+}
+
+@keyframes checkPop {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .person-toggles {

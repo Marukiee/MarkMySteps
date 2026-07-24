@@ -240,3 +240,7 @@
     width: 100%;
   }
 }
+
+.ts-disabled {
+  opacity: 0.55;
+}

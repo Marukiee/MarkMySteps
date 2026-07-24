@@ -150,7 +150,6 @@
   border-radius: 999px;
   background: rgb(255 255 255 / 0.92);
   color: var(--accent-ink);
-  box-shadow: var(--shadow-s);
   backdrop-filter: blur(4px);
 }
 
@@ -401,8 +400,11 @@
 
 .trip-card-members {
   display: flex;
-  gap: 0.3rem;
   margin-top: 0.3rem;
+}
+
+.trip-card-members > * + * {
+  margin-left: -9px; /* overlap so more travellers fit */
 }
 
 .member-dot {

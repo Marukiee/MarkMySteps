@@ -89,12 +89,13 @@ export function TripDetailPage() {
       api.focusOn(coords);
     };
 
-    // Mobile: shrink the map as the sheet scrolls (more room for content), but
-    // never below a floor so it always stays visible.
+    // Mobile only: shrink the fixed map as the page scrolls (content slides up
+    // under it at 1×), down to a floor so the map always stays visible.
     const isMobile = window.matchMedia('(max-width: 900px)').matches;
     const vh = window.innerHeight / 100;
     const startH = 55 * vh;
-    const minH = 30 * vh;
+    const minH = 32 * vh;
+    let raf = 0;
     const shrinkMap = () => {
       const panel = mapPanelRef.current;
       if (!panel || !isMobile) return;
@@ -103,13 +104,15 @@ export function TripDetailPage() {
     shrinkMap();
 
     const onScroll = () => {
-      shrinkMap();
+      // Height update on rAF so it stays glued to the scroll (no lag/jank).
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; shrinkMap(); });
       window.clearTimeout(focusTimer);
-      focusTimer = window.setTimeout(focusVisible, 200);
+      focusTimer = window.setTimeout(focusVisible, 180);
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       el.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
       window.clearTimeout(focusTimer);
     };
   }, [trip]);
@@ -319,7 +322,7 @@ export function TripDetailPage() {
   }
 
   return (
-    <main className="trip-detail fade-in">
+    <main className="trip-detail fade-in" ref={scrollRef}>
       <div className="trip-map-panel card" ref={mapPanelRef}>
         <Link to="/" className="trip-fab trip-fab-back" aria-label="Alle reizen">
           <Icon name="arrow-left" size={20} />
@@ -448,7 +451,7 @@ export function TripDetailPage() {
         )}
       </div>
 
-      <aside className="trip-side" ref={scrollRef}>
+      <aside className="trip-side">
         <div className="sheet-grab" aria-hidden="true" />
         {trip?.resolvedCoverId ? (
           <div className="trip-hero">
