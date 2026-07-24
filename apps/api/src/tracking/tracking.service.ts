@@ -24,6 +24,16 @@ export interface RouteCollection {
   features: RouteFeature[];
 }
 
+export interface LiveFix {
+  userId: string;
+  displayName: string;
+  hasAvatar: boolean;
+  latitude: number;
+  longitude: number;
+  recordedAt: string;
+  accuracy: number | null;
+}
+
 /** Simplification tolerance in degrees (~11 m at the equator). */
 const DEFAULT_TOLERANCE = 0.0001;
 const MAX_TOLERANCE = 0.01;
@@ -151,6 +161,45 @@ export class TrackingService {
   }
 
   /** No membership check — caller must have authorized access (share links). */
+  /** Latest recent fix per travelling member — for the live "who's where" map. */
+  async getLiveFixes(tripId: string, userId: string): Promise<LiveFix[]> {
+    await this.trips.getForMember(tripId, userId);
+    const rows = await this.prisma.$queryRaw<
+      {
+        userId: string;
+        displayName: string;
+        avatarMime: string | null;
+        lat: number;
+        lng: number;
+        recordedAt: Date;
+        accuracy: number | null;
+      }[]
+    >`
+      SELECT DISTINCT ON (lp."userId")
+        lp."userId",
+        u."displayName",
+        u."avatarMime",
+        ST_Y(lp.geom::geometry) AS lat,
+        ST_X(lp.geom::geometry) AS lng,
+        lp."recordedAt",
+        lp.accuracy
+      FROM location_points lp
+      JOIN users u ON u.id = lp."userId"
+      WHERE lp."tripId" = ${tripId}::uuid
+        AND lp."recordedAt" > now() - interval '2 days'
+      ORDER BY lp."userId", lp."recordedAt" DESC
+    `;
+    return rows.map((r) => ({
+      userId: r.userId,
+      displayName: r.displayName,
+      hasAvatar: r.avatarMime !== null,
+      latitude: r.lat,
+      longitude: r.lng,
+      recordedAt: r.recordedAt.toISOString(),
+      accuracy: r.accuracy,
+    }));
+  }
+
   async getRoutesUnchecked(
     tripId: string,
     options: { userIds?: string[]; tolerance?: number; includePhotos?: boolean } = {},

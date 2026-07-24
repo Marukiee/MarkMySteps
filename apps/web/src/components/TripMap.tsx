@@ -2,6 +2,7 @@ import maplibregl, { LngLatBounds, Map as MapLibreMap, StyleSpecification } from
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import { fetchBlobUrl } from '../api/client';
+import type { LiveFix } from '../api/types';
 import { getMapStyle } from '../lib/prefs';
 import type { MediaItem, RouteCollection } from '../api/types';
 import { buildLegs, flightArc, haversineKm, StopPoint } from '../lib/arc';
@@ -33,6 +34,10 @@ interface TripMapProps {
   currentLocation?: { lat: number; lng: number } | null;
   /** Hide photo markers (e.g. "show only tracked locations" mode). */
   hidePhotos?: boolean;
+  /** Latest fix per travelling member — drawn as live avatar markers. */
+  liveFixes?: LiveFix[];
+  /** The current user's id (their own live dot is the pulsing "me" marker). */
+  selfUserId?: string;
   /** Exposes an imperative focus API once the map is ready. */
   onReady?: (api: TripMapApi) => void;
 }
@@ -58,6 +63,8 @@ export function TripMap({
   styleUrl,
   currentLocation,
   hidePhotos,
+  liveFixes,
+  selfUserId,
   onReady,
 }: TripMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,6 +73,7 @@ export function TripMap({
   const stopMarkersRef = useRef<maplibregl.Marker[]>([]);
   const waypointMarkersRef = useRef<maplibregl.Marker[]>([]);
   const meMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const liveMarkersRef = useRef<maplibregl.Marker[]>([]);
   // Cache thumbnail object-URLs by media id so re-clustering on zoom reuses the
   // loaded image instead of flashing the empty placeholder white.
   const thumbCacheRef = useRef<Map<string, string>>(new Map());
@@ -450,6 +458,34 @@ export function TripMap({
       meMarkerRef.current.setLngLat([currentLocation.lng, currentLocation.lat]);
     }
   }, [currentLocation]);
+
+  // Live avatar markers for other travellers (Snap-map style), with a small
+  // "x min ago" bubble; your own position is the pulsing "me" dot instead.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    for (const m of liveMarkersRef.current) m.remove();
+    liveMarkersRef.current = [];
+    const now = Date.now();
+    for (const f of liveFixes ?? []) {
+      if (f.userId === selfUserId || !visibleUsers.has(f.userId)) continue;
+      const mins = Math.round((now - new Date(f.recordedAt).getTime()) / 60_000);
+      const age = mins < 1 ? 'nu' : mins < 60 ? `${mins}m` : `${Math.round(mins / 60)}u`;
+      const el = document.createElement('div');
+      el.className = `live-marker ${mins < 5 ? 'fresh' : ''}`;
+      el.style.setProperty('--live-c', colorForUser(f.userId));
+      el.title = `${f.displayName} · ${age}`;
+      const initial = (f.displayName[0] ?? '?').toUpperCase();
+      el.innerHTML =
+        `<span class="live-marker-av">${initial}</span>` +
+        `<span class="live-marker-age">${age}</span>`;
+      liveMarkersRef.current.push(
+        new maplibregl.Marker({ element: el, anchor: 'bottom' })
+          .setLngLat([f.longitude, f.latitude])
+          .addTo(map),
+      );
+    }
+  }, [liveFixes, visibleUsers, selfUserId]);
 
   // Manual waypoints as small dots; click to delete when editing.
   useEffect(() => {

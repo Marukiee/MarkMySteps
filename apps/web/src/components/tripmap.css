@@ -129,3 +129,65 @@
     opacity: 0.55;
   }
 }
+
+/* Live traveller markers (Snap-map style): coloured avatar pin + age bubble. */
+.live-marker {
+  position: relative;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.live-marker-av {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  background: var(--live-c, #5a6ee1);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: 2.5px solid #fff;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+}
+
+/* Little pointer under the avatar. */
+.live-marker::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background: var(--live-c, #5a6ee1);
+  border-right: 2.5px solid #fff;
+  border-bottom: 2.5px solid #fff;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.live-marker-age {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  z-index: 1;
+  padding: 0 5px;
+  height: 17px;
+  min-width: 17px;
+  display: grid;
+  place-content: center;
+  border-radius: 999px;
+  background: #20303b;
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  border: 1.5px solid #fff;
+}
+
+.live-marker.fresh .live-marker-av {
+  animation: livePulse 1.8s ease-out infinite;
+}
+
+.live-marker.fresh .live-marker-age {
+  background: #e2483d;
+}

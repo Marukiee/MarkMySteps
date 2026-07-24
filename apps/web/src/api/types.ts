@@ -13,6 +13,16 @@ export interface User {
   hasAvatar: boolean;
 }
 
+export interface LiveFix {
+  userId: string;
+  displayName: string;
+  hasAvatar: boolean;
+  latitude: number;
+  longitude: number;
+  recordedAt: string;
+  accuracy: number | null;
+}
+
 export type TripRole = 'OWNER' | 'MEMBER' | 'GUEST';
 
 export interface TripMember {

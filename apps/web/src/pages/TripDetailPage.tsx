@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
-import type { MediaItem, RouteCollection, Trip } from '../api/types';
+import type { LiveFix, MediaItem, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
 import { Icon } from '../components/Icon';
@@ -39,6 +39,7 @@ export function TripDetailPage() {
   const [peopleClosing, setPeopleClosing] = useState(false);
   const [currentLoc, setCurrentLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [liveTracking, setLiveTracking] = useState(false);
+  const [liveFixes, setLiveFixes] = useState<LiveFix[]>([]);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
@@ -120,12 +121,32 @@ export function TripDetailPage() {
     };
   }, [tripId]);
 
+  // Live "who's where": poll each traveller's latest fix (Snap-map style).
+  useEffect(() => {
+    if (!tripId) return;
+    let alive = true;
+    const load = () =>
+      api<LiveFix[]>(`/trips/${tripId}/live`)
+        .then((f) => alive && setLiveFixes(f))
+        .catch(() => undefined);
+    load();
+    const t = window.setInterval(load, 30_000);
+    return () => {
+      alive = false;
+      window.clearInterval(t);
+    };
+  }, [tripId]);
+
   const loadData = useCallback(() => {
     if (!tripId) return;
     api<Trip>(`/trips/${tripId}`)
       .then((t) => {
         setTrip(t);
-        setVisibleUsers(new Set(t.members.map((m) => m.userId)));
+        // Default to the owner's + your own track, so multiple travellers'
+        // routes don't cross by default — toggle the rest on via the chips.
+        setVisibleUsers((cur) =>
+          cur.size > 0 ? cur : new Set([t.ownerId, user?.id].filter((x): x is string => !!x)),
+        );
       })
       .catch((err: Error) => setError(err.message));
     api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
@@ -294,6 +315,8 @@ export function TripDetailPage() {
           clickMode={addPointMode}
           styleUrl={getMapStyle()}
           currentLocation={currentLoc}
+          liveFixes={liveFixes}
+          selfUserId={user?.id}
           onReady={(api) => (mapApiRef.current = api)}
         />
 

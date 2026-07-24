@@ -18,7 +18,7 @@ import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ManualPointDto, TrackBatchDto } from './dto/track-points.dto';
-import { BatchResult, RouteCollection, TrackingService } from './tracking.service';
+import { BatchResult, LiveFix, RouteCollection, TrackingService } from './tracking.service';
 
 @Controller('trips/:tripId')
 @UseGuards(JwtAuthGuard)
@@ -96,5 +96,14 @@ export class TrackingController {
       tolerance: tolerance ? Number(tolerance) : undefined,
       includePhotos: photos !== 'false',
     });
+  }
+
+  /** Latest fix per travelling member — for the live map. */
+  @Get('live')
+  live(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+  ): Promise<LiveFix[]> {
+    return this.tracking.getLiveFixes(tripId, user.sub);
   }
 }
