@@ -408,13 +408,7 @@
 }
 
 .member-dot {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: grid;
-  place-content: center;
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 700;
-  border: 2px solid var(--paper-raised);
+  position: relative; /* so the stacking z-index applies */
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
 }

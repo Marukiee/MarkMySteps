@@ -443,9 +443,10 @@ export function TripMap({
       const seenFlights = new Set<string>();
       const roundPt = (c: number) => Math.round(c / 0.8);
       for (const leg of buildLegs(stops ?? [])) {
-        // Once a real route is drawn/tracked, the planned dashed legs are just
-        // noise (and would double up), so drop them entirely.
-        if (hasTrackedRef.current) continue;
+        // Hide only the planned GROUND legs once a route is tracked (they'd
+        // double up the real line). Flight arcs always show — they're never in
+        // the tracked ground line.
+        if (!leg.isFlight && hasTrackedRef.current) continue;
         if (leg.isFlight) {
           const c = (leg.feature.geometry as GeoJSON.LineString).coordinates as [number, number][];
           const a = c[0]!;

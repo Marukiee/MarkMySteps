@@ -4,11 +4,12 @@ import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
+import { Avatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
 import { DateField } from '../components/DatePicker';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon } from '../components/Icon';
-import { colorForUser, formatDate } from '../lib/colors';
+import { formatDate } from '../lib/colors';
 import { getTripCardOverride, isTripCompact, setTripCardOverride } from '../lib/prefs';
 import './trips.css';
 
@@ -432,16 +433,22 @@ function TripCard({
             </div>
           )}
           <div className="trip-card-members">
-            {trip.members.map((m) => (
-              <span
-                key={m.userId}
-                className="member-dot"
-                style={{ background: colorForUser(m.userId) }}
-                title={m.user.displayName}
-              >
-                {m.user.displayName[0]}
-              </span>
-            ))}
+            {[...trip.members]
+              .sort((a, b) =>
+                a.userId === trip.ownerId ? -1 : b.userId === trip.ownerId ? 1 : 0,
+              )
+              .map((m, i, arr) => (
+                <Avatar
+                  key={m.userId}
+                  userId={m.userId}
+                  displayName={m.user.displayName}
+                  hasAvatar={m.user.hasAvatar}
+                  size={28}
+                  className="member-dot"
+                  // Owner first + earlier avatars stack on top of later ones.
+                  style={{ zIndex: arr.length - i }}
+                />
+              ))}
           </div>
         </div>
 

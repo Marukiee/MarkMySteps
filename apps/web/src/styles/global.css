@@ -352,3 +352,15 @@ textarea {
     opacity: 1;
   }
 }
+
+/* Map attribution: keep only the small ⓘ (OSM licence stays one tap away),
+   dimmed so it barely shows. */
+.maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-inner {
+  display: none;
+}
+.maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-inner {
+  display: block;
+}
+.maplibregl-ctrl-bottom-right {
+  opacity: 0.55;
+}

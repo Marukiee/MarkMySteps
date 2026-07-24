@@ -109,9 +109,10 @@
   color: #b3402a;
 }
 
-/* On phones the bottom tab bar handles navigation — drop the duplicate top nav. */
+/* On phones the bottom tab bar is the only navigation — drop the top bar
+   entirely (matches the app), incl. brand + avatar menu. */
 @media (max-width: 720px) {
-  .topbar-nav {
+  .topbar {
     display: none;
   }
 }

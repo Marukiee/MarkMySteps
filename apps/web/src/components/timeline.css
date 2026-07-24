@@ -51,15 +51,23 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  margin-left: 0.15rem;
+  border-radius: 8px;
   color: var(--ink-faint);
-  transition: all 0.15s var(--ease);
+  vertical-align: middle;
+  transition: color 0.15s var(--ease);
 }
 
-.timeline-note-add:hover {
-  background: var(--accent-soft);
+@media (hover: hover) {
+  .timeline-note-add:hover {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+}
+
+.timeline-note-add:active {
   color: var(--accent-ink);
 }
 

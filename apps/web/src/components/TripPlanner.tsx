@@ -244,9 +244,6 @@ export function TripPlanner({
                 <div className="flight-leg card">
                   <div className="flight-leg-main">
                     <div className="flight-leg-head">
-                      <span className="flight-leg-icon">
-                        <Icon name={MODE_ICON[stop.travelMode] ?? 'car'} size={18} />
-                      </span>
                       <strong className="flight-leg-name">{stop.name}</strong>
                       <ModeMenu
                         current={stop.travelMode}

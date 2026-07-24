@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { CSSProperties, useEffect, useState } from 'react';
 import { colorForUser } from '../lib/colors';
 import { AuthImage, evictImage } from './AuthImage';
 
@@ -14,10 +14,18 @@ interface AvatarProps {
   hasAvatar?: boolean;
   size?: number;
   className?: string;
+  style?: CSSProperties;
 }
 
 /** Round avatar: uploaded image when present, colored initial otherwise. */
-export function Avatar({ userId, displayName, hasAvatar, size = 36, className }: AvatarProps) {
+export function Avatar({
+  userId,
+  displayName,
+  hasAvatar,
+  size = 36,
+  className,
+  style: extraStyle,
+}: AvatarProps) {
   const [ver, setVer] = useState(0);
   useEffect(() => {
     const on = (e: Event) => {
@@ -33,6 +41,7 @@ export function Avatar({ userId, displayName, hasAvatar, size = 36, className }:
     borderRadius: '50%',
     flexShrink: 0,
     objectFit: 'cover',
+    ...extraStyle,
   } as const;
 
   if (hasAvatar) {

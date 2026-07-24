@@ -31,11 +31,13 @@ interface GlobeTrip {
  * happened yet) plus a glowing marker; the globe auto-rotates back whenever it
  * would drift to an empty hemisphere so a trip is always in view.
  */
-export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
+export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
   const tripsRef = useRef(trips);
   tripsRef.current = trips;
+  const noTourRef = useRef(noTour);
+  noTourRef.current = noTour;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -140,7 +142,11 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
         const OVERVIEW_MS = 6000;
         const FOCUS_MS = 6500;
         const dur = tourPhase === 0 ? OVERVIEW_MS : FOCUS_MS;
-        if (now - phaseStart > dur) {
+        // In "no tour" mode (onboarding) it never zooms into a trip — stays a
+        // gentle overview.
+        if (noTourRef.current) {
+          tourPhase = 0;
+        } else if (now - phaseStart > dur) {
           if (tourPhase === 0) {
             // Entering a focus: frame the next trip (biggest first).
             tourPhase = 1;

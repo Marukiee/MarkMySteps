@@ -9,64 +9,58 @@ import { isNativeApp, markOnboarded } from '../lib/native';
 import { getThemeId, setThemeId, ThemeId } from '../lib/prefs';
 import './onboarding.css';
 
-// Example trips for the globe demo slide (no navigation — pointer-events off).
+// Example European trips for the globe demo (no navigation, no flights — clean
+// ground routes so nothing weird crosses the globe).
 const SAMPLE_TRIPS = [
   {
-    id: 's-india',
-    title: 'India',
-    anchor: [78, 25],
+    id: 's-it',
+    title: 'Italië',
+    anchor: [11.5, 44],
     routePath: [
       [
-        [77.2, 28.6], // Delhi
-        [76.9, 27.6],
-        [75.8, 26.9], // Jaipur
-        [78.0, 27.2], // Agra
-        [82.0, 25.4],
-        [83.0, 25.3], // Varanasi
-        [79.0, 21.1],
-        [73.8, 15.3], // Goa
+        [12.5, 41.9], // Rome
+        [11.25, 43.77], // Florence
+        [11.34, 44.49], // Bologna
+        [12.33, 45.44], // Venice
       ],
     ],
-    flightPath: [[[4.76, 52.3], [77.2, 28.6]]],
-    distanceKm: 4200,
-    startDate: '2025-02-18',
-    endDate: '2025-03-10',
+    distanceKm: 620,
+    startDate: '2025-05-05',
+    endDate: '2025-05-16',
     color: '#e0993a',
   },
   {
-    id: 's-esma',
-    title: 'Spanje & Marokko',
-    anchor: [-3, 37],
+    id: 's-es',
+    title: 'Spanje',
+    anchor: [-2, 40],
     routePath: [
       [
         [2.17, 41.4], // Barcelona
         [-0.38, 39.47], // Valencia
         [-3.7, 40.4], // Madrid
-        [-4.42, 36.72], // Málaga
-        [-5.36, 36.14], // Tarifa
-      ],
-      [
-        [-5.8, 35.79], // Tanger
-        [-6.85, 33.97], // Rabat
-        [-7.62, 33.57], // Casablanca
-        [-7.99, 31.63], // Marrakech
+        [-5.98, 37.39], // Sevilla
       ],
     ],
-    flightPath: [[[4.76, 52.3], [2.17, 41.4]]],
-    distanceKm: 3100,
-    startDate: '2024-10-01',
-    endDate: '2024-10-20',
+    distanceKm: 1100,
+    startDate: '2024-09-01',
+    endDate: '2024-09-14',
     color: '#4ca05c',
   },
   {
-    id: 's-ny',
-    title: 'New York',
-    anchor: [-74, 40.7],
-    routePath: [[[-74, 40.7], [-73.98, 40.75], [-73.96, 40.8], [-73.97, 40.73]]],
-    flightPath: [[[4.76, 52.3], [-74, 40.7]]],
-    distanceKm: 5900,
-    startDate: '2025-04-28',
-    endDate: '2025-05-02',
+    id: 's-no',
+    title: 'Noorwegen',
+    anchor: [8, 60.5],
+    routePath: [
+      [
+        [10.75, 59.91], // Oslo
+        [7.99, 58.15], // Kristiansand
+        [5.73, 58.97], // Stavanger
+        [5.32, 60.39], // Bergen
+      ],
+    ],
+    distanceKm: 900,
+    startDate: '2025-07-10',
+    endDate: '2025-07-22',
     color: '#5a6ee1',
   },
 ] as unknown as Trip[];
@@ -142,7 +136,7 @@ export function OnboardingPage() {
     </div>,
     <div className="onb-feature onb-globe-slide" key="globe">
       <div className="onb-globe" aria-hidden="true">
-        <GlobeBackdrop trips={SAMPLE_TRIPS} />
+        <GlobeBackdrop trips={SAMPLE_TRIPS} noTour />
       </div>
       <h1>Je reizen op de globe</h1>
       <p className="muted">
