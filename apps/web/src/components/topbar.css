@@ -108,3 +108,10 @@
 .topbar-menu-danger {
   color: #b3402a;
 }
+
+/* On phones the bottom tab bar handles navigation — drop the duplicate top nav. */
+@media (max-width: 720px) {
+  .topbar-nav {
+    display: none;
+  }
+}

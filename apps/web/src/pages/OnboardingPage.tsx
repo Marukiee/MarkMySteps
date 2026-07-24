@@ -12,34 +12,59 @@ import './onboarding.css';
 // Example trips for the globe demo slide (no navigation — pointer-events off).
 const SAMPLE_TRIPS = [
   {
-    id: 's-swe',
-    title: 'Zweden',
-    anchor: [15, 60],
-    routePath: [[[13, 55.6], [15, 59], [18.1, 59.3], [16, 63]]],
-    flightPath: [[[4.76, 52.3], [13, 55.6]]],
-    distanceKm: 1900,
-    endDate: '2025-08-10',
+    id: 's-india',
+    title: 'India',
+    anchor: [78, 25],
+    routePath: [
+      [
+        [77.2, 28.6], // Delhi
+        [76.9, 27.6],
+        [75.8, 26.9], // Jaipur
+        [78.0, 27.2], // Agra
+        [82.0, 25.4],
+        [83.0, 25.3], // Varanasi
+        [79.0, 21.1],
+        [73.8, 15.3], // Goa
+      ],
+    ],
+    flightPath: [[[4.76, 52.3], [77.2, 28.6]]],
+    distanceKm: 4200,
+    endDate: '2025-03-10',
+    color: '#e0993a',
+  },
+  {
+    id: 's-esma',
+    title: 'Spanje & Marokko',
+    anchor: [-3, 37],
+    routePath: [
+      [
+        [2.17, 41.4], // Barcelona
+        [-0.38, 39.47], // Valencia
+        [-3.7, 40.4], // Madrid
+        [-4.42, 36.72], // Málaga
+        [-5.36, 36.14], // Tarifa
+      ],
+      [
+        [-5.8, 35.79], // Tanger
+        [-6.85, 33.97], // Rabat
+        [-7.62, 33.57], // Casablanca
+        [-7.99, 31.63], // Marrakech
+      ],
+    ],
+    flightPath: [[[4.76, 52.3], [2.17, 41.4]]],
+    distanceKm: 3100,
+    endDate: '2024-10-20',
     color: '#4ca05c',
   },
   {
     id: 's-ny',
     title: 'New York',
     anchor: [-74, 40.7],
-    routePath: [[[-74, 40.7], [-73.98, 40.75], [-73.96, 40.8]]],
+    routePath: [[[-74, 40.7], [-73.98, 40.75], [-73.96, 40.8], [-73.97, 40.73]]],
     flightPath: [[[4.76, 52.3], [-74, 40.7]]],
     distanceKm: 5900,
     endDate: '2025-05-02',
     color: '#5a6ee1',
-  },
-  {
-    id: 's-ma',
-    title: 'Marokko',
-    anchor: [-7.99, 31.63],
-    routePath: [[[-7.99, 31.63], [-6.85, 33.97], [-5.8, 35.78]]],
-    flightPath: [[[4.76, 52.3], [-7.99, 31.63]]],
-    distanceKm: 2300,
-    endDate: '2024-10-20',
-    color: '#e0993a',
   },
 ] as unknown as Trip[];
 
@@ -62,7 +87,17 @@ export function OnboardingPage() {
   const [dir, setDir] = useState<1 | -1>(1);
   const [permissionState, setPermissionState] = useState<'idle' | 'granted' | 'denied'>('idle');
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
+  const [notifDone, setNotifDone] = useState(false);
   const [touchX, setTouchX] = useState<number | null>(null);
+
+  async function requestNotifications() {
+    try {
+      if ('Notification' in window) await Notification.requestPermission();
+    } catch {
+      /* best effort — Android also asks when tracking starts */
+    }
+    setNotifDone(true);
+  }
 
   async function requestLocation() {
     try {
@@ -191,6 +226,24 @@ export function OnboardingPage() {
             <button className="btn btn-ghost" onClick={() => void BackgroundGeolocation.openSettings()}>
               Open systeeminstellingen
             </button>
+          </div>,
+          <div className="onb-feature" key="notifs">
+            <span className="onb-visual">
+              <Icon name="bell" size={54} />
+            </span>
+            <h1>Meldingen</h1>
+            <p className="muted">
+              Voor de tracking-status en updates van reisgenoten. Je kunt dit altijd aanpassen in de
+              toestelinstellingen.
+            </p>
+            <div className={`onb-perm ${notifDone ? 'granted' : ''}`}>
+              <button className="btn btn-primary onb-ask" onClick={() => void requestNotifications()}>
+                Meldingen toestaan
+              </button>
+              <p className="onb-ok">
+                <Icon name="check" size={18} /> Ingesteld
+              </p>
+            </div>
           </div>,
         ]
       : []),

@@ -78,7 +78,8 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
           anchor: t.anchor,
           path: t.routePath && t.routePath.length > 0 ? t.routePath : null,
           flights: t.flightPath && t.flightPath.length > 0 ? t.flightPath : null,
-          upcoming: t.endDate.slice(0, 10) >= today,
+          // Only trips that haven't started yet are dashed; ongoing trips are solid.
+          upcoming: t.startDate.slice(0, 10) > today,
           color: [90, 110, 225] as [number, number, number],
           size: t.distanceKm && t.distanceKm > 0 ? t.distanceKm : dayCount(t) * 40,
         }));

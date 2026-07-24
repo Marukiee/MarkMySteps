@@ -14,7 +14,7 @@ import { TripMap, TripMapApi, Waypoint } from '../components/TripMap';
 import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
 import type { PlannedStop } from '../lib/arc';
-import { colorForUser, flagEmoji, formatDate } from '../lib/colors';
+import { colorForUser, formatDate } from '../lib/colors';
 import { getMapStyle } from '../lib/prefs';
 import { onTrackerChange } from '../tracking/tracker';
 import './tripdetail.css';
@@ -41,6 +41,7 @@ export function TripDetailPage() {
   const [currentLoc, setCurrentLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [liveTracking, setLiveTracking] = useState(false);
   const [liveFixes, setLiveFixes] = useState<LiveFix[]>([]);
+  const [personMenuOpen, setPersonMenuOpen] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
@@ -358,24 +359,50 @@ export function TripDetailPage() {
         )}
 
         {trip && trip.members.length > 1 && (
-          <div className="person-toggles">
-            {trip.members.map((member) => {
-              const active = visibleUsers.has(member.userId);
-              return (
-                <button
-                  key={member.userId}
-                  className={`person-chip ${active ? 'active' : ''}`}
-                  onClick={() => toggleUser(member.userId)}
-                >
-                  <span
-                    className="person-chip-dot"
-                    style={{ background: colorForUser(member.userId) }}
-                  />
-                  {member.user.displayName}
-                  {member.userId === user?.id && ' (ik)'}
-                </button>
-              );
-            })}
+          <div className="person-select">
+            {personMenuOpen && (
+              <div className="person-select-menu card">
+                {trip.members.map((member) => {
+                  const active = visibleUsers.has(member.userId);
+                  return (
+                    <button
+                      key={member.userId}
+                      className={active ? 'active' : ''}
+                      onClick={() => toggleUser(member.userId)}
+                    >
+                      <span
+                        className="person-chip-dot"
+                        style={{ background: colorForUser(member.userId) }}
+                      />
+                      <span className="person-select-name">
+                        {member.user.displayName}
+                        {member.userId === user?.id && ' (ik)'}
+                      </span>
+                      {active && <Icon name="check" size={15} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <button
+              className="person-select-btn"
+              onClick={() => setPersonMenuOpen((o) => !o)}
+              aria-expanded={personMenuOpen}
+            >
+              <span
+                className="person-chip-dot"
+                style={{ background: colorForUser(user?.id ?? '') }}
+              />
+              <span className="person-select-name">
+                {trip.members.find((m) => m.userId === user?.id)?.user.displayName ?? 'Ik'}
+                {visibleUsers.size > 1 && ` +${visibleUsers.size - 1}`}
+              </span>
+              <Icon
+                name="chevron-down"
+                size={14}
+                className={`person-select-caret ${personMenuOpen ? 'open' : ''}`}
+              />
+            </button>
           </div>
         )}
 
@@ -447,11 +474,9 @@ export function TripDetailPage() {
               <span>dagen</span>
             </div>
             {stats.countries.length > 1 && (
-              <div className="stat stat-countries">
-                <strong className="stat-flags-big">
-                  {stats.countries.slice(0, 4).map((c) => flagEmoji(c)).join(' ')}
-                </strong>
-                <span>{stats.countries.length} landen</span>
+              <div className="stat">
+                <strong>{stats.countries.length}</strong>
+                <span>landen</span>
               </div>
             )}
             {stats.photoCount > 0 && (

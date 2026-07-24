@@ -159,6 +159,91 @@
   }
 }
 
+/* Bottom-left traveller selector with a drop-up menu. */
+.person-select {
+  position: absolute;
+  left: 0.9rem;
+  bottom: 2.4rem;
+  z-index: 5;
+}
+
+.person-select-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-s);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.person-select-name {
+  max-width: 40vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-select-caret {
+  color: var(--ink-faint);
+  transition: transform 0.2s var(--ease);
+}
+
+.person-select-caret.open {
+  transform: rotate(180deg);
+}
+
+.person-select-menu {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: 6px;
+  min-width: 200px;
+  max-width: 78vw;
+  padding: 0.3rem;
+  display: grid;
+  gap: 1px;
+  transform-origin: bottom left;
+  animation: personMenuIn 0.16s var(--ease);
+}
+
+@keyframes personMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+.person-select-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 550;
+  color: var(--ink-faint);
+  text-align: left;
+}
+
+.person-select-menu button.active {
+  color: var(--ink);
+}
+
+.person-select-menu button .person-select-name {
+  flex: 1;
+  max-width: none;
+}
+
+.person-select-menu svg {
+  color: var(--accent);
+}
+
 .person-toggles {
   position: absolute;
   top: 0.9rem;

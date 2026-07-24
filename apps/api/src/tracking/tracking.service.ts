@@ -129,7 +129,7 @@ export class TrackingService {
     const where: Prisma.LocationPointWhereInput = {
       tripId,
       userId,
-      source: { in: [PointSource.TRACKED, PointSource.IMPORTED] },
+      source: { in: [PointSource.TRACKED, PointSource.IMPORTED, PointSource.MANUAL] },
     };
     if (day) {
       const start = new Date(`${day}T00:00:00.000Z`);
@@ -208,9 +208,11 @@ export class TrackingService {
       throw new BadRequestException('Kon geen route over de weg vinden.');
     }
 
+    // Keep only the intermediate vertices, and cap them so a long motorway
+    // route never inserts thousands of points (which would choke the map).
     const tA = best.a.t.getTime();
     const tB = best.b.t.getTime();
-    const inner = road.slice(1, -1); // keep the real endpoints as-is
+    const inner = downsample(road.slice(1, -1), 120);
     const data = inner.map((c, i) => ({
       tripId,
       userId,
@@ -218,7 +220,9 @@ export class TrackingService {
       recordedAt: new Date(tA + ((i + 1) / (inner.length + 1)) * (tB - tA)),
       latitude: c[1],
       longitude: c[0],
-      source: PointSource.MANUAL,
+      // IMPORTED (not MANUAL): shows in the route line + is wiped by "clear
+      // tracked data", but is NOT drawn as editable waypoint dots.
+      source: PointSource.IMPORTED,
     }));
     await this.prisma.locationPoint.createMany({ data, skipDuplicates: true });
     return { added: data.length };
@@ -357,11 +361,20 @@ async function osrmRoute(
 ): Promise<[number, number][]> {
   const url =
     `https://router.project-osrm.org/route/v1/driving/` +
-    `${a[0]},${a[1]};${b[0]},${b[1]}?overview=full&geometries=geojson`;
+    `${a[0]},${a[1]};${b[0]},${b[1]}?overview=simplified&geometries=geojson`;
   const res = await fetch(url, { signal: AbortSignal.timeout(12_000) });
   if (!res.ok) return [];
   const json = (await res.json()) as {
     routes?: { geometry?: { coordinates?: [number, number][] } }[];
   };
   return json.routes?.[0]?.geometry?.coordinates ?? [];
+}
+
+/** Evenly reduce a polyline to at most `max` points (endpoints kept). */
+function downsample(pts: [number, number][], max: number): [number, number][] {
+  if (pts.length <= max) return pts;
+  const step = pts.length / max;
+  const out: [number, number][] = [];
+  for (let i = 0; i < max; i++) out.push(pts[Math.floor(i * step)]!);
+  return out;
 }

@@ -152,7 +152,7 @@
 }
 
 .ts-track-danger {
-  border-color: #ecc5ba;
+  border-color: var(--line);
 }
 
 .ts-wipe-day {
