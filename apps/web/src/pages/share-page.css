@@ -123,6 +123,12 @@
   justify-items: center;
 }
 
+.share-lightbox-imgwrap {
+  position: relative;
+  display: inline-grid;
+  justify-items: center;
+}
+
 .share-lightbox-fig img {
   max-width: 94vw;
   max-height: 82vh;
@@ -184,19 +190,56 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
 
-.share-stops li {
+/* Each stop is a tappable card that jumps to that day's photos. */
+.share-stop {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  padding: 0.7rem 1rem;
+  gap: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+  transition: transform 0.15s var(--ease), box-shadow 0.2s var(--ease);
 }
 
-.share-stops .muted {
-  margin-left: auto;
+.share-stop:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-m);
+}
+
+.share-stop-num {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  display: grid;
+  place-content: center;
+  font-weight: 700;
   font-size: 0.85rem;
+}
+
+.share-stop-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.share-stop-body strong {
+  font-size: 1.02rem;
+}
+
+.share-stop-body .muted {
+  font-size: 0.82rem;
+}
+
+.share-stop-go {
+  color: var(--ink-faint);
+  flex-shrink: 0;
 }
 
 .share-days {
@@ -221,4 +264,5 @@
   object-fit: cover;
   border-radius: var(--radius-s);
   background: var(--paper-sunken);
+  box-shadow: var(--shadow-s);
 }

@@ -29,6 +29,15 @@ interface SharedStop {
 
 type SharedMedia = Omit<MediaItem, 'immichAssetId'>;
 
+/** Compact stay range, e.g. "20 – 23 aug" (or a single day). */
+function stopRange(arrival: string, departure: string): string {
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+  const a = arrival.slice(0, 10);
+  const d = departure.slice(0, 10);
+  return a === d ? fmt(arrival) : `${fmt(arrival)} – ${fmt(departure)}`;
+}
+
 /** Read-only public trip view behind an unguessable slug (+ optional password). */
 export function SharePage() {
   const { slug } = useParams<{ slug: string }>();
@@ -228,14 +237,24 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       {stops.length > 0 && (
         <ol className="share-stops">
           {stops.map((stop, i) => (
-            <li key={stop.id} className="card">
-              <span className="stop-number">{i + 1}</span>
-              <span>
-                {flagEmoji(stop.countryCode)} <strong>{stop.name}</strong>
-              </span>
-              <span className="muted">
-                {formatDay(stop.arrivalDate)}
-              </span>
+            <li key={stop.id}>
+              <button
+                className="card share-stop"
+                onClick={() =>
+                  document
+                    .getElementById(`day-${stop.arrivalDate.slice(0, 10)}`)
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
+              >
+                <span className="share-stop-num">{i + 1}</span>
+                <span className="share-stop-body">
+                  <strong>
+                    {flagEmoji(stop.countryCode)} {stop.name}
+                  </strong>
+                  <span className="muted">{stopRange(stop.arrivalDate, stop.departureDate)}</span>
+                </span>
+                <Icon name="chevron-right" size={16} className="share-stop-go" />
+              </button>
             </li>
           ))}
         </ol>
@@ -243,7 +262,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
 
       <div className="share-days">
         {[...days.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, items]) => (
-          <section key={day}>
+          <section key={day} id={`day-${day}`}>
             <h3>{formatDay(items[0]!.takenAt)}</h3>
             <div className="share-grid">
               {items.map((item) => (
@@ -342,18 +361,6 @@ function ShareLightbox({
       <button className="share-lightbox-close" aria-label="Sluiten" onClick={onClose}>
         <Icon name="close" size={22} />
       </button>
-      {index > 0 && (
-        <button
-          className="share-lightbox-nav share-lightbox-prev"
-          aria-label="Vorige"
-          onClick={(e) => {
-            e.stopPropagation();
-            onNavigate(index - 1);
-          }}
-        >
-          <Icon name="chevron-left" size={26} />
-        </button>
-      )}
       <figure
         className="share-lightbox-fig"
         onClick={(e) => e.stopPropagation()}
@@ -361,20 +368,34 @@ function ShareLightbox({
         onTouchEnd={onTouchEnd}
       >
         <span className="share-lightbox-date">{formatDay(item.takenAt)}</span>
-        {src ? <img src={src} alt="" /> : <div className="share-lightbox-loading" />}
+        <div className="share-lightbox-imgwrap">
+          {src ? <img src={src} alt="" /> : <div className="share-lightbox-loading" />}
+          {index > 0 && (
+            <button
+              className="share-lightbox-nav share-lightbox-prev"
+              aria-label="Vorige"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate(index - 1);
+              }}
+            >
+              <Icon name="chevron-left" size={26} />
+            </button>
+          )}
+          {index < items.length - 1 && (
+            <button
+              className="share-lightbox-nav share-lightbox-next"
+              aria-label="Volgende"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate(index + 1);
+              }}
+            >
+              <Icon name="chevron-right" size={26} />
+            </button>
+          )}
+        </div>
       </figure>
-      {index < items.length - 1 && (
-        <button
-          className="share-lightbox-nav share-lightbox-next"
-          aria-label="Volgende"
-          onClick={(e) => {
-            e.stopPropagation();
-            onNavigate(index + 1);
-          }}
-        >
-          <Icon name="chevron-right" size={26} />
-        </button>
-      )}
     </div>
   );
 }
