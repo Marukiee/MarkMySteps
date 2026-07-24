@@ -367,7 +367,41 @@
   backdrop-filter: blur(3px);
   display: grid;
   place-items: end center;
-  animation: fadeIn 0.2s var(--ease);
+  animation: sheetBackdropIn 0.28s var(--ease);
+}
+
+@keyframes sheetBackdropIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(3px);
+  }
+}
+
+/* Reverse both the backdrop blur and the sheet slide on close. */
+.people-sheet-backdrop.closing {
+  animation: sheetBackdropOut 0.24s var(--ease) forwards;
+}
+
+.people-sheet-backdrop.closing .people-sheet {
+  animation: sheetDown 0.24s var(--ease) forwards;
+}
+
+@keyframes sheetBackdropOut {
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+@keyframes sheetDown {
+  to {
+    transform: translateY(24px);
+    opacity: 0;
+  }
 }
 
 @media (min-width: 601px) {
@@ -378,8 +412,10 @@
 
 .people-sheet {
   width: min(560px, 100%);
+  max-width: 100%;
   max-height: 92vh;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   /* Generous bottom room so the "deellink" field stays reachable above the
      on-screen keyboard. */

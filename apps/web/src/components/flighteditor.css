@@ -6,8 +6,8 @@
   margin: 0.2rem 0 0.3rem 0.9rem;
   padding: 0.28rem 0.75rem;
   border-radius: 999px;
-  background: #eef0fc;
-  color: #3f4ec0;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
   font-size: 0.78rem;
   font-weight: 600;
 }
@@ -18,7 +18,14 @@
   display: grid;
   gap: 0.85rem;
   border-radius: var(--radius-m);
-  background: var(--paper-sunken);
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+}
+
+/* Inside a standalone flight card the editor is flush — no nested surface. */
+.flight-leg .flight-editor {
+  background: transparent;
+  border: none;
 }
 
 .flight-row {

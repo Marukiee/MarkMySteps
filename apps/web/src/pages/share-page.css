@@ -52,6 +52,133 @@
   inset: 0;
 }
 
+/* Map sticks to the top on mobile, mirroring the app. */
+@media (max-width: 700px) {
+  .share-view {
+    padding: 0 0 3rem;
+    gap: 1rem;
+  }
+
+  .share-head {
+    padding: 1.25rem 1.25rem 0;
+  }
+
+  .share-map {
+    order: -1;
+    position: sticky;
+    top: 0;
+    height: 42vh;
+    min-height: 0;
+    border-radius: 0 0 var(--radius-l) var(--radius-l);
+    z-index: 2;
+  }
+
+  .share-stops,
+  .share-days {
+    padding: 0 1.25rem;
+  }
+}
+
+/* Photo dots on the shared map. */
+.share-map .photo-marker {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+  background: var(--paper-sunken) center / cover no-repeat;
+  box-shadow: var(--shadow-m);
+  cursor: pointer;
+}
+
+.share-map .photo-marker-error {
+  background: var(--paper-sunken);
+}
+
+.share-photo-btn {
+  cursor: zoom-in;
+  transition: transform 0.15s var(--ease);
+}
+
+.share-photo-btn:hover {
+  transform: scale(1.02);
+}
+
+/* Fullscreen viewer. */
+.share-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: rgb(10 12 16 / 0.94);
+  animation: fadeIn 0.2s var(--ease);
+}
+
+.share-lightbox-fig {
+  position: relative;
+  max-width: 94vw;
+  max-height: 88vh;
+  display: grid;
+  gap: 0.6rem;
+  justify-items: center;
+}
+
+.share-lightbox-fig img {
+  max-width: 94vw;
+  max-height: 82vh;
+  object-fit: contain;
+  border-radius: var(--radius-s);
+}
+
+.share-lightbox-loading {
+  width: min(80vw, 480px);
+  height: 60vh;
+  border-radius: var(--radius-s);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.share-lightbox-date {
+  color: rgb(255 255 255 / 0.85);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: capitalize;
+}
+
+.share-lightbox-close {
+  position: absolute;
+  top: calc(0.9rem + env(safe-area-inset-top));
+  right: 1rem;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: #fff;
+  background: rgb(255 255 255 / 0.12);
+}
+
+.share-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  color: #fff;
+  background: rgb(255 255 255 / 0.12);
+}
+
+.share-lightbox-prev {
+  left: 0.8rem;
+}
+
+.share-lightbox-next {
+  right: 0.8rem;
+}
+
 .share-stops {
   list-style: none;
   margin: 0;

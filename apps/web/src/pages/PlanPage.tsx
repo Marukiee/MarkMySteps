@@ -21,8 +21,6 @@ import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
 import './plan.css';
 
-const MAP_STYLE = getMapStyle();
-
 interface PlannedStop {
   id: string;
   name: string;
@@ -56,6 +54,11 @@ export function PlanPage() {
   const searchTimerRef = useRef<number | null>(null);
 
   const plannedNights = stops.reduce((sum, s) => sum + s.nights, 0);
+  const isStandaloneFlight = (s?: PlannedStop) =>
+    !!s && s.travelMode === 'FLIGHT' && s.latitude === null && s.longitude === null;
+  // Only one outbound / one return flight card may exist.
+  const hasOutbound = isStandaloneFlight(stops[0]);
+  const hasReturn = isStandaloneFlight(stops[stops.length - 1]);
   const tripNights = trip
     ? Math.round(
         (new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86_400_000,
@@ -78,7 +81,7 @@ export function PlanPage() {
     if (!mapContainerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: MAP_STYLE,
+      style: getMapStyle(),
       center: [4.9, 52.37],
       zoom: 3,
       attributionControl: { compact: true },
@@ -359,7 +362,7 @@ export function PlanPage() {
           </div>
         )}
 
-        {stops.length > 0 && (
+        {stops.length > 0 && !hasOutbound && (
           <button type="button" className="add-flight-leg" onClick={() => void addOutboundFlight()}>
             <Icon name="plane" size={16} /> Heenvlucht
           </button>
@@ -520,7 +523,7 @@ export function PlanPage() {
           })}
         </ol>
 
-        {stops.length > 0 && (
+        {stops.length > 0 && !hasReturn && (
           <button type="button" className="add-flight-leg" onClick={() => void addFlightLeg()}>
             <Icon name="plane" size={16} /> Terugvlucht
           </button>

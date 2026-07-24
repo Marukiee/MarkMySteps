@@ -7,6 +7,7 @@ import { AuthImage } from '../components/AuthImage';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon } from '../components/Icon';
 import { colorForUser, formatDate } from '../lib/colors';
+import { getTripCardSize } from '../lib/prefs';
 import './trips.css';
 
 export function TripsPage() {
@@ -25,6 +26,11 @@ export function TripsPage() {
   const today = new Date().toISOString().slice(0, 10);
   const upcoming = trips?.filter((t) => t.endDate.slice(0, 10) >= today) ?? [];
   const past = trips?.filter((t) => t.endDate.slice(0, 10) < today) ?? [];
+
+  const cardSize = getTripCardSize();
+  // Compact per section: always for 'compact', past-only for 'auto'.
+  const upcomingCompact = cardSize === 'compact';
+  const pastCompact = cardSize === 'compact' || cardSize === 'auto';
 
   return (
     <main className="page fade-in">
@@ -60,9 +66,9 @@ export function TripsPage() {
       {upcoming.length > 0 && (
         <>
           <h2 className="trips-section-title">Aankomend &amp; onderweg</h2>
-          <div className="trips-grid">
+          <div className={upcomingCompact ? 'trips-grid trips-grid-compact' : 'trips-grid'}>
             {upcoming.map((trip, i) => (
-              <TripCard key={trip.id} trip={trip} index={i} onChanged={load} />
+              <TripCard key={trip.id} trip={trip} index={i} onChanged={load} compact={upcomingCompact} />
             ))}
             <button className="trip-ghost" onClick={() => setShowNew(true)} aria-label="Nieuwe reis">
               <span>+ Nieuwe reis</span>
@@ -74,9 +80,9 @@ export function TripsPage() {
       {past.length > 0 && (
         <>
           <h2 className="trips-section-title">Afgelopen reizen</h2>
-          <div className="trips-grid">
+          <div className={pastCompact ? 'trips-grid trips-grid-compact' : 'trips-grid'}>
             {past.map((trip, i) => (
-              <TripCard key={trip.id} trip={trip} index={i} onChanged={load} />
+              <TripCard key={trip.id} trip={trip} index={i} onChanged={load} compact={pastCompact} />
             ))}
             {upcoming.length === 0 && (
               <button
@@ -94,7 +100,17 @@ export function TripsPage() {
   );
 }
 
-function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onChanged: () => void }) {
+function TripCard({
+  trip,
+  index,
+  onChanged,
+  compact = false,
+}: {
+  trip: Trip;
+  index: number;
+  onChanged: () => void;
+  compact?: boolean;
+}) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -153,7 +169,120 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
       (new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86_400_000,
     ) + 1;
 
-  // Full-bleed photo card (Polarsteps-style): title + meta overlaid, ⋯ bottom-right.
+  const menuEl = (
+    <div className="trip-card-menu" ref={menuRef} onClick={stop}>
+      <button
+        className="trip-menu-btn"
+        aria-label="Reis-opties"
+        onClick={(e) => {
+          stop(e);
+          if (menuOpen) closeMenu();
+          else setMenuOpen(true);
+        }}
+      >
+        <Icon name="dots" size={22} />
+      </button>
+      {menuOpen && (
+        <div className={`trip-menu card ${menuClosing ? 'closing' : 'fade-in'}`}>
+          {isOwner && (
+            <>
+              <button
+                onClick={(e) => {
+                  stop(e);
+                  navigate(`/trips/${trip.id}/settings`);
+                }}
+              >
+                Instellingen
+              </button>
+              <button
+                onClick={(e) => {
+                  stop(e);
+                  setMenuOpen(false);
+                  setRenaming(true);
+                }}
+              >
+                Hernoemen
+              </button>
+              <button
+                className="trip-menu-danger"
+                onClick={(e) => {
+                  stop(e);
+                  void remove();
+                }}
+              >
+                Verwijderen
+              </button>
+            </>
+          )}
+          {!isOwner && (
+            <button
+              className="trip-menu-danger"
+              onClick={(e) => {
+                stop(e);
+                void leave();
+              }}
+            >
+              Reis verlaten
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  // Compact: a slim row — meta on the left, small photo on the right.
+  if (compact) {
+    return (
+      <div
+        className="trip-card-compact"
+        style={{ animationDelay: `${index * 30}ms` }}
+        role="link"
+        tabIndex={0}
+        onClick={() => !renaming && navigate(`/trips/${trip.id}`)}
+        onKeyDown={(e) => e.key === 'Enter' && !renaming && navigate(`/trips/${trip.id}`)}
+      >
+        <div className="tcc-body">
+          {renaming ? (
+            <form onSubmit={rename} onClick={stop} className="trip-rename">
+              <input
+                autoFocus
+                value={newTitle}
+                onClick={stop}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Escape') setRenaming(false);
+                }}
+              />
+              <button className="btn btn-primary" type="submit">
+                OK
+              </button>
+            </form>
+          ) : (
+            <h3>{trip.title}</h3>
+          )}
+          <span className="tcc-meta">
+            {month} {year} · {days} dagen
+            {trip.distanceKm != null && trip.distanceKm > 0 && (
+              <> · {trip.distanceKm.toLocaleString('nl-NL')} km</>
+            )}
+          </span>
+        </div>
+        {trip.resolvedCoverId ? (
+          <AuthImage
+            path={`/media/${trip.resolvedCoverId}/thumbnail`}
+            alt=""
+            className="tcc-photo"
+          />
+        ) : (
+          <div className="tcc-photo" style={{ background: coverGradient(trip.id) }} />
+        )}
+        {menuEl}
+      </div>
+    );
+  }
+
+  // Full-bleed photo card (Polarsteps-style): title + meta overlaid, ⋯ top-right.
   return (
     <div
       className="trip-card"
@@ -226,64 +355,7 @@ function TripCard({ trip, index, onChanged }: { trip: Trip; index: number; onCha
           </div>
         </div>
 
-        <div className="trip-card-menu" ref={menuRef} onClick={stop}>
-          <button
-            className="trip-menu-btn"
-            aria-label="Reis-opties"
-            onClick={(e) => {
-              stop(e);
-              if (menuOpen) closeMenu();
-              else setMenuOpen(true);
-            }}
-          >
-            <Icon name="dots" size={22} />
-          </button>
-          {menuOpen && (
-            <div className={`trip-menu card ${menuClosing ? 'closing' : 'fade-in'}`}>
-              {isOwner && (
-                <>
-                  <button
-                    onClick={(e) => {
-                      stop(e);
-                      navigate(`/trips/${trip.id}/settings`);
-                    }}
-                  >
-                    Instellingen
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      stop(e);
-                      setMenuOpen(false);
-                      setRenaming(true);
-                    }}
-                  >
-                    Hernoemen
-                  </button>
-                  <button
-                    className="trip-menu-danger"
-                    onClick={(e) => {
-                      stop(e);
-                      void remove();
-                    }}
-                  >
-                    Verwijderen
-                  </button>
-                </>
-              )}
-              {!isOwner && (
-                <button
-                  className="trip-menu-danger"
-                  onClick={(e) => {
-                    stop(e);
-                    void leave();
-                  }}
-                >
-                  Reis verlaten
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        {menuEl}
       </div>
     </div>
   );

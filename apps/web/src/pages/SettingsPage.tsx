@@ -10,10 +10,13 @@ import {
   MAP_STYLES,
   MapStyleId,
   ThemeId,
+  TripCardSize,
   getMapStyleId,
   getThemeId,
+  getTripCardSize,
   setMapStyleId,
   setThemeId,
+  setTripCardSize,
 } from '../lib/prefs';
 import {
   TrackerState,
@@ -75,11 +78,17 @@ export function SettingsPage() {
 function DisplaySection() {
   const [style, setStyle] = useState<MapStyleId>(getMapStyleId());
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
+  const [cardSize, setCardSize] = useState<TripCardSize>(getTripCardSize());
 
   const themes: { id: ThemeId; label: string }[] = [
     { id: 'system', label: 'Systeem' },
     { id: 'light', label: 'Licht' },
     { id: 'dark', label: 'Donker' },
+  ];
+  const cardSizes: { id: TripCardSize; label: string }[] = [
+    { id: 'auto', label: 'Automatisch' },
+    { id: 'large', label: 'Groot' },
+    { id: 'compact', label: 'Compact' },
   ];
 
   return (
@@ -103,6 +112,27 @@ function DisplaySection() {
           ))}
         </div>
         <span className="muted">“Systeem” volgt de licht/donker-stand van je toestel.</span>
+      </div>
+      <div className="field">
+        <label>Reiskaarten op de homepage</label>
+        <div className="theme-choice">
+          {cardSizes.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={`theme-opt ${cardSize === c.id ? 'active' : ''}`}
+              onClick={() => {
+                setCardSize(c.id);
+                setTripCardSize(c.id);
+              }}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        <span className="muted">
+          “Automatisch”: aankomende reizen groot met foto, afgelopen reizen compact.
+        </span>
       </div>
       <div className="field">
         <label htmlFor="ds-map">Kaartstijl</label>

@@ -45,7 +45,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
     const land = topojson.feature(topo, topo.objects.land) as unknown as GeoPermissibleObjects;
 
     let raf = 0;
-    let rotation = 10; // start over Europe/Africa
+    let rotation = -14; // start centred on Europe (positive lon)
     const velocity = 0.02; // gentle idle sweep speed
     let sweepDir = 1; // +1 / -1 — flips at the edges of the trip spread
     let dragging = false;
@@ -103,7 +103,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
 
     const projection = geoOrthographic().clipAngle(90);
     const path = geoPath(projection, ctx);
-    const CENTER_LAT = 18;
+    const CENTER_LAT = 32; // lift the framing to Europe so Africa isn't dominant
 
     function draw() {
       const w = canvas!.width;
@@ -192,8 +192,9 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
           ctx!.beginPath();
           path({ type: 'LineString', coordinates: seg } as GeoPermissibleObjects);
           if (trip.upcoming) {
-            ctx!.setLineDash([3 * dpr, 5 * dpr]);
-            ctx!.strokeStyle = `rgba(${r},${g},${b},0.55)`;
+            // Clearly spaced dashes so a planned route never reads as a solid line.
+            ctx!.setLineDash([2 * dpr, 7 * dpr]);
+            ctx!.strokeStyle = `rgba(${r},${g},${b},0.6)`;
             ctx!.lineWidth = 1.8 * dpr;
           } else {
             ctx!.setLineDash([]);
@@ -239,12 +240,18 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       const maxLabels = Math.max(2, Math.round(2 + (scale - 1) * 3));
       const showIds = new Set(frontFacing.slice(0, maxLabels).map((t) => t.id));
       labelRects = [];
+      // Rects already drawn this frame — bigger trips (drawn first) win; a name
+      // that would overlap one is suppressed so labels never pile up unreadably.
+      const placed: { x: number; y: number; w: number; h: number }[] = [];
+      const overlaps = (a: { x: number; y: number; w: number; h: number }) =>
+        placed.some(
+          (b) =>
+            a.x < b.x + b.w + 4 * dpr &&
+            a.x + a.w + 4 * dpr > b.x &&
+            a.y < b.y + b.h + 4 * dpr &&
+            a.y + a.h + 4 * dpr > b.y,
+        );
       for (const trip of trips) {
-        const target = showIds.has(trip.id) ? 1 : 0;
-        const cur = labelOpacity.get(trip.id) ?? 0;
-        const next = cur + (target - cur) * 0.12;
-        labelOpacity.set(trip.id, next);
-        if (next < 0.03) continue;
         const projected = projection(trip.anchor);
         if (!projected) continue;
         if (center && distance(center, trip.anchor) > 90) continue;
@@ -252,9 +259,17 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
         ctx!.font = `${11 * dpr}px 'Inter Variable', sans-serif`;
         const tw = ctx!.measureText(label).width;
         const px = projected[0] + 9 * dpr;
-        const py = projected[1] - 8 * dpr - (1 - next) * 6 * dpr; // slide up as it appears
         const pw = tw + 12 * dpr;
         const ph = 18 * dpr;
+        const collides = overlaps({ x: px, y: projected[1] - 17 * dpr, w: pw, h: ph });
+        // Suppress if not in the top-N or it would collide with a placed label.
+        const target = showIds.has(trip.id) && !collides ? 1 : 0;
+        const cur = labelOpacity.get(trip.id) ?? 0;
+        const next = cur + (target - cur) * 0.12;
+        labelOpacity.set(trip.id, next);
+        if (next < 0.03) continue;
+        const py = projected[1] - 8 * dpr - (1 - next) * 6 * dpr; // slide up as it appears
+        if (next > 0.5) placed.push({ x: px, y: py, w: pw, h: ph });
         if (next > 0.6) labelRects.push({ id: trip.id, x: px, y: py, w: pw, h: ph });
         ctx!.globalAlpha = Math.min(1, next);
         ctx!.fillStyle = 'rgba(255,255,255,0.94)';

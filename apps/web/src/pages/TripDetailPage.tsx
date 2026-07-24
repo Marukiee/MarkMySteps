@@ -36,6 +36,7 @@ export function TripDetailPage() {
   const [addPointMode, setAddPointMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [peopleOpen, setPeopleOpen] = useState(false);
+  const [peopleClosing, setPeopleClosing] = useState(false);
   const [currentLoc, setCurrentLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
@@ -187,6 +188,15 @@ export function TripDetailPage() {
       setError(err instanceof Error ? err.message : 'Punt opslaan mislukt');
     }
   }
+
+  // Animate the sheet out before unmounting so the blur/backdrop don't snap.
+  const closePeople = useCallback(() => {
+    setPeopleClosing(true);
+    window.setTimeout(() => {
+      setPeopleOpen(false);
+      setPeopleClosing(false);
+    }, 240);
+  }, []);
 
   const toggleUser = useCallback((userId: string) => {
     setVisibleUsers((current) => {
@@ -415,14 +425,17 @@ export function TripDetailPage() {
       </aside>
 
       {peopleOpen && trip && (
-        <div className="people-sheet-backdrop" onClick={() => setPeopleOpen(false)}>
+        <div
+          className={`people-sheet-backdrop ${peopleClosing ? 'closing' : ''}`}
+          onClick={closePeople}
+        >
           <div className="people-sheet card" onClick={(e) => e.stopPropagation()}>
             <div className="people-sheet-head">
               <h2>Reisgenoten &amp; delen</h2>
               <button
                 className="people-sheet-close"
                 aria-label="Sluiten"
-                onClick={() => setPeopleOpen(false)}
+                onClick={closePeople}
               >
                 <Icon name="close" size={18} />
               </button>

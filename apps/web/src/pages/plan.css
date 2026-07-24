@@ -155,7 +155,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0;
+  gap: 0.5rem;
 }
 
 .stop-row {
@@ -221,13 +221,13 @@
 }
 
 .leg-toggle.flight {
-  border-color: #5b6ee1;
-  background: #eef0fc;
-  color: #3f4ec0;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
 }
 
 .leg-toggle.flight .leg-switch {
-  color: #8b93d6;
+  color: var(--accent);
 }
 
 .leg-toggle:hover {
@@ -369,24 +369,26 @@
   margin: 0.2rem 0 0.2rem 0.9rem;
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
-  border: 1.5px dashed #b9c0ea;
-  color: #3f4ec0;
+  border: 1.5px dashed var(--line-strong, var(--line));
+  color: var(--accent-ink);
   font-size: 0.82rem;
   font-weight: 600;
   transition: all 0.15s var(--ease);
 }
 
 .add-flight-leg:hover {
-  background: #eef0fc;
+  background: var(--accent-soft);
   border-style: solid;
+  border-color: var(--accent);
 }
 
 /* Standalone outbound/return flight card. */
 .flight-leg {
+  position: relative; /* anchor the delete cross to this card */
   display: flex;
   align-items: flex-start;
   gap: 0.7rem;
-  padding: 0.7rem 0.85rem;
+  padding: 0.7rem 2.4rem 0.7rem 0.85rem;
 }
 
 .flight-leg-icon {
@@ -394,8 +396,8 @@
   height: 40px;
   flex-shrink: 0;
   border-radius: 12px;
-  background: #eef0fc;
-  color: #3f4ec0;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
   display: grid;
   place-content: center;
 }

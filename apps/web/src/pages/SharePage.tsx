@@ -4,9 +4,9 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import type { MediaItem, RouteCollection } from '../api/types';
 import { colorForUser, flagEmoji, formatDay } from '../lib/colors';
+import { getMapStyle } from '../lib/prefs';
+import { Icon } from '../components/Icon';
 import './share-page.css';
-
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 
 interface SharedTrip {
   title: string;
@@ -108,8 +108,14 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
   const [trip, setTrip] = useState<SharedTrip | null>(null);
   const [stops, setStops] = useState<SharedStop[]>([]);
   const [media, setMedia] = useState<SharedMedia[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const photoMarkersRef = useRef<maplibregl.Marker[]>([]);
+
+  // Media in a stable, chronological order — used for both the timeline grid
+  // and the lightbox so indices line up.
+  const orderedMedia = [...media].sort((a, b) => a.takenAt.localeCompare(b.takenAt));
 
   useEffect(() => {
     const get = <T,>(path: string): Promise<T> =>
@@ -123,7 +129,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     if (!mapContainerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: MAP_STYLE,
+      style: getMapStyle(),
       center: [4.9, 52.37],
       zoom: 3,
       attributionControl: { compact: true },
@@ -158,6 +164,43 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       mapRef.current = null;
     };
   }, [slug, token]);
+
+  // Photo markers on the map — a small thumbnail dot per GPS-tagged photo that
+  // opens the lightbox, mirroring the main app.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    for (const m of photoMarkersRef.current) m.remove();
+    photoMarkersRef.current = [];
+    const place = () => {
+      orderedMedia.forEach((item, idx) => {
+        if (item.latitude === null || item.longitude === null) return;
+        const el = document.createElement('div');
+        el.className = 'photo-marker';
+        el.style.borderColor = colorForUser(item.userId);
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setLightboxIndex(idx);
+        });
+        fetch(`/api/share/${slug}/media/${item.id}/thumbnail`, {
+          headers: { 'x-share-token': token },
+        })
+          .then((res) => (res.ok ? res.blob() : Promise.reject(new Error(String(res.status)))))
+          .then((blob) => {
+            el.style.backgroundImage = `url(${URL.createObjectURL(blob)})`;
+          })
+          .catch(() => el.classList.add('photo-marker-error'));
+        photoMarkersRef.current.push(
+          new maplibregl.Marker({ element: el })
+            .setLngLat([item.longitude, item.latitude])
+            .addTo(map),
+        );
+      });
+    };
+    if (map.isStyleLoaded()) place();
+    else map.once('load', place);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [media, slug, token]);
 
   const days = new Map<string, SharedMedia[]>();
   for (const item of media) {
@@ -203,17 +246,126 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
             <h3>{formatDay(items[0]!.takenAt)}</h3>
             <div className="share-grid">
               {items.map((item) => (
-                <ShareImage key={item.id} slug={slug} token={token} mediaId={item.id} />
+                <ShareImage
+                  key={item.id}
+                  slug={slug}
+                  token={token}
+                  mediaId={item.id}
+                  onOpen={() => setLightboxIndex(orderedMedia.findIndex((m) => m.id === item.id))}
+                />
               ))}
             </div>
           </section>
         ))}
       </div>
+
+      {lightboxIndex !== null && orderedMedia[lightboxIndex] && (
+        <ShareLightbox
+          slug={slug}
+          token={token}
+          items={orderedMedia}
+          index={lightboxIndex}
+          onNavigate={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </div>
   );
 }
 
-function ShareImage({ slug, token, mediaId }: { slug: string; token: string; mediaId: string }) {
+/** Fullscreen photo viewer for the public share page (prev/next, esc, tap-out). */
+function ShareLightbox({
+  slug,
+  token,
+  items,
+  index,
+  onNavigate,
+  onClose,
+}: {
+  slug: string;
+  token: string;
+  items: SharedMedia[];
+  index: number;
+  onNavigate: (i: number) => void;
+  onClose: () => void;
+}) {
+  const [src, setSrc] = useState<string>();
+  const item = items[index]!;
+
+  useEffect(() => {
+    let cancelled = false;
+    setSrc(undefined);
+    fetch(`/api/share/${slug}/media/${item.id}/thumbnail`, {
+      headers: { 'x-share-token': token },
+    })
+      .then((res) => (res.ok ? res.blob() : Promise.reject(new Error(String(res.status)))))
+      .then((blob) => {
+        if (!cancelled) setSrc(URL.createObjectURL(blob));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, token, item.id]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft' && index > 0) onNavigate(index - 1);
+      if (e.key === 'ArrowRight' && index < items.length - 1) onNavigate(index + 1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [index, items.length, onNavigate, onClose]);
+
+  return (
+    <div className="share-lightbox" onClick={onClose}>
+      <button className="share-lightbox-close" aria-label="Sluiten" onClick={onClose}>
+        <Icon name="close" size={22} />
+      </button>
+      {index > 0 && (
+        <button
+          className="share-lightbox-nav share-lightbox-prev"
+          aria-label="Vorige"
+          onClick={(e) => {
+            e.stopPropagation();
+            onNavigate(index - 1);
+          }}
+        >
+          <Icon name="chevron-left" size={26} />
+        </button>
+      )}
+      <figure className="share-lightbox-fig" onClick={(e) => e.stopPropagation()}>
+        <span className="share-lightbox-date">{formatDay(item.takenAt)}</span>
+        {src ? <img src={src} alt="" /> : <div className="share-lightbox-loading" />}
+      </figure>
+      {index < items.length - 1 && (
+        <button
+          className="share-lightbox-nav share-lightbox-next"
+          aria-label="Volgende"
+          onClick={(e) => {
+            e.stopPropagation();
+            onNavigate(index + 1);
+          }}
+        >
+          <Icon name="chevron-right" size={26} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ShareImage({
+  slug,
+  token,
+  mediaId,
+  onOpen,
+}: {
+  slug: string;
+  token: string;
+  mediaId: string;
+  onOpen: () => void;
+}) {
   const [src, setSrc] = useState<string>();
 
   useEffect(() => {
@@ -232,5 +384,13 @@ function ShareImage({ slug, token, mediaId }: { slug: string; token: string; med
   }, [slug, token, mediaId]);
 
   if (!src) return <div className="img-placeholder share-photo" />;
-  return <img src={src} alt="" className="share-photo" loading="lazy" />;
+  return (
+    <img
+      src={src}
+      alt=""
+      className="share-photo share-photo-btn"
+      loading="lazy"
+      onClick={onOpen}
+    />
+  );
 }

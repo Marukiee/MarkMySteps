@@ -108,6 +108,78 @@
   margin-left: auto;
 }
 
+/* Compact list layout (small photo + name). */
+.trips-grid-compact {
+  grid-template-columns: 1fr;
+  gap: 0.7rem;
+}
+
+@media (min-width: 720px) {
+  .trips-grid-compact {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.trip-card-compact {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.7rem 2.6rem 0.7rem 0.9rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-s);
+  cursor: pointer;
+  animation: fadeIn 0.35s var(--ease) backwards;
+  transition: transform 0.18s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.trip-card-compact:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-m);
+}
+
+.tcc-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.tcc-body h3 {
+  font-size: 1.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tcc-meta {
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
+.tcc-photo {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: var(--radius-s);
+  object-fit: cover;
+  box-shadow: var(--shadow-s);
+}
+
+.trip-card-compact .trip-card-menu {
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+}
+
+.trip-card-compact .trip-menu-btn {
+  color: var(--ink-faint);
+  filter: none;
+}
+
 /* Single dashed "add trip" slot. */
 .trip-ghost {
   aspect-ratio: 3 / 2;

@@ -42,6 +42,9 @@ export function setMapStyleId(id: MapStyleId): void {
 export function getMapStyle(): string | StyleSpecification {
   const id = getMapStyleId();
   if (id === 'satellite') return SATELLITE_STYLE;
+  // In dark mode swap any light vector style for a dark one so the map (and the
+  // status bar over it) stays readable.
+  if (resolvedTheme() === 'dark') return 'https://tiles.openfreemap.org/styles/dark';
   return `https://tiles.openfreemap.org/styles/${id}`;
 }
 
@@ -72,4 +75,17 @@ export function applyTheme(id: ThemeId = getThemeId()): void {
 export function setThemeId(id: ThemeId): void {
   localStorage.setItem(THEME_KEY, id);
   applyTheme(id);
+}
+
+/* ---------- Trip card size on the home page ---------- */
+
+export type TripCardSize = 'large' | 'compact' | 'auto';
+const CARD_SIZE_KEY = 'mms.cardsize';
+
+export function getTripCardSize(): TripCardSize {
+  return (localStorage.getItem(CARD_SIZE_KEY) as TripCardSize | null) ?? 'auto';
+}
+
+export function setTripCardSize(v: TripCardSize): void {
+  localStorage.setItem(CARD_SIZE_KEY, v);
 }
