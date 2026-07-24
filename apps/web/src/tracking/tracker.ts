@@ -1,5 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { api } from '../api/client';
+import { getTrackingIntervalMin } from '../lib/prefs';
 import { BufferedPoint, bufferPoint, bufferedCount, peekPoints, removePoints } from './buffer';
 
 /**
@@ -47,6 +48,10 @@ const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('Backg
 const DISTANCE_FILTER_M = 50;
 const FLUSH_INTERVAL_MS = 60_000;
 const BATCH_SIZE = 500;
+
+// Time throttle: the plugin fires on movement, but we only store a point every
+// N minutes (user-configurable) so the track stays lean and battery-friendly.
+let lastRecordAt = 0;
 
 const ACTIVE_TRIP_KEY = 'mms.tracking.trip';
 const LOG_KEY = 'mms.tracking.log';
@@ -109,6 +114,11 @@ export function isNative(): boolean {
 }
 
 async function record(tripId: string, position: NativePosition): Promise<void> {
+  // Skip fixes that arrive sooner than the configured interval.
+  const now = Date.now();
+  if (now - lastRecordAt < getTrackingIntervalMin() * 60_000) return;
+  lastRecordAt = now;
+
   const point: BufferedPoint = {
     clientId: crypto.randomUUID(),
     tripId,
@@ -164,6 +174,7 @@ export async function flush(): Promise<void> {
 export async function startTracking(tripId: string): Promise<void> {
   await stopTracking(false);
   localStorage.setItem(ACTIVE_TRIP_KEY, tripId);
+  lastRecordAt = 0; // record the first fix immediately
 
   if (isNative()) {
     watcherId = await BackgroundGeolocation.addWatcher(

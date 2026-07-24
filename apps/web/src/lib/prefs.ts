@@ -77,6 +77,20 @@ export function setThemeId(id: ThemeId): void {
   applyTheme(id);
 }
 
+/* ---------- Tracking cadence ---------- */
+
+const TRACK_INTERVAL_KEY = 'mms.track.interval';
+
+/** Minimum minutes between stored GPS points (default 5). */
+export function getTrackingIntervalMin(): number {
+  const v = Number(localStorage.getItem(TRACK_INTERVAL_KEY));
+  return v > 0 ? v : 5;
+}
+
+export function setTrackingIntervalMin(min: number): void {
+  localStorage.setItem(TRACK_INTERVAL_KEY, String(min));
+}
+
 /* ---------- Trip card size on the home page ---------- */
 
 export type TripCardSize = 'large' | 'compact' | 'auto';

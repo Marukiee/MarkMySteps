@@ -51,9 +51,11 @@
   animation: fadeIn 0.4s var(--ease) backwards;
 }
 
-.trip-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-l);
+@media (hover: hover) {
+  .trip-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-l);
+  }
 }
 
 .trip-card-photo {
@@ -176,9 +178,11 @@
   transition: transform 0.18s var(--ease), box-shadow 0.2s var(--ease);
 }
 
-.trip-card-compact:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-m);
+@media (hover: hover) {
+  .trip-card-compact:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-m);
+  }
 }
 
 .tcc-body {
@@ -308,13 +312,13 @@
   gap: 2px;
   padding: 3px;
   margin-bottom: 0.2rem;
-  border-radius: 999px;
+  border-radius: 10px;
   background: var(--paper-sunken);
 }
 
 .trip-menu-seg button {
   padding: 0.35rem 0.2rem;
-  border-radius: 999px;
+  border-radius: 7px;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--ink-faint);

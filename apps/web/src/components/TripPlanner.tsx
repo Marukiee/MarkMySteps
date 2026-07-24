@@ -128,16 +128,6 @@ export function TripPlanner({
     }
   }
 
-  async function cycleMode(stop: PlannedStop) {
-    const next = TRAVEL_MODES[(TRAVEL_MODES.indexOf(stop.travelMode) + 1) % TRAVEL_MODES.length]!;
-    refresh(
-      await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, {
-        method: 'PATCH',
-        body: { travelMode: next },
-      }),
-    );
-  }
-
   async function saveFlight(
     stop: PlannedStop,
     data: { flightNumber?: string; fromAirport?: string; toAirport?: string; viaAirports?: string[] },
@@ -286,11 +276,7 @@ export function TripPlanner({
             );
           }
           const prev = index > 0 ? stops[index - 1] : null;
-          const prevIsFlightLeg =
-            !!prev &&
-            prev.travelMode === 'FLIGHT' &&
-            prev.latitude === null &&
-            prev.longitude === null;
+          const prevIsStandalone = isStandaloneLeg(prev ?? undefined);
           const isFlight = stop.travelMode === 'FLIGHT';
           const legKm =
             prev &&
@@ -302,40 +288,31 @@ export function TripPlanner({
               : null;
           return (
             <li key={stop.id} className="stop-row">
-              {!prevIsFlightLeg && !isFlight && (
-                <button
-                  className="leg-toggle"
-                  onClick={() => cycleMode(stop)}
-                  title="Tik om te wisselen: auto, trein, bus, boot, vlucht"
-                >
-                  <span className="leg-icon">
-                    <Icon name={MODE_ICON[stop.travelMode] ?? 'car'} size={16} />
-                  </span>
-                  <span className="leg-mode">{MODE_LABEL[stop.travelMode]}</span>
-                  {legKm !== null && (
-                    <span className="leg-dur">
-                      · {legKm.toLocaleString('nl-NL')} km · {estimateDuration(legKm, stop.travelMode)}
-                    </span>
+              {/* Incoming leg: a mode dropdown (same as heenreis), plus the
+                  flight editor when it's a flight. */}
+              {!prevIsStandalone && (
+                <div className="leg-connector">
+                  <div className="leg-connector-row">
+                    <ModeMenu
+                      current={stop.travelMode}
+                      compact
+                      onPick={(m) => void setStopMode(stop, m)}
+                    />
+                    {legKm !== null && (
+                      <span className="leg-dur">
+                        {legKm.toLocaleString('nl-NL')} km · {estimateDuration(legKm, stop.travelMode)}
+                      </span>
+                    )}
+                  </div>
+                  {isFlight && (
+                    <FlightEditor
+                      flightNumber={stop.flightNumber}
+                      fromAirport={stop.fromAirport}
+                      toAirport={stop.toAirport}
+                      viaAirports={stop.viaAirports}
+                      onSave={(data) => void saveFlight(stop, data)}
+                    />
                   )}
-                  <Icon name="chevron-right" size={13} className="leg-switch" />
-                </button>
-              )}
-              {!prevIsFlightLeg && isFlight && (
-                <div className="leg-flight">
-                  <button
-                    className="leg-flight-revert"
-                    onClick={() => cycleMode(stop)}
-                    title="Terug naar vervoer over land"
-                  >
-                    <Icon name="plane" size={15} /> Vlucht
-                  </button>
-                  <FlightEditor
-                    flightNumber={stop.flightNumber}
-                    fromAirport={stop.fromAirport}
-                    toAirport={stop.toAirport}
-                    viaAirports={stop.viaAirports}
-                    onSave={(data) => void saveFlight(stop, data)}
-                  />
                 </div>
               )}
               <div

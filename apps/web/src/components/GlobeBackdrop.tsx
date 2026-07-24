@@ -206,7 +206,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       // draw them deduped so overlapping/close flights become one line.
       const flightPairs: { a: [number, number]; b: [number, number]; up: boolean }[] = [];
       for (const trip of trips) {
-        const [r, g, b] = trip.color;
+        const [r, g, b] = legibleColor(trip.color, dark);
         for (const seg of trip.flights ?? []) {
           flightPairs.push({ a: seg[0]!, b: seg[seg.length - 1]!, up: trip.upcoming });
         }
@@ -228,7 +228,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
             } else {
               ctx!.setLineDash([]);
               ctx!.strokeStyle = `rgba(${r},${g},${b},0.95)`;
-              ctx!.lineWidth = 2.4 * dpr;
+              ctx!.lineWidth = 1.9 * dpr;
             }
             ctx!.stroke();
           };
@@ -281,13 +281,20 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       }
       ctx!.setLineDash([]);
 
-      // --- Markers (all front-facing trips) ---
+      // --- Markers: the trip's start, plus its end when the route finishes in a
+      // different place (e.g. fly into Marrakech, out of Barcelona). Close
+      // endpoints (JFK/EWR, or a single-city trip) collapse to one. ---
       const center = projection.invert!([w / 2, h / 2]);
       const frontFacing = trips.filter((t) => !center || distance(center, t.anchor) <= 90);
-      for (const trip of frontFacing) {
-        const projected = projection(trip.anchor);
-        if (!projected) continue;
-        const [r, g, b] = trip.color;
+      const drawMarker = (
+        p: [number, number],
+        col: [number, number, number],
+        upcoming: boolean,
+      ) => {
+        if (center && distance(center, p) > 90) return;
+        const projected = projection(p);
+        if (!projected) return;
+        const [r, g, b] = col;
         ctx!.beginPath();
         ctx!.arc(projected[0], projected[1], 9 * dpr, 0, 2 * Math.PI);
         ctx!.strokeStyle = `rgba(${r},${g},${b},0.4)`;
@@ -297,8 +304,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
         ctx!.arc(projected[0], projected[1], 5 * dpr, 0, 2 * Math.PI);
         ctx!.fillStyle = `rgb(${r},${g},${b})`;
         ctx!.fill();
-        // A faint ring marks a planned/upcoming trip.
-        if (trip.upcoming) {
+        if (upcoming) {
           ctx!.beginPath();
           ctx!.arc(projected[0], projected[1], 12 * dpr, 0, 2 * Math.PI);
           ctx!.strokeStyle = `rgba(${r},${g},${b},0.3)`;
@@ -307,6 +313,14 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
           ctx!.stroke();
           ctx!.setLineDash([]);
         }
+      };
+      for (const trip of frontFacing) {
+        const col = legibleColor(trip.color, dark);
+        drawMarker(trip.anchor, col, trip.upcoming);
+        // Route end (last vertex of the last ground segment).
+        const lastSeg = trip.path?.[trip.path.length - 1];
+        const end = lastSeg?.[lastSeg.length - 1];
+        if (end && distance(trip.anchor, end) > 1.2) drawMarker(end, col, trip.upcoming);
       }
 
       // --- Labels: only a few, biggest first; more as you zoom in. Each fades
@@ -498,6 +512,36 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   const a = s * Math.min(l, 1 - l);
   const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
   return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+}
+
+/** Clamp a colour's lightness so it stays readable on the current background:
+ *  darker on the light (beige) globe, lighter on the dark globe. */
+function legibleColor(rgb: [number, number, number], dark: boolean): [number, number, number] {
+  const [h, s, l] = rgbToHsl(rgb);
+  const s2 = Math.max(s, 55);
+  const l2 = dark ? Math.max(l, 58) : Math.min(l, 46);
+  return hslToRgb(h, s2, l2);
+}
+
+function rgbToHsl([r, g, b]: [number, number, number]): [number, number, number] {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+  const d = max - min;
+  if (d !== 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return [h, s * 100, l * 100];
 }
 
 function hexToRgb(hex: string): [number, number, number] {

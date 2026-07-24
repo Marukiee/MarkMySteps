@@ -27,6 +27,8 @@ interface TripMapProps {
   styleUrl: string | StyleSpecification;
   /** Live device location, shown as a Google-Maps-style dot. */
   currentLocation?: { lat: number; lng: number } | null;
+  /** Hide photo markers (e.g. "show only tracked locations" mode). */
+  hidePhotos?: boolean;
   /** Exposes an imperative focus API once the map is ready. */
   onReady?: (api: TripMapApi) => void;
 }
@@ -51,6 +53,7 @@ export function TripMap({
   clickMode,
   styleUrl,
   currentLocation,
+  hidePhotos,
   onReady,
 }: TripMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -236,6 +239,7 @@ export function TripMap({
     const draw = () => {
       for (const marker of markersRef.current) marker.remove();
       markersRef.current = [];
+      if (hidePhotos) return; // "tracked only" mode
 
       const withGps = media.filter(
         (m) => m.latitude !== null && m.longitude !== null && visibleUsers.has(m.userId),
@@ -308,7 +312,7 @@ export function TripMap({
     return () => {
       map.off('zoomend', draw);
     };
-  }, [media, visibleUsers]);
+  }, [media, visibleUsers, hidePhotos]);
 
   // Planned stops: numbered/flag markers + connecting legs (flights as arcs).
   useEffect(() => {

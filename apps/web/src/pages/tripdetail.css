@@ -137,6 +137,24 @@
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.12s var(--ease);
+}
+
+.live-badge:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+.live-badge.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.live-badge.active .live-badge-dot {
+  background: #fff;
+  box-shadow: none;
+  animation: none;
 }
 
 .live-badge-dot {

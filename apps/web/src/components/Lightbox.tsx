@@ -116,45 +116,47 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
         <Icon name="close" size={22} />
       </button>
 
-      {index > 0 && (
-        <button
-          className="lightbox-nav lightbox-prev"
-          aria-label="Vorige"
-          onClick={(e) => {
-            e.stopPropagation();
-            onNavigate(index - 1);
-          }}
-        >
-          <Icon name="chevron-left" size={30} />
-        </button>
-      )}
-      {index < items.length - 1 && (
-        <button
-          className="lightbox-nav lightbox-next"
-          aria-label="Volgende"
-          onClick={(e) => {
-            e.stopPropagation();
-            onNavigate(index + 1);
-          }}
-        >
-          <Icon name="chevron-right" size={30} />
-        </button>
-      )}
-
       <figure
         className="lightbox-stage"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        {item.assetType === 'VIDEO' && videoUrl ? (
-          <video className="lightbox-img" src={videoUrl} controls autoPlay playsInline />
-        ) : (
-          <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="lightbox-img" />
-        )}
-        {item.assetType === 'VIDEO' && !videoUrl && (
-          <p className="lightbox-videohint">Video laden…</p>
-        )}
+        <div className="lightbox-imgwrap">
+          {item.assetType === 'VIDEO' && videoUrl ? (
+            <video className="lightbox-img" src={videoUrl} controls autoPlay playsInline />
+          ) : (
+            <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="lightbox-img" />
+          )}
+          {item.assetType === 'VIDEO' && !videoUrl && (
+            <p className="lightbox-videohint">Video laden…</p>
+          )}
+          {/* Arrows sit at the vertical centre of the image, not the screen. */}
+          {index > 0 && (
+            <button
+              className="lightbox-nav lightbox-prev"
+              aria-label="Vorige"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate(index - 1);
+              }}
+            >
+              <Icon name="chevron-left" size={30} />
+            </button>
+          )}
+          {index < items.length - 1 && (
+            <button
+              className="lightbox-nav lightbox-next"
+              aria-label="Volgende"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate(index + 1);
+              }}
+            >
+              <Icon name="chevron-right" size={30} />
+            </button>
+          )}
+        </div>
         <figcaption className="lightbox-bar">
           <span className="lightbox-count">
             {index + 1} / {items.length}

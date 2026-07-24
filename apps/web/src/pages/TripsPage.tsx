@@ -143,8 +143,19 @@ function TripCard({
     const close = (e: Event) => {
       if (!menuRef.current?.contains(e.target as Node)) closeMenu();
     };
+    // Close on outside click, on scroll, and when another card's menu opens.
+    const onOther = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== trip.id) closeMenu();
+    };
     document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    window.addEventListener('scroll', closeMenu, true);
+    window.addEventListener('mms-menu-open', onOther as EventListener);
+    return () => {
+      document.removeEventListener('click', close);
+      window.removeEventListener('scroll', closeMenu, true);
+      window.removeEventListener('mms-menu-open', onOther as EventListener);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuOpen]);
 
   function stop(e: MouseEvent) {
@@ -222,7 +233,10 @@ function TripCard({
         onClick={(e) => {
           stop(e);
           if (menuOpen) closeMenu();
-          else setMenuOpen(true);
+          else {
+            window.dispatchEvent(new CustomEvent('mms-menu-open', { detail: trip.id }));
+            setMenuOpen(true);
+          }
         }}
       >
         <Icon name="dots" size={22} />

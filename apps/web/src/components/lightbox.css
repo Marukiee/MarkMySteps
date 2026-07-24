@@ -89,8 +89,14 @@
   z-index: 201;
 }
 
+.lightbox-imgwrap {
+  position: relative;
+  display: inline-grid;
+  justify-self: center;
+}
+
 .lightbox-nav {
-  position: fixed;
+  position: absolute;
   top: 50%;
   transform: translateY(-50%);
   display: inline-flex;

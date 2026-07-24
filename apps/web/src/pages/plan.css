@@ -638,3 +638,17 @@
   justify-content: space-between;
   gap: 0.6rem;
 }
+
+/* Incoming-leg block on a normal stop: mode dropdown + optional flight editor. */
+.leg-connector {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0.35rem 0.9rem;
+}
+
+.leg-connector-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

@@ -39,6 +39,7 @@ export function TripDetailPage() {
   const [peopleClosing, setPeopleClosing] = useState(false);
   const [currentLoc, setCurrentLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [liveTracking, setLiveTracking] = useState(false);
+  const [trackedOnly, setTrackedOnly] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
@@ -294,14 +295,20 @@ export function TripDetailPage() {
           clickMode={addPointMode}
           styleUrl={getMapStyle()}
           currentLocation={currentLoc}
+          hidePhotos={trackedOnly}
           onReady={(api) => (mapApiRef.current = api)}
         />
 
         {liveTracking && (
-          <div className="live-badge" aria-label="Live tracking actief">
+          <button
+            className={`live-badge ${trackedOnly ? 'active' : ''}`}
+            onClick={() => setTrackedOnly((v) => !v)}
+            aria-pressed={trackedOnly}
+            title={trackedOnly ? 'Toon ook foto’s' : 'Toon alleen getrackte locaties'}
+          >
             <span className="live-badge-dot" />
-            Live
-          </div>
+            {trackedOnly ? 'Alleen route' : 'Live'}
+          </button>
         )}
 
         {trip && trip.members.length > 1 && (

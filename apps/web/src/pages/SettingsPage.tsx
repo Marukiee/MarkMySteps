@@ -15,10 +15,12 @@ import {
   clearTripCardOverrides,
   getMapStyleId,
   getThemeId,
+  getTrackingIntervalMin,
   getTripCardSize,
   hasTripCardOverrides,
   setMapStyleId,
   setThemeId,
+  setTrackingIntervalMin,
   setTripCardSize,
 } from '../lib/prefs';
 import {
@@ -51,19 +53,21 @@ export function SettingsPage() {
     <main className="page fade-in settings-page">
       <h1>Instellingen</h1>
       <div className="settings-layout">
-        <nav className="settings-nav">
-          {sections
-            .filter((s) => s.show)
-            .map((s) => (
-              <button
-                key={s.id}
-                className={section === s.id ? 'active' : ''}
-                onClick={() => setSection(s.id)}
-              >
-                {s.label}
-              </button>
-            ))}
-        </nav>
+        <div className="settings-nav-scroll">
+          <nav className="settings-nav">
+            {sections
+              .filter((s) => s.show)
+              .map((s) => (
+                <button
+                  key={s.id}
+                  className={section === s.id ? 'active' : ''}
+                  onClick={() => setSection(s.id)}
+                >
+                  {s.label}
+                </button>
+              ))}
+          </nav>
+        </div>
         <div className="settings-content">
           {section === 'profile' && <ProfileSection />}
           {section === 'display' && <DisplaySection />}
@@ -153,22 +157,22 @@ function DisplaySection() {
         )}
       </div>
       <div className="field">
-        <label htmlFor="ds-map">Kaartstijl</label>
-        <select
-          id="ds-map"
-          value={style}
-          onChange={(e) => {
-            const id = e.target.value as MapStyleId;
-            setStyle(id);
-            setMapStyleId(id);
-          }}
-        >
+        <label>Kaartstijl</label>
+        <div className="theme-choice theme-choice-wrap">
           {MAP_STYLES.map((s) => (
-            <option key={s.id} value={s.id}>
+            <button
+              key={s.id}
+              type="button"
+              className={`theme-opt ${style === s.id ? 'active' : ''}`}
+              onClick={() => {
+                setStyle(s.id);
+                setMapStyleId(s.id);
+              }}
+            >
               {s.label}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
         <span className="muted">Geldt voor alle kaarten op dit apparaat.</span>
       </div>
     </section>
@@ -186,6 +190,8 @@ function TrackingSection() {
     lastFix: null,
   });
   const [now, setNow] = useState(Date.now());
+  const [interval, setIntervalMin] = useState(getTrackingIntervalMin());
+  const INTERVALS = [1, 5, 10, 15];
 
   useEffect(() => {
     api<Trip[]>('/trips').then(setTrips).catch(() => undefined);
@@ -206,9 +212,28 @@ function TrackingSection() {
     <section className="card settings-card">
       <h2>Route-tracking</h2>
       <p className="muted">
-        Zuinig met batterij: alleen een GPS-punt bij ≥50 m verplaatsing. Offline wordt alles
-        gebufferd en later geüpload. Vereist locatie op “Altijd toestaan”.
+        Zuinig met batterij: een GPS-punt bij ≥50 m verplaatsing, hooguit één keer per interval.
+        Offline wordt alles gebufferd en later geüpload. Vereist locatie op “Altijd toestaan”.
       </p>
+
+      <div className="field">
+        <label>Locatie opslaan elke</label>
+        <div className="theme-choice theme-choice-wrap">
+          {INTERVALS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={`theme-opt ${interval === m ? 'active' : ''}`}
+              onClick={() => {
+                setIntervalMin(m);
+                setTrackingIntervalMin(m);
+              }}
+            >
+              {m} min
+            </button>
+          ))}
+        </div>
+      </div>
 
       {tracker.tripId ? (
         <div className="tracking-status">
