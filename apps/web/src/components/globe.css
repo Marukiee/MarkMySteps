@@ -5,6 +5,9 @@
 /* Globe hero — a real, prominent element (not a faint backdrop). */
 .globe-backdrop {
   position: relative;
+  /* Own stacking context below the page content, so the fade/blur pseudo-
+     elements never paint over the trips or the "+ Nieuwe reis" button. */
+  z-index: 0;
   display: grid;
   place-items: center;
   height: clamp(260px, 42vh, 520px);

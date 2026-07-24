@@ -79,6 +79,8 @@ model Trip {
   coverMediaId String? @db.Uuid
   /// Auto-start route tracking (native app) once the trip has begun.
   autoTrack    Boolean @default(false)
+  /// Custom trip colour (hex) for the globe/map; null = auto-assigned.
+  color        String?
   ownerId     String   @db.Uuid
   owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())

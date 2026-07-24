@@ -64,6 +64,25 @@
   object-fit: cover;
 }
 
+/* Photo-less card (e.g. an upcoming trip): an intentional design, not a bare
+   gradient — a soft top sheen + a large watermark compass glyph. */
+.trip-card-noimg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 20% -10%, rgb(255 255 255 / 0.28), transparent 60%);
+  pointer-events: none;
+}
+
+.trip-card-glyph {
+  position: absolute;
+  right: -14px;
+  top: -10px;
+  color: rgb(255 255 255 / 0.22);
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+
 .trip-card-overlay {
   position: absolute;
   inset: 0;
@@ -262,13 +281,51 @@
 .trip-menu {
   position: absolute;
   right: 0;
-  top: 42px;
+  top: 0;
   z-index: 20;
-  min-width: 150px;
+  min-width: 168px;
   padding: 0.35rem;
   display: grid;
+  gap: 0.1rem;
   border-radius: var(--radius-s);
   box-shadow: var(--shadow-m);
+  /* Emerge from the ⋯ button (top-right corner). */
+  transform-origin: top right;
+  animation: menuIn 0.16s var(--ease);
+}
+
+@keyframes menuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+}
+
+/* Segmented size control at the top of the menu. */
+.trip-menu-seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: 0.2rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+}
+
+.trip-menu-seg button {
+  padding: 0.35rem 0.2rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+  text-align: center;
+  text-shadow: none;
+}
+
+.trip-menu-seg button.active {
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-s);
 }
 
 .trip-menu button {
@@ -300,7 +357,7 @@
   }
   to {
     opacity: 0;
-    transform: translateY(-6px) scale(0.97);
+    transform: scale(0.72);
   }
 }
 

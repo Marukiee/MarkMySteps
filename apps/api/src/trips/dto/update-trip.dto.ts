@@ -1,5 +1,5 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsBoolean, IsOptional, IsUUID, ValidateIf } from 'class-validator';
+import { IsBoolean, IsHexColor, IsOptional, IsUUID, ValidateIf } from 'class-validator';
 import { CreateTripDto } from './create-trip.dto';
 
 export class UpdateTripDto extends PartialType(CreateTripDto) {
@@ -12,4 +12,10 @@ export class UpdateTripDto extends PartialType(CreateTripDto) {
   @IsOptional()
   @IsBoolean()
   autoTrack?: boolean;
+
+  /** Custom trip colour (hex) for the globe/map; null resets to auto. */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsHexColor()
+  color?: string | null;
 }

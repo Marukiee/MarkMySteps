@@ -12,6 +12,18 @@ import { TrackButton } from '../components/TrackButton';
 import { isNative, startTracking } from '../tracking/tracker';
 import './tripsettings.css';
 
+// Curated, legible swatches for the trip colour picker.
+const TRIP_COLORS = [
+  '#e8613c',
+  '#e0993a',
+  '#4ca05c',
+  '#2a8f85',
+  '#409ec5',
+  '#5a6ee1',
+  '#b054a8',
+  '#df5c78',
+];
+
 /** Polarsteps-style "Edit trip" screen. */
 export function TripSettingsPage() {
   const { tripId } = useParams<{ tripId: string }>();
@@ -26,6 +38,7 @@ export function TripSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [color, setColor] = useState<string>('');
   const [clearDay, setClearDay] = useState('');
   const [wiping, setWiping] = useState(false);
   const [clearMsg, setClearMsg] = useState<string | null>(null);
@@ -39,6 +52,7 @@ export function TripSettingsPage() {
         setStartDate(t.startDate.slice(0, 10));
         setEndDate(t.endDate.slice(0, 10));
         setAutoTrack(t.autoTrack);
+        setColor(t.color ?? '');
       })
       .catch((e: Error) => setError(e.message));
   }
@@ -68,6 +82,16 @@ export function TripSettingsPage() {
       if (started && tripId) void startTracking(tripId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Opslaan mislukt');
+    }
+  }
+
+  async function saveColor(hex: string | null) {
+    if (!tripId) return;
+    setColor(hex ?? '');
+    try {
+      await api(`/trips/${tripId}`, { method: 'PATCH', body: { color: hex } });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kleur opslaan mislukt');
     }
   }
 
@@ -153,6 +177,30 @@ export function TripSettingsPage() {
           <div className="ts-dates">
             <DateField id="ts-start" label="Startdatum" value={startDate} onChange={setStartDate} />
             <DateField id="ts-end" label="Einddatum" value={endDate} onChange={setEndDate} />
+          </div>
+
+          <div className="field">
+            <label>Kleur op de globe &amp; kaart</label>
+            <div className="ts-colors">
+              <button
+                type="button"
+                className={`ts-color ts-color-auto ${color === '' ? 'active' : ''}`}
+                onClick={() => void saveColor(null)}
+                title="Automatisch"
+              >
+                Auto
+              </button>
+              {TRIP_COLORS.map((hex) => (
+                <button
+                  key={hex}
+                  type="button"
+                  className={`ts-color ${color.toLowerCase() === hex ? 'active' : ''}`}
+                  style={{ background: hex }}
+                  onClick={() => void saveColor(hex)}
+                  aria-label={`Kleur ${hex}`}
+                />
+              ))}
+            </div>
           </div>
 
           {error && <p className="error-text">{error}</p>}

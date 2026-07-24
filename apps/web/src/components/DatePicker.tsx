@@ -71,13 +71,14 @@ function CalendarSheet({
   const selected = value;
   const todayIso = toISO(new Date());
 
-  const close = () => {
+  // Animate out first, then either commit the pick or just close.
+  const finish = (iso?: string) => {
     setClosing(true);
-    window.setTimeout(onClose, 200);
+    window.setTimeout(() => (iso !== undefined ? onPick(iso) : onClose()), 190);
   };
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && finish();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,7 +104,7 @@ function CalendarSheet({
   return createPortal(
     <div
       className={`dp-backdrop ${closing ? 'closing' : ''}`}
-      onClick={close}
+      onClick={() => finish()}
       role="dialog"
       aria-modal="true"
     >
@@ -141,7 +142,7 @@ function CalendarSheet({
                 className={`dp-day ${iso === selected ? 'selected' : ''} ${
                   iso === todayIso ? 'today' : ''
                 }`}
-                onClick={() => onPick(iso)}
+                onClick={() => finish(iso)}
               >
                 {day}
               </button>
@@ -154,12 +155,12 @@ function CalendarSheet({
             <button
               type="button"
               className="btn btn-ghost dp-clear"
-              onClick={() => onPick('')}
+              onClick={() => finish('')}
             >
               Wissen
             </button>
           )}
-          <button type="button" className="btn btn-ghost" onClick={close}>
+          <button type="button" className="btn btn-ghost" onClick={() => finish()}>
             Annuleren
           </button>
         </div>

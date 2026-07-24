@@ -1,4 +1,4 @@
-import { DragEvent, FormEvent, useRef, useState } from 'react';
+import { DragEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { CityThumb } from './CityThumb';
@@ -11,10 +11,14 @@ import {
   MODE_LABEL,
   PlannedStop,
   TRAVEL_MODES,
+  TravelMode,
 } from '../lib/arc';
 import { flagEmoji, formatDate } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import '../pages/plan.css';
+
+// Names used for the standalone outbound/return legs (any travel mode).
+const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
 
 interface TripPlannerProps {
   tripId: string;
@@ -62,10 +66,11 @@ export function TripPlanner({
       )
     : 0;
 
-  const isStandaloneFlight = (s?: PlannedStop) =>
-    !!s && s.travelMode === 'FLIGHT' && s.latitude === null && s.longitude === null;
-  const hasOutbound = isStandaloneFlight(stops[0]);
-  const hasReturn = isStandaloneFlight(stops[stops.length - 1]);
+  // A standalone heen-/terugreis leg has no city of its own (any travel mode).
+  const isStandaloneLeg = (s?: PlannedStop) =>
+    !!s && s.latitude === null && s.longitude === null && LEG_NAMES.has(s.name);
+  const hasOutbound = isStandaloneLeg(stops[0]);
+  const hasReturn = isStandaloneLeg(stops[stops.length - 1]);
 
   const refresh = (updated: PlannedStop[]) => {
     onStopsChange(updated);
@@ -156,19 +161,19 @@ export function TripPlanner({
     refresh(await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, { method: 'DELETE' }));
   }
 
-  async function addFlightLeg() {
+  async function addReturnLeg(mode: TravelMode) {
     refresh(
       await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
         method: 'POST',
-        body: { name: 'Terugvlucht', nights: 0, travelMode: 'FLIGHT' },
+        body: { name: 'Terugreis', nights: 0, travelMode: mode },
       }),
     );
   }
 
-  async function addOutboundFlight() {
+  async function addOutboundLeg(mode: TravelMode) {
     const created = await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
       method: 'POST',
-      body: { name: 'Heenvlucht', nights: 0, travelMode: 'FLIGHT' },
+      body: { name: 'Heenreis', nights: 0, travelMode: mode },
     });
     const added = created[created.length - 1];
     if (!added) return refresh(created);
@@ -176,6 +181,15 @@ export function TripPlanner({
       await api<PlannedStop[]>(`/trips/${tripId}/stops/order`, {
         method: 'PUT',
         body: { stopIds: [added.id, ...created.filter((s) => s.id !== added.id).map((s) => s.id)] },
+      }),
+    );
+  }
+
+  async function setStopMode(stop: PlannedStop, mode: TravelMode) {
+    refresh(
+      await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, {
+        method: 'PATCH',
+        body: { travelMode: mode },
       }),
     );
   }
@@ -229,36 +243,41 @@ export function TripPlanner({
       )}
 
       {!hasOutbound && (
-        <button type="button" className="add-flight-leg" onClick={() => void addOutboundFlight()}>
-          <Icon name="plane" size={16} /> Heenvlucht
-        </button>
+        <ModeMenu label="Heenreis" onPick={(m) => void addOutboundLeg(m)} />
       )}
 
       <ol className="stop-list">
         {stops.map((stop, index) => {
-          const isFlightLeg =
-            stop.travelMode === 'FLIGHT' && stop.latitude === null && stop.longitude === null;
-          if (isFlightLeg) {
+          if (isStandaloneLeg(stop)) {
             return (
               <li key={stop.id} className="stop-row">
                 <div className="flight-leg card">
                   <span className="flight-leg-icon">
-                    <Icon name="plane" size={18} />
+                    <Icon name={MODE_ICON[stop.travelMode] ?? 'car'} size={18} />
                   </span>
                   <div className="flight-leg-main">
-                    <strong>{stop.name}</strong>
-                    <FlightEditor
-                      flightNumber={stop.flightNumber}
-                      fromAirport={stop.fromAirport}
-                      toAirport={stop.toAirport}
-                      viaAirports={stop.viaAirports}
-                      onSave={(data) => void saveFlight(stop, data)}
-                    />
+                    <div className="flight-leg-head">
+                      <strong>{stop.name}</strong>
+                      <ModeMenu
+                        current={stop.travelMode}
+                        compact
+                        onPick={(m) => void setStopMode(stop, m)}
+                      />
+                    </div>
+                    {stop.travelMode === 'FLIGHT' && (
+                      <FlightEditor
+                        flightNumber={stop.flightNumber}
+                        fromAirport={stop.fromAirport}
+                        toAirport={stop.toAirport}
+                        viaAirports={stop.viaAirports}
+                        onSave={(data) => void saveFlight(stop, data)}
+                      />
+                    )}
                   </div>
                   <button
                     className="stop-delete"
                     onClick={() => removeStop(stop)}
-                    aria-label="Vlucht verwijderen"
+                    aria-label="Reis verwijderen"
                   >
                     <Icon name="close" size={15} />
                   </button>
@@ -382,11 +401,7 @@ export function TripPlanner({
         })}
       </ol>
 
-      {!hasReturn && (
-        <button type="button" className="add-flight-leg" onClick={() => void addFlightLeg()}>
-          <Icon name="plane" size={16} /> Terugvlucht
-        </button>
-      )}
+      {!hasReturn && <ModeMenu label="Terugreis" onPick={(m) => void addReturnLeg(m)} />}
 
       <form className="card stop-add" onSubmit={addStop}>
         <div className="field stop-search">
@@ -433,6 +448,63 @@ export function TripPlanner({
         </span>
         <button className="btn btn-primary">Stop toevoegen</button>
       </form>
+    </div>
+  );
+}
+
+/** A pill with a dropdown to pick a travel mode (car/train/bus/boat/flight).
+ *  Used to add an outbound/return leg, and to change a standalone leg's mode. */
+function ModeMenu({
+  label,
+  current,
+  compact,
+  onPick,
+}: {
+  label?: string;
+  current?: TravelMode;
+  compact?: boolean;
+  onPick: (mode: TravelMode) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const icon = current ? MODE_ICON[current] ?? 'car' : 'plus';
+  const text = label ?? MODE_LABEL[current!];
+
+  return (
+    <div className={`mode-menu ${compact ? 'mode-menu-compact' : ''}`} ref={ref}>
+      <button type="button" className="mode-menu-pill" onClick={() => setOpen((o) => !o)}>
+        <Icon name={icon} size={compact ? 14 : 16} />
+        <span>{text}</span>
+        <Icon name="chevron-down" size={13} className="mode-menu-caret" />
+      </button>
+      {open && (
+        <div className="mode-menu-drop card">
+          {TRAVEL_MODES.map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={current === m ? 'active' : ''}
+              onClick={() => {
+                onPick(m);
+                setOpen(false);
+              }}
+            >
+              <Icon name={MODE_ICON[m] ?? 'car'} size={16} />
+              {MODE_LABEL[m]}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

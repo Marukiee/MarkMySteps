@@ -26,6 +26,32 @@
   gap: 0.4rem;
   font-weight: 600;
   color: var(--teal);
+  animation: okPop 0.4s var(--ease) both;
+}
+
+.onb-ok svg {
+  animation: okCheck 0.45s var(--ease) 0.08s both;
+}
+
+@keyframes okPop {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes okCheck {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .onb-path {

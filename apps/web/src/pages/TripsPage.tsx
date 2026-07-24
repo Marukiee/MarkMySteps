@@ -228,13 +228,24 @@ function TripCard({
         <Icon name="dots" size={22} />
       </button>
       {menuOpen && (
-        <div className={`trip-menu card ${menuClosing ? 'closing' : 'fade-in'}`}>
-          <button onClick={(e) => { stop(e); setSize(compact ? 'large' : 'compact'); }}>
-            {compact ? 'Groot weergeven' : 'Compact weergeven'}
-          </button>
-          {getTripCardOverride(trip.id) && (
-            <button onClick={(e) => { stop(e); setSize(null); }}>Standaardgrootte</button>
-          )}
+        <div className={`trip-menu card ${menuClosing ? 'closing' : ''}`}>
+          <div className="trip-menu-seg" onClick={stop}>
+            {(['auto', 'large', 'compact'] as const).map((opt) => {
+              const cur = getTripCardOverride(trip.id) ?? 'auto';
+              return (
+                <button
+                  key={opt}
+                  className={cur === opt ? 'active' : ''}
+                  onClick={(e) => {
+                    stop(e);
+                    setSize(opt === 'auto' ? null : opt);
+                  }}
+                >
+                  {opt === 'auto' ? 'Auto' : opt === 'large' ? 'Groot' : 'Compact'}
+                </button>
+              );
+            })}
+          </div>
           {isOwner && (
             <>
               <button
@@ -331,12 +342,13 @@ function TripCard({
   }
 
   // Full-bleed photo card (Polarsteps-style): title + meta overlaid, ⋯ top-right.
+  const noImg = !trip.resolvedCoverId;
   return (
     <div
-      className="trip-card"
+      className={`trip-card ${noImg ? 'trip-card-noimg' : ''}`}
       style={{
         animationDelay: `${index * 40}ms`,
-        background: coverGradient(trip.id),
+        background: noImg ? tripCardBg(trip) : coverGradient(trip.id),
         zIndex: menuOpen ? 30 : undefined,
       }}
       role="link"
@@ -354,6 +366,11 @@ function TripCard({
           alt=""
           className="trip-card-photo"
         />
+      )}
+      {noImg && (
+        <span className="trip-card-glyph" aria-hidden="true">
+          <Icon name="compass" size={120} />
+        </span>
       )}
       {countdownEl}
       <div className="trip-card-overlay">
@@ -459,6 +476,13 @@ function daysUntil(startDate: string): number | null {
   today.setHours(0, 0, 0, 0);
   const diff = Math.round((start.getTime() - today.getTime()) / 86_400_000);
   return diff < 0 ? null : diff;
+}
+
+/** Background for a photo-less card: the trip's custom colour as a soft duotone,
+ *  else the deterministic warm gradient. */
+function tripCardBg(trip: Trip): string {
+  if (trip.color) return `linear-gradient(145deg, ${trip.color}, ${trip.color}b0)`;
+  return coverGradient(trip.id);
 }
 
 /** Deterministic warm gradient per trip — placeholder until hero photos land. */

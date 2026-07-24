@@ -175,7 +175,7 @@ export class TripsService {
     const tripIds = trips.map((t) => t.id);
     const routeRows = await this.prisma.$queryRaw<{ tripId: string; geojson: string | null }[]>`
       SELECT "tripId",
-             ST_AsGeoJSON(ST_Simplify(ST_MakeLine(geom ORDER BY "recordedAt"), 0.35)) AS geojson
+             ST_AsGeoJSON(ST_Simplify(ST_MakeLine(geom ORDER BY "recordedAt"), 0.08)) AS geojson
       FROM location_points
       WHERE "tripId" = ANY(${tripIds}::uuid[])
       GROUP BY "tripId"
@@ -334,6 +334,7 @@ export class TripsService {
         endDate,
         ...(dto.coverMediaId !== undefined ? { coverMediaId: dto.coverMediaId } : {}),
         ...(dto.autoTrack !== undefined ? { autoTrack: dto.autoTrack } : {}),
+        ...(dto.color !== undefined ? { color: dto.color } : {}),
       },
       include: MEMBERS_INCLUDE,
     });

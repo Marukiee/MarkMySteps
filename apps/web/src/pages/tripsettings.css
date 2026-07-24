@@ -51,6 +51,40 @@
   gap: 1rem;
 }
 
+.ts-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ts-color {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--paper-raised);
+  box-shadow: 0 0 0 1px var(--line);
+  cursor: pointer;
+  transition: transform 0.12s var(--ease);
+}
+
+.ts-color:hover {
+  transform: scale(1.1);
+}
+
+.ts-color.active {
+  box-shadow: 0 0 0 2px var(--paper-raised), 0 0 0 4px var(--accent);
+}
+
+.ts-color-auto {
+  width: auto;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .ts-toggle {
   display: flex;
   align-items: center;

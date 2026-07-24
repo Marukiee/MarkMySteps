@@ -19,6 +19,8 @@ interface GlobeTrip {
   path: [number, number][][] | null;
   flights: [number, number][][] | null;
   upcoming: boolean;
+  /** Resolved RGB colour (custom trip colour, else auto-assigned distinct). */
+  color: [number, number, number];
   /** Relative importance (km, else days) — drives label priority. */
   size: number;
 }
@@ -67,8 +69,8 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
         ),
       );
 
-    const globeTrips = (): GlobeTrip[] =>
-      tripsRef.current
+    const globeTrips = (): GlobeTrip[] => {
+      const list = tripsRef.current
         .filter((t): t is Trip & { anchor: [number, number] } => t.anchor !== null)
         .map((t) => ({
           id: t.id,
@@ -77,26 +79,25 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
           path: t.routePath && t.routePath.length > 0 ? t.routePath : null,
           flights: t.flightPath && t.flightPath.length > 0 ? t.flightPath : null,
           upcoming: t.endDate.slice(0, 10) >= today,
+          color: [90, 110, 225] as [number, number, number],
           size: t.distanceKm && t.distanceKm > 0 ? t.distanceKm : dayCount(t) * 40,
-        }))
-        // Biggest trips first — they get labelled first / at the lowest zoom.
-        .sort((a, b) => b.size - a.size);
+        }));
+      // Assign a distinct colour per trip: a custom trip colour wins, otherwise
+      // spread hues by the golden angle over a stable (id-sorted) index so every
+      // trip differs — no hash collisions.
+      const idOrder = [...list].sort((a, b) => a.id.localeCompare(b.id));
+      const colorIdx = new Map(idOrder.map((t, i) => [t.id, i]));
+      const custom = new Map(tripsRef.current.map((t) => [t.id, t.color ?? null]));
+      for (const t of list) {
+        const c = custom.get(t.id);
+        t.color = c ? hexToRgb(c) : autoColor(colorIdx.get(t.id) ?? 0);
+      }
+      // Biggest trips first — they get labelled first / at the lowest zoom.
+      return list.sort((a, b) => b.size - a.size);
+    };
 
     // Per-trip label opacity, eased across frames for a soft pop-in.
     const labelOpacity = new Map<string, number>();
-    // Cache of Catmull-Rom-smoothed route segments (keyed by the source array,
-    // so it's computed once per trip and reused every frame).
-    const pathCache = new Map<string, { src: [number, number][][]; out: [number, number][][] }>();
-    const smoothedPath = (trip: GlobeTrip): [number, number][][] => {
-      if (!trip.path) return [];
-      const cached = pathCache.get(trip.id);
-      if (cached && cached.src === trip.path) return cached.out;
-      // Smooth short/angular routes so a few vertices read as a flowing line;
-      // leave already-dense lines alone (perf).
-      const out = trip.path.map((seg) => (seg.length >= 3 && seg.length <= 80 ? smooth(seg) : seg));
-      pathCache.set(trip.id, { src: trip.path, out });
-      return out;
-    };
     // Auto-tour state: alternate a wide overview with a zoom into the busiest
     // region, so trips are shown big first, then explored up close.
     let tourPhase = 0; // 0 = overview, 1 = focus
@@ -194,68 +195,89 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       ctx!.fillStyle = dark ? '#2d3742' : '#d8c9ad';
       ctx!.fill();
 
-      // --- Trip routes (solid ground segments + lighter bowed flight arcs) ---
+      // A jump longer than this within a route line is treated as an (unmarked)
+      // flight, so photos NL→Rome draw a flight bow, not a straight blue line.
+      const FLIGHT_DEG = 6; // ~660 km
+      const flightCenter = projection.invert!([w / 2, h / 2]);
+
+      // --- Trip routes: keep the real vertices (corners), just split off any
+      // flight-sized jumps so they render as bows, not straight lines. ---
+      // Collect every flight leg (explicit + implicit) as endpoint pairs, then
+      // draw them deduped so overlapping/close flights become one line.
+      const flightPairs: { a: [number, number]; b: [number, number]; up: boolean }[] = [];
       for (const trip of trips) {
+        const [r, g, b] = trip.color;
+        for (const seg of trip.flights ?? []) {
+          flightPairs.push({ a: seg[0]!, b: seg[seg.length - 1]!, up: trip.upcoming });
+        }
         if (!trip.path) continue;
-        const [r, g, b] = tripColor(trip.id);
-        const segs = smoothedPath(trip);
 
         ctx!.lineJoin = 'round';
         ctx!.lineCap = 'round';
-        for (const seg of segs) {
-          ctx!.beginPath();
-          path({ type: 'LineString', coordinates: seg } as GeoPermissibleObjects);
-          if (trip.upcoming) {
-            // Clearly spaced dashes so a planned route never reads as a solid line.
-            ctx!.setLineDash([2 * dpr, 7 * dpr]);
-            ctx!.strokeStyle = `rgba(${r},${g},${b},0.6)`;
-            ctx!.lineWidth = 1.8 * dpr;
-          } else {
-            ctx!.setLineDash([]);
-            ctx!.strokeStyle = `rgba(${r},${g},${b},0.95)`;
-            ctx!.lineWidth = 2.4 * dpr;
+        for (const seg of trip.path) {
+          // Split the segment wherever a jump is flight-sized.
+          let run: [number, number][] = seg.length ? [seg[0]!] : [];
+          const flushRun = () => {
+            if (run.length < 2) return;
+            ctx!.beginPath();
+            path({ type: 'LineString', coordinates: run } as GeoPermissibleObjects);
+            if (trip.upcoming) {
+              ctx!.setLineDash([2 * dpr, 7 * dpr]);
+              ctx!.strokeStyle = `rgba(${r},${g},${b},0.6)`;
+              ctx!.lineWidth = 1.8 * dpr;
+            } else {
+              ctx!.setLineDash([]);
+              ctx!.strokeStyle = `rgba(${r},${g},${b},0.95)`;
+              ctx!.lineWidth = 2.4 * dpr;
+            }
+            ctx!.stroke();
+          };
+          for (let i = 1; i < seg.length; i++) {
+            if (distance(seg[i - 1]!, seg[i]!) > FLIGHT_DEG) {
+              flushRun();
+              flightPairs.push({ a: seg[i - 1]!, b: seg[i]!, up: trip.upcoming });
+              run = [seg[i]!];
+            } else {
+              run.push(seg[i]!);
+            }
           }
-          ctx!.stroke();
+          flushRun();
         }
-
       }
       ctx!.setLineDash([]);
 
-      // --- Flight legs: thin grey dashed BOWS. An exaggerated screen-space arc
-      // (not a straight line) so it always reads as a flight; thin so a trip
-      // with many flights stays legible rather than a mesh of fat lines. ---
-      const flightCenter = projection.invert!([w / 2, h / 2]);
+      // --- Flight legs: thin grey dashed BOWS. Deduped by coarse endpoints so a
+      // there-and-back on the same route, or two nearby airports (JFK/EWR), draw
+      // as a single line rather than two overlapping ones. ---
+      const seen = new Set<string>();
+      const key = (p: [number, number]) => `${Math.round(p[0] / 1.2)},${Math.round(p[1] / 1.2)}`;
       ctx!.strokeStyle = dark ? 'rgba(165,175,187,0.9)' : 'rgba(105,115,128,0.85)';
       ctx!.lineWidth = 1.2 * dpr;
       ctx!.setLineDash([2 * dpr, 5 * dpr]);
-      for (const trip of trips) {
-        if (!trip.flights) continue;
-        for (const seg of trip.flights) {
-          const start = seg[0]!;
-          const end = seg[seg.length - 1]!;
-          // Both endpoints must be on the near hemisphere.
-          if (flightCenter && (distance(flightCenter, start) > 90 || distance(flightCenter, end) > 90))
-            continue;
-          const a = projection(start);
-          const b = projection(end);
-          if (!a || !b) continue;
-          const dx = b[0] - a[0];
-          const dy = b[1] - a[1];
-          const len = Math.hypot(dx, dy);
-          if (len < 2) continue;
-          const off = Math.min(len * 0.22, 70 * dpr);
-          // Perpendicular, always bowing toward the top of the screen.
-          let px = dy / len;
-          let py = -dx / len;
-          if (py > 0) {
-            px = -px;
-            py = -py;
-          }
-          ctx!.beginPath();
-          ctx!.moveTo(a[0], a[1]);
-          ctx!.quadraticCurveTo((a[0] + b[0]) / 2 + px * off, (a[1] + b[1]) / 2 + py * off, b[0], b[1]);
-          ctx!.stroke();
+      for (const { a: start, b: end } of flightPairs) {
+        const k = [key(start), key(end)].sort().join('|');
+        if (seen.has(k)) continue;
+        seen.add(k);
+        if (flightCenter && (distance(flightCenter, start) > 90 || distance(flightCenter, end) > 90))
+          continue;
+        const a = projection(start);
+        const b = projection(end);
+        if (!a || !b) continue;
+        const dx = b[0] - a[0];
+        const dy = b[1] - a[1];
+        const len = Math.hypot(dx, dy);
+        if (len < 2) continue;
+        const off = Math.min(len * 0.22, 70 * dpr);
+        let px = dy / len;
+        let py = -dx / len;
+        if (py > 0) {
+          px = -px;
+          py = -py;
         }
+        ctx!.beginPath();
+        ctx!.moveTo(a[0], a[1]);
+        ctx!.quadraticCurveTo((a[0] + b[0]) / 2 + px * off, (a[1] + b[1]) / 2 + py * off, b[0], b[1]);
+        ctx!.stroke();
       }
       ctx!.setLineDash([]);
 
@@ -265,7 +287,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       for (const trip of frontFacing) {
         const projected = projection(trip.anchor);
         if (!projected) continue;
-        const [r, g, b] = tripColor(trip.id);
+        const [r, g, b] = trip.color;
         ctx!.beginPath();
         ctx!.arc(projected[0], projected[1], 9 * dpr, 0, 2 * Math.PI);
         ctx!.strokeStyle = `rgba(${r},${g},${b},0.4)`;
@@ -463,55 +485,26 @@ function tripSpread(trip: GlobeTrip): number {
   return max;
 }
 
-/** Catmull-Rom smoothing: subdivides a polyline into a flowing curve. */
-function smooth(pts: [number, number][], sub = 6): [number, number][] {
-  if (pts.length < 3) return pts;
-  const out: [number, number][] = [];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] ?? pts[i]!;
-    const p1 = pts[i]!;
-    const p2 = pts[i + 1]!;
-    const p3 = pts[i + 2] ?? p2;
-    for (let t = 0; t < sub; t++) {
-      const s = t / sub;
-      const s2 = s * s;
-      const s3 = s2 * s;
-      const x =
-        0.5 *
-        (2 * p1[0] +
-          (-p0[0] + p2[0]) * s +
-          (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * s2 +
-          (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * s3);
-      const y =
-        0.5 *
-        (2 * p1[1] +
-          (-p0[1] + p2[1]) * s +
-          (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * s2 +
-          (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * s3);
-      out.push([x, y]);
-    }
-  }
-  out.push(pts[pts.length - 1]!);
-  return out;
+/** Golden-angle hue spread → a distinct, legible colour for trip index i. */
+function autoColor(i: number): [number, number, number] {
+  const hue = (i * 137.508) % 360;
+  return hslToRgb(hue, 62, 55);
 }
 
-// Distinct, legible marker/route colours; assigned deterministically per trip.
-const TRIP_PALETTE: [number, number, number][] = [
-  [232, 97, 60], // coral
-  [42, 143, 133], // teal
-  [90, 110, 225], // indigo
-  [214, 141, 51], // amber
-  [176, 84, 168], // magenta
-  [76, 160, 92], // green
-  [223, 92, 120], // rose
-  [64, 158, 197], // sky
-  [150, 122, 74], // olive
-];
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  s /= 100;
+  l /= 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+}
 
-function tripColor(id: string): [number, number, number] {
-  let hash = 0;
-  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return TRIP_PALETTE[hash % TRIP_PALETTE.length]!;
+function hexToRgb(hex: string): [number, number, number] {
+  const m = hex.replace('#', '');
+  const v = m.length === 3 ? m.split('').map((c) => c + c).join('') : m;
+  const n = parseInt(v, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
 function distance(a: [number, number], b: [number, number]): number {

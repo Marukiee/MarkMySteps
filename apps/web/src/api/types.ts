@@ -36,6 +36,8 @@ export interface Trip {
   coverMediaId: string | null;
   resolvedCoverId: string | null;
   anchor: [number, number] | null;
+  /** Custom trip colour (hex) for the globe/map; null = auto-assigned. */
+  color?: string | null;
   distanceKm?: number;
   routePath?: [number, number][][];
   flightPath?: [number, number][][];
