@@ -64,15 +64,18 @@ export function TripsPage() {
         <>
           <h2 className="trips-section-title">Aankomend &amp; onderweg</h2>
           <div className="trips-grid">
-            {upcoming.map((trip, i) => (
-              <TripCard
-                key={trip.id}
-                trip={trip}
-                index={i}
-                onChanged={load}
-                compact={isTripCompact(trip.id, false)}
-              />
-            ))}
+            {upcoming.map((trip, i) => {
+              const c = isTripCompact(trip.id, false);
+              return (
+                <TripCard
+                  key={`${trip.id}-${c ? 'c' : 'l'}`}
+                  trip={trip}
+                  index={i}
+                  onChanged={load}
+                  compact={c}
+                />
+              );
+            })}
             <button className="trip-ghost" onClick={() => setShowNew(true)} aria-label="Nieuwe reis">
               <span>+ Nieuwe reis</span>
             </button>
@@ -84,15 +87,18 @@ export function TripsPage() {
         <>
           <h2 className="trips-section-title">Afgelopen reizen</h2>
           <div className="trips-grid">
-            {past.map((trip, i) => (
-              <TripCard
-                key={trip.id}
-                trip={trip}
-                index={i}
-                onChanged={load}
-                compact={isTripCompact(trip.id, true)}
-              />
-            ))}
+            {past.map((trip, i) => {
+              const c = isTripCompact(trip.id, true);
+              return (
+                <TripCard
+                  key={`${trip.id}-${c ? 'c' : 'l'}`}
+                  trip={trip}
+                  index={i}
+                  onChanged={load}
+                  compact={c}
+                />
+              );
+            })}
             {upcoming.length === 0 && (
               <button
                 className="trip-ghost"

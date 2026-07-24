@@ -3,9 +3,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { fetchBlobUrl } from '../api/client';
 import type { MediaItem, RouteCollection } from '../api/types';
-import { buildLegs, splitAtFlights, StopPoint } from '../lib/arc';
+import { buildLegs, flightArc, haversineKm, StopPoint } from '../lib/arc';
 import { colorForUser, flagEmoji } from '../lib/colors';
 import './tripmap.css';
+
+/** A single-hop jump longer than this in a route line is treated as a flight. */
+const FLIGHT_KM = 400;
 
 export interface Waypoint {
   id: string;
@@ -161,51 +164,71 @@ export function TripMap({
       const bounds = new LngLatBounds();
       let hasPoints = false;
 
+      const near = (a: [number, number], b: [number, number]) => haversineKm(a, b) <= 250;
+      const isExplicitFlight = (a: [number, number], b: [number, number]) =>
+        flightEndpoints.some(
+          (f) => (near(a, f.from) && near(b, f.to)) || (near(a, f.to) && near(b, f.from)),
+        );
+
       for (const feature of routes.features) {
         const { userId } = feature.properties;
         if (!visibleUsers.has(userId)) continue;
         const id = `route-${userId}`;
-        // Cut the line only where an actual flight happens; the flight arc
-        // bridges that gap instead of a straight coloured line.
-        const segments = splitAtFlights(
-          feature.geometry.coordinates as [number, number][],
-          flightEndpoints,
-        );
-        const routeGeo: GeoJSON.Feature<GeoJSON.MultiLineString> = {
-          type: 'Feature',
-          geometry: { type: 'MultiLineString', coordinates: segments },
-          properties: {},
-        };
-        map.addSource(id, { type: 'geojson', data: routeGeo });
-        // Soft halo under the line for the hand-drawn journal look.
-        map.addLayer({
-          id: `${id}-halo`,
-          type: 'line',
-          source: id,
-          paint: {
-            'line-color': '#ffffff',
-            'line-width': 7,
-            'line-opacity': 0.7,
-          },
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
+        const coords = feature.geometry.coordinates as [number, number][];
+
+        // Split into ground runs; a break is an explicit flight or a big jump.
+        // Big unmarked jumps (e.g. photos NL→Rome) become dashed flight arcs so
+        // they never read as a straight coloured line.
+        const ground: [number, number][][] = [];
+        const implicitFlights: [number, number][][] = [];
+        let run: [number, number][] = coords.length ? [coords[0]!] : [];
+        for (let i = 1; i < coords.length; i++) {
+          const a = coords[i - 1]!;
+          const b = coords[i]!;
+          const longJump = haversineKm(a, b) > FLIGHT_KM;
+          const explicit = isExplicitFlight(a, b);
+          if (longJump || explicit) {
+            if (run.length >= 2) ground.push(run);
+            if (longJump && !explicit) implicitFlights.push(flightArc(a, b));
+            run = [b];
+          } else {
+            run.push(b);
+          }
+        }
+        if (run.length >= 2) ground.push(run);
+
+        map.addSource(id, {
+          type: 'geojson',
+          data: { type: 'Feature', geometry: { type: 'MultiLineString', coordinates: ground }, properties: {} },
         });
         map.addLayer({
           id: `${id}-line`,
           type: 'line',
           source: id,
-          paint: {
-            'line-color': colorForUser(userId),
-            'line-width': 3.5,
-          },
+          paint: { 'line-color': colorForUser(userId), 'line-width': 2.5 },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         });
 
-        // Note: the line is split at big jumps so it isn't drawn straight
-        // across the ocean, but only stops explicitly marked as flights get a
-        // flight arc (drawn from the planned legs below) — a gap alone isn't a
-        // flight.
+        if (implicitFlights.length > 0) {
+          const fid = `route-${userId}-flights`;
+          map.addSource(fid, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              geometry: { type: 'MultiLineString', coordinates: implicitFlights },
+              properties: {},
+            },
+          });
+          map.addLayer({
+            id: `${fid}-line`,
+            type: 'line',
+            source: fid,
+            paint: { 'line-color': '#8a94a3', 'line-width': 2, 'line-dasharray': [1.4, 2.6] },
+            layout: { 'line-cap': 'round' },
+          });
+        }
 
-        for (const coordinate of feature.geometry.coordinates) {
+        for (const coordinate of coords) {
           bounds.extend(coordinate);
           hasPoints = true;
         }
@@ -347,8 +370,23 @@ export function TripMap({
 
       // Legs. Flight arcs always show (they bridge gaps the tracked line leaves
       // open). Ground legs are hidden once real tracked GPS tells the story.
+      // Flights are deduped by coarse endpoints so a there-and-back on the same
+      // route (or two nearby airports) draws one dashed line, not two overlapping
+      // ones that fill each other's gaps and read as solid.
+      const seenFlights = new Set<string>();
+      const roundPt = (c: number) => Math.round(c / 0.8);
       for (const leg of buildLegs(stops ?? [])) {
         if (!leg.isFlight && hasTrackedRef.current) continue;
+        if (leg.isFlight) {
+          const c = (leg.feature.geometry as GeoJSON.LineString).coordinates as [number, number][];
+          const a = c[0]!;
+          const b = c[c.length - 1]!;
+          const key = [`${roundPt(a[0])},${roundPt(a[1])}`, `${roundPt(b[0])},${roundPt(b[1])}`]
+            .sort()
+            .join('|');
+          if (seenFlights.has(key)) continue;
+          seenFlights.add(key);
+        }
         const id = `leg-${leg.id}`;
         map.addSource(id, { type: 'geojson', data: leg.feature });
         map.addLayer({
@@ -357,8 +395,8 @@ export function TripMap({
           source: id,
           paint: {
             'line-color': leg.isFlight ? '#8a94a3' : '#a9846a',
-            'line-width': leg.isFlight ? 2.2 : 2,
-            'line-dasharray': leg.isFlight ? [1.5, 1.8] : [2, 2],
+            'line-width': leg.isFlight ? 2 : 2,
+            'line-dasharray': leg.isFlight ? [1.4, 2.6] : [2, 2],
           },
           layout: { 'line-cap': 'round' },
         });

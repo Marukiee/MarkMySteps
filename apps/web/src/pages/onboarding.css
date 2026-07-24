@@ -1,23 +1,175 @@
 .onb-shell {
+  position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
-  place-content: center;
-  padding: 2rem 1.5rem calc(2rem + env(safe-area-inset-bottom));
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  padding: calc(2rem + env(safe-area-inset-top)) 1.5rem calc(1.5rem + env(safe-area-inset-bottom));
   text-align: center;
+  overflow: hidden;
   background:
-    radial-gradient(ellipse 60% 40% at 70% 10%, rgb(232 97 60 / 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 70% 10%, rgb(232 97 60 / 0.1), transparent),
     var(--paper);
 }
 
-.onb-step {
+.onb-skip {
+  position: absolute;
+  top: calc(1rem + env(safe-area-inset-top));
+  right: 1.1rem;
+  z-index: 2;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.onb-skip:hover {
+  background: var(--paper-sunken);
+}
+
+/* Each slide fades/slides in from the swipe direction. */
+.onb-stage {
+  display: grid;
+  place-items: center;
+  animation: slideIn 0.32s var(--ease);
+}
+
+.onb-stage[data-dir='-1'] {
+  animation: slideInBack 0.32s var(--ease);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+}
+
+@keyframes slideInBack {
+  from {
+    opacity: 0;
+    transform: translateX(-26px);
+  }
+}
+
+.onb-feature {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  max-width: 350px;
+}
+
+.onb-feature h1 {
+  font-size: 1.7rem;
+}
+
+/* Icon medallion with a soft float. */
+.onb-visual {
+  display: grid;
+  place-content: center;
+  width: 108px;
+  height: 108px;
+  margin-bottom: 0.3rem;
+  border-radius: 30px;
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-m);
+  animation: onbFloat 3.5s ease-in-out infinite;
+}
+
+@keyframes onbFloat {
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+.onb-theme-choice {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  margin-top: 0.3rem;
+}
+
+.onb-theme-opt {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-faint);
+  transition: all 0.15s var(--ease);
+}
+
+.onb-theme-opt.active {
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-s);
+}
+
+/* Ask ⇄ granted crossfade (both mounted, one fades to the other). */
+.onb-perm {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  margin-top: 0.3rem;
+}
+
+.onb-ask,
+.onb-perm .onb-ok {
+  grid-area: 1 / 1;
+  transition: opacity 0.28s var(--ease), transform 0.28s var(--ease);
+}
+
+.onb-perm .onb-ok {
+  opacity: 0;
+  transform: scale(0.9);
+  pointer-events: none;
+}
+
+.onb-perm.granted .onb-ask {
+  opacity: 0;
+  transform: scale(0.9);
+  pointer-events: none;
+}
+
+.onb-perm.granted .onb-ok {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.onb-footer {
   display: grid;
   gap: 1.1rem;
   justify-items: center;
-  max-width: 340px;
+  padding-top: 1.5rem;
 }
 
-.onb-step h1 {
-  font-size: 1.7rem;
+.onb-dots {
+  display: flex;
+  gap: 7px;
+}
+
+.onb-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: all 0.2s var(--ease);
+}
+
+.onb-dot.active {
+  width: 22px;
+  border-radius: 4px;
+  background: var(--accent);
+}
+
+.onb-next {
+  min-width: 200px;
 }
 
 .onb-ok {

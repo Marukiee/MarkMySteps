@@ -55,39 +55,27 @@
     grid-template-columns: 1fr;
   }
 
+  /* Wrap the section chips onto multiple rows so nothing is hidden behind a
+     swipe — no horizontal scroll, no stray scrollbars. */
   .settings-nav {
     position: static;
-    grid-auto-flow: column;
-    grid-auto-columns: max-content;
-    overflow-x: auto;
-    gap: 0.35rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
     padding-bottom: 0.5rem;
-    scrollbar-width: none;
-  }
-
-  .settings-nav::-webkit-scrollbar {
-    display: none;
   }
 
   .settings-nav button {
     white-space: nowrap;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    background: var(--paper-sunken);
+    font-size: 0.88rem;
   }
 
-  /* Right-edge fade hints that the section bar scrolls sideways. */
-  .settings-nav-scroll {
-    display: block;
-    position: relative;
-  }
-
-  .settings-nav-scroll::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0.5rem;
-    width: 40px;
-    background: linear-gradient(to right, transparent, var(--paper));
-    pointer-events: none;
+  .settings-nav button.active {
+    background: var(--ink);
+    color: var(--paper);
   }
 }
 
