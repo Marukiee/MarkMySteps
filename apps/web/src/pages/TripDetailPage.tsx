@@ -279,7 +279,7 @@ export function TripDetailPage() {
   }
 
   return (
-    <main className="trip-detail fade-in" ref={scrollRef}>
+    <main className="trip-detail fade-in">
       <div className="trip-map-panel card">
         <Link to="/" className="trip-fab trip-fab-back" aria-label="Alle reizen">
           <Icon name="arrow-left" size={20} />
@@ -381,7 +381,7 @@ export function TripDetailPage() {
         )}
       </div>
 
-      <aside className="trip-side">
+      <aside className="trip-side" ref={scrollRef}>
         <div className="sheet-grab" aria-hidden="true" />
         {trip?.resolvedCoverId ? (
           <div className="trip-hero">
@@ -393,7 +393,7 @@ export function TripDetailPage() {
             <div className="trip-hero-overlay">
               <h1>{trip.title}</h1>
               <p>
-                {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
+                {formatDate(trip.startDate)} – {formatDate(trip.endDate)}
               </p>
             </div>
           </div>
@@ -402,7 +402,7 @@ export function TripDetailPage() {
             <h1>{trip?.title ?? '…'}</h1>
             {trip && (
               <p className="muted">
-                {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
+                {formatDate(trip.startDate)} – {formatDate(trip.endDate)}
               </p>
             )}
           </>

@@ -11,72 +11,53 @@
   display: none;
 }
 
-/* --- Mobile / app: collapsing map that pins to the top --- */
+/* --- Mobile / app: fixed map on top, sheet scrolls inside below it --- */
 @media (max-width: 900px) {
-  /* The page itself is the scroll container; the map is a sticky child that
-     shrinks (JS drives --map-h) down to a minimum and then holds, while the
-     sheet scrolls up and tucks underneath it. */
+  /* Column layout that fills the screen; nothing scrolls at the page level —
+     only the sheet does, so the map stays partly visible with the sheet's
+     rounded top resting over it. */
   .trip-detail {
-    display: block;
+    display: flex;
+    flex-direction: column;
     position: fixed;
     inset: 0;
     height: auto;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
     padding: 0;
   }
 
-  /* Sticky map that shrinks as you scroll. Driven by a scroll-timeline so the
-     browser runs it off the main thread (smooth, no JS jank). The GL canvas
-     keeps a constant height and is just clipped by the panel. */
   .trip-detail .trip-map-panel {
-    position: sticky;
-    top: 0;
-    height: 56vh;
+    position: relative;
+    height: 46vh;
+    flex-shrink: 0;
     min-height: 0;
     overflow: hidden;
-    /* Square bottom — the sheet's rounded top sits OVER the map. */
     border-radius: 0;
     z-index: 1;
   }
 
-  /* Scroll-driven shrink where supported (Chromium/Android WebView). Falls back
-     to a fixed-height map otherwise — no jank either way. */
-  @supports (animation-timeline: scroll()) {
-    .trip-detail .trip-map-panel {
-      animation: mapShrink linear both;
-      animation-timeline: scroll(nearest);
-      animation-range: 0 24vh;
-    }
-  }
-
-  @keyframes mapShrink {
-    to {
-      height: 38vh;
-    }
-  }
-
   .trip-detail .trip-map {
     position: absolute;
-    top: 0;
-    left: 0;
+    inset: 0;
     width: 100%;
-    height: 56vh;
-    bottom: auto;
+    height: 100%;
   }
 
-  /* Higher specificity than the base .trip-side so its symmetric padding wins
-     over the desktop `padding-right` (which otherwise shifts it off-centre). */
+  /* The sheet takes the rest of the screen and scrolls internally; its rounded
+     top overlaps the map a touch so it reads as sitting over it. */
   .trip-detail .trip-side {
     position: relative;
-    z-index: 2; /* sheet rides OVER the map */
-    margin-top: -18px; /* overlap the map's bottom edge */
-    min-height: 62vh;
+    flex: 1;
+    min-height: 0;
+    z-index: 2;
+    margin-top: -20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     background: var(--paper);
     border-radius: var(--radius-l) var(--radius-l) 0 0;
     box-shadow: 0 -10px 30px rgb(16 21 27 / 0.22);
     padding: 0.4rem 1.15rem calc(92px + env(safe-area-inset-bottom));
-    overflow: visible;
   }
 
   .sheet-grab {
