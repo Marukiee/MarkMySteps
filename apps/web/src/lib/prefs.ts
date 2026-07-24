@@ -89,3 +89,48 @@ export function getTripCardSize(): TripCardSize {
 export function setTripCardSize(v: TripCardSize): void {
   localStorage.setItem(CARD_SIZE_KEY, v);
 }
+
+/* Per-trip manual override (chosen from a card's ⋯ menu). Wins over the global
+   default above; null means "follow the global setting". */
+export type TripCardOverride = 'large' | 'compact';
+const CARD_OVERRIDES_KEY = 'mms.cardsize.overrides';
+
+function readOverrides(): Record<string, TripCardOverride> {
+  try {
+    return JSON.parse(localStorage.getItem(CARD_OVERRIDES_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+export function getTripCardOverride(tripId: string): TripCardOverride | null {
+  return readOverrides()[tripId] ?? null;
+}
+
+export function setTripCardOverride(tripId: string, v: TripCardOverride | null): void {
+  const all = readOverrides();
+  if (v === null) delete all[tripId];
+  else all[tripId] = v;
+  localStorage.setItem(CARD_OVERRIDES_KEY, JSON.stringify(all));
+}
+
+export function hasTripCardOverrides(): boolean {
+  return Object.keys(readOverrides()).length > 0;
+}
+
+export function clearTripCardOverrides(): void {
+  localStorage.removeItem(CARD_OVERRIDES_KEY);
+}
+
+/**
+ * Effective compactness for one trip: a manual override wins, otherwise the
+ * global setting ('auto' → past trips compact, upcoming large).
+ */
+export function isTripCompact(tripId: string, isPast: boolean): boolean {
+  const override = getTripCardOverride(tripId);
+  if (override) return override === 'compact';
+  const size = getTripCardSize();
+  if (size === 'compact') return true;
+  if (size === 'large') return false;
+  return isPast; // auto
+}

@@ -4,6 +4,7 @@ import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
+import { confirmModal } from '../components/confirm';
 import { Icon } from '../components/Icon';
 import { formatDate } from '../lib/colors';
 import {
@@ -11,9 +12,11 @@ import {
   MapStyleId,
   ThemeId,
   TripCardSize,
+  clearTripCardOverrides,
   getMapStyleId,
   getThemeId,
   getTripCardSize,
+  hasTripCardOverrides,
   setMapStyleId,
   setThemeId,
   setTripCardSize,
@@ -79,6 +82,7 @@ function DisplaySection() {
   const [style, setStyle] = useState<MapStyleId>(getMapStyleId());
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
   const [cardSize, setCardSize] = useState<TripCardSize>(getTripCardSize());
+  const [hasOverrides, setHasOverrides] = useState(hasTripCardOverrides());
 
   const themes: { id: ThemeId; label: string }[] = [
     { id: 'system', label: 'Systeem' },
@@ -124,6 +128,7 @@ function DisplaySection() {
               onClick={() => {
                 setCardSize(c.id);
                 setTripCardSize(c.id);
+                setHasOverrides(hasTripCardOverrides());
               }}
             >
               {c.label}
@@ -131,8 +136,21 @@ function DisplaySection() {
           ))}
         </div>
         <span className="muted">
-          “Automatisch”: aankomende reizen groot met foto, afgelopen reizen compact.
+          Standaardgrootte voor alle reizen. “Automatisch”: aankomende reizen groot, afgelopen
+          reizen compact. Per reis kun je dit overschrijven via het ⋯-menu op de kaart.
         </span>
+        {hasOverrides && (
+          <button
+            type="button"
+            className="btn btn-ghost settings-reset-sizes"
+            onClick={() => {
+              clearTripCardOverrides();
+              setHasOverrides(false);
+            }}
+          >
+            Handmatige keuzes wissen
+          </button>
+        )}
       </div>
       <div className="field">
         <label htmlFor="ds-map">Kaartstijl</label>
@@ -691,12 +709,13 @@ function AccountsSection() {
   }
 
   async function removeAccount(row: AdminUserRow) {
-    if (
-      !window.confirm(
-        `Account @${row.username} verwijderen? Ook hun eigen reizen en routes verdwijnen.`,
-      )
-    )
-      return;
+    const ok = await confirmModal({
+      title: 'Account verwijderen?',
+      body: `Account @${row.username} wordt verwijderd, samen met hun eigen reizen en routes.`,
+      confirmLabel: 'Verwijderen',
+      danger: true,
+    });
+    if (!ok) return;
     await api(`/admin/users/${row.id}`, { method: 'DELETE' });
     load();
   }

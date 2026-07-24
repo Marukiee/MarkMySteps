@@ -4,6 +4,8 @@ import { api } from '../api/client';
 import type { SyncResult, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
+import { confirmModal } from '../components/confirm';
+import { DateField } from '../components/DatePicker';
 import { Icon } from '../components/Icon';
 import { MembersPanel } from '../components/MembersPanel';
 import { TrackButton } from '../components/TrackButton';
@@ -70,7 +72,14 @@ export function TripSettingsPage() {
   }
 
   async function remove() {
-    if (!tripId || !window.confirm(`"${trip?.title}" definitief verwijderen?`)) return;
+    if (!tripId) return;
+    const ok = await confirmModal({
+      title: 'Reis verwijderen?',
+      body: `"${trip?.title}" wordt definitief verwijderd, samen met de routes en foto-koppelingen.`,
+      confirmLabel: 'Verwijderen',
+      danger: true,
+    });
+    if (!ok) return;
     await api(`/trips/${tripId}`, { method: 'DELETE' });
     navigate('/');
   }
@@ -78,7 +87,13 @@ export function TripSettingsPage() {
   async function wipeTracked(day?: string) {
     if (!tripId) return;
     const scope = day ? `de tracking van ${day}` : 'ALLE getrackte data van deze reis';
-    if (!window.confirm(`Weet je zeker dat je ${scope} wilt verwijderen?`)) return;
+    const ok = await confirmModal({
+      title: 'Tracking wissen?',
+      body: `Weet je zeker dat je ${scope} wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`,
+      confirmLabel: 'Wissen',
+      danger: true,
+    });
+    if (!ok) return;
     setWiping(true);
     setClearMsg(null);
     try {
@@ -136,26 +151,8 @@ export function TripSettingsPage() {
             <input id="ts-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="ts-dates">
-            <div className="field">
-              <label htmlFor="ts-start">Startdatum</label>
-              <input
-                id="ts-start"
-                type="date"
-                required
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="ts-end">Einddatum</label>
-              <input
-                id="ts-end"
-                type="date"
-                required
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
+            <DateField id="ts-start" label="Startdatum" value={startDate} onChange={setStartDate} />
+            <DateField id="ts-end" label="Einddatum" value={endDate} onChange={setEndDate} />
           </div>
 
           {error && <p className="error-text">{error}</p>}
@@ -202,7 +199,12 @@ export function TripSettingsPage() {
               Verwijdert jouw GPS-route (de reis en foto's blijven). Kies een dag, of wis alles.
             </span>
             <div className="ts-wipe-day">
-              <input type="date" value={clearDay} onChange={(e) => setClearDay(e.target.value)} />
+              <DateField
+                value={clearDay}
+                onChange={setClearDay}
+                allowClear
+                placeholder="Kies een dag"
+              />
               <button
                 className="btn btn-ghost"
                 disabled={!clearDay || wiping}

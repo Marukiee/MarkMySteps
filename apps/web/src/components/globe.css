@@ -13,7 +13,9 @@
   width: 100vw;
   margin-left: calc(50% - 50vw);
   margin-top: -1rem;
-  margin-bottom: 0.5rem;
+  /* Pull the trips up into the faded tail so the globe blends into them
+     (page content paints above the fade, so it isn't hidden). */
+  margin-bottom: -2rem;
   overflow: hidden;
 }
 
@@ -32,13 +34,13 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 46%;
+  height: 55%;
   pointer-events: none;
   z-index: 1;
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 82%);
-  mask-image: linear-gradient(to bottom, transparent, #000 82%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 78%);
+  mask-image: linear-gradient(to bottom, transparent, #000 78%);
 }
 
 /* Soft fade at the bottom so the globe melts into the page instead of a hard
@@ -49,8 +51,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 42%;
-  background: linear-gradient(to bottom, transparent, var(--paper) 88%);
+  height: 52%;
+  background: linear-gradient(to bottom, transparent, var(--paper) 82%);
   pointer-events: none;
   z-index: 2;
 }

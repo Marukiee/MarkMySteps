@@ -392,3 +392,9 @@
   flex: 1;
   min-width: 0;
 }
+
+.settings-reset-sizes {
+  margin-top: 0.6rem;
+  align-self: flex-start;
+  font-size: 0.85rem;
+}

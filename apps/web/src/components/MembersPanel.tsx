@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from './Avatar';
+import { confirmModal } from './confirm';
 import { Icon } from './Icon';
 import './members.css';
 
@@ -31,7 +32,13 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
   const canRemove = (memberId: string) => isOwner && memberId !== user?.id;
 
   async function removeMember(memberId: string, name: string) {
-    if (!window.confirm(`${name} uit de reis verwijderen?`)) return;
+    const ok = await confirmModal({
+      title: 'Reisgenoot verwijderen?',
+      body: `${name} wordt uit de reis verwijderd.`,
+      confirmLabel: 'Verwijderen',
+      danger: true,
+    });
+    if (!ok) return;
     await api(`/trips/${trip.id}/members/${memberId}`, { method: 'DELETE' });
     onChanged();
   }

@@ -139,24 +139,15 @@
   color: var(--accent-ink);
 }
 
-/* Compact list layout (small photo + name). */
-.trips-grid-compact {
-  grid-template-columns: 1fr;
-  gap: 0.7rem;
-}
-
-@media (min-width: 720px) {
-  .trips-grid-compact {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
+/* Compact row: photo on the left, name + meta beside it. Spans a full row so
+   it can coexist with large photo tiles in the same grid. */
 .trip-card-compact {
+  grid-column: 1 / -1;
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  padding: 0.7rem 2.6rem 0.7rem 0.9rem;
+  gap: 0.95rem;
+  padding: 0.65rem 3rem 0.65rem 0.65rem;
   background: var(--paper-raised);
   border: 1px solid var(--line);
   border-radius: var(--radius-m);
@@ -175,25 +166,25 @@
   flex: 1;
   min-width: 0;
   display: grid;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 .tcc-body h3 {
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .tcc-meta {
-  font-size: 0.82rem;
+  font-size: 0.83rem;
   color: var(--ink-faint);
   font-weight: 500;
 }
 
 .tcc-photo {
-  width: 64px;
-  height: 64px;
+  width: 68px;
+  height: 68px;
   flex-shrink: 0;
   border-radius: var(--radius-s);
   object-fit: cover;
@@ -202,7 +193,7 @@
 
 .trip-card-compact .trip-card-menu {
   top: 50%;
-  right: 0.5rem;
+  right: 0.6rem;
   transform: translateY(-50%);
 }
 

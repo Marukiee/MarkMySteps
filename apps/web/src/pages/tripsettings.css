@@ -176,3 +176,33 @@
 .native-app .trip-settings {
   padding-bottom: calc(88px + env(safe-area-inset-bottom));
 }
+
+/* Phone: stack the action rows so buttons never get pushed off-screen. */
+@media (max-width: 560px) {
+  .trip-settings {
+    max-width: 100%;
+  }
+
+  .ts-dates {
+    grid-template-columns: 1fr;
+  }
+
+  .ts-track-box,
+  .ts-sync {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ts-track-box .btn,
+  .ts-sync .btn {
+    width: 100%;
+  }
+
+  .ts-wipe-day {
+    flex-direction: column;
+  }
+
+  .ts-wipe-day .btn {
+    width: 100%;
+  }
+}

@@ -116,6 +116,56 @@
   min-height: 320px;
 }
 
+/* Live tracking indicator on the map. */
+.live-badge {
+  position: absolute;
+  top: 0.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.32rem 0.75rem 0.32rem 0.6rem;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-s);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.live-badge-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e2483d;
+  box-shadow: 0 0 0 0 rgb(226 72 61 / 0.5);
+  animation: livePulse 1.6s ease-out infinite;
+}
+
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(226 72 61 / 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgb(226 72 61 / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(226 72 61 / 0);
+  }
+}
+
+@media (max-width: 900px) {
+  .live-badge {
+    top: calc(0.9rem + env(safe-area-inset-top));
+  }
+}
+
 .person-toggles {
   position: absolute;
   top: 0.9rem;
@@ -546,6 +596,14 @@
   flex-direction: column;
   gap: 0.6rem;
   margin-top: 0.5rem;
+  animation: planIn 0.32s var(--ease);
+}
+
+@keyframes planIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .trip-planner .nights-planned {

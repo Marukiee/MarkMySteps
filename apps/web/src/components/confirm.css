@@ -1,0 +1,69 @@
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgb(16 21 27 / 0.5);
+  backdrop-filter: blur(4px);
+  animation: confirmFade 0.2s var(--ease);
+}
+
+.confirm-backdrop.closing {
+  animation: confirmFadeOut 0.18s var(--ease) forwards;
+}
+
+@keyframes confirmFade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes confirmFadeOut {
+  to {
+    opacity: 0;
+  }
+}
+
+.confirm-card {
+  width: min(400px, 100%);
+  padding: 1.4rem 1.35rem 1.15rem;
+  display: grid;
+  gap: 0.5rem;
+  animation: confirmPop 0.22s var(--ease);
+}
+
+.confirm-backdrop.closing .confirm-card {
+  animation: confirmPopOut 0.18s var(--ease) forwards;
+}
+
+@keyframes confirmPop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+
+@keyframes confirmPopOut {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.confirm-card h3 {
+  font-size: 1.2rem;
+}
+
+.confirm-card p {
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}

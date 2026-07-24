@@ -38,6 +38,7 @@ export function TripDetailPage() {
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [peopleClosing, setPeopleClosing] = useState(false);
   const [currentLoc, setCurrentLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [liveTracking, setLiveTracking] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
@@ -103,6 +104,7 @@ export function TripDetailPage() {
       if (s.lastFix && (s.tripId === tripId || !tripId)) {
         setCurrentLoc({ lat: s.lastFix.lat, lng: s.lastFix.lng });
       }
+      setLiveTracking(s.tripId === tripId && !!tripId);
     });
     let watchId: number | null = null;
     if ('geolocation' in navigator) {
@@ -294,6 +296,13 @@ export function TripDetailPage() {
           currentLocation={currentLoc}
           onReady={(api) => (mapApiRef.current = api)}
         />
+
+        {liveTracking && (
+          <div className="live-badge" aria-label="Live tracking actief">
+            <span className="live-badge-dot" />
+            Live
+          </div>
+        )}
 
         {trip && trip.members.length > 1 && (
           <div className="person-toggles">

@@ -5,7 +5,6 @@ import * as topojson from 'topojson-client';
 // Low-res land outline bundled locally (no CDN); ~110m resolution.
 import land110m from 'world-atlas/land-110m.json';
 import type { Trip } from '../api/types';
-import { splitOnGaps } from '../lib/arc';
 import './globe.css';
 
 // Minimal shape of the TopoJSON we consume (avoids a types-only dep).
@@ -17,7 +16,7 @@ interface GlobeTrip {
   id: string;
   title: string;
   anchor: [number, number];
-  path: [number, number][] | null;
+  path: [number, number][][] | null;
   flights: [number, number][][] | null;
   upcoming: boolean;
   /** Relative importance (km, else days) — drives label priority. */
@@ -75,7 +74,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
           id: t.id,
           title: t.title,
           anchor: t.anchor,
-          path: t.routePath && t.routePath.length >= 2 ? t.routePath : null,
+          path: t.routePath && t.routePath.length > 0 ? t.routePath : null,
           flights: t.flightPath && t.flightPath.length > 0 ? t.flightPath : null,
           upcoming: t.endDate.slice(0, 10) >= today,
           size: t.distanceKm && t.distanceKm > 0 ? t.distanceKm : dayCount(t) * 40,
@@ -85,6 +84,19 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
 
     // Per-trip label opacity, eased across frames for a soft pop-in.
     const labelOpacity = new Map<string, number>();
+    // Cache of Catmull-Rom-smoothed route segments (keyed by the source array,
+    // so it's computed once per trip and reused every frame).
+    const pathCache = new Map<string, { src: [number, number][][]; out: [number, number][][] }>();
+    const smoothedPath = (trip: GlobeTrip): [number, number][][] => {
+      if (!trip.path) return [];
+      const cached = pathCache.get(trip.id);
+      if (cached && cached.src === trip.path) return cached.out;
+      // Smooth short/angular routes so a few vertices read as a flowing line;
+      // leave already-dense lines alone (perf).
+      const out = trip.path.map((seg) => (seg.length >= 3 && seg.length <= 80 ? smooth(seg) : seg));
+      pathCache.set(trip.id, { src: trip.path, out });
+      return out;
+    };
     // Auto-tour state: alternate a wide overview with a zoom into the busiest
     // region, so trips are shown big first, then explored up close.
     let tourPhase = 0; // 0 = overview, 1 = focus
@@ -186,7 +198,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       for (const trip of trips) {
         if (!trip.path) continue;
         const [r, g, b] = tripColor(trip.id);
-        const segs = splitOnGaps(trip.path, 500);
+        const segs = smoothedPath(trip);
 
         ctx!.lineJoin = 'round';
         ctx!.lineCap = 'round';
@@ -209,16 +221,39 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
       }
       ctx!.setLineDash([]);
 
-      // --- Flight legs: thin grey dashed arcs on top. Deliberately thin so a
-      // trip with many flights stays legible rather than a mesh of fat lines. ---
-      ctx!.strokeStyle = dark ? 'rgba(160,170,182,0.85)' : 'rgba(110,120,132,0.8)';
+      // --- Flight legs: thin grey dashed BOWS. An exaggerated screen-space arc
+      // (not a straight line) so it always reads as a flight; thin so a trip
+      // with many flights stays legible rather than a mesh of fat lines. ---
+      const flightCenter = projection.invert!([w / 2, h / 2]);
+      ctx!.strokeStyle = dark ? 'rgba(165,175,187,0.9)' : 'rgba(105,115,128,0.85)';
       ctx!.lineWidth = 1.2 * dpr;
-      ctx!.setLineDash([2 * dpr, 4 * dpr]);
+      ctx!.setLineDash([2 * dpr, 5 * dpr]);
       for (const trip of trips) {
         if (!trip.flights) continue;
         for (const seg of trip.flights) {
+          const start = seg[0]!;
+          const end = seg[seg.length - 1]!;
+          // Both endpoints must be on the near hemisphere.
+          if (flightCenter && (distance(flightCenter, start) > 90 || distance(flightCenter, end) > 90))
+            continue;
+          const a = projection(start);
+          const b = projection(end);
+          if (!a || !b) continue;
+          const dx = b[0] - a[0];
+          const dy = b[1] - a[1];
+          const len = Math.hypot(dx, dy);
+          if (len < 2) continue;
+          const off = Math.min(len * 0.22, 70 * dpr);
+          // Perpendicular, always bowing toward the top of the screen.
+          let px = dy / len;
+          let py = -dx / len;
+          if (py > 0) {
+            px = -px;
+            py = -py;
+          }
           ctx!.beginPath();
-          path({ type: 'LineString', coordinates: seg } as GeoPermissibleObjects);
+          ctx!.moveTo(a[0], a[1]);
+          ctx!.quadraticCurveTo((a[0] + b[0]) / 2 + px * off, (a[1] + b[1]) / 2 + py * off, b[0], b[1]);
           ctx!.stroke();
         }
       }
@@ -419,11 +454,45 @@ function roundRect(
 function tripSpread(trip: GlobeTrip): number {
   if (!trip.path) return 0;
   let max = 0;
-  for (const p of trip.path) {
-    const d = distance(trip.anchor, p);
-    if (d > max) max = d;
+  for (const seg of trip.path) {
+    for (const p of seg) {
+      const d = distance(trip.anchor, p);
+      if (d > max) max = d;
+    }
   }
   return max;
+}
+
+/** Catmull-Rom smoothing: subdivides a polyline into a flowing curve. */
+function smooth(pts: [number, number][], sub = 6): [number, number][] {
+  if (pts.length < 3) return pts;
+  const out: [number, number][] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i]!;
+    const p1 = pts[i]!;
+    const p2 = pts[i + 1]!;
+    const p3 = pts[i + 2] ?? p2;
+    for (let t = 0; t < sub; t++) {
+      const s = t / sub;
+      const s2 = s * s;
+      const s3 = s2 * s;
+      const x =
+        0.5 *
+        (2 * p1[0] +
+          (-p0[0] + p2[0]) * s +
+          (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * s2 +
+          (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * s3);
+      const y =
+        0.5 *
+        (2 * p1[1] +
+          (-p0[1] + p2[1]) * s +
+          (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * s2 +
+          (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * s3);
+      out.push([x, y]);
+    }
+  }
+  out.push(pts[pts.length - 1]!);
+  return out;
 }
 
 // Distinct, legible marker/route colours; assigned deterministically per trip.

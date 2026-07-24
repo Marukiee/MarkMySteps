@@ -3,7 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { fetchBlobUrl } from '../api/client';
 import type { MediaItem, RouteCollection } from '../api/types';
-import { buildLegs, splitOnGaps, StopPoint } from '../lib/arc';
+import { buildLegs, splitAtFlights, StopPoint } from '../lib/arc';
 import { colorForUser, flagEmoji } from '../lib/colors';
 import './tripmap.css';
 
@@ -59,6 +59,9 @@ export function TripMap({
   const stopMarkersRef = useRef<maplibregl.Marker[]>([]);
   const waypointMarkersRef = useRef<maplibregl.Marker[]>([]);
   const meMarkerRef = useRef<maplibregl.Marker | null>(null);
+  // Cache thumbnail object-URLs by media id so re-clustering on zoom reuses the
+  // loaded image instead of flashing the empty placeholder white.
+  const thumbCacheRef = useRef<Map<string, string>>(new Map());
   const waypointDeleteRef = useRef(onWaypointDelete);
   waypointDeleteRef.current = onWaypointDelete;
   const loadedRef = useRef(false);
@@ -131,6 +134,16 @@ export function TripMap({
     const map = mapRef.current;
     if (!map || !routes) return;
 
+    // Flight legs (from the planned stops) — used to cut the tracked/photo line
+    // exactly where a flight happens, so a flight is never a straight coloured
+    // line (the arc represents it) and long ground legs stay connected.
+    const flightEndpoints = buildLegs(stops ?? [])
+      .filter((l) => l.isFlight)
+      .map((l) => {
+        const c = (l.feature.geometry as GeoJSON.LineString).coordinates as [number, number][];
+        return { from: c[0]!, to: c[c.length - 1]! };
+      });
+
     const apply = () => {
       // Remove previous route layers/sources.
       for (const layerId of map.getLayersOrder().filter((l) => l.startsWith('route-'))) {
@@ -149,9 +162,12 @@ export function TripMap({
         const { userId } = feature.properties;
         if (!visibleUsers.has(userId)) continue;
         const id = `route-${userId}`;
-        // Break the line at flight-sized jumps so it isn't drawn straight
-        // across the ocean; the flight arc bridges that gap instead.
-        const segments = splitOnGaps(feature.geometry.coordinates as [number, number][]);
+        // Cut the line only where an actual flight happens; the flight arc
+        // bridges that gap instead of a straight coloured line.
+        const segments = splitAtFlights(
+          feature.geometry.coordinates as [number, number][],
+          flightEndpoints,
+        );
         const routeGeo: GeoJSON.Feature<GeoJSON.MultiLineString> = {
           type: 'Feature',
           geometry: { type: 'MultiLineString', coordinates: segments },
@@ -209,7 +225,7 @@ export function TripMap({
     } else {
       map.once('load', apply);
     }
-  }, [routes, media, visibleUsers]);
+  }, [routes, media, visibleUsers, stops]);
 
   // Photo markers — clustered per zoom level so hundreds of photos never
   // become hundreds of DOM nodes (each with its own thumbnail fetch).
@@ -248,11 +264,20 @@ export function TripMap({
           badge.textContent = items.length > 99 ? '99+' : String(items.length);
           el.appendChild(badge);
         }
-        void fetchBlobUrl(`/media/${representative.id}/thumbnail`)
-          .then((url) => {
-            el.style.backgroundImage = `url(${url})`;
-          })
-          .catch(() => el.classList.add('photo-marker-error'));
+        const cached = thumbCacheRef.current.get(representative.id);
+        if (cached) {
+          // Instant — no white placeholder, and skip the fade-in so re-cluster
+          // on zoom doesn't blink.
+          el.style.backgroundImage = `url(${cached})`;
+          el.style.animation = 'none';
+        } else {
+          void fetchBlobUrl(`/media/${representative.id}/thumbnail`)
+            .then((url) => {
+              thumbCacheRef.current.set(representative.id, url);
+              el.style.backgroundImage = `url(${url})`;
+            })
+            .catch(() => el.classList.add('photo-marker-error'));
+        }
 
         // Single photo → open it; a cluster → zoom in to split it.
         el.addEventListener('click', (e) => {

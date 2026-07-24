@@ -23,8 +23,12 @@ export type TripWithMembers = Trip & {
   anchor: [number, number] | null;
   /** Route distance in km (0 when unknown); only populated by listForUser. */
   distanceKm?: number;
-  /** Simplified [lng,lat] polyline for the globe overview (listForUser only). */
-  routePath?: [number, number][];
+  /**
+   * Route for the globe overview as one or more polyline segments (listForUser
+   * only). Ground legs stay connected; the line is broken at flights so a flight
+   * never shows as a straight coloured line — flightPath draws the arc instead.
+   */
+  routePath?: [number, number][][];
   /** Flight legs as separate great-circle arcs, drawn dashed on the globe. */
   flightPath?: [number, number][][];
 };
@@ -213,12 +217,13 @@ export class TripsService {
       list.push(s);
       rawByTrip.set(s.tripId, list);
     }
-    const stopsByTrip = new Map<string, [number, number][]>();
-    // Flight legs kept separately so the globe can draw them as thin dashed arcs
-    // regardless of whether the trip's main line is tracked or planned.
+    // Planned ground route as connected segments, broken at each flight leg.
+    const stopsByTrip = new Map<string, [number, number][][]>();
+    // Flight legs kept separately so the globe draws them as thin dashed arcs.
     const flightsByTrip = new Map<string, [number, number][][]>();
     for (const [tripId, list] of rawByTrip) {
-      const line: [number, number][] = [];
+      const segments: [number, number][][] = [];
+      let seg: [number, number][] = [];
       const flights: [number, number][][] = [];
       let prev: [number, number] | null = null;
       for (const s of list) {
@@ -230,9 +235,8 @@ export class TripsService {
         const to = arr ?? city;
         if (!to) continue;
         if (s.travelMode === 'FLIGHT' && from) {
-          // Build the flight arc as its own segment (through any layovers). The
-          // main line only gets the endpoints, so splitOnGaps breaks it and the
-          // dashed arc bridges the gap — no coloured ground line under a flight.
+          // Flight arc goes to flightPath; the ground line is broken here so no
+          // straight coloured line is drawn under the flight.
           const via = (s.viaAirports ?? [])
             .map((c) => asLngLat(airportCoord(c)))
             .filter((c): c is [number, number] => !!c);
@@ -243,12 +247,17 @@ export class TripsService {
             flightSeg.push(...(flightSeg.length === 0 ? arc : arc.slice(1)));
           }
           if (flightSeg.length >= 2) flights.push(flightSeg);
+          if (seg.length >= 2) segments.push(seg);
+          seg = [];
+          prev = to; // ground resumes from the arrival
+          continue;
         }
-        if (line.length === 0 && from) line.push(from);
-        line.push(to);
+        if (seg.length === 0 && from) seg.push(from);
+        seg.push(to);
         prev = to;
       }
-      if (line.length >= 2) stopsByTrip.set(tripId, line);
+      if (seg.length >= 2) segments.push(seg);
+      if (segments.length > 0) stopsByTrip.set(tripId, segments);
       if (flights.length > 0) flightsByTrip.set(tripId, flights);
     }
 
@@ -271,13 +280,13 @@ export class TripsService {
       const tracked = routeByTrip.get(t.id);
       const planned = stopsByTrip.get(t.id);
       const photoLine = photosByTrip.get(t.id);
-      const routePath =
+      const routePath: [number, number][][] | undefined =
         tracked && tracked.length >= 2
-          ? tracked
-          : planned && planned.length >= 2
+          ? [tracked]
+          : planned && planned.length > 0
             ? planned
             : photoLine && photoLine.length >= 2
-              ? downsample(photoLine, 80)
+              ? [downsample(photoLine, 80)]
               : undefined;
       const anchor = base.anchor ?? photoLine?.[0] ?? null;
       const flightPath = flightsByTrip.get(t.id);

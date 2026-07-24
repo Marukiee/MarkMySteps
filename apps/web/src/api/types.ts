@@ -37,7 +37,7 @@ export interface Trip {
   resolvedCoverId: string | null;
   anchor: [number, number] | null;
   distanceKm?: number;
-  routePath?: [number, number][];
+  routePath?: [number, number][][];
   flightPath?: [number, number][][];
   autoTrack: boolean;
   ownerId: string;

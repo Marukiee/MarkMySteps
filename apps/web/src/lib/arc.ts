@@ -196,3 +196,36 @@ export interface PlannedStop extends StopPoint {
   nights: number;
   notes: string | null;
 }
+
+/**
+ * Splits a polyline only where a segment actually spans a planned flight (its
+ * endpoints line up with a flight leg's from/to), never by raw distance. This
+ * keeps long ground legs (e.g. Madrid→Barcelona) connected while removing the
+ * straight line a flight would otherwise draw — the flight arc bridges it.
+ */
+export function splitAtFlights(
+  coords: [number, number][],
+  flights: { from: [number, number]; to: [number, number] }[],
+): [number, number][][] {
+  if (coords.length < 2) return coords.length ? [coords] : [];
+  if (flights.length === 0) return [coords];
+  const near = (a: [number, number], b: [number, number]) => haversineKm(a, b) <= 250;
+  const spansFlight = (a: [number, number], b: [number, number]) =>
+    flights.some(
+      (f) => (near(a, f.from) && near(b, f.to)) || (near(a, f.to) && near(b, f.from)),
+    );
+  const segs: [number, number][][] = [];
+  let cur: [number, number][] = [coords[0]!];
+  for (let i = 1; i < coords.length; i++) {
+    const a = coords[i - 1]!;
+    const b = coords[i]!;
+    if (spansFlight(a, b)) {
+      if (cur.length >= 2) segs.push(cur);
+      cur = [b];
+    } else {
+      cur.push(b);
+    }
+  }
+  if (cur.length >= 2) segs.push(cur);
+  return segs;
+}

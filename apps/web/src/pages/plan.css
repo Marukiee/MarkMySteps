@@ -292,8 +292,32 @@
 }
 
 .stop-item.dragging {
-  opacity: 0.55;
-  box-shadow: var(--shadow-m);
+  opacity: 0.5;
+  box-shadow: var(--shadow-l);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+/* Insertion indicator: an accent bar on the edge the dragged stop will land. */
+.stop-item.drop-before {
+  box-shadow: inset 0 3px 0 var(--accent), var(--shadow-s);
+}
+
+.stop-item.drop-after {
+  box-shadow: inset 0 -3px 0 var(--accent), var(--shadow-s);
+}
+
+/* New stops / flight legs fade in when added (keyed rows only animate once). */
+.stop-item,
+.flight-leg {
+  animation: stopIn 0.28s var(--ease) backwards;
+}
+
+@keyframes stopIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 
 .stop-number {

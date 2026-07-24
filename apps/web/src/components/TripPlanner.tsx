@@ -51,6 +51,7 @@ export function TripPlanner({
   const [newCountry, setNewCountry] = useState<string | undefined>();
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchTimerRef = useRef<number | null>(null);
 
@@ -181,20 +182,23 @@ export function TripPlanner({
 
   function onDragOver(event: DragEvent, index: number) {
     event.preventDefault();
-    if (dragIndex === null || dragIndex === index) return;
-    const next = [...stops];
-    const [moved] = next.splice(dragIndex, 1);
-    next.splice(index, 0, moved!);
-    onStopsChange(next);
-    setDragIndex(index);
+    if (index !== overIndex) setOverIndex(index);
   }
 
   async function onDrop() {
+    const from = dragIndex;
+    const to = overIndex;
     setDragIndex(null);
+    setOverIndex(null);
+    if (from === null || to === null || from === to) return;
+    const next = [...stops];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved!);
+    onStopsChange(next); // optimistic
     refresh(
       await api<PlannedStop[]>(`/trips/${tripId}/stops/order`, {
         method: 'PUT',
-        body: { stopIds: stops.map((s) => s.id) },
+        body: { stopIds: next.map((s) => s.id) },
       }),
     );
   }
@@ -224,7 +228,7 @@ export function TripPlanner({
         </div>
       )}
 
-      {stops.length > 0 && !hasOutbound && (
+      {!hasOutbound && (
         <button type="button" className="add-flight-leg" onClick={() => void addOutboundFlight()}>
           <Icon name="plane" size={16} /> Heenvlucht
         </button>
@@ -316,11 +320,18 @@ export function TripPlanner({
                 </div>
               )}
               <div
-                className={`card stop-item ${dragIndex === index ? 'dragging' : ''}`}
+                className={`card stop-item ${dragIndex === index ? 'dragging' : ''} ${
+                  overIndex === index && dragIndex !== null && dragIndex !== index
+                    ? dragIndex < index
+                      ? 'drop-after'
+                      : 'drop-before'
+                    : ''
+                }`}
                 draggable
                 onDragStart={() => setDragIndex(index)}
                 onDragOver={(e) => onDragOver(e, index)}
                 onDragEnd={onDrop}
+                onDrop={onDrop}
               >
                 <CityThumb name={stop.name} index={index} countryCode={stop.countryCode} />
                 <div className="stop-info">
@@ -371,7 +382,7 @@ export function TripPlanner({
         })}
       </ol>
 
-      {stops.length > 0 && !hasReturn && (
+      {!hasReturn && (
         <button type="button" className="add-flight-leg" onClick={() => void addFlightLeg()}>
           <Icon name="plane" size={16} /> Terugvlucht
         </button>

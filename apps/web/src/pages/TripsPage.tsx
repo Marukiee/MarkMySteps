@@ -4,10 +4,12 @@ import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
+import { confirmModal } from '../components/confirm';
+import { DateField } from '../components/DatePicker';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon } from '../components/Icon';
 import { colorForUser, formatDate } from '../lib/colors';
-import { getTripCardSize } from '../lib/prefs';
+import { getTripCardOverride, isTripCompact, setTripCardOverride } from '../lib/prefs';
 import './trips.css';
 
 export function TripsPage() {
@@ -26,11 +28,6 @@ export function TripsPage() {
   const today = new Date().toISOString().slice(0, 10);
   const upcoming = trips?.filter((t) => t.endDate.slice(0, 10) >= today) ?? [];
   const past = trips?.filter((t) => t.endDate.slice(0, 10) < today) ?? [];
-
-  const cardSize = getTripCardSize();
-  // Compact per section: always for 'compact', past-only for 'auto'.
-  const upcomingCompact = cardSize === 'compact';
-  const pastCompact = cardSize === 'compact' || cardSize === 'auto';
 
   return (
     <main className="page fade-in">
@@ -66,9 +63,15 @@ export function TripsPage() {
       {upcoming.length > 0 && (
         <>
           <h2 className="trips-section-title">Aankomend &amp; onderweg</h2>
-          <div className={upcomingCompact ? 'trips-grid trips-grid-compact' : 'trips-grid'}>
+          <div className="trips-grid">
             {upcoming.map((trip, i) => (
-              <TripCard key={trip.id} trip={trip} index={i} onChanged={load} compact={upcomingCompact} />
+              <TripCard
+                key={trip.id}
+                trip={trip}
+                index={i}
+                onChanged={load}
+                compact={isTripCompact(trip.id, false)}
+              />
             ))}
             <button className="trip-ghost" onClick={() => setShowNew(true)} aria-label="Nieuwe reis">
               <span>+ Nieuwe reis</span>
@@ -80,9 +83,15 @@ export function TripsPage() {
       {past.length > 0 && (
         <>
           <h2 className="trips-section-title">Afgelopen reizen</h2>
-          <div className={pastCompact ? 'trips-grid trips-grid-compact' : 'trips-grid'}>
+          <div className="trips-grid">
             {past.map((trip, i) => (
-              <TripCard key={trip.id} trip={trip} index={i} onChanged={load} compact={pastCompact} />
+              <TripCard
+                key={trip.id}
+                trip={trip}
+                index={i}
+                onChanged={load}
+                compact={isTripCompact(trip.id, true)}
+              />
             ))}
             {upcoming.length === 0 && (
               <button
@@ -151,14 +160,32 @@ function TripCard({
   }
 
   async function remove() {
-    if (!window.confirm(`"${trip.title}" en alle routes/foto-koppelingen verwijderen?`)) return;
+    const ok = await confirmModal({
+      title: 'Reis verwijderen?',
+      body: `"${trip.title}" en alle routes/foto-koppelingen worden verwijderd.`,
+      confirmLabel: 'Verwijderen',
+      danger: true,
+    });
+    if (!ok) return;
     await api(`/trips/${trip.id}`, { method: 'DELETE' });
     onChanged();
   }
 
   async function leave() {
-    if (!window.confirm(`Reis "${trip.title}" verlaten?`)) return;
+    const ok = await confirmModal({
+      title: 'Reis verlaten?',
+      body: `Je verlaat "${trip.title}".`,
+      confirmLabel: 'Verlaten',
+      danger: true,
+    });
+    if (!ok) return;
     await api(`/trips/${trip.id}/members/${user!.id}`, { method: 'DELETE' });
+    onChanged();
+  }
+
+  function setSize(v: 'large' | 'compact' | null) {
+    setTripCardOverride(trip.id, v);
+    setMenuOpen(false);
     onChanged();
   }
 
@@ -202,6 +229,12 @@ function TripCard({
       </button>
       {menuOpen && (
         <div className={`trip-menu card ${menuClosing ? 'closing' : 'fade-in'}`}>
+          <button onClick={(e) => { stop(e); setSize(compact ? 'large' : 'compact'); }}>
+            {compact ? 'Groot weergeven' : 'Compact weergeven'}
+          </button>
+          {getTripCardOverride(trip.id) && (
+            <button onClick={(e) => { stop(e); setSize(null); }}>Standaardgrootte</button>
+          )}
           {isOwner && (
             <>
               <button
@@ -253,12 +286,17 @@ function TripCard({
     return (
       <div
         className="trip-card-compact"
-        style={{ animationDelay: `${index * 30}ms` }}
+        style={{ animationDelay: `${index * 30}ms`, zIndex: menuOpen ? 30 : undefined }}
         role="link"
         tabIndex={0}
         onClick={() => !renaming && navigate(`/trips/${trip.id}`)}
         onKeyDown={(e) => e.key === 'Enter' && !renaming && navigate(`/trips/${trip.id}`)}
       >
+        {trip.resolvedCoverId ? (
+          <AuthImage path={`/media/${trip.resolvedCoverId}/thumbnail`} alt="" className="tcc-photo" />
+        ) : (
+          <div className="tcc-photo" style={{ background: coverGradient(trip.id) }} />
+        )}
         <div className="tcc-body">
           {renaming ? (
             <form onSubmit={rename} onClick={stop} className="trip-rename">
@@ -287,15 +325,6 @@ function TripCard({
           </span>
           {countdownEl}
         </div>
-        {trip.resolvedCoverId ? (
-          <AuthImage
-            path={`/media/${trip.resolvedCoverId}/thumbnail`}
-            alt=""
-            className="tcc-photo"
-          />
-        ) : (
-          <div className="tcc-photo" style={{ background: coverGradient(trip.id) }} />
-        )}
         {menuEl}
       </div>
     );
@@ -305,7 +334,11 @@ function TripCard({
   return (
     <div
       className="trip-card"
-      style={{ animationDelay: `${index * 40}ms`, background: coverGradient(trip.id) }}
+      style={{
+        animationDelay: `${index * 40}ms`,
+        background: coverGradient(trip.id),
+        zIndex: menuOpen ? 30 : undefined,
+      }}
       role="link"
       tabIndex={0}
       onClick={() => {
@@ -408,26 +441,8 @@ function NewTripForm({ onCreated }: { onCreated: () => void }) {
         <label htmlFor="nt-title">Titel</label>
         <input id="nt-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
       </div>
-      <div className="field">
-        <label htmlFor="nt-start">Van</label>
-        <input
-          id="nt-start"
-          type="date"
-          required
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-        />
-      </div>
-      <div className="field">
-        <label htmlFor="nt-end">Tot</label>
-        <input
-          id="nt-end"
-          type="date"
-          required
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-        />
-      </div>
+      <DateField id="nt-start" label="Van" value={startDate} onChange={setStartDate} />
+      <DateField id="nt-end" label="Tot" value={endDate} onChange={setEndDate} />
       {error && <p className="error-text">{error}</p>}
       <button className="btn btn-primary" disabled={busy}>
         Aanmaken
