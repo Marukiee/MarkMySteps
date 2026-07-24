@@ -34,6 +34,8 @@ interface TripMapProps {
 export interface TripMapApi {
   /** Ease the camera to fit the given [lng,lat] points (e.g. a day's photos). */
   focusOn: (coords: [number, number][]) => void;
+  /** Ease the camera to a single point (e.g. a searched planner place). */
+  flyTo: (lng: number, lat: number, zoom?: number) => void;
 }
 
 export function TripMap({
@@ -107,6 +109,7 @@ export function TripMap({
           duration: 700,
         });
       },
+      flyTo: (lng, lat, zoom = 8) => map.easeTo({ center: [lng, lat], zoom, duration: 700 }),
     });
 
     // Keep the canvas matched to its container. The bottom-sheet layout

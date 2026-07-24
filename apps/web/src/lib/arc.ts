@@ -190,3 +190,9 @@ export interface StopPoint {
   arrivalDate: string;
   departureDate: string;
 }
+
+/** A stop with the extra planner fields (nights, notes). */
+export interface PlannedStop extends StopPoint {
+  nights: number;
+  notes: string | null;
+}

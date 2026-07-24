@@ -540,6 +540,18 @@
   box-shadow: var(--shadow-s);
 }
 
+/* Inline route planner inside the trip side sheet. */
+.trip-planner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.trip-planner .nights-planned {
+  align-self: flex-start;
+}
+
 .manage-panel {
   display: grid;
   gap: 1.25rem;

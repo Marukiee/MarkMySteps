@@ -1,5 +1,6 @@
 import { Style, StatusBar } from '@capacitor/status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { TouchEvent as ReactTouchEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { api, ApiError, getServerBase } from '../api/client';
 import type { ConnectionStatus, MediaItem } from '../api/types';
@@ -26,6 +27,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   const [immichUrl, setImmichUrl] = useState<string | null>(null);
   const [coverSaved, setCoverSaved] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
   const item = items[index];
 
   // Fetch a short-lived playback URL when a video is shown.
@@ -86,6 +88,24 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   if (!item) return null;
   const isOwn = item.userId === user?.id;
 
+  // Swipe left/right to page through photos on touch devices.
+  const onTouchStart = (e: ReactTouchEvent) => {
+    const t = e.touches[0]!;
+    touchRef.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e: ReactTouchEvent) => {
+    const s = touchRef.current;
+    if (!s) return;
+    touchRef.current = null;
+    const t = e.changedTouches[0]!;
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx > 0 && index > 0) onNavigate(index - 1);
+      else if (dx < 0 && index < items.length - 1) onNavigate(index + 1);
+    }
+  };
+
   // Portal to <body> so it sits above the fixed tab bar and any page stacking
   // context (the trip detail is itself position:fixed on mobile).
   return createPortal(
@@ -121,7 +141,12 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
         </button>
       )}
 
-      <figure className="lightbox-stage" onClick={(e) => e.stopPropagation()}>
+      <figure
+        className="lightbox-stage"
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
         {item.assetType === 'VIDEO' && videoUrl ? (
           <video className="lightbox-img" src={videoUrl} controls autoPlay playsInline />
         ) : (

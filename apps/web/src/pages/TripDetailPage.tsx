@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { MediaItem, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -10,8 +10,9 @@ import { MembersPanel } from '../components/MembersPanel';
 import { SharePanel } from '../components/SharePanel';
 import { Timeline } from '../components/Timeline';
 import { TripMap, TripMapApi, Waypoint } from '../components/TripMap';
+import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
-import type { StopPoint } from '../lib/arc';
+import type { PlannedStop } from '../lib/arc';
 import { colorForUser, flagEmoji, formatDate } from '../lib/colors';
 import { getMapStyle } from '../lib/prefs';
 import { onTrackerChange } from '../tracking/tracker';
@@ -26,7 +27,6 @@ interface TripStats {
 
 export function TripDetailPage() {
   const { tripId } = useParams<{ tripId: string }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [routes, setRoutes] = useState<RouteCollection | null>(null);
@@ -40,7 +40,9 @@ export function TripDetailPage() {
   const [currentLoc, setCurrentLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
-  const [stops, setStops] = useState<StopPoint[]>([]);
+  const [stops, setStops] = useState<PlannedStop[]>([]);
+  const [tab, setTab] = useState<'timeline' | 'plan'>('timeline');
+  const [planPick, setPlanPick] = useState<{ lat: number; lng: number } | null>(null);
   const [stats, setStats] = useState<TripStats | null>(null);
   const [notes, setNotes] = useState<TripNote[]>([]);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
@@ -126,7 +128,7 @@ export function TripDetailPage() {
       .catch((err: Error) => setError(err.message));
     api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
     api<MediaItem[]>(`/trips/${tripId}/media`).then(setMedia).catch(() => undefined);
-    api<StopPoint[]>(`/trips/${tripId}/stops`).then(setStops).catch(() => undefined);
+    api<PlannedStop[]>(`/trips/${tripId}/stops`).then(setStops).catch(() => undefined);
     api<TripStats>(`/trips/${tripId}/stats`).then(setStats).catch(() => undefined);
     api<TripNote[]>(`/trips/${tripId}/notes`).then(setNotes).catch(() => undefined);
     api<Waypoint[]>(`/trips/${tripId}/points`).then(setWaypoints).catch(() => undefined);
@@ -163,11 +165,16 @@ export function TripDetailPage() {
 
   const handleMapClick = useCallback(
     (lngLat: { lng: number; lat: number }) => {
+      // On the planner tab a tap picks the location for the next stop.
+      if (tab === 'plan') {
+        setPlanPick({ lat: lngLat.lat, lng: lngLat.lng });
+        return;
+      }
       if (!addPointMode) return;
       setPendingPoint(lngLat);
       setPointTime((current) => current || defaultPointTime(trip));
     },
-    [addPointMode, trip],
+    [addPointMode, trip, tab],
   );
 
   async function savePoint() {
@@ -395,33 +402,56 @@ export function TripDetailPage() {
         )}
 
         <div className="side-tabs" role="tablist">
-          <button className="active" role="tab" aria-selected="true">
+          <button
+            className={tab === 'timeline' ? 'active' : ''}
+            role="tab"
+            aria-selected={tab === 'timeline'}
+            onClick={() => setTab('timeline')}
+          >
             Tijdlijn
           </button>
-          <button role="tab" onClick={() => navigate(`/trips/${tripId}/plan`)}>
+          <button
+            className={tab === 'plan' ? 'active' : ''}
+            role="tab"
+            aria-selected={tab === 'plan'}
+            onClick={() => setTab('plan')}
+          >
             Routeplanner
           </button>
         </div>
 
-        <Timeline
-          media={visibleMedia}
-          visibleUsers={visibleUsers}
-          showOwner={(trip?.members.length ?? 0) > 1}
-          onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
-          notes={notes}
-          canEditNotes={!!user && trip?.members.some((m) => m.userId === user.id)}
-          ownUserId={user?.id}
-          onSaveNote={saveNote}
-          onDeleteNote={deleteNote}
-          stops={stops.map((s) => ({
-            name: s.name,
-            countryCode: s.countryCode,
-            latitude: s.latitude,
-            longitude: s.longitude,
-            arrivalDate: s.arrivalDate,
-            departureDate: s.departureDate,
-          }))}
-        />
+        {tab === 'timeline' ? (
+          <Timeline
+            media={visibleMedia}
+            visibleUsers={visibleUsers}
+            showOwner={(trip?.members.length ?? 0) > 1}
+            onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
+            notes={notes}
+            canEditNotes={!!user && trip?.members.some((m) => m.userId === user.id)}
+            ownUserId={user?.id}
+            onSaveNote={saveNote}
+            onDeleteNote={deleteNote}
+            stops={stops.map((s) => ({
+              name: s.name,
+              countryCode: s.countryCode,
+              latitude: s.latitude,
+              longitude: s.longitude,
+              arrivalDate: s.arrivalDate,
+              departureDate: s.departureDate,
+            }))}
+          />
+        ) : (
+          <TripPlanner
+            tripId={tripId!}
+            trip={trip}
+            stops={stops}
+            onStopsChange={setStops}
+            onChanged={loadData}
+            pickedCoords={planPick}
+            onPickConsumed={() => setPlanPick(null)}
+            onFlyTo={(lng, lat) => mapApiRef.current?.flyTo(lng, lat)}
+          />
+        )}
       </aside>
 
       {peopleOpen && trip && (

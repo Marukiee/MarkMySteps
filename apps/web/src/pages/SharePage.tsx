@@ -1,6 +1,7 @@
 import maplibregl, { LngLatBounds, Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import type { TouchEvent as ReactTouchEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import type { MediaItem, RouteCollection } from '../api/types';
 import { colorForUser, flagEmoji, formatDay } from '../lib/colors';
@@ -290,7 +291,25 @@ function ShareLightbox({
   onClose: () => void;
 }) {
   const [src, setSrc] = useState<string>();
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
   const item = items[index]!;
+
+  const onTouchStart = (e: ReactTouchEvent) => {
+    const t = e.touches[0]!;
+    touchRef.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e: ReactTouchEvent) => {
+    const s = touchRef.current;
+    if (!s) return;
+    touchRef.current = null;
+    const t = e.changedTouches[0]!;
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx > 0 && index > 0) onNavigate(index - 1);
+      else if (dx < 0 && index < items.length - 1) onNavigate(index + 1);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -335,7 +354,12 @@ function ShareLightbox({
           <Icon name="chevron-left" size={26} />
         </button>
       )}
-      <figure className="share-lightbox-fig" onClick={(e) => e.stopPropagation()}>
+      <figure
+        className="share-lightbox-fig"
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
         <span className="share-lightbox-date">{formatDay(item.takenAt)}</span>
         {src ? <img src={src} alt="" /> : <div className="share-lightbox-loading" />}
       </figure>
