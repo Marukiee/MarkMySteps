@@ -67,6 +67,15 @@
   touch-action: none;
 }
 
+/* Desktop only (phones/app untouched): the capped-width canvas would otherwise
+   show as a hard rectangle against the page — fade its edges so it blends in. */
+@media (min-width: 760px) {
+  .globe-backdrop canvas {
+    -webkit-mask-image: radial-gradient(ellipse 82% 90% at 50% 44%, #000 56%, transparent 100%);
+    mask-image: radial-gradient(ellipse 82% 90% at 50% 44%, #000 56%, transparent 100%);
+  }
+}
+
 .globe-backdrop canvas:active {
   cursor: grabbing;
 }

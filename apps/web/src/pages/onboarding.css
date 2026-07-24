@@ -76,13 +76,6 @@
   color: var(--accent-ink);
   background: var(--accent-soft);
   box-shadow: var(--shadow-m);
-  animation: onbFloat 3.5s ease-in-out infinite;
-}
-
-@keyframes onbFloat {
-  50% {
-    transform: translateY(-7px);
-  }
 }
 
 .onb-theme-choice {
@@ -230,19 +223,23 @@
   color: var(--ink-faint);
 }
 
-/* Live globe demo on its onboarding slide (non-interactive). */
+/* Live globe demo on its onboarding slide (non-interactive). Soft-masked on all
+   edges so it dissolves into the page instead of showing a hard rectangle or a
+   clipped frame when the auto-tour zooms. */
 .onb-globe {
   width: 100%;
-  height: 240px;
+  height: 260px;
   margin-bottom: 0.4rem;
   pointer-events: none;
   position: relative;
   overflow: hidden;
+  -webkit-mask-image: radial-gradient(ellipse 72% 62% at 50% 45%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 72% 62% at 50% 45%, #000 55%, transparent 100%);
 }
 
 .onb-globe .globe-backdrop {
   width: 100%;
-  height: 240px;
+  height: 260px;
   margin: 0;
 }
 

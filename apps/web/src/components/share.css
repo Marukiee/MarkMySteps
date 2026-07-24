@@ -1,5 +1,8 @@
 .share-panel {
   display: grid;
+  /* minmax(0,1fr) lets the long monospace link shrink/ellipsis instead of
+     stretching the whole sheet wider than the screen. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.55rem;
 }
 
@@ -12,6 +15,11 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
+  min-width: 0;
+}
+
+.share-btn {
+  flex-shrink: 0;
 }
 
 .share-url {
@@ -44,6 +52,11 @@
 .share-create {
   display: flex;
   gap: 0.5rem;
+  min-width: 0;
+}
+
+.share-create button {
+  flex-shrink: 0;
 }
 
 .share-create input {
