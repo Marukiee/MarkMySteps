@@ -97,6 +97,27 @@ export function TripSettingsPage() {
     }
   }
 
+  async function wipeRouteFills() {
+    if (!tripId) return;
+    const ok = await confirmModal({
+      title: 'Automatische routes wissen?',
+      body: 'Alleen de automatisch getekende routes (via wegen) worden verwijderd. Je eigen getrackte GPS blijft staan.',
+      confirmLabel: 'Wissen',
+      danger: true,
+    });
+    if (!ok) return;
+    setWiping(true);
+    setClearMsg(null);
+    try {
+      const res = await api<{ deleted: number }>(`/trips/${tripId}/route-fill`, { method: 'DELETE' });
+      setClearMsg(`${res.deleted} automatische routepunten verwijderd.`);
+    } catch (err) {
+      setClearMsg(err instanceof Error ? err.message : 'Wissen mislukt');
+    } finally {
+      setWiping(false);
+    }
+  }
+
   async function remove() {
     if (!tripId) return;
     const ok = await confirmModal({
@@ -273,6 +294,19 @@ export function TripSettingsPage() {
           </div>
           <button className="btn btn-danger" disabled={wiping} onClick={() => void wipeTracked()}>
             Alles wissen
+          </button>
+        </div>
+
+        <div className="ts-track-box">
+          <div>
+            <strong>Automatisch getekende routes wissen</strong>
+            <span className="muted">
+              Verwijdert alleen de routes die via “ingedrukt houden → route via wegen” zijn
+              getekend. Je eigen getrackte GPS blijft staan.
+            </span>
+          </div>
+          <button className="btn btn-ghost" disabled={wiping} onClick={() => void wipeRouteFills()}>
+            Wissen
           </button>
         </div>
         {clearMsg && <p className="muted">{clearMsg}</p>}

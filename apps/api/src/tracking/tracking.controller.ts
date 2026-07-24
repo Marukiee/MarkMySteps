@@ -65,6 +65,15 @@ export class TrackingController {
     return this.tracking.clearTracked(tripId, user.sub, day);
   }
 
+  /** Remove only the auto-drawn road routes; keeps real tracked GPS. */
+  @Delete('route-fill')
+  clearRouteFills(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+  ): Promise<{ deleted: number }> {
+    return this.tracking.clearRouteFills(tripId, user.sub);
+  }
+
   @Delete('points/:pointId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async removePoint(

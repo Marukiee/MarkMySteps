@@ -129,7 +129,9 @@ export class TrackingService {
     const where: Prisma.LocationPointWhereInput = {
       tripId,
       userId,
-      source: { in: [PointSource.TRACKED, PointSource.IMPORTED, PointSource.MANUAL] },
+      source: {
+        in: [PointSource.TRACKED, PointSource.IMPORTED, PointSource.MANUAL, PointSource.ROUTE_FILL],
+      },
     };
     if (day) {
       const start = new Date(`${day}T00:00:00.000Z`);
@@ -220,12 +222,22 @@ export class TrackingService {
       recordedAt: new Date(tA + ((i + 1) / (inner.length + 1)) * (tB - tA)),
       latitude: c[1],
       longitude: c[0],
-      // IMPORTED (not MANUAL): shows in the route line + is wiped by "clear
-      // tracked data", but is NOT drawn as editable waypoint dots.
-      source: PointSource.IMPORTED,
+      // Its own source so it can be removed separately, without touching real
+      // tracked GPS, and it's not drawn as editable waypoint dots.
+      source: PointSource.ROUTE_FILL,
     }));
     await this.prisma.locationPoint.createMany({ data, skipDuplicates: true });
     return { added: data.length };
+  }
+
+  /** Remove only the auto-drawn road routes (+ legacy manual fills). Real
+   *  tracked/imported GPS is kept. */
+  async clearRouteFills(tripId: string, userId: string): Promise<{ deleted: number }> {
+    await this.trips.getForEditor(tripId, userId);
+    const { count } = await this.prisma.locationPoint.deleteMany({
+      where: { tripId, userId, source: { in: [PointSource.ROUTE_FILL, PointSource.MANUAL] } },
+    });
+    return { deleted: count };
   }
 
   /** Latest recent fix per travelling member — for the live "who's where" map. */
