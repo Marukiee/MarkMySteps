@@ -46,8 +46,16 @@
 
 .settings-content {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
   min-width: 0;
+}
+
+/* Nothing inside a section may push its card wider than the column (which made
+   the Accounts card sit slightly off-centre). */
+.settings-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 720px) {
