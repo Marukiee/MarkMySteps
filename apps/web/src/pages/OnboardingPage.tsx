@@ -1,11 +1,47 @@
 import { registerPlugin } from '@capacitor/core';
 import { ReactNode, TouchEvent as ReactTouchEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { Trip } from '../api/types';
+import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon, IconName } from '../components/Icon';
 import { Logo } from '../components/Logo';
 import { isNativeApp, markOnboarded } from '../lib/native';
 import { getThemeId, setThemeId, ThemeId } from '../lib/prefs';
 import './onboarding.css';
+
+// Example trips for the globe demo slide (no navigation — pointer-events off).
+const SAMPLE_TRIPS = [
+  {
+    id: 's-swe',
+    title: 'Zweden',
+    anchor: [15, 60],
+    routePath: [[[13, 55.6], [15, 59], [18.1, 59.3], [16, 63]]],
+    flightPath: [[[4.76, 52.3], [13, 55.6]]],
+    distanceKm: 1900,
+    endDate: '2025-08-10',
+    color: '#4ca05c',
+  },
+  {
+    id: 's-ny',
+    title: 'New York',
+    anchor: [-74, 40.7],
+    routePath: [[[-74, 40.7], [-73.98, 40.75], [-73.96, 40.8]]],
+    flightPath: [[[4.76, 52.3], [-74, 40.7]]],
+    distanceKm: 5900,
+    endDate: '2025-05-02',
+    color: '#5a6ee1',
+  },
+  {
+    id: 's-ma',
+    title: 'Marokko',
+    anchor: [-7.99, 31.63],
+    routePath: [[[-7.99, 31.63], [-6.85, 33.97], [-5.8, 35.78]]],
+    flightPath: [[[4.76, 52.3], [-7.99, 31.63]]],
+    distanceKm: 2300,
+    endDate: '2024-10-20',
+    color: '#e0993a',
+  },
+] as unknown as Trip[];
 
 interface BgGeoPlugin {
   addWatcher(
@@ -62,24 +98,29 @@ export function OnboardingPage() {
       <Logo size={72} />
       <h1>Welkom bij MarkMySteps</h1>
       <p className="muted">
-        Jouw reizen, op jouw eigen server. Volg je route, plan je trip en deel ‘m — privé en zonder
+        Jouw reizen, op jouw eigen server. Volg je route, plan je trip en deel ‘m. Privé en zonder
         big tech.
       </p>
     </div>,
-    feature(
-      'compass',
-      'Je reis op de globe',
-      'Al je reizen als kleurrijke routes op een 3D-globe. Tik een reis om ‘m te openen en je tijdlijn met foto’s te bekijken.',
-    ),
+    <div className="onb-feature onb-globe-slide" key="globe">
+      <div className="onb-globe" aria-hidden="true">
+        <GlobeBackdrop trips={SAMPLE_TRIPS} />
+      </div>
+      <h1>Je reizen op de globe</h1>
+      <p className="muted">
+        Al je reizen als kleurrijke routes op een 3D-globe. Tik een reis om ‘m te openen met je
+        tijdlijn en foto’s.
+      </p>
+    </div>,
     feature(
       'pin',
       'Plan je route',
-      'Bouw je route met stops, nachten en vervoer — auto, trein, boot of vlucht met tussenstops. Alles rekent automatisch mee.',
+      'Bouw je route met stops, nachten en vervoer: auto, trein, boot of vlucht met tussenstops. Alles rekent automatisch mee.',
     ),
     feature(
       'share',
       'Deel met thuisblijvers',
-      'Maak een privé, alleen-lezen link — foto’s en kaart, zonder dat iemand een account nodig heeft.',
+      'Maak een privé, alleen-lezen link met foto’s en kaart, zonder dat iemand een account nodig heeft.',
     ),
     feature(
       'lock',
@@ -117,7 +158,7 @@ export function OnboardingPage() {
             <h1>Locatietoestemming</h1>
             <p className="muted">
               Voor route-tracking vraagt de app om je locatie. Er wordt alléén een GPS-punt bewaard
-              als je verplaatst — dat spaart je accu.
+              als je verplaatst, dat spaart je accu.
             </p>
             <div className={`onb-perm ${permissionState === 'granted' ? 'granted' : ''}`}>
               <button className="btn btn-primary onb-ask" onClick={() => void requestLocation()}>
@@ -133,7 +174,7 @@ export function OnboardingPage() {
           </div>,
           <div className="onb-feature" key="always">
             <span className="onb-visual">
-              <Icon name="lock" size={54} />
+              <Icon name="shield" size={54} />
             </span>
             <h1>“Altijd toestaan”</h1>
             <p className="muted">

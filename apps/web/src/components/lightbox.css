@@ -93,6 +93,10 @@
   position: relative;
   display: inline-grid;
   justify-self: center;
+  /* Reserve height while the image loads so the nav arrows keep a stable
+     vertical position instead of centring on a tiny placeholder. */
+  min-height: 50vh;
+  align-content: center;
 }
 
 .lightbox-nav {

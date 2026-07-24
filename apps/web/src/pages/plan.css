@@ -593,23 +593,32 @@
 .mode-menu-drop {
   position: absolute;
   top: 100%;
-  left: 0;
   z-index: 40;
   margin-top: 5px;
   min-width: 168px;
+  max-width: min(88vw, 240px);
   padding: 0.3rem;
   display: grid;
   gap: 1px;
   border-radius: var(--radius-s);
   box-shadow: var(--shadow-m);
-  transform-origin: top left;
   animation: menuIn 0.15s var(--ease);
 }
 
-.mode-menu-compact .mode-menu-drop {
-  left: auto;
+.mode-menu-drop.mode-menu-left {
+  left: 0;
+  right: auto;
+  transform-origin: top left;
+}
+
+.mode-menu-drop.mode-menu-right {
   right: 0;
+  left: auto;
   transform-origin: top right;
+}
+
+.mode-menu-drop.closing {
+  animation: menuOut 0.14s var(--ease) forwards;
 }
 
 .mode-menu-drop button {

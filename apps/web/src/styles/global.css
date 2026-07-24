@@ -36,6 +36,22 @@
   color-scheme: light;
 }
 
+/* Smoothly cross-fade colours when the light/dark theme flips. Guarded to
+   common surfaces so it never lags interactive transitions. */
+body,
+.card,
+.trip-side,
+.topbar,
+.bottom-nav,
+.settings-card,
+.trip-stats .stat,
+input,
+textarea,
+select {
+  transition: background-color 0.3s var(--ease), color 0.3s var(--ease),
+    border-color 0.3s var(--ease);
+}
+
 /* Dark theme — set by JS (applyTheme) via <html data-theme="dark">. */
 :root[data-theme='dark'] {
   --paper: #14181d;
@@ -316,4 +332,23 @@ textarea {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
+}
+
+/* Start/stop tracking icon pops when the state flips. */
+.track-btn-icon {
+  animation: iconPop 0.32s var(--ease);
+}
+
+@keyframes iconPop {
+  0% {
+    transform: scale(0.4) rotate(-20deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }

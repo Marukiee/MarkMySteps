@@ -35,8 +35,9 @@
     height: 56vh;
     min-height: 0;
     overflow: hidden;
-    border-radius: 0 0 var(--radius-l) var(--radius-l);
-    z-index: 2;
+    /* Square bottom — the sheet's rounded top sits OVER the map. */
+    border-radius: 0;
+    z-index: 1;
   }
 
   /* Scroll-driven shrink where supported (Chromium/Android WebView). Falls back
@@ -68,8 +69,8 @@
      over the desktop `padding-right` (which otherwise shifts it off-centre). */
   .trip-detail .trip-side {
     position: relative;
-    z-index: 1;
-    margin-top: 0;
+    z-index: 2; /* sheet rides OVER the map */
+    margin-top: -18px; /* overlap the map's bottom edge */
     min-height: 62vh;
     background: var(--paper);
     border-radius: var(--radius-l) var(--radius-l) 0 0;
@@ -145,16 +146,9 @@
   transform: translateX(-50%) scale(0.95);
 }
 
-.live-badge.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.live-badge.active .live-badge-dot {
-  background: #fff;
-  box-shadow: none;
-  animation: none;
+.live-badge-go {
+  color: var(--ink-faint);
+  margin-left: 0.05rem;
 }
 
 .live-badge-dot {

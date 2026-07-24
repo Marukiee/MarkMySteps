@@ -158,12 +158,12 @@ function DisplaySection() {
       </div>
       <div className="field">
         <label>Kaartstijl</label>
-        <div className="theme-choice theme-choice-wrap">
+        <div className="map-style-grid">
           {MAP_STYLES.map((s) => (
             <button
               key={s.id}
               type="button"
-              className={`theme-opt ${style === s.id ? 'active' : ''}`}
+              className={`map-style-opt ${style === s.id ? 'active' : ''}`}
               onClick={() => {
                 setStyle(s.id);
                 setMapStyleId(s.id);
@@ -757,8 +757,8 @@ function AccountsSection() {
     <section className="card settings-card">
       <h2>Accounts (beheer)</h2>
       <p className="muted">
-        Maak accounts voor vrienden met een tijdelijk wachtwoord — bij de eerste login worden ze
-        gevraagd een eigen wachtwoord te kiezen (overslaan kan, ze blijven een herinnering zien).
+        Maak accounts voor vrienden met een tijdelijk wachtwoord. Bij de eerste login kiezen ze een
+        eigen wachtwoord (overslaan kan, ze blijven een herinnering zien).
       </p>
 
       <ul className="admin-users">

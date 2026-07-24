@@ -39,7 +39,6 @@ export function TripDetailPage() {
   const [peopleClosing, setPeopleClosing] = useState(false);
   const [currentLoc, setCurrentLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [liveTracking, setLiveTracking] = useState(false);
-  const [trackedOnly, setTrackedOnly] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
@@ -295,19 +294,18 @@ export function TripDetailPage() {
           clickMode={addPointMode}
           styleUrl={getMapStyle()}
           currentLocation={currentLoc}
-          hidePhotos={trackedOnly}
           onReady={(api) => (mapApiRef.current = api)}
         />
 
         {liveTracking && (
           <button
-            className={`live-badge ${trackedOnly ? 'active' : ''}`}
-            onClick={() => setTrackedOnly((v) => !v)}
-            aria-pressed={trackedOnly}
-            title={trackedOnly ? 'Toon ook foto’s' : 'Toon alleen getrackte locaties'}
+            className="live-badge"
+            onClick={() => currentLoc && mapApiRef.current?.flyTo(currentLoc.lng, currentLoc.lat, 13)}
+            title="Ga naar mijn huidige locatie"
           >
             <span className="live-badge-dot" />
-            {trackedOnly ? 'Alleen route' : 'Live'}
+            Live
+            <Icon name="pin" size={13} className="live-badge-go" />
           </button>
         )}
 

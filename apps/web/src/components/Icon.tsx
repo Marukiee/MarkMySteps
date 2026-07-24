@@ -29,6 +29,7 @@ export type IconName =
   | 'external'
   | 'share'
   | 'people'
+  | 'shield'
   | 'hourglass';
 
 // Single source of truth for line icons. 24×24 viewbox, 2px stroke,
@@ -156,7 +157,7 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
     </>
   ),
-  play: <path d="M7 5v14l12-7z" fill="currentColor" stroke="none" />,
+  play: <path d="M8 6.2 18 12 8 17.8Z" fill="currentColor" strokeWidth={2.5} />,
   stop: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />,
   external: (
     <>
@@ -179,6 +180,12 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M3 20a6 6 0 0 1 12 0" />
       <circle cx="17.5" cy="9.5" r="2.4" />
       <path d="M16 14.5a5 5 0 0 1 5 5.5" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 3 5 6v6c0 4 3 6.5 7 9 4-2.5 7-5 7-9V6l-7-3Z" />
+      <path d="m9 12 2 2 4-4" />
     </>
   ),
   hourglass: (

@@ -251,6 +251,7 @@ export function TripPlanner({
                       <ModeMenu
                         current={stop.travelMode}
                         compact
+                        align="right"
                         onPick={(m) => void setStopMode(stop, m)}
                       />
                     </div>
@@ -289,8 +290,9 @@ export function TripPlanner({
           return (
             <li key={stop.id} className="stop-row">
               {/* Incoming leg: a mode dropdown (same as heenreis), plus the
-                  flight editor when it's a flight. */}
-              {!prevIsStandalone && (
+                  flight editor when it's a flight. Only from the 2nd stop on —
+                  the first stop's arrival is the heenreis. */}
+              {index > 0 && !prevIsStandalone && (
                 <div className="leg-connector">
                   <div className="leg-connector-row">
                     <ModeMenu
@@ -435,20 +437,31 @@ function ModeMenu({
   label,
   current,
   compact,
+  align = 'left',
   onPick,
 }: {
   label?: string;
   current?: TravelMode;
   compact?: boolean;
+  align?: 'left' | 'right';
   onPick: (mode: TravelMode) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const close = () => {
+    setClosing(true);
+    window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+    }, 140);
+  };
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      if (!ref.current?.contains(e.target as Node)) close();
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
@@ -459,13 +472,17 @@ function ModeMenu({
 
   return (
     <div className={`mode-menu ${compact ? 'mode-menu-compact' : ''}`} ref={ref}>
-      <button type="button" className="mode-menu-pill" onClick={() => setOpen((o) => !o)}>
+      <button
+        type="button"
+        className="mode-menu-pill"
+        onClick={() => (open ? close() : setOpen(true))}
+      >
         <Icon name={icon} size={compact ? 14 : 16} />
         <span>{text}</span>
         <Icon name="chevron-down" size={13} className="mode-menu-caret" />
       </button>
       {open && (
-        <div className="mode-menu-drop card">
+        <div className={`mode-menu-drop card mode-menu-${align} ${closing ? 'closing' : ''}`}>
           {TRAVEL_MODES.map((m) => (
             <button
               key={m}

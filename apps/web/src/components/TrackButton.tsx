@@ -28,11 +28,11 @@ export function TrackButton({ tripId }: { tripId: string }) {
       >
         {activeHere ? (
           <>
-            <Icon name="stop" size={15} /> Stop tracking
+            <Icon key="stop" name="stop" size={15} className="track-btn-icon" /> Stop tracking
           </>
         ) : (
           <>
-            <Icon name="play" size={15} /> Start tracking
+            <Icon key="play" name="play" size={15} className="track-btn-icon" /> Start tracking
           </>
         )}
       </button>

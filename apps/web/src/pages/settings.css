@@ -423,7 +423,7 @@
   font-size: 0.85rem;
 }
 
-/* Map-style choice can hold 4 options — allow it to wrap on narrow screens. */
+/* Interval choice wraps its short chips. */
 .theme-choice-wrap {
   display: flex;
   flex-wrap: wrap;
@@ -432,4 +432,29 @@
 
 .theme-choice-wrap .theme-opt {
   border-radius: 12px;
+}
+
+/* Map-style: a clean 2-up grid of option cards (labels can be long). */
+.map-style-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.map-style-opt {
+  padding: 0.7rem 0.6rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  text-align: center;
+  transition: all 0.15s var(--ease);
+}
+
+.map-style-opt.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
 }

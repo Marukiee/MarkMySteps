@@ -97,7 +97,7 @@ export type TravelMode = 'GROUND' | 'TRAIN' | 'BUS' | 'BOAT' | 'FLIGHT';
 export const TRAVEL_MODES: TravelMode[] = ['GROUND', 'TRAIN', 'BUS', 'BOAT', 'FLIGHT'];
 
 export const MODE_LABEL: Record<TravelMode, string> = {
-  GROUND: 'Over land',
+  GROUND: 'Auto',
   TRAIN: 'Trein',
   BUS: 'Bus',
   BOAT: 'Boot',

@@ -1,7 +1,8 @@
 import maplibregl, { LngLatBounds, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchBlobUrl } from '../api/client';
+import { getMapStyle } from '../lib/prefs';
 import type { MediaItem, RouteCollection } from '../api/types';
 import { buildLegs, flightArc, haversineKm, StopPoint } from '../lib/arc';
 import { colorForUser, flagEmoji } from '../lib/colors';
@@ -71,6 +72,9 @@ export function TripMap({
   const waypointDeleteRef = useRef(onWaypointDelete);
   waypointDeleteRef.current = onWaypointDelete;
   const loadedRef = useRef(false);
+  // Bumped after a live theme swap re-loads the style, so the layer-adding
+  // effects re-run and re-add their sources (setStyle wipes them).
+  const [themeVersion, setThemeVersion] = useState(0);
   const clickHandlerRef = useRef(onMapClick);
   clickHandlerRef.current = onMapClick;
   const photoOpenRef = useRef(onPhotoOpen);
@@ -133,6 +137,24 @@ export function TripMap({
       mapRef.current = null;
       loadedRef.current = false;
     };
+  }, []);
+
+  // Follow the app's light/dark theme live: swap the map style, then re-add the
+  // route/stop layers once the new style has loaded.
+  useEffect(() => {
+    const onTheme = () => {
+      const map = mapRef.current;
+      if (!map) return;
+      loadedRef.current = false;
+      map.setStyle(getMapStyle());
+      map.once('style.load', () => {
+        map.setProjection({ type: 'globe' });
+        loadedRef.current = true;
+        setThemeVersion((v) => v + 1);
+      });
+    };
+    window.addEventListener('mms-theme', onTheme);
+    return () => window.removeEventListener('mms-theme', onTheme);
   }, []);
 
   // Draw routes whenever data or filters change.
@@ -251,7 +273,7 @@ export function TripMap({
     } else {
       map.once('load', apply);
     }
-  }, [routes, media, visibleUsers, stops]);
+  }, [routes, media, visibleUsers, stops, themeVersion]);
 
   // Photo markers — clustered per zoom level so hundreds of photos never
   // become hundreds of DOM nodes (each with its own thumbnail fetch).
@@ -405,7 +427,7 @@ export function TripMap({
 
     if (map.isStyleLoaded()) apply();
     else map.once('load', apply);
-  }, [stops, hasTracked]);
+  }, [stops, hasTracked, themeVersion]);
 
   // Live "you are here" dot.
   useEffect(() => {
