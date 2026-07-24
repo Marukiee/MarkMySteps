@@ -27,7 +27,8 @@ export type IconName =
   | 'stop'
   | 'external'
   | 'share'
-  | 'people';
+  | 'people'
+  | 'hourglass';
 
 // Single source of truth for line icons. 24×24 viewbox, 2px stroke,
 // currentColor — so an icon inherits text color and sizes with `size`.
@@ -176,6 +177,13 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M3 20a6 6 0 0 1 12 0" />
       <circle cx="17.5" cy="9.5" r="2.4" />
       <path d="M16 14.5a5 5 0 0 1 5 5.5" />
+    </>
+  ),
+  hourglass: (
+    <>
+      <path d="M7 4h10M7 20h10" />
+      <path d="M7 4c0 4 3 5 5 8 2-3 5-4 5-8" />
+      <path d="M7 20c0-4 3-5 5-8 2 3 5 4 5 8" />
     </>
   ),
 };

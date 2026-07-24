@@ -169,6 +169,24 @@ function TripCard({
       (new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86_400_000,
     ) + 1;
 
+  // Countdown to the START (only for trips that haven't begun). The hourglass +
+  // "over N dagen" wording makes clear it's the start, not the trip length.
+  const startsInDays = daysUntil(trip.startDate);
+  const countdown =
+    startsInDays === null
+      ? null
+      : startsInDays === 0
+        ? 'vandaag van start'
+        : startsInDays === 1
+          ? 'morgen van start'
+          : `over ${startsInDays} dagen`;
+  const countdownEl = countdown && (
+    <span className="trip-countdown">
+      <Icon name="hourglass" size={13} />
+      {countdown}
+    </span>
+  );
+
   const menuEl = (
     <div className="trip-card-menu" ref={menuRef} onClick={stop}>
       <button
@@ -267,6 +285,7 @@ function TripCard({
               <> · {trip.distanceKm.toLocaleString('nl-NL')} km</>
             )}
           </span>
+          {countdownEl}
         </div>
         {trip.resolvedCoverId ? (
           <AuthImage
@@ -303,6 +322,7 @@ function TripCard({
           className="trip-card-photo"
         />
       )}
+      {countdownEl}
       <div className="trip-card-overlay">
         {renaming ? (
           <form onSubmit={rename} onClick={stop} className="trip-rename">
@@ -414,6 +434,16 @@ function NewTripForm({ onCreated }: { onCreated: () => void }) {
       </button>
     </form>
   );
+}
+
+/** Whole days from today until a trip's start; null once it has started. */
+function daysUntil(startDate: string): number | null {
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((start.getTime() - today.getTime()) / 86_400_000);
+  return diff < 0 ? null : diff;
 }
 
 /** Deterministic warm gradient per trip — placeholder until hero photos land. */

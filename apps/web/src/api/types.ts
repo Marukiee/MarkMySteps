@@ -38,6 +38,7 @@ export interface Trip {
   anchor: [number, number] | null;
   distanceKm?: number;
   routePath?: [number, number][];
+  flightPath?: [number, number][][];
   autoTrack: boolean;
   ownerId: string;
   members: TripMember[];

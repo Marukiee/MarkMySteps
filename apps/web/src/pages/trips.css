@@ -108,6 +108,37 @@
   margin-left: auto;
 }
 
+/* Countdown-to-start pill — distinct from the duration stats. */
+.trip-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* On a large card it floats top-left, glassy, so it reads as "starts in…". */
+.trip-card > .trip-countdown {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.85rem;
+  z-index: 2;
+  padding: 0.35rem 0.7rem 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.92);
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-s);
+  backdrop-filter: blur(4px);
+}
+
+/* On a compact card it sits under the meta line as an accent chip. */
+.tcc-body .trip-countdown {
+  margin-top: 0.25rem;
+  color: var(--accent-ink);
+}
+
 /* Compact list layout (small photo + name). */
 .trips-grid-compact {
   grid-template-columns: 1fr;

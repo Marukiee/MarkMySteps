@@ -25,6 +25,8 @@ export type TripWithMembers = Trip & {
   distanceKm?: number;
   /** Simplified [lng,lat] polyline for the globe overview (listForUser only). */
   routePath?: [number, number][];
+  /** Flight legs as separate great-circle arcs, drawn dashed on the globe. */
+  flightPath?: [number, number][][];
 };
 
 const MEMBERS_INCLUDE = {
@@ -212,8 +214,12 @@ export class TripsService {
       rawByTrip.set(s.tripId, list);
     }
     const stopsByTrip = new Map<string, [number, number][]>();
+    // Flight legs kept separately so the globe can draw them as thin dashed arcs
+    // regardless of whether the trip's main line is tracked or planned.
+    const flightsByTrip = new Map<string, [number, number][][]>();
     for (const [tripId, list] of rawByTrip) {
       const line: [number, number][] = [];
+      const flights: [number, number][][] = [];
       let prev: [number, number] | null = null;
       for (const s of list) {
         const dep = asLngLat(airportCoord(s.fromAirport));
@@ -224,21 +230,26 @@ export class TripsService {
         const to = arr ?? city;
         if (!to) continue;
         if (s.travelMode === 'FLIGHT' && from) {
+          // Build the flight arc as its own segment (through any layovers). The
+          // main line only gets the endpoints, so splitOnGaps breaks it and the
+          // dashed arc bridges the gap — no coloured ground line under a flight.
           const via = (s.viaAirports ?? [])
             .map((c) => asLngLat(airportCoord(c)))
             .filter((c): c is [number, number] => !!c);
           const pts = [from, ...via, to];
+          const flightSeg: [number, number][] = [];
           for (let k = 1; k < pts.length; k++) {
-            const arc = greatCircle(pts[k - 1]!, pts[k]!, 12);
-            line.push(...(line.length === 0 && k === 1 ? arc : arc.slice(1)));
+            const arc = greatCircle(pts[k - 1]!, pts[k]!, 24);
+            flightSeg.push(...(flightSeg.length === 0 ? arc : arc.slice(1)));
           }
-        } else {
-          if (line.length === 0 && from) line.push(from);
-          line.push(to);
+          if (flightSeg.length >= 2) flights.push(flightSeg);
         }
+        if (line.length === 0 && from) line.push(from);
+        line.push(to);
         prev = to;
       }
       if (line.length >= 2) stopsByTrip.set(tripId, line);
+      if (flights.length > 0) flightsByTrip.set(tripId, flights);
     }
 
     // Photo-GPS fallback: trips with no track and no planned stops still show
@@ -269,7 +280,8 @@ export class TripsService {
               ? downsample(photoLine, 80)
               : undefined;
       const anchor = base.anchor ?? photoLine?.[0] ?? null;
-      return { ...base, anchor, distanceKm: kmByTrip.get(t.id) ?? 0, routePath };
+      const flightPath = flightsByTrip.get(t.id);
+      return { ...base, anchor, distanceKm: kmByTrip.get(t.id) ?? 0, routePath, flightPath };
     });
   }
 

@@ -18,6 +18,7 @@ interface GlobeTrip {
   title: string;
   anchor: [number, number];
   path: [number, number][] | null;
+  flights: [number, number][][] | null;
   upcoming: boolean;
   /** Relative importance (km, else days) — drives label priority. */
   size: number;
@@ -75,6 +76,7 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
           title: t.title,
           anchor: t.anchor,
           path: t.routePath && t.routePath.length >= 2 ? t.routePath : null,
+          flights: t.flightPath && t.flightPath.length > 0 ? t.flightPath : null,
           upcoming: t.endDate.slice(0, 10) >= today,
           size: t.distanceKm && t.distanceKm > 0 ? t.distanceKm : dayCount(t) * 40,
         }))
@@ -204,6 +206,21 @@ export function GlobeBackdrop({ trips }: { trips: Trip[] }) {
           ctx!.stroke();
         }
 
+      }
+      ctx!.setLineDash([]);
+
+      // --- Flight legs: thin grey dashed arcs on top. Deliberately thin so a
+      // trip with many flights stays legible rather than a mesh of fat lines. ---
+      ctx!.strokeStyle = dark ? 'rgba(160,170,182,0.85)' : 'rgba(110,120,132,0.8)';
+      ctx!.lineWidth = 1.2 * dpr;
+      ctx!.setLineDash([2 * dpr, 4 * dpr]);
+      for (const trip of trips) {
+        if (!trip.flights) continue;
+        for (const seg of trip.flights) {
+          ctx!.beginPath();
+          path({ type: 'LineString', coordinates: seg } as GeoPermissibleObjects);
+          ctx!.stroke();
+        }
       }
       ctx!.setLineDash([]);
 
