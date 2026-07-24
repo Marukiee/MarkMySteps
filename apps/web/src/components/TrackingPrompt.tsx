@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { isNative } from '../tracking/tracker';
 import { onTrackerChange, startTracking, TrackerState } from '../tracking/tracker';
 import './tracking-prompt.css';
@@ -13,6 +14,7 @@ const DAY = 86_400_000;
  * aren't tracking it yet, offer to start. Dismissable per trip.
  */
 export function TrackingPrompt() {
+  const { user } = useAuth();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [tracker, setTracker] = useState<TrackerState>({
     tripId: null,
@@ -34,6 +36,10 @@ export function TrackingPrompt() {
           return now >= start - DAY && now <= end;
         });
         if (!active) return;
+        // Guests / members without tracking permission are never nudged.
+        const me = active.members.find((m) => m.userId === user?.id);
+        const canTrack = !!me && (me.role === 'OWNER' || (me.role === 'MEMBER' && me.canTrack));
+        if (!canTrack) return;
         // autoTrack trips start silently once begun; others show the prompt.
         if (active.autoTrack && now >= new Date(active.startDate).getTime()) {
           void startTracking(active.id);
@@ -42,7 +48,7 @@ export function TrackingPrompt() {
         }
       })
       .catch(() => undefined);
-  }, []);
+  }, [user?.id]);
 
   if (!trip || tracker.tripId === trip.id) return null;
   if (localStorage.getItem(DISMISS_KEY) === trip.id) return null;

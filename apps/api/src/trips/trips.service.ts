@@ -13,6 +13,7 @@ import { UpdateTripDto } from './dto/update-trip.dto';
 export type TripMemberView = {
   userId: string;
   role: TripRole;
+  canTrack: boolean;
   user: { displayName: string; username: string; hasAvatar: boolean };
 };
 export type TripWithMembers = Trip & {
@@ -80,6 +81,7 @@ function mapMembers(trip: RawTripRow): TripWithMembers {
     members: members.map((m) => ({
       userId: m.userId,
       role: m.role,
+      canTrack: m.canTrack,
       user: {
         displayName: m.user.displayName,
         username: m.user.username,
@@ -129,6 +131,7 @@ function downsample(points: [number, number][], max: number): [number, number][]
 type RawMember = {
   userId: string;
   role: TripRole;
+  canTrack: boolean;
   user: { displayName: string; username: string; avatarMime: string | null };
 };
 
@@ -423,6 +426,47 @@ export class TripsService {
     if (trip.ownerId !== userId) {
       throw new ForbiddenException('Only the trip owner can do this');
     }
+  }
+
+  /** Trip for a caller allowed to edit it (owner or reisgenoot, not a guest). */
+  async getForEditor(tripId: string, userId: string): Promise<TripWithMembers> {
+    const trip = await this.getForMember(tripId, userId);
+    const me = trip.members.find((m) => m.userId === userId);
+    if (!me || me.role === TripRole.GUEST) {
+      throw new ForbiddenException('Guests can only view this trip');
+    }
+    return trip;
+  }
+
+  /** Throws unless the caller may record their own track for this trip. */
+  async assertCanTrack(tripId: string, userId: string): Promise<void> {
+    const trip = await this.getForMember(tripId, userId);
+    const me = trip.members.find((m) => m.userId === userId);
+    if (!me || me.role === TripRole.GUEST || (me.role !== TripRole.OWNER && !me.canTrack)) {
+      throw new ForbiddenException('You do not have permission to track on this trip');
+    }
+  }
+
+  /** Owner updates a member's role and/or tracking permission. */
+  async updateMember(
+    tripId: string,
+    ownerId: string,
+    memberId: string,
+    dto: { role?: TripRole; canTrack?: boolean },
+  ): Promise<TripWithMembers> {
+    const trip = await this.getForMember(tripId, ownerId);
+    this.assertOwner(trip, ownerId);
+    if (memberId === trip.ownerId) {
+      throw new BadRequestException('The owner role cannot be changed');
+    }
+    await this.prisma.tripMember.update({
+      where: { tripId_userId: { tripId, userId: memberId } },
+      data: {
+        ...(dto.role !== undefined ? { role: dto.role } : {}),
+        ...(dto.canTrack !== undefined ? { canTrack: dto.canTrack } : {}),
+      },
+    });
+    return this.getForMember(tripId, ownerId);
   }
 }
 

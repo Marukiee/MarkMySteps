@@ -43,7 +43,7 @@ export class NotesService {
     body: string,
     title?: string,
   ): Promise<TripNoteView[]> {
-    await this.trips.getForMember(tripId, userId);
+    await this.trips.getForEditor(tripId, userId);
     const dayDate = new Date(day);
     await this.prisma.tripNote.upsert({
       where: { tripId_authorId_day: { tripId, authorId: userId, day: dayDate } },

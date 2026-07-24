@@ -99,6 +99,7 @@ model Trip {
 enum TripRole {
   OWNER
   MEMBER
+  GUEST
 }
 
 model TripMember {
@@ -107,6 +108,8 @@ model TripMember {
   userId   String   @db.Uuid
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   role     TripRole @default(MEMBER)
+  /// A reisgenoot may share their own live track; the owner can switch this off.
+  canTrack Boolean  @default(true)
   joinedAt DateTime @default(now())
 
   @@id([tripId, userId])

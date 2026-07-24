@@ -16,6 +16,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AddMemberDto } from './dto/add-member.dto';
 import { CreateTripDto } from './dto/create-trip.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { TripsService, TripStats, TripWithMembers } from './trips.service';
 
@@ -75,6 +76,16 @@ export class TripsController {
     @Body() dto: AddMemberDto,
   ): Promise<TripWithMembers> {
     return this.trips.addMemberByUsername(id, user.sub, dto.username);
+  }
+
+  @Patch(':id/members/:memberId')
+  updateMember(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
+    @Body() dto: UpdateMemberDto,
+  ): Promise<TripWithMembers> {
+    return this.trips.updateMember(id, user.sub, memberId, dto);
   }
 
   @Delete(':id/members/:memberId')

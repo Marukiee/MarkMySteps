@@ -59,6 +59,8 @@ export function TripSettingsPage() {
   useEffect(load, [tripId]);
 
   const isOwner = trip?.ownerId === user?.id;
+  const me = trip?.members.find((m) => m.userId === user?.id);
+  const canTrack = !!me && (me.role === 'OWNER' || (me.role === 'MEMBER' && me.canTrack));
 
   async function save(e?: FormEvent) {
     e?.preventDefault();
@@ -212,7 +214,7 @@ export function TripSettingsPage() {
       <section className="ts-tracking">
         <h2 className="ts-section-title">Tracking</h2>
 
-        {isNative() && tripId && (
+        {isNative() && tripId && canTrack && (
           <div className="ts-track-box">
             <div>
               <strong>Route nu bijhouden</strong>
@@ -220,6 +222,13 @@ export function TripSettingsPage() {
             </div>
             <TrackButton tripId={tripId} />
           </div>
+        )}
+        {isNative() && tripId && !canTrack && (
+          <p className="muted">
+            {me?.role === 'GUEST'
+              ? 'Je bent gast op deze reis en kunt alleen meekijken.'
+              : 'De organisator heeft tracken voor jou uitgezet.'}
+          </p>
         )}
 
         <label className="ts-toggle">

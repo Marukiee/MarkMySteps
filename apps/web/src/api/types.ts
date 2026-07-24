@@ -13,9 +13,12 @@ export interface User {
   hasAvatar: boolean;
 }
 
+export type TripRole = 'OWNER' | 'MEMBER' | 'GUEST';
+
 export interface TripMember {
   userId: string;
-  role: 'OWNER' | 'MEMBER';
+  role: TripRole;
+  canTrack: boolean;
   user: { displayName: string; username: string; hasAvatar: boolean };
 }
 

@@ -41,7 +41,7 @@ export class TrackingService {
     userId: string,
     points: TrackPointDto[],
   ): Promise<BatchResult> {
-    await this.trips.getForMember(tripId, userId);
+    await this.trips.assertCanTrack(tripId, userId);
 
     const { count } = await this.prisma.locationPoint.createMany({
       data: points.map((p) => ({
@@ -81,7 +81,7 @@ export class TrackingService {
     userId: string,
     dto: ManualPointDto,
   ): Promise<LocationPoint> {
-    await this.trips.getForMember(tripId, userId);
+    await this.trips.getForEditor(tripId, userId);
     return this.prisma.locationPoint.create({
       data: {
         tripId,

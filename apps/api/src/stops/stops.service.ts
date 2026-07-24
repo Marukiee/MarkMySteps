@@ -35,7 +35,7 @@ export class StopsService {
   }
 
   async create(tripId: string, userId: string, dto: CreateStopDto): Promise<PlannedStop[]> {
-    await this.trips.getForMember(tripId, userId);
+    await this.trips.getForEditor(tripId, userId);
 
     await this.prisma.$transaction(async (tx) => {
       const stops = await tx.stop.findMany({
@@ -91,7 +91,7 @@ export class StopsService {
     stopId: string,
     dto: UpdateStopDto,
   ): Promise<PlannedStop[]> {
-    await this.trips.getForMember(tripId, userId);
+    await this.trips.getForEditor(tripId, userId);
     const { count } = await this.prisma.stop.updateMany({
       where: { id: stopId, tripId },
       data: {
@@ -115,7 +115,7 @@ export class StopsService {
   }
 
   async remove(tripId: string, userId: string, stopId: string): Promise<PlannedStop[]> {
-    await this.trips.getForMember(tripId, userId);
+    await this.trips.getForEditor(tripId, userId);
 
     await this.prisma.$transaction(async (tx) => {
       const stop = await tx.stop.findFirst({ where: { id: stopId, tripId } });
@@ -137,7 +137,7 @@ export class StopsService {
 
   /** Drag-and-drop reorder: client sends every stop id in the new order. */
   async reorder(tripId: string, userId: string, dto: ReorderStopsDto): Promise<PlannedStop[]> {
-    await this.trips.getForMember(tripId, userId);
+    await this.trips.getForEditor(tripId, userId);
 
     await this.prisma.$transaction(async (tx) => {
       const stops = await tx.stop.findMany({ where: { tripId }, select: { id: true } });

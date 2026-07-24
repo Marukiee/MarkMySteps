@@ -31,6 +31,11 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
 
   const canRemove = (memberId: string) => isOwner && memberId !== user?.id;
 
+  async function setMember(memberId: string, patch: { role?: 'MEMBER' | 'GUEST'; canTrack?: boolean }) {
+    await api(`/trips/${trip.id}/members/${memberId}`, { method: 'PATCH', body: patch });
+    onChanged();
+  }
+
   async function removeMember(memberId: string, name: string) {
     const ok = await confirmModal({
       title: 'Reisgenoot verwijderen?',
@@ -59,6 +64,8 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
               {member.user.displayName}
               <small> @{member.user.username}</small>
               {member.role === 'OWNER' && <small> · organisator</small>}
+              {member.role === 'GUEST' && <small> · gast</small>}
+              {member.role === 'MEMBER' && <small> · reisgenoot</small>}
             </span>
             {canRemove(member.userId) && (
               <button
@@ -68,6 +75,35 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
               >
                 <Icon name="close" size={15} />
               </button>
+            )}
+
+            {isOwner && member.role !== 'OWNER' && (
+              <div className="member-controls">
+                <div className="member-role-seg">
+                  <button
+                    className={member.role === 'MEMBER' ? 'active' : ''}
+                    onClick={() => void setMember(member.userId, { role: 'MEMBER' })}
+                  >
+                    Reisgenoot
+                  </button>
+                  <button
+                    className={member.role === 'GUEST' ? 'active' : ''}
+                    onClick={() => void setMember(member.userId, { role: 'GUEST' })}
+                  >
+                    Gast
+                  </button>
+                </div>
+                {member.role === 'MEMBER' && (
+                  <label className="member-track">
+                    <input
+                      type="checkbox"
+                      checked={member.canTrack}
+                      onChange={(e) => void setMember(member.userId, { canTrack: e.target.checked })}
+                    />
+                    mag tracken
+                  </label>
+                )}
+              </div>
             )}
           </li>
         ))}
