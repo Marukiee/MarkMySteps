@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { LocationPoint, PointSource, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TripsService } from '../trips/trips.service';
@@ -161,6 +162,68 @@ export class TrackingService {
   }
 
   /** No membership check — caller must have authorized access (share links). */
+  /**
+   * "Snap to roads": near a straight gap in the caller's own line, route the two
+   * bracketing points over real roads (keyless OSM) and store the road polyline
+   * as MANUAL points so the ugly straight stretch becomes a proper route.
+   */
+  async fillRoute(
+    tripId: string,
+    userId: string,
+    lng: number,
+    lat: number,
+  ): Promise<{ added: number }> {
+    await this.trips.getForEditor(tripId, userId);
+
+    const rows = await this.prisma.$queryRaw<{ t: Date; lat: number; lng: number }[]>`
+      SELECT t, ST_Y(geom::geometry) AS lat, ST_X(geom::geometry) AS lng
+      FROM (
+        SELECT "recordedAt" AS t, geom FROM location_points
+        WHERE "tripId" = ${tripId}::uuid AND "userId" = ${userId}::uuid
+        UNION ALL
+        SELECT "takenAt" AS t, geom FROM media_refs
+        WHERE "tripId" = ${tripId}::uuid AND "userId" = ${userId}::uuid AND geom IS NOT NULL
+      ) x
+      ORDER BY t
+    `;
+    if (rows.length < 2) {
+      throw new BadRequestException('Er is nog geen route om aan te vullen.');
+    }
+
+    // Nearest consecutive pair whose segment is a real gap (> 1.5 km).
+    let best: { a: (typeof rows)[number]; b: (typeof rows)[number]; d: number } | null = null;
+    for (let i = 1; i < rows.length; i++) {
+      const a = rows[i - 1]!;
+      const b = rows[i]!;
+      if (segLenKm(a, b) < 1.5) continue;
+      const d = pointToSegKm({ lat, lng }, a, b);
+      if (!best || d < best.d) best = { a, b, d };
+    }
+    if (!best || best.d > 60) {
+      throw new BadRequestException('Geen recht stuk in de buurt om aan te vullen.');
+    }
+
+    const road = await osrmRoute([best.a.lng, best.a.lat], [best.b.lng, best.b.lat]);
+    if (road.length < 3) {
+      throw new BadRequestException('Kon geen route over de weg vinden.');
+    }
+
+    const tA = best.a.t.getTime();
+    const tB = best.b.t.getTime();
+    const inner = road.slice(1, -1); // keep the real endpoints as-is
+    const data = inner.map((c, i) => ({
+      tripId,
+      userId,
+      clientId: randomUUID(),
+      recordedAt: new Date(tA + ((i + 1) / (inner.length + 1)) * (tB - tA)),
+      latitude: c[1],
+      longitude: c[0],
+      source: PointSource.MANUAL,
+    }));
+    await this.prisma.locationPoint.createMany({ data, skipDuplicates: true });
+    return { added: data.length };
+  }
+
   /** Latest recent fix per travelling member — for the live "who's where" map. */
   async getLiveFixes(tripId: string, userId: string): Promise<LiveFix[]> {
     await this.trips.getForMember(tripId, userId);
@@ -257,4 +320,48 @@ export class TrackingService {
       })),
     };
   }
+}
+
+type Pt = { lat: number; lng: number };
+
+/** Local equirectangular scale (km per degree) around a latitude. */
+function scale(lat: number): [number, number] {
+  return [111.32 * Math.cos((lat * Math.PI) / 180), 110.57];
+}
+
+function segLenKm(a: Pt, b: Pt): number {
+  const [kx, ky] = scale((a.lat + b.lat) / 2);
+  return Math.hypot((b.lng - a.lng) * kx, (b.lat - a.lat) * ky);
+}
+
+function pointToSegKm(p: Pt, a: Pt, b: Pt): number {
+  const [kx, ky] = scale(p.lat);
+  const px = p.lng * kx;
+  const py = p.lat * ky;
+  const ax = a.lng * kx;
+  const ay = a.lat * ky;
+  const bx = b.lng * kx;
+  const by = b.lat * ky;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy || 1;
+  let t = ((px - ax) * dx + (py - ay) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+/** Keyless OSM routing (public OSRM). Returns the road polyline as [lng,lat][]. */
+async function osrmRoute(
+  a: [number, number],
+  b: [number, number],
+): Promise<[number, number][]> {
+  const url =
+    `https://router.project-osrm.org/route/v1/driving/` +
+    `${a[0]},${a[1]};${b[0]},${b[1]}?overview=full&geometries=geojson`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(12_000) });
+  if (!res.ok) return [];
+  const json = (await res.json()) as {
+    routes?: { geometry?: { coordinates?: [number, number][] } }[];
+  };
+  return json.routes?.[0]?.geometry?.coordinates ?? [];
 }

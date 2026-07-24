@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import type { LiveFix, MediaItem, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
+import { confirmModal } from '../components/confirm';
 import { Icon } from '../components/Icon';
 import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
@@ -200,6 +201,29 @@ export function TripDetailPage() {
     [addPointMode, trip, tab],
   );
 
+  // Long-press a straight stretch → snap it to real roads (keyless OSM routing).
+  const handleLongPress = useCallback(
+    async (lngLat: { lng: number; lat: number }) => {
+      if (!tripId || tab === 'plan') return;
+      const ok = await confirmModal({
+        title: 'Route via wegen tekenen?',
+        body: 'Het dichtstbijzijnde rechte stuk zonder tracking wordt automatisch aangevuld via de snelste weg.',
+        confirmLabel: 'Tekenen',
+      });
+      if (!ok) return;
+      try {
+        await api(`/trips/${tripId}/route-fill`, {
+          method: 'POST',
+          body: { lat: lngLat.lat, lng: lngLat.lng },
+        });
+        api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Route tekenen mislukt');
+      }
+    },
+    [tripId, tab],
+  );
+
   async function savePoint() {
     if (!tripId || !pendingPoint) return;
     try {
@@ -310,6 +334,7 @@ export function TripDetailPage() {
           onWaypointDelete={addPointMode ? deleteWaypoint : undefined}
           visibleUsers={visibleUsers}
           onMapClick={handleMapClick}
+          onLongPress={handleLongPress}
           onPhotoOpen={openPhoto}
           onPhotoFocus={scrollTimelineTo}
           clickMode={addPointMode}

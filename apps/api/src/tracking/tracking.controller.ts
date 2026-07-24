@@ -17,7 +17,7 @@ import { LocationPoint } from '@prisma/client';
 import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ManualPointDto, TrackBatchDto } from './dto/track-points.dto';
+import { ManualPointDto, RouteFillDto, TrackBatchDto } from './dto/track-points.dto';
 import { BatchResult, LiveFix, RouteCollection, TrackingService } from './tracking.service';
 
 @Controller('trips/:tripId')
@@ -96,6 +96,17 @@ export class TrackingController {
       tolerance: tolerance ? Number(tolerance) : undefined,
       includePhotos: photos !== 'false',
     });
+  }
+
+  /** Snap the nearest straight gap in your line to real roads (keyless OSM). */
+  @Post('route-fill')
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  fillRoute(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Body() dto: RouteFillDto,
+  ): Promise<{ added: number }> {
+    return this.tracking.fillRoute(tripId, user.sub, dto.lng, dto.lat);
   }
 
   /** Latest fix per travelling member — for the live map. */

@@ -26,6 +26,8 @@ interface TripMapProps {
   onWaypointDelete?: (id: string) => void;
   visibleUsers: Set<string>;
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
+  /** Long-press / right-click on the map (used to snap a straight gap to roads). */
+  onLongPress?: (lngLat: { lng: number; lat: number }) => void;
   onPhotoOpen?: (mediaId: string) => void;
   onPhotoFocus?: (mediaId: string) => void;
   clickMode?: boolean;
@@ -57,6 +59,7 @@ export function TripMap({
   onWaypointDelete,
   visibleUsers,
   onMapClick,
+  onLongPress,
   onPhotoOpen,
   onPhotoFocus,
   clickMode,
@@ -85,6 +88,8 @@ export function TripMap({
   const [themeVersion, setThemeVersion] = useState(0);
   const clickHandlerRef = useRef(onMapClick);
   clickHandlerRef.current = onMapClick;
+  const longPressRef = useRef(onLongPress);
+  longPressRef.current = onLongPress;
   const photoOpenRef = useRef(onPhotoOpen);
   photoOpenRef.current = onPhotoOpen;
   const photoFocusRef = useRef(onPhotoFocus);
@@ -117,6 +122,34 @@ export function TripMap({
       map.resize();
     });
     map.on('click', (e) => clickHandlerRef.current?.(e.lngLat));
+    // Right-click (desktop) + long-press (touch) → onLongPress at that point.
+    map.on('contextmenu', (e) => longPressRef.current?.(e.lngLat));
+    const container = containerRef.current;
+    let lpTimer = 0;
+    let lpStart: { x: number; y: number } | null = null;
+    const cancelLp = () => {
+      window.clearTimeout(lpTimer);
+      lpStart = null;
+    };
+    const onTouchStart = (ev: TouchEvent) => {
+      if (ev.touches.length !== 1) return cancelLp();
+      const t = ev.touches[0]!;
+      lpStart = { x: t.clientX, y: t.clientY };
+      lpTimer = window.setTimeout(() => {
+        const rect = container.getBoundingClientRect();
+        const p = map.unproject([t.clientX - rect.left, t.clientY - rect.top]);
+        longPressRef.current?.({ lng: p.lng, lat: p.lat });
+      }, 600);
+    };
+    const onTouchMove = (ev: TouchEvent) => {
+      if (!lpStart) return;
+      const t = ev.touches[0]!;
+      if (Math.hypot(t.clientX - lpStart.x, t.clientY - lpStart.y) > 10) cancelLp();
+    };
+    container.addEventListener('touchstart', onTouchStart, { passive: true });
+    container.addEventListener('touchmove', onTouchMove, { passive: true });
+    container.addEventListener('touchend', cancelLp);
+    container.addEventListener('touchcancel', cancelLp);
     mapRef.current = map;
 
     onReady?.({
@@ -141,6 +174,10 @@ export function TripMap({
 
     return () => {
       ro.disconnect();
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', cancelLp);
+      container.removeEventListener('touchcancel', cancelLp);
       map.remove();
       mapRef.current = null;
       loadedRef.current = false;
