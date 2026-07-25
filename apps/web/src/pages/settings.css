@@ -276,6 +276,26 @@
   padding: 0.2rem 0 0.6rem;
 }
 
+/* Free-entry interval next to the presets. */
+.interval-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.interval-custom input {
+  width: 84px;
+  padding: 0.45rem 0.6rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
 .avatar-meta {
   display: grid;
   gap: 0.1rem;
@@ -285,43 +305,15 @@
 
 .avatar-meta strong {
   font-family: var(--font-display, inherit);
-  font-size: 1.3rem;
-  line-height: 1.2;
+  font-size: 1.55rem;
+  line-height: 1.15;
   letter-spacing: -0.01em;
 }
 
 .avatar-handle {
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: var(--ink-faint);
   font-weight: 500;
-}
-
-/* Explicit affordance instead of the "Tik op de foto voor opties" hint, which
-   read as a stray instruction under the name. */
-.avatar-meta-edit {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  margin-top: 0.45rem;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--paper-sunken);
-  color: var(--ink-soft);
-  font-size: 0.78rem;
-  font-weight: 600;
-  transition: background 0.15s var(--ease), border-color 0.15s var(--ease),
-    color 0.15s var(--ease);
-}
-
-.avatar-meta-edit:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-}
-
-.avatar-meta-edit:active {
-  transform: scale(0.96);
 }
 
 .avatar-remove {

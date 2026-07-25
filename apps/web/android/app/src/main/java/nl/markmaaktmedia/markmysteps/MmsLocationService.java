@@ -178,7 +178,79 @@ public class MmsLocationService extends Service implements LocationListener {
         }
         updatesActive = true;
         lastFixAt = System.currentTimeMillis();
-        notifyStatus("tracking", null);
+        notifyStatus("tracking", "Providers: " + activeProviders(providers));
+        requestImmediateFix();
+    }
+
+    /**
+     * A registration with minDistance > 0 delivers NOTHING until you have moved
+     * that far — so without this there is no starting point at all, the map has
+     * no "you are here" and the log stays empty. Emit the last known position
+     * right away and ask for one fresh, unfiltered fix on top of it.
+     */
+    private void requestImmediateFix() {
+        if (locationManager == null) return;
+        try {
+            Location best = null;
+            for (String provider : new String[] {
+                    LocationManager.GPS_PROVIDER,
+                    LocationManager.NETWORK_PROVIDER,
+                    LocationManager.PASSIVE_PROVIDER,
+            }) {
+                if (!locationManager.getAllProviders().contains(provider)) continue;
+                Location known = locationManager.getLastKnownLocation(provider);
+                if (known == null) continue;
+                if (best == null || known.getTime() > best.getTime()) best = known;
+            }
+            // Only if it's recent enough to still describe where you are.
+            if (best != null && System.currentTimeMillis() - best.getTime() < 10 * 60_000L) {
+                onLocationChanged(best);
+            }
+
+            if (!locationManager.getAllProviders().contains(LocationManager.GPS_PROVIDER)) return;
+            // One unfiltered fix, then unregister itself.
+            final LocationListener[] holder = new LocationListener[1];
+            holder[0] = new LocationListener() {
+                @Override
+                public void onLocationChanged(@NonNull Location location) {
+                    MmsLocationService.this.onLocationChanged(location);
+                    try {
+                        locationManager.removeUpdates(holder[0]);
+                    } catch (SecurityException ignored) {
+                    }
+                }
+
+                @Override
+                public void onStatusChanged(String provider, int status, Bundle extras) {
+                }
+            };
+            locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER, 0L, 0f, holder[0], Looper.getMainLooper());
+            // Give up after a minute so a cold GPS doesn't stay wide open.
+            handler.postDelayed(() -> {
+                try {
+                    locationManager.removeUpdates(holder[0]);
+                } catch (SecurityException ignored) {
+                }
+            }, 60_000L);
+        } catch (SecurityException e) {
+            notifyStatus("permission", "Locatietoestemming ontbreekt");
+        }
+    }
+
+    private String activeProviders(List<String> all) {
+        StringBuilder out = new StringBuilder();
+        for (String provider : all) {
+            boolean enabled;
+            try {
+                enabled = locationManager != null && locationManager.isProviderEnabled(provider);
+            } catch (Exception e) {
+                enabled = false;
+            }
+            if (out.length() > 0) out.append(", ");
+            out.append(provider).append(enabled ? "" : " (uit)");
+        }
+        return out.toString();
     }
 
     private void stopUpdates() {

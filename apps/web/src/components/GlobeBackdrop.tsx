@@ -104,6 +104,25 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
 
     // Per-trip label opacity, eased across frames for a soft pop-in.
     const labelOpacity = new Map<string, number>();
+    // When each trip first showed up. Trips arrive a beat after the page (the
+    // list is fetched), so they ease in with a small per-trip stagger instead of
+    // snapping onto the globe all at once.
+    const appearedAt = new Map<string, number>();
+    const REVEAL_MS = 620;
+    const tripAlpha = (id: string, now: number): number => {
+      let at = appearedAt.get(id);
+      if (at === undefined) {
+        // Deterministic 0–320 ms offset per trip, so they don't arrive in lockstep.
+        let hash = 0;
+        for (const c of id) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+        at = now + (hash % 320);
+        appearedAt.set(id, at);
+      }
+      const t = (now - at) / REVEAL_MS;
+      if (t <= 0) return 0;
+      if (t >= 1) return 1;
+      return 1 - (1 - t) * (1 - t) * (1 - t); // ease-out cubic
+    };
     // On the homepage globe names are hidden until you tap a trip; this holds the
     // tapped trip (its name card shows, tapping the card opens the trip). Tapping
     // elsewhere clears it. Onboarding ignores this and shows names over routes.
@@ -245,6 +264,7 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         }
         if (!trip.path) continue;
 
+        ctx!.globalAlpha = tripAlpha(trip.id, now);
         ctx!.lineJoin = 'round';
         ctx!.lineCap = 'round';
         for (const seg of trip.path) {
@@ -276,6 +296,7 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
           }
           flushRun();
         }
+        ctx!.globalAlpha = 1;
       }
       ctx!.setLineDash([]);
 
@@ -348,7 +369,7 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
       // Group endpoints by real-world proximity (~40 km), counting DISTINCT trips
       // so a single loop trip counts once, two separate visits count two.
       const SAME_PLACE_DEG = 0.4;
-      type Member = { col: [number, number, number]; upcoming: boolean };
+      type Member = { col: [number, number, number]; upcoming: boolean; alpha: number };
       type Place = {
         lng: number;
         lat: number;
@@ -365,11 +386,12 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         tripId: string,
       ) => {
         if (center && distance(center, p) > 90) return;
+        const alpha = tripAlpha(tripId, now);
         const g = places.find((q) => distance([q.lng, q.lat], p) < SAME_PLACE_DEG);
         if (g) {
           if (!g.trips.has(tripId)) {
             g.trips.add(tripId);
-            g.members.push({ col, upcoming });
+            g.members.push({ col, upcoming, alpha });
           }
           g.city = g.city || city;
         } else {
@@ -378,7 +400,7 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
             lat: p[1],
             city,
             trips: new Set([tripId]),
-            members: [{ col, upcoming }],
+            members: [{ col, upcoming, alpha }],
           });
         }
       };
@@ -423,7 +445,7 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
             const g = places.find((q) => distance([q.lng, q.lat], p) < SAME_PLACE_DEG);
             if (g && !g.trips.has(trip.id)) {
               g.trips.add(trip.id);
-              g.members.push({ col, upcoming: trip.upcoming });
+              g.members.push({ col, upcoming: trip.upcoming, alpha: tripAlpha(trip.id, now) });
             }
           }
         }
@@ -468,8 +490,11 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         if (!projected) continue;
         const [x, y] = projected;
         const m = pl.members;
+        // A place shared by several trips is as visible as its most-arrived one.
+        ctx!.globalAlpha = Math.max(...m.map((v) => v.alpha), 0);
         if (m.length <= 1) {
           drawSmallDot(x, y, m[0]?.col ?? [90, 110, 225], m[0]?.upcoming ?? false);
+          ctx!.globalAlpha = 1;
           continue;
         }
         // Visited by more than one trip → the dot slowly cycles through each
@@ -482,6 +507,7 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         const blend = f > 0.82 ? (f - 0.82) / 0.18 : 0; // crossfade the last bit
         const col = mix(m[idx]!.col, m[nextIdx]!.col, blend);
         drawSmallDot(x, y, col, m[idx]!.upcoming && m[nextIdx]!.upcoming);
+        ctx!.globalAlpha = 1;
       }
 
       // The "active" trip whose name + direction glow are shown: on the homepage

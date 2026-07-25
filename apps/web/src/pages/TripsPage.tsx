@@ -1,5 +1,4 @@
 import { FormEvent, MouseEvent, useEffect, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
@@ -14,33 +13,17 @@ import { formatDate } from '../lib/colors';
 import { getTripCardOverride, isTripCompact, setTripCardOverride } from '../lib/prefs';
 import './trips.css';
 
-/** Chrome/Android WebView 111+; elsewhere the change just applies instantly. */
-type ViewTransitionDoc = Document & { startViewTransition?: (cb: () => void) => unknown };
-
 export function TripsPage() {
   const [trips, setTrips] = useState<Trip[] | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Bumped when a card switches size; the layout is read back from localStorage.
-  const [sizeTick, setSizeTick] = useState(0);
+  const [, setSizeTick] = useState(0);
 
-  /**
-   * Switch one card between large and compact. Each card carries a stable
-   * `view-transition-name`, so the browser morphs the old photo tile into the
-   * new slim row (and vice versa) instead of swapping them abruptly.
-   */
+  /** Switch one card between large and compact. */
   function applySize(id: string, value: 'large' | 'compact' | null) {
     setTripCardOverride(id, value);
-    const commit = () => flushSync(() => setSizeTick((t) => t + 1));
-    const doc = document as ViewTransitionDoc;
-    if (!doc.startViewTransition) {
-      commit();
-      return;
-    }
-    const root = document.documentElement;
-    root.classList.add('vt-resizing');
-    doc.startViewTransition(commit);
-    window.setTimeout(() => root.classList.remove('vt-resizing'), 420);
+    setSizeTick((t) => t + 1);
   }
 
   function load() {
@@ -367,9 +350,6 @@ function TripCard({
         style={{
           animationDelay: `${index * 30}ms`,
           zIndex: menuOpen ? 30 : undefined,
-          // Shared with the large variant → the browser morphs between the two.
-          viewTransitionName: `trip-card-${cssId(trip.id)}`,
-          viewTransitionClass: 'trip-card-morph',
         }}
         role="link"
         tabIndex={0}
@@ -433,8 +413,6 @@ function TripCard({
         animationDelay: `${index * 40}ms`,
         background: noImg ? tripCardBg(trip) : coverGradient(trip.id),
         zIndex: menuOpen ? 30 : undefined,
-        viewTransitionName: `trip-card-${cssId(trip.id)}`,
-        viewTransitionClass: 'trip-card-morph',
       }}
       role="link"
       tabIndex={0}
@@ -557,12 +535,6 @@ function NewTripForm({ onCreated }: { onCreated: () => void }) {
       </button>
     </form>
   );
-}
-
-/** A view-transition-name must be a CSS ident — UUID dashes are fine, anything
- *  else is stripped so an odd id can't produce invalid CSS. */
-function cssId(id: string): string {
-  return id.replace(/[^a-zA-Z0-9-]/g, '');
 }
 
 /** Whole days from today until a trip's start; null once it has started. */

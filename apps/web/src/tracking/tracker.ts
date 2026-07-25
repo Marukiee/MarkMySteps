@@ -103,13 +103,22 @@ export interface TrackerState {
   lastError: string | null;
   /** Most recent GPS fix — proof tracking is alive. */
   lastFix: { lat: number; lng: number; at: number; accuracy?: number } | null;
+  /** Last thing the native service reported (which providers it registered on,
+   *  whether it parked itself on the motion sensor). Diagnostics only. */
+  lastStatus: string | null;
 }
 
 let nativeHandles: { remove: () => Promise<void> }[] = [];
 let webWatchId: number | null = null;
 let flushTimer: number | null = null;
 let listeners: Listener[] = [];
-let state: TrackerState = { tripId: null, buffered: 0, lastError: null, lastFix: null };
+let state: TrackerState = {
+  tripId: null,
+  buffered: 0,
+  lastError: null,
+  lastFix: null,
+  lastStatus: null,
+};
 
 function emit(patch: Partial<TrackerState>): void {
   state = { ...state, ...patch };
@@ -203,14 +212,15 @@ export async function startTracking(tripId: string): Promise<void> {
     );
     nativeHandles.push(
       await MmsLocation.addListener('status', ({ state: s, message }) => {
+        const label = message ? `${s}: ${message}` : s;
         if (s === 'permission') {
-          emit({ lastError: message ?? 'Locatietoestemming ontbreekt' });
+          emit({ lastError: message ?? 'Locatietoestemming ontbreekt', lastStatus: label });
           void MmsLocation.openSettings();
         } else if (s === 'error') {
-          emit({ lastError: message ?? 'Locatiefout' });
+          emit({ lastError: message ?? 'Locatiefout', lastStatus: label });
         } else {
           // 'tracking' and 'idle' are both healthy states.
-          emit({ lastError: null });
+          emit({ lastError: null, lastStatus: label });
         }
       }),
     );

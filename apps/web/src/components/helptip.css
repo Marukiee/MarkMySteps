@@ -8,15 +8,16 @@
   height: 20px;
   border-radius: 999px;
   color: var(--ink-faint);
-  border: 1.5px solid var(--line);
-  transition: color 0.15s var(--ease), border-color 0.15s var(--ease),
-    background 0.15s var(--ease), transform 0.15s var(--ease);
+  /* Ring in the same colour as the glyph — a --line border read as a separate,
+     lighter circle around the question mark. */
+  border: 1.5px solid currentColor;
+  transition: color 0.15s var(--ease), background 0.15s var(--ease),
+    transform 0.15s var(--ease);
 }
 
 .help-tip-btn:hover,
 .help-tip-btn.on {
   color: var(--accent-ink);
-  border-color: var(--accent);
   background: var(--accent-soft);
 }
 

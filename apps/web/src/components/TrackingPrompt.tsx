@@ -21,6 +21,7 @@ export function TrackingPrompt() {
     buffered: 0,
     lastError: null,
     lastFix: null,
+    lastStatus: null,
   });
 
   useEffect(() => onTrackerChange(setTracker), []);

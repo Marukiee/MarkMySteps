@@ -15,6 +15,7 @@ export function TrackButton({ tripId }: { tripId: string }) {
     buffered: 0,
     lastError: null,
     lastFix: null,
+    lastStatus: null,
   });
   // Android can't tell us "Always" vs "While using" without extra permissions,
   // so instead of a false detection we show a one-time reminder while tracking:

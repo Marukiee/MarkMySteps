@@ -145,7 +145,14 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
         intent.putExtra(
                 MmsLocationService.EXTRA_MESSAGE,
                 call.getString("message", "Route wordt bijgehouden"));
-        ContextCompat.startForegroundService(getContext(), intent);
+        try {
+            ContextCompat.startForegroundService(getContext(), intent);
+        } catch (Exception e) {
+            // e.g. ForegroundServiceStartNotAllowedException — surface it rather
+            // than silently resolving and never producing a fix.
+            call.reject("Tracking-service kon niet starten: " + e.getMessage());
+            return;
+        }
         call.resolve();
     }
 

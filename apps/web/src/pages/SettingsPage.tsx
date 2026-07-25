@@ -245,12 +245,22 @@ function TrackingSection() {
     buffered: 0,
     lastError: null,
     lastFix: null,
+    lastStatus: null,
   });
   const [now, setNow] = useState(Date.now());
   const [interval, setIntervalMin] = useState(getTrackingIntervalMin());
   // This is the provider's minTime, so a bigger value directly means fewer GPS
-  // wake-ups — 30 min is there for long travel days.
-  const INTERVALS = [1, 5, 10, 15, 30];
+  // wake-ups. Four presets plus a free field, rather than a long row of chips.
+  const INTERVALS = [1, 5, 15, 30];
+  const [customOpen, setCustomOpen] = useState(!INTERVALS.includes(interval));
+  const [customValue, setCustomValue] = useState(String(interval));
+
+  const applyInterval = (minutes: number) => {
+    setIntervalMin(minutes);
+    setTrackingIntervalMin(minutes);
+    // A running watcher keeps its old interval/distanceFilter otherwise.
+    void refreshTrackingInterval();
+  };
 
   useEffect(() => {
     api<Trip[]>('/trips').then(setTrips).catch(() => undefined);
@@ -272,13 +282,15 @@ function TrackingSection() {
       <h2>
         Route-tracking
         <HelpTip>
-          De app vraagt de GPS alleen om een punt zodra het interval verstreken is én je minstens
-          ~50 m bent verplaatst; tussendoor staat de GPS uit. Sta je stil, dan pauzeert het
-          helemaal tot de bewegingssensor je weer wakker maakt. Een groter interval = fors minder
-          batterijverbruik. Offline wordt alles gebufferd en later geüpload. Vereist locatie op
-          “Altijd toestaan”.
+          Elk interval zet de app de GPS heel even aan voor één positie en daarna weer uit. Ligt
+          die positie minder dan ~50 m van de vorige, dan wordt hij weggegooid in plaats van
+          opgeslagen — zo blijft je route strak zonder een hoop punten op dezelfde plek. Blijf je
+          langere tijd op dezelfde plek, dan stopt het meten helemaal en wacht de app op de
+          bewegingssensor van je toestel. Een groter interval scheelt dus flink batterij. Offline
+          wordt alles gebufferd en later geüpload. Vereist locatie op “Altijd toestaan”.
         </HelpTip>
       </h2>
+      <p className="muted">Houdt je route bij tijdens een reis, ook met het scherm uit.</p>
 
       <div className="field">
         <label>Locatie opslaan elke</label>
@@ -287,23 +299,51 @@ function TrackingSection() {
             <button
               key={m}
               type="button"
-              className={`theme-opt ${interval === m ? 'active' : ''}`}
+              className={`theme-opt ${!customOpen && interval === m ? 'active' : ''}`}
               onClick={() => {
-                setIntervalMin(m);
-                setTrackingIntervalMin(m);
-                // A running watcher keeps its old distanceFilter otherwise.
-                void refreshTrackingInterval();
+                setCustomOpen(false);
+                applyInterval(m);
               }}
             >
               {m} min
             </button>
           ))}
+          <button
+            type="button"
+            className={`theme-opt ${customOpen ? 'active' : ''}`}
+            onClick={() => {
+              setCustomValue(String(interval));
+              setCustomOpen(true);
+            }}
+          >
+            Anders
+          </button>
         </div>
+        {customOpen && (
+          <div className="interval-custom">
+            <input
+              type="number"
+              min={1}
+              max={240}
+              inputMode="numeric"
+              aria-label="Interval in minuten"
+              value={customValue}
+              onChange={(e) => {
+                setCustomValue(e.target.value);
+                const minutes = Number(e.target.value);
+                if (Number.isFinite(minutes) && minutes >= 1 && minutes <= 240) {
+                  applyInterval(minutes);
+                }
+              }}
+            />
+            <span>minuten</span>
+          </div>
+        )}
       </div>
 
       {tracker.tripId ? (
         <div className="tracking-status">
-          <span className="settings-ok">● Actief — {activeTrip?.title ?? 'reis'}</span>
+          <span className="settings-ok">● Actief: {activeTrip?.title ?? 'reis'}</span>
           <button className="btn btn-danger" onClick={() => void stopTracking()}>
             <Icon name="stop" size={15} /> Stop tracking
           </button>
@@ -342,6 +382,9 @@ function TrackingSection() {
                 <span className="muted">
                   {tracker.buffered} punten in buffer (wacht op netwerk)
                 </span>
+              )}
+              {tracker.lastStatus && (
+                <span className="muted">Service: {tracker.lastStatus}</span>
               )}
               <TrackingLog now={now} />
             </div>
@@ -531,7 +574,7 @@ function ProfileSection() {
     setError(null);
     try {
       await api('/users/me', { method: 'PATCH', body: { displayName, username } });
-      setMessage('Profiel bijgewerkt — zichtbaar na opnieuw laden.');
+      setMessage('Profiel bijgewerkt. Zichtbaar na opnieuw laden.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Opslaan mislukt');
     }
@@ -687,10 +730,6 @@ function ProfileSection() {
         <div className="avatar-meta">
           <strong>{user?.displayName}</strong>
           {user?.username && <span className="avatar-handle">@{user.username}</span>}
-          <button type="button" className="avatar-meta-edit" onClick={() => setPhotoMenu(true)}>
-            <Icon name="camera" size={13} />
-            Foto wijzigen
-          </button>
         </div>
       </div>
 
@@ -874,7 +913,13 @@ function ImmichSection() {
           </span>
         </div>
         <div className="field">
-          <label htmlFor="im-public">Publieke URL (optioneel)</label>
+          <label htmlFor="im-public">
+            Publieke URL (optioneel)
+            <HelpTip>
+              Voor de “Openen in Immich”-knop. De server-URL hierboven mag een intern LAN-adres
+              zijn; deze is het adres waarmee jij Immich in je browser/app opent.
+            </HelpTip>
+          </label>
           <input
             id="im-public"
             type="url"
@@ -882,10 +927,6 @@ function ImmichSection() {
             value={publicUrl}
             onChange={(e) => setPublicUrl(e.target.value)}
           />
-          <span className="muted">
-            Voor de “Openen in Immich”-knop. De server-URL hierboven mag een intern LAN-adres zijn;
-            deze is het adres waarmee jij Immich in je browser/app opent.
-          </span>
         </div>
         <div className="settings-actions">
           <button className="btn btn-primary" disabled={busy}>
@@ -998,10 +1039,11 @@ function AccountsSection() {
       <h2>
         Accounts (beheer)
         <HelpTip>
-          Maak accounts voor vrienden met een tijdelijk wachtwoord. Bij de eerste login kiezen ze
-          een eigen wachtwoord (overslaan kan, ze blijven een herinnering zien).
+          Bij de eerste login kiezen ze zelf een eigen wachtwoord. Overslaan kan, dan blijven ze
+          een herinnering zien tot ze het alsnog doen.
         </HelpTip>
       </h2>
+      <p className="muted">Maak accounts voor vrienden met een tijdelijk wachtwoord.</p>
 
       <ul className="admin-users">
         {users.map((row) => (
@@ -1111,18 +1153,16 @@ function PolarstepsSection() {
 
   return (
     <section className="card settings-card">
-      <h2>
-        Polarsteps importeren
-        <HelpTip>
-          Vraag je export op via{' '}
-          <span className="inline-path">
-            polarsteps.com <Icon name="chevron-right" size={12} /> Settings{' '}
-            <Icon name="chevron-right" size={12} /> Privacy <Icon name="chevron-right" size={12} />
-            “Download my data”
-          </span>{' '}
-          en upload de zip hier. Elke reis in de export wordt aangemaakt met de volledige GPS-route.
-        </HelpTip>
-      </h2>
+      <h2>Polarsteps importeren</h2>
+      <p className="muted">
+        Vraag je export op via{' '}
+        <span className="inline-path">
+          polarsteps.com <Icon name="chevron-right" size={12} /> Settings{' '}
+          <Icon name="chevron-right" size={12} /> Privacy <Icon name="chevron-right" size={12} />
+          “Download my data”
+        </span>{' '}
+        en upload de zip hier. Elke reis in de export wordt aangemaakt met de volledige GPS-route.
+      </p>
 
       <form onSubmit={upload} className="settings-form">
         <label className="file-drop">
