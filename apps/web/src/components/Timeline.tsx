@@ -89,7 +89,7 @@ export function Timeline({
   if (days.length === 0) {
     return (
       <p className="muted timeline-empty">
-        Nog geen foto's — koppel Immich in Instellingen en druk op Sync.
+        Nog geen foto's. Koppel Immich in Instellingen en druk op Sync.
       </p>
     );
   }

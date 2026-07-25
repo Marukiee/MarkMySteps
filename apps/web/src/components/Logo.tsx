@@ -22,3 +22,26 @@ export function Logo({ size = 26 }: { size?: number }) {
     </svg>
   );
 }
+
+/**
+ * Compact brand mark: the app's compass glyph inside a filled disc. Used in the
+ * desktop top bar, where the pin logo read as a different product.
+ */
+export function LogoMark({ size = 28 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      aria-hidden="true"
+      style={{ display: 'block' }}
+    >
+      <circle cx="16" cy="16" r="15" fill="var(--accent, #e8613c)" />
+      <circle cx="16" cy="16" r="10.6" stroke="#fff" strokeOpacity="0.5" strokeWidth="1.3" />
+      {/* Compass needle: one solid half, one translucent, like a real rose. */}
+      <path d="M21.6 10.4 18.5 18.5 10.4 21.6 13.5 13.5Z" fill="#fff" />
+      <path d="M21.6 10.4 13.5 13.5 10.4 21.6 18.5 18.5Z" fill="#fff" fillOpacity="0.45" />
+    </svg>
+  );
+}

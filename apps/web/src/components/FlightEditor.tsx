@@ -141,6 +141,22 @@ function FlightSheet({
     window.setTimeout(onClose, 200);
   };
 
+  // A back gesture should close this sheet, not walk out of the planner.
+  useEffect(() => {
+    window.history.pushState({ mmsFlight: true }, '');
+    let popped = false;
+    const onPop = () => {
+      popped = true;
+      close();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      if (!popped) window.history.back();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Esc closes the picker first, then the sheet.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -297,7 +313,7 @@ function AirportBox({
   return (
     <button type="button" className={`fe-airport ${code ? 'set' : ''}`} onClick={onPick}>
       <span className="fe-airport-label">{label}</span>
-      <strong className="fe-airport-code">{code || '—'}</strong>
+      <strong className="fe-airport-code">{code || '–'}</strong>
       <span className="fe-airport-city">{a ? a.city : 'Kies vliegveld'}</span>
     </button>
   );

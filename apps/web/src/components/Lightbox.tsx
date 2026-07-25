@@ -75,6 +75,24 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
       });
   }, []);
 
+  // A back gesture should close the photo, not walk out of the trip.
+  useEffect(() => {
+    window.history.pushState({ mmsLightbox: true }, '');
+    let popped = false;
+    const onPop = () => {
+      popped = true;
+      onClose();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      if (!popped) window.history.back();
+    };
+    // Mounted once per lightbox session; navigating between photos must not
+    // push another entry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();

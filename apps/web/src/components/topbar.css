@@ -19,10 +19,10 @@
   align-items: center;
   gap: 0.5rem;
   justify-self: start;
-  font-family: var(--font-display);
-  font-weight: 680;
-  font-size: 1.2rem;
-  letter-spacing: -0.03em;
+  font-family: var(--font-brand);
+  font-weight: 620;
+  font-size: 1.22rem;
+  letter-spacing: -0.02em;
   color: var(--ink);
   transition: color 0.2s var(--ease);
 }
@@ -111,12 +111,15 @@
   position: relative;
 }
 
+/* Grid + zero line-height: as a block button the inline avatar left a baseline
+   gap, so its box-shadow showed as a stray oval under the photo. */
 .topbar-avatar-btn {
   padding: 0;
   border-radius: 50%;
-  box-shadow: var(--shadow-s);
+  display: grid;
+  line-height: 0;
+  overflow: hidden;
   transition: transform 0.15s var(--ease), box-shadow 0.2s;
-  display: block;
 }
 
 .topbar-avatar-btn:hover {

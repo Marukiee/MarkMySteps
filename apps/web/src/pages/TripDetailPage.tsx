@@ -11,12 +11,14 @@ import { MembersPanel } from '../components/MembersPanel';
 import { SharePanel } from '../components/SharePanel';
 import { Timeline } from '../components/Timeline';
 import { TripMap, TripMapApi, Waypoint } from '../components/TripMap';
+import { TripFacts } from '../components/TripFacts';
 import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
 import type { PlannedStop } from '../lib/arc';
 import { colorForUser, formatDate } from '../lib/colors';
 import { stableViewportHeight } from '../lib/native';
-import { getMapStyle } from '../lib/prefs';
+import { getMapStyle, getTripFacts } from '../lib/prefs';
+import { FactId, resolveFacts } from '../lib/tripFacts';
 import { onTrackerChange } from '../tracking/tracker';
 import './tripdetail.css';
 
@@ -54,6 +56,7 @@ export function TripDetailPage() {
   const [notes, setNotes] = useState<TripNote[]>([]);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const scrollRef = useRef<HTMLElement>(null);
+  const sideRef = useRef<HTMLElement>(null);
   const mapPanelRef = useRef<HTMLDivElement>(null);
   const mapApiRef = useRef<TripMapApi | null>(null);
   const mediaRef = useRef<MediaItem[]>([]);
@@ -64,6 +67,9 @@ export function TripDetailPage() {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    // Desktop scrolls the side column, mobile scrolls the page itself — listen
+    // on both, or the map only follows the timeline on a phone.
+    const scrollers = [el, sideRef.current].filter((n): n is HTMLElement => !!n);
     let focusTimer = 0;
     let lastKey = '';
 
@@ -73,7 +79,11 @@ export function TripDetailPage() {
     const focusVisible = () => {
       const api = mapApiRef.current;
       if (!api) return;
-      const mapBottom = window.innerHeight * 0.42;
+      // On a phone the map covers the top of the screen; on desktop it's a
+      // separate column, so the whole viewport height counts.
+      const mapBottom = window.matchMedia('(max-width: 900px)').matches
+        ? window.innerHeight * 0.42
+        : 0;
       const coords: [number, number][] = [];
       const seen = new Set<string>();
       for (const node of document.querySelectorAll<HTMLElement>('[data-media-id]')) {
@@ -113,9 +123,9 @@ export function TripDetailPage() {
       window.clearTimeout(focusTimer);
       focusTimer = window.setTimeout(focusVisible, 180);
     };
-    el.addEventListener('scroll', onScroll, { passive: true });
+    for (const node of scrollers) node.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      el.removeEventListener('scroll', onScroll);
+      for (const node of scrollers) node.removeEventListener('scroll', onScroll);
       if (raf) cancelAnimationFrame(raf);
       window.clearTimeout(focusTimer);
     };
@@ -515,7 +525,7 @@ export function TripDetailPage() {
         )}
       </div>
 
-      <aside className="trip-side">
+      <aside className="trip-side" ref={sideRef}>
         <div className="sheet-grab" aria-hidden="true" />
         {/* One header block: cover photo, title, dates and the trip's numbers —
             rather than a photo followed by a row of separate stat boxes. */}
@@ -535,37 +545,19 @@ export function TripDetailPage() {
               </p>
             )}
             {stats && (
-              <div className="trip-headcard-stats">
-                {stats.distanceKm > 0 && (
-                  <span className="tstat">
-                    <strong>{stats.distanceKm.toLocaleString('nl-NL')}</strong> km
-                  </span>
+              <TripFacts
+                facts={resolveFacts(
+                  {
+                    distanceKm: stats.distanceKm,
+                    days: stats.days,
+                    stops: stops.filter((st) => st.latitude !== null).length,
+                    photoCount: stats.photoCount,
+                    travellers: trip?.members.length ?? 0,
+                    countries: stats.countries.length,
+                  },
+                  (getTripFacts(tripId ?? '') as FactId[] | null) ?? null,
                 )}
-                <span className="tstat">
-                  <strong>{stats.days}</strong> dagen
-                </span>
-                {stats.countries.length > 0 && (
-                  <span className="tstat">
-                    <strong>{stats.countries.length}</strong>
-                    {stats.countries.length === 1 ? ' land' : ' landen'}
-                  </span>
-                )}
-                {stats.photoCount > 0 && (
-                  <span className="tstat">
-                    <strong>{stats.photoCount}</strong> foto's
-                  </span>
-                )}
-                {stops.filter((s) => s.latitude !== null).length > 0 && (
-                  <span className="tstat">
-                    <strong>{stops.filter((s) => s.latitude !== null).length}</strong> stops
-                  </span>
-                )}
-                {trip && trip.members.length > 1 && (
-                  <span className="tstat">
-                    <strong>{trip.members.length}</strong> reisgenoten
-                  </span>
-                )}
-              </div>
+              />
             )}
           </div>
         </div>

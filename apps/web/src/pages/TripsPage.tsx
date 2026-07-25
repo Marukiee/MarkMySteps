@@ -22,6 +22,17 @@ import './trips.css';
 export function TripsPage() {
   const [trips, setTrips] = useState<Trip[] | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [newClosing, setNewClosing] = useState(false);
+
+  // The form collapses away instead of vanishing, so the sections below slide
+  // back up rather than jumping.
+  const closeNew = () => {
+    setNewClosing(true);
+    window.setTimeout(() => {
+      setShowNew(false);
+      setNewClosing(false);
+    }, 260);
+  };
   const [error, setError] = useState<string | null>(null);
   // Bumped when a card switches size; the layout is read back from localStorage.
   const [, setSizeTick] = useState(0);
@@ -67,18 +78,25 @@ export function TripsPage() {
 
       <div className="trips-head">
         <h1>Reizen</h1>
-        <button className="btn btn-primary" onClick={() => setShowNew((v) => !v)}>
-          {showNew ? 'Annuleren' : '+ Nieuwe reis'}
+        <button
+          className="btn btn-primary"
+          onClick={() => (showNew ? closeNew() : setShowNew(true))}
+        >
+          {showNew && !newClosing ? 'Annuleren' : '+ Nieuwe reis'}
         </button>
       </div>
 
       {showNew && (
-        <NewTripForm
-          onCreated={() => {
-            setShowNew(false);
-            load();
-          }}
-        />
+        <div className={`new-trip-wrap ${newClosing ? 'closing' : ''}`}>
+          <div>
+            <NewTripForm
+              onCreated={() => {
+                closeNew();
+                load();
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {error && <p className="error-text">{error}</p>}
@@ -236,7 +254,8 @@ function TripCard({
   }
 
   function setSize(v: 'large' | 'compact' | null) {
-    setMenuOpen(false);
+    // Animate the menu away first; picking an option used to blink it out.
+    closeMenu();
     onResize(trip.id, v);
   }
 
@@ -317,6 +336,7 @@ function TripCard({
               <button
                 onClick={(e) => {
                   stop(e);
+                  closeMenu();
                   navigate(`/trips/${trip.id}/settings`);
                 }}
               >
@@ -325,7 +345,7 @@ function TripCard({
               <button
                 onClick={(e) => {
                   stop(e);
-                  setMenuOpen(false);
+                  closeMenu();
                   setRenaming(true);
                 }}
               >
@@ -335,6 +355,7 @@ function TripCard({
                 className="trip-menu-danger"
                 onClick={(e) => {
                   stop(e);
+                  closeMenu();
                   void remove();
                 }}
               >
@@ -347,6 +368,7 @@ function TripCard({
               className="trip-menu-danger"
               onClick={(e) => {
                 stop(e);
+                closeMenu();
                 void leave();
               }}
             >

@@ -582,7 +582,19 @@ function PlaceSheet({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    // Back closes the sheet rather than leaving the planner.
+    window.history.pushState({ mmsPlace: true }, '');
+    let popped = false;
+    const onPop = () => {
+      popped = true;
+      close();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onPop);
+      if (!popped) window.history.back();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

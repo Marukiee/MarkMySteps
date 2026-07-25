@@ -51,6 +51,9 @@ public class MmsLocationService extends Service implements LocationListener {
     private static final int NOTIFICATION_ID = 8421;
     private static final String PREFS = "mms.tracking.service";
 
+    /** Notification action: pause/resume without leaving the app. */
+    static final String ACTION_TOGGLE = "nl.markmaaktmedia.markmysteps.TOGGLE_TRACKING";
+
     static final String EXTRA_INTERVAL = "intervalMs";
     static final String EXTRA_DISTANCE = "distanceM";
     static final String EXTRA_TITLE = "title";
@@ -82,6 +85,9 @@ public class MmsLocationService extends Service implements LocationListener {
     private long lastFixAt = 0L;
     private boolean updatesActive = false;
     private boolean waitingForMotion = false;
+    /** Paused from the notification: the service stays alive (and keeps its
+     *  settings) but asks the OS for nothing at all. */
+    private boolean paused = false;
 
     private final TriggerEventListener motionListener = new TriggerEventListener() {
         @Override
@@ -114,6 +120,20 @@ public class MmsLocationService extends Service implements LocationListener {
 
     @Override
     public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_TOGGLE.equals(intent.getAction())) {
+            restoreConfig();
+            paused = !paused;
+            if (paused) {
+                stopUpdates();
+                disarmMotion();
+                notifyStatus("paused", null);
+            } else {
+                startUpdates();
+            }
+            startInForeground();
+            return START_STICKY;
+        }
+
         if (intent != null && intent.hasExtra(EXTRA_INTERVAL)) {
             intervalMs = intent.getLongExtra(EXTRA_INTERVAL, intervalMs);
             minDistanceM = intent.getFloatExtra(EXTRA_DISTANCE, minDistanceM);
@@ -125,6 +145,7 @@ public class MmsLocationService extends Service implements LocationListener {
             restoreConfig();
         }
 
+        paused = false;
         startInForeground();
         startUpdates();
         handler.removeCallbacks(idleCheck);
@@ -298,7 +319,7 @@ public class MmsLocationService extends Service implements LocationListener {
      * wake us instead of polling GNSS for nothing.
      */
     private void maybeGoIdle() {
-        if (!updatesActive || waitingForMotion || significantMotion == null) return;
+        if (paused || !updatesActive || waitingForMotion || significantMotion == null) return;
         long still = System.currentTimeMillis() - lastFixAt;
         if (still < Math.max(intervalMs * 3, 5 * 60_000L)) return;
         stopUpdates();
@@ -342,14 +363,26 @@ public class MmsLocationService extends Service implements LocationListener {
         PendingIntent pending = PendingIntent.getActivity(
                 this, 0, open, PendingIntent.FLAG_IMMUTABLE);
 
+        // Toggle button: pausing keeps the service (and its settings) alive, so
+        // resuming is one tap rather than a trip back into the app.
+        Intent toggle = new Intent(this, MmsLocationService.class).setAction(ACTION_TOGGLE);
+        PendingIntent togglePending = PendingIntent.getService(
+                this, 1, toggle, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        String text;
+        if (paused) text = "Gepauzeerd";
+        else if (waitingForMotion) text = "Gepauzeerd, wacht tot je beweegt";
+        else text = message;
+
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle(title)
-                .setContentText(waitingForMotion ? "Gepauzeerd — wacht tot je beweegt" : message)
+                .setContentText(text)
                 .setSmallIcon(R.drawable.ic_stat_track)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .setSilent(true)
                 .setContentIntent(pending)
+                .addAction(0, paused ? "Hervatten" : "Pauzeren", togglePending)
                 .build();
     }
 

@@ -170,3 +170,133 @@
   margin-right: auto;
   color: var(--ink-faint);
 }
+
+/* --- Quick month + year picker (tap the month title) --- */
+.dp-month {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  transition: background 0.16s var(--ease), color 0.16s var(--ease);
+}
+
+.dp-month:hover {
+  background: var(--paper-sunken);
+}
+
+.dp-month svg {
+  color: var(--ink-faint);
+  transition: transform 0.22s var(--ease);
+}
+
+.dp-month.open svg {
+  transform: rotate(180deg);
+}
+
+.dp-picker {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.2rem 0 0.6rem;
+  animation: dpPickerIn 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes dpPickerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* Years scroll sideways; the current one is centred when the panel opens. */
+.dp-years {
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.dp-years::-webkit-scrollbar {
+  display: none;
+}
+
+.dp-year {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+  transition: background 0.16s var(--ease), color 0.16s var(--ease);
+}
+
+.dp-year:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.dp-year.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.dp-months {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.3rem;
+}
+
+.dp-month-opt {
+  padding: 0.45rem 0.2rem;
+  border-radius: var(--radius-s);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  transition: background 0.16s var(--ease), color 0.16s var(--ease),
+    transform 0.14s var(--ease);
+  animation: dpMonthIn 0.28s var(--ease) backwards;
+}
+
+.dp-months .dp-month-opt:nth-child(n + 4) { animation-delay: 0.03s; }
+.dp-months .dp-month-opt:nth-child(n + 7) { animation-delay: 0.06s; }
+.dp-months .dp-month-opt:nth-child(n + 10) { animation-delay: 0.09s; }
+
+@keyframes dpMonthIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.dp-month-opt:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.dp-month-opt:active {
+  transform: scale(0.95);
+}
+
+.dp-month-opt.active {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* The day grid slides when the month changes, and dims while the picker is up. */
+.dp-days {
+  animation: dpDaysIn 0.24s var(--ease);
+}
+
+@keyframes dpDaysIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+
+.dp-dimmed {
+  opacity: 0.35;
+  pointer-events: none;
+  transition: opacity 0.2s var(--ease);
+}

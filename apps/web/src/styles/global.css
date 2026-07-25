@@ -28,6 +28,12 @@
 
   --font-body: 'Inter Variable', system-ui, sans-serif;
   --font-display: 'Fraunces Variable', Georgia, serif;
+  /* Wordmark only. Swap this one line to try another candidate:
+       'Outfit Variable'             - geometric, modern, travel-app feel
+       'Plus Jakarta Sans Variable'  - friendly geometric, softer product look
+       'Darker Grotesque'            - tall + condensed, editorial character
+     (all three are installed; see main.tsx for the imports.) */
+  --font-brand: 'Outfit Variable', var(--font-body);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Frosted surfaces (nav bar, top bar, floating buttons). */

@@ -8,6 +8,16 @@ import { confirmModal } from '../components/confirm';
 import { DateField } from '../components/DatePicker';
 import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
+import { TripFacts } from '../components/TripFacts';
+import { getTripFacts, setTripFacts } from '../lib/prefs';
+import {
+  FACT_NAMES,
+  FACT_ORDER,
+  FactId,
+  FactSource,
+  MAX_FACTS,
+  resolveFacts,
+} from '../lib/tripFacts';
 import { MembersPanel } from '../components/MembersPanel';
 import { TripMarkerPicker } from '../components/TripMarkerPicker';
 import { TrackButton } from '../components/TrackButton';
@@ -202,6 +212,8 @@ export function TripSettingsPage() {
 
       {trip?.resolvedCoverId && (
         <div className="ts-cover">
+          {/* Holds the frame's space until the photo has decoded. */}
+          <span className="ts-cover-skeleton" aria-hidden="true" />
           <AuthImage path={`/media/${trip.resolvedCoverId}/thumbnail`} alt="" className="ts-cover-img" />
           <span className="ts-cover-hint">
             Kies een coverfoto: tik een foto <Icon name="chevron-right" size={12} /> “Als cover”
@@ -249,6 +261,8 @@ export function TripSettingsPage() {
       ) : (
         <p className="muted">Alleen de organisator kan de reisinstellingen wijzigen.</p>
       )}
+
+      {isOwner && tripId && <FactPicker tripId={tripId} trip={trip} />}
 
       {isOwner && (
         <section className="ts-marker">
@@ -362,8 +376,11 @@ export function TripSettingsPage() {
           <div>
             <strong>Automatisch getekende routes wissen</strong>
             <span className="muted">
-              Verwijdert alleen de routes die via “ingedrukt houden → route via wegen” zijn
-              getekend. Je eigen getrackte GPS blijft staan.
+              Verwijdert alleen de routes die je hebt getekend via{' '}
+              <span className="inline-path">
+                Ingedrukt houden <Icon name="chevron-right" size={12} /> Route via wegen
+              </span>
+              . Je eigen getrackte GPS blijft staan.
             </span>
           </div>
           <button className="btn btn-ghost" disabled={wiping} onClick={() => void wipeRouteFills()}>
@@ -405,5 +422,109 @@ export function TripSettingsPage() {
         </div>
       )}
     </main>
+  );
+}
+
+interface FactStats {
+  distanceKm: number;
+  countries: string[];
+  days: number;
+  photoCount: number;
+}
+
+/**
+ * Choose which four chips appear on this trip's header, with the real thing as
+ * a live preview. "Auto" clears the choice and falls back to the priority
+ * order (afstand, dagen, stops, foto's, reisgenoten).
+ */
+function FactPicker({ tripId, trip }: { tripId: string; trip: Trip | null }) {
+  const [stats, setStats] = useState<FactStats | null>(null);
+  const [stopCount, setStopCount] = useState(0);
+  const [chosen, setChosen] = useState<FactId[] | null>(
+    () => (getTripFacts(tripId) as FactId[] | null) ?? null,
+  );
+
+  useEffect(() => {
+    api<FactStats>(`/trips/${tripId}/stats`).then(setStats).catch(() => undefined);
+    api<{ latitude: number | null }[]>(`/trips/${tripId}/stops`)
+      .then((rows) => setStopCount(rows.filter((r) => r.latitude !== null).length))
+      .catch(() => undefined);
+  }, [tripId]);
+
+  const source: FactSource = {
+    distanceKm: stats?.distanceKm ?? 0,
+    days: stats?.days ?? 0,
+    stops: stopCount,
+    photoCount: stats?.photoCount ?? 0,
+    travellers: trip?.members.length ?? 0,
+    countries: stats?.countries.length ?? 0,
+  };
+
+  const toggle = (id: FactId) => {
+    const current = chosen ?? [];
+    const next = current.includes(id)
+      ? current.filter((f) => f !== id)
+      : current.length >= MAX_FACTS
+        ? current
+        : [...current, id];
+    setChosen(next.length > 0 ? next : null);
+    setTripFacts(tripId, next.length > 0 ? next : null);
+  };
+
+  const auto = chosen === null;
+
+  return (
+    <section className="ts-facts">
+      <h2 className="ts-section-title">
+        Feitjes op de cover
+        <HelpTip>
+          Er is plek voor vier. Zonder eigen keuze pakt de app automatisch de eerste vier die deze
+          reis heeft: afstand, dagen, stops, foto's, reisgenoten.
+        </HelpTip>
+      </h2>
+
+      <div className={`ts-facts-preview ${trip?.resolvedCoverId ? 'has-cover' : ''}`}>
+        {trip?.resolvedCoverId && (
+          <AuthImage
+            path={`/media/${trip.resolvedCoverId}/thumbnail`}
+            alt=""
+            className="ts-facts-preview-img"
+          />
+        )}
+        <div className="ts-facts-preview-body">
+          <TripFacts facts={resolveFacts(source, chosen)} />
+        </div>
+      </div>
+
+      <div className="ts-facts-options">
+        <button
+          type="button"
+          className={`ts-fact-opt ts-fact-auto ${auto ? 'active' : ''}`}
+          onClick={() => {
+            setChosen(null);
+            setTripFacts(tripId, null);
+          }}
+        >
+          <span className="ts-fact-check">{auto && <Icon name="check" size={14} />}</span>
+          Automatisch
+        </button>
+        {FACT_ORDER.map((id) => {
+          const on = chosen?.includes(id) ?? false;
+          const full = !on && (chosen?.length ?? 0) >= MAX_FACTS;
+          return (
+            <button
+              key={id}
+              type="button"
+              className={`ts-fact-opt ${on ? 'active' : ''}`}
+              disabled={full}
+              onClick={() => toggle(id)}
+            >
+              <span className="ts-fact-check">{on && <Icon name="check" size={14} />}</span>
+              {FACT_NAMES[id]}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }

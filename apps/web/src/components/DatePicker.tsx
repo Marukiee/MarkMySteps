@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import './datepicker.css';
@@ -67,6 +67,16 @@ function CalendarSheet({
 }) {
   const base = value ? new Date(value + 'T00:00:00') : new Date();
   const [view, setView] = useState({ year: base.getFullYear(), month: base.getMonth() });
+  const [picking, setPicking] = useState(false);
+  const yearsRef = useRef<HTMLDivElement>(null);
+
+  // Scroll the chosen year into the middle of its strip when the panel opens.
+  useEffect(() => {
+    if (!picking) return;
+    yearsRef.current
+      ?.querySelector('.dp-year.active')
+      ?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [picking, view.year]);
   const [closing, setClosing] = useState(false);
   const selected = value;
   const todayIso = toISO(new Date());
@@ -99,6 +109,14 @@ function CalendarSheet({
     });
 
   const monthLabel = first.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' });
+  // A month-and-year panel, so a date years away doesn't need 24 taps on the
+  // chevron. Tapping the month title flips the sheet over to it.
+  const MONTHS = [
+    'jan', 'feb', 'mrt', 'apr', 'mei', 'jun',
+    'jul', 'aug', 'sep', 'okt', 'nov', 'dec',
+  ];
+  const years: number[] = [];
+  for (let y = view.year - 6; y <= view.year + 6; y++) years.push(y);
   const headerDate = value ? fmtLong(value) : 'Kies een datum';
 
   return createPortal(
@@ -118,20 +136,60 @@ function CalendarSheet({
           <button type="button" aria-label="Vorige maand" onClick={() => shift(-1)}>
             <Icon name="chevron-left" size={20} />
           </button>
-          <span className="dp-month">{monthLabel}</span>
+          <button
+            type="button"
+            className={`dp-month ${picking ? 'open' : ''}`}
+            aria-expanded={picking}
+            onClick={() => setPicking((p) => !p)}
+          >
+            {monthLabel}
+            <Icon name="chevron-down" size={16} />
+          </button>
           <button type="button" aria-label="Volgende maand" onClick={() => shift(1)}>
             <Icon name="chevron-right" size={20} />
           </button>
         </div>
 
-        <div className="dp-grid dp-weekdays">
+        {picking && (
+          <div className="dp-picker">
+            <div className="dp-years" ref={yearsRef}>
+              {years.map((y) => (
+                <button
+                  key={y}
+                  type="button"
+                  className={`dp-year ${y === view.year ? 'active' : ''}`}
+                  onClick={() => setView((v) => ({ ...v, year: y }))}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+            <div className="dp-months">
+              {MONTHS.map((m, i) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`dp-month-opt ${i === view.month ? 'active' : ''}`}
+                  onClick={() => {
+                    setView((v) => ({ ...v, month: i }));
+                    setPicking(false);
+                  }}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className={`dp-grid dp-weekdays ${picking ? 'dp-dimmed' : ''}`}>
           {WEEKDAYS.map((w) => (
             <span key={w} className="dp-weekday">
               {w}
             </span>
           ))}
         </div>
-        <div className="dp-grid">
+        <div className={`dp-grid dp-days ${picking ? 'dp-dimmed' : ''}`} key={`${view.year}-${view.month}`}>
           {cells.map((day, i) => {
             if (day === null) return <span key={i} />;
             const iso = toISO(new Date(view.year, view.month, day));

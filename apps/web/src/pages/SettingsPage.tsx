@@ -379,7 +379,18 @@ function TrackingSection() {
 
       {tracker.tripId ? (
         <div className="tracking-status">
-          <button className="btn btn-danger" onClick={() => void stopTracking()}>
+          <button
+            className="btn btn-danger"
+            onClick={async () => {
+              const ok = await confirmModal({
+                title: 'Stoppen met tracken?',
+                body: `De route van "${activeTrip?.title ?? 'deze reis'}" wordt niet verder bijgehouden. Wat al opgenomen is blijft staan.`,
+                confirmLabel: 'Stoppen',
+                danger: true,
+              });
+              if (ok) void stopTracking();
+            }}
+          >
             <Icon name="stop" size={15} /> Stop tracking
           </button>
           {tracker.lastError && <span className="error-text">{tracker.lastError}</span>}
@@ -631,7 +642,7 @@ function ProfileSection() {
         method: 'POST',
         body: { currentPassword, newPassword },
       });
-      setMessage('Wachtwoord gewijzigd. Andere sessies zijn uitgelogd — log opnieuw in.');
+      setMessage('Wachtwoord gewijzigd. Andere sessies zijn uitgelogd, log opnieuw in.');
       setCurrentPassword('');
       setNewPassword('');
       window.setTimeout(logout, 2500);
@@ -642,15 +653,25 @@ function ProfileSection() {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [photoMenu, setPhotoMenu] = useState(false);
+  const [photoMenuClosing, setPhotoMenuClosing] = useState(false);
+
+  // Animate the popover away instead of unmounting it mid-frame.
+  const closePhotoMenu = () => {
+    setPhotoMenuClosing(true);
+    window.setTimeout(() => {
+      setPhotoMenu(false);
+      setPhotoMenuClosing(false);
+    }, 150);
+  };
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [viewSrc, setViewSrc] = useState<string | null>(null);
 
   // Close the photo menu on any outside click.
   useEffect(() => {
     if (!photoMenu) return;
-    const close = () => setPhotoMenu(false);
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    document.addEventListener('click', closePhotoMenu);
+    return () => document.removeEventListener('click', closePhotoMenu);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoMenu]);
 
   async function uploadBlob(blob: Blob) {
@@ -695,7 +716,8 @@ function ProfileSection() {
           title="Profielfoto"
           onClick={(e) => {
             e.stopPropagation();
-            setPhotoMenu((v) => !v);
+            if (photoMenu) closePhotoMenu();
+            else setPhotoMenu(true);
           }}
         >
           {user && (
@@ -710,37 +732,40 @@ function ProfileSection() {
             <Icon name="camera" size={15} />
           </span>
           {photoMenu && (
-            <div className="avatar-menu card" onClick={(e) => e.stopPropagation()}>
+            <div
+              className={`avatar-menu card ${photoMenuClosing ? 'closing' : ''}`}
+              onClick={(e) => e.stopPropagation()}
+            >
               {user?.hasAvatar && (
                 <button
                   type="button"
                   onClick={async () => {
-                    setPhotoMenu(false);
+                    closePhotoMenu();
                     setViewSrc(await currentAvatarUrl());
                   }}
                 >
-                  Profielfoto bekijken
+                  Foto bekijken
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => {
-                  setPhotoMenu(false);
+                  closePhotoMenu();
                   fileRef.current?.click();
                 }}
               >
-                Andere profielfoto kiezen
+                Andere foto kiezen
               </button>
               {user?.hasAvatar && (
                 <button
                   type="button"
                   onClick={async () => {
-                    setPhotoMenu(false);
+                    closePhotoMenu();
                     const url = await currentAvatarUrl();
                     if (url) setCropSrc(url);
                   }}
                 >
-                  Profielfoto bijsnijden
+                  Foto bijsnijden
                 </button>
               )}
               {user?.hasAvatar && (
@@ -748,11 +773,11 @@ function ProfileSection() {
                   type="button"
                   className="avatar-menu-danger"
                   onClick={() => {
-                    setPhotoMenu(false);
+                    closePhotoMenu();
                     void removeAvatar();
                   }}
                 >
-                  Profielfoto verwijderen
+                  Foto verwijderen
                 </button>
               )}
             </div>
@@ -892,7 +917,7 @@ function ImmichSection() {
       });
       setStatus(s);
       setApiKey('');
-      setMessage('Verbonden met Immich — API-key gevalideerd en versleuteld opgeslagen.');
+      setMessage('Verbonden met Immich. API-key gevalideerd en versleuteld opgeslagen.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Opslaan mislukt');
     } finally {
@@ -1248,7 +1273,7 @@ function PolarstepsSection() {
         <ul className="import-result">
           {result.map((trip) => (
             <li key={trip.tripId}>
-              <strong>{trip.title}</strong> — {formatDate(trip.startDate)} t/m{' '}
+              <strong>{trip.title}</strong> · {formatDate(trip.startDate)} t/m{' '}
               {formatDate(trip.endDate)}, {trip.pointsImported.toLocaleString('nl-NL')} routepunten
             </li>
           ))}

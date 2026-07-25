@@ -78,11 +78,16 @@
   border: 2px solid #fff;
 }
 
-/* Live location (Google-Maps-style blue dot with a pulse). */
+/* Live location (Google-Maps-style blue dot with a pulse). Forced above the
+   photo markers — it was being buried under them and impossible to spot. */
+.maplibregl-marker:has(.me-marker) {
+  z-index: 40 !important;
+}
+
 .me-marker {
   position: relative;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .me-marker-dot {
@@ -98,8 +103,8 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: rgb(26 115 232 / 0.35);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { Icon, IconName } from './Icon';
+import { LogoMark } from './Logo';
 import { ThemeId, getThemeId, setThemeId } from '../lib/prefs';
 import { Avatar } from './Avatar';
 import './topbar.css';
@@ -32,6 +33,7 @@ export function TopBar() {
   return (
     <header className="topbar">
       <Link to="/" className="topbar-brand" aria-label="MarkMySteps">
+        <LogoMark size={28} />
         <span>MarkMySteps</span>
       </Link>
 

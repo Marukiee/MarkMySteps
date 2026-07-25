@@ -402,6 +402,7 @@
 
 .trip-headcard-body {
   position: relative;
+  width: 100%;
   display: grid;
   gap: 0.3rem;
   padding: 1.05rem 1.15rem;
@@ -446,24 +447,16 @@
 /* Numbers as inline chips: "1.240 km · 12 dagen · 3 landen · 84 foto's".
    Centred, and wrapping is deliberate rather than accidental: rows stay centred
    so a long number simply starts a new, equally centred row. */
-/* Always exactly one row: the strip scrolls sideways rather than wrapping.
-   `safe center` keeps it centred while it fits and stops the first chip being
-   clipped once it doesn't. */
+/* Always exactly one centred row. TripFacts shortens the labels and, as a last
+   resort, drops a chip — nothing is ever clipped or scrolled. */
 .trip-headcard-stats {
   display: flex;
   flex-wrap: nowrap;
-  justify-content: safe center;
+  justify-content: center;
   gap: 0.35rem;
   margin-top: 0.6rem;
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 2px;
-}
-
-.trip-headcard-stats::-webkit-scrollbar {
-  display: none;
+  width: 100%;
+  overflow: hidden;
 }
 
 .trip-headcard-stats .tstat {

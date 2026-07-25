@@ -91,6 +91,30 @@ export function setTrackingIntervalMin(min: number): void {
   localStorage.setItem(TRACK_INTERVAL_KEY, String(min));
 }
 
+const TRIP_FACTS_KEY = 'mms.tripFacts';
+
+/** Per-trip choice of header chips; null means "auto" (priority order). */
+export function getTripFacts(tripId: string): string[] | null {
+  try {
+    const all = JSON.parse(localStorage.getItem(TRIP_FACTS_KEY) ?? '{}') as Record<string, string[]>;
+    const picked = all[tripId];
+    return Array.isArray(picked) && picked.length > 0 ? picked : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setTripFacts(tripId: string, facts: string[] | null): void {
+  try {
+    const all = JSON.parse(localStorage.getItem(TRIP_FACTS_KEY) ?? '{}') as Record<string, string[]>;
+    if (facts && facts.length > 0) all[tripId] = facts;
+    else delete all[tripId];
+    localStorage.setItem(TRIP_FACTS_KEY, JSON.stringify(all));
+  } catch {
+    /* storage unavailable — selection just isn't remembered */
+  }
+}
+
 const SELF_ON_HOME_KEY = 'mms.selfOnHome';
 
 /** Show your own live position on the homepage globe as well as on a trip map. */

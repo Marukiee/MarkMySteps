@@ -786,17 +786,23 @@
   color: var(--ink-faint);
 }
 
+/* Square-ish chip so the pencil sits dead centre instead of drifting right. */
 .theme-opt-icon {
-  display: grid;
-  place-content: center;
-  padding-left: 0.7rem;
-  padding-right: 0.7rem;
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.theme-opt-icon svg {
+  display: block;
 }
 
 /* Placeholder with the connection panel's height, so the card is already the
    right size before the request comes back. */
 .immich-status-skeleton {
-  height: 74px;
+  height: 92px;
   border-radius: var(--radius-s);
   background: linear-gradient(
     100deg,
@@ -837,4 +843,29 @@
   );
   background-size: 220% 100%;
   animation: skeletonSweep 1.3s linear infinite;
+}
+
+.avatar-menu.closing {
+  animation: avatarMenuOut 0.15s var(--ease) forwards;
+}
+
+@keyframes avatarMenuOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+/* Destructive entry reads the same as in the trip card's ⋯ menu. */
+.avatar-menu .avatar-menu-danger {
+  color: #b3402a;
+}
+
+/* Name + handle line up with the top of the avatar rather than its middle. */
+.avatar-row {
+  align-items: flex-start;
+}
+
+.avatar-meta {
+  padding-top: 0.35rem;
 }

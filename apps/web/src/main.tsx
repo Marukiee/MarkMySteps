@@ -1,4 +1,9 @@
 import '@fontsource-variable/fraunces';
+// Wordmark candidates - see --font-brand in global.css.
+import '@fontsource-variable/outfit';
+import '@fontsource-variable/plus-jakarta-sans';
+import '@fontsource/darker-grotesque/600.css';
+import '@fontsource/darker-grotesque/700.css';
 import '@fontsource-variable/inter';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

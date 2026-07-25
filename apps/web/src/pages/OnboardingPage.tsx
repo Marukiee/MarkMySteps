@@ -192,7 +192,7 @@ export function OnboardingPage() {
         <Icon name="gear" size={54} />
       </span>
       <h1>Licht of donker?</h1>
-      <p className="muted">Kies je thema — je kunt dit later altijd wijzigen in Instellingen.</p>
+      <p className="muted">Kies je thema. Je kunt dit later altijd wijzigen in Instellingen.</p>
       {/* Same pill toggle + animation as Instellingen → Weergave. */}
       <div className="theme-choice onb-theme-choice">
         {(['system', 'light', 'dark'] as ThemeId[]).map((t) => (
@@ -245,7 +245,7 @@ export function OnboardingPage() {
               </p>
             </div>
             {permissionState === 'denied' && (
-              <p className="error-text">Geweigerd — je kunt dit later aanzetten via Instellingen.</p>
+              <p className="error-text">Geweigerd. Je kunt dit later aanzetten via Instellingen.</p>
             )}
           </div>,
           <div className="onb-feature" key="always">
