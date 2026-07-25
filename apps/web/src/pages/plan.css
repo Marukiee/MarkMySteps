@@ -406,13 +406,15 @@
   border-color: var(--accent);
 }
 
-/* Standalone outbound/return flight card. */
+/* Standalone outbound/return leg card — a single slim row:
+   [name] [airports/flight pill] … [mode pill], delete cross centred on the right.
+   When the flight editor is opened it wraps onto its own full-width line. */
 .flight-leg {
   position: relative; /* anchor the delete cross to this card */
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.7rem 2.4rem 0.7rem 0.85rem;
+  padding: 0.55rem 2.4rem 0.55rem 0.85rem;
 }
 
 .flight-leg-icon {
@@ -427,39 +429,37 @@
   place-content: center;
 }
 
-.flight-leg-main {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 0.45rem;
-}
-
-.flight-leg-head {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
 .flight-leg-name {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.flight-leg-main > strong {
   font-size: 0.95rem;
 }
 
+/* The mode pill hugs the right edge, just before the cross. */
+.flight-leg-head > .mode-menu {
+  margin-left: auto;
+}
+
 /* Inside the flight card the editor is flush (no timeline indent). */
-.flight-leg .flight-summary,
-.flight-leg .flight-editor {
+.flight-leg .flight-summary {
   margin: 0;
 }
 
+/* Opened editor drops to its own full-width row under the head. */
 .flight-leg .flight-editor {
+  margin: 0.4rem 0 0;
   padding: 0;
+  flex-basis: 100%;
+}
+
+/* Delete cross vertically centred on the right, not pinned to the top corner. */
+.flight-leg > .stop-delete {
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
 }
 
 .stop-add {
@@ -656,10 +656,12 @@
 }
 
 .flight-leg-head {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.6rem;
 }
 
 /* Incoming-leg block on a normal stop: mode dropdown + optional flight editor. */

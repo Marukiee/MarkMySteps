@@ -91,34 +91,6 @@ function mapMembers(trip: RawTripRow): TripWithMembers {
   };
 }
 
-/** Great-circle arc between two [lng,lat] points as `steps`+1 points. */
-function greatCircle(a: [number, number], b: [number, number], steps: number): [number, number][] {
-  const toRad = Math.PI / 180;
-  const toDeg = 180 / Math.PI;
-  const [lon1, lat1] = [a[0] * toRad, a[1] * toRad];
-  const [lon2, lat2] = [b[0] * toRad, b[1] * toRad];
-  const d =
-    2 *
-    Math.asin(
-      Math.sqrt(
-        Math.sin((lat2 - lat1) / 2) ** 2 +
-          Math.cos(lat1) * Math.cos(lat2) * Math.sin((lon2 - lon1) / 2) ** 2,
-      ),
-    );
-  if (d === 0) return [a, b];
-  const out: [number, number][] = [];
-  for (let i = 0; i <= steps; i++) {
-    const f = i / steps;
-    const A = Math.sin((1 - f) * d) / Math.sin(d);
-    const B = Math.sin(f * d) / Math.sin(d);
-    const x = A * Math.cos(lat1) * Math.cos(lon1) + B * Math.cos(lat2) * Math.cos(lon2);
-    const y = A * Math.cos(lat1) * Math.sin(lon1) + B * Math.cos(lat2) * Math.sin(lon2);
-    const z = A * Math.sin(lat1) + B * Math.sin(lat2);
-    out.push([Math.atan2(y, x) * toDeg, Math.atan2(z, Math.sqrt(x * x + y * y)) * toDeg]);
-  }
-  return out;
-}
-
 /** Evenly thins a polyline to at most `max` points (keeps first & last). */
 function downsample(points: [number, number][], max: number): [number, number][] {
   if (points.length <= max) return points;
@@ -244,12 +216,12 @@ export class TripsService {
             .map((c) => asLngLat(airportCoord(c)))
             .filter((c): c is [number, number] => !!c);
           const pts = [from, ...via, to];
-          const flightSeg: [number, number][] = [];
+          // Emit each hop as its own endpoint pair so a layover flight draws as
+          // TWO separate bows on the globe (AMS→KEF, KEF→JFK), not one arc that
+          // skips the stopover.
           for (let k = 1; k < pts.length; k++) {
-            const arc = greatCircle(pts[k - 1]!, pts[k]!, 24);
-            flightSeg.push(...(flightSeg.length === 0 ? arc : arc.slice(1)));
+            flights.push([pts[k - 1]!, pts[k]!]);
           }
-          if (flightSeg.length >= 2) flights.push(flightSeg);
           if (seg.length >= 2) segments.push(seg);
           seg = [];
           prev = to; // ground resumes from the arrival

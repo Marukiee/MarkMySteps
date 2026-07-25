@@ -242,16 +242,8 @@ export function TripPlanner({
             return (
               <li key={stop.id} className="stop-row">
                 <div className="flight-leg card">
-                  <div className="flight-leg-main">
-                    <div className="flight-leg-head">
-                      <strong className="flight-leg-name">{stop.name}</strong>
-                      <ModeMenu
-                        current={stop.travelMode}
-                        compact
-                        align="right"
-                        onPick={(m) => void setStopMode(stop, m)}
-                      />
-                    </div>
+                  <div className="flight-leg-head">
+                    <strong className="flight-leg-name">{stop.name}</strong>
                     {stop.travelMode === 'FLIGHT' && (
                       <FlightEditor
                         flightNumber={stop.flightNumber}
@@ -261,6 +253,12 @@ export function TripPlanner({
                         onSave={(data) => void saveFlight(stop, data)}
                       />
                     )}
+                    <ModeMenu
+                      current={stop.travelMode}
+                      compact
+                      align="right"
+                      onPick={(m) => void setStopMode(stop, m)}
+                    />
                   </div>
                   <button
                     className="stop-delete"
