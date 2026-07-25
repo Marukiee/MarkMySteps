@@ -101,6 +101,12 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
 
     // Per-trip label opacity, eased across frames for a soft pop-in.
     const labelOpacity = new Map<string, number>();
+    // On the homepage globe names are hidden until you tap a trip; this holds the
+    // tapped trip (its name card shows, tapping the card opens the trip). Tapping
+    // elsewhere clears it. Onboarding ignores this and shows names over routes.
+    let selectedId: string | null = null;
+    // A light that travels along the active route so you can see its direction.
+    let glowT = 0;
     // Auto-tour state: alternate a wide overview with a zoom into the busiest
     // region, so trips are shown big first, then explored up close.
     let tourPhase = 0; // 0 = overview, 1 = focus
@@ -148,9 +154,11 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
           tourPhase = 0;
         } else if (now - phaseStart > dur) {
           if (tourPhase === 0) {
-            // Entering a focus: frame the next trip (biggest first).
+            // Entering a focus: frame the next trip (biggest first). A stale tap
+            // selection is cleared so the tour can highlight this one.
             tourPhase = 1;
             tourIdx = (tourIdx + 1) % trips.length;
+            selectedId = null;
           } else {
             tourPhase = 0;
           }
@@ -407,10 +415,52 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         else drawSmallDot(x, y, pl.col, pl.upcoming);
       }
 
-      // --- Labels: only a few, biggest first; more as you zoom in. Each fades
-      // in/out so names pop up softly rather than snapping. ---
+      // The "active" trip whose name + direction glow are shown: on the homepage
+      // that's the trip you tapped, else the one the auto-tour is framing. In the
+      // onboarding demo there's no single active trip (names float over routes).
+      const activeId = noTourRef.current
+        ? null
+        : selectedId ??
+          (idle && tourPhase === 1 ? trips[Math.min(tourIdx, trips.length - 1)]?.id ?? null : null);
+
+      // --- Active route glow: a light sliding along the trip's path in travel
+      // direction, so which way the trip went reads at a glance. ---
+      if (activeId) {
+        const act = trips.find((t) => t.id === activeId);
+        const pts = act?.path?.flat();
+        if (act && pts && pts.length >= 2) {
+          const seg = glowT * (pts.length - 1);
+          const i0 = Math.floor(seg);
+          const f = seg - i0;
+          const a = pts[i0]!;
+          const b = pts[Math.min(i0 + 1, pts.length - 1)]!;
+          const gp: [number, number] = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+          if (!center || distance(center, gp) <= 90) {
+            const pr = projection(gp);
+            if (pr) {
+              const [gr, gg, gb] = legibleColor(act.color, dark);
+              const rad = 7 * dpr;
+              const grad = ctx!.createRadialGradient(pr[0], pr[1], 0, pr[0], pr[1], rad);
+              grad.addColorStop(0, `rgba(${gr},${gg},${gb},0.95)`);
+              grad.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
+              ctx!.fillStyle = grad;
+              ctx!.beginPath();
+              ctx!.arc(pr[0], pr[1], rad, 0, 2 * Math.PI);
+              ctx!.fill();
+            }
+          }
+        }
+        glowT += 0.01;
+        if (glowT >= 1) glowT = 0;
+      }
+
+      // --- Labels ---
+      // Onboarding: a few names float over the routes. Homepage: only the active
+      // trip's name shows (tap a dot to reveal it, tap the card to open it).
       const maxLabels = Math.max(2, Math.round(2 + (scale - 1) * 3));
-      const showIds = new Set(frontFacing.slice(0, maxLabels).map((t) => t.id));
+      const showIds = noTourRef.current
+        ? new Set(frontFacing.slice(0, maxLabels).map((t) => t.id))
+        : new Set(activeId ? [activeId] : []);
       labelRects = [];
       // Rects already drawn this frame — bigger trips (drawn first) win; a name
       // that would overlap one is suppressed so labels never pile up unreadably.
@@ -511,21 +561,35 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
       const rect = canvas!.getBoundingClientRect();
       const cx = (e.clientX - rect.left) * dpr;
       const cy = (e.clientY - rect.top) * dpr;
-      // A tap on a trip's name pill opens it.
+      // A tap on a trip's name card opens it (the card only shows once selected).
       for (const r of labelRects) {
         if (cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h) {
           navigate(`/trips/${r.id}`);
           return;
         }
       }
+      // A tap on a dot / near a route reveals that trip's name card; onboarding
+      // opens the trip directly (its names are always shown there).
       const inverted = projection.invert!([cx, cy]);
-      if (!inverted) return;
+      if (!inverted) {
+        selectedId = null;
+        return;
+      }
       let best: { id: string; d: number } | null = null;
       for (const trip of globeTrips()) {
-        const d = distance(inverted, trip.anchor);
+        // Nearest of the anchor and any route vertex, so tapping the line works.
+        let d = distance(inverted, trip.anchor);
+        for (const seg of trip.path ?? []) {
+          for (const p of seg) d = Math.min(d, distance(inverted, p));
+        }
         if (d < 6 / scale && (!best || d < best.d)) best = { id: trip.id, d };
       }
-      if (best) navigate(`/trips/${best.id}`);
+      if (!best) {
+        selectedId = null; // tapped empty space → hide the name card
+        return;
+      }
+      if (noTourRef.current) navigate(`/trips/${best.id}`);
+      else selectedId = selectedId === best.id ? null : best.id; // toggle the card
     }
 
     canvas.addEventListener('pointerdown', onDown);
