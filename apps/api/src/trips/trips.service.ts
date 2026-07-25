@@ -72,8 +72,14 @@ type RawTripRow = Trip & {
 function mapMembers(trip: RawTripRow): TripWithMembers {
   const { mediaRefs, stops, members, ...rest } = trip;
   const stop = stops[0];
+  // A manual marker (interrail loop etc.) wins as the anchor; else the first
+  // located stop.
   const anchor: [number, number] | null =
-    stop?.latitude != null && stop.longitude != null ? [stop.longitude, stop.latitude] : null;
+    trip.markerLng != null && trip.markerLat != null
+      ? [trip.markerLng, trip.markerLat]
+      : stop?.latitude != null && stop.longitude != null
+        ? [stop.longitude, stop.latitude]
+        : null;
   return {
     ...rest,
     resolvedCoverId: trip.coverMediaId ?? mediaRefs[0]?.id ?? null,
@@ -365,6 +371,8 @@ export class TripsService {
         ...(dto.coverMediaId !== undefined ? { coverMediaId: dto.coverMediaId } : {}),
         ...(dto.autoTrack !== undefined ? { autoTrack: dto.autoTrack } : {}),
         ...(dto.color !== undefined ? { color: dto.color } : {}),
+        ...(dto.markerLng !== undefined ? { markerLng: dto.markerLng } : {}),
+        ...(dto.markerLat !== undefined ? { markerLat: dto.markerLat } : {}),
       },
       include: MEMBERS_INCLUDE,
     });

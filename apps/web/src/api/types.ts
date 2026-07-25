@@ -51,6 +51,9 @@ export interface Trip {
   anchor: [number, number] | null;
   /** Custom trip colour (hex) for the globe/map; null = auto-assigned. */
   color?: string | null;
+  /** Manual globe-marker position ([lng,lat]); null = auto (route start/end). */
+  markerLng?: number | null;
+  markerLat?: number | null;
   distanceKm?: number;
   routePath?: [number, number][][];
   flightPath?: [number, number][][];

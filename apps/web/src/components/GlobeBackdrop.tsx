@@ -23,6 +23,8 @@ interface GlobeTrip {
   color: [number, number, number];
   /** Relative importance (km, else days) — drives label priority. */
   size: number;
+  /** Manual marker override in effect → draw one dot at the anchor, not ends. */
+  markerFixed: boolean;
 }
 
 /**
@@ -84,6 +86,7 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
           upcoming: t.startDate.slice(0, 10) > today,
           color: [90, 110, 225] as [number, number, number],
           size: t.distanceKm && t.distanceKm > 0 ? t.distanceKm : dayCount(t) * 40,
+          markerFixed: t.markerLng != null && t.markerLat != null,
         }));
       // Assign a distinct colour per trip: a custom trip colour wins, otherwise
       // spread hues by the golden angle over a stable (id-sorted) index so every
@@ -341,6 +344,12 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         const isCity = tripSpread(trip) < 2.5; // stays around one place
         // Dots sit on the route's REAL start and end (not the framing anchor, or
         // they'd float mid-route). Falls back to the anchor for a city trip.
+        // A manual marker (interrail loop etc.) is the single dot, wherever the
+        // owner placed it along the route.
+        if (trip.markerFixed) {
+          addEndpoint(trip.anchor, col, trip.upcoming, isCity, trip.id);
+          continue;
+        }
         const start = trip.path?.[0]?.[0] ?? trip.anchor;
         const lastSeg = trip.path?.[trip.path.length - 1];
         const end = lastSeg?.[lastSeg.length - 1];

@@ -1,5 +1,5 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsBoolean, IsHexColor, IsOptional, IsUUID, ValidateIf } from 'class-validator';
+import { IsBoolean, IsHexColor, IsNumber, IsOptional, IsUUID, ValidateIf } from 'class-validator';
 import { CreateTripDto } from './create-trip.dto';
 
 export class UpdateTripDto extends PartialType(CreateTripDto) {
@@ -18,4 +18,15 @@ export class UpdateTripDto extends PartialType(CreateTripDto) {
   @ValidateIf((_, value) => value !== null)
   @IsHexColor()
   color?: string | null;
+
+  /** Manual globe-marker position; both null resets to auto (route start/end). */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsNumber()
+  markerLng?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsNumber()
+  markerLat?: number | null;
 }

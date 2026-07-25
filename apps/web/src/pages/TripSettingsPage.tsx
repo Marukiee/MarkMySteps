@@ -8,6 +8,7 @@ import { confirmModal } from '../components/confirm';
 import { DateField } from '../components/DatePicker';
 import { Icon } from '../components/Icon';
 import { MembersPanel } from '../components/MembersPanel';
+import { TripMarkerPicker } from '../components/TripMarkerPicker';
 import { TrackButton } from '../components/TrackButton';
 import { isNative, startTracking } from '../tracking/tracker';
 import './tripsettings.css';
@@ -39,6 +40,7 @@ export function TripSettingsPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [color, setColor] = useState<string>('');
+  const [markerOn, setMarkerOn] = useState(false);
   const [clearDay, setClearDay] = useState('');
   const [wiping, setWiping] = useState(false);
   const [clearMsg, setClearMsg] = useState<string | null>(null);
@@ -96,6 +98,19 @@ export function TripSettingsPage() {
       await api(`/trips/${tripId}`, { method: 'PATCH', body: { color: hex } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kleur opslaan mislukt');
+    }
+  }
+
+  async function saveMarker(pos: [number, number] | null) {
+    if (!tripId) return;
+    try {
+      await api(`/trips/${tripId}`, {
+        method: 'PATCH',
+        body: { markerLng: pos?.[0] ?? null, markerLat: pos?.[1] ?? null },
+      });
+      setTrip((t) => (t ? { ...t, markerLng: pos?.[0] ?? null, markerLat: pos?.[1] ?? null } : t));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Markering opslaan mislukt');
     }
   }
 
@@ -232,6 +247,45 @@ export function TripSettingsPage() {
         </form>
       ) : (
         <p className="muted">Alleen de organisator kan de reisinstellingen wijzigen.</p>
+      )}
+
+      {isOwner && (
+        <section className="ts-marker">
+          <h2 className="ts-section-title">Bolletje op de globe</h2>
+          <p className="muted">
+            Handig bij een rondreis (bv. interrail) waar begin en eind bijna gelijk zijn: zet het
+            ene bolletje en naamkaartje op een plek langs de route die het beste uitkomt. Standaard
+            staat het automatisch op begin/eind.
+          </p>
+          {trip?.markerLng != null && trip.markerLat != null ? (
+            <div className="ts-track-box">
+              <div>
+                <strong>Eigen positie ingesteld</strong>
+                <span className="muted">Sleep de pin of tik op de kaart om te verplaatsen.</span>
+              </div>
+              <button className="btn btn-ghost" onClick={() => void saveMarker(null)}>
+                Terug naar automatisch
+              </button>
+            </div>
+          ) : markerOn ? (
+            <p className="muted">Sleep de pin of tik op de kaart om de plek te kiezen.</p>
+          ) : (
+            <button className="btn btn-ghost" onClick={() => setMarkerOn(true)}>
+              Bolletje handmatig plaatsen
+            </button>
+          )}
+          {(markerOn || (trip?.markerLng != null && trip.markerLat != null)) && trip && tripId && (
+            <TripMarkerPicker
+              tripId={tripId}
+              initial={
+                trip.markerLng != null && trip.markerLat != null
+                  ? [trip.markerLng, trip.markerLat]
+                  : trip.anchor
+              }
+              onChange={(pos) => void saveMarker(pos)}
+            />
+          )}
+        </section>
       )}
 
       <section className="ts-tracking">

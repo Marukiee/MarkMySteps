@@ -81,6 +81,10 @@ model Trip {
   autoTrack    Boolean @default(false)
   /// Custom trip colour (hex) for the globe/map; null = auto-assigned.
   color        String?
+  /// Manual globe-marker position ([lng,lat]); null = auto (route start/end).
+  /// Lets a loop trip (interrail) place its single dot + name where it fits.
+  markerLng    Float?
+  markerLat    Float?
   ownerId     String   @db.Uuid
   owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())

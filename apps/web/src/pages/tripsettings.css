@@ -244,3 +244,16 @@
 .ts-disabled {
   opacity: 0.55;
 }
+
+/* Marker-placement mini map (globe bolletje position). */
+.ts-marker {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.ts-marker-map {
+  height: 280px;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
