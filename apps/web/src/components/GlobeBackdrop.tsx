@@ -492,9 +492,12 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         : selectedId ??
           (idle && tourPhase === 1 ? trips[Math.min(tourIdx, trips.length - 1)]?.id ?? null : null);
 
-      // --- Active route glow: a comet of light flowing along the trip's path in
-      // travel direction at a CONSTANT speed (measured in degrees, so a long
-      // route's glow isn't faster than a short one). ---
+      // --- Active route glow: a single continuous ribbon of light that runs
+      // along the trip's path in travel direction, brightest at its head and
+      // fading out along its tail. It's stroked as one chain of short segments
+      // (not a string of separate dots, which read as beads on the line) and
+      // moves at a CONSTANT speed measured in degrees, so a long route's glow
+      // isn't faster than a short one. ---
       if (activeId) {
         const act = trips.find((t) => t.id === activeId);
         const pts = act?.path?.flat();
@@ -521,25 +524,51 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
               }
               return pts[pts.length - 1]!;
             };
-            glowDist += 0.05; // degrees per frame — slow, relaxed drift
-            if (glowDist > total) glowDist -= total;
+            // Pause briefly at the end of the route, then restart — a light
+            // that loops instantly feels frantic.
+            const PAUSE = 22; // degrees' worth of dwell time past the end
+            glowDist += 0.055;
+            if (glowDist > total + PAUSE) glowDist = 0;
             const [gr, gg, gb] = legibleColor(act.color, dark);
-            const TRAIL = 6; // shorter comet → one calm glow, not a busy stream
-            const GAP = 1.1; // more space between trail points
-            for (let k = 0; k < TRAIL; k++) {
-              const gp = posAt(glowDist - k * GAP);
+
+            // Sample the ribbon head → tail. A sample whose distance is
+            // negative (or past the end) is simply dropped, so the ribbon slides
+            // on and off the route instead of wrapping around in one jump.
+            const TRAIL_DEG = Math.min(11, total * 0.4);
+            const STEPS = 28;
+            const samples: { pt: [number, number]; t: number }[] = [];
+            for (let i = 0; i <= STEPS; i++) {
+              const t = i / STEPS; // 0 = head, 1 = tail
+              const d = glowDist - TRAIL_DEG * t;
+              if (d < 0 || d > total) continue;
+              const gp = posAt(d);
               if (center && distance(center, gp) > 90) continue;
               const pr = projection(gp);
               if (!pr) continue;
-              const alpha = (1 - k / TRAIL) * 0.9;
-              const rad = (6 - (k / TRAIL) * 3) * dpr;
-              const grad = ctx!.createRadialGradient(pr[0], pr[1], 0, pr[0], pr[1], rad);
-              grad.addColorStop(0, `rgba(${gr},${gg},${gb},${alpha})`);
-              grad.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
-              ctx!.fillStyle = grad;
-              ctx!.beginPath();
-              ctx!.arc(pr[0], pr[1], rad, 0, 2 * Math.PI);
-              ctx!.fill();
+              samples.push({ pt: [pr[0], pr[1]], t });
+            }
+
+            ctx!.lineCap = 'round';
+            ctx!.lineJoin = 'round';
+            // Two passes: a wide soft halo, then a thin bright core on top.
+            for (const pass of [
+              { width: 9 * dpr, peak: 0.22 },
+              { width: 2.8 * dpr, peak: 0.95 },
+            ]) {
+              ctx!.lineWidth = pass.width;
+              for (let i = 1; i < samples.length; i++) {
+                const a = samples[i - 1]!;
+                const b = samples[i]!;
+                // Guard against a segment that leapt across the globe.
+                if (Math.hypot(b.pt[0] - a.pt[0], b.pt[1] - a.pt[1]) > 60 * dpr) continue;
+                // Quadratic falloff → a long, soft tail rather than a hard edge.
+                const fade = (1 - b.t) * (1 - b.t);
+                ctx!.strokeStyle = `rgba(${gr},${gg},${gb},${pass.peak * fade})`;
+                ctx!.beginPath();
+                ctx!.moveTo(a.pt[0], a.pt[1]);
+                ctx!.lineTo(b.pt[0], b.pt[1]);
+                ctx!.stroke();
+              }
             }
           }
         }

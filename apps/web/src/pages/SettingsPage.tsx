@@ -248,7 +248,9 @@ function TrackingSection() {
   });
   const [now, setNow] = useState(Date.now());
   const [interval, setIntervalMin] = useState(getTrackingIntervalMin());
-  const INTERVALS = [1, 5, 10, 15];
+  // This is the provider's minTime, so a bigger value directly means fewer GPS
+  // wake-ups — 30 min is there for long travel days.
+  const INTERVALS = [1, 5, 10, 15, 30];
 
   useEffect(() => {
     api<Trip[]>('/trips').then(setTrips).catch(() => undefined);
@@ -270,8 +272,11 @@ function TrackingSection() {
       <h2>
         Route-tracking
         <HelpTip>
-          Zuinig met batterij: een GPS-punt bij ≥50 m verplaatsing, hooguit één keer per interval.
-          Offline wordt alles gebufferd en later geüpload. Vereist locatie op “Altijd toestaan”.
+          De app vraagt de GPS alleen om een punt zodra het interval verstreken is én je minstens
+          ~50 m bent verplaatst; tussendoor staat de GPS uit. Sta je stil, dan pauzeert het
+          helemaal tot de bewegingssensor je weer wakker maakt. Een groter interval = fors minder
+          batterijverbruik. Offline wordt alles gebufferd en later geüpload. Vereist locatie op
+          “Altijd toestaan”.
         </HelpTip>
       </h2>
 

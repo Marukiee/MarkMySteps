@@ -4,6 +4,4 @@
     <string name="title_activity_main">MarkMySteps</string>
     <string name="package_name">nl.markmaaktmedia.markmysteps</string>
     <string name="custom_url_scheme">nl.markmaaktmedia.markmysteps</string>
-    <!-- White notification icon for the background-geolocation service. -->
-    <string name="capacitor_background_geolocation_notification_icon">drawable/ic_stat_track</string>
 </resources>

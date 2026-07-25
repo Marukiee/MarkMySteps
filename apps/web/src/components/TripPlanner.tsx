@@ -1,4 +1,5 @@
 import { DragEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { CityThumb } from './CityThumb';
@@ -288,13 +289,11 @@ export function TripPlanner({
                     remounts the bar and replays its entry animation. */}
                 <div className="flight-leg card" key={stop.travelMode}>
                   <div className="flight-leg-head">
+                    {/* Just "Heen"/"Terug": the stored name (Heenreis /
+                        Heenvlucht) is too long to keep the pills, the distance
+                        and the mode menu on one row. */}
                     <strong className="flight-leg-name">
-                      {/* A flight with a layover has a long airports pill; drop
-                          "vlucht"/"reis" ("Heenvlucht" → "Heen") so it still fits
-                          one slim row. Full label otherwise. */}
-                      {stop.travelMode === 'FLIGHT' && (stop.viaAirports?.length ?? 0) > 0
-                        ? stop.name.replace(/vlucht|reis/i, '')
-                        : stop.name.replace(/vlucht$/i, 'reis')}
+                      {stop.name.startsWith('Heen') ? 'Heen' : 'Terug'}
                     </strong>
                     {stop.travelMode === 'FLIGHT' ? (
                       <FlightEditor
@@ -353,48 +352,34 @@ export function TripPlanner({
                   flight editor when it's a flight. Only from the 2nd stop on —
                   the first stop's arrival is the heenreis. */}
               {index > 0 && !prevIsStandalone && (
-                <div
-                  key={isFlight ? 'flight' : 'ground'}
-                  className={`leg-connector ${isFlight ? 'leg-connector-flight' : ''}`}
-                >
-                  {isFlight ? (
-                    // Same bar look as the heen-/terugreis legs, labelled "Vlucht".
-                    <div className="flight-leg card">
-                      <div className="flight-leg-head">
-                        <strong className="flight-leg-name">Vlucht</strong>
-                        <FlightEditor
-                          flightNumber={stop.flightNumber}
-                          fromAirport={stop.fromAirport}
-                          toAirport={stop.toAirport}
-                          viaAirports={stop.viaAirports}
-                          fromCity={prev ? cityCoord(prev) : null}
-                          toCity={cityCoord(stop)}
-                          onSave={(data) => void saveFlight(stop, data)}
-                        />
-                        {legKm !== null && <AltMetric km={legKm} mode={stop.travelMode} />}
-                        <ModeMenu
-                          current={stop.travelMode}
-                          compact
-                          align="right"
-                          onPick={(m) => void setStopMode(stop, m)}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="leg-connector-row">
-                      <ModeMenu
-                        current={stop.travelMode}
-                        compact
-                        onPick={(m) => void setStopMode(stop, m)}
+                <div className="leg-connector">
+                  {/* Every mode looks the same here: the mode pill, and for a
+                      flight the airports pill right beside it — no card, no
+                      separate treatment. */}
+                  <div className="leg-connector-row">
+                    <ModeMenu
+                      current={stop.travelMode}
+                      compact
+                      onPick={(m) => void setStopMode(stop, m)}
+                    />
+                    {isFlight && (
+                      <FlightEditor
+                        flightNumber={stop.flightNumber}
+                        fromAirport={stop.fromAirport}
+                        toAirport={stop.toAirport}
+                        viaAirports={stop.viaAirports}
+                        fromCity={prev ? cityCoord(prev) : null}
+                        toCity={cityCoord(stop)}
+                        onSave={(data) => void saveFlight(stop, data)}
                       />
-                      {legKm !== null && (
-                        <span className="leg-dur">
-                          {legKm.toLocaleString('nl-NL')} km ·{' '}
-                          {estimateDuration(legKm, stop.travelMode)}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                    )}
+                    {legKm !== null && (
+                      <span className="leg-dur">
+                        {legKm.toLocaleString('nl-NL')} km
+                        {!isFlight && <> · {estimateDuration(legKm, stop.travelMode)}</>}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
               <div
@@ -533,38 +518,10 @@ function LegLocation({
   onFlyTo: (lng: number, lat: number) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [sugg, setSugg] = useState<PlaceSuggestion[]>([]);
   const [label, setLabel] = useState<string | null>(null);
-  const timer = useRef<number | null>(null);
-  const abort = useRef<AbortController | null>(null);
-  const boxRef = useRef<HTMLDivElement>(null);
-
-  // Close when tapping outside the picker.
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!boxRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
-
-  function onInput(v: string) {
-    setQuery(v);
-    if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => {
-      abort.current?.abort();
-      const c = new AbortController();
-      abort.current = c;
-      searchPlaces(v, c.signal).then(setSugg).catch(() => undefined);
-    }, 280);
-  }
 
   function pick(p: PlaceSuggestion) {
     setLabel(p.name);
-    setSugg([]);
-    setQuery('');
     setOpen(false);
     onFlyTo(p.longitude, p.latitude);
     onSave({
@@ -579,47 +536,110 @@ function LegLocation({
   const name = label ?? savedLabel ?? null;
   const text = name ?? (hasLocation ? 'Ingesteld' : outbound ? 'Beginpunt' : 'Eindpunt');
   const isSet = hasLocation || !!label;
-  // A long place name scrolls inside the pill instead of stretching it.
-  const marquee = text.length > 14;
 
   return (
-    <div className="leg-loc" ref={boxRef}>
+    <>
       <button
         type="button"
-        className={`leg-loc-pill ${isSet ? 'set' : ''} ${marquee ? 'marquee' : ''}`}
-        onClick={() => setOpen((o) => !o)}
+        className={`leg-loc-pill ${isSet ? 'set' : ''}`}
+        onClick={() => setOpen(true)}
       >
         <Icon name="pin" size={13} />
-        <span className="leg-loc-text">
-          <span>{text}</span>
-        </span>
+        <span className="leg-loc-text">{text}</span>
       </button>
       {open && (
-        <div className="leg-loc-search card">
+        <PlaceSheet
+          title={outbound ? 'Vertrek vanaf' : 'Terug naar'}
+          placeholder={outbound ? 'Vanaf welke plaats?' : 'Naar welke plaats?'}
+          onClose={() => setOpen(false)}
+          onPick={pick}
+        />
+      )}
+    </>
+  );
+}
+
+/** Place search in the same sliding sheet as the flight editor, so it animates
+ *  in and out and the keyboard never fights the map behind it. */
+function PlaceSheet({
+  title,
+  placeholder,
+  onClose,
+  onPick,
+}: {
+  title: string;
+  placeholder: string;
+  onClose: () => void;
+  onPick: (place: PlaceSuggestion) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [sugg, setSugg] = useState<PlaceSuggestion[]>([]);
+  const [closing, setClosing] = useState(false);
+  const timer = useRef<number | null>(null);
+  const abort = useRef<AbortController | null>(null);
+
+  const close = () => {
+    setClosing(true);
+    window.setTimeout(onClose, 200);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function onInput(v: string) {
+    setQuery(v);
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      abort.current?.abort();
+      const c = new AbortController();
+      abort.current = c;
+      searchPlaces(v, c.signal).then(setSugg).catch(() => undefined);
+    }, 280);
+  }
+
+  return createPortal(
+    <div className={`fe-layer ${closing ? 'closing' : ''}`}>
+      <div className="fe-scrim" onClick={close} />
+      <div className="fe-sheet" role="dialog" aria-modal="true" aria-label={title}>
+        <div className="fe-grab" aria-hidden="true" />
+        <header className="fe-head">
+          <strong>{title}</strong>
+          <button type="button" className="fe-icon-btn" aria-label="Sluiten" onClick={close}>
+            <Icon name="close" size={18} />
+          </button>
+        </header>
+        <div className="fe-picker-search">
+          <Icon name="search" size={16} />
           <input
             autoFocus
             value={query}
-            placeholder={outbound ? 'Vanaf welke plaats?' : 'Naar welke plaats?'}
+            placeholder={placeholder}
             onChange={(e) => onInput(e.target.value)}
           />
-          {sugg.length > 0 && (
-            <ul className="stop-suggestions">
-              {sugg.map((p, i) => (
-                <li key={i}>
-                  <button type="button" onClick={() => pick(p)}>
-                    <span>{flagEmoji(p.countryCode)}</span>
-                    <span>
-                      <strong>{p.name}</strong>
-                      {p.region && <small> {p.region}</small>}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
-      )}
-    </div>
+        <ul className="fe-picker-list">
+          {sugg.map((p, i) => (
+            <li key={i}>
+              <button type="button" onClick={() => onPick(p)}>
+                <span className="fe-picker-code">{flagEmoji(p.countryCode)}</span>
+                <span className="fe-picker-name">
+                  <strong>{p.name}</strong>
+                  {p.region && <small>{p.region}</small>}
+                </span>
+              </button>
+            </li>
+          ))}
+          {query.trim() && sugg.length === 0 && (
+            <li className="fe-picker-empty">Niets gevonden.</li>
+          )}
+        </ul>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

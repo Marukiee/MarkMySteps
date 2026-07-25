@@ -645,13 +645,35 @@
   color: var(--accent-ink);
 }
 
+/* One single row: [Heen] [plaats/vliegveld-pill] [km · duur] [vervoer].
+   Never wraps — the pills shrink and ellipsis instead, so the vehicle menu can
+   't drop to a line of its own. */
 .flight-leg-head {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.45rem 0.6rem;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+}
+
+.flight-leg-head > .leg-loc-pill,
+.flight-leg-head > .flight-summary {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+
+/* Centred in the gap between the location pill and the vehicle menu, rather
+   than shoved up against the vehicle menu. */
+.flight-leg-head > .leg-alt-metric {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+}
+
+.flight-leg-head > .mode-menu {
+  flex: 0 0 auto;
 }
 
 /* Incoming-leg block on a normal stop: mode dropdown + optional flight editor.
@@ -705,26 +727,12 @@
   flex-wrap: wrap;
 }
 
-/* The flight/leg bar is the positioning context so the location picker can
-   centre under it. */
-.flight-leg {
-  position: relative;
-}
-
-.leg-connector-flight {
-  margin-left: 0;
-}
-
 /* Origin/destination picker on a standalone heen-/terugreis leg. */
-.leg-loc {
-  position: static;
-}
-
 .leg-loc-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  max-width: 150px;
+  max-width: 40%;
   padding: 0.28rem 0.7rem;
   border-radius: 999px;
   background: var(--paper-sunken);
@@ -732,6 +740,7 @@
   color: var(--ink-soft);
   font-size: 0.78rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .leg-loc-pill.set {
@@ -741,53 +750,12 @@
   color: var(--accent-ink);
 }
 
-/* Name inside the pill: clipped, and a long name gently scrolls left↔right so
-   the pill never stretches. */
+/* A long place name is clipped inside the pill, so the row never grows. */
 .leg-loc-text {
-  display: block;
+  min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 108px;
-}
-
-.leg-loc-text > span {
-  display: inline-block;
-}
-
-.leg-loc-pill.marquee .leg-loc-text > span {
-  animation: legMarquee 7s linear infinite alternate;
-}
-
-@keyframes legMarquee {
-  0%,
-  15% {
-    transform: translateX(0);
-  }
-  85%,
-  100% {
-    transform: translateX(calc(-100% + 104px));
-  }
-}
-
-.leg-loc-search {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 40;
-  width: min(86vw, 320px);
-  padding: 0.5rem;
-  display: grid;
-  gap: 0.4rem;
-  box-shadow: var(--shadow-m);
-  animation: legLocIn 0.2s var(--ease);
-}
-
-@keyframes legLocIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-6px) scale(0.97);
-  }
 }
 
 /* Alternating km/duration metric on a leg bar. */
@@ -816,28 +784,3 @@
   }
 }
 
-.leg-loc-search input {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius-s);
-  background: var(--paper-raised);
-}
-
-/* Reuse the suggestion-list look, but flow it inside the leg-loc card (not as an
-   absolute overlay). */
-.leg-loc-search .stop-suggestions {
-  position: static;
-  box-shadow: none;
-  margin: 0;
-  max-height: 44vh;
-}
-
-/* km/duration line under a mid-route flight bar. */
-.flight-leg-km {
-  display: block;
-  margin: 0.1rem 0 0 0.1rem;
-  font-size: 0.8rem;
-  color: var(--ink-faint);
-  font-weight: 500;
-}

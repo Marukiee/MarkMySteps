@@ -101,9 +101,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@capacitor-community/background-geolocation':
-        specifier: ^1.2.26
-        version: 1.2.26(@capacitor/core@8.4.2)
       '@capacitor/android':
         specifier: ^8.4.2
         version: 8.4.2(@capacitor/core@8.4.2)
@@ -381,11 +378,6 @@ packages:
 
   '@borewit/text-codec@0.2.2':
     resolution: {integrity: sha512-DDaRehssg1aNrH4+2hnj1B7vnUGEjU6OIlyRdkMd0aUdIUvKXrJfXsy8LVtXAy7DRvYVluWbMspsRhz2lcW0mQ==}
-
-  '@capacitor-community/background-geolocation@1.2.26':
-    resolution: {integrity: sha512-kuva8VQ6zM+uIKgHUJTP87IYbmGKhX7DZw62JYfGZ888h4Xr5zeN+UTR6KBRHQVrGBpzSfbv+6/HQVuHYa7W5A==}
-    peerDependencies:
-      '@capacitor/core': '>=3.0.0'
 
   '@capacitor/android@8.4.2':
     resolution: {integrity: sha512-bzf8XZ9C+ePgOQ+e+T0fnhHGH4aCNY494vvSQIF5w4AY07RwEmkFqZs1678DDSMH0hLSQpxEwXGFNUVcXO6bBA==}
@@ -3801,10 +3793,6 @@ snapshots:
   '@bcoe/v8-coverage@0.2.3': {}
 
   '@borewit/text-codec@0.2.2': {}
-
-  '@capacitor-community/background-geolocation@1.2.26(@capacitor/core@8.4.2)':
-    dependencies:
-      '@capacitor/core': 8.4.2
 
   '@capacitor/android@8.4.2(@capacitor/core@8.4.2)':
     dependencies:

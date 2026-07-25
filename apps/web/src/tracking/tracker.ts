@@ -6,18 +6,12 @@ import { BufferedPoint, bufferPoint, bufferedCount, peekPoints, removePoints } f
 /**
  * Battery-friendly trip tracker.
  *
- * Native (Android APK): @capacitor-community/background-geolocation — a
- * foreground service with a persistent notification, so it keeps recording with
- * the screen off. distanceFilter keeps callbacks down: a new fix only when you
- * actually moved.
- *
- * ⚠ That plugin talks to `FusedLocationProviderClient`
- * (com.google.android.gms:play-services-location), NOT the AOSP
- * LocationManager. On a de-Googled device without microG it will not deliver
- * fixes, and its request is hardcoded to PRIORITY_HIGH_ACCURACY at a 1 s
- * interval — so `distanceFilter` trims wake-ups and uploads, but it does not
- * throttle the GPS radio itself. Replacing this with a small AOSP
- * LocationManager plugin is the real fix for both.
+ * Native (Android APK): our own MmsLocation plugin — a foreground service built
+ * on the AOSP `LocationManager`, so it keeps recording with the screen off and
+ * needs no Google Play Services (works on LineageOS / GrapheneOS). Its
+ * `intervalMs` is the provider's minTime, which genuinely duty-cycles the GNSS
+ * engine, and it parks itself on the significant-motion sensor while you stand
+ * still. See MmsLocationService.java.
  *
  * Web/PWA fallback: geolocation.watchPosition — foreground only (browsers
  * suspend background GPS), still useful for city walks with the screen on.
@@ -26,19 +20,23 @@ import { BufferedPoint, bufferPoint, bufferedCount, peekPoints, removePoints } f
  * whenever the network allows (idempotent via clientId).
  */
 
-interface BackgroundGeolocationPlugin {
-  addWatcher(
-    options: {
-      backgroundMessage?: string;
-      backgroundTitle?: string;
-      requestPermissions?: boolean;
-      stale?: boolean;
-      distanceFilter?: number;
-    },
-    callback: (position?: NativePosition, error?: { code?: string; message?: string }) => void,
-  ): Promise<string>;
-  removeWatcher(options: { id: string }): Promise<void>;
+interface MmsLocationPlugin {
+  start(options: {
+    intervalMs: number;
+    distanceFilterM: number;
+    title?: string;
+    message?: string;
+  }): Promise<void>;
+  stop(): Promise<void>;
   openSettings(): Promise<void>;
+  addListener(
+    event: 'location',
+    cb: (position: NativePosition) => void,
+  ): Promise<{ remove: () => Promise<void> }>;
+  addListener(
+    event: 'status',
+    cb: (data: { state: string; message: string | null }) => void,
+  ): Promise<{ remove: () => Promise<void> }>;
 }
 
 interface NativePosition {
@@ -49,23 +47,25 @@ interface NativePosition {
   time?: number;
 }
 
-const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation');
+const MmsLocation = registerPlugin<MmsLocationPlugin>('MmsLocation');
 
 const FLUSH_INTERVAL_MS = 60_000;
 const BATCH_SIZE = 500;
 
 /**
- * Meters between GPS fixes the OS is asked for. The plugin is distance-based
- * (no time knob), so we scale the distance to the chosen storage interval: a
- * bigger interval → a bigger filter → the GPS wakes far less often, saving a lot
- * of battery. ~30 m per minute (5 min ≈ 150 m, 10 min ≈ 300 m), floor 50 m.
+ * Metres you must move before the OS bothers reporting a new fix. Scaled to the
+ * chosen storage interval (~30 m per minute, floor 50 m) so a long interval also
+ * ignores small wanders — together with the interval itself this is what keeps
+ * the GPS asleep.
  */
 function distanceFilterM(): number {
-  return Math.max(50, getTrackingIntervalMin() * 30);
+  // Capped, or a 30-minute interval would ask for ~900 m and the route would
+  // lose its shape through a town.
+  return Math.min(300, Math.max(50, getTrackingIntervalMin() * 30));
 }
 
-// Time throttle: the plugin fires on movement, but we only store a point every
-// N minutes (user-configurable) so the track stays lean and battery-friendly.
+// Second line of defence: even if a provider reports more often than asked, we
+// only store a point every N minutes so the track stays lean.
 let lastRecordAt = 0;
 
 const ACTIVE_TRIP_KEY = 'mms.tracking.trip';
@@ -105,7 +105,7 @@ export interface TrackerState {
   lastFix: { lat: number; lng: number; at: number; accuracy?: number } | null;
 }
 
-let watcherId: string | null = null;
+let nativeHandles: { remove: () => Promise<void> }[] = [];
 let webWatchId: number | null = null;
 let flushTimer: number | null = null;
 let listeners: Listener[] = [];
@@ -131,7 +131,7 @@ export function isNative(): boolean {
 /** Open the OS app-settings so the user can flip location to "Always allow"
  *  (needed for background tracking with the screen off). */
 export async function openLocationSettings(): Promise<void> {
-  await BackgroundGeolocation.openSettings().catch(() => undefined);
+  await MmsLocation.openSettings().catch(() => undefined);
 }
 
 async function record(tripId: string, position: NativePosition): Promise<void> {
@@ -198,23 +198,35 @@ export async function startTracking(tripId: string): Promise<void> {
   lastRecordAt = 0; // record the first fix immediately
 
   if (isNative()) {
-    watcherId = await BackgroundGeolocation.addWatcher(
-      {
-        backgroundTitle: 'MarkMySteps volgt je route',
-        backgroundMessage: 'Locatie wordt zuinig bijgehouden tijdens je reis',
-        requestPermissions: true,
-        stale: false,
-        distanceFilter: distanceFilterM(),
-      },
-      (position, error) => {
-        if (error) {
-          emit({ lastError: error.message ?? 'Locatiefout' });
-          if (error.code === 'NOT_AUTHORIZED') void BackgroundGeolocation.openSettings();
-          return;
-        }
-        if (position) void record(tripId, position);
-      },
+    nativeHandles.push(
+      await MmsLocation.addListener('location', (position) => void record(tripId, position)),
     );
+    nativeHandles.push(
+      await MmsLocation.addListener('status', ({ state: s, message }) => {
+        if (s === 'permission') {
+          emit({ lastError: message ?? 'Locatietoestemming ontbreekt' });
+          void MmsLocation.openSettings();
+        } else if (s === 'error') {
+          emit({ lastError: message ?? 'Locatiefout' });
+        } else {
+          // 'tracking' and 'idle' are both healthy states.
+          emit({ lastError: null });
+        }
+      }),
+    );
+    try {
+      await MmsLocation.start({
+        // minTime for the provider — the knob that duty-cycles the GNSS engine.
+        intervalMs: getTrackingIntervalMin() * 60_000,
+        distanceFilterM: distanceFilterM(),
+        title: 'MarkMySteps volgt je route',
+        message: 'Locatie wordt zuinig bijgehouden tijdens je reis',
+      });
+    } catch (err) {
+      emit({ lastError: err instanceof Error ? err.message : 'Tracking starten mislukt' });
+      await stopTracking();
+      return;
+    }
   } else {
     if (!('geolocation' in navigator)) {
       emit({ lastError: 'Geen GPS beschikbaar in deze browser' });
@@ -240,9 +252,10 @@ export async function startTracking(tripId: string): Promise<void> {
 }
 
 export async function stopTracking(clearTrip = true): Promise<void> {
-  if (watcherId) {
-    await BackgroundGeolocation.removeWatcher({ id: watcherId }).catch(() => undefined);
-    watcherId = null;
+  if (isNative()) {
+    for (const handle of nativeHandles) await handle.remove().catch(() => undefined);
+    nativeHandles = [];
+    await MmsLocation.stop().catch(() => undefined);
   }
   if (webWatchId !== null) {
     navigator.geolocation.clearWatch(webWatchId);

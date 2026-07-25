@@ -65,6 +65,11 @@ export function initBackButton(): void {
 
   const root = document.getElementById('root');
 
+  const goBack = () => {
+    if (window.location.pathname !== '/') window.history.back();
+    else void App.exitApp();
+  };
+
   const setProgress = (p: number) => root?.style.setProperty('--back-progress', String(p));
   const settle = (done?: () => void) => {
     root?.classList.add('back-swipe-settling');
@@ -83,30 +88,28 @@ export function initBackButton(): void {
     root.classList.add('back-swipe');
     root.dataset.backEdge = edge;
     setProgress(progress);
-  })
-    .then(() => {
-      predictiveReady = true;
-    })
-    .catch(() => undefined);
+  }).catch(() => undefined);
 
   void PredictiveBack.addListener('backProgressed', ({ progress }) =>
     setProgress(progress),
   ).catch(() => undefined);
   void PredictiveBack.addListener('backCancelled', () => settle()).catch(() => undefined);
   void PredictiveBack.addListener('backInvoked', () => {
+    predictiveReady = true;
     // Navigate FIRST, then ease back to full size: the destination grows into
     // place instead of the old page popping out.
-    if (window.history.length > 1) window.history.back();
-    else void App.exitApp();
+    goBack();
     settle();
   }).catch(() => undefined);
 
-  // Fallback for anything that still routes through Capacitor's own back event
-  // (e.g. if the plugin failed to register).
-  void App.addListener('backButton', ({ canGoBack }) => {
+  // Fallback via Capacitor's own back event. `predictiveReady` only flips once
+  // a REAL event from our callback has arrived — registering a listener isn't
+  // proof that the native callback ended up on top of the dispatcher, and
+  // trusting that once left back doing nothing at all. Exactly one of the two
+  // paths ever fires, so this cannot double-navigate.
+  void App.addListener('backButton', () => {
     if (predictiveReady) return;
-    if (canGoBack && window.location.pathname !== '/') window.history.back();
-    else void App.exitApp();
+    goBack();
   });
 }
 

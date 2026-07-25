@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // Must be registered before the bridge starts loading the web app.
         registerPlugin(PredictiveBackPlugin.class);
+        registerPlugin(MmsLocationPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

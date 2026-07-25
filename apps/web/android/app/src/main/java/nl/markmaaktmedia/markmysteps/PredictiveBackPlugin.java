@@ -1,5 +1,8 @@
 package nl.markmaaktmedia.markmysteps;
 
+import android.os.Handler;
+import android.os.Looper;
+
 import androidx.activity.BackEventCompat;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -52,8 +55,13 @@ public class PredictiveBackPlugin extends Plugin {
                 notifyListeners("backInvoked", new JSObject());
             }
         };
-        // Added after Capacitor's own handling, so this callback wins.
-        getActivity().getOnBackPressedDispatcher().addCallback(getActivity(), callback);
+        // Priority in OnBackPressedDispatcher is insertion order — the LAST
+        // callback added wins. Plugins load while the bridge is still being
+        // built, so registering here directly would put us *below* Capacitor's
+        // own back handling and this callback would never fire. Posting defers
+        // it until onCreate has finished and the bridge has registered its own.
+        new Handler(Looper.getMainLooper()).post(() ->
+                getActivity().getOnBackPressedDispatcher().addCallback(getActivity(), callback));
     }
 
     private JSObject progressData(BackEventCompat event) {

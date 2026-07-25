@@ -25,6 +25,12 @@
 
         </activity>
 
+        <!-- Route tracking on plain AOSP (LocationManager, no Play Services). -->
+        <service
+            android:name=".MmsLocationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

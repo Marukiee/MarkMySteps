@@ -93,16 +93,13 @@ const SAMPLE_TRIPS = [
   },
 ] as unknown as Trip[];
 
-interface BgGeoPlugin {
-  addWatcher(
-    options: { requestPermissions?: boolean; stale?: boolean },
-    callback: (position?: unknown, error?: { code?: string; message?: string }) => void,
-  ): Promise<string>;
-  removeWatcher(options: { id: string }): Promise<void>;
+/** Our own AOSP location plugin (see MmsLocationPlugin.java). */
+interface MmsLocationPlugin {
+  start(options: { startService: false }): Promise<{ granted: boolean; background: boolean }>;
   openSettings(): Promise<void>;
 }
 
-const BackgroundGeolocation = registerPlugin<BgGeoPlugin>('BackgroundGeolocation');
+const MmsLocation = registerPlugin<MmsLocationPlugin>('MmsLocation');
 
 /** First-run flow: a swipeable tour of what the app does, then permissions. */
 export function OnboardingPage() {
@@ -127,13 +124,10 @@ export function OnboardingPage() {
 
   async function requestLocation() {
     try {
-      const id = await BackgroundGeolocation.addWatcher(
-        { requestPermissions: true, stale: true },
-        (_position, error) => {
-          setPermissionState(error?.code === 'NOT_AUTHORIZED' ? 'denied' : 'granted');
-        },
-      );
-      window.setTimeout(() => void BackgroundGeolocation.removeWatcher({ id }), 4000);
+      // Runs the permission chain (fine → background → notifications) without
+      // switching tracking on.
+      const { granted } = await MmsLocation.start({ startService: false });
+      setPermissionState(granted ? 'granted' : 'denied');
     } catch {
       setPermissionState('denied');
     }
@@ -270,7 +264,7 @@ export function OnboardingPage() {
                 </span>
               ))}
             </div>
-            <button className="btn btn-ghost" onClick={() => void BackgroundGeolocation.openSettings()}>
+            <button className="btn btn-ghost" onClick={() => void MmsLocation.openSettings()}>
               Open systeeminstellingen
             </button>
           </div>,
