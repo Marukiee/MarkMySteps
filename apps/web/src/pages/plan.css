@@ -438,11 +438,6 @@
   font-size: 0.95rem;
 }
 
-/* The mode pill hugs the right edge, just before the cross. */
-.flight-leg-head > .mode-menu {
-  margin-left: auto;
-}
-
 /* Inside the flight card the editor is flush (no timeline indent). */
 .flight-leg .flight-summary {
   margin: 0;

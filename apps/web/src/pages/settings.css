@@ -515,6 +515,26 @@
     linear-gradient(150deg, #2f4a63, #47624a 60%, #6b6a45);
 }
 
+/* Dark-mode swatches, so the previews match what the maps look like in the app
+   when the theme is dark (the light gradients above would look wrong). */
+:root[data-theme='dark'] .map-style-positron {
+  background:
+    linear-gradient(115deg, transparent 44%, #3b4652 44% 47%, transparent 47%),
+    linear-gradient(200deg, transparent 60%, #2b3a2e 60%), #212933;
+}
+
+:root[data-theme='dark'] .map-style-bright {
+  background:
+    radial-gradient(circle at 70% 30%, #2f6f9e 0 18%, transparent 18%),
+    linear-gradient(120deg, #3f5f45 40%, #6a5c37 40%), #2a3a2c;
+}
+
+:root[data-theme='dark'] .map-style-liberty {
+  background:
+    linear-gradient(135deg, transparent 46%, #7a6c52 46% 49%, transparent 49%),
+    linear-gradient(#2c2822, #211e19);
+}
+
 .map-style-opt.active {
   border-color: var(--accent);
   background: var(--accent-soft);

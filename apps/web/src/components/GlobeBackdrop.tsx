@@ -288,47 +288,65 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
       }
       ctx!.setLineDash([]);
 
-      // --- Markers: the trip's start, plus its end when the route finishes in a
-      // different place (e.g. fly into Marrakech, out of Barcelona). Endpoints
-      // that land on (nearly) the same screen spot — a city visited on several
-      // trips, or a busy corner of Europe seen from afar — merge into ONE dot
-      // with a small corner count, so the globe stays readable and the dot
-      // never grows. ---
+      // --- Markers ---
+      // A short "city trip" (route stays around one place) gets the big ring
+      // dot; a longer trip that draws a real route across the map gets a small
+      // plain dot at each endpoint (no ring) so those don't shout. Endpoints at
+      // the SAME real city — the same place visited on more than one trip — merge
+      // into one dot carrying a count INSIDE it (not because dots drift close on
+      // zoom: merging is geographic, so the number is stable). A trip whose start
+      // and end are ~the same place (an interrail loop) is a single dot.
       const center = projection.invert!([w / 2, h / 2]);
       const frontFacing = trips.filter((t) => !center || distance(center, t.anchor) <= 90);
 
-      type MarkerPt = { x: number; y: number; col: [number, number, number]; upcoming: boolean };
-      const markerPts: MarkerPt[] = [];
-      const collect = (p: [number, number], col: [number, number, number], upcoming: boolean) => {
+      // Group endpoints by real-world proximity (~40 km), counting DISTINCT trips
+      // so a single loop trip counts once, two separate visits count two.
+      const SAME_PLACE_DEG = 0.4;
+      type Place = {
+        lng: number;
+        lat: number;
+        col: [number, number, number];
+        upcoming: boolean;
+        city: boolean; // at least one short/city trip ends here → ring style
+        trips: Set<string>;
+      };
+      const places: Place[] = [];
+      const addEndpoint = (
+        p: [number, number],
+        col: [number, number, number],
+        upcoming: boolean,
+        city: boolean,
+        tripId: string,
+      ) => {
         if (center && distance(center, p) > 90) return;
-        const projected = projection(p);
-        if (!projected) return;
-        markerPts.push({ x: projected[0], y: projected[1], col, upcoming });
+        const g = places.find((q) => distance([q.lng, q.lat], p) < SAME_PLACE_DEG);
+        if (g) {
+          g.trips.add(tripId);
+          g.upcoming = g.upcoming && upcoming; // any finished trip → solid
+          g.city = g.city || city;
+        } else {
+          places.push({ lng: p[0], lat: p[1], col, upcoming, city, trips: new Set([tripId]) });
+        }
       };
       for (const trip of frontFacing) {
         const col = legibleColor(trip.color, dark);
-        collect(trip.anchor, col, trip.upcoming);
-        // Route end (last vertex of the last ground segment).
+        const isCity = tripSpread(trip) < 2.5; // stays around one place
+        addEndpoint(trip.anchor, col, trip.upcoming, isCity, trip.id);
+        // Route end — only a distinct marker when it's clearly elsewhere (a loop
+        // trip with ~the same start/end stays one dot).
         const lastSeg = trip.path?.[trip.path.length - 1];
         const end = lastSeg?.[lastSeg.length - 1];
-        if (end && distance(trip.anchor, end) > 1.2) collect(end, col, trip.upcoming);
-      }
-
-      // Cluster overlapping markers in screen space. First-seen wins the colour
-      // (trips are size-sorted, so the biggest trip's colour represents the dot).
-      const mergeR = 15 * dpr;
-      const clusters: (MarkerPt & { count: number })[] = [];
-      for (const pt of markerPts) {
-        const near = clusters.find((c) => Math.hypot(c.x - pt.x, c.y - pt.y) < mergeR);
-        if (near) {
-          near.count += 1;
-          near.upcoming = near.upcoming && pt.upcoming; // solid wins over dashed
-        } else {
-          clusters.push({ ...pt, count: 1 });
+        if (end && distance(trip.anchor, end) > 2.5) {
+          addEndpoint(end, col, trip.upcoming, isCity, trip.id);
         }
       }
 
-      const drawMarker = (x: number, y: number, col: [number, number, number], upcoming: boolean) => {
+      const drawRingDot = (
+        x: number,
+        y: number,
+        col: [number, number, number],
+        upcoming: boolean,
+      ) => {
         const [r, g, b] = col;
         ctx!.beginPath();
         ctx!.arc(x, y, 9 * dpr, 0, 2 * Math.PI);
@@ -350,25 +368,53 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         }
       };
 
-      // Small count badge in the dot's upper-right corner (no bigger dot).
-      const drawCount = (x: number, y: number, n: number) => {
-        const bx = x + 6 * dpr;
-        const by = y - 6 * dpr;
+      // Small plain dot (no ring) for a longer trip's endpoints.
+      const drawSmallDot = (x: number, y: number, col: [number, number, number]) => {
+        const [r, g, b] = col;
         ctx!.beginPath();
-        ctx!.arc(bx, by, 6.5 * dpr, 0, 2 * Math.PI);
-        ctx!.fillStyle = dark ? '#e9edf2' : '#1e2a35';
+        ctx!.arc(x, y, 4 * dpr, 0, 2 * Math.PI);
+        ctx!.fillStyle = `rgb(${r},${g},${b})`;
         ctx!.fill();
-        ctx!.fillStyle = dark ? '#1e2a35' : '#ffffff';
-        ctx!.font = `600 ${8.5 * dpr}px 'Inter Variable', sans-serif`;
-        ctx!.textAlign = 'center';
-        ctx!.textBaseline = 'middle';
-        ctx!.fillText(n > 9 ? '9+' : String(n), bx, by + 0.5 * dpr);
-        ctx!.textAlign = 'start';
+        ctx!.lineWidth = 1.2 * dpr;
+        ctx!.strokeStyle = dark ? 'rgba(20,25,32,0.7)' : 'rgba(255,255,255,0.85)';
+        ctx!.stroke();
       };
 
-      for (const c of clusters) {
-        drawMarker(c.x, c.y, c.col, c.upcoming);
-        if (c.count > 1) drawCount(c.x, c.y, c.count);
+      // A place visited more than once: one solid disc big enough to hold the
+      // number legibly, count centred INSIDE it (no second circle).
+      const drawCountDot = (
+        x: number,
+        y: number,
+        col: [number, number, number],
+        n: number,
+      ) => {
+        const [r, g, b] = col;
+        ctx!.beginPath();
+        ctx!.arc(x, y, 9 * dpr, 0, 2 * Math.PI);
+        ctx!.fillStyle = `rgb(${r},${g},${b})`;
+        ctx!.fill();
+        ctx!.lineWidth = 1.5 * dpr;
+        ctx!.strokeStyle = dark ? 'rgba(20,25,32,0.7)' : 'rgba(255,255,255,0.9)';
+        ctx!.stroke();
+        // Contrast the number against the dot colour.
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        ctx!.fillStyle = lum > 150 ? '#1e2a35' : '#ffffff';
+        ctx!.font = `700 ${9.5 * dpr}px 'Inter Variable', sans-serif`;
+        ctx!.textAlign = 'center';
+        ctx!.textBaseline = 'middle';
+        ctx!.fillText(n > 9 ? '9+' : String(n), x, y + 0.5 * dpr);
+        ctx!.textAlign = 'start';
+        ctx!.textBaseline = 'alphabetic';
+      };
+
+      for (const pl of places) {
+        const projected = projection([pl.lng, pl.lat]);
+        if (!projected) continue;
+        const [x, y] = projected;
+        const n = pl.trips.size;
+        if (n > 1) drawCountDot(x, y, pl.col, n);
+        else if (pl.city) drawRingDot(x, y, pl.col, pl.upcoming);
+        else drawSmallDot(x, y, pl.col);
       }
 
       // --- Labels: only a few, biggest first; more as you zoom in. Each fades
@@ -404,7 +450,9 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         const next = cur + (target - cur) * 0.12;
         labelOpacity.set(trip.id, next);
         if (next < 0.03) continue;
-        const py = projected[1] - 8 * dpr - (1 - next) * 6 * dpr; // slide up as it appears
+        // Fixed offset above the dot — fade only, no vertical slide, so a name
+        // doesn't bob every time its opacity eases.
+        const py = projected[1] - 8 * dpr;
         if (next > 0.5) placed.push({ x: px, y: py, w: pw, h: ph });
         if (next > 0.6) labelRects.push({ id: trip.id, x: px, y: py, w: pw, h: ph });
         ctx!.globalAlpha = Math.min(1, next);

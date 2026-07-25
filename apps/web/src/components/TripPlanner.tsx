@@ -243,7 +243,14 @@ export function TripPlanner({
               <li key={stop.id} className="stop-row">
                 <div className="flight-leg card">
                   <div className="flight-leg-head">
-                    <strong className="flight-leg-name">{stop.name}</strong>
+                    <strong className="flight-leg-name">
+                      {/* A flight with a layover has a long airports pill; drop
+                          "vlucht"/"reis" ("Heenvlucht" → "Heen") so it still fits
+                          one slim row. Full label otherwise. */}
+                      {stop.travelMode === 'FLIGHT' && (stop.viaAirports?.length ?? 0) > 0
+                        ? stop.name.replace(/vlucht|reis/i, '')
+                        : stop.name}
+                    </strong>
                     {stop.travelMode === 'FLIGHT' && (
                       <FlightEditor
                         flightNumber={stop.flightNumber}
