@@ -289,31 +289,59 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
       ctx!.setLineDash([]);
 
       // --- Markers: the trip's start, plus its end when the route finishes in a
-      // different place (e.g. fly into Marrakech, out of Barcelona). Close
-      // endpoints (JFK/EWR, or a single-city trip) collapse to one. ---
+      // different place (e.g. fly into Marrakech, out of Barcelona). Endpoints
+      // that land on (nearly) the same screen spot — a city visited on several
+      // trips, or a busy corner of Europe seen from afar — merge into ONE dot
+      // with a small corner count, so the globe stays readable and the dot
+      // never grows. ---
       const center = projection.invert!([w / 2, h / 2]);
       const frontFacing = trips.filter((t) => !center || distance(center, t.anchor) <= 90);
-      const drawMarker = (
-        p: [number, number],
-        col: [number, number, number],
-        upcoming: boolean,
-      ) => {
+
+      type MarkerPt = { x: number; y: number; col: [number, number, number]; upcoming: boolean };
+      const markerPts: MarkerPt[] = [];
+      const collect = (p: [number, number], col: [number, number, number], upcoming: boolean) => {
         if (center && distance(center, p) > 90) return;
         const projected = projection(p);
         if (!projected) return;
+        markerPts.push({ x: projected[0], y: projected[1], col, upcoming });
+      };
+      for (const trip of frontFacing) {
+        const col = legibleColor(trip.color, dark);
+        collect(trip.anchor, col, trip.upcoming);
+        // Route end (last vertex of the last ground segment).
+        const lastSeg = trip.path?.[trip.path.length - 1];
+        const end = lastSeg?.[lastSeg.length - 1];
+        if (end && distance(trip.anchor, end) > 1.2) collect(end, col, trip.upcoming);
+      }
+
+      // Cluster overlapping markers in screen space. First-seen wins the colour
+      // (trips are size-sorted, so the biggest trip's colour represents the dot).
+      const mergeR = 15 * dpr;
+      const clusters: (MarkerPt & { count: number })[] = [];
+      for (const pt of markerPts) {
+        const near = clusters.find((c) => Math.hypot(c.x - pt.x, c.y - pt.y) < mergeR);
+        if (near) {
+          near.count += 1;
+          near.upcoming = near.upcoming && pt.upcoming; // solid wins over dashed
+        } else {
+          clusters.push({ ...pt, count: 1 });
+        }
+      }
+
+      const drawMarker = (x: number, y: number, col: [number, number, number], upcoming: boolean) => {
         const [r, g, b] = col;
         ctx!.beginPath();
-        ctx!.arc(projected[0], projected[1], 9 * dpr, 0, 2 * Math.PI);
+        ctx!.arc(x, y, 9 * dpr, 0, 2 * Math.PI);
         ctx!.strokeStyle = `rgba(${r},${g},${b},0.4)`;
         ctx!.lineWidth = 1.5 * dpr;
         ctx!.stroke();
         ctx!.beginPath();
-        ctx!.arc(projected[0], projected[1], 5 * dpr, 0, 2 * Math.PI);
+        ctx!.arc(x, y, 5 * dpr, 0, 2 * Math.PI);
         ctx!.fillStyle = `rgb(${r},${g},${b})`;
         ctx!.fill();
         if (upcoming) {
           ctx!.beginPath();
-          ctx!.arc(projected[0], projected[1], 12 * dpr, 0, 2 * Math.PI);
+          ctx!.arc(x, y, 12 * dpr, 0, 2 * Math.PI);
           ctx!.strokeStyle = `rgba(${r},${g},${b},0.3)`;
           ctx!.setLineDash([2 * dpr, 2 * dpr]);
           ctx!.lineWidth = 1.2 * dpr;
@@ -321,13 +349,26 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
           ctx!.setLineDash([]);
         }
       };
-      for (const trip of frontFacing) {
-        const col = legibleColor(trip.color, dark);
-        drawMarker(trip.anchor, col, trip.upcoming);
-        // Route end (last vertex of the last ground segment).
-        const lastSeg = trip.path?.[trip.path.length - 1];
-        const end = lastSeg?.[lastSeg.length - 1];
-        if (end && distance(trip.anchor, end) > 1.2) drawMarker(end, col, trip.upcoming);
+
+      // Small count badge in the dot's upper-right corner (no bigger dot).
+      const drawCount = (x: number, y: number, n: number) => {
+        const bx = x + 6 * dpr;
+        const by = y - 6 * dpr;
+        ctx!.beginPath();
+        ctx!.arc(bx, by, 6.5 * dpr, 0, 2 * Math.PI);
+        ctx!.fillStyle = dark ? '#e9edf2' : '#1e2a35';
+        ctx!.fill();
+        ctx!.fillStyle = dark ? '#1e2a35' : '#ffffff';
+        ctx!.font = `600 ${8.5 * dpr}px 'Inter Variable', sans-serif`;
+        ctx!.textAlign = 'center';
+        ctx!.textBaseline = 'middle';
+        ctx!.fillText(n > 9 ? '9+' : String(n), bx, by + 0.5 * dpr);
+        ctx!.textAlign = 'start';
+      };
+
+      for (const c of clusters) {
+        drawMarker(c.x, c.y, c.col, c.upcoming);
+        if (c.count > 1) drawCount(c.x, c.y, c.count);
       }
 
       // --- Labels: only a few, biggest first; more as you zoom in. Each fades
