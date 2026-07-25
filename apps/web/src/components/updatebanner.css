@@ -1,6 +1,10 @@
+/* In the app the status bar overlays the WebView and is transparent, so
+   setBackgroundColor does nothing: the banner has to run up UNDER the bar
+   itself, otherwise the strip above it keeps showing the dark page. */
 .update-banner {
   position: sticky;
-  top: env(safe-area-inset-top);
+  top: 0;
+  padding-top: calc(0.7rem + env(safe-area-inset-top));
   z-index: 50;
   display: flex;
   align-items: center;

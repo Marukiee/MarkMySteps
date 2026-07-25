@@ -36,11 +36,12 @@ export function initStatusBar(): void {
 export function setStatusBarTint(color: string | null, lightIcons = true): void {
   if (!isNativeApp()) return;
   if (color === null) {
-    void StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => undefined);
     syncStatusBarTheme();
     return;
   }
-  void StatusBar.setBackgroundColor({ color }).catch(() => undefined);
+  // The bar overlays the WebView, so its background is whatever the page paints
+  // underneath. Only the icon colour is ours to set here; the banner extends up
+  // under the bar to supply the colour itself.
   void StatusBar.setStyle({ style: lightIcons ? Style.Dark : Style.Light }).catch(() => undefined);
 }
 
