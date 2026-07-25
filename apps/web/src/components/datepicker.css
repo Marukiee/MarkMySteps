@@ -84,9 +84,14 @@
 
 .dp-header-date {
   font-family: var(--font-display);
-  font-size: 1.7rem;
+  font-size: 1.55rem;
   font-weight: 600;
-  text-transform: capitalize;
+  line-height: 1.2;
+}
+
+/* Only the first letter, not Every Single Word. */
+.dp-header-date::first-letter {
+  text-transform: uppercase;
 }
 
 .dp-nav {
@@ -96,22 +101,21 @@
   padding: 0.75rem 1rem 0.25rem;
 }
 
-.dp-nav button {
+/* Only the two chevrons are round 36px buttons — the month title is a wide
+   pill, and inheriting the square size wrapped its label. */
+.dp-nav-btn {
   display: grid;
   place-content: center;
   width: 36px;
   height: 36px;
+  flex-shrink: 0;
   border-radius: 50%;
   color: var(--ink-soft);
+  transition: background 0.16s var(--ease);
 }
 
-.dp-nav button:hover {
+.dp-nav-btn:hover {
   background: var(--paper-sunken);
-}
-
-.dp-month {
-  font-weight: 600;
-  text-transform: capitalize;
 }
 
 .dp-grid {
@@ -173,12 +177,30 @@
 
 /* --- Quick month + year picker (tap the month title) --- */
 .dp-month {
+  flex: 1;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.3rem;
-  padding: 0.3rem 0.6rem;
+  padding: 0.4rem 0.7rem;
   border-radius: 999px;
+  font-weight: 650;
+  font-size: 0.98rem;
+  color: var(--ink);
+  white-space: nowrap;
   transition: background 0.16s var(--ease), color 0.16s var(--ease);
+}
+
+.dp-month > span::first-letter {
+  text-transform: uppercase;
+}
+
+/* Days and the month/year panel swap inside a fixed-ish area, so the sheet
+   doesn't resize under your finger. */
+.dp-body {
+  min-height: 268px;
+  padding-bottom: 0.2rem;
 }
 
 .dp-month:hover {
@@ -196,8 +218,8 @@
 
 .dp-picker {
   display: grid;
-  gap: 0.5rem;
-  padding: 0.2rem 0 0.6rem;
+  gap: 0.7rem;
+  padding: 0.4rem 1rem 0.6rem;
   animation: dpPickerIn 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -243,12 +265,12 @@
 
 .dp-months {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 0.3rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
 }
 
 .dp-month-opt {
-  padding: 0.45rem 0.2rem;
+  padding: 0.7rem 0.2rem;
   border-radius: var(--radius-s);
   font-size: 0.82rem;
   font-weight: 600;
@@ -283,7 +305,7 @@
   color: var(--accent-ink);
 }
 
-/* The day grid slides when the month changes, and dims while the picker is up. */
+/* The day grid slides when the month changes. */
 .dp-days {
   animation: dpDaysIn 0.24s var(--ease);
 }

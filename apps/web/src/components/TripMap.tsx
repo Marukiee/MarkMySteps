@@ -50,6 +50,9 @@ interface TripMapProps {
 export interface TripMapApi {
   /** Ease the camera to fit the given [lng,lat] points (e.g. a day's photos). */
   focusOn: (coords: [number, number][]) => void;
+  /** How many pixels at the bottom of the canvas are hidden behind the sheet,
+   *  so the camera centres on what you can actually see. */
+  setHiddenBottom: (px: number) => void;
   /** Ease the camera to a single point (e.g. a searched planner place). */
   flyTo: (lng: number, lat: number, zoom?: number) => void;
 }
@@ -160,18 +163,34 @@ export function TripMap({
     container.addEventListener('touchcancel', cancelLp);
     mapRef.current = map;
 
+    // The mobile panel clips the bottom of a fixed-height canvas, so the
+    // canvas centre is NOT the centre of what's on screen. Everything that
+    // moves the camera compensates with this.
+    let hiddenBottom = 0;
+    const camPadding = () => ({
+      top: 50,
+      bottom: 50 + hiddenBottom,
+      left: 50,
+      right: 50,
+    });
+
     onReady?.({
       focusOn: (coords) => {
         if (coords.length === 0) return;
         const b = new LngLatBounds();
         for (const c of coords) b.extend(c);
-        map.fitBounds(b, {
-          padding: { top: 50, bottom: 50, left: 50, right: 50 },
-          maxZoom: 12,
-          duration: 700,
-        });
+        map.fitBounds(b, { padding: camPadding(), maxZoom: 12, duration: 700 });
       },
-      flyTo: (lng, lat, zoom = 8) => map.easeTo({ center: [lng, lat], zoom, duration: 700 }),
+      flyTo: (lng, lat, zoom = 8) =>
+        map.easeTo({
+          center: [lng, lat],
+          zoom,
+          padding: { top: 0, bottom: hiddenBottom, left: 0, right: 0 },
+          duration: 700,
+        }),
+      setHiddenBottom: (px) => {
+        hiddenBottom = Math.max(0, Math.round(px));
+      },
     });
 
     // Keep the canvas matched to its container. The bottom-sheet layout

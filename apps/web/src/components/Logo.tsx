@@ -24,8 +24,8 @@ export function Logo({ size = 26 }: { size?: number }) {
 }
 
 /**
- * Compact brand mark: the app's compass glyph inside a filled disc. Used in the
- * desktop top bar, where the pin logo read as a different product.
+ * Compact brand mark: the Android launcher icon (a rotated diamond ring in a
+ * disc), in the app's accent colour.
  */
 export function LogoMark({ size = 28 }: { size?: number }) {
   return (
@@ -38,10 +38,13 @@ export function LogoMark({ size = 28 }: { size?: number }) {
       style={{ display: 'block' }}
     >
       <circle cx="16" cy="16" r="15" fill="var(--accent, #e8613c)" />
-      <circle cx="16" cy="16" r="10.6" stroke="#fff" strokeOpacity="0.5" strokeWidth="1.3" />
-      {/* Compass needle: one solid half, one translucent, like a real rose. */}
-      <path d="M21.6 10.4 18.5 18.5 10.4 21.6 13.5 13.5Z" fill="#fff" />
-      <path d="M21.6 10.4 13.5 13.5 10.4 21.6 18.5 18.5Z" fill="#fff" fillOpacity="0.45" />
+      {/* Outer diamond minus inner diamond = a ring, same as the app icon. */}
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M16 5.4 26.6 16 16 26.6 5.4 16 16 5.4Zm0 5.1L10.5 16l5.5 5.5 5.5-5.5L16 10.5Z"
+        fill="#fff"
+      />
     </svg>
   );
 }

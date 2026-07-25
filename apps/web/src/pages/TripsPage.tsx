@@ -387,7 +387,7 @@ function TripCard({
         className={`trip-card-compact ${trip.resolvedCoverId ? 'has-cover' : ''}`}
         style={{
           animationDelay: `${index * 30}ms`,
-          zIndex: menuOpen ? 30 : undefined,
+          zIndex: menuOpen || menuClosing ? 30 : undefined,
         }}
         role="link"
         tabIndex={0}
@@ -450,7 +450,7 @@ function TripCard({
       style={{
         animationDelay: `${index * 40}ms`,
         background: noImg ? tripCardBg(trip) : coverGradient(trip.id),
-        zIndex: menuOpen ? 30 : undefined,
+        zIndex: menuOpen || menuClosing ? 30 : undefined,
       }}
       role="link"
       tabIndex={0}

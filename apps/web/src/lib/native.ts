@@ -28,6 +28,22 @@ export function initStatusBar(): void {
   window.addEventListener('mms-theme', syncStatusBarTheme);
 }
 
+/**
+ * Tints the native status bar, so a coloured banner at the top of the page
+ * doesn't sit under a black or white strip. Pass null to hand it back to the
+ * theme.
+ */
+export function setStatusBarTint(color: string | null, lightIcons = true): void {
+  if (!isNativeApp()) return;
+  if (color === null) {
+    void StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => undefined);
+    syncStatusBarTheme();
+    return;
+  }
+  void StatusBar.setBackgroundColor({ color }).catch(() => undefined);
+  void StatusBar.setStyle({ style: lightIcons ? Style.Dark : Style.Light }).catch(() => undefined);
+}
+
 function syncStatusBarTheme(): void {
   if (!isNativeApp()) return;
   const dark = document.documentElement.dataset.theme === 'dark';

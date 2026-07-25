@@ -39,13 +39,19 @@
   }
 
   /* Fixed-height canvas anchored at the top; the panel just clips its bottom as
-     it shrinks — so the GL canvas is never resized mid-scroll (smooth). */
+     it shrinks, so the GL canvas is never resized mid-scroll (smooth). Pulled
+     1px above the panel so no hairline shows along the top edge over a dark
+     satellite map. */
   .trip-detail .trip-map {
     position: absolute;
-    top: 0;
+    top: -1px;
     left: 0;
     width: 100%;
-    height: calc(var(--vh-stable, 100vh) * 0.55);
+    height: calc(var(--vh-stable, 100vh) * 0.55 + 1px);
+  }
+
+  .trip-detail .trip-map-panel {
+    border-top: none;
   }
 
   /* Content slides up UNDER the fixed map (map covers its top). Starts below the
@@ -457,6 +463,9 @@
   margin-top: 0.6rem;
   width: 100%;
   overflow: hidden;
+  /* Reserved height: the chips arrive a beat after the page, and an empty row
+     that suddenly gains height made the whole cover jump. */
+  min-height: 30px;
 }
 
 .trip-headcard-stats .tstat {

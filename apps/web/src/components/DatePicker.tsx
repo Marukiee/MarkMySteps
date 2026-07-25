@@ -68,18 +68,20 @@ function CalendarSheet({
   const base = value ? new Date(value + 'T00:00:00') : new Date();
   const [view, setView] = useState({ year: base.getFullYear(), month: base.getMonth() });
   const [picking, setPicking] = useState(false);
+  // Tapping a day only stages it; "Selecteren" commits. Prevents a mis-tap from
+  // silently changing the date.
+  const [draft, setDraft] = useState(value);
   const yearsRef = useRef<HTMLDivElement>(null);
+  const [closing, setClosing] = useState(false);
+  const todayIso = toISO(new Date());
 
-  // Scroll the chosen year into the middle of its strip when the panel opens.
+  // Centre the chosen year in its strip when the panel opens.
   useEffect(() => {
     if (!picking) return;
     yearsRef.current
       ?.querySelector('.dp-year.active')
       ?.scrollIntoView({ block: 'nearest', inline: 'center' });
   }, [picking, view.year]);
-  const [closing, setClosing] = useState(false);
-  const selected = value;
-  const todayIso = toISO(new Date());
 
   // Animate out first, then either commit the pick or just close.
   const finish = (iso?: string) => {
@@ -108,16 +110,15 @@ function CalendarSheet({
       return { year: v.year + Math.floor(m / 12), month: ((m % 12) + 12) % 12 };
     });
 
-  const monthLabel = first.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' });
-  // A month-and-year panel, so a date years away doesn't need 24 taps on the
-  // chevron. Tapping the month title flips the sheet over to it.
+  const monthLabel = first.toLocaleDateString('nl-NL', { month: 'long' });
   const MONTHS = [
     'jan', 'feb', 'mrt', 'apr', 'mei', 'jun',
     'jul', 'aug', 'sep', 'okt', 'nov', 'dec',
   ];
+  // A wide range, so an old trip is a scroll away rather than unreachable.
+  const thisYear = new Date().getFullYear();
   const years: number[] = [];
-  for (let y = view.year - 6; y <= view.year + 6; y++) years.push(y);
-  const headerDate = value ? fmtLong(value) : 'Kies een datum';
+  for (let y = 1980; y <= thisYear + 10; y++) years.push(y);
 
   return createPortal(
     <div
@@ -128,12 +129,17 @@ function CalendarSheet({
     >
       <div className="dp-sheet card" onClick={(e) => e.stopPropagation()}>
         <div className="dp-header">
-          <span className="dp-header-year">{value ? new Date(value).getFullYear() : ''}</span>
-          <span className="dp-header-date">{headerDate}</span>
+          <span className="dp-header-year">{draft ? new Date(draft).getFullYear() : ''}</span>
+          <span className="dp-header-date">{draft ? fmtLong(draft) : 'Kies een datum'}</span>
         </div>
 
         <div className="dp-nav">
-          <button type="button" aria-label="Vorige maand" onClick={() => shift(-1)}>
+          <button
+            type="button"
+            className="dp-nav-btn"
+            aria-label="Vorige maand"
+            onClick={() => shift(-1)}
+          >
             <Icon name="chevron-left" size={20} />
           </button>
           <button
@@ -142,84 +148,99 @@ function CalendarSheet({
             aria-expanded={picking}
             onClick={() => setPicking((p) => !p)}
           >
-            {monthLabel}
+            <span>
+              {monthLabel} {view.year}
+            </span>
             <Icon name="chevron-down" size={16} />
           </button>
-          <button type="button" aria-label="Volgende maand" onClick={() => shift(1)}>
+          <button
+            type="button"
+            className="dp-nav-btn"
+            aria-label="Volgende maand"
+            onClick={() => shift(1)}
+          >
             <Icon name="chevron-right" size={20} />
           </button>
         </div>
 
-        {picking && (
-          <div className="dp-picker">
-            <div className="dp-years" ref={yearsRef}>
-              {years.map((y) => (
-                <button
-                  key={y}
-                  type="button"
-                  className={`dp-year ${y === view.year ? 'active' : ''}`}
-                  onClick={() => setView((v) => ({ ...v, year: y }))}
-                >
-                  {y}
-                </button>
-              ))}
+        <div className="dp-body">
+          {picking ? (
+            <div className="dp-picker" key="picker">
+              <div className="dp-years" ref={yearsRef}>
+                {years.map((y) => (
+                  <button
+                    key={y}
+                    type="button"
+                    className={`dp-year ${y === view.year ? 'active' : ''}`}
+                    onClick={() => setView((v) => ({ ...v, year: y }))}
+                  >
+                    {y}
+                  </button>
+                ))}
+              </div>
+              <div className="dp-months">
+                {MONTHS.map((m, i) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`dp-month-opt ${i === view.month ? 'active' : ''}`}
+                    onClick={() => {
+                      setView((v) => ({ ...v, month: i }));
+                      setPicking(false);
+                    }}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="dp-months">
-              {MONTHS.map((m, i) => (
-                <button
-                  key={m}
-                  type="button"
-                  className={`dp-month-opt ${i === view.month ? 'active' : ''}`}
-                  onClick={() => {
-                    setView((v) => ({ ...v, month: i }));
-                    setPicking(false);
-                  }}
-                >
-                  {m}
-                </button>
-              ))}
+          ) : (
+            <div key="days">
+              <div className="dp-grid dp-weekdays">
+                {WEEKDAYS.map((w) => (
+                  <span key={w} className="dp-weekday">
+                    {w}
+                  </span>
+                ))}
+              </div>
+              <div className="dp-grid dp-days" key={`${view.year}-${view.month}`}>
+                {cells.map((day, i) => {
+                  if (day === null) return <span key={i} />;
+                  const iso = toISO(new Date(view.year, view.month, day));
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      className={`dp-day ${iso === draft ? 'selected' : ''} ${
+                        iso === todayIso ? 'today' : ''
+                      }`}
+                      onClick={() => setDraft(iso)}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
-
-        <div className={`dp-grid dp-weekdays ${picking ? 'dp-dimmed' : ''}`}>
-          {WEEKDAYS.map((w) => (
-            <span key={w} className="dp-weekday">
-              {w}
-            </span>
-          ))}
-        </div>
-        <div className={`dp-grid dp-days ${picking ? 'dp-dimmed' : ''}`} key={`${view.year}-${view.month}`}>
-          {cells.map((day, i) => {
-            if (day === null) return <span key={i} />;
-            const iso = toISO(new Date(view.year, view.month, day));
-            return (
-              <button
-                key={i}
-                type="button"
-                className={`dp-day ${iso === selected ? 'selected' : ''} ${
-                  iso === todayIso ? 'today' : ''
-                }`}
-                onClick={() => finish(iso)}
-              >
-                {day}
-              </button>
-            );
-          })}
+          )}
         </div>
 
         <div className="dp-actions">
           {allowClear && (
-            <button
-              type="button"
-              className="btn btn-ghost dp-clear"
-              onClick={() => finish('')}
-            >
+            <button type="button" className="btn btn-ghost dp-clear" onClick={() => finish('')}>
               Wissen
             </button>
           )}
           <button type="button" className="btn btn-ghost" onClick={() => finish()}>
             Annuleren
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!draft}
+            onClick={() => finish(draft)}
+          >
+            Selecteren
           </button>
         </div>
       </div>

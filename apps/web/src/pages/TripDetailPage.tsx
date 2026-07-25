@@ -113,7 +113,13 @@ export function TripDetailPage() {
     const shrinkMap = () => {
       const panel = mapPanelRef.current;
       if (!panel || !isMobile) return;
-      panel.style.height = `${Math.max(minH, startH - el.scrollTop)}px`;
+      const height = Math.max(minH, startH - el.scrollTop);
+      panel.style.height = `${height}px`;
+      // The canvas keeps its full height and is clipped at the bottom; tell the
+      // map how much is hidden so it frames photos in the visible strip rather
+      // than behind the timeline. Applied on the next camera move, so this
+      // stays a cheap assignment during the scroll.
+      mapApiRef.current?.setHiddenBottom(startH - height);
     };
     shrinkMap();
 
@@ -544,9 +550,9 @@ export function TripDetailPage() {
                 {formatDate(trip.startDate)} – {formatDate(trip.endDate)}
               </p>
             )}
-            {stats && (
+            {(
               <TripFacts
-                facts={resolveFacts(
+                facts={!stats ? [] : resolveFacts(
                   {
                     distanceKm: stats.distanceKm,
                     days: stats.days,

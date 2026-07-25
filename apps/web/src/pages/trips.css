@@ -235,6 +235,9 @@
 .trip-card-compact {
   grid-column: 1 / -1;
   position: relative;
+  /* Sits above the cards after it, so an opening ⋯ menu is never briefly drawn
+     behind the next trip while React re-renders the z-index. */
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 0.95rem;

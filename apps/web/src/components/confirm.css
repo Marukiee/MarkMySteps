@@ -23,6 +23,7 @@
 @keyframes confirmFadeOut {
   to {
     opacity: 0;
+    backdrop-filter: blur(0);
   }
 }
 

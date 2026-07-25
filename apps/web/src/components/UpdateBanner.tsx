@@ -1,7 +1,7 @@
 import { App } from '@capacitor/app';
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { isNativeApp, openExternal } from '../lib/native';
+import { isNativeApp, openExternal, setStatusBarTint } from '../lib/native';
 import { Icon } from './Icon';
 import './updatebanner.css';
 
@@ -57,6 +57,16 @@ export function UpdateBanner() {
       void handle.then((h) => h.remove());
     };
   }, []);
+
+  // Match the status bar to the banner while it's up, then hand it back.
+  useEffect(() => {
+    if (!info) return;
+    const accent = getComputedStyle(document.documentElement)
+      .getPropertyValue('--accent')
+      .trim();
+    setStatusBarTint(accent || '#e8613c');
+    return () => setStatusBarTint(null);
+  }, [info]);
 
   if (!info) return null;
 

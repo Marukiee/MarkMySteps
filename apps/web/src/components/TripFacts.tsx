@@ -35,8 +35,9 @@ export function TripFacts({ facts }: { facts: Fact[] }) {
     return () => ro.disconnect();
   }, [facts, short, limit]);
 
-  if (facts.length === 0) return null;
-
+  // The row is always rendered, even while the stats are still loading: it
+  // holds its height so the cover doesn't grow once the chips arrive, and the
+  // chips keep their own fade-in.
   return (
     <div className="trip-headcard-stats" ref={rowRef}>
       {facts.slice(0, limit).map((f) => (
