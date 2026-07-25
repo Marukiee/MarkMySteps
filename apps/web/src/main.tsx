@@ -4,7 +4,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { AuthProvider } from './auth/AuthContext';
-import { initBackButton, initStatusBar, isNativeApp } from './lib/native';
+import { initBackButton, initStableViewport, initStatusBar, isNativeApp } from './lib/native';
 import { applyTheme, getThemeId } from './lib/prefs';
 import { resumeIfTracking } from './tracking/tracker';
 import './styles/global.css';
@@ -21,6 +21,8 @@ resumeIfTracking();
 initBackButton();
 // Overlay + style the native status bar.
 initStatusBar();
+// Keyboard-proof viewport height (--vh-stable) for the map panels.
+initStableViewport();
 // Lets CSS style the APK differently (no topbar, tab bar always on).
 if (isNativeApp()) document.documentElement.classList.add('native-app');
 

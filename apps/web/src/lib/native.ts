@@ -1,5 +1,5 @@
 import { App } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Style, StatusBar } from '@capacitor/status-bar';
 import { DEFAULT_SERVER_URL } from '../config';
 
@@ -35,16 +35,122 @@ function syncStatusBarTheme(): void {
   void StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light });
 }
 
-/** Android back gesture: navigate back in history, exit the app at the root. */
+interface PredictiveBackPlugin {
+  setEnabled(options: { enabled: boolean }): Promise<void>;
+  addListener(
+    event: 'backStarted' | 'backProgressed',
+    cb: (data: { progress: number; edge: 'left' | 'right' }) => void,
+  ): Promise<{ remove: () => void }>;
+  addListener(event: 'backCancelled' | 'backInvoked', cb: () => void): Promise<{ remove: () => void }>;
+}
+
+const PredictiveBack = registerPlugin<PredictiveBackPlugin>('PredictiveBack');
+
+/** True once the native predictive-back plugin has taken over the back gesture. */
+let predictiveReady = false;
+
+/**
+ * Android Predictive Back Gesture.
+ *
+ * While you drag from the edge the whole app shrinks and slides toward that
+ * edge, revealing the page background behind it — so you see where you're going
+ * before you commit. Letting go snaps back (cancel) or navigates (commit, where
+ * the destination grows into place).
+ *
+ * On API < 34 the system only reports the commit, which still navigates — just
+ * without the live preview.
+ */
 export function initBackButton(): void {
   if (!isNativeApp()) return;
+
+  const root = document.getElementById('root');
+
+  const setProgress = (p: number) => root?.style.setProperty('--back-progress', String(p));
+  const settle = (done?: () => void) => {
+    root?.classList.add('back-swipe-settling');
+    setProgress(0);
+    window.setTimeout(() => {
+      root?.classList.remove('back-swipe', 'back-swipe-settling');
+      root?.style.removeProperty('--back-progress');
+      done?.();
+    }, 260);
+  };
+
+  void PredictiveBack.addListener('backStarted', ({ progress, edge }) => {
+    predictiveReady = true;
+    if (!root) return;
+    root.classList.remove('back-swipe-settling');
+    root.classList.add('back-swipe');
+    root.dataset.backEdge = edge;
+    setProgress(progress);
+  })
+    .then(() => {
+      predictiveReady = true;
+    })
+    .catch(() => undefined);
+
+  void PredictiveBack.addListener('backProgressed', ({ progress }) =>
+    setProgress(progress),
+  ).catch(() => undefined);
+  void PredictiveBack.addListener('backCancelled', () => settle()).catch(() => undefined);
+  void PredictiveBack.addListener('backInvoked', () => {
+    // Navigate FIRST, then ease back to full size: the destination grows into
+    // place instead of the old page popping out.
+    if (window.history.length > 1) window.history.back();
+    else void App.exitApp();
+    settle();
+  }).catch(() => undefined);
+
+  // Fallback for anything that still routes through Capacitor's own back event
+  // (e.g. if the plugin failed to register).
   void App.addListener('backButton', ({ canGoBack }) => {
-    if (canGoBack && window.location.pathname !== '/') {
-      window.history.back();
-    } else {
-      void App.exitApp();
-    }
+    if (predictiveReady) return;
+    if (canGoBack && window.location.pathname !== '/') window.history.back();
+    else void App.exitApp();
   });
+}
+
+/**
+ * At the root there is nothing to go back to — hand the gesture to the system so
+ * it plays its own "close the app" animation instead of ours.
+ */
+export function setBackGestureEnabled(enabled: boolean): void {
+  if (!isNativeApp()) return;
+  void PredictiveBack.setEnabled({ enabled }).catch(() => undefined);
+}
+
+/**
+ * Publishes `--vh-stable`: the viewport height WITHOUT the on-screen keyboard.
+ *
+ * Android resizes the WebView when the keyboard opens, so plain `vh` units
+ * shrink mid-interaction — the fixed map panel and the sheet under it jumped and
+ * left a bar along the map's edge. We therefore only adopt a *larger* height (or
+ * a rotation), never the keyboard's shrink.
+ */
+export function initStableViewport(): void {
+  let stable = 0;
+  const apply = (px: number) => {
+    stable = px;
+    document.documentElement.style.setProperty('--vh-stable', `${px}px`);
+  };
+  apply(window.innerHeight);
+
+  window.addEventListener('resize', () => {
+    if (window.innerHeight > stable) apply(window.innerHeight);
+  });
+  // A rotation legitimately makes the viewport shorter — re-measure from scratch
+  // once the new size has settled.
+  window.addEventListener('orientationchange', () => {
+    window.setTimeout(() => apply(window.innerHeight), 250);
+  });
+}
+
+/** Current keyboard-independent viewport height in px. */
+export function stableViewportHeight(): number {
+  const v = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--vh-stable'),
+  );
+  return Number.isFinite(v) && v > 0 ? v : window.innerHeight;
 }
 
 /** Opens a URL outside the WebView (system browser / matching app). */

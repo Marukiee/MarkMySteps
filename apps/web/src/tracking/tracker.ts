@@ -6,11 +6,18 @@ import { BufferedPoint, bufferPoint, bufferedCount, peekPoints, removePoints } f
 /**
  * Battery-friendly trip tracker.
  *
- * Native (Android APK): @capacitor-community/background-geolocation — AOSP
- * LocationManager with a foreground service + persistent notification, so it
- * keeps recording with the screen off. No Google Play Services involved
- * (works on LineageOS / GrapheneOS). distanceFilter keeps the GPS duty
- * cycle low: a new fix only when you actually moved.
+ * Native (Android APK): @capacitor-community/background-geolocation — a
+ * foreground service with a persistent notification, so it keeps recording with
+ * the screen off. distanceFilter keeps callbacks down: a new fix only when you
+ * actually moved.
+ *
+ * ⚠ That plugin talks to `FusedLocationProviderClient`
+ * (com.google.android.gms:play-services-location), NOT the AOSP
+ * LocationManager. On a de-Googled device without microG it will not deliver
+ * fixes, and its request is hardcoded to PRIORITY_HIGH_ACCURACY at a 1 s
+ * interval — so `distanceFilter` trims wake-ups and uploads, but it does not
+ * throttle the GPS radio itself. Replacing this with a small AOSP
+ * LocationManager plugin is the real fix for both.
  *
  * Web/PWA fallback: geolocation.watchPosition — foreground only (browsers
  * suspend background GPS), still useful for city walks with the screen on.
@@ -255,6 +262,17 @@ export async function stopTracking(clearTrip = true): Promise<void> {
 
 function onOnline(): void {
   void flush();
+}
+
+/**
+ * Re-applies the storage interval to a RUNNING watcher. distanceFilter is only
+ * read when the watcher is created, so without this a changed interval only took
+ * effect after stopping and starting tracking again.
+ */
+export async function refreshTrackingInterval(): Promise<void> {
+  const tripId = state.tripId;
+  if (!tripId) return;
+  await startTracking(tripId); // stops the old watcher first
 }
 
 /** Resumes tracking after an app restart if a trip was being tracked. */

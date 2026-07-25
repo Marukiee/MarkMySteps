@@ -328,24 +328,4 @@
   gap: 0.4rem;
 }
 
-.ts-help-btn {
-  display: grid;
-  place-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  color: var(--ink-faint);
-  border: 1px solid var(--line);
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-
-.ts-help-btn.on,
-.ts-help-btn:hover {
-  color: var(--accent-ink);
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.ts-help-text {
-  animation: permTipIn 0.25s var(--ease);
-}
+/* The "?" itself lives in <HelpTip> (components/helptip.css). */

@@ -37,6 +37,37 @@
   gap: 1.25rem;
 }
 
+/* --- Large ↔ compact morph (View Transitions API). Each card carries a stable
+   view-transition-name, so the browser tweens the old shape into the new one
+   instead of the row popping into place. --- */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-group(*) {
+    animation-duration: 340ms;
+    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 340ms;
+    /* Both states stretch to the shared box, so the photo genuinely reshapes. */
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+/* The globe is its own group: without it the whole-page root snapshot would
+   cross-fade a frozen canvas over the live one. */
+.globe-backdrop {
+  view-transition-name: globe-hero;
+}
+
+/* During a morph the freshly mounted card must not ALSO replay its entry
+   animation — that fights the transition. */
+.vt-resizing .trip-card,
+.vt-resizing .trip-card-compact {
+  animation: none !important;
+}
+
 /* Full-bleed photo card, Polarsteps style. */
 .trip-card {
   position: relative;
@@ -242,10 +273,15 @@
 
 /* Keep the real content above the backdrop. */
 .trip-card-compact.has-cover .tcc-photo,
-.trip-card-compact.has-cover .tcc-body,
-.trip-card-compact.has-cover .trip-card-menu {
+.trip-card-compact.has-cover .tcc-body {
   position: relative;
   z-index: 2;
+}
+
+/* The ⋯ stays absolutely positioned (see below) — only lift it above the
+   blurred cover. Making it `relative` dropped it back into the flex row. */
+.trip-card-compact.has-cover .trip-card-menu {
+  z-index: 3;
 }
 
 /* Over a blurred cover the muted greys wash out — lift the meta text and the

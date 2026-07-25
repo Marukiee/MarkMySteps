@@ -15,6 +15,7 @@ import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
 import type { PlannedStop } from '../lib/arc';
 import { colorForUser, formatDate } from '../lib/colors';
+import { stableViewportHeight } from '../lib/native';
 import { getMapStyle } from '../lib/prefs';
 import { onTrackerChange } from '../tracking/tracker';
 import './tripdetail.css';
@@ -94,7 +95,8 @@ export function TripDetailPage() {
     // Mobile only: shrink the fixed map as the page scrolls (content slides up
     // under it at 1×), down to a floor so the map always stays visible.
     const isMobile = window.matchMedia('(max-width: 900px)').matches;
-    const vh = window.innerHeight / 100;
+    // Keyboard-independent height, so focusing an input never resizes the map.
+    const vh = stableViewportHeight() / 100;
     const startH = 55 * vh;
     const minH = 32 * vh;
     let raf = 0;

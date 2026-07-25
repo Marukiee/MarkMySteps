@@ -34,6 +34,9 @@ export type TripWithMembers = Trip & {
   flightPath?: [number, number][][];
 };
 
+/** Country you live in — excluded from a trip's "countries visited" count. */
+const HOME_COUNTRY = 'NL';
+
 const MEMBERS_INCLUDE = {
   members: {
     include: { user: { select: { displayName: true, username: true, avatarMime: true } } },
@@ -436,7 +439,11 @@ export class TripsService {
 
     return {
       distanceKm: Math.round((distanceRow?.meters ?? 0) / 1000 + extraKm),
-      countries: stopCountries.map((s) => s.countryCode!).filter(Boolean),
+      // Home country doesn't count as a "country visited" — a trip that starts
+      // and ends in NL isn't a trip to the Netherlands.
+      countries: stopCountries
+        .map((s) => s.countryCode!)
+        .filter((c) => c && c.toUpperCase() !== HOME_COUNTRY),
       days,
       photoCount,
     };

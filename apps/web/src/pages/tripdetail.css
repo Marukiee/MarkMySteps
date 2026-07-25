@@ -29,7 +29,9 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 55vh; /* JS shrinks this toward 32vh as you scroll */
+    /* --vh-stable ignores the keyboard, so opening an input doesn't resize the
+       map (JS shrinks this toward 32% as you scroll). */
+    height: calc(var(--vh-stable, 100vh) * 0.55);
     z-index: 1;
     overflow: hidden;
     border-radius: 0 0 var(--radius-l) var(--radius-l);
@@ -43,7 +45,7 @@
     top: 0;
     left: 0;
     width: 100%;
-    height: 55vh;
+    height: calc(var(--vh-stable, 100vh) * 0.55);
   }
 
   /* Content slides up UNDER the fixed map (map covers its top). Starts below the
@@ -51,8 +53,8 @@
   .trip-detail .trip-side {
     position: relative;
     z-index: 0;
-    margin-top: 55vh;
-    min-height: 100vh;
+    margin-top: calc(var(--vh-stable, 100vh) * 0.55);
+    min-height: var(--vh-stable, 100vh);
     background: var(--paper);
     padding: 0.2rem 1.15rem calc(96px + env(safe-area-inset-bottom));
   }
@@ -162,7 +164,8 @@
 .person-select {
   position: absolute;
   left: 0.9rem;
-  bottom: 2.4rem;
+  /* Same gutter left and bottom — the MapLibre attribution may sit under it. */
+  bottom: 0.9rem;
   z-index: 5;
 }
 

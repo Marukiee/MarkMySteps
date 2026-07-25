@@ -66,9 +66,10 @@ export function TripPlanner({
       )
     : 0;
 
-  // A standalone heen-/terugreis leg has no city of its own (any travel mode).
-  const isStandaloneLeg = (s?: PlannedStop) =>
-    !!s && s.latitude === null && s.longitude === null && LEG_NAMES.has(s.name);
+  // A standalone heen-/terugreis leg is identified by its name ALONE. It may
+  // well carry a coordinate (the begin/end point you picked); that must not turn
+  // it back into a normal stop row — it stays the slim leg bar.
+  const isStandaloneLeg = (s?: PlannedStop) => !!s && LEG_NAMES.has(s.name);
   const hasOutbound = isStandaloneLeg(stops[0]);
   const hasReturn = isStandaloneLeg(stops[stops.length - 1]);
 
@@ -167,8 +168,18 @@ export function TripPlanner({
     );
   }
 
+  // Deleting plays a collapse animation first, then hits the API — otherwise the
+  // row (a leg bar especially) just blinks out of existence.
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
   async function removeStop(stop: PlannedStop) {
-    refresh(await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, { method: 'DELETE' }));
+    setRemovingId(stop.id);
+    await new Promise((r) => window.setTimeout(r, 240));
+    try {
+      refresh(await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, { method: 'DELETE' }));
+    } finally {
+      setRemovingId(null);
+    }
   }
 
   async function addReturnLeg(mode: TravelMode) {
@@ -272,8 +283,10 @@ export function TripPlanner({
                 ? haversineKm(legPt, otherPt)
                 : null;
             return (
-              <li key={stop.id} className="stop-row">
-                <div className="flight-leg card">
+              <li key={stop.id} className={`stop-row ${removingId === stop.id ? 'leaving' : ''}`}>
+                {/* Keyed on the travel mode so switching flight ↔ car/bus
+                    remounts the bar and replays its entry animation. */}
+                <div className="flight-leg card" key={stop.travelMode}>
                   <div className="flight-leg-head">
                     <strong className="flight-leg-name">
                       {/* A flight with a layover has a long airports pill; drop
@@ -335,12 +348,15 @@ export function TripPlanner({
               ? haversineKm([prev.longitude, prev.latitude], [stop.longitude, stop.latitude])
               : null;
           return (
-            <li key={stop.id} className="stop-row">
+            <li key={stop.id} className={`stop-row ${removingId === stop.id ? 'leaving' : ''}`}>
               {/* Incoming leg: a mode dropdown (same as heenreis), plus the
                   flight editor when it's a flight. Only from the 2nd stop on —
                   the first stop's arrival is the heenreis. */}
               {index > 0 && !prevIsStandalone && (
-                <div className={`leg-connector ${isFlight ? 'leg-connector-flight' : ''}`}>
+                <div
+                  key={isFlight ? 'flight' : 'ground'}
+                  className={`leg-connector ${isFlight ? 'leg-connector-flight' : ''}`}
+                >
                   {isFlight ? (
                     // Same bar look as the heen-/terugreis legs, labelled "Vlucht".
                     <div className="flight-leg card">
@@ -607,14 +623,20 @@ function LegLocation({
   );
 }
 
-/** Right-aligned metric on a leg bar that alternates between distance and
- *  duration every few seconds, to save horizontal space. */
+/** Right-aligned metric on a leg bar. For a ride (car/bus/train/boat) the travel
+ *  time matters, so it alternates distance ↔ duration to save horizontal space.
+ *  A flight's "duration" is a meaningless estimate — that one just shows km. */
 function AltMetric({ km, mode }: { km: number; mode: TravelMode }) {
   const [showDur, setShowDur] = useState(false);
+  const alternates = mode !== 'FLIGHT';
   useEffect(() => {
+    if (!alternates) return;
     const t = window.setInterval(() => setShowDur((v) => !v), 3000);
     return () => window.clearInterval(t);
-  }, []);
+  }, [alternates]);
+  if (!alternates) {
+    return <span className="leg-alt-metric">{km.toLocaleString('nl-NL')} km</span>;
+  }
   return (
     <span className="leg-alt-metric" title={`${Math.round(km)} km · ${estimateDuration(km, mode)}`}>
       <span key={showDur ? 'd' : 'k'} className="leg-alt-metric-val">
@@ -670,8 +692,12 @@ function ModeMenu({
         className="mode-menu-pill"
         onClick={() => (open ? close() : setOpen(true))}
       >
-        <Icon name={icon} size={compact ? 14 : 16} />
-        <span>{text}</span>
+        {/* Keyed on the mode so picking another one cross-fades icon + label
+            instead of swapping them instantly. */}
+        <span className="mode-menu-face" key={current ?? 'new'}>
+          <Icon name={icon} size={compact ? 14 : 16} />
+          <span>{text}</span>
+        </span>
         <Icon name="chevron-down" size={13} className="mode-menu-caret" />
       </button>
       {open && (

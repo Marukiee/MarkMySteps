@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
 import { confirmModal } from '../components/confirm';
 import { DateField } from '../components/DatePicker';
+import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
 import { MembersPanel } from '../components/MembersPanel';
 import { TripMarkerPicker } from '../components/TripMarkerPicker';
@@ -41,7 +42,6 @@ export function TripSettingsPage() {
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [color, setColor] = useState<string>('');
   const [markerOn, setMarkerOn] = useState(false);
-  const [markerHelp, setMarkerHelp] = useState(false);
   const [clearDay, setClearDay] = useState('');
   const [wiping, setWiping] = useState(false);
   const [clearMsg, setClearMsg] = useState<string | null>(null);
@@ -254,23 +254,12 @@ export function TripSettingsPage() {
         <section className="ts-marker">
           <h2 className="ts-section-title">
             Bolletje op de globe
-            <button
-              type="button"
-              className={`ts-help-btn ${markerHelp ? 'on' : ''}`}
-              aria-label="Uitleg"
-              aria-expanded={markerHelp}
-              onClick={() => setMarkerHelp((v) => !v)}
-            >
-              <Icon name="help" size={16} />
-            </button>
-          </h2>
-          {markerHelp && (
-            <p className="muted ts-help-text">
+            <HelpTip>
               Handig bij een rondreis (bv. interrail) waar begin en eind bijna gelijk zijn: zet het
               ene bolletje en naamkaartje op een plek langs de route die het beste uitkomt.
               Standaard staat het automatisch op begin/eind.
-            </p>
-          )}
+            </HelpTip>
+          </h2>
           {trip?.markerLng != null && trip.markerLat != null ? (
             <div className="ts-track-box">
               <div>
@@ -317,7 +306,7 @@ export function TripSettingsPage() {
         {isNative() && tripId && !canTrack && (
           <p className="muted">
             {ended
-              ? 'Deze reis is afgelopen — tracken kan niet meer.'
+              ? 'Deze reis is afgelopen, tracken kan niet meer.'
               : me?.role === 'GUEST'
                 ? 'Je bent gast op deze reis en kunt alleen meekijken.'
                 : 'De organisator heeft tracken voor jou uitgezet.'}

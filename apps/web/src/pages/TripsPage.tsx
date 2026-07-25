@@ -1,4 +1,5 @@
 import { FormEvent, MouseEvent, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
@@ -13,10 +14,34 @@ import { formatDate } from '../lib/colors';
 import { getTripCardOverride, isTripCompact, setTripCardOverride } from '../lib/prefs';
 import './trips.css';
 
+/** Chrome/Android WebView 111+; elsewhere the change just applies instantly. */
+type ViewTransitionDoc = Document & { startViewTransition?: (cb: () => void) => unknown };
+
 export function TripsPage() {
   const [trips, setTrips] = useState<Trip[] | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bumped when a card switches size; the layout is read back from localStorage.
+  const [sizeTick, setSizeTick] = useState(0);
+
+  /**
+   * Switch one card between large and compact. Each card carries a stable
+   * `view-transition-name`, so the browser morphs the old photo tile into the
+   * new slim row (and vice versa) instead of swapping them abruptly.
+   */
+  function applySize(id: string, value: 'large' | 'compact' | null) {
+    setTripCardOverride(id, value);
+    const commit = () => flushSync(() => setSizeTick((t) => t + 1));
+    const doc = document as ViewTransitionDoc;
+    if (!doc.startViewTransition) {
+      commit();
+      return;
+    }
+    const root = document.documentElement;
+    root.classList.add('vt-resizing');
+    doc.startViewTransition(commit);
+    window.setTimeout(() => root.classList.remove('vt-resizing'), 420);
+  }
 
   function load() {
     api<Trip[]>('/trips')
@@ -79,6 +104,7 @@ export function TripsPage() {
                   trip={trip}
                   index={i}
                   onChanged={load}
+                  onResize={applySize}
                   compact={c}
                 />
               );
@@ -102,6 +128,7 @@ export function TripsPage() {
                   trip={trip}
                   index={i}
                   onChanged={load}
+                  onResize={applySize}
                   compact={c}
                 />
               );
@@ -126,11 +153,13 @@ function TripCard({
   trip,
   index,
   onChanged,
+  onResize,
   compact = false,
 }: {
   trip: Trip;
   index: number;
   onChanged: () => void;
+  onResize: (id: string, value: 'large' | 'compact' | null) => void;
   compact?: boolean;
 }) {
   const { user } = useAuth();
@@ -208,9 +237,8 @@ function TripCard({
   }
 
   function setSize(v: 'large' | 'compact' | null) {
-    setTripCardOverride(trip.id, v);
     setMenuOpen(false);
-    onChanged();
+    onResize(trip.id, v);
   }
 
   const month = new Date(trip.startDate).toLocaleDateString('nl-NL', { month: 'long' });
@@ -336,7 +364,12 @@ function TripCard({
     return (
       <div
         className={`trip-card-compact ${trip.resolvedCoverId ? 'has-cover' : ''}`}
-        style={{ animationDelay: `${index * 30}ms`, zIndex: menuOpen ? 30 : undefined }}
+        style={{
+          animationDelay: `${index * 30}ms`,
+          zIndex: menuOpen ? 30 : undefined,
+          // Shared with the large variant → the browser morphs between the two.
+          viewTransitionName: `trip-card-${cssId(trip.id)}`,
+        }}
         role="link"
         tabIndex={0}
         onClick={() => !renaming && navigate(`/trips/${trip.id}`)}
@@ -399,6 +432,7 @@ function TripCard({
         animationDelay: `${index * 40}ms`,
         background: noImg ? tripCardBg(trip) : coverGradient(trip.id),
         zIndex: menuOpen ? 30 : undefined,
+        viewTransitionName: `trip-card-${cssId(trip.id)}`,
       }}
       role="link"
       tabIndex={0}
@@ -521,6 +555,12 @@ function NewTripForm({ onCreated }: { onCreated: () => void }) {
       </button>
     </form>
   );
+}
+
+/** A view-transition-name must be a CSS ident — UUID dashes are fine, anything
+ *  else is stripped so an odd id can't produce invalid CSS. */
+function cssId(id: string): string {
+  return id.replace(/[^a-zA-Z0-9-]/g, '');
 }
 
 /** Whole days from today until a trip's start; null once it has started. */

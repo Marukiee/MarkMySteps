@@ -10,11 +10,13 @@
   z-index: 0;
   display: grid;
   place-items: center;
-  height: clamp(260px, 42vh, 520px);
-  /* Full-bleed to the screen edges so a zoomed-in globe never shows a hard
-     rectangular border mid-page. */
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
+  height: clamp(300px, 46vh, 540px);
+  /* Full-bleed by cancelling the .page padding instead of `width: 100vw` —
+     100vw includes the scrollbar, which pushed the globe off-centre and clipped
+     it on the right (html/body have overflow-x: hidden). */
+  width: auto;
+  margin-left: -1.25rem;
+  margin-right: -1.25rem;
   margin-top: -1rem;
   /* Pull the trips up into the faded tail so the globe blends into them
      (page content paints above the fade, so it isn't hidden). */
@@ -60,20 +62,16 @@
   z-index: 2;
 }
 
+/* The canvas fills the hero; the sphere is drawn centred inside it and
+   everything around it stays transparent, so no mask is needed to hide a
+   rectangle (an old mask cut the sphere itself on wide screens). */
 .globe-backdrop canvas {
   display: block;
+  width: 100%;
+  height: 100%;
   cursor: grab;
   /* The globe consumes drag + pinch gestures itself. */
   touch-action: none;
-}
-
-/* Desktop only (phones/app untouched): the capped-width canvas would otherwise
-   show as a hard rectangle against the page — fade its edges so it blends in. */
-@media (min-width: 760px) {
-  .globe-backdrop canvas {
-    -webkit-mask-image: radial-gradient(ellipse 82% 90% at 50% 44%, #000 56%, transparent 100%);
-    mask-image: radial-gradient(ellipse 82% 90% at 50% 44%, #000 56%, transparent 100%);
-  }
 }
 
 .globe-backdrop canvas:active {

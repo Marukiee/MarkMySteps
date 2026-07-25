@@ -17,7 +17,9 @@
   /* Map pinned at the top while the stop list scrolls under it. */
   .plan-map {
     order: -1;
-    height: 40vh;
+    /* Keyboard-proof (see --vh-stable) — a resizing map left a bar on its edge
+       whenever a search field was focused. */
+    height: calc(var(--vh-stable, 100vh) * 0.4);
     position: sticky;
     top: 0;
     margin: 0 -0.9rem 0.75rem;
@@ -206,8 +208,7 @@
   font-weight: 700;
 }
 
-.leg-flight .flight-summary,
-.leg-flight .flight-editor {
+.leg-flight .flight-summary {
   margin-left: 0;
 }
 
@@ -438,16 +439,10 @@
   font-size: 0.95rem;
 }
 
-/* Inside the flight card the editor is flush (no timeline indent). */
+/* Inside the flight card the summary pill is flush (no timeline indent); the
+   editor itself opens as a sheet over the page, not inside this row. */
 .flight-leg .flight-summary {
   margin: 0;
-}
-
-/* Opened editor drops to its own full-width row under the head. */
-.flight-leg .flight-editor {
-  margin: 0.4rem 0 0;
-  padding: 0;
-  flex-basis: 100%;
 }
 
 /* Delete cross vertically centred on the right, not pinned to the top corner. */
@@ -659,11 +654,48 @@
   gap: 0.45rem 0.6rem;
 }
 
-/* Incoming-leg block on a normal stop: mode dropdown + optional flight editor. */
+/* Incoming-leg block on a normal stop: mode dropdown + optional flight editor.
+   Keyed on flight/ground in React, so switching mode replays this animation. */
 .leg-connector {
   display: grid;
   gap: 0.35rem;
   margin: 0.35rem 0 0.35rem 0.9rem;
+  animation: legSwap 0.3s var(--ease) backwards;
+}
+
+@keyframes legSwap {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.97);
+  }
+}
+
+/* Icon + label inside a mode pill: cross-fades when another mode is picked. */
+.mode-menu-face {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  animation: modeFaceIn 0.28s var(--ease);
+}
+
+@keyframes modeFaceIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* Removing a stop / leg: collapse it away before the API call lands. */
+.stop-row.leaving {
+  animation: stopOut 0.24s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes stopOut {
+  to {
+    opacity: 0;
+    transform: translateX(-14px) scale(0.96);
+  }
 }
 
 .leg-connector-row {
@@ -748,7 +780,14 @@
   display: grid;
   gap: 0.4rem;
   box-shadow: var(--shadow-m);
-  animation: flightEditorIn 0.2s var(--ease);
+  animation: legLocIn 0.2s var(--ease);
+}
+
+@keyframes legLocIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.97);
+  }
 }
 
 /* Alternating km/duration metric on a leg bar. */

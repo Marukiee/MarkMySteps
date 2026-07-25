@@ -33,6 +33,8 @@ export type IconName =
   | 'bell'
   | 'shield'
   | 'help'
+  | 'question'
+  | 'search'
   | 'hourglass';
 
 // Single source of truth for line icons. 24×24 viewbox, 2px stroke,
@@ -209,6 +211,20 @@ const PATHS: Record<IconName, ReactNode> = {
       <circle cx="12" cy="12" r="9" />
       <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7" />
       <path d="M12 17h.01" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m20 20-4.3-4.3" />
+    </>
+  ),
+  // Bare question mark — for buttons that draw their own round border, so the
+  // glyph doesn't end up inside a second circle.
+  question: (
+    <>
+      <path d="M9.2 9.3a2.9 2.9 0 1 1 4 2.7c-.85.45-1.2 1.05-1.2 2" />
+      <path d="M12 17.6h.01" />
     </>
   ),
   hourglass: (

@@ -114,6 +114,10 @@
 
 .settings-card h2 {
   font-size: 1.3rem;
+  /* Long explanations sit behind a "?" next to the title (see HelpTip). */
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .settings-form {
@@ -360,32 +364,49 @@
   padding: 0.6rem 0.85rem;
 }
 
-.tracking-log summary {
+/* --- Animated expander (replaces <details>, which snaps open). --- */
+.collapsible-summary {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  width: 100%;
+  text-align: left;
   font-weight: 600;
+  font-size: 0.85rem;
   cursor: pointer;
   color: var(--ink-soft);
-  list-style: none;
 }
 
-.tracking-log summary::-webkit-details-marker {
-  display: none;
+/* The body is a grid row that grows 0fr → 1fr, so it slides both ways. */
+.collapsible-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.3s var(--ease), opacity 0.22s var(--ease);
+}
+
+.collapsible-body > div {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.collapsible.open > .collapsible-body {
+  grid-template-rows: 1fr;
+  opacity: 1;
 }
 
 .tracking-log-caret {
   color: var(--ink-faint);
-  transition: transform 0.2s var(--ease);
+  transition: transform 0.25s var(--ease);
 }
 
-.tracking-log[open] .tracking-log-caret {
+.collapsible.open > .collapsible-summary .tracking-log-caret {
   transform: rotate(90deg);
 }
 
 .tracking-log ul {
   list-style: none;
-  margin: 0.6rem 0 0;
+  margin: 0.6rem 0 0.1rem;
   padding: 0;
   display: grid;
   gap: 0.35rem;
@@ -655,33 +676,12 @@
   align-self: stretch;
 }
 
-.tracking-advanced > summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  cursor: pointer;
-  list-style: none;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--ink-soft);
+.tracking-advanced > .collapsible-summary {
   padding: 0.2rem 0;
-}
-
-.tracking-advanced > summary::-webkit-details-marker {
-  display: none;
-}
-
-.tracking-advanced[open] > summary .tracking-log-caret {
-  transform: rotate(90deg);
-}
-
-.tracking-advanced .tracking-log-caret {
-  transition: transform 0.18s var(--ease);
 }
 
 .tracking-advanced-body {
   display: grid;
   gap: 0.6rem;
-  margin-top: 0.5rem;
-  animation: settingsAsyncIn 0.3s var(--ease);
+  padding-top: 0.5rem;
 }

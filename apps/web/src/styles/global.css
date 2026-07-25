@@ -126,6 +126,40 @@ body,
   height: 100%;
 }
 
+/* --- Android Predictive Back Gesture ---------------------------------------
+   While the gesture is in progress the whole app shrinks and slides toward the
+   edge you're dragging from, revealing the page colour behind it. Committing
+   navigates first and then eases this back to 1, so the destination grows into
+   place; cancelling just eases back. --back-progress (0–1) comes from the
+   system via the PredictiveBack plugin. */
+#root.back-swipe {
+  --back-progress: 0;
+  /* Dragging from the left edge pushes the app right, and vice versa. */
+  --back-dir: 1;
+  transform-origin: center;
+  transform: scale(calc(1 - 0.14 * var(--back-progress)))
+    translateX(calc(var(--back-dir) * var(--back-progress) * 7%));
+  border-radius: calc(var(--back-progress) * 30px);
+  overflow: hidden;
+  will-change: transform;
+}
+
+#root.back-swipe[data-back-edge='right'] {
+  --back-dir: -1;
+}
+
+#root.back-swipe-settling {
+  transition: transform 0.26s cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-radius 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root.back-swipe {
+    transform: none;
+    border-radius: 0;
+  }
+}
+
 body {
   background: var(--paper);
   color: var(--ink);
@@ -239,6 +273,10 @@ textarea {
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--ink-soft);
+  /* Keeps an inline "?" help toggle on the same line as the label text. */
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .field input,

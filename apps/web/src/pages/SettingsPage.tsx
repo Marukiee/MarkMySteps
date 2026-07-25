@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { resetOnboarding } from '../lib/native';
 import { api, ApiError, fetchBlobUrl } from '../api/client';
@@ -9,6 +9,7 @@ import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar, bumpAvatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
+import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
 import { formatDate } from '../lib/colors';
 import {
@@ -32,6 +33,7 @@ import {
   getTrackingLog,
   isNative,
   onTrackerChange,
+  refreshTrackingInterval,
   startTracking,
   stopTracking,
 } from '../tracking/tracker';
@@ -219,11 +221,13 @@ function PreferencesSection() {
       <section className="card settings-card">
         <h2>Voorkeuren</h2>
         <div className="field">
-          <label>Standaard vliegvelden</label>
-          <span className="muted">
-            Je thuis-vliegvelden. Het eerste is je standaard vertrek en wordt automatisch ingevuld
-            bij een nieuwe vlucht. Voeg er zoveel toe als je wilt.
-          </span>
+          <label>
+            Standaard vliegvelden
+            <HelpTip>
+              Je thuis-vliegvelden. Het eerste is je standaard vertrek en wordt automatisch ingevuld
+              bij een nieuwe vlucht. Voeg er zoveel toe als je wilt.
+            </HelpTip>
+          </label>
           <AirportPrefs />
         </div>
       </section>
@@ -263,11 +267,13 @@ function TrackingSection() {
 
   return (
     <section className="card settings-card">
-      <h2>Route-tracking</h2>
-      <p className="muted">
-        Zuinig met batterij: een GPS-punt bij ≥50 m verplaatsing, hooguit één keer per interval.
-        Offline wordt alles gebufferd en later geüpload. Vereist locatie op “Altijd toestaan”.
-      </p>
+      <h2>
+        Route-tracking
+        <HelpTip>
+          Zuinig met batterij: een GPS-punt bij ≥50 m verplaatsing, hooguit één keer per interval.
+          Offline wordt alles gebufferd en later geüpload. Vereist locatie op “Altijd toestaan”.
+        </HelpTip>
+      </h2>
 
       <div className="field">
         <label>Locatie opslaan elke</label>
@@ -280,6 +286,8 @@ function TrackingSection() {
               onClick={() => {
                 setIntervalMin(m);
                 setTrackingIntervalMin(m);
+                // A running watcher keeps its old distanceFilter otherwise.
+                void refreshTrackingInterval();
               }}
             >
               {m} min
@@ -297,11 +305,7 @@ function TrackingSection() {
           {tracker.lastError && <span className="error-text">{tracker.lastError}</span>}
 
           {/* The technical live-status bits are tucked behind an expander. */}
-          <details className="tracking-advanced">
-            <summary>
-              <Icon name="chevron-right" size={16} className="tracking-log-caret" />
-              Details
-            </summary>
+          <Collapsible summary="Details" className="tracking-advanced">
             <div className="tracking-advanced-body">
               <div className="tracking-live">
                 {tracker.lastFix ? (
@@ -336,7 +340,7 @@ function TrackingSection() {
               )}
               <TrackingLog now={now} />
             </div>
-          </details>
+          </Collapsible>
         </div>
       ) : (
         <div className="settings-form">
@@ -374,11 +378,7 @@ function TrackingLog({ now }: { now: number }) {
   const log = getTrackingLog();
   if (log.length === 0) return null;
   return (
-    <details className="tracking-log">
-      <summary>
-        <Icon name="chevron-right" size={16} className="tracking-log-caret" />
-        Locatie-log · {log.length} fixes
-      </summary>
+    <Collapsible className="tracking-log" summary={`Locatie-log · ${log.length} fixes`}>
       <ul>
         {log.slice(0, 25).map((e, i) => {
           const ago = Math.round((now - e.at) / 1000);
@@ -395,7 +395,39 @@ function TrackingLog({ now }: { now: number }) {
           );
         })}
       </ul>
-    </details>
+    </Collapsible>
+  );
+}
+
+/**
+ * Expander with a real open/close animation in both directions. `<details>`
+ * snaps open, so the body is a 0fr→1fr grid row that transitions instead.
+ */
+function Collapsible({
+  summary,
+  className = '',
+  children,
+}: {
+  summary: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`collapsible ${className} ${open ? 'open' : ''}`}>
+      <button
+        type="button"
+        className="collapsible-summary"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Icon name="chevron-right" size={16} className="tracking-log-caret" />
+        {summary}
+      </button>
+      <div className="collapsible-body">
+        <div>{children}</div>
+      </div>
+    </div>
   );
 }
 
@@ -783,11 +815,13 @@ function ImmichSection() {
 
   return (
     <section className="card settings-card">
-      <h2>Immich</h2>
-      <p className="muted">
-        Koppel je eigen Immich-server. Foto's blijven dáár staan. MarkMySteps bewaart alleen
-        verwijzingen (asset-id, tijdstip, GPS uit EXIF).
-      </p>
+      <h2>
+        Immich
+        <HelpTip>
+          Koppel je eigen Immich-server. Foto's blijven dáár staan. MarkMySteps bewaart alleen
+          verwijzingen (asset-id, tijdstip, GPS uit EXIF).
+        </HelpTip>
+      </h2>
 
       {status && (
         <div className="immich-status">
@@ -952,11 +986,13 @@ function AccountsSection() {
 
   return (
     <section className="card settings-card">
-      <h2>Accounts (beheer)</h2>
-      <p className="muted">
-        Maak accounts voor vrienden met een tijdelijk wachtwoord. Bij de eerste login kiezen ze een
-        eigen wachtwoord (overslaan kan, ze blijven een herinnering zien).
-      </p>
+      <h2>
+        Accounts (beheer)
+        <HelpTip>
+          Maak accounts voor vrienden met een tijdelijk wachtwoord. Bij de eerste login kiezen ze
+          een eigen wachtwoord (overslaan kan, ze blijven een herinnering zien).
+        </HelpTip>
+      </h2>
 
       <ul className="admin-users">
         {users.map((row) => (
@@ -1066,16 +1102,18 @@ function PolarstepsSection() {
 
   return (
     <section className="card settings-card">
-      <h2>Polarsteps importeren</h2>
-      <p className="muted">
-        Vraag je export op via{' '}
-        <span className="inline-path">
-          polarsteps.com <Icon name="chevron-right" size={12} /> Settings{' '}
-          <Icon name="chevron-right" size={12} /> Privacy <Icon name="chevron-right" size={12} />
-          “Download my data”
-        </span>{' '}
-        en upload de zip hier. Elke reis in de export wordt aangemaakt met de volledige GPS-route.
-      </p>
+      <h2>
+        Polarsteps importeren
+        <HelpTip>
+          Vraag je export op via{' '}
+          <span className="inline-path">
+            polarsteps.com <Icon name="chevron-right" size={12} /> Settings{' '}
+            <Icon name="chevron-right" size={12} /> Privacy <Icon name="chevron-right" size={12} />
+            “Download my data”
+          </span>{' '}
+          en upload de zip hier. Elke reis in de export wordt aangemaakt met de volledige GPS-route.
+        </HelpTip>
+      </h2>
 
       <form onSubmit={upload} className="settings-form">
         <label className="file-drop">

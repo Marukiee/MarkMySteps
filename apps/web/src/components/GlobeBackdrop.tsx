@@ -119,18 +119,24 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
     // Screen rects of the drawn labels, so tapping a name opens its trip.
     let labelRects: { id: string; x: number; y: number; w: number; h: number }[] = [];
 
+    // The canvas fills its container completely; the sphere is then drawn
+    // centred at the largest radius that fits BOTH dimensions (see draw()).
+    // Because everything outside the sphere stays transparent there is no
+    // rectangle to hide, so nothing has to be shrunk "just in case".
     function size() {
       const parent = canvas!.parentElement!;
-      // Keep the whole sphere INSIDE the container height (slightly smaller) so
-      // it's never clipped top/bottom — a wide desktop hero is short, and any
-      // factor ≥1 cut the globe off.
-      const s = Math.min(parent.clientWidth, Math.max(parent.clientHeight * 0.9, 300), 900);
-      canvas!.width = s * dpr;
-      canvas!.height = s * dpr;
-      canvas!.style.width = `${s}px`;
-      canvas!.style.height = `${s}px`;
+      const w = Math.max(1, parent.clientWidth);
+      const h = Math.max(1, parent.clientHeight);
+      canvas!.width = w * dpr;
+      canvas!.height = h * dpr;
+      canvas!.style.width = `${w}px`;
+      canvas!.style.height = `${h}px`;
     }
     size();
+    // clientWidth/Height can still be 0 (or stale) on the very first frame of a
+    // freshly mounted page — re-measure whenever the container settles.
+    const ro = new ResizeObserver(() => size());
+    ro.observe(canvas.parentElement!);
 
     const projection = geoOrthographic().clipAngle(90);
     const path = geoPath(projection, ctx);
@@ -200,8 +206,11 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
       // Smooth zoom toward the target every frame (no jumps).
       scale += (targetScale - scale) * 0.15;
 
+      // Radius fits the SHORTER side, so the sphere is as big as it can be
+      // without ever being clipped left/right or top/bottom.
+      const radius = Math.min(w, h) / 2 - 2 * dpr;
       projection
-        .scale((w / 2 - 2 * dpr) * scale)
+        .scale(radius * scale)
         .translate([w / 2, h / 2])
         .rotate([rotation, -(CENTER_LAT + tilt), 0]);
 
@@ -685,6 +694,7 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
     window.addEventListener('resize', onResize);
     return () => {
       cancelAnimationFrame(raf);
+      ro.disconnect();
       window.removeEventListener('resize', onResize);
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
