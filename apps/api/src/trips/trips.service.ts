@@ -91,6 +91,25 @@ function mapMembers(trip: RawTripRow): TripWithMembers {
   };
 }
 
+// Rough Netherlands bounding box. Home snaps/tracks here shouldn't count as part
+// of a foreign trip's route (a train from Castricum to Londen etc.).
+const NL_BBOX = { lonMin: 3.2, lonMax: 7.35, latMin: 50.7, latMax: 53.7 };
+function inHomeCountry(p: [number, number]): boolean {
+  return (
+    p[0] >= NL_BBOX.lonMin &&
+    p[0] <= NL_BBOX.lonMax &&
+    p[1] >= NL_BBOX.latMin &&
+    p[1] <= NL_BBOX.latMax
+  );
+}
+
+/** Drops home-country points from a route, unless the whole trip is at home
+ *  (a purely domestic trip stays intact). */
+function stripHomeCountry(coords: [number, number][]): [number, number][] {
+  const foreign = coords.filter((p) => !inHomeCountry(p));
+  return foreign.length === 0 ? coords : foreign;
+}
+
 /** Great-circle distance (km) between two [lng,lat] points. */
 function kmLngLat(a: [number, number], b: [number, number]): number {
   const toRad = Math.PI / 180;
@@ -194,7 +213,7 @@ export class TripsService {
       try {
         const geom = JSON.parse(row.geojson) as { type: string; coordinates: number[][] };
         if (geom.type === 'LineString' && geom.coordinates.length >= 2) {
-          routeByTrip.set(row.tripId, geom.coordinates as [number, number][]);
+          routeByTrip.set(row.tripId, stripHomeCountry(geom.coordinates as [number, number][]));
         }
       } catch {
         /* ignore malformed geometry */
@@ -282,7 +301,9 @@ export class TripsService {
       list.push([p.longitude!, p.latitude!]);
       photosByTrip.set(p.tripId, list);
     }
-    for (const [tripId, line] of photosByTrip) photosByTrip.set(tripId, trimOutlierEnds(line));
+    for (const [tripId, line] of photosByTrip) {
+      photosByTrip.set(tripId, trimOutlierEnds(stripHomeCountry(line)));
+    }
 
     return trips.map((t) => {
       const base = mapMembers(t);
