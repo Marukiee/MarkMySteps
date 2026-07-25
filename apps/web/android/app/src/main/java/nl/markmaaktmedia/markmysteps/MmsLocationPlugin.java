@@ -156,6 +156,18 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
         call.resolve();
     }
 
+    /** Whether "allow all the time" is actually granted, so the UI doesn't have
+     *  to nag about a setting that's already correct. */
+    @PluginMethod
+    public void backgroundStatus(PluginCall call) {
+        JSObject result = new JSObject();
+        boolean granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+                || getPermissionState(BACKGROUND) == PermissionState.GRANTED;
+        result.put("granted", granted);
+        result.put("foreground", hasForegroundPermission());
+        call.resolve(result);
+    }
+
     @PluginMethod
     public void stop(PluginCall call) {
         getContext().stopService(new Intent(getContext(), MmsLocationService.class));

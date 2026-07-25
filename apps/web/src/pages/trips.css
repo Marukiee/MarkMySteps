@@ -311,10 +311,10 @@
   filter: none;
 }
 
-/* The compact ⋯ is vertically centred in a short row, so its menu must drop
-   from BELOW the button (not from the row's top corner) or it floats detached. */
+/* Opens ON TOP of the ⋯, same as the large card, rather than dropping below it
+   (which read as a different control). */
 .trip-card-compact .trip-menu {
-  top: calc(100% + 6px);
+  top: 0;
   right: 0;
   transform-origin: top right;
 }

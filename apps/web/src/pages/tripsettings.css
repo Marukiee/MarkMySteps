@@ -260,11 +260,10 @@
 
 /* Background-permission reminder shown while tracking on native. */
 .track-perm-tip {
-  display: flex;
-  gap: 0.6rem;
-  align-items: flex-start;
+  display: grid;
+  gap: 0.45rem;
   margin-top: 0.65rem;
-  padding: 0.75rem 0.85rem;
+  padding: 0.8rem 0.9rem;
   border-radius: var(--radius-m);
   background: var(--accent-soft);
   border: 1px solid var(--accent);
@@ -282,42 +281,62 @@
   }
 }
 
-.track-perm-icon {
+/* Icon, title and ✕ on one aligned row — the icon used to float beside a block
+   of text and the ✕ hung off the corner. */
+.track-perm-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.track-perm-head strong {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
   color: var(--accent-ink);
-  flex-shrink: 0;
-  margin-top: 0.1rem;
 }
 
-.track-perm-body {
+.track-perm-icon {
   display: grid;
-  gap: 0.3rem;
+  place-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--paper-raised);
+  color: var(--accent-ink);
+}
+
+.track-perm-text {
   font-size: 0.85rem;
-}
-
-.track-perm-body strong {
-  font-size: 0.9rem;
-}
-
-.track-perm-body span {
   color: var(--ink-soft);
-  line-height: 1.4;
 }
 
 .track-perm-open {
   justify-self: start;
-  margin-top: 0.15rem;
-  padding: 0.4rem 0.8rem;
+  padding: 0.4rem 0.85rem;
   border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--paper-raised);
+  border: 1px solid var(--accent);
+  color: var(--accent-ink);
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .track-perm-close {
   flex-shrink: 0;
-  color: var(--ink-faint);
-  padding: 0.15rem;
+  display: grid;
+  place-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: var(--accent-ink);
+  opacity: 0.7;
+}
+
+.track-perm-close:hover {
+  opacity: 1;
+  background: rgb(0 0 0 / 0.06);
 }
 
 /* Inline "?" help toggle next to a section title (keeps the long explanation

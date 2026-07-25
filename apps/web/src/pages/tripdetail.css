@@ -75,12 +75,8 @@
   }
 
   /* Cover photo as a compact banner at the top of the sheet. */
-  .trip-headcard.has-cover {
-    min-height: 190px;
-  }
-
   .trip-headcard.has-cover .trip-headcard-body {
-    padding-top: 5rem;
+    padding-top: 3.6rem;
   }
 
   .trip-headcard h1 {
@@ -88,9 +84,287 @@
   }
 }
 
-/* --- Trip header card: cover, title, dates and the numbers in one block --- */
+.trip-map-panel {
+  position: relative;
+  border: none; /* the .card border shows as an ugly light hairline over the map */
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  min-height: 320px;
+}
+
+/* Live tracking indicator on the map. */
+.live-badge {
+  position: absolute;
+  top: 0.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.32rem 0.75rem 0.32rem 0.6rem;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-s);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.12s var(--ease);
+}
+
+.live-badge:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+.live-badge-go {
+  color: var(--ink-faint);
+  margin-left: 0.05rem;
+  transition: color 0.25s var(--ease);
+}
+
+/* Turns green the moment a real GPS fix has come in, so the pill also tells you
+   whether the location itself is working — not just that tracking is on. */
+.live-badge-go.has-fix {
+  color: #0a9d63;
+}
+
+.live-badge-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e2483d;
+  box-shadow: 0 0 0 0 rgb(226 72 61 / 0.5);
+  animation: livePulse 1.6s ease-out infinite;
+}
+
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(226 72 61 / 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgb(226 72 61 / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(226 72 61 / 0);
+  }
+}
+
+@media (max-width: 900px) {
+  .live-badge {
+    top: calc(0.9rem + env(safe-area-inset-top));
+  }
+}
+
+/* Bottom-left traveller selector with a drop-up menu. */
+.person-select {
+  position: absolute;
+  left: 0.9rem;
+  /* Same gutter left and bottom — the MapLibre attribution may sit under it. */
+  bottom: 0.9rem;
+  z-index: 5;
+}
+
+.person-select-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-s);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.person-select-name {
+  max-width: 40vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-select-caret {
+  color: var(--ink-faint);
+  transition: transform 0.2s var(--ease);
+}
+
+.person-select-caret.open {
+  transform: rotate(180deg);
+}
+
+.person-select-menu {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: 6px;
+  min-width: 200px;
+  max-width: 78vw;
+  padding: 0.3rem;
+  display: grid;
+  gap: 1px;
+  transform-origin: bottom left;
+  animation: personMenuIn 0.16s var(--ease);
+}
+
+.person-select-menu.closing {
+  animation: personMenuOut 0.15s var(--ease) forwards;
+}
+
+@keyframes personMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+@keyframes personMenuOut {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+.person-select-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 550;
+  color: var(--ink-faint);
+  text-align: left;
+}
+
+.person-select-menu button.active {
+  color: var(--ink);
+}
+
+.person-select-menu button .person-select-name {
+  flex: 1;
+  max-width: none;
+}
+
+/* Check mark stays mounted so it animates BOTH ways: pops in on select, shrinks
+   out on deselect (an unmounted icon can't animate its exit). */
+.person-check {
+  display: inline-flex;
+  color: var(--accent);
+  opacity: 0;
+  transform: scale(0.2);
+  transition: transform 0.28s var(--ease), opacity 0.2s var(--ease);
+}
+
+.person-check.on {
+  opacity: 1;
+  transform: scale(1);
+  animation: checkPop 0.28s var(--ease);
+}
+
+@keyframes checkPop {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.person-toggles {
+  position: absolute;
+  top: 0.9rem;
+  left: 0.9rem;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.person-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+  box-shadow: var(--shadow-s);
+  transition: all 0.2s var(--ease);
+}
+
+.person-chip.active {
+  color: var(--ink);
+}
+
+.person-chip:not(.active) .person-chip-dot {
+  opacity: 0.25;
+}
+
+.person-chip-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  transition: opacity 0.2s;
+}
+
+.add-point-panel {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  padding: 1rem 1.15rem;
+  display: grid;
+  gap: 0.6rem;
+  width: min(90%, 340px);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-l);
+  animation: fadeIn 0.25s var(--ease);
+}
+
+.add-point-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.trip-side {
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.trip-side h1 {
+  font-size: 1.8rem;
+}
+
+/* --- Trip header card: cover, title, dates and the numbers in one block ---
+   The height is reserved up front, so the cover arriving from the server never
+   shoves the tabs and the timeline down the page. */
 .trip-headcard {
   position: relative;
+  min-height: 196px;
+  display: flex;
+  align-items: flex-end;
   border-radius: var(--radius-m);
   overflow: hidden;
   background: var(--paper-raised);
@@ -116,27 +390,38 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  animation: coverIn 0.55s var(--ease);
+}
+
+@keyframes coverIn {
+  from {
+    opacity: 0;
+    transform: scale(1.05);
+  }
 }
 
 .trip-headcard-body {
   position: relative;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.3rem;
   padding: 1.05rem 1.15rem;
+  text-align: center;
+  justify-items: center;
 }
 
 /* With a cover the block gets taller and the text sits over a scrim. */
 .trip-headcard.has-cover {
   border: none;
-  min-height: 240px;
   display: flex;
   align-items: flex-end;
 }
 
 .trip-headcard.has-cover .trip-headcard-body {
   width: 100%;
-  padding-top: 7rem;
-  background: linear-gradient(to top, rgb(18 24 31 / 0.88) 45%, rgb(18 24 31 / 0.1));
+  padding-top: 4.5rem;
+  /* Light enough that the photo still reads as a photo (the homepage cards use
+     roughly this weight too). */
+  background: linear-gradient(to top, rgb(16 21 27 / 0.66), rgb(16 21 27 / 0.05) 70%, transparent);
   color: #fff;
 }
 
@@ -158,19 +443,39 @@
   color: rgb(255 255 255 / 0.85);
 }
 
-/* Numbers as inline chips: "1.240 km · 12 dagen · 3 landen · 84 foto's". */
+/* Numbers as inline chips: "1.240 km · 12 dagen · 3 landen · 84 foto's".
+   Centred, and wrapping is deliberate rather than accidental: rows stay centred
+   so a long number simply starts a new, equally centred row. */
+/* Always exactly one row: the strip scrolls sideways rather than wrapping.
+   `safe center` keeps it centred while it fits and stops the first chip being
+   clipped once it doesn't. */
 .trip-headcard-stats {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
+  flex-wrap: nowrap;
+  justify-content: safe center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.trip-headcard-stats::-webkit-scrollbar {
+  display: none;
+}
+
+.trip-headcard-stats .tstat {
+  flex: 0 0 auto;
 }
 
 .tstat {
   display: inline-flex;
   align-items: baseline;
   gap: 0.28rem;
-  padding: 0.3rem 0.7rem;
+  white-space: nowrap;
+  padding: 0.28rem 0.62rem;
   border-radius: 999px;
   background: var(--paper-sunken);
   color: var(--ink-soft);
@@ -187,6 +492,12 @@
 }
 .trip-headcard-stats .tstat:nth-child(4) {
   animation-delay: 0.18s;
+}
+.trip-headcard-stats .tstat:nth-child(5) {
+  animation-delay: 0.24s;
+}
+.trip-headcard-stats .tstat:nth-child(n + 6) {
+  animation-delay: 0.3s;
 }
 
 .tstat strong {
@@ -468,6 +779,12 @@
   border-radius: 999px;
   padding: 4px;
   margin-top: 0.75rem;
+  /* The timeline's first date sat right against the tabs. */
+  margin-bottom: 0.6rem;
+}
+
+.timeline {
+  padding-top: 0.35rem;
 }
 
 .side-tabs button {

@@ -29,6 +29,7 @@ interface MmsLocationPlugin {
   }): Promise<void>;
   stop(): Promise<void>;
   openSettings(): Promise<void>;
+  backgroundStatus(): Promise<{ granted: boolean; foreground: boolean }>;
   addListener(
     event: 'location',
     cb: (position: NativePosition) => void,
@@ -144,6 +145,15 @@ export function isNative(): boolean {
 
 /** Open the OS app-settings so the user can flip location to "Always allow"
  *  (needed for background tracking with the screen off). */
+/** True when location is on "Allow all the time" (needed with the screen off).
+ *  Returns true on the web, where the question doesn't apply. */
+export async function hasBackgroundLocation(): Promise<boolean> {
+  if (!isNative()) return true;
+  return MmsLocation.backgroundStatus()
+    .then((r) => r.granted)
+    .catch(() => true); // unknown → don't nag
+}
+
 export async function openLocationSettings(): Promise<void> {
   await MmsLocation.openSettings().catch(() => undefined);
 }

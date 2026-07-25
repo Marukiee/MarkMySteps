@@ -340,15 +340,19 @@ function TrackingSection() {
               {m} min
             </button>
           ))}
+          {/* An "Anders" label pushed the row onto two lines — a pencil says
+              the same in one chip's width. */}
           <button
             type="button"
-            className={`theme-opt ${customOpen ? 'active' : ''}`}
+            className={`theme-opt theme-opt-icon ${customOpen ? 'active' : ''}`}
+            title="Eigen aantal minuten"
+            aria-label="Eigen aantal minuten"
             onClick={() => {
               setCustomValue(String(interval));
               setCustomOpen(true);
             }}
           >
-            Anders
+            <Icon name="pencil" size={15} />
           </button>
         </div>
         {customOpen && (
@@ -850,6 +854,9 @@ function ProfileSection() {
 
 function ImmichSection() {
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
+  // Until the request lands we hold the connection panel's space open, so the
+  // card doesn't suddenly grow and shove the form down.
+  const [loaded, setLoaded] = useState(false);
   const [serverUrl, setServerUrl] = useState('');
   const [publicUrl, setPublicUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -869,7 +876,8 @@ function ImmichSection() {
         if (!(err instanceof ApiError && err.status === 404)) {
           setError('Kon Immich-status niet laden');
         }
-      });
+      })
+      .finally(() => setLoaded(true));
   }, []);
 
   async function save(event: FormEvent) {
@@ -909,6 +917,7 @@ function ImmichSection() {
         </HelpTip>
       </h2>
 
+      {!loaded && <div className="immich-status-skeleton" aria-hidden="true" />}
       {status && (
         <div className="immich-status">
           <span className="immich-status-ok">● Verbonden</span>
@@ -1005,8 +1014,13 @@ function AccountsSection() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [loaded, setLoaded] = useState(false);
+
   function load() {
-    api<AdminUserRow[]>('/admin/users').then(setUsers).catch(() => undefined);
+    api<AdminUserRow[]>('/admin/users')
+      .then(setUsers)
+      .catch(() => undefined)
+      .finally(() => setLoaded(true));
   }
   useEffect(load, []);
 
@@ -1083,6 +1097,14 @@ function AccountsSection() {
       </h2>
       <p className="muted">Maak accounts voor vrienden met een tijdelijk wachtwoord.</p>
 
+      {/* Hold the list's space while it loads, so the card doesn't jump. */}
+      {!loaded && (
+        <ul className="admin-users" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="admin-user-skeleton" />
+          ))}
+        </ul>
+      )}
       <ul className="admin-users">
         {users.map((row) => (
           <li key={row.id}>

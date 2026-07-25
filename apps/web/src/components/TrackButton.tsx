@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   TrackerState,
+  hasBackgroundLocation,
   isNative,
   onTrackerChange,
   openLocationSettings,
@@ -17,20 +18,29 @@ export function TrackButton({ tripId }: { tripId: string }) {
     lastFix: null,
     lastStatus: null,
   });
-  // Android can't tell us "Always" vs "While using" without extra permissions,
-  // so instead of a false detection we show a one-time reminder while tracking:
-  // on "While using" the background service silently stops when the app closes.
-  const [permTip, setPermTip] = useState(
-    () => localStorage.getItem('mms.perm.tip.dismissed') !== '1',
+  // Only shown when "Allow all the time" is genuinely missing — the plugin
+  // reports the real permission state, so this no longer claims something is
+  // wrong when the setting is already correct.
+  const [needsBackground, setNeedsBackground] = useState(false);
+  const [tipDismissed, setTipDismissed] = useState(
+    () => localStorage.getItem('mms.perm.tip.dismissed') === '1',
   );
 
   useEffect(() => onTrackerChange(setTracker), []);
+
+  useEffect(() => {
+    let alive = true;
+    void hasBackgroundLocation().then((ok) => alive && setNeedsBackground(!ok));
+    return () => {
+      alive = false;
+    };
+  }, [tracker.tripId]);
 
   const activeHere = tracker.tripId === tripId;
 
   function dismissTip() {
     localStorage.setItem('mms.perm.tip.dismissed', '1');
-    setPermTip(false);
+    setTipDismissed(true);
   }
 
   return (
@@ -53,26 +63,32 @@ export function TrackButton({ tripId }: { tripId: string }) {
         <p className="muted">Browser: alleen met scherm aan.</p>
       )}
       {activeHere && tracker.lastError && <p className="error-text">{tracker.lastError}</p>}
-      {activeHere && isNative() && permTip && (
+      {activeHere && isNative() && needsBackground && !tipDismissed && (
         <div className="track-perm-tip">
-          <Icon name="shield" size={18} className="track-perm-icon" />
-          <div className="track-perm-body">
-            <strong>Werkt tracken op de achtergrond?</strong>
-            <span>
-              Zet locatie voor MarkMySteps op <b>Altijd toestaan</b>. Op “Alleen tijdens gebruik van
-              de app” stopt het volgen zodra je de app sluit.
+          <div className="track-perm-head">
+            <span className="track-perm-icon">
+              <Icon name="shield" size={17} />
             </span>
-            <button type="button" className="track-perm-open" onClick={() => void openLocationSettings()}>
-              Locatie-instellingen openen
+            <strong>Tracken stopt zodra je de app sluit</strong>
+            <button
+              type="button"
+              className="track-perm-close"
+              aria-label="Sluiten"
+              onClick={dismissTip}
+            >
+              <Icon name="close" size={16} />
             </button>
           </div>
+          <span className="track-perm-text">
+            Locatie staat op “Alleen tijdens gebruik van de app”. Zet hem op{' '}
+            <b>Altijd toestaan</b> om je route ook met het scherm uit bij te houden.
+          </span>
           <button
             type="button"
-            className="track-perm-close"
-            aria-label="Sluiten"
-            onClick={dismissTip}
+            className="track-perm-open"
+            onClick={() => void openLocationSettings()}
           >
-            <Icon name="close" size={15} />
+            Locatie-instellingen openen
           </button>
         </div>
       )}

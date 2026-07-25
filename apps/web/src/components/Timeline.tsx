@@ -104,16 +104,9 @@ export function Timeline({
             <span className="timeline-dot" />
             <span className="timeline-day-label">
               <span className="timeline-day-top">
+                {/* The "write something about today" pencil is gone — existing
+                    notes still show and stay editable. */}
                 {formatDay(items[0]?.takenAt ?? day)}
-                {canEditNotes && (notesByDay.get(day)?.length ?? 0) === 0 && (
-                  <button
-                    className="timeline-note-add"
-                    aria-label="Notitie toevoegen"
-                    onClick={() => setEditingDay(day)}
-                  >
-                    <Icon name="pencil" size={14} />
-                  </button>
-                )}
               </span>
               {loc && (
                 <span className="timeline-day-meta">

@@ -284,6 +284,24 @@ export function TripDetailPage() {
     }, 240);
   }, []);
 
+  // Same trap for the "Reisgenoten & delen" sheet: a back gesture should close
+  // the sheet, not walk out of the trip.
+  useEffect(() => {
+    if (!peopleOpen || peopleClosing) return;
+    window.history.pushState({ mmsPeople: true }, '');
+    let popped = false;
+    const onPop = () => {
+      popped = true;
+      closePeople();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      // Closed with the ✕ instead — consume the entry we pushed.
+      if (!popped) window.history.back();
+    };
+  }, [peopleOpen, peopleClosing, closePeople]);
+
   const toggleUser = useCallback((userId: string) => {
     setVisibleUsers((current) => {
       const next = new Set(current);
@@ -535,6 +553,16 @@ export function TripDetailPage() {
                 {stats.photoCount > 0 && (
                   <span className="tstat">
                     <strong>{stats.photoCount}</strong> foto's
+                  </span>
+                )}
+                {stops.filter((s) => s.latitude !== null).length > 0 && (
+                  <span className="tstat">
+                    <strong>{stops.filter((s) => s.latitude !== null).length}</strong> stops
+                  </span>
+                )}
+                {trip && trip.members.length > 1 && (
+                  <span className="tstat">
+                    <strong>{trip.members.length}</strong> reisgenoten
                   </span>
                 )}
               </div>

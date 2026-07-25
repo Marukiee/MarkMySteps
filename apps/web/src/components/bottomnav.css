@@ -15,7 +15,14 @@
 
 /* When a field is focused the on-screen keyboard slides up; a fixed bottom bar
    would otherwise float on top of the keyboard. Tuck it away while typing. */
-body:has(input:focus, textarea:focus, [contenteditable]:focus) .bottomnav {
+/* Only text entry raises the keyboard — a focused checkbox (e.g. a settings
+   toggle) used to make the whole tab bar slide away. */
+body:has(
+    input:focus:not([type='checkbox']):not([type='radio']):not([type='range']),
+    textarea:focus,
+    [contenteditable]:focus
+  )
+  .bottomnav {
   transform: translateY(130%);
 }
 

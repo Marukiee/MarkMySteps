@@ -785,3 +785,56 @@
   background: var(--paper-sunken);
   color: var(--ink-faint);
 }
+
+.theme-opt-icon {
+  display: grid;
+  place-content: center;
+  padding-left: 0.7rem;
+  padding-right: 0.7rem;
+}
+
+/* Placeholder with the connection panel's height, so the card is already the
+   right size before the request comes back. */
+.immich-status-skeleton {
+  height: 74px;
+  border-radius: var(--radius-s);
+  background: linear-gradient(
+    100deg,
+    var(--paper-sunken) 30%,
+    rgb(255 255 255 / 0.35) 50%,
+    var(--paper-sunken) 70%
+  );
+  background-size: 220% 100%;
+  animation: skeletonSweep 1.3s linear infinite;
+}
+
+@keyframes skeletonSweep {
+  from {
+    background-position: 140% 0;
+  }
+  to {
+    background-position: -40% 0;
+  }
+}
+
+/* Account rows arrive with the request — stagger them in. */
+.admin-users li {
+  animation: settingsAsyncIn 0.4s var(--ease) backwards;
+}
+
+.admin-users li:nth-child(2) { animation-delay: 0.05s; }
+.admin-users li:nth-child(3) { animation-delay: 0.1s; }
+.admin-users li:nth-child(4) { animation-delay: 0.15s; }
+.admin-users li:nth-child(n + 5) { animation-delay: 0.2s; }
+
+.admin-user-skeleton {
+  height: 52px;
+  background: linear-gradient(
+    100deg,
+    var(--paper-sunken) 30%,
+    rgb(255 255 255 / 0.3) 50%,
+    var(--paper-sunken) 70%
+  );
+  background-size: 220% 100%;
+  animation: skeletonSweep 1.3s linear infinite;
+}
