@@ -355,8 +355,9 @@ export function TripPlanner({
                 <div className="leg-connector">
                   {/* Every mode looks the same here: the mode pill, and for a
                       flight the airports pill right beside it — no card, no
-                      separate treatment. */}
-                  <div className="leg-connector-row">
+                      separate treatment. Keyed on the mode so the row replays
+                      its swap animation when the flight pill appears or goes. */}
+                  <div className="leg-connector-row" key={stop.travelMode}>
                     <ModeMenu
                       current={stop.travelMode}
                       compact
@@ -373,12 +374,7 @@ export function TripPlanner({
                         onSave={(data) => void saveFlight(stop, data)}
                       />
                     )}
-                    {legKm !== null && (
-                      <span className="leg-dur">
-                        {legKm.toLocaleString('nl-NL')} km
-                        {!isFlight && <> · {estimateDuration(legKm, stop.travelMode)}</>}
-                      </span>
-                    )}
+                    {legKm !== null && <AltMetric km={legKm} mode={stop.travelMode} />}
                   </div>
                 </div>
               )}
@@ -643,24 +639,46 @@ function PlaceSheet({
   );
 }
 
-/** Right-aligned metric on a leg bar. For a ride (car/bus/train/boat) the travel
- *  time matters, so it alternates distance ↔ duration to save horizontal space.
- *  A flight's "duration" is a meaningless estimate — that one just shows km. */
+/**
+ * Distance + travel time on a leg. Shows them together when they fit; when the
+ * pair is too wide for the row it falls back to alternating between the two
+ * every few seconds. Fit is measured with a hidden probe carrying the full
+ * text, so the check doesn't flip-flop once the short version is displayed.
+ */
 function AltMetric({ km, mode }: { km: number; mode: TravelMode }) {
+  const boxRef = useRef<HTMLSpanElement>(null);
+  const probeRef = useRef<HTMLSpanElement>(null);
+  const [alternate, setAlternate] = useState(false);
   const [showDur, setShowDur] = useState(false);
-  const alternates = mode !== 'FLIGHT';
+
+  const distance = `${km.toLocaleString('nl-NL')} km`;
+  const duration = estimateDuration(km, mode);
+  const full = `${distance} · ${duration}`;
+
   useEffect(() => {
-    if (!alternates) return;
+    const box = boxRef.current;
+    const probe = probeRef.current;
+    if (!box || !probe) return;
+    const measure = () => setAlternate(probe.offsetWidth > box.clientWidth + 1);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [full]);
+
+  useEffect(() => {
+    if (!alternate) return;
     const t = window.setInterval(() => setShowDur((v) => !v), 3000);
     return () => window.clearInterval(t);
-  }, [alternates]);
-  if (!alternates) {
-    return <span className="leg-alt-metric">{km.toLocaleString('nl-NL')} km</span>;
-  }
+  }, [alternate]);
+
   return (
-    <span className="leg-alt-metric" title={`${Math.round(km)} km · ${estimateDuration(km, mode)}`}>
-      <span key={showDur ? 'd' : 'k'} className="leg-alt-metric-val">
-        {showDur ? estimateDuration(km, mode) : `${km.toLocaleString('nl-NL')} km`}
+    <span className="leg-alt-metric" ref={boxRef} title={full}>
+      <span className="leg-alt-metric-probe" ref={probeRef} aria-hidden="true">
+        {full}
+      </span>
+      <span key={alternate ? (showDur ? 'd' : 'k') : 'full'} className="leg-alt-metric-val">
+        {alternate ? (showDur ? duration : distance) : full}
       </span>
     </span>
   );

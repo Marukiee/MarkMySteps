@@ -77,6 +77,7 @@ export function initBackButton(): void {
     window.setTimeout(() => {
       root?.classList.remove('back-swipe', 'back-swipe-settling');
       root?.style.removeProperty('--back-progress');
+      document.documentElement.classList.remove('back-swipe-bg');
       done?.();
     }, 260);
   };
@@ -86,6 +87,7 @@ export function initBackButton(): void {
     if (!root) return;
     root.classList.remove('back-swipe-settling');
     root.classList.add('back-swipe');
+    document.documentElement.classList.add('back-swipe-bg');
     root.dataset.backEdge = edge;
     setProgress(progress);
   }).catch(() => undefined);

@@ -369,6 +369,7 @@ function TripCard({
           zIndex: menuOpen ? 30 : undefined,
           // Shared with the large variant → the browser morphs between the two.
           viewTransitionName: `trip-card-${cssId(trip.id)}`,
+          viewTransitionClass: 'trip-card-morph',
         }}
         role="link"
         tabIndex={0}
@@ -433,6 +434,7 @@ function TripCard({
         background: noImg ? tripCardBg(trip) : coverGradient(trip.id),
         zIndex: menuOpen ? 30 : undefined,
         viewTransitionName: `trip-card-${cssId(trip.id)}`,
+        viewTransitionClass: 'trip-card-morph',
       }}
       role="link"
       tabIndex={0}

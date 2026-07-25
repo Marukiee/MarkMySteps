@@ -272,13 +272,56 @@
   user-select: none;
 }
 
+.avatar-row {
+  padding: 0.2rem 0 0.6rem;
+}
+
 .avatar-meta {
   display: grid;
-  gap: 0.15rem;
+  gap: 0.1rem;
+  justify-items: start;
+  min-width: 0;
 }
 
 .avatar-meta strong {
-  font-size: 1rem;
+  font-family: var(--font-display, inherit);
+  font-size: 1.3rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.avatar-handle {
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
+/* Explicit affordance instead of the "Tik op de foto voor opties" hint, which
+   read as a stray instruction under the name. */
+.avatar-meta-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.45rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease),
+    color 0.15s var(--ease);
+}
+
+.avatar-meta-edit:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.avatar-meta-edit:active {
+  transform: scale(0.96);
 }
 
 .avatar-remove {

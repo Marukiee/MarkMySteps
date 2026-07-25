@@ -686,7 +686,11 @@ function ProfileSection() {
         />
         <div className="avatar-meta">
           <strong>{user?.displayName}</strong>
-          <span className="muted">Tik op de foto voor opties</span>
+          {user?.username && <span className="avatar-handle">@{user.username}</span>}
+          <button type="button" className="avatar-meta-edit" onClick={() => setPhotoMenu(true)}>
+            <Icon name="camera" size={13} />
+            Foto wijzigen
+          </button>
         </div>
       </div>
 

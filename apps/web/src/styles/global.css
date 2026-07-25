@@ -137,11 +137,27 @@ body,
   /* Dragging from the left edge pushes the app right, and vice versa. */
   --back-dir: 1;
   transform-origin: center;
-  transform: scale(calc(1 - 0.14 * var(--back-progress)))
-    translateX(calc(var(--back-dir) * var(--back-progress) * 7%));
-  border-radius: calc(var(--back-progress) * 30px);
+  transform: scale(calc(1 - 0.1 * var(--back-progress)))
+    translateX(calc(var(--back-dir) * var(--back-progress) * 6%));
+  border-radius: calc(var(--back-progress) * 28px);
   overflow: hidden;
+  /* Its own surface + shadow, so the shrinking app reads as a sheet lifting off
+     the backdrop rather than the page mysteriously getting smaller. */
+  background: var(--paper);
+  box-shadow: 0 12px 40px rgb(6 9 14 / calc(0.45 * var(--back-progress)));
   will-change: transform;
+}
+
+/* Darker backdrop behind that sheet — without it the app shrinks onto a page in
+   exactly the same colour, so nothing appears to be revealed. */
+html.back-swipe-bg,
+html.back-swipe-bg body {
+  background: #0a0d12;
+}
+
+:root[data-theme='dark'].back-swipe-bg,
+:root[data-theme='dark'].back-swipe-bg body {
+  background: #05070a;
 }
 
 #root.back-swipe[data-back-edge='right'] {

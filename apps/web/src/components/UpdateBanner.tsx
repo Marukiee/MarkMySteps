@@ -25,7 +25,7 @@ export function UpdateBanner() {
   useEffect(() => {
     if (!isNativeApp()) return;
     let cancelled = false;
-    (async () => {
+    const check = async () => {
       try {
         const [{ build }, latest] = await Promise.all([
           App.getInfo(),
@@ -46,9 +46,15 @@ export function UpdateBanner() {
       } catch {
         /* offline / not configured — no banner */
       }
-    })();
+    };
+
+    void check();
+    // A release published while the app was open (or in the background) should
+    // still surface — re-check whenever the app comes back to the foreground.
+    const handle = App.addListener('resume', () => void check());
     return () => {
       cancelled = true;
+      void handle.then((h) => h.remove());
     };
   }, []);
 

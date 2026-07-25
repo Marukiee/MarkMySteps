@@ -114,7 +114,27 @@ function FlightSheet({
   const [via, setVia] = useState<string[]>(viaAirports ?? []);
   const [flight, setFlight] = useState(flightNumber ?? '');
   const [picking, setPicking] = useState<PickTarget | null>(null);
+  const [pickerClosing, setPickerClosing] = useState(false);
+  const [removingVia, setRemovingVia] = useState<number | null>(null);
   const [closing, setClosing] = useState(false);
+
+  /** Slide the search screen back out before unmounting it. */
+  const closePicker = () => {
+    setPickerClosing(true);
+    window.setTimeout(() => {
+      setPicking(null);
+      setPickerClosing(false);
+    }, 200);
+  };
+
+  /** Collapse a layover chip away before it disappears from the list. */
+  const removeVia = (index: number) => {
+    setRemovingVia(index);
+    window.setTimeout(() => {
+      setVia((cur) => cur.filter((_, i) => i !== index));
+      setRemovingVia(null);
+    }, 200);
+  };
 
   const close = () => {
     setClosing(true);
@@ -125,7 +145,7 @@ function FlightSheet({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (picking) setPicking(null);
+      if (picking) closePicker();
       else close();
     };
     document.addEventListener('keydown', onKey);
@@ -141,7 +161,7 @@ function FlightSheet({
       const at = picking.index;
       setVia((cur) => cur.map((c, i) => (i === at ? code : c)));
     }
-    setPicking(null);
+    closePicker();
   };
 
   const save = () => {
@@ -195,7 +215,7 @@ function FlightSheet({
             {via.map((code, i) => {
               const a = airportByCode(code);
               return (
-                <div key={i} className="fe-via-row">
+                <div key={i} className={`fe-via-row ${removingVia === i ? 'leaving' : ''}`}>
                   <button
                     type="button"
                     className="fe-via-chip"
@@ -209,7 +229,7 @@ function FlightSheet({
                     type="button"
                     className="fe-icon-btn fe-via-remove"
                     aria-label="Overstap verwijderen"
-                    onClick={() => setVia((cur) => cur.filter((_, idx) => idx !== i))}
+                    onClick={() => removeVia(i)}
                   >
                     <Icon name="close" size={16} />
                   </button>
@@ -252,7 +272,8 @@ function FlightSheet({
         {picking && (
           <AirportPicker
             title={pickerTitle}
-            onBack={() => setPicking(null)}
+            closing={pickerClosing}
+            onBack={closePicker}
             onPick={pick}
           />
         )}
@@ -285,10 +306,12 @@ function AirportBox({
 /** Full-height search inside the sheet: type a city, code or airport name. */
 function AirportPicker({
   title,
+  closing,
   onBack,
   onPick,
 }: {
   title: string;
+  closing: boolean;
   onBack: () => void;
   onPick: (code: string) => void;
 }) {
@@ -299,7 +322,7 @@ function AirportPicker({
     : (home.map(airportByCode).filter(Boolean) as Airport[]);
 
   return (
-    <div className="fe-picker">
+    <div className={`fe-picker ${closing ? 'closing' : ''}`}>
       <header className="fe-head">
         <button type="button" className="fe-icon-btn" aria-label="Terug" onClick={onBack}>
           <Icon name="arrow-left" size={18} />

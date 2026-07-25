@@ -33,8 +33,10 @@ interface GhRelease {
 @Controller('app')
 export class AppInfoController {
   // Cache the GitHub lookup so we don't hit their API on every app launch.
+  // Short enough that a fresh release is advertised within a couple of minutes
+  // (a 10-minute cache made a new build look like it hadn't shipped yet).
   private cache: { at: number; value: LatestApp } | null = null;
-  private readonly TTL_MS = 10 * 60 * 1000;
+  private readonly TTL_MS = 2 * 60 * 1000;
 
   @Get('latest')
   async latest(): Promise<LatestApp> {

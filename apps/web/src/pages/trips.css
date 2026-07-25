@@ -38,27 +38,42 @@
 }
 
 /* --- Large ↔ compact morph (View Transitions API). Each card carries a stable
-   view-transition-name, so the browser tweens the old shape into the new one
-   instead of the row popping into place. --- */
+   view-transition-name, so the browser tweens the old shape into the new one.
+   Only the cards are styled here: an earlier `::view-transition-old(*)` rule
+   forced height/object-fit onto EVERY captured group — including the full-page
+   root snapshot — which stretched the whole page mid-animation. --- */
 @media (prefers-reduced-motion: no-preference) {
-  ::view-transition-group(*) {
-    animation-duration: 340ms;
+  ::view-transition-group(.trip-card-morph) {
+    animation-duration: 300ms;
     animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
   }
 
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation-duration: 340ms;
-    /* Both states stretch to the shared box, so the photo genuinely reshapes. */
+  ::view-transition-old(.trip-card-morph),
+  ::view-transition-new(.trip-card-morph) {
+    animation-duration: 300ms;
+    /* Fill the tweened box so the cover photo reshapes with the card instead
+       of being letterboxed. */
     height: 100%;
     object-fit: cover;
   }
 }
 
-/* The globe is its own group: without it the whole-page root snapshot would
-   cross-fade a frozen canvas over the live one. */
+/* Elements that are pinned to the viewport must be captured separately, or the
+   root snapshot drags them along and they appear to jump. */
 .globe-backdrop {
   view-transition-name: globe-hero;
+}
+
+.topbar {
+  view-transition-name: app-topbar;
+}
+
+.bottomnav {
+  view-transition-name: app-bottomnav;
+}
+
+.update-banner {
+  view-transition-name: app-updatebanner;
 }
 
 /* During a morph the freshly mounted card must not ALSO replay its entry

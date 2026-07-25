@@ -720,11 +720,29 @@
   }
 }
 
+/* Same one-line rule as the standalone leg bar: the pills shrink, the metric
+   takes the leftover space, nothing wraps to a second line. */
 .leg-connector-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
+  animation: legSwap 0.3s var(--ease) backwards;
+}
+
+.leg-connector-row > .mode-menu {
+  flex: 0 0 auto;
+}
+
+.leg-connector-row > .flight-summary {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.leg-connector-row > .leg-alt-metric {
+  flex: 1 1 auto;
 }
 
 /* Origin/destination picker on a standalone heen-/terugreis leg. */
@@ -758,13 +776,25 @@
   white-space: nowrap;
 }
 
-/* Alternating km/duration metric on a leg bar. */
+/* km + duration on a leg; alternates when the pair doesn't fit (see AltMetric). */
 .leg-alt-metric {
-  margin-left: auto;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
   font-size: 0.8rem;
   color: var(--ink-faint);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Off-screen copy of the full text, used only to measure whether it fits. */
+.leg-alt-metric-probe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
   white-space: nowrap;
 }
 

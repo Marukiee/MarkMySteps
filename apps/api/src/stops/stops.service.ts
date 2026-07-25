@@ -114,8 +114,60 @@ export class StopsService {
     });
     if (count === 0) throw new NotFoundException('Stop not found');
 
+    // The other direction: a leg that BECOMES a flight must lose any road route
+    // that was drawn along it, otherwise the old car line keeps being painted
+    // next to the new flight arc.
+    if (dto.travelMode === TravelModeDto.FLIGHT) {
+      await this.clearRouteFillForLeg(tripId, stopId);
+    }
+
     await this.syncTripEndDate(tripId);
     return this.list(tripId, userId);
+  }
+
+  /**
+   * Deletes auto-drawn road points (source ROUTE_FILL) that lie along the leg
+   * ending at `stopId`. Matching is geographic: a corridor around the straight
+   * line between this stop and the previous one with coordinates. ST_DWithin
+   * measures to the SEGMENT, so it doesn't reach past either endpoint and fills
+   * belonging to other legs are left alone.
+   */
+  private async clearRouteFillForLeg(tripId: string, stopId: string): Promise<void> {
+    const stops = await this.prisma.stop.findMany({
+      where: { tripId },
+      orderBy: { orderIndex: 'asc' },
+      select: { id: true, latitude: true, longitude: true },
+    });
+    const index = stops.findIndex((s) => s.id === stopId);
+    if (index < 1) return;
+    const current = stops[index];
+    const previous = stops
+      .slice(0, index)
+      .reverse()
+      .find((s) => s.latitude != null && s.longitude != null);
+    if (
+      current?.latitude == null ||
+      current.longitude == null ||
+      previous?.latitude == null ||
+      previous.longitude == null
+    ) {
+      return;
+    }
+
+    const CORRIDOR_M = 60_000; // a road can wander a fair way off the straight line
+    await this.prisma.$executeRaw`
+      DELETE FROM location_points
+      WHERE "tripId" = ${tripId}::uuid
+        AND source = 'ROUTE_FILL'
+        AND ST_DWithin(
+              geom,
+              ST_MakeLine(
+                ST_SetSRID(ST_MakePoint(${previous.longitude}, ${previous.latitude}), 4326),
+                ST_SetSRID(ST_MakePoint(${current.longitude}, ${current.latitude}), 4326)
+              )::geography,
+              ${CORRIDOR_M}
+            )
+    `;
   }
 
   async remove(tripId: string, userId: string, stopId: string): Promise<PlannedStop[]> {
