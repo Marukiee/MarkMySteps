@@ -25,7 +25,6 @@ export function FriendsPage() {
         mensen-icoon en vul de @gebruikersnaam van je vriend in.
       </p>
 
-      {friends === null && <p className="muted">Laden…</p>}
       {friends?.length === 0 && (
         <div className="card friends-empty">
           <h2>Nog geen reisgenoten</h2>
@@ -36,8 +35,12 @@ export function FriendsPage() {
       )}
 
       <div className="friends-grid">
-        {friends?.map((friend) => (
-          <div key={friend.id} className="card friend-card">
+        {friends?.map((friend, i) => (
+          <div
+            key={friend.id}
+            className="card friend-card"
+            style={{ animationDelay: `${i * 45}ms` }}
+          >
             <span className="friend-avatar" style={{ background: colorForUser(friend.id) }}>
               {friend.displayName[0]}
             </span>

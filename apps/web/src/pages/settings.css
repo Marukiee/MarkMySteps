@@ -520,3 +520,15 @@
   background: var(--accent-soft);
   color: var(--accent-ink);
 }
+
+/* Fade sections in when you switch tabs. */
+.settings-content {
+  animation: settingsFade 0.28s var(--ease);
+}
+
+@keyframes settingsFade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

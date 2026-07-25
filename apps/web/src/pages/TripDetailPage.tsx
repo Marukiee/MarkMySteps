@@ -327,24 +327,26 @@ export function TripDetailPage() {
         <Link to="/" className="trip-fab trip-fab-back" aria-label="Alle reizen">
           <Icon name="arrow-left" size={20} />
         </Link>
-        <div className="trip-fabs">
-          <button
-            className="trip-fab"
-            aria-label="Reisgenoten & delen"
-            onClick={() => setPeopleOpen(true)}
-          >
-            <Icon name="people" size={20} />
-          </button>
-          {trip?.ownerId === user?.id && (
-            <Link
-              to={`/trips/${tripId}/settings`}
+        {trip && (
+          <div className="trip-fabs">
+            <button
               className="trip-fab"
-              aria-label="Reisinstellingen"
+              aria-label="Reisgenoten & delen"
+              onClick={() => setPeopleOpen(true)}
             >
-              <Icon name="gear" size={20} />
-            </Link>
-          )}
-        </div>
+              <Icon name="people" size={20} />
+            </button>
+            {trip.ownerId === user?.id && (
+              <Link
+                to={`/trips/${tripId}/settings`}
+                className="trip-fab"
+                aria-label="Reisinstellingen"
+              >
+                <Icon name="gear" size={20} />
+              </Link>
+            )}
+          </div>
+        )}
         <TripMap
           routes={routes}
           media={media}

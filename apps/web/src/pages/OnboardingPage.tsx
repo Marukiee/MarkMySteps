@@ -138,7 +138,7 @@ export function OnboardingPage() {
       <div className="onb-globe" aria-hidden="true">
         <GlobeBackdrop trips={SAMPLE_TRIPS} noTour />
       </div>
-      <h1>Je reizen op de globe</h1>
+      <h1>Je reizen in kaart</h1>
       <p className="muted">
         Al je reizen als kleurrijke routes op een 3D-globe. Tik een reis om ‘m te openen met je
         tijdlijn en foto’s.

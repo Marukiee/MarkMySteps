@@ -1,4 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { resetOnboarding } from '../lib/native';
 import { api, ApiError } from '../api/client';
 import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
 import type { Trip } from '../api/types';
@@ -68,7 +70,7 @@ export function SettingsPage() {
               ))}
           </nav>
         </div>
-        <div className="settings-content">
+        <div className="settings-content" key={section}>
           {section === 'profile' && <ProfileSection />}
           {section === 'display' && <DisplaySection />}
           {section === 'immich' && <ImmichSection />}
@@ -83,6 +85,7 @@ export function SettingsPage() {
 }
 
 function DisplaySection() {
+  const navigate = useNavigate();
   const [style, setStyle] = useState<MapStyleId>(getMapStyleId());
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
   const [cardSize, setCardSize] = useState<TripCardSize>(getTripCardSize());
@@ -175,6 +178,19 @@ function DisplaySection() {
           ))}
         </div>
         <span className="muted">Geldt voor alle kaarten op dit apparaat.</span>
+      </div>
+      <div className="field">
+        <label>Rondleiding</label>
+        <button
+          type="button"
+          className="btn btn-ghost settings-reset-sizes"
+          onClick={() => {
+            resetOnboarding();
+            navigate('/onboarding');
+          }}
+        >
+          Onboarding opnieuw bekijken
+        </button>
       </div>
     </section>
   );

@@ -25,6 +25,7 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.15rem;
+  animation: rise 0.4s var(--ease) both;
 }
 
 .friend-avatar {

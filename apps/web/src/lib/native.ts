@@ -62,3 +62,7 @@ export function isOnboarded(): boolean {
 export function markOnboarded(): void {
   localStorage.setItem(ONBOARDED_KEY, '1');
 }
+
+export function resetOnboarding(): void {
+  localStorage.removeItem(ONBOARDED_KEY);
+}

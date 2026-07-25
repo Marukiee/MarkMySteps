@@ -51,7 +51,6 @@ export function TripsPage() {
       )}
 
       {error && <p className="error-text">{error}</p>}
-      {trips === null && !error && <p className="muted">Laden…</p>}
       {trips?.length === 0 && (
         <div className="card trips-empty">
           <h2>Nog geen reizen</h2>

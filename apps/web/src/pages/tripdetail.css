@@ -452,6 +452,23 @@
   gap: 0.5rem;
 }
 
+/* People + gear mount together (both gated on the loaded trip) and pop in as a
+   pair, so the gear never trails a beat behind the people button. */
+.trip-fabs .trip-fab {
+  animation: fabPop 0.3s var(--ease) both;
+}
+
+.trip-fabs .trip-fab:nth-child(2) {
+  animation-delay: 0.05s;
+}
+
+@keyframes fabPop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
 .trip-fab {
   width: 42px;
   height: 42px;
