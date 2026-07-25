@@ -11,6 +11,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # publish the APK as a Release asset
     steps:
       - uses: actions/checkout@v4
 
@@ -74,3 +76,22 @@ jobs:
           name: markmysteps-apk
           path: apps/web/android/app/build/outputs/apk/**/*.apk
           retention-days: 30
+
+      # Publish the signed APK as a GitHub Release under a stable asset name, so
+      # the in-app update banner has a directly-downloadable URL:
+      #   https://github.com/<owner>/<repo>/releases/latest/download/markmysteps.apk
+      - name: Stage APK for release
+        if: steps.keystore.outputs.signed == 'true'
+        run: |
+          APK=$(find apps/web/android/app/build/outputs/apk -name '*-release.apk' | head -1)
+          cp "$APK" "$RUNNER_TEMP/markmysteps.apk"
+
+      - name: Publish GitHub Release
+        if: steps.keystore.outputs.signed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Build ${{ github.run_number }}
+          body: 'MarkMySteps build ${{ github.run_number }}'
+          make_latest: true
+          files: ${{ runner.temp }}/markmysteps.apk
