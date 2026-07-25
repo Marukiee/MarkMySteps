@@ -114,6 +114,23 @@ export function airportByCode(code?: string | null): Airport | undefined {
   return code ? BY_IATA.get(code.toUpperCase()) : undefined;
 }
 
+/** Closest bundled airport to a coordinate, within ~250 km — used to auto-fill
+ *  a flight leg's airport from a known city. Returns null if nothing is close. */
+export function nearestAirport(lng: number, lat: number): Airport | undefined {
+  let best: Airport | undefined;
+  let bestKm = Infinity;
+  for (const a of AIRPORTS) {
+    // Rough equirectangular distance in km (fine at this scale).
+    const x = (a.lon - lng) * Math.cos((lat * Math.PI) / 180);
+    const km = Math.hypot(x, a.lat - lat) * 111;
+    if (km < bestKm) {
+      bestKm = km;
+      best = a;
+    }
+  }
+  return bestKm <= 250 ? best : undefined;
+}
+
 export function searchAirports(query: string, limit = 6): Airport[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];

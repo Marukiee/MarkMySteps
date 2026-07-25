@@ -27,7 +27,14 @@ export function TripsPage() {
   useEffect(load, []);
 
   const today = new Date().toISOString().slice(0, 10);
-  const upcoming = trips?.filter((t) => t.endDate.slice(0, 10) >= today) ?? [];
+  // Ongoing trips (already started, not finished) are the most relevant → they
+  // sort above trips that haven't begun yet.
+  const upcoming = (trips?.filter((t) => t.endDate.slice(0, 10) >= today) ?? []).sort((a, b) => {
+    const aStarted = a.startDate.slice(0, 10) <= today ? 0 : 1;
+    const bStarted = b.startDate.slice(0, 10) <= today ? 0 : 1;
+    if (aStarted !== bStarted) return aStarted - bStarted;
+    return a.startDate.localeCompare(b.startDate);
+  });
   const past = trips?.filter((t) => t.endDate.slice(0, 10) < today) ?? [];
 
   return (

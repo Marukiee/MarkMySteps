@@ -44,10 +44,18 @@ interface NativePosition {
 
 const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation');
 
-/** Minimum meters between recorded fixes. */
-const DISTANCE_FILTER_M = 50;
 const FLUSH_INTERVAL_MS = 60_000;
 const BATCH_SIZE = 500;
+
+/**
+ * Meters between GPS fixes the OS is asked for. The plugin is distance-based
+ * (no time knob), so we scale the distance to the chosen storage interval: a
+ * bigger interval → a bigger filter → the GPS wakes far less often, saving a lot
+ * of battery. ~30 m per minute (5 min ≈ 150 m, 10 min ≈ 300 m), floor 50 m.
+ */
+function distanceFilterM(): number {
+  return Math.max(50, getTrackingIntervalMin() * 30);
+}
 
 // Time throttle: the plugin fires on movement, but we only store a point every
 // N minutes (user-configurable) so the track stays lean and battery-friendly.
@@ -189,7 +197,7 @@ export async function startTracking(tripId: string): Promise<void> {
         backgroundMessage: 'Locatie wordt zuinig bijgehouden tijdens je reis',
         requestPermissions: true,
         stale: false,
-        distanceFilter: DISTANCE_FILTER_M,
+        distanceFilter: distanceFilterM(),
       },
       (position, error) => {
         if (error) {

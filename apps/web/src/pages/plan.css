@@ -727,3 +727,12 @@
   margin: 0;
   max-height: 44vh;
 }
+
+/* km/duration line under a mid-route flight bar. */
+.flight-leg-km {
+  display: block;
+  margin: 0.1rem 0 0 0.1rem;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  font-weight: 500;
+}

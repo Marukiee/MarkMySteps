@@ -47,6 +47,7 @@ export function TripDetailPage() {
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
   const [tab, setTab] = useState<'timeline' | 'plan'>('timeline');
+  const planPushedRef = useRef(false);
   const [planPick, setPlanPick] = useState<{ lat: number; lng: number } | null>(null);
   const [stats, setStats] = useState<TripStats | null>(null);
   const [notes, setNotes] = useState<TripNote[]>([]);
@@ -206,6 +207,27 @@ export function TripDetailPage() {
   );
 
   useEffect(loadData, [loadData]);
+
+  // On the routeplanner tab, trap the back gesture so it returns to the timeline
+  // instead of leaving the trip page altogether.
+  useEffect(() => {
+    if (tab === 'plan') {
+      window.history.pushState({ mmsPlan: true }, '');
+      planPushedRef.current = true;
+      const onPop = () => {
+        planPushedRef.current = false;
+        setTab('timeline');
+      };
+      window.addEventListener('popstate', onPop);
+      return () => window.removeEventListener('popstate', onPop);
+    }
+    // Left the planner via the tab button — consume the trapped history entry so
+    // one back press doesn't just eat the phantom state.
+    if (planPushedRef.current) {
+      planPushedRef.current = false;
+      window.history.back();
+    }
+  }, [tab]);
 
   const handleMapClick = useCallback(
     (lngLat: { lng: number; lat: number }) => {

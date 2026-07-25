@@ -437,9 +437,13 @@ export function TripMap({
         map.removeSource(sourceId);
       }
 
-      // Markers only for real places (cities); standalone flights have none.
+      // Markers only for real places (cities); a standalone heen-/terugreis leg
+      // may carry an origin/destination coordinate (for its km) but is NOT a
+      // place, so it gets no pin.
+      const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
       for (const stop of stops ?? []) {
         if (stop.latitude === null || stop.longitude === null) continue;
+        if (LEG_NAMES.has(stop.name)) continue;
         const el = document.createElement('div');
         el.className = 'stop-marker';
         el.textContent = flagEmoji(stop.countryCode) || String(stop.orderIndex + 1);

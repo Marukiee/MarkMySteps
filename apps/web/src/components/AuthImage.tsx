@@ -84,14 +84,21 @@ export function AuthImage({
     );
   }
   // Fade the pixels in once decoded, instead of them snapping in from Immich.
+  // A cached object URL can already be complete before onLoad ever fires, which
+  // would leave the image stuck at opacity 0 — so also flip `loaded` via a ref
+  // callback the moment the element is complete.
   return (
     <img
+      ref={(el) => {
+        if (el?.complete && el.naturalWidth > 0 && !loaded) setLoaded(true);
+      }}
       src={src}
       alt={alt}
       className={`${className ?? ''} auth-img ${loaded ? 'loaded' : ''}`}
       style={style}
       loading="lazy"
       onLoad={() => setLoaded(true)}
+      onError={() => setLoaded(true)}
     />
   );
 }

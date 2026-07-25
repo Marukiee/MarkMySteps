@@ -72,6 +72,15 @@ export function TripPlanner({
   const hasOutbound = isStandaloneLeg(stops[0]);
   const hasReturn = isStandaloneLeg(stops[stops.length - 1]);
 
+  // First/last real city (with coordinates) — used to auto-fill airports on the
+  // outbound/return flight legs.
+  const cityCoord = (s?: PlannedStop | null): [number, number] | null =>
+    s && !isStandaloneLeg(s) && s.latitude !== null && s.longitude !== null
+      ? [s.longitude, s.latitude]
+      : null;
+  const firstCity = cityCoord(stops.find((s) => cityCoord(s)));
+  const lastCity = cityCoord([...stops].reverse().find((s) => cityCoord(s)));
+
   const refresh = (updated: PlannedStop[]) => {
     onStopsChange(updated);
     onChanged?.();
@@ -268,6 +277,8 @@ export function TripPlanner({
                         fromAirport={stop.fromAirport}
                         toAirport={stop.toAirport}
                         viaAirports={stop.viaAirports}
+                        toCity={index === 0 ? firstCity : null}
+                        fromCity={index === 0 ? null : lastCity}
                         onSave={(data) => void saveFlight(stop, data)}
                       />
                     ) : (
@@ -314,26 +325,48 @@ export function TripPlanner({
                   the first stop's arrival is the heenreis. */}
               {index > 0 && !prevIsStandalone && (
                 <div className="leg-connector">
-                  <div className="leg-connector-row">
-                    <ModeMenu
-                      current={stop.travelMode}
-                      compact
-                      onPick={(m) => void setStopMode(stop, m)}
-                    />
-                    {legKm !== null && (
-                      <span className="leg-dur">
-                        {legKm.toLocaleString('nl-NL')} km · {estimateDuration(legKm, stop.travelMode)}
-                      </span>
-                    )}
-                  </div>
-                  {isFlight && (
-                    <FlightEditor
-                      flightNumber={stop.flightNumber}
-                      fromAirport={stop.fromAirport}
-                      toAirport={stop.toAirport}
-                      viaAirports={stop.viaAirports}
-                      onSave={(data) => void saveFlight(stop, data)}
-                    />
+                  {isFlight ? (
+                    // Same bar look as the heen-/terugreis legs, labelled "Vlucht".
+                    <div className="flight-leg card">
+                      <div className="flight-leg-head">
+                        <strong className="flight-leg-name">Vlucht</strong>
+                        <FlightEditor
+                          flightNumber={stop.flightNumber}
+                          fromAirport={stop.fromAirport}
+                          toAirport={stop.toAirport}
+                          viaAirports={stop.viaAirports}
+                          fromCity={prev ? cityCoord(prev) : null}
+                          toCity={cityCoord(stop)}
+                          onSave={(data) => void saveFlight(stop, data)}
+                        />
+                        <ModeMenu
+                          current={stop.travelMode}
+                          compact
+                          align="right"
+                          onPick={(m) => void setStopMode(stop, m)}
+                        />
+                      </div>
+                      {legKm !== null && (
+                        <span className="flight-leg-km">
+                          {legKm.toLocaleString('nl-NL')} km ·{' '}
+                          {estimateDuration(legKm, stop.travelMode)}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="leg-connector-row">
+                      <ModeMenu
+                        current={stop.travelMode}
+                        compact
+                        onPick={(m) => void setStopMode(stop, m)}
+                      />
+                      {legKm !== null && (
+                        <span className="leg-dur">
+                          {legKm.toLocaleString('nl-NL')} km ·{' '}
+                          {estimateDuration(legKm, stop.travelMode)}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -471,6 +504,17 @@ function LegLocation({
   const [label, setLabel] = useState<string | null>(null);
   const timer = useRef<number | null>(null);
   const abort = useRef<AbortController | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  // Close when tapping outside the picker.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!boxRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
 
   function onInput(v: string) {
     setQuery(v);
@@ -495,7 +539,7 @@ function LegLocation({
   const text = label ?? (hasLocation ? 'Ingesteld' : outbound ? 'Beginpunt' : 'Eindpunt');
 
   return (
-    <div className="leg-loc">
+    <div className="leg-loc" ref={boxRef}>
       <button
         type="button"
         className={`leg-loc-pill ${hasLocation || label ? 'set' : ''}`}

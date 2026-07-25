@@ -219,6 +219,17 @@
   z-index: 2;
 }
 
+/* Over a blurred cover the muted greys wash out — lift the meta text and the
+   ⋯ button to the primary ink so they stay legible in both themes. */
+.trip-card-compact.has-cover .tcc-meta {
+  color: var(--ink);
+  opacity: 0.82;
+}
+
+.trip-card-compact.has-cover .trip-menu-btn {
+  color: var(--ink);
+}
+
 @media (hover: hover) {
   .trip-card-compact:hover {
     transform: translateY(-2px);
@@ -264,6 +275,14 @@
 .trip-card-compact .trip-menu-btn {
   color: var(--ink-faint);
   filter: none;
+}
+
+/* The compact ⋯ is vertically centred in a short row, so its menu must drop
+   from BELOW the button (not from the row's top corner) or it floats detached. */
+.trip-card-compact .trip-menu {
+  top: calc(100% + 6px);
+  right: 0;
+  transform-origin: top right;
 }
 
 /* Single dashed "add trip" slot. */

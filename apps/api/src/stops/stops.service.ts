@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Stop } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TripsService } from '../trips/trips.service';
-import { CreateStopDto, ReorderStopsDto, UpdateStopDto } from './dto/stop.dto';
+import { CreateStopDto, ReorderStopsDto, TravelModeDto, UpdateStopDto } from './dto/stop.dto';
 
 /** Stop enriched with dates derived from trip start + preceding nights. */
 export interface PlannedStop extends Stop {
@@ -92,6 +92,10 @@ export class StopsService {
     dto: UpdateStopDto,
   ): Promise<PlannedStop[]> {
     await this.trips.getForEditor(tripId, userId);
+    // Switching a leg away from FLIGHT clears its airports/flight number, so no
+    // stale flight arc keeps drawing on the map/globe.
+    const clearFlight =
+      dto.travelMode !== undefined && dto.travelMode !== TravelModeDto.FLIGHT;
     const { count } = await this.prisma.stop.updateMany({
       where: { id: stopId, tripId },
       data: {
@@ -101,10 +105,10 @@ export class StopsService {
         longitude: dto.longitude,
         countryCode: dto.countryCode?.toUpperCase(),
         travelMode: dto.travelMode,
-        flightNumber: dto.flightNumber?.trim().toUpperCase(),
-        fromAirport: dto.fromAirport?.trim().toUpperCase(),
-        toAirport: dto.toAirport?.trim().toUpperCase(),
-        viaAirports: dto.viaAirports?.map((a) => a.trim().toUpperCase()),
+        flightNumber: clearFlight ? null : dto.flightNumber?.trim().toUpperCase(),
+        fromAirport: clearFlight ? null : dto.fromAirport?.trim().toUpperCase(),
+        toAirport: clearFlight ? null : dto.toAirport?.trim().toUpperCase(),
+        viaAirports: clearFlight ? [] : dto.viaAirports?.map((a) => a.trim().toUpperCase()),
         notes: dto.notes?.trim(),
       },
     });

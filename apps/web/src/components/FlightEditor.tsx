@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { airportByCode, searchAirports } from '../lib/airports';
+import { airportByCode, nearestAirport, searchAirports } from '../lib/airports';
 import { getDefaultAirports } from '../lib/prefs';
 import { Icon } from './Icon';
 import './flighteditor.css';
@@ -9,6 +9,11 @@ interface FlightEditorProps {
   fromAirport: string | null;
   toAirport: string | null;
   viaAirports?: string[];
+  /** [lng,lat] of the leg's origin city — auto-fills "Van" with the nearest
+   *  airport when no airport is set yet. */
+  fromCity?: [number, number] | null;
+  /** [lng,lat] of the leg's destination city — auto-fills "Naar". */
+  toCity?: [number, number] | null;
   onSave: (data: {
     flightNumber?: string;
     fromAirport?: string;
@@ -23,13 +28,22 @@ export function FlightEditor({
   fromAirport,
   toAirport,
   viaAirports,
+  fromCity,
+  toCity,
   onSave,
 }: FlightEditorProps) {
   const [open, setOpen] = useState(false);
-  // A brand-new flight leg starts from your default home airport (Schiphol
-  // unless changed in Voorkeuren), so you rarely have to set the origin.
-  const [from, setFrom] = useState(fromAirport ?? getDefaultAirports()[0] ?? '');
-  const [to, setTo] = useState(toAirport ?? '');
+  // Prefill airports we can infer: an explicit airport wins, else the airport
+  // nearest the known city, else (for the origin) your default home airport.
+  const [from, setFrom] = useState(
+    fromAirport ??
+      (fromCity ? nearestAirport(fromCity[0], fromCity[1])?.iata : undefined) ??
+      getDefaultAirports()[0] ??
+      '',
+  );
+  const [to, setTo] = useState(
+    toAirport ?? (toCity ? nearestAirport(toCity[0], toCity[1])?.iata : undefined) ?? '',
+  );
   const [via, setVia] = useState<string[]>(viaAirports ?? []);
   const [flight, setFlight] = useState(flightNumber ?? '');
 
