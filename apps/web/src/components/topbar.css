@@ -17,7 +17,7 @@
 .topbar-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   justify-self: start;
   font-family: var(--font-brand);
   font-weight: 620;

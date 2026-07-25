@@ -24,10 +24,10 @@ export function Logo({ size = 26 }: { size?: number }) {
 }
 
 /**
- * Compact brand mark: the same compass glyph used on a photo-less trip cover,
- * on an accent disc.
+ * Compact brand mark: the compass glyph from a photo-less trip cover, drawn in
+ * the accent colour with no disc behind it — simpler, and it can run bigger.
  */
-export function LogoMark({ size = 28 }: { size?: number }) {
+export function LogoMark({ size = 30 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -37,16 +37,15 @@ export function LogoMark({ size = 28 }: { size?: number }) {
       aria-hidden="true"
       style={{ display: 'block' }}
     >
-      <circle cx="12" cy="12" r="12" fill="var(--accent, #e8613c)" />
       <g
-        stroke="#fff"
-        strokeWidth="1.6"
+        stroke="var(--accent, #e8613c)"
+        strokeWidth="2.1"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
       >
-        <circle cx="12" cy="12" r="7.6" />
-        <path d="m15.5 8.5-2 5-5 2 2-5Z" />
+        <circle cx="12" cy="12" r="9.4" />
+        <path d="m16.4 7.6-2.5 6.3-6.3 2.5 2.5-6.3Z" />
       </g>
     </svg>
   );
