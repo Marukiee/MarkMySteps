@@ -367,6 +367,15 @@ export class TripsService {
       }
     }
 
+    // Shortening a trip must drop the photos that now fall outside it, or the
+    // timeline keeps showing days the trip no longer covers.
+    if (dto.startDate !== undefined || dto.endDate !== undefined) {
+      const until = new Date(endDate.getTime() + 86_400_000); // end date inclusive
+      await this.prisma.mediaRef.deleteMany({
+        where: { tripId, OR: [{ takenAt: { lt: startDate } }, { takenAt: { gte: until } }] },
+      });
+    }
+
     const updated = await this.prisma.trip.update({
       where: { id: tripId },
       data: {

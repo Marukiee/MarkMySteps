@@ -264,6 +264,19 @@ export function TripSettingsPage() {
 
       {isOwner && tripId && <FactPicker tripId={tripId} trip={trip} />}
 
+      {syncMessage && <p className="muted ts-sync-msg">{syncMessage}</p>}
+      <section className="ts-sync">
+        <div>
+          <strong>Foto's syncen</strong>
+          <span className="muted">
+            Haal nieuwe foto's met GPS uit Immich op voor deze reis.
+          </span>
+        </div>
+        <button className="btn btn-ghost" onClick={runSync} disabled={syncing}>
+          {syncing ? 'Bezig…' : "Foto's syncen"}
+        </button>
+      </section>
+
       {isOwner && (
         <section className="ts-marker">
           <h2 className="ts-section-title">
@@ -390,18 +403,6 @@ export function TripSettingsPage() {
         {clearMsg && <p className="muted">{clearMsg}</p>}
       </section>
 
-      <section className="ts-sync">
-        <div>
-          <strong>Foto's syncen</strong>
-          <span className="muted">
-            Haal nieuwe foto's met GPS uit Immich op voor deze reis.
-          </span>
-        </div>
-        <button className="btn btn-ghost" onClick={runSync} disabled={syncing}>
-          {syncing ? 'Bezig…' : "Foto's syncen"}
-        </button>
-      </section>
-      {syncMessage && <p className="muted ts-sync-msg">{syncMessage}</p>}
 
       {trip && <MembersPanel trip={trip} onChanged={load} />}
 

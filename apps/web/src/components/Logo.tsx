@@ -24,27 +24,30 @@ export function Logo({ size = 26 }: { size?: number }) {
 }
 
 /**
- * Compact brand mark: the Android launcher icon (a rotated diamond ring in a
- * disc), in the app's accent colour.
+ * Compact brand mark: the same compass glyph used on a photo-less trip cover,
+ * on an accent disc.
  */
 export function LogoMark({ size = 28 }: { size?: number }) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 32 32"
+      viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
       style={{ display: 'block' }}
     >
-      <circle cx="16" cy="16" r="15" fill="var(--accent, #e8613c)" />
-      {/* Outer diamond minus inner diamond = a ring, same as the app icon. */}
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M16 5.4 26.6 16 16 26.6 5.4 16 16 5.4Zm0 5.1L10.5 16l5.5 5.5 5.5-5.5L16 10.5Z"
-        fill="#fff"
-      />
+      <circle cx="12" cy="12" r="12" fill="var(--accent, #e8613c)" />
+      <g
+        stroke="#fff"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      >
+        <circle cx="12" cy="12" r="7.6" />
+        <path d="m15.5 8.5-2 5-5 2 2-5Z" />
+      </g>
     </svg>
   );
 }

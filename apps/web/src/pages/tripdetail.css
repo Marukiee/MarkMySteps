@@ -51,7 +51,21 @@
   }
 
   .trip-detail .trip-map-panel {
-    border-top: none;
+    border: none;
+  }
+
+  /* Side/bottom hairline only, faded out before it reaches the top edge (a
+     full ring showed as an ugly line over a dark satellite map). */
+  .trip-detail .trip-map-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px var(--line);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 32%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 32%);
   }
 
   /* Content slides up UNDER the fixed map (map covers its top). Starts below the

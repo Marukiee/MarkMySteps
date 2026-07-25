@@ -183,6 +183,7 @@ function TripCard({
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
+  const [menuUp, setMenuUp] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [newTitle, setNewTitle] = useState(trip.title);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -305,6 +306,9 @@ function TripCard({
           stop(e);
           if (menuOpen) closeMenu();
           else {
+            // Not enough room below (last card on screen) → open upward.
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setMenuUp(r.bottom + 250 > window.innerHeight);
             window.dispatchEvent(new CustomEvent('mms-menu-open', { detail: trip.id }));
             setMenuOpen(true);
           }
@@ -313,7 +317,7 @@ function TripCard({
         <Icon name="dots" size={22} />
       </button>
       {menuOpen && (
-        <div className={`trip-menu card ${menuClosing ? 'closing' : ''}`}>
+        <div className={`trip-menu card ${menuUp ? 'up' : ''} ${menuClosing ? 'closing' : ''}`}>
           <div className="trip-menu-seg" onClick={stop}>
             {(['auto', 'large', 'compact'] as const).map((opt) => {
               const cur = getTripCardOverride(trip.id) ?? 'auto';

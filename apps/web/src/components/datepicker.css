@@ -40,7 +40,14 @@
 }
 
 .dp-backdrop.closing {
-  animation: dpFade 0.2s var(--ease) reverse forwards;
+  animation: dpFadeOut 0.19s var(--ease) forwards;
+}
+
+@keyframes dpFadeOut {
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
 }
 
 @keyframes dpFade {
@@ -57,7 +64,14 @@
 }
 
 .dp-backdrop.closing .dp-sheet {
-  animation: dpPop 0.2s var(--ease) reverse forwards;
+  animation: dpPopOut 0.19s var(--ease) forwards;
+}
+
+@keyframes dpPopOut {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
 }
 
 @keyframes dpPop {

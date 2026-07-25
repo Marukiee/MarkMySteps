@@ -355,12 +355,19 @@
   filter: none;
 }
 
-/* Opens ON TOP of the ⋯, same as the large card, rather than dropping below it
-   (which read as a different control). */
+/* Opens ON TOP of the ⋯, same as the large card. */
 .trip-card-compact .trip-menu {
   top: 0;
   right: 0;
   transform-origin: top right;
+}
+
+/* Near the bottom of the screen there's no room below — grow upward instead of
+   off-screen. */
+.trip-menu.up {
+  top: auto;
+  bottom: 0;
+  transform-origin: bottom right;
 }
 
 /* Single dashed "add trip" slot. */
@@ -436,7 +443,7 @@
   position: absolute;
   right: 0;
   top: 0;
-  z-index: 20;
+  z-index: 60;
   min-width: 168px;
   padding: 0.35rem;
   display: grid;
