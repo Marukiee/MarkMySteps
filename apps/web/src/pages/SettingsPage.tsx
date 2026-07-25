@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { resetOnboarding } from '../lib/native';
 import { api, ApiError, fetchBlobUrl } from '../api/client';
+import { AirportPrefs } from '../components/AirportPrefs';
 import { AvatarCrop } from '../components/AvatarCrop';
 import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
 import type { Trip } from '../api/types';
@@ -39,6 +40,7 @@ import './settings.css';
 type SectionId =
   | 'profile'
   | 'display'
+  | 'preferences'
   | 'immich'
   | 'import'
   | 'tracking'
@@ -54,6 +56,7 @@ export function SettingsPage() {
   const sections: { id: SectionId; label: string; show: boolean }[] = [
     { id: 'profile', label: 'Profiel', show: true },
     { id: 'display', label: 'Weergave', show: true },
+    { id: 'preferences', label: 'Voorkeuren', show: true },
     { id: 'immich', label: 'Immich', show: true },
     { id: 'import', label: 'Importeren', show: true },
     { id: 'tracking', label: 'Tracking', show: isNative() },
@@ -84,6 +87,7 @@ export function SettingsPage() {
         <div className="settings-content" key={section}>
           {section === 'profile' && <ProfileSection />}
           {section === 'display' && <DisplaySection />}
+          {section === 'preferences' && <PreferencesSection />}
           {section === 'immich' && <ImmichSection />}
           {section === 'import' && <PolarstepsSection />}
           {section === 'tracking' && <TrackingSection />}
@@ -205,6 +209,23 @@ function DisplaySection() {
           ))}
         </div>
         <span className="muted">Geldt voor alle kaarten op dit apparaat.</span>
+      </div>
+    </section>
+  );
+}
+
+/** Travel preferences: home airports (default departure), etc. */
+function PreferencesSection() {
+  return (
+    <section className="card settings-card">
+      <h2>Voorkeuren</h2>
+      <div className="field">
+        <label>Standaard vliegvelden</label>
+        <span className="muted">
+          Je thuis-vliegvelden. Het eerste is je standaard vertrek en wordt automatisch ingevuld bij
+          een nieuwe vlucht. Voeg er zoveel toe als je wilt.
+        </span>
+        <AirportPrefs />
       </div>
     </section>
   );

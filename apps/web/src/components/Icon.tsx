@@ -32,6 +32,7 @@ export type IconName =
   | 'people'
   | 'bell'
   | 'shield'
+  | 'help'
   | 'hourglass';
 
 // Single source of truth for line icons. 24×24 viewbox, 2px stroke,
@@ -201,6 +202,13 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M12 3 5 6v6c0 4 3 6.5 7 9 4-2.5 7-5 7-9V6l-7-3Z" />
       <path d="m9 12 2 2 4-4" />
+    </>
+  ),
+  help: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7" />
+      <path d="M12 17h.01" />
     </>
   ),
   hourglass: (

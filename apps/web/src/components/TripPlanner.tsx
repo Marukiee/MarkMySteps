@@ -137,6 +137,17 @@ export function TripPlanner({
     );
   }
 
+  // Give a standalone heen-/terugreis leg an origin/destination coordinate, so
+  // its driven kilometres get counted toward the trip distance.
+  async function saveLegLocation(
+    stop: PlannedStop,
+    data: { latitude: number; longitude: number; countryCode?: string },
+  ) {
+    refresh(
+      await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, { method: 'PATCH', body: data }),
+    );
+  }
+
   async function changeNights(stop: PlannedStop, delta: number) {
     const nights = Math.max(0, stop.nights + delta);
     refresh(
@@ -249,15 +260,22 @@ export function TripPlanner({
                           one slim row. Full label otherwise. */}
                       {stop.travelMode === 'FLIGHT' && (stop.viaAirports?.length ?? 0) > 0
                         ? stop.name.replace(/vlucht|reis/i, '')
-                        : stop.name}
+                        : stop.name.replace(/vlucht$/i, 'reis')}
                     </strong>
-                    {stop.travelMode === 'FLIGHT' && (
+                    {stop.travelMode === 'FLIGHT' ? (
                       <FlightEditor
                         flightNumber={stop.flightNumber}
                         fromAirport={stop.fromAirport}
                         toAirport={stop.toAirport}
                         viaAirports={stop.viaAirports}
                         onSave={(data) => void saveFlight(stop, data)}
+                      />
+                    ) : (
+                      <LegLocation
+                        outbound={index === 0}
+                        hasLocation={stop.latitude !== null && stop.longitude !== null}
+                        onSave={(data) => void saveLegLocation(stop, data)}
+                        onFlyTo={onFlyTo}
                       />
                     )}
                     <ModeMenu
@@ -429,6 +447,88 @@ export function TripPlanner({
         </span>
         <button className="btn btn-primary">Stop toevoegen</button>
       </form>
+    </div>
+  );
+}
+
+/** Origin/destination picker for a standalone heen-/terugreis leg (any non-flight
+ *  mode). Purely so the driven kilometres of that leg count toward the trip
+ *  distance — the place you leave from / return to. */
+function LegLocation({
+  outbound,
+  hasLocation,
+  onSave,
+  onFlyTo,
+}: {
+  outbound: boolean;
+  hasLocation: boolean;
+  onSave: (data: { latitude: number; longitude: number; countryCode?: string }) => void;
+  onFlyTo: (lng: number, lat: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [sugg, setSugg] = useState<PlaceSuggestion[]>([]);
+  const [label, setLabel] = useState<string | null>(null);
+  const timer = useRef<number | null>(null);
+  const abort = useRef<AbortController | null>(null);
+
+  function onInput(v: string) {
+    setQuery(v);
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      abort.current?.abort();
+      const c = new AbortController();
+      abort.current = c;
+      searchPlaces(v, c.signal).then(setSugg).catch(() => undefined);
+    }, 280);
+  }
+
+  function pick(p: PlaceSuggestion) {
+    setLabel(p.name);
+    setSugg([]);
+    setQuery('');
+    setOpen(false);
+    onFlyTo(p.longitude, p.latitude);
+    onSave({ latitude: p.latitude, longitude: p.longitude, countryCode: p.countryCode });
+  }
+
+  const text = label ?? (hasLocation ? 'Ingesteld' : outbound ? 'Beginpunt' : 'Eindpunt');
+
+  return (
+    <div className="leg-loc">
+      <button
+        type="button"
+        className={`leg-loc-pill ${hasLocation || label ? 'set' : ''}`}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Icon name="pin" size={13} />
+        <span>{text}</span>
+      </button>
+      {open && (
+        <div className="leg-loc-search card">
+          <input
+            autoFocus
+            value={query}
+            placeholder={outbound ? 'Vanaf welke plaats?' : 'Naar welke plaats?'}
+            onChange={(e) => onInput(e.target.value)}
+          />
+          {sugg.length > 0 && (
+            <ul className="stop-suggestions">
+              {sugg.map((p, i) => (
+                <li key={i}>
+                  <button type="button" onClick={() => pick(p)}>
+                    <span>{flagEmoji(p.countryCode)}</span>
+                    <span>
+                      <strong>{p.name}</strong>
+                      {p.region && <small> {p.region}</small>}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }

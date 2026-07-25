@@ -30,12 +30,14 @@ export function AuthImage({
 }) {
   const [src, setSrc] = useState<string | undefined>(cache.get(path));
   const [visible, setVisible] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const placeholderRef = useRef<HTMLDivElement>(null);
 
   // When the path prop changes (e.g. lightbox navigation), swap to the new
   // image instead of keeping the previous one on screen.
   useEffect(() => {
     setSrc(cache.get(path));
+    setLoaded(false);
   }, [path]);
 
   useEffect(() => {
@@ -81,5 +83,15 @@ export function AuthImage({
       />
     );
   }
-  return <img src={src} alt={alt} className={className} style={style} loading="lazy" />;
+  // Fade the pixels in once decoded, instead of them snapping in from Immich.
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={`${className ?? ''} auth-img ${loaded ? 'loaded' : ''}`}
+      style={style}
+      loading="lazy"
+      onLoad={() => setLoaded(true)}
+    />
+  );
 }

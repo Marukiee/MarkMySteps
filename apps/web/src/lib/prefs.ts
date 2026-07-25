@@ -91,6 +91,26 @@ export function setTrackingIntervalMin(min: number): void {
   localStorage.setItem(TRACK_INTERVAL_KEY, String(min));
 }
 
+/* ---------- Default departure airports ---------- */
+
+const AIRPORTS_KEY = 'mms.airports';
+
+/** IATA codes of the user's home airports; the first is the default departure
+ *  pre-filled on new flight legs. Defaults to Schiphol. */
+export function getDefaultAirports(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(AIRPORTS_KEY) ?? 'null');
+    if (Array.isArray(v) && v.length > 0) return v as string[];
+  } catch {
+    /* ignore malformed */
+  }
+  return ['AMS'];
+}
+
+export function setDefaultAirports(codes: string[]): void {
+  localStorage.setItem(AIRPORTS_KEY, JSON.stringify(codes.length > 0 ? codes : ['AMS']));
+}
+
 /* ---------- Trip card size on the home page ---------- */
 
 export type TripCardSize = 'large' | 'compact' | 'auto';

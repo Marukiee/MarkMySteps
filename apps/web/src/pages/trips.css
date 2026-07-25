@@ -173,8 +173,50 @@
   border-radius: var(--radius-m);
   box-shadow: var(--shadow-s);
   cursor: pointer;
+  overflow: hidden;
   animation: fadeIn 0.35s var(--ease) backwards;
   transition: transform 0.18s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+/* With a cover photo the whole row uses that photo as a blurred backdrop under a
+   theme-aware scrim, so the text stays readable (light veil in light mode, dark
+   veil in dark mode). */
+.trip-card-compact.has-cover {
+  background: var(--paper-sunken);
+}
+
+.tcc-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.tcc-bg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(20px) saturate(1.25);
+  transform: scale(1.25);
+}
+
+.tcc-bg-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+:root[data-theme='dark'] .tcc-bg-scrim {
+  background: rgba(16, 20, 26, 0.66);
+}
+
+/* Keep the real content above the backdrop. */
+.trip-card-compact.has-cover .tcc-photo,
+.trip-card-compact.has-cover .tcc-body,
+.trip-card-compact.has-cover .trip-card-menu {
+  position: relative;
+  z-index: 2;
 }
 
 @media (hover: hover) {

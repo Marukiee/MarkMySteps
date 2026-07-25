@@ -257,3 +257,95 @@
   overflow: hidden;
   border: 1px solid var(--line);
 }
+
+/* Background-permission reminder shown while tracking on native. */
+.track-perm-tip {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin-top: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-m);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  animation: permTipIn 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@keyframes permTipIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.track-perm-icon {
+  color: var(--accent-ink);
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.track-perm-body {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}
+
+.track-perm-body strong {
+  font-size: 0.9rem;
+}
+
+.track-perm-body span {
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.track-perm-open {
+  justify-self: start;
+  margin-top: 0.15rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.track-perm-close {
+  flex-shrink: 0;
+  color: var(--ink-faint);
+  padding: 0.15rem;
+}
+
+/* Inline "?" help toggle next to a section title (keeps the long explanation
+   collapsed so it doesn't eat space). */
+.ts-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ts-help-btn {
+  display: grid;
+  place-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: var(--ink-faint);
+  border: 1px solid var(--line);
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.ts-help-btn.on,
+.ts-help-btn:hover {
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.ts-help-text {
+  animation: permTipIn 0.25s var(--ease);
+}

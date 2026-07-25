@@ -41,6 +41,7 @@ export function TripSettingsPage() {
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [color, setColor] = useState<string>('');
   const [markerOn, setMarkerOn] = useState(false);
+  const [markerHelp, setMarkerHelp] = useState(false);
   const [clearDay, setClearDay] = useState('');
   const [wiping, setWiping] = useState(false);
   const [clearMsg, setClearMsg] = useState<string | null>(null);
@@ -251,12 +252,25 @@ export function TripSettingsPage() {
 
       {isOwner && (
         <section className="ts-marker">
-          <h2 className="ts-section-title">Bolletje op de globe</h2>
-          <p className="muted">
-            Handig bij een rondreis (bv. interrail) waar begin en eind bijna gelijk zijn: zet het
-            ene bolletje en naamkaartje op een plek langs de route die het beste uitkomt. Standaard
-            staat het automatisch op begin/eind.
-          </p>
+          <h2 className="ts-section-title">
+            Bolletje op de globe
+            <button
+              type="button"
+              className={`ts-help-btn ${markerHelp ? 'on' : ''}`}
+              aria-label="Uitleg"
+              aria-expanded={markerHelp}
+              onClick={() => setMarkerHelp((v) => !v)}
+            >
+              <Icon name="help" size={16} />
+            </button>
+          </h2>
+          {markerHelp && (
+            <p className="muted ts-help-text">
+              Handig bij een rondreis (bv. interrail) waar begin en eind bijna gelijk zijn: zet het
+              ene bolletje en naamkaartje op een plek langs de route die het beste uitkomt.
+              Standaard staat het automatisch op begin/eind.
+            </p>
+          )}
           {trip?.markerLng != null && trip.markerLat != null ? (
             <div className="ts-track-box">
               <div>

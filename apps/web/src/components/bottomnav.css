@@ -10,6 +10,13 @@
   backdrop-filter: blur(16px);
   border-top: 1px solid var(--glass-border);
   padding: 0.35rem 0 calc(0.35rem + env(safe-area-inset-bottom));
+  transition: transform 0.2s ease;
+}
+
+/* When a field is focused the on-screen keyboard slides up; a fixed bottom bar
+   would otherwise float on top of the keyboard. Tuck it away while typing. */
+body:has(input:focus, textarea:focus, [contenteditable]:focus) .bottomnav {
+  transform: translateY(130%);
 }
 
 .bottomnav a {

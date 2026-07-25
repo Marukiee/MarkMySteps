@@ -49,7 +49,17 @@ input,
 textarea,
 select {
   transition: background-color 0.3s var(--ease), color 0.3s var(--ease),
-    border-color 0.3s var(--ease);
+    border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
+}
+
+/* Every input eases into its accent focus glow (not just .field inputs), so the
+   border never snaps to orange in one frame. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 /* Dark theme — set by JS (applyTheme) via <html data-theme="dark">. */
@@ -270,6 +280,16 @@ textarea {
 .muted {
   color: var(--ink-faint);
   font-size: 0.88rem;
+}
+
+/* Authorized images (Immich thumbnails) ease in once decoded, never snap. */
+.auth-img {
+  opacity: 0;
+  transition: opacity 0.4s var(--ease);
+}
+
+.auth-img.loaded {
+  opacity: 1;
 }
 
 /* ---------- Fade-in for route transitions ---------- */

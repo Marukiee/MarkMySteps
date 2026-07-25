@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="7" fill="#20303B"/>
-  <g fill="none" stroke="#efe7d6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="translate(4 4)">
-    <circle cx="12" cy="12" r="9"/>
-    <path d="m15.5 8.5-2 5-5 2 2-5Z"/>
-  </g>
+  <!-- Filled compass needle (NE–SW), no ring. -->
+  <path d="M23 9 17.6 17.6 9 23 14.4 14.4Z" fill="#efe7d6"/>
+  <!-- Pivot dot it turns around. -->
+  <circle cx="16" cy="16" r="1.9" fill="#20303B"/>
 </svg>

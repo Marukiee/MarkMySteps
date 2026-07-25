@@ -286,6 +286,13 @@ export function TripDetailPage() {
     [media, visibleUsers],
   );
 
+  // Your own "you are here" dot only belongs on a trip that is CURRENTLY running
+  // (between start and end) — not on every past/future trip's map.
+  const tripActive =
+    !!trip &&
+    trip.startDate.slice(0, 10) <= new Date().toISOString().slice(0, 10) &&
+    new Date(trip.endDate).getTime() + 86_400_000 >= Date.now();
+
   // Animate the person dropdown out before it unmounts (mirrors the open pop).
   const togglePersonMenu = () => {
     if (personMenuOpen) {
@@ -374,7 +381,7 @@ export function TripDetailPage() {
           onPhotoFocus={scrollTimelineTo}
           clickMode={addPointMode}
           styleUrl={getMapStyle()}
-          currentLocation={currentLoc}
+          currentLocation={tripActive ? currentLoc : null}
           liveFixes={liveFixes}
           selfUserId={user?.id}
           tripStarted={!!trip && trip.startDate.slice(0, 10) <= new Date().toISOString().slice(0, 10)}

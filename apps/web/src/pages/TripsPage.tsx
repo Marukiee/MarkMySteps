@@ -316,13 +316,23 @@ function TripCard({
   if (compact) {
     return (
       <div
-        className="trip-card-compact"
+        className={`trip-card-compact ${trip.resolvedCoverId ? 'has-cover' : ''}`}
         style={{ animationDelay: `${index * 30}ms`, zIndex: menuOpen ? 30 : undefined }}
         role="link"
         tabIndex={0}
         onClick={() => !renaming && navigate(`/trips/${trip.id}`)}
         onKeyDown={(e) => e.key === 'Enter' && !renaming && navigate(`/trips/${trip.id}`)}
       >
+        {trip.resolvedCoverId && (
+          <div className="tcc-bg" aria-hidden="true">
+            <AuthImage
+              path={`/media/${trip.resolvedCoverId}/thumbnail`}
+              alt=""
+              className="tcc-bg-img"
+            />
+            <span className="tcc-bg-scrim" />
+          </div>
+        )}
         {trip.resolvedCoverId ? (
           <AuthImage path={`/media/${trip.resolvedCoverId}/thumbnail`} alt="" className="tcc-photo" />
         ) : (

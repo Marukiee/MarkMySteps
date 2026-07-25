@@ -672,3 +672,58 @@
   gap: 0.5rem;
   flex-wrap: wrap;
 }
+
+/* Origin/destination picker on a standalone heen-/terugreis leg. */
+.leg-loc {
+  position: relative;
+}
+
+.leg-loc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  border: 1px dashed var(--line);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.leg-loc-pill.set {
+  background: var(--accent-soft);
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.leg-loc-search {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: min(78vw, 300px);
+  padding: 0.5rem;
+  display: grid;
+  gap: 0.4rem;
+  box-shadow: var(--shadow-m);
+  animation: flightEditorIn 0.2s var(--ease);
+}
+
+.leg-loc-search input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+}
+
+/* Reuse the suggestion-list look, but flow it inside the leg-loc card (not as an
+   absolute overlay). */
+.leg-loc-search .stop-suggestions {
+  position: static;
+  box-shadow: none;
+  margin: 0;
+  max-height: 44vh;
+}

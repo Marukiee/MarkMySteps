@@ -431,6 +431,30 @@
   display: grid;
   gap: 0.15rem;
   box-shadow: var(--shadow-s);
+  /* Stats arrive from /stats a beat after the page — ease them in (staggered)
+     instead of popping. */
+  animation: statIn 0.45s var(--ease) both;
+}
+
+.trip-stats .stat:nth-child(2) {
+  animation-delay: 0.06s;
+}
+.trip-stats .stat:nth-child(3) {
+  animation-delay: 0.12s;
+}
+.trip-stats .stat:nth-child(4) {
+  animation-delay: 0.18s;
+}
+
+@keyframes statIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .trip-stats .stat strong {

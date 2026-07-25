@@ -108,8 +108,9 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
     // tapped trip (its name card shows, tapping the card opens the trip). Tapping
     // elsewhere clears it. Onboarding ignores this and shows names over routes.
     let selectedId: string | null = null;
-    // A light that travels along the active route so you can see its direction.
-    let glowT = 0;
+    // A comet of light that flows along the active route so you can see its
+    // direction. Measured in degrees along the path → constant travel speed.
+    let glowDist = 0;
     // Auto-tour state: alternate a wide overview with a zoom into the busiest
     // region, so trips are shown big first, then explored up close.
     let tourPhase = 0; // 0 = overview, 1 = focus
@@ -310,16 +311,36 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
       const center = projection.invert!([w / 2, h / 2]);
       const frontFacing = trips.filter((t) => !center || distance(center, t.anchor) <= 90);
 
+      // Small grey dots at every flight endpoint (departure/arrival airports) so
+      // the dashed bows visibly start FROM a point, not out of thin air. Smaller
+      // than the trip dots, deduped by coarse endpoint.
+      const airportSeen = new Set<string>();
+      ctx!.setLineDash([]);
+      for (const { a: s, b: e } of flightPairs) {
+        for (const ap of [s, e]) {
+          const kk = key(ap);
+          if (airportSeen.has(kk)) continue;
+          airportSeen.add(kk);
+          if (center && distance(center, ap) > 90) continue;
+          const pr = projection(ap);
+          if (!pr) continue;
+          ctx!.beginPath();
+          ctx!.arc(pr[0], pr[1], 2.6 * dpr, 0, 2 * Math.PI);
+          ctx!.fillStyle = dark ? 'rgba(150,160,172,0.9)' : 'rgba(120,128,140,0.85)';
+          ctx!.fill();
+        }
+      }
+
       // Group endpoints by real-world proximity (~40 km), counting DISTINCT trips
       // so a single loop trip counts once, two separate visits count two.
       const SAME_PLACE_DEG = 0.4;
+      type Member = { col: [number, number, number]; upcoming: boolean };
       type Place = {
         lng: number;
         lat: number;
-        col: [number, number, number];
-        upcoming: boolean;
-        city: boolean; // at least one short/city trip ends here → ring style
+        city: boolean; // at least one short/city trip ends here
         trips: Set<string>;
+        members: Member[]; // one per distinct trip meeting here; dot cycles colours
       };
       const places: Place[] = [];
       const addEndpoint = (
@@ -332,24 +353,42 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         if (center && distance(center, p) > 90) return;
         const g = places.find((q) => distance([q.lng, q.lat], p) < SAME_PLACE_DEG);
         if (g) {
-          g.trips.add(tripId);
-          g.upcoming = g.upcoming && upcoming; // any finished trip → solid
+          if (!g.trips.has(tripId)) {
+            g.trips.add(tripId);
+            g.members.push({ col, upcoming });
+          }
           g.city = g.city || city;
         } else {
-          places.push({ lng: p[0], lat: p[1], col, upcoming, city, trips: new Set([tripId]) });
+          places.push({
+            lng: p[0],
+            lat: p[1],
+            city,
+            trips: new Set([tripId]),
+            members: [{ col, upcoming }],
+          });
         }
       };
       for (const trip of frontFacing) {
         const col = legibleColor(trip.color, dark);
         const isCity = tripSpread(trip) < 2.5; // stays around one place
-        // Dots sit on the route's REAL start and end (not the framing anchor, or
-        // they'd float mid-route). Falls back to the anchor for a city trip.
-        // A manual marker (interrail loop etc.) is the single dot, wherever the
-        // owner placed it along the route.
+        // A manual marker (interrail loop) is the single dot — snapped onto the
+        // nearest route vertex so it always sits ON the line, never on empty land.
         if (trip.markerFixed) {
-          addEndpoint(trip.anchor, col, trip.upcoming, isCity, trip.id);
+          let mp = trip.anchor;
+          let best = Infinity;
+          for (const seg of trip.path ?? [])
+            for (const p of seg) {
+              const d = distance(trip.anchor, p);
+              if (d < best) {
+                best = d;
+                mp = p;
+              }
+            }
+          addEndpoint(mp, col, trip.upcoming, isCity, trip.id);
           continue;
         }
+        // Dots sit on the route's REAL start and end (not the framing anchor, or
+        // they'd float mid-route). Falls back to the anchor for a city trip.
         const start = trip.path?.[0]?.[0] ?? trip.anchor;
         const lastSeg = trip.path?.[trip.path.length - 1];
         const end = lastSeg?.[lastSeg.length - 1];
@@ -360,10 +399,24 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
           addEndpoint(end, col, trip.upcoming, isCity, trip.id);
         }
       }
+      // Second pass: a trip whose route PASSES THROUGH an existing place (a city
+      // you've been before, mid-route with no dot of its own) joins that place, so
+      // its dot cycles between both trips' colours — no new dot is created.
+      for (const trip of frontFacing) {
+        const col = legibleColor(trip.color, dark);
+        for (const seg of trip.path ?? []) {
+          for (const p of seg) {
+            const g = places.find((q) => distance([q.lng, q.lat], p) < SAME_PLACE_DEG);
+            if (g && !g.trips.has(trip.id)) {
+              g.trips.add(trip.id);
+              g.members.push({ col, upcoming: trip.upcoming });
+            }
+          }
+        }
+      }
 
-      // One clean dot style for every endpoint. A finished trip is a solid dot;
-      // an upcoming trip is a hollow dot (ring only), so you can tell them apart
-      // without the old bulky halo.
+      // One clean dot style. A finished trip is a solid dot in its colour; an
+      // upcoming trip is a coloured dot with a white DASHED ring.
       const drawSmallDot = (
         x: number,
         y: number,
@@ -373,55 +426,50 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         const [r, g, b] = col;
         ctx!.beginPath();
         ctx!.arc(x, y, 4.5 * dpr, 0, 2 * Math.PI);
+        ctx!.fillStyle = `rgb(${r},${g},${b})`;
+        ctx!.fill();
         if (upcoming) {
-          ctx!.fillStyle = dark ? 'rgba(20,25,32,0.85)' : 'rgba(255,255,255,0.95)';
-          ctx!.fill();
-          ctx!.lineWidth = 1.8 * dpr;
-          ctx!.strokeStyle = `rgb(${r},${g},${b})`;
+          ctx!.setLineDash([2.2 * dpr, 2.2 * dpr]);
+          ctx!.lineWidth = 1.6 * dpr;
+          ctx!.strokeStyle = dark ? 'rgba(235,240,247,0.95)' : 'rgba(255,255,255,0.98)';
           ctx!.stroke();
+          ctx!.setLineDash([]);
         } else {
-          ctx!.fillStyle = `rgb(${r},${g},${b})`;
-          ctx!.fill();
           ctx!.lineWidth = 1.2 * dpr;
           ctx!.strokeStyle = dark ? 'rgba(20,25,32,0.7)' : 'rgba(255,255,255,0.85)';
           ctx!.stroke();
         }
       };
 
-      // A place visited more than once: one solid disc big enough to hold the
-      // number legibly, count centred INSIDE it (no second circle).
-      const drawCountDot = (
-        x: number,
-        y: number,
-        col: [number, number, number],
-        n: number,
-      ) => {
-        const [r, g, b] = col;
-        ctx!.beginPath();
-        ctx!.arc(x, y, 9 * dpr, 0, 2 * Math.PI);
-        ctx!.fillStyle = `rgb(${r},${g},${b})`;
-        ctx!.fill();
-        ctx!.lineWidth = 1.5 * dpr;
-        ctx!.strokeStyle = dark ? 'rgba(20,25,32,0.7)' : 'rgba(255,255,255,0.9)';
-        ctx!.stroke();
-        // Contrast the number against the dot colour.
-        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-        ctx!.fillStyle = lum > 150 ? '#1e2a35' : '#ffffff';
-        ctx!.font = `700 ${9.5 * dpr}px 'Inter Variable', sans-serif`;
-        ctx!.textAlign = 'center';
-        ctx!.textBaseline = 'middle';
-        ctx!.fillText(n > 9 ? '9+' : String(n), x, y + 0.5 * dpr);
-        ctx!.textAlign = 'start';
-        ctx!.textBaseline = 'alphabetic';
-      };
+      const mix = (
+        a: [number, number, number],
+        b: [number, number, number],
+        f: number,
+      ): [number, number, number] => [
+        Math.round(a[0] + (b[0] - a[0]) * f),
+        Math.round(a[1] + (b[1] - a[1]) * f),
+        Math.round(a[2] + (b[2] - a[2]) * f),
+      ];
 
       for (const pl of places) {
         const projected = projection([pl.lng, pl.lat]);
         if (!projected) continue;
         const [x, y] = projected;
-        const n = pl.trips.size;
-        if (n > 1) drawCountDot(x, y, pl.col, n);
-        else drawSmallDot(x, y, pl.col, pl.upcoming);
+        const m = pl.members;
+        if (m.length <= 1) {
+          drawSmallDot(x, y, m[0]?.col ?? [90, 110, 225], m[0]?.upcoming ?? false);
+          continue;
+        }
+        // Visited by more than one trip → the dot slowly cycles through each
+        // trip's colour (crossfading), so every trip sharing this place is seen.
+        const PERIOD = 2200; // ms per colour
+        const t = now / PERIOD;
+        const idx = Math.floor(t) % m.length;
+        const nextIdx = (idx + 1) % m.length;
+        const f = t - Math.floor(t);
+        const blend = f > 0.82 ? (f - 0.82) / 0.18 : 0; // crossfade the last bit
+        const col = mix(m[idx]!.col, m[nextIdx]!.col, blend);
+        drawSmallDot(x, y, col, m[idx]!.upcoming && m[nextIdx]!.upcoming);
       }
 
       // The "active" trip whose name + direction glow are shown: on the homepage
@@ -432,25 +480,49 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         : selectedId ??
           (idle && tourPhase === 1 ? trips[Math.min(tourIdx, trips.length - 1)]?.id ?? null : null);
 
-      // --- Active route glow: a light sliding along the trip's path in travel
-      // direction, so which way the trip went reads at a glance. ---
+      // --- Active route glow: a comet of light flowing along the trip's path in
+      // travel direction at a CONSTANT speed (measured in degrees, so a long
+      // route's glow isn't faster than a short one). ---
       if (activeId) {
         const act = trips.find((t) => t.id === activeId);
         const pts = act?.path?.flat();
         if (act && pts && pts.length >= 2) {
-          const seg = glowT * (pts.length - 1);
-          const i0 = Math.floor(seg);
-          const f = seg - i0;
-          const a = pts[i0]!;
-          const b = pts[Math.min(i0 + 1, pts.length - 1)]!;
-          const gp: [number, number] = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
-          if (!center || distance(center, gp) <= 90) {
-            const pr = projection(gp);
-            if (pr) {
-              const [gr, gg, gb] = legibleColor(act.color, dark);
-              const rad = 7 * dpr;
+          const seglen: number[] = [];
+          let total = 0;
+          for (let i = 1; i < pts.length; i++) {
+            const d = distance(pts[i - 1]!, pts[i]!);
+            seglen.push(d);
+            total += d;
+          }
+          if (total > 0) {
+            const posAt = (d: number): [number, number] => {
+              d = ((d % total) + total) % total;
+              let acc = 0;
+              for (let i = 0; i < seglen.length; i++) {
+                if (acc + seglen[i]! >= d) {
+                  const f = (d - acc) / seglen[i]!;
+                  const a = pts[i]!;
+                  const b = pts[i + 1]!;
+                  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+                }
+                acc += seglen[i]!;
+              }
+              return pts[pts.length - 1]!;
+            };
+            glowDist += 0.35; // degrees per frame — constant travel speed
+            if (glowDist > total) glowDist -= total;
+            const [gr, gg, gb] = legibleColor(act.color, dark);
+            const TRAIL = 12;
+            const GAP = 0.7; // degrees between trail points → a steady flow
+            for (let k = 0; k < TRAIL; k++) {
+              const gp = posAt(glowDist - k * GAP);
+              if (center && distance(center, gp) > 90) continue;
+              const pr = projection(gp);
+              if (!pr) continue;
+              const alpha = (1 - k / TRAIL) * 0.9;
+              const rad = (6 - (k / TRAIL) * 3) * dpr;
               const grad = ctx!.createRadialGradient(pr[0], pr[1], 0, pr[0], pr[1], rad);
-              grad.addColorStop(0, `rgba(${gr},${gg},${gb},0.95)`);
+              grad.addColorStop(0, `rgba(${gr},${gg},${gb},${alpha})`);
               grad.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
               ctx!.fillStyle = grad;
               ctx!.beginPath();
@@ -459,8 +531,6 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
             }
           }
         }
-        glowT += 0.01;
-        if (glowT >= 1) glowT = 0;
       }
 
       // --- Labels ---

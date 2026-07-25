@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { airportByCode, searchAirports } from '../lib/airports';
+import { getDefaultAirports } from '../lib/prefs';
 import { Icon } from './Icon';
 import './flighteditor.css';
 
@@ -25,7 +26,9 @@ export function FlightEditor({
   onSave,
 }: FlightEditorProps) {
   const [open, setOpen] = useState(false);
-  const [from, setFrom] = useState(fromAirport ?? '');
+  // A brand-new flight leg starts from your default home airport (Schiphol
+  // unless changed in Voorkeuren), so you rarely have to set the origin.
+  const [from, setFrom] = useState(fromAirport ?? getDefaultAirports()[0] ?? '');
   const [to, setTo] = useState(toAirport ?? '');
   const [via, setVia] = useState<string[]>(viaAirports ?? []);
   const [flight, setFlight] = useState(flightNumber ?? '');
@@ -49,7 +52,7 @@ export function FlightEditor({
             ))}
           </span>
         ) : (
-          'Vluchtgegevens toevoegen'
+          'Toevoegen'
         )}
       </button>
     );

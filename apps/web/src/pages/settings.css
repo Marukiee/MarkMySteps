@@ -232,8 +232,8 @@
 
 .avatar-edit-badge {
   position: absolute;
-  right: -2px;
-  bottom: -2px;
+  right: 3px;
+  bottom: 3px;
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -250,9 +250,11 @@
   transform: scale(1.1);
 }
 
-/* Kill the inline-SVG baseline gap so the camera glyph sits dead-centre. */
+/* Kill the inline-SVG baseline gap so the camera glyph sits dead-centre, and
+   nudge it up a hair — the camera body reads low otherwise. */
 .avatar-edit-badge svg {
   display: block;
+  transform: translateY(-1px);
 }
 
 /* Tap target to reveal the hidden developer tab. */
@@ -624,5 +626,26 @@
   from {
     opacity: 0;
     transform: translateY(8px);
+  }
+}
+
+/* Server-fetched blocks (connection status, active-tracking panel, the "view
+   path on map" link, import results) ease in instead of snapping when the data
+   lands a beat after the section opens. */
+.tracking-status,
+.immich-status,
+.tracking-view-link,
+.import-result {
+  animation: settingsAsyncIn 0.4s var(--ease);
+}
+
+@keyframes settingsAsyncIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

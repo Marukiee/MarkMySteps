@@ -219,7 +219,10 @@ export class TripsService {
       try {
         const geom = JSON.parse(row.geojson) as { type: string; coordinates: number[][] };
         if (geom.type === 'LineString' && geom.coordinates.length >= 2) {
-          routeByTrip.set(row.tripId, stripHomeCountry(geom.coordinates as [number, number][]));
+          // A tracked GPS route is real travel — keep it whole, NL included (an
+          // interrail trip that starts at home must still show that leg). Only
+          // photo-derived lines strip NL (a home snapshot isn't a journey).
+          routeByTrip.set(row.tripId, geom.coordinates as [number, number][]);
         }
       } catch {
         /* ignore malformed geometry */
@@ -391,14 +394,40 @@ export class TripsService {
       WHERE "tripId" = ${tripId}::uuid
     `;
 
-    const [photoCount, stopCountries] = await Promise.all([
+    const [photoCount, stopCountries, orderedStops] = await Promise.all([
       this.prisma.mediaRef.count({ where: { tripId } }),
       this.prisma.stop.findMany({
         where: { tripId, countryCode: { not: null } },
         select: { countryCode: true },
         distinct: ['countryCode'],
       }),
+      this.prisma.stop.findMany({
+        where: { tripId },
+        orderBy: { orderIndex: 'asc' },
+        select: { name: true, latitude: true, longitude: true, travelMode: true },
+      }),
     ]);
+
+    // A manually-entered begin/end leg (Heenreis/Terugreis by any ground mode)
+    // with its own coordinate adds that driven stretch to the total — it's the
+    // part from/to home that usually isn't GPS-tracked. Flights don't count as
+    // "driven" kilometres.
+    const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
+    const hasCoord = (s: { latitude: number | null; longitude: number | null }) =>
+      s.latitude != null && s.longitude != null;
+    const cities = orderedStops.filter((s) => hasCoord(s) && !LEG_NAMES.has(s.name));
+    let extraKm = 0;
+    orderedStops.forEach((s, i) => {
+      if (!hasCoord(s) || !LEG_NAMES.has(s.name) || s.travelMode === 'FLIGHT') return;
+      // Leading leg connects to the first city, trailing leg to the last city.
+      const neighbour = i === 0 ? cities[0] : cities[cities.length - 1];
+      if (neighbour) {
+        extraKm += kmLngLat(
+          [s.longitude!, s.latitude!],
+          [neighbour.longitude!, neighbour.latitude!],
+        );
+      }
+    });
 
     const days =
       Math.round(
@@ -406,7 +435,7 @@ export class TripsService {
       ) + 1;
 
     return {
-      distanceKm: Math.round((distanceRow?.meters ?? 0) / 1000),
+      distanceKm: Math.round((distanceRow?.meters ?? 0) / 1000 + extraKm),
       countries: stopCountries.map((s) => s.countryCode!).filter(Boolean),
       days,
       photoCount,

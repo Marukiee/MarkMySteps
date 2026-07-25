@@ -113,6 +113,12 @@ export function isNative(): boolean {
   return Capacitor.isNativePlatform();
 }
 
+/** Open the OS app-settings so the user can flip location to "Always allow"
+ *  (needed for background tracking with the screen off). */
+export async function openLocationSettings(): Promise<void> {
+  await BackgroundGeolocation.openSettings().catch(() => undefined);
+}
+
 async function record(tripId: string, position: NativePosition): Promise<void> {
   // Skip fixes that arrive sooner than the configured interval.
   const now = Date.now();

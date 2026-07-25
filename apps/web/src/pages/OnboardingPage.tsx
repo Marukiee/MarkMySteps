@@ -2,6 +2,7 @@ import { registerPlugin } from '@capacitor/core';
 import { ReactNode, TouchEvent as ReactTouchEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Trip } from '../api/types';
+import { AirportPrefs } from '../components/AirportPrefs';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon, IconName } from '../components/Icon';
 import { Logo } from '../components/Logo';
@@ -12,6 +13,8 @@ import './onboarding.css';
 // Example European trips for the globe demo. A few realistic multi-city routes
 // plus a city trip and one flight, so the onboarding globe shows exactly what a
 // filled-in account looks like (dots at the real start/end, a flight bow).
+// Home airport used for the demo outbound/return flight bows.
+const AMS: [number, number] = [4.9, 52.37];
 const SAMPLE_TRIPS = [
   {
     id: 's-scan',
@@ -22,8 +25,14 @@ const SAMPLE_TRIPS = [
         [11.97, 57.71], // Gothenburg
         [10.75, 59.91], // Oslo
         [10.4, 63.43], // Trondheim
+        [14.4, 67.28], // Bodø (keeps each hop short so no leg reads as a flight)
         [18.96, 69.65], // Tromsø
       ],
+    ],
+    // Fly out to the start, fly home from the end — no flight mid-route.
+    flightPath: [
+      [AMS, [11.97, 57.71]],
+      [[18.96, 69.65], AMS],
     ],
     distanceKm: 1900,
     startDate: '2025-06-04',
@@ -41,6 +50,10 @@ const SAMPLE_TRIPS = [
         [-4.42, 36.72], // Málaga
       ],
     ],
+    flightPath: [
+      [AMS, [2.17, 41.4]],
+      [[-4.42, 36.72], AMS],
+    ],
     distanceKm: 1000,
     startDate: '2024-09-01',
     endDate: '2024-09-12',
@@ -57,8 +70,10 @@ const SAMPLE_TRIPS = [
         [23.32, 42.7], // Sofia
       ],
     ],
-    // Flew into Athens from Amsterdam — draws a flight bow on the globe.
-    flightPath: [[[4.9, 52.37], [23.73, 37.98]]],
+    flightPath: [
+      [AMS, [23.73, 37.98]],
+      [[23.32, 42.7], AMS],
+    ],
     distanceKm: 750,
     startDate: '2025-04-10',
     endDate: '2025-04-20',
@@ -69,6 +84,8 @@ const SAMPLE_TRIPS = [
     title: 'Krakau',
     anchor: [19.94, 50.06],
     routePath: null,
+    // City trip: just there and back from home.
+    flightPath: [[AMS, [19.94, 50.06]]],
     distanceKm: 0,
     startDate: '2024-11-15',
     endDate: '2024-11-18',
@@ -97,6 +114,7 @@ export function OnboardingPage() {
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
   const [notifDone, setNotifDone] = useState(false);
   const [touchX, setTouchX] = useState<number | null>(null);
+  const [leaving, setLeaving] = useState(false);
 
   async function requestNotifications() {
     try {
@@ -122,8 +140,13 @@ export function OnboardingPage() {
   }
 
   function finish() {
-    markOnboarded();
-    navigate('/', { replace: true });
+    if (leaving) return;
+    // Fade the whole tour out before leaving, instead of snapping to the app.
+    setLeaving(true);
+    window.setTimeout(() => {
+      markOnboarded();
+      navigate('/', { replace: true });
+    }, 300);
   }
 
   const feature = (icon: IconName, title: string, body: string): ReactNode => (
@@ -192,6 +215,18 @@ export function OnboardingPage() {
           </button>
         ))}
       </div>
+    </div>,
+    <div className="onb-feature onb-airports-slide" key="airports">
+      <span className="onb-visual">
+        <Icon name="plane" size={54} />
+      </span>
+      <h1>Je vaste vliegvelden</h1>
+      <p className="muted">
+        Vanaf welke vliegvelden vertrek je meestal? Schiphol staat al klaar — voeg toe wat je wilt.
+        Het eerste wordt automatisch ingevuld bij een nieuwe vlucht. Later aanpasbaar in
+        Instellingen → Voorkeuren.
+      </p>
+      <AirportPrefs />
     </div>,
     ...(isApp
       ? [
@@ -274,7 +309,11 @@ export function OnboardingPage() {
   };
 
   return (
-    <main className="onb-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <main
+      className={`onb-shell ${leaving ? 'onb-leaving' : ''}`}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       {!last && (
         <button className="onb-skip" onClick={finish}>
           Overslaan
