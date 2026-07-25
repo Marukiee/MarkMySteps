@@ -669,22 +669,28 @@ export function GlobeBackdrop({
         // Suppress if not in the top-N or it would collide with a placed label.
         const target = showIds.has(trip.id) && !collides ? 1 : 0;
         const cur = labelOpacity.get(trip.id) ?? 0;
-        const next = cur + (target - cur) * 0.12;
+        // Eases IN noticeably slower than it fades out: appearing was a pop.
+        const next = cur + (target - cur) * (target > cur ? 0.055 : 0.13);
         labelOpacity.set(trip.id, next);
         if (next < 0.03) continue;
-        // Fixed offset above the dot — fade only, no vertical slide, so a name
-        // doesn't bob every time its opacity eases.
-        const py = projected[1] - 8 * dpr;
+        // Rises the last few pixels into place as it fades in, then sits still.
+        const py = projected[1] - 8 * dpr + (1 - next) * 7 * dpr;
         if (next > 0.5) placed.push({ x: px, y: py, w: pw, h: ph });
         if (next > 0.6) labelRects.push({ id: trip.id, x: px, y: py, w: pw, h: ph });
+        // Scales up from 88% around its left edge, so it grows out of the dot.
+        const grow = 0.88 + 0.12 * next;
+        ctx!.save();
         ctx!.globalAlpha = Math.min(1, next);
+        ctx!.translate(px, py + ph / 2);
+        ctx!.scale(grow, grow);
+        ctx!.translate(-px, -(py + ph / 2));
         ctx!.fillStyle = 'rgba(255,255,255,0.94)';
         roundRect(ctx!, px, py, pw, ph, 9 * dpr);
         ctx!.fill();
         ctx!.fillStyle = '#1e2a35';
         ctx!.textBaseline = 'middle';
         ctx!.fillText(label, px + 6 * dpr, py + 9 * dpr);
-        ctx!.globalAlpha = 1;
+        ctx!.restore();
       }
 
       raf = requestAnimationFrame(draw);

@@ -688,7 +688,7 @@
   max-height: 92vh;
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior: contain;
+  overscroll-behavior: none;
   /* Generous bottom room so the "deellink" field stays reachable above the
      on-screen keyboard. */
   padding: 1.1rem 1.15rem calc(6rem + env(safe-area-inset-bottom));

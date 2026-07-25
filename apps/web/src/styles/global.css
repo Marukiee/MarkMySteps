@@ -117,12 +117,15 @@ nav,
 }
 
 html {
-  overscroll-behavior-y: none;
+  /* `none` (not `contain`) also switches off Android's stretch overscroll, which
+     otherwise drags the fixed tab bar along with the page. */
+  overscroll-behavior: none;
   /* Never allow stray sideways scrolling (e.g. from the full-bleed globe). */
   overflow-x: hidden;
 }
 
 body {
+  overscroll-behavior: none;
   overflow-x: hidden;
 }
 
