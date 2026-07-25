@@ -5,7 +5,7 @@ import { fetchBlobUrl } from '../api/client';
 import type { LiveFix } from '../api/types';
 import { getMapStyle } from '../lib/prefs';
 import type { MediaItem, RouteCollection } from '../api/types';
-import { buildLegs, flightArc, haversineKm, StopPoint } from '../lib/arc';
+import { buildLegs, flightArc, haversineKm, StopPoint, trimOutlierEnds } from '../lib/arc';
 import { colorForUser, flagEmoji } from '../lib/colors';
 import './tripmap.css';
 
@@ -249,7 +249,9 @@ export function TripMap({
         const { userId } = feature.properties;
         if (!visibleUsers.has(userId)) continue;
         const id = `route-${userId}`;
-        const coords = feature.geometry.coordinates as [number, number][];
+        // Trim a few stray home snaps (before leaving / after returning) so the
+        // route doesn't run a long line from home to the first real stop.
+        const coords = trimOutlierEnds(feature.geometry.coordinates as [number, number][]);
 
         // Split into ground runs; a break is an explicit flight or a big jump.
         // Big unmarked jumps (e.g. photos NL→Rome) become dashed flight arcs so

@@ -91,6 +91,39 @@ function mapMembers(trip: RawTripRow): TripWithMembers {
   };
 }
 
+/** Great-circle distance (km) between two [lng,lat] points. */
+function kmLngLat(a: [number, number], b: [number, number]): number {
+  const toRad = Math.PI / 180;
+  const dLat = (b[1] - a[1]) * toRad;
+  const dLon = (b[0] - a[0]) * toRad;
+  const la1 = a[1] * toRad;
+  const la2 = b[1] * toRad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+/** Drops small leading/trailing photo clusters that sit far from the trip's
+ *  main body (a couple of snaps taken at home), so the globe line doesn't run
+ *  from home to the first real destination. */
+function trimOutlierEnds(coords: [number, number][], jumpKm = 250, maxClusterPts = 3): [number, number][] {
+  if (coords.length < 3) return coords;
+  const clusters: [number, number][][] = [];
+  let cur: [number, number][] = [coords[0]!];
+  for (let i = 1; i < coords.length; i++) {
+    if (kmLngLat(coords[i - 1]!, coords[i]!) > jumpKm) {
+      clusters.push(cur);
+      cur = [coords[i]!];
+    } else {
+      cur.push(coords[i]!);
+    }
+  }
+  clusters.push(cur);
+  if (clusters.length < 2) return coords;
+  while (clusters.length > 1 && clusters[0]!.length <= maxClusterPts) clusters.shift();
+  while (clusters.length > 1 && clusters[clusters.length - 1]!.length <= maxClusterPts) clusters.pop();
+  return clusters.flat();
+}
+
 /** Evenly thins a polyline to at most `max` points (keeps first & last). */
 function downsample(points: [number, number][], max: number): [number, number][] {
   if (points.length <= max) return points;
@@ -249,6 +282,7 @@ export class TripsService {
       list.push([p.longitude!, p.latitude!]);
       photosByTrip.set(p.tripId, list);
     }
+    for (const [tripId, line] of photosByTrip) photosByTrip.set(tripId, trimOutlierEnds(line));
 
     return trips.map((t) => {
       const base = mapMembers(t);

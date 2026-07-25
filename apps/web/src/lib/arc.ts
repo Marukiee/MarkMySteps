@@ -80,6 +80,38 @@ export function splitOnGaps(coords: [number, number][], maxKm = 500): [number, n
   return segments;
 }
 
+/**
+ * Drops small leading/trailing clusters that sit far (a big jump) from the
+ * trip's main body — e.g. a couple of photos taken at home before leaving, or
+ * back home after — so the route never draws a long line from home to the first
+ * real destination. A dense GPS track has no such jump, so it's left untouched;
+ * only sparse photo-derived lines with a stray home snap get trimmed. A real
+ * destination has many photos, so only *small* end clusters are removed.
+ */
+export function trimOutlierEnds(
+  coords: [number, number][],
+  { jumpKm = 250, maxClusterPts = 3 }: { jumpKm?: number; maxClusterPts?: number } = {},
+): [number, number][] {
+  if (coords.length < 3) return coords;
+  const clusters: [number, number][][] = [];
+  let cur: [number, number][] = [coords[0]!];
+  for (let i = 1; i < coords.length; i++) {
+    if (haversineKm(coords[i - 1]!, coords[i]!) > jumpKm) {
+      clusters.push(cur);
+      cur = [coords[i]!];
+    } else {
+      cur.push(coords[i]!);
+    }
+  }
+  clusters.push(cur);
+  if (clusters.length < 2) return coords;
+  while (clusters.length > 1 && clusters[0]!.length <= maxClusterPts) clusters.shift();
+  while (clusters.length > 1 && clusters[clusters.length - 1]!.length <= maxClusterPts) {
+    clusters.pop();
+  }
+  return clusters.flat();
+}
+
 /** Great-circle distance in km between two [lng,lat] points. */
 export function haversineKm(a: [number, number], b: [number, number]): number {
   const toRad = Math.PI / 180;

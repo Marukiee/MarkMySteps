@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import type { TouchEvent as ReactTouchEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import type { MediaItem, RouteCollection } from '../api/types';
+import { trimOutlierEnds } from '../lib/arc';
 import { colorForUser, flagEmoji, formatDay } from '../lib/colors';
 import { getMapStyle } from '../lib/prefs';
 import { Icon } from '../components/Icon';
@@ -151,7 +152,10 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
         const bounds = new LngLatBounds();
         for (const feature of routes.features) {
           const id = `share-route-${feature.properties.userId}`;
-          map.addSource(id, { type: 'geojson', data: feature });
+          // Trim stray home snaps so the line doesn't run from home to the trip.
+          const coords = trimOutlierEnds(feature.geometry.coordinates as [number, number][]);
+          const trimmed = { ...feature, geometry: { ...feature.geometry, coordinates: coords } };
+          map.addSource(id, { type: 'geojson', data: trimmed });
           map.addLayer({
             id,
             type: 'line',
@@ -159,7 +163,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
             paint: { 'line-color': colorForUser(feature.properties.userId), 'line-width': 3.5 },
             layout: { 'line-cap': 'round', 'line-join': 'round' },
           });
-          for (const c of feature.geometry.coordinates) bounds.extend(c);
+          for (const c of coords) bounds.extend(c);
         }
         if (routes.features.length > 0) {
           map.fitBounds(bounds, { padding: 70, maxZoom: 12, duration: 800 });
