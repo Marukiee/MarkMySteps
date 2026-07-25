@@ -176,12 +176,13 @@ export function OnboardingPage() {
       </span>
       <h1>Licht of donker?</h1>
       <p className="muted">Kies je thema — je kunt dit later altijd wijzigen in Instellingen.</p>
-      <div className="onb-theme-choice">
+      {/* Same pill toggle + animation as Instellingen → Weergave. */}
+      <div className="theme-choice onb-theme-choice">
         {(['system', 'light', 'dark'] as ThemeId[]).map((t) => (
           <button
             key={t}
             type="button"
-            className={`onb-theme-opt ${theme === t ? 'active' : ''}`}
+            className={`theme-opt ${theme === t ? 'active' : ''}`}
             onClick={() => {
               setTheme(t);
               setThemeId(t);
