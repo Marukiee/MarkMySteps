@@ -570,7 +570,13 @@ function NewTripForm({ onCreated }: { onCreated: () => void }) {
         <input id="nt-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
       </div>
       <DateField id="nt-start" label="Van" value={startDate} onChange={setStartDate} />
-      <DateField id="nt-end" label="Tot" value={endDate} onChange={setEndDate} />
+      <DateField
+        id="nt-end"
+        label="Tot"
+        value={endDate}
+        nearDate={startDate}
+        onChange={setEndDate}
+      />
       {error && <p className="error-text">{error}</p>}
       <button className="btn btn-primary" disabled={busy}>
         Aanmaken

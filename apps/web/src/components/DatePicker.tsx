@@ -11,6 +11,9 @@ interface DateFieldProps {
   id?: string;
   placeholder?: string;
   allowClear?: boolean;
+  /** ISO date to open on when this field is still empty — an end date starts in
+   *  the start date's month instead of today's. */
+  nearDate?: string;
 }
 
 const WEEKDAYS = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
@@ -28,7 +31,15 @@ function toISO(d: Date): string {
 
 /** A tappable field that opens a modern calendar sheet instead of the native
  *  date dialog (which renders as a dated Android/WebView popup). */
-export function DateField({ value, onChange, label, id, placeholder, allowClear }: DateFieldProps) {
+export function DateField({
+  value,
+  onChange,
+  label,
+  id,
+  placeholder,
+  allowClear,
+  nearDate,
+}: DateFieldProps) {
   const [open, setOpen] = useState(false);
   return (
     <div className="field date-field">
@@ -42,6 +53,7 @@ export function DateField({ value, onChange, label, id, placeholder, allowClear 
       {open && (
         <CalendarSheet
           value={value}
+          nearDate={nearDate}
           allowClear={allowClear}
           onClose={() => setOpen(false)}
           onPick={(iso) => {
@@ -56,16 +68,19 @@ export function DateField({ value, onChange, label, id, placeholder, allowClear 
 
 function CalendarSheet({
   value,
+  nearDate,
   allowClear,
   onClose,
   onPick,
 }: {
   value: string;
+  nearDate?: string;
   allowClear?: boolean;
   onClose: () => void;
   onPick: (iso: string) => void;
 }) {
-  const base = value ? new Date(value + 'T00:00:00') : new Date();
+  const start = value || nearDate || '';
+  const base = start ? new Date(start + 'T00:00:00') : new Date();
   const [view, setView] = useState({ year: base.getFullYear(), month: base.getMonth() });
   const [picking, setPicking] = useState(false);
   // Tapping a day only stages it; "Selecteren" commits. Prevents a mis-tap from

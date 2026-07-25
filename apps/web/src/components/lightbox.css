@@ -155,3 +155,13 @@
     margin-left: 0;
   }
 }
+
+/* City + country under the date, when the photo has a coordinate. */
+.lightbox-place {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  opacity: 0.8;
+  animation: fadeIn 0.3s var(--ease);
+}

@@ -229,7 +229,13 @@ export function TripSettingsPage() {
           </div>
           <div className="ts-dates">
             <DateField id="ts-start" label="Startdatum" value={startDate} onChange={setStartDate} />
-            <DateField id="ts-end" label="Einddatum" value={endDate} onChange={setEndDate} />
+            <DateField
+              id="ts-end"
+              label="Einddatum"
+              value={endDate}
+              nearDate={startDate}
+              onChange={setEndDate}
+            />
           </div>
 
           <div className="field">

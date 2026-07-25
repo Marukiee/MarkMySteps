@@ -58,3 +58,36 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   }
   return suggestions;
 }
+
+/** Cached reverse lookups, so paging through a photo album doesn't hammer the
+ *  geocoder with the same coordinates. Keyed to ~1 km. */
+const reverseCache = new Map<string, string | null>();
+
+/**
+ * "Stad, Land" for a coordinate, or null when nothing sensible comes back.
+ * Same keyless Photon instance as the search.
+ */
+export async function reversePlaceName(lat: number, lon: number): Promise<string | null> {
+  const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+  const cached = reverseCache.get(key);
+  if (cached !== undefined) return cached;
+
+  try {
+    const url = new URL('https://photon.komoot.io/reverse');
+    url.searchParams.set('lat', String(lat));
+    url.searchParams.set('lon', String(lon));
+    url.searchParams.set('limit', '1');
+    url.searchParams.set('lang', 'en');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('reverse failed');
+    const data = (await res.json()) as { features: PhotonFeature[] };
+    const p = data.features[0]?.properties;
+    const city = p?.city ?? p?.name ?? null;
+    const name = [city, p?.country].filter(Boolean).join(', ') || null;
+    reverseCache.set(key, name);
+    return name;
+  } catch {
+    reverseCache.set(key, null);
+    return null;
+  }
+}

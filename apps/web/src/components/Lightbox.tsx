@@ -7,6 +7,7 @@ import type { ConnectionStatus, MediaItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_IMMICH_PUBLIC_URL } from '../config';
 import { formatDay } from '../lib/colors';
+import { reversePlaceName } from '../lib/geocode';
 import { isNativeApp, openExternal } from '../lib/native';
 import { AuthImage } from './AuthImage';
 import { Icon } from './Icon';
@@ -28,7 +29,22 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   const [coverSaved, setCoverSaved] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
+  const [place, setPlace] = useState<string | null>(null);
   const item = items[index];
+
+  // City + country for the photo, when it carries a coordinate. Cached per ~1 km
+  // so paging through an album doesn't re-query the geocoder.
+  useEffect(() => {
+    setPlace(null);
+    const lat = item?.latitude;
+    const lon = item?.longitude;
+    if (lat == null || lon == null) return;
+    let alive = true;
+    void reversePlaceName(lat, lon).then((name) => alive && setPlace(name));
+    return () => {
+      alive = false;
+    };
+  }, [item?.id, item?.latitude, item?.longitude]);
 
   // Fetch a short-lived playback URL when a video is shown.
   useEffect(() => {
@@ -128,7 +144,10 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   // context (the trip detail is itself position:fixed on mobile).
   return createPortal(
     <div className="lightbox" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="lightbox-date">{formatDay(item.takenAt)}</div>
+      <div className="lightbox-date">
+        {formatDay(item.takenAt)}
+        {place && <span className="lightbox-place">{place}</span>}
+      </div>
 
       <button className="lightbox-close" aria-label="Sluiten">
         <Icon name="close" size={22} />
