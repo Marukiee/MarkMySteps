@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { resetOnboarding } from '../lib/native';
 import { api, ApiError } from '../api/client';
@@ -35,11 +35,20 @@ import {
 } from '../tracking/tracker';
 import './settings.css';
 
-type SectionId = 'profile' | 'display' | 'immich' | 'import' | 'tracking' | 'accounts' | 'about';
+type SectionId =
+  | 'profile'
+  | 'display'
+  | 'immich'
+  | 'import'
+  | 'tracking'
+  | 'accounts'
+  | 'about'
+  | 'developer';
 
 export function SettingsPage() {
   const { user } = useAuth();
   const [section, setSection] = useState<SectionId>('profile');
+  const [devUnlocked, setDevUnlocked] = useState(localStorage.getItem('mms.dev') === '1');
 
   const sections: { id: SectionId; label: string; show: boolean }[] = [
     { id: 'profile', label: 'Profiel', show: true },
@@ -49,6 +58,7 @@ export function SettingsPage() {
     { id: 'tracking', label: 'Tracking', show: isNative() },
     { id: 'accounts', label: 'Accounts', show: user?.role === 'ADMIN' },
     { id: 'about', label: 'Over', show: true },
+    { id: 'developer', label: 'Ontwikkelaar', show: devUnlocked },
   ];
 
   return (
@@ -77,7 +87,24 @@ export function SettingsPage() {
           {section === 'import' && <PolarstepsSection />}
           {section === 'tracking' && <TrackingSection />}
           {section === 'accounts' && <AccountsSection />}
-          {section === 'about' && <AboutSection />}
+          {section === 'about' && (
+            <AboutSection
+              onUnlockDev={() => {
+                localStorage.setItem('mms.dev', '1');
+                setDevUnlocked(true);
+                setSection('developer');
+              }}
+            />
+          )}
+          {section === 'developer' && (
+            <DeveloperSection
+              onLock={() => {
+                localStorage.removeItem('mms.dev');
+                setDevUnlocked(false);
+                setSection('about');
+              }}
+            />
+          )}
         </div>
       </div>
     </main>
@@ -85,7 +112,6 @@ export function SettingsPage() {
 }
 
 function DisplaySection() {
-  const navigate = useNavigate();
   const [style, setStyle] = useState<MapStyleId>(getMapStyleId());
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
   const [cardSize, setCardSize] = useState<TripCardSize>(getTripCardSize());
@@ -178,19 +204,6 @@ function DisplaySection() {
           ))}
         </div>
         <span className="muted">Geldt voor alle kaarten op dit apparaat.</span>
-      </div>
-      <div className="field">
-        <label>Rondleiding</label>
-        <button
-          type="button"
-          className="btn btn-ghost settings-reset-sizes"
-          onClick={() => {
-            resetOnboarding();
-            navigate('/onboarding');
-          }}
-        >
-          Onboarding opnieuw bekijken
-        </button>
       </div>
     </section>
   );
@@ -349,7 +362,23 @@ function TrackingLog({ now }: { now: number }) {
   );
 }
 
-function AboutSection() {
+function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
+  const tapsRef = useRef(0);
+  const [hint, setHint] = useState<string | null>(null);
+
+  // Tap the version 7× to reveal the hidden Ontwikkelaar tab (Android-style).
+  const tapVersion = () => {
+    if (localStorage.getItem('mms.dev') === '1') return;
+    tapsRef.current += 1;
+    const left = 7 - tapsRef.current;
+    if (left <= 0) {
+      setHint(null);
+      onUnlockDev();
+    } else if (left <= 4) {
+      setHint(`Nog ${left} keer tikken voor ontwikkelaarsopties…`);
+    }
+  };
+
   return (
     <section className="card settings-card">
       <h2>Over MarkMySteps</h2>
@@ -378,6 +407,37 @@ function AboutSection() {
           </a>
         </li>
       </ul>
+      <button type="button" className="settings-version" onClick={tapVersion}>
+        MarkMySteps
+      </button>
+      {hint && <span className="muted">{hint}</span>}
+    </section>
+  );
+}
+
+/** Hidden tab (unlocked from About) for testing-only tools. */
+function DeveloperSection({ onLock }: { onLock: () => void }) {
+  const navigate = useNavigate();
+  return (
+    <section className="card settings-card">
+      <h2>Ontwikkelaar</h2>
+      <p className="muted">Verborgen opties om dingen te testen.</p>
+      <div className="field">
+        <label>Rondleiding</label>
+        <button
+          type="button"
+          className="btn btn-ghost settings-reset-sizes"
+          onClick={() => {
+            resetOnboarding();
+            navigate('/onboarding');
+          }}
+        >
+          Onboarding opnieuw bekijken
+        </button>
+      </div>
+      <button type="button" className="btn btn-ghost settings-reset-sizes" onClick={onLock}>
+        Ontwikkelaarsmodus verbergen
+      </button>
     </section>
   );
 }

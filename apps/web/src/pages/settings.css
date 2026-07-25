@@ -192,6 +192,22 @@
   transform: scale(1.1);
 }
 
+/* Kill the inline-SVG baseline gap so the camera glyph sits dead-centre. */
+.avatar-edit-badge svg {
+  display: block;
+}
+
+/* Tap target to reveal the hidden developer tab. */
+.settings-version {
+  align-self: flex-start;
+  margin-top: 0.4rem;
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: 0.9rem;
+  color: var(--ink-faint);
+  user-select: none;
+}
+
 .avatar-meta {
   display: grid;
   gap: 0.15rem;

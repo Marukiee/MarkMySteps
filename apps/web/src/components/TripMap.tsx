@@ -419,6 +419,12 @@ export function TripMap({
     const map = mapRef.current;
     if (!map) return;
 
+    // Clear old stop markers immediately (not only inside the deferred `apply`),
+    // so a stop deleted in the planner always drops its flag/emoji at once, even
+    // if the style isn't ready this tick.
+    for (const marker of stopMarkersRef.current) marker.remove();
+    stopMarkersRef.current = [];
+
     const apply = () => {
       for (const marker of stopMarkersRef.current) marker.remove();
       stopMarkersRef.current = [];
