@@ -211,8 +211,19 @@
   animation: personMenuIn 0.16s var(--ease);
 }
 
+.person-select-menu.closing {
+  animation: personMenuOut 0.15s var(--ease) forwards;
+}
+
 @keyframes personMenuIn {
   from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+@keyframes personMenuOut {
+  to {
     opacity: 0;
     transform: translateY(8px) scale(0.96);
   }
@@ -239,8 +250,19 @@
   max-width: none;
 }
 
-.person-select-menu svg {
+/* Check mark stays mounted so it animates BOTH ways: pops in on select, shrinks
+   out on deselect (an unmounted icon can't animate its exit). */
+.person-check {
+  display: inline-flex;
   color: var(--accent);
+  opacity: 0;
+  transform: scale(0.2);
+  transition: transform 0.28s var(--ease), opacity 0.2s var(--ease);
+}
+
+.person-check.on {
+  opacity: 1;
+  transform: scale(1);
   animation: checkPop 0.28s var(--ease);
 }
 

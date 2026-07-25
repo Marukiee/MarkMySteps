@@ -42,6 +42,7 @@ export function TripDetailPage() {
   const [liveTracking, setLiveTracking] = useState(false);
   const [liveFixes, setLiveFixes] = useState<LiveFix[]>([]);
   const [personMenuOpen, setPersonMenuOpen] = useState(false);
+  const [personMenuClosing, setPersonMenuClosing] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
@@ -285,6 +286,19 @@ export function TripDetailPage() {
     [media, visibleUsers],
   );
 
+  // Animate the person dropdown out before it unmounts (mirrors the open pop).
+  const togglePersonMenu = () => {
+    if (personMenuOpen) {
+      setPersonMenuClosing(true);
+      window.setTimeout(() => {
+        setPersonMenuOpen(false);
+        setPersonMenuClosing(false);
+      }, 150);
+    } else {
+      setPersonMenuOpen(true);
+    }
+  };
+
   // Keep the timeline in sync with the open photo: switch to the Tijdlijn tab
   // and scroll the matching thumbnail into view.
   const openPhoto = useCallback(
@@ -363,6 +377,7 @@ export function TripDetailPage() {
           currentLocation={currentLoc}
           liveFixes={liveFixes}
           selfUserId={user?.id}
+          tripStarted={!!trip && trip.startDate.slice(0, 10) <= new Date().toISOString().slice(0, 10)}
           onReady={(api) => (mapApiRef.current = api)}
         />
 
@@ -381,7 +396,7 @@ export function TripDetailPage() {
         {trip && trip.members.length > 1 && (
           <div className="person-select">
             {personMenuOpen && (
-              <div className="person-select-menu card">
+              <div className={`person-select-menu card ${personMenuClosing ? 'closing' : ''}`}>
                 {trip.members.map((member) => {
                   const active = visibleUsers.has(member.userId);
                   return (
@@ -398,7 +413,9 @@ export function TripDetailPage() {
                         {member.user.displayName}
                         {member.userId === user?.id && ' (ik)'}
                       </span>
-                      {active && <Icon name="check" size={15} />}
+                      <span className={`person-check ${active ? 'on' : ''}`}>
+                        <Icon name="check" size={15} />
+                      </span>
                     </button>
                   );
                 })}
@@ -406,7 +423,7 @@ export function TripDetailPage() {
             )}
             <button
               className="person-select-btn"
-              onClick={() => setPersonMenuOpen((o) => !o)}
+              onClick={togglePersonMenu}
               aria-expanded={personMenuOpen}
             >
               <span
@@ -420,7 +437,7 @@ export function TripDetailPage() {
               <Icon
                 name="chevron-down"
                 size={14}
-                className={`person-select-caret ${personMenuOpen ? 'open' : ''}`}
+                className={`person-select-caret ${personMenuOpen && !personMenuClosing ? 'open' : ''}`}
               />
             </button>
           </div>

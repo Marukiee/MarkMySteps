@@ -40,6 +40,9 @@ interface TripMapProps {
   liveFixes?: LiveFix[];
   /** The current user's id (their own live dot is the pulsing "me" marker). */
   selfUserId?: string;
+  /** True once the trip has started (ongoing or finished): the planned dashed
+   *  ground route is then hidden — the real (photo/GPS) route tells the story. */
+  tripStarted?: boolean;
   /** Exposes an imperative focus API once the map is ready. */
   onReady?: (api: TripMapApi) => void;
 }
@@ -68,6 +71,7 @@ export function TripMap({
   hidePhotos,
   liveFixes,
   selfUserId,
+  tripStarted,
   onReady,
 }: TripMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -99,6 +103,10 @@ export function TripMap({
   const hasTracked = !!routes?.features.some((f) => f.geometry.coordinates.length >= 2);
   const hasTrackedRef = useRef(hasTracked);
   hasTrackedRef.current = hasTracked;
+  // Once a trip is underway (or over), the planned dashed ground route is no
+  // longer "the plan" — hide it so only the real route (photos/GPS) shows.
+  const tripStartedRef = useRef(tripStarted);
+  tripStartedRef.current = tripStarted;
 
   // Init once.
   useEffect(() => {
@@ -446,7 +454,7 @@ export function TripMap({
         // Hide only the planned GROUND legs once a route is tracked (they'd
         // double up the real line). Flight arcs always show — they're never in
         // the tracked ground line.
-        if (!leg.isFlight && hasTrackedRef.current) continue;
+        if (!leg.isFlight && (hasTrackedRef.current || tripStartedRef.current)) continue;
         if (leg.isFlight) {
           const c = (leg.feature.geometry as GeoJSON.LineString).coordinates as [number, number][];
           const a = c[0]!;
@@ -475,7 +483,7 @@ export function TripMap({
 
     if (map.isStyleLoaded()) apply();
     else map.once('load', apply);
-  }, [stops, hasTracked, themeVersion]);
+  }, [stops, hasTracked, tripStarted, themeVersion]);
 
   // Live "you are here" dot.
   useEffect(() => {
