@@ -1,0 +1,59 @@
+.update-banner {
+  position: sticky;
+  top: env(safe-area-inset-top);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-m);
+  animation: fadeIn 0.3s var(--ease);
+}
+
+.update-banner-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+.update-banner-text .muted {
+  color: rgb(255 255 255 / 0.8);
+}
+
+.update-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.update-banner-dl {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.2);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.update-banner-dl:hover {
+  background: rgb(255 255 255 / 0.3);
+}
+
+.update-banner-close {
+  display: grid;
+  place-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #fff;
+}
+
+.update-banner-close:hover {
+  background: rgb(255 255 255 / 0.2);
+}
