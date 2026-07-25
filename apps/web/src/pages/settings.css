@@ -172,6 +172,64 @@
   border-radius: 50%;
 }
 
+/* Photo options popover (view / choose / crop / remove). */
+.avatar-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  min-width: 210px;
+  padding: 0.3rem;
+  display: grid;
+  gap: 1px;
+  text-align: left;
+  transform-origin: top left;
+  animation: avatarMenuIn 0.15s var(--ease);
+}
+
+@keyframes avatarMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+.avatar-menu button {
+  padding: 0.6rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 550;
+  color: var(--ink);
+  text-align: left;
+}
+
+.avatar-menu button:hover {
+  background: var(--paper-sunken);
+}
+
+.avatar-menu-danger {
+  color: #b3402a;
+}
+
+/* Fullscreen view of the current avatar. */
+.avatar-view-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: rgb(10 12 16 / 0.85);
+  animation: fadeIn 0.2s var(--ease);
+}
+
+.avatar-view-backdrop img {
+  max-width: min(90vw, 460px);
+  max-height: 80vh;
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-l, 0 20px 60px rgb(0 0 0 / 0.4));
+}
+
 .avatar-edit-badge {
   position: absolute;
   right: -2px;

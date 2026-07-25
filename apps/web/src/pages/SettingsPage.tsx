@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { resetOnboarding } from '../lib/native';
-import { api, ApiError } from '../api/client';
+import { api, ApiError, fetchBlobUrl } from '../api/client';
+import { AvatarCrop } from '../components/AvatarCrop';
 import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -443,22 +444,6 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
 }
 
 /** Client-side resize to keep stored avatars tiny. */
-async function resizeImage(file: File, maxSize = 256): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve, reject) =>
-    canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('resize failed'))),
-      'image/jpeg',
-      0.85,
-    ),
-  );
-}
-
 function ProfileSection() {
   const { user, logout, refresh } = useAuth();
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
@@ -497,12 +482,24 @@ function ProfileSection() {
     }
   }
 
-  async function uploadAvatar(file: File) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [photoMenu, setPhotoMenu] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [viewSrc, setViewSrc] = useState<string | null>(null);
+
+  // Close the photo menu on any outside click.
+  useEffect(() => {
+    if (!photoMenu) return;
+    const close = () => setPhotoMenu(false);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [photoMenu]);
+
+  async function uploadBlob(blob: Blob) {
     setError(null);
     try {
-      const resized = await resizeImage(file);
       const formData = new FormData();
-      formData.append('file', resized, 'avatar.jpg');
+      formData.append('file', blob, 'avatar.jpg');
       await api('/users/me/avatar', { method: 'POST', formData });
       await refresh(); // ensure hasAvatar is set
       if (user) bumpAvatar(user.id); // reload the image everywhere, now
@@ -512,12 +509,37 @@ function ProfileSection() {
     }
   }
 
+  // Load the current avatar (authorized) into an object URL for view/crop.
+  async function currentAvatarUrl(): Promise<string | null> {
+    if (!user) return null;
+    try {
+      return await fetchBlobUrl(`/users/${user.id}/avatar?v=${Date.now()}`);
+    } catch {
+      return null;
+    }
+  }
+
+  async function removeAvatar() {
+    await api('/users/me/avatar', { method: 'DELETE' });
+    await refresh();
+    if (user) bumpAvatar(user.id);
+    setMessage('Profielfoto verwijderd.');
+  }
+
   return (
     <section className="card settings-card">
       <h2>Profiel</h2>
 
       <div className="avatar-row">
-        <label className="avatar-edit" title="Profielfoto wijzigen">
+        <button
+          type="button"
+          className="avatar-edit"
+          title="Profielfoto"
+          onClick={(e) => {
+            e.stopPropagation();
+            setPhotoMenu((v) => !v);
+          }}
+        >
           {user && (
             <Avatar
               userId={user.id}
@@ -529,33 +551,87 @@ function ProfileSection() {
           <span className="avatar-edit-badge">
             <Icon name="camera" size={15} />
           </span>
-          <input
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void uploadAvatar(file);
-            }}
-          />
-        </label>
+          {photoMenu && (
+            <div className="avatar-menu card" onClick={(e) => e.stopPropagation()}>
+              {user?.hasAvatar && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setPhotoMenu(false);
+                    setViewSrc(await currentAvatarUrl());
+                  }}
+                >
+                  Profielfoto bekijken
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setPhotoMenu(false);
+                  fileRef.current?.click();
+                }}
+              >
+                Andere profielfoto kiezen
+              </button>
+              {user?.hasAvatar && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setPhotoMenu(false);
+                    const url = await currentAvatarUrl();
+                    if (url) setCropSrc(url);
+                  }}
+                >
+                  Profielfoto bijsnijden
+                </button>
+              )}
+              {user?.hasAvatar && (
+                <button
+                  type="button"
+                  className="avatar-menu-danger"
+                  onClick={() => {
+                    setPhotoMenu(false);
+                    void removeAvatar();
+                  }}
+                >
+                  Profielfoto verwijderen
+                </button>
+              )}
+            </div>
+          )}
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) setCropSrc(URL.createObjectURL(file));
+            e.target.value = '';
+          }}
+        />
         <div className="avatar-meta">
           <strong>{user?.displayName}</strong>
-          <span className="muted">Tik op de foto om te wijzigen</span>
-          {user?.hasAvatar && (
-            <button
-              className="avatar-remove"
-              onClick={() =>
-                void api('/users/me/avatar', { method: 'DELETE' }).then(() =>
-                  setMessage('Profielfoto verwijderd — zichtbaar na opnieuw laden.'),
-                )
-              }
-            >
-              Verwijderen
-            </button>
-          )}
+          <span className="muted">Tik op de foto voor opties</span>
         </div>
       </div>
+
+      {cropSrc && (
+        <AvatarCrop
+          source={cropSrc}
+          onCancel={() => setCropSrc(null)}
+          onCropped={(blob) => {
+            setCropSrc(null);
+            void uploadBlob(blob);
+          }}
+        />
+      )}
+      {viewSrc && (
+        <div className="avatar-view-backdrop" onClick={() => setViewSrc(null)}>
+          <img src={viewSrc} alt="Profielfoto" />
+        </div>
+      )}
 
       <form onSubmit={saveName} className="settings-form">
         <div className="field">
