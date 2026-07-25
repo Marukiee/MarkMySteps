@@ -331,17 +331,23 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
       for (const trip of frontFacing) {
         const col = legibleColor(trip.color, dark);
         const isCity = tripSpread(trip) < 2.5; // stays around one place
-        addEndpoint(trip.anchor, col, trip.upcoming, isCity, trip.id);
-        // Route end — only a distinct marker when it's clearly elsewhere (a loop
-        // trip with ~the same start/end stays one dot).
+        // Dots sit on the route's REAL start and end (not the framing anchor, or
+        // they'd float mid-route). Falls back to the anchor for a city trip.
+        const start = trip.path?.[0]?.[0] ?? trip.anchor;
         const lastSeg = trip.path?.[trip.path.length - 1];
         const end = lastSeg?.[lastSeg.length - 1];
-        if (end && distance(trip.anchor, end) > 2.5) {
+        addEndpoint(start, col, trip.upcoming, isCity, trip.id);
+        // Route end — only a distinct marker when it's clearly elsewhere (a loop
+        // trip with ~the same start/end stays one dot).
+        if (end && distance(start, end) > 2.5) {
           addEndpoint(end, col, trip.upcoming, isCity, trip.id);
         }
       }
 
-      const drawRingDot = (
+      // One clean dot style for every endpoint. A finished trip is a solid dot;
+      // an upcoming trip is a hollow dot (ring only), so you can tell them apart
+      // without the old bulky halo.
+      const drawSmallDot = (
         x: number,
         y: number,
         col: [number, number, number],
@@ -349,35 +355,20 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
       ) => {
         const [r, g, b] = col;
         ctx!.beginPath();
-        ctx!.arc(x, y, 9 * dpr, 0, 2 * Math.PI);
-        ctx!.strokeStyle = `rgba(${r},${g},${b},0.4)`;
-        ctx!.lineWidth = 1.5 * dpr;
-        ctx!.stroke();
-        ctx!.beginPath();
-        ctx!.arc(x, y, 5 * dpr, 0, 2 * Math.PI);
-        ctx!.fillStyle = `rgb(${r},${g},${b})`;
-        ctx!.fill();
+        ctx!.arc(x, y, 4.5 * dpr, 0, 2 * Math.PI);
         if (upcoming) {
-          ctx!.beginPath();
-          ctx!.arc(x, y, 12 * dpr, 0, 2 * Math.PI);
-          ctx!.strokeStyle = `rgba(${r},${g},${b},0.3)`;
-          ctx!.setLineDash([2 * dpr, 2 * dpr]);
-          ctx!.lineWidth = 1.2 * dpr;
+          ctx!.fillStyle = dark ? 'rgba(20,25,32,0.85)' : 'rgba(255,255,255,0.95)';
+          ctx!.fill();
+          ctx!.lineWidth = 1.8 * dpr;
+          ctx!.strokeStyle = `rgb(${r},${g},${b})`;
           ctx!.stroke();
-          ctx!.setLineDash([]);
+        } else {
+          ctx!.fillStyle = `rgb(${r},${g},${b})`;
+          ctx!.fill();
+          ctx!.lineWidth = 1.2 * dpr;
+          ctx!.strokeStyle = dark ? 'rgba(20,25,32,0.7)' : 'rgba(255,255,255,0.85)';
+          ctx!.stroke();
         }
-      };
-
-      // Small plain dot (no ring) for a longer trip's endpoints.
-      const drawSmallDot = (x: number, y: number, col: [number, number, number]) => {
-        const [r, g, b] = col;
-        ctx!.beginPath();
-        ctx!.arc(x, y, 4 * dpr, 0, 2 * Math.PI);
-        ctx!.fillStyle = `rgb(${r},${g},${b})`;
-        ctx!.fill();
-        ctx!.lineWidth = 1.2 * dpr;
-        ctx!.strokeStyle = dark ? 'rgba(20,25,32,0.7)' : 'rgba(255,255,255,0.85)';
-        ctx!.stroke();
       };
 
       // A place visited more than once: one solid disc big enough to hold the
@@ -413,8 +404,7 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
         const [x, y] = projected;
         const n = pl.trips.size;
         if (n > 1) drawCountDot(x, y, pl.col, n);
-        else if (pl.city) drawRingDot(x, y, pl.col, pl.upcoming);
-        else drawSmallDot(x, y, pl.col);
+        else drawSmallDot(x, y, pl.col, pl.upcoming);
       }
 
       // --- Labels: only a few, biggest first; more as you zoom in. Each fades

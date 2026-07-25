@@ -237,9 +237,10 @@
   transform: translateX(-50%);
   pointer-events: none;
   overflow: hidden;
-  /* Fades on all sides, and extra at the bottom so it melts into the text. */
-  -webkit-mask-image: radial-gradient(ellipse 82% 66% at 50% 40%, #000 55%, transparent 100%);
-  mask-image: radial-gradient(ellipse 82% 66% at 50% 40%, #000 55%, transparent 100%);
+  /* Fade hard on every side so the sphere's circular edge never shows as a rim;
+     the transparent stop lands well inside the box so it fully dissolves. */
+  -webkit-mask-image: radial-gradient(ellipse 84% 60% at 50% 46%, #000 38%, transparent 74%);
+  mask-image: radial-gradient(ellipse 84% 60% at 50% 46%, #000 38%, transparent 74%);
 }
 
 .onb-globe .globe-backdrop {

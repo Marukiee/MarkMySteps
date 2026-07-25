@@ -9,59 +9,70 @@ import { isNativeApp, markOnboarded } from '../lib/native';
 import { getThemeId, setThemeId, ThemeId } from '../lib/prefs';
 import './onboarding.css';
 
-// Example European trips for the globe demo (no navigation, no flights — clean
-// ground routes so nothing weird crosses the globe).
+// Example European trips for the globe demo. A few realistic multi-city routes
+// plus a city trip and one flight, so the onboarding globe shows exactly what a
+// filled-in account looks like (dots at the real start/end, a flight bow).
 const SAMPLE_TRIPS = [
   {
-    id: 's-it',
-    title: 'Italië',
-    anchor: [11.5, 44],
+    id: 's-scan',
+    title: 'Scandinavië',
+    anchor: [11.97, 57.71],
     routePath: [
       [
-        [12.5, 41.9], // Rome
-        [11.25, 43.77], // Florence
-        [11.34, 44.49], // Bologna
-        [12.33, 45.44], // Venice
+        [11.97, 57.71], // Gothenburg
+        [10.75, 59.91], // Oslo
+        [10.4, 63.43], // Trondheim
+        [18.96, 69.65], // Tromsø
       ],
     ],
-    distanceKm: 620,
-    startDate: '2025-05-05',
-    endDate: '2025-05-16',
-    color: '#e0993a',
+    distanceKm: 1900,
+    startDate: '2025-06-04',
+    endDate: '2025-06-18',
+    color: '#5a6ee1',
   },
   {
     id: 's-es',
     title: 'Spanje',
-    anchor: [-2, 40],
+    anchor: [2.17, 41.4],
     routePath: [
       [
         [2.17, 41.4], // Barcelona
-        [-0.38, 39.47], // Valencia
         [-3.7, 40.4], // Madrid
-        [-5.98, 37.39], // Sevilla
+        [-4.42, 36.72], // Málaga
       ],
     ],
-    distanceKm: 1100,
+    distanceKm: 1000,
     startDate: '2024-09-01',
-    endDate: '2024-09-14',
+    endDate: '2024-09-12',
+    color: '#e0993a',
+  },
+  {
+    id: 's-balkan',
+    title: 'Balkan',
+    anchor: [23.73, 37.98],
+    routePath: [
+      [
+        [23.73, 37.98], // Athens
+        [22.94, 40.64], // Thessaloniki
+        [23.32, 42.7], // Sofia
+      ],
+    ],
+    // Flew into Athens from Amsterdam — draws a flight bow on the globe.
+    flightPath: [[[4.9, 52.37], [23.73, 37.98]]],
+    distanceKm: 750,
+    startDate: '2025-04-10',
+    endDate: '2025-04-20',
     color: '#4ca05c',
   },
   {
-    id: 's-no',
-    title: 'Noorwegen',
-    anchor: [8, 60.5],
-    routePath: [
-      [
-        [10.75, 59.91], // Oslo
-        [7.99, 58.15], // Kristiansand
-        [5.73, 58.97], // Stavanger
-        [5.32, 60.39], // Bergen
-      ],
-    ],
-    distanceKm: 900,
-    startDate: '2025-07-10',
-    endDate: '2025-07-22',
-    color: '#5a6ee1',
+    id: 's-krk',
+    title: 'Krakau',
+    anchor: [19.94, 50.06],
+    routePath: null,
+    distanceKm: 0,
+    startDate: '2024-11-15',
+    endDate: '2024-11-18',
+    color: '#c65d8a',
   },
 ] as unknown as Trip[];
 
