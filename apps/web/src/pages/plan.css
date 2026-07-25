@@ -152,6 +152,23 @@
   font-weight: 500;
 }
 
+/* Nothing in the planner may push the column wider than it is — a single long
+   place name or "1.234 km · 14u 20m" used to make the whole page scroll
+   sideways. */
+.trip-planner {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.stop-list,
+.stop-row,
+.leg-connector,
+.flight-leg {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .stop-list {
   list-style: none;
   margin: 0;
@@ -666,8 +683,10 @@
 
 /* Centred in the gap between the location pill and the vehicle menu, rather
    than shoved up against the vehicle menu. */
+/* flex-basis 0, NOT auto: with auto the box grows to fit the full "km · duur"
+   string, so it always "fitted" and never switched to alternating. */
 .flight-leg-head > .leg-alt-metric {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   text-align: center;
 }
@@ -742,7 +761,8 @@
 }
 
 .leg-connector-row > .leg-alt-metric {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 /* Origin/destination picker on a standalone heen-/terugreis leg. */

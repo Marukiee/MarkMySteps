@@ -20,10 +20,12 @@ import {
   clearTripCardOverrides,
   getMapStyleId,
   getThemeId,
+  getShowSelfOnHome,
   getTrackingIntervalMin,
   getTripCardSize,
   hasTripCardOverrides,
   setMapStyleId,
+  setShowSelfOnHome,
   setThemeId,
   setTrackingIntervalMin,
   setTripCardSize,
@@ -219,20 +221,50 @@ function PreferencesSection() {
   return (
     <>
       <section className="card settings-card">
-        <h2>Voorkeuren</h2>
-        <div className="field">
-          <label>
-            Standaard vliegvelden
-            <HelpTip>
-              Je thuis-vliegvelden. Het eerste is je standaard vertrek en wordt automatisch ingevuld
-              bij een nieuwe vlucht. Voeg er zoveel toe als je wilt.
-            </HelpTip>
-          </label>
-          <AirportPrefs />
-        </div>
+        <h2>
+          Standaard vliegvelden
+          <HelpTip>
+            Voeg er zoveel toe als je wilt. Tik een vliegveld aan om het je standaard te maken —
+            dat is degene die vooraf ingevuld wordt als vertrek bij een nieuwe vlucht.
+          </HelpTip>
+        </h2>
+        <p className="muted">Je thuis-vliegvelden, voor het invullen van vluchten.</p>
+        <AirportPrefs />
       </section>
+      {isNative() && <SelfLocationSection />}
       {isNative() && <TrackingSection />}
     </>
+  );
+}
+
+/** Where your own live position may be drawn. */
+function SelfLocationSection() {
+  const [onHome, setOnHome] = useState(getShowSelfOnHome());
+  return (
+    <section className="card settings-card">
+      <h2>
+        Eigen locatie
+        <HelpTip>
+          Je positie komt van de route-tracking, dus je ziet jezelf alleen terwijl je een reis aan
+          het tracken bent. De app vraagt nooit apart je locatie op.
+        </HelpTip>
+      </h2>
+      <p className="muted">Op de kaart van een reis zie je jezelf altijd tijdens het tracken.</p>
+      <label className="settings-toggle">
+        <div>
+          <strong>Ook op de homepage</strong>
+          <span className="muted">Zet je positie ook als stip op de globe.</span>
+        </div>
+        <input
+          type="checkbox"
+          checked={onHome}
+          onChange={(e) => {
+            setOnHome(e.target.checked);
+            setShowSelfOnHome(e.target.checked);
+          }}
+        />
+      </label>
+    </section>
   );
 }
 
@@ -251,7 +283,7 @@ function TrackingSection() {
   const [interval, setIntervalMin] = useState(getTrackingIntervalMin());
   // This is the provider's minTime, so a bigger value directly means fewer GPS
   // wake-ups. Four presets plus a free field, rather than a long row of chips.
-  const INTERVALS = [1, 5, 15, 30];
+  const INTERVALS = [1, 5, 10, 15];
   const [customOpen, setCustomOpen] = useState(!INTERVALS.includes(interval));
   const [customValue, setCustomValue] = useState(String(interval));
 
@@ -320,7 +352,7 @@ function TrackingSection() {
           </button>
         </div>
         {customOpen && (
-          <div className="interval-custom">
+          <div className="interval-custom fade-slide-in">
             <input
               type="number"
               min={1}
@@ -343,7 +375,6 @@ function TrackingSection() {
 
       {tracker.tripId ? (
         <div className="tracking-status">
-          <span className="settings-ok">● Actief: {activeTrip?.title ?? 'reis'}</span>
           <button className="btn btn-danger" onClick={() => void stopTracking()}>
             <Icon name="stop" size={15} /> Stop tracking
           </button>
@@ -352,6 +383,7 @@ function TrackingSection() {
           {/* The technical live-status bits are tucked behind an expander. */}
           <Collapsible summary="Details" className="tracking-advanced">
             <div className="tracking-advanced-body">
+              <span className="settings-ok">● Actief: {activeTrip?.title ?? 'reis'}</span>
               <div className="tracking-live">
                 {tracker.lastFix ? (
                   <>
@@ -435,6 +467,12 @@ function TrackingLog({ now }: { now: number }) {
               <span>
                 {new Date(e.at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
                 {ago < 3600 ? ` · ${Math.max(0, Math.round(ago / 60))}m geleden` : ''}
+                {/* Whether this fix was stored, and how far it had moved — so a
+                    working GPS is visible even when nothing is being saved. */}
+                <em className={e.kept === false ? 'fix-skipped' : 'fix-kept'}>
+                  {e.kept === false ? 'overgeslagen' : 'opgeslagen'}
+                  {e.movedM !== undefined ? ` · ${e.movedM} m` : ''}
+                </em>
               </span>
               <span className="muted">
                 {e.lat.toFixed(4)}, {e.lng.toFixed(4)}

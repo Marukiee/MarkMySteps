@@ -10,7 +10,13 @@ import { DateField } from '../components/DatePicker';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon } from '../components/Icon';
 import { formatDate } from '../lib/colors';
-import { getTripCardOverride, isTripCompact, setTripCardOverride } from '../lib/prefs';
+import {
+  getShowSelfOnHome,
+  getTripCardOverride,
+  isTripCompact,
+  setTripCardOverride,
+} from '../lib/prefs';
+import { onTrackerChange } from '../tracking/tracker';
 import './trips.css';
 
 export function TripsPage() {
@@ -19,6 +25,16 @@ export function TripsPage() {
   const [error, setError] = useState<string | null>(null);
   // Bumped when a card switches size; the layout is read back from localStorage.
   const [, setSizeTick] = useState(0);
+  // Own position on the globe — opt-in, and only ever from the tracker (the page
+  // never asks the browser for a location).
+  const [self, setSelf] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    if (!getShowSelfOnHome()) return;
+    return onTrackerChange((s) => {
+      setSelf(s.lastFix ? [s.lastFix.lng, s.lastFix.lat] : null);
+    });
+  }, []);
 
   /** Switch one card between large and compact. */
   function applySize(id: string, value: 'large' | 'compact' | null) {
@@ -47,7 +63,7 @@ export function TripsPage() {
 
   return (
     <main className="page fade-in">
-      <GlobeBackdrop trips={trips ?? []} />
+      <GlobeBackdrop trips={trips ?? []} selfLocation={self} />
 
       <div className="trips-head">
         <h1>Reizen</h1>

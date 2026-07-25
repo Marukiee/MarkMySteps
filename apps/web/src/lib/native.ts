@@ -1,5 +1,5 @@
 import { App } from '@capacitor/app';
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 import { Style, StatusBar } from '@capacitor/status-bar';
 import { DEFAULT_SERVER_URL } from '../config';
 
@@ -35,93 +35,24 @@ function syncStatusBarTheme(): void {
   void StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light });
 }
 
-interface PredictiveBackPlugin {
-  setEnabled(options: { enabled: boolean }): Promise<void>;
-  addListener(
-    event: 'backStarted' | 'backProgressed',
-    cb: (data: { progress: number; edge: 'left' | 'right' }) => void,
-  ): Promise<{ remove: () => void }>;
-  addListener(event: 'backCancelled' | 'backInvoked', cb: () => void): Promise<{ remove: () => void }>;
-}
-
-const PredictiveBack = registerPlugin<PredictiveBackPlugin>('PredictiveBack');
-
-/** True once the native predictive-back plugin has taken over the back gesture. */
-let predictiveReady = false;
-
 /**
- * Android Predictive Back Gesture.
+ * Android back gesture: navigate back in history, exit the app at the root.
  *
- * While you drag from the edge the whole app shrinks and slides toward that
- * edge, revealing the page background behind it — so you see where you're going
- * before you commit. Letting go snaps back (cancel) or navigates (commit, where
- * the destination grows into place).
- *
- * On API < 34 the system only reports the commit, which still navigates — just
- * without the live preview.
+ * A predictive-back version of this (the page shrinking under your finger) was
+ * tried and removed: transforming the app makes every `position: fixed` element
+ * — the tab bar in particular — scale along with it, which reads as the bar
+ * jumping. Doing it properly needs the previous page rendered underneath, i.e. a
+ * layered router, so plain navigation it is.
  */
 export function initBackButton(): void {
   if (!isNativeApp()) return;
-
-  const root = document.getElementById('root');
-
-  const goBack = () => {
-    if (window.location.pathname !== '/') window.history.back();
-    else void App.exitApp();
-  };
-
-  const setProgress = (p: number) => root?.style.setProperty('--back-progress', String(p));
-  const settle = (done?: () => void) => {
-    root?.classList.add('back-swipe-settling');
-    setProgress(0);
-    window.setTimeout(() => {
-      root?.classList.remove('back-swipe', 'back-swipe-settling');
-      root?.style.removeProperty('--back-progress');
-      document.documentElement.classList.remove('back-swipe-bg');
-      done?.();
-    }, 260);
-  };
-
-  void PredictiveBack.addListener('backStarted', ({ progress, edge }) => {
-    predictiveReady = true;
-    if (!root) return;
-    root.classList.remove('back-swipe-settling');
-    root.classList.add('back-swipe');
-    document.documentElement.classList.add('back-swipe-bg');
-    root.dataset.backEdge = edge;
-    setProgress(progress);
-  }).catch(() => undefined);
-
-  void PredictiveBack.addListener('backProgressed', ({ progress }) =>
-    setProgress(progress),
-  ).catch(() => undefined);
-  void PredictiveBack.addListener('backCancelled', () => settle()).catch(() => undefined);
-  void PredictiveBack.addListener('backInvoked', () => {
-    predictiveReady = true;
-    // Navigate FIRST, then ease back to full size: the destination grows into
-    // place instead of the old page popping out.
-    goBack();
-    settle();
-  }).catch(() => undefined);
-
-  // Fallback via Capacitor's own back event. `predictiveReady` only flips once
-  // a REAL event from our callback has arrived — registering a listener isn't
-  // proof that the native callback ended up on top of the dispatcher, and
-  // trusting that once left back doing nothing at all. Exactly one of the two
-  // paths ever fires, so this cannot double-navigate.
-  void App.addListener('backButton', () => {
-    if (predictiveReady) return;
-    goBack();
+  void App.addListener('backButton', ({ canGoBack }) => {
+    if (canGoBack && window.location.pathname !== '/') {
+      window.history.back();
+    } else {
+      void App.exitApp();
+    }
   });
-}
-
-/**
- * At the root there is nothing to go back to — hand the gesture to the system so
- * it plays its own "close the app" animation instead of ours.
- */
-export function setBackGestureEnabled(enabled: boolean): void {
-  if (!isNativeApp()) return;
-  void PredictiveBack.setEnabled({ enabled }).catch(() => undefined);
 }
 
 /**

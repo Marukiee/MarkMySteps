@@ -277,6 +277,21 @@
 }
 
 /* Free-entry interval next to the presets. */
+.fade-slide-in {
+  animation: fadeSlideIn 0.26s var(--ease);
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .interval-custom {
   display: inline-flex;
   align-items: center;
@@ -692,7 +707,9 @@
 .immich-status,
 .tracking-view-link,
 .import-result {
-  animation: settingsAsyncIn 0.4s var(--ease);
+  /* Delayed past the section's own fade — running at the same time made these
+     look like they had simply always been there. */
+  animation: settingsAsyncIn 0.42s var(--ease) 0.12s backwards;
 }
 
 @keyframes settingsAsyncIn {
@@ -719,4 +736,52 @@
   display: grid;
   gap: 0.6rem;
   padding-top: 0.5rem;
+}
+
+/* Toggle row inside a settings card (same shape as the trip-settings one). */
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.05rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  cursor: pointer;
+}
+
+.settings-toggle > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.settings-toggle span {
+  font-size: 0.82rem;
+}
+
+.settings-toggle input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Per-fix outcome in the location log. */
+.tracking-log li em {
+  font-style: normal;
+  font-weight: 600;
+  font-size: 0.72rem;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+}
+
+.tracking-log li em.fix-kept {
+  background: rgb(42 143 133 / 0.15);
+  color: var(--teal);
+}
+
+.tracking-log li em.fix-skipped {
+  background: var(--paper-sunken);
+  color: var(--ink-faint);
 }

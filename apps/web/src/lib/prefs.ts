@@ -91,6 +91,18 @@ export function setTrackingIntervalMin(min: number): void {
   localStorage.setItem(TRACK_INTERVAL_KEY, String(min));
 }
 
+const SELF_ON_HOME_KEY = 'mms.selfOnHome';
+
+/** Show your own live position on the homepage globe as well as on a trip map. */
+export function getShowSelfOnHome(): boolean {
+  return localStorage.getItem(SELF_ON_HOME_KEY) === '1';
+}
+
+export function setShowSelfOnHome(on: boolean): void {
+  if (on) localStorage.setItem(SELF_ON_HOME_KEY, '1');
+  else localStorage.removeItem(SELF_ON_HOME_KEY);
+}
+
 /* ---------- Default departure airports ---------- */
 
 const AIRPORTS_KEY = 'mms.airports';

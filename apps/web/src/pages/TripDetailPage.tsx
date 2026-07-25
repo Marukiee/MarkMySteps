@@ -121,28 +121,16 @@ export function TripDetailPage() {
     };
   }, [trip]);
 
-  // Live "you are here" dot. Prefer the tracker's fixes (its background plugin
-  // already holds the location permission and is recording); also try the web
-  // geolocation as a fallback when not actively tracking.
+  // Live "you are here" dot, sourced ONLY from the tracker. The browser's
+  // geolocation was previously used as a fallback, which made the website ask
+  // for location permission on every trip page — it now never does.
   useEffect(() => {
-    const off = onTrackerChange((s) => {
-      if (s.lastFix && (s.tripId === tripId || !tripId)) {
+    return onTrackerChange((s) => {
+      if (s.lastFix && s.tripId === tripId) {
         setCurrentLoc({ lat: s.lastFix.lat, lng: s.lastFix.lng });
       }
       setLiveTracking(s.tripId === tripId && !!tripId);
     });
-    let watchId: number | null = null;
-    if ('geolocation' in navigator) {
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => setCurrentLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => undefined,
-        { enableHighAccuracy: true, maximumAge: 15_000 },
-      );
-    }
-    return () => {
-      off();
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-    };
   }, [tripId]);
 
   // Live "who's where": poll each traveller's latest fix (Snap-map style).
@@ -405,7 +393,9 @@ export function TripDetailPage() {
           onPhotoFocus={scrollTimelineTo}
           clickMode={addPointMode}
           styleUrl={getMapStyle()}
-          currentLocation={tripActive ? currentLoc : null}
+          // Shown whenever this trip is the one being tracked, so you can see
+          // yourself move on its map.
+          currentLocation={liveTracking || tripActive ? currentLoc : null}
           liveFixes={liveFixes}
           selfUserId={user?.id}
           tripStarted={!!trip && trip.startDate.slice(0, 10) <= new Date().toISOString().slice(0, 10)}
@@ -420,7 +410,13 @@ export function TripDetailPage() {
           >
             <span className="live-badge-dot" />
             Live
-            <Icon name="pin" size={13} className="live-badge-go" />
+            {/* Green pin once a real fix has come in — grey while we're still
+                waiting for the first one. */}
+            <Icon
+              name="pin"
+              size={13}
+              className={`live-badge-go ${currentLoc ? 'has-fix' : ''}`}
+            />
           </button>
         )}
 
@@ -503,58 +499,49 @@ export function TripDetailPage() {
 
       <aside className="trip-side">
         <div className="sheet-grab" aria-hidden="true" />
-        {trip?.resolvedCoverId ? (
-          <div className="trip-hero">
+        {/* One header block: cover photo, title, dates and the trip's numbers —
+            rather than a photo followed by a row of separate stat boxes. */}
+        <div className={`trip-headcard ${trip?.resolvedCoverId ? 'has-cover' : ''}`}>
+          {trip?.resolvedCoverId && (
             <AuthImage
               path={`/media/${trip.resolvedCoverId}/thumbnail`}
               alt=""
               className="trip-hero-img"
             />
-            <div className="trip-hero-overlay">
-              <h1>{trip.title}</h1>
-              <p>
-                {formatDate(trip.startDate)} – {formatDate(trip.endDate)}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <>
+          )}
+          <div className="trip-headcard-body">
             <h1>{trip?.title ?? '…'}</h1>
             {trip && (
-              <p className="muted">
+              <p className="trip-headcard-dates">
                 {formatDate(trip.startDate)} – {formatDate(trip.endDate)}
               </p>
             )}
-          </>
-        )}
-        {trip?.description && <p>{trip.description}</p>}
-
-        {stats && (
-          <div className="trip-stats">
-            {stats.distanceKm > 0 && (
-              <div className="stat">
-                <strong>{stats.distanceKm.toLocaleString('nl-NL')}</strong>
-                <span>km</span>
-              </div>
-            )}
-            <div className="stat">
-              <strong>{stats.days}</strong>
-              <span>dagen</span>
-            </div>
-            {stats.countries.length > 1 && (
-              <div className="stat">
-                <strong>{stats.countries.length}</strong>
-                <span>landen</span>
-              </div>
-            )}
-            {stats.photoCount > 0 && (
-              <div className="stat">
-                <strong>{stats.photoCount}</strong>
-                <span>foto's</span>
+            {stats && (
+              <div className="trip-headcard-stats">
+                {stats.distanceKm > 0 && (
+                  <span className="tstat">
+                    <strong>{stats.distanceKm.toLocaleString('nl-NL')}</strong> km
+                  </span>
+                )}
+                <span className="tstat">
+                  <strong>{stats.days}</strong> dagen
+                </span>
+                {stats.countries.length > 0 && (
+                  <span className="tstat">
+                    <strong>{stats.countries.length}</strong>
+                    {stats.countries.length === 1 ? ' land' : ' landen'}
+                  </span>
+                )}
+                {stats.photoCount > 0 && (
+                  <span className="tstat">
+                    <strong>{stats.photoCount}</strong> foto's
+                  </span>
+                )}
               </div>
             )}
           </div>
-        )}
+        </div>
+        {trip?.description && <p>{trip.description}</p>}
 
         <div className="side-tabs" role="tablist">
           <button

@@ -75,6 +75,11 @@ export interface FixLogEntry {
   lat: number;
   lng: number;
   at: number;
+  /** false when the fix arrived but was dropped by the interval/distance rules
+   *  — so the log shows the GPS is alive even when nothing is stored. */
+  kept?: boolean;
+  /** Metres from the previously stored point, when known. */
+  movedM?: number;
 }
 
 /** Recent GPS fixes (newest first), persisted so you can see it kept running. */
@@ -143,11 +148,33 @@ export async function openLocationSettings(): Promise<void> {
   await MmsLocation.openSettings().catch(() => undefined);
 }
 
+/** Last stored position, to report how far a new fix moved. */
+let lastStored: { lat: number; lng: number } | null = null;
+
+function metresBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const toRad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * toRad;
+  const dLng = (b.lng - a.lng) * toRad;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.lat * toRad) * Math.cos(b.lat * toRad) * Math.sin(dLng / 2) ** 2;
+  return Math.round(6_371_000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)));
+}
+
 async function record(tripId: string, position: NativePosition): Promise<void> {
-  // Skip fixes that arrive sooner than the configured interval.
   const now = Date.now();
-  if (now - lastRecordAt < getTrackingIntervalMin() * 60_000) return;
+  const here = { lat: position.latitude, lng: position.longitude };
+  const moved = lastStored ? metresBetween(lastStored, here) : undefined;
+
+  // Fixes that arrive sooner than the configured interval are logged (proof the
+  // GPS is working) but not stored.
+  if (now - lastRecordAt < getTrackingIntervalMin() * 60_000) {
+    pushLog({ ...here, at: now, kept: false, movedM: moved });
+    emit({ lastFix: { ...here, at: now, accuracy: position.accuracy } });
+    return;
+  }
   lastRecordAt = now;
+  lastStored = here;
 
   const point: BufferedPoint = {
     clientId: crypto.randomUUID(),
@@ -159,7 +186,7 @@ async function record(tripId: string, position: NativePosition): Promise<void> {
     altitude: position.altitude,
   };
   await bufferPoint(point);
-  pushLog({ lat: position.latitude, lng: position.longitude, at: Date.now() });
+  pushLog({ ...here, at: now, kept: true, movedM: moved });
   emit({
     buffered: await bufferedCount(),
     lastFix: {

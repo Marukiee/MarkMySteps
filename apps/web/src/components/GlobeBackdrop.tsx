@@ -33,13 +33,24 @@ interface GlobeTrip {
  * happened yet) plus a glowing marker; the globe auto-rotates back whenever it
  * would drift to an empty hemisphere so a trip is always in view.
  */
-export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boolean }) {
+export function GlobeBackdrop({
+  trips,
+  noTour,
+  selfLocation,
+}: {
+  trips: Trip[];
+  noTour?: boolean;
+  /** [lng, lat] of your own live position, when you've opted to show it here. */
+  selfLocation?: [number, number] | null;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
   const tripsRef = useRef(trips);
   tripsRef.current = trips;
   const noTourRef = useRef(noTour);
   noTourRef.current = noTour;
+  const selfRef = useRef(selfLocation);
+  selfRef.current = selfLocation;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -597,6 +608,31 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
               }
             }
           }
+        }
+      }
+
+      // --- Your own live position: a soft pulsing beacon, so it reads as "you"
+      // rather than as another trip marker. ---
+      const self = selfRef.current;
+      if (self && (!center || distance(center, self) <= 90)) {
+        const pr = projection(self);
+        if (pr) {
+          const pulse = 0.5 + 0.5 * Math.sin(now / 700);
+          const halo = (9 + pulse * 5) * dpr;
+          const grad = ctx!.createRadialGradient(pr[0], pr[1], 0, pr[0], pr[1], halo);
+          grad.addColorStop(0, 'rgba(56,132,255,0.4)');
+          grad.addColorStop(1, 'rgba(56,132,255,0)');
+          ctx!.fillStyle = grad;
+          ctx!.beginPath();
+          ctx!.arc(pr[0], pr[1], halo, 0, 2 * Math.PI);
+          ctx!.fill();
+          ctx!.beginPath();
+          ctx!.arc(pr[0], pr[1], 4 * dpr, 0, 2 * Math.PI);
+          ctx!.fillStyle = '#3884ff';
+          ctx!.fill();
+          ctx!.lineWidth = 2 * dpr;
+          ctx!.strokeStyle = '#fff';
+          ctx!.stroke();
         }
       }
 

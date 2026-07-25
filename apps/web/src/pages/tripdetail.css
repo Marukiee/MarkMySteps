@@ -75,294 +75,26 @@
   }
 
   /* Cover photo as a compact banner at the top of the sheet. */
-  .trip-hero {
-    aspect-ratio: auto;
-    height: 140px;
-    margin: 0 0 0.6rem;
-    box-shadow: var(--shadow-s);
+  .trip-headcard.has-cover {
+    min-height: 190px;
   }
 
-  .trip-hero-overlay {
-    padding: 0.9rem 1rem;
+  .trip-headcard.has-cover .trip-headcard-body {
+    padding-top: 5rem;
   }
 
-  .trip-hero-overlay h1 {
+  .trip-headcard h1 {
     font-size: 1.5rem;
   }
 }
 
-.trip-map-panel {
-  position: relative;
-  border: none; /* the .card border shows as an ugly light hairline over the map */
-  border-radius: var(--radius-l);
-  overflow: hidden;
-  min-height: 320px;
-}
-
-/* Live tracking indicator on the map. */
-.live-badge {
-  position: absolute;
-  top: 0.9rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 6;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.32rem 0.75rem 0.32rem 0.6rem;
-  border-radius: 999px;
-  background: var(--glass);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-s);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--ink);
-  cursor: pointer;
-  transition: transform 0.12s var(--ease);
-}
-
-.live-badge:active {
-  transform: translateX(-50%) scale(0.95);
-}
-
-.live-badge-go {
-  color: var(--ink-faint);
-  margin-left: 0.05rem;
-}
-
-.live-badge-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #e2483d;
-  box-shadow: 0 0 0 0 rgb(226 72 61 / 0.5);
-  animation: livePulse 1.6s ease-out infinite;
-}
-
-@keyframes livePulse {
-  0% {
-    box-shadow: 0 0 0 0 rgb(226 72 61 / 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 7px rgb(226 72 61 / 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgb(226 72 61 / 0);
-  }
-}
-
-@media (max-width: 900px) {
-  .live-badge {
-    top: calc(0.9rem + env(safe-area-inset-top));
-  }
-}
-
-/* Bottom-left traveller selector with a drop-up menu. */
-.person-select {
-  position: absolute;
-  left: 0.9rem;
-  /* Same gutter left and bottom — the MapLibre attribution may sit under it. */
-  bottom: 0.9rem;
-  z-index: 5;
-}
-
-.person-select-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.45rem 0.8rem;
-  border-radius: 999px;
-  background: var(--glass);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-s);
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--ink);
-}
-
-.person-select-name {
-  max-width: 40vw;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.person-select-caret {
-  color: var(--ink-faint);
-  transition: transform 0.2s var(--ease);
-}
-
-.person-select-caret.open {
-  transform: rotate(180deg);
-}
-
-.person-select-menu {
-  position: absolute;
-  left: 0;
-  bottom: 100%;
-  margin-bottom: 6px;
-  min-width: 200px;
-  max-width: 78vw;
-  padding: 0.3rem;
-  display: grid;
-  gap: 1px;
-  transform-origin: bottom left;
-  animation: personMenuIn 0.16s var(--ease);
-}
-
-.person-select-menu.closing {
-  animation: personMenuOut 0.15s var(--ease) forwards;
-}
-
-@keyframes personMenuIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.96);
-  }
-}
-
-@keyframes personMenuOut {
-  to {
-    opacity: 0;
-    transform: translateY(8px) scale(0.96);
-  }
-}
-
-.person-select-menu button {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.5rem 0.6rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 550;
-  color: var(--ink-faint);
-  text-align: left;
-}
-
-.person-select-menu button.active {
-  color: var(--ink);
-}
-
-.person-select-menu button .person-select-name {
-  flex: 1;
-  max-width: none;
-}
-
-/* Check mark stays mounted so it animates BOTH ways: pops in on select, shrinks
-   out on deselect (an unmounted icon can't animate its exit). */
-.person-check {
-  display: inline-flex;
-  color: var(--accent);
-  opacity: 0;
-  transform: scale(0.2);
-  transition: transform 0.28s var(--ease), opacity 0.2s var(--ease);
-}
-
-.person-check.on {
-  opacity: 1;
-  transform: scale(1);
-  animation: checkPop 0.28s var(--ease);
-}
-
-@keyframes checkPop {
-  0% {
-    transform: scale(0.2);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.3);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-.person-toggles {
-  position: absolute;
-  top: 0.9rem;
-  left: 0.9rem;
-  z-index: 5;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.person-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.4rem 0.85rem;
-  border-radius: 999px;
-  background: var(--glass);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--line);
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--ink-faint);
-  box-shadow: var(--shadow-s);
-  transition: all 0.2s var(--ease);
-}
-
-.person-chip.active {
-  color: var(--ink);
-}
-
-.person-chip:not(.active) .person-chip-dot {
-  opacity: 0.25;
-}
-
-.person-chip-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  transition: opacity 0.2s;
-}
-
-.add-point-panel {
-  position: absolute;
-  bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 6;
-  padding: 1rem 1.15rem;
-  display: grid;
-  gap: 0.6rem;
-  width: min(90%, 340px);
-  border-radius: var(--radius-m);
-  box-shadow: var(--shadow-l);
-  animation: fadeIn 0.25s var(--ease);
-}
-
-.add-point-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.trip-side {
-  overflow-y: auto;
-  padding-right: 0.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.trip-side h1 {
-  font-size: 1.8rem;
-}
-
-.trip-hero {
+/* --- Trip header card: cover, title, dates and the numbers in one block --- */
+.trip-headcard {
   position: relative;
   border-radius: var(--radius-m);
   overflow: hidden;
-  aspect-ratio: 16 / 10;
-  margin-bottom: 0.4rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-s);
   animation: heroIn 0.5s var(--ease);
 }
@@ -370,7 +102,7 @@
 @keyframes heroIn {
   from {
     opacity: 0;
-    transform: scale(1.04);
+    transform: scale(1.02);
   }
   to {
     opacity: 1;
@@ -386,67 +118,92 @@
   object-fit: cover;
 }
 
-.trip-hero-overlay {
-  position: absolute;
-  inset: 0;
+.trip-headcard-body {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.05rem 1.15rem;
+}
+
+/* With a cover the block gets taller and the text sits over a scrim. */
+.trip-headcard.has-cover {
+  border: none;
+  min-height: 240px;
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 1rem 1.15rem;
-  background: linear-gradient(to top, rgb(20 26 33 / 0.82), transparent 62%);
+  align-items: flex-end;
+}
+
+.trip-headcard.has-cover .trip-headcard-body {
+  width: 100%;
+  padding-top: 7rem;
+  background: linear-gradient(to top, rgb(18 24 31 / 0.88) 45%, rgb(18 24 31 / 0.1));
   color: #fff;
 }
 
-.trip-hero-overlay h1 {
+.trip-headcard h1 {
   font-size: 1.7rem;
+}
+
+.trip-headcard.has-cover h1 {
   color: #fff;
+  text-shadow: 0 1px 14px rgb(0 0 0 / 0.35);
 }
 
-.trip-hero-overlay p {
-  opacity: 0.9;
+.trip-headcard-dates {
   font-size: 0.9rem;
+  color: var(--ink-faint);
 }
 
-.trip-back-hero {
-  align-self: flex-start;
-  background: rgb(255 255 255 / 0.9);
-  color: var(--ink);
-  padding: 0.3rem 0.8rem;
+.trip-headcard.has-cover .trip-headcard-dates {
+  color: rgb(255 255 255 / 0.85);
+}
+
+/* Numbers as inline chips: "1.240 km · 12 dagen · 3 landen · 84 foto's". */
+.trip-headcard-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.tstat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  padding: 0.3rem 0.7rem;
   border-radius: 999px;
-  font-size: 0.8rem;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
   font-weight: 600;
-  margin-bottom: auto;
-}
-
-.trip-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
-  gap: 0.55rem;
-  margin: 0.7rem 0 0.3rem;
-}
-
-.trip-stats .stat {
-  background: var(--paper-raised);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-m);
-  padding: 0.75rem 0.4rem 0.6rem;
-  text-align: center;
-  display: grid;
-  gap: 0.15rem;
-  box-shadow: var(--shadow-s);
-  /* Stats arrive from /stats a beat after the page — ease them in (staggered)
-     instead of popping. */
   animation: statIn 0.45s var(--ease) both;
 }
 
-.trip-stats .stat:nth-child(2) {
+.trip-headcard-stats .tstat:nth-child(2) {
   animation-delay: 0.06s;
 }
-.trip-stats .stat:nth-child(3) {
+.trip-headcard-stats .tstat:nth-child(3) {
   animation-delay: 0.12s;
 }
-.trip-stats .stat:nth-child(4) {
+.trip-headcard-stats .tstat:nth-child(4) {
   animation-delay: 0.18s;
+}
+
+.tstat strong {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 640;
+  color: var(--ink);
+}
+
+.trip-headcard.has-cover .tstat {
+  background: rgb(255 255 255 / 0.16);
+  color: rgb(255 255 255 / 0.9);
+  backdrop-filter: blur(6px);
+}
+
+.trip-headcard.has-cover .tstat strong {
+  color: #fff;
 }
 
 @keyframes statIn {
@@ -460,35 +217,15 @@
   }
 }
 
-.trip-stats .stat strong {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 1;
+.trip-back-hero {
+  align-self: flex-start;
+  background: rgb(255 255 255 / 0.9);
   color: var(--ink);
-}
-
-.trip-stats .stat span {
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--ink-faint);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
-}
-
-.trip-stats .stat-flags {
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
   font-size: 0.8rem;
-  line-height: 1;
-}
-
-/* Countries tile: flags are the visual, count is the label. */
-.stat-countries .stat-flags-big {
-  font-size: 1.15rem;
-  letter-spacing: 0.06em;
-  line-height: 1.3;
+  font-weight: 600;
+  margin-bottom: auto;
 }
 
 /* Floating action buttons, top-right of the page over the map. */

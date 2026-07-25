@@ -2,23 +2,29 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  display: flex;
+  display: grid;
+  /* Brand left, nav dead-centre, controls right — the nav stays centred even as
+     the brand and the controls change width. */
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 1.5rem;
+  gap: 1rem;
+  padding: 0.5rem max(1.5rem, calc((100vw - 1080px) / 2));
   background: var(--glass);
   backdrop-filter: blur(16px) saturate(1.1);
   border-bottom: 1px solid var(--line);
 }
 
 .topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-self: start;
   font-family: var(--font-display);
   font-weight: 680;
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   letter-spacing: -0.03em;
   color: var(--ink);
   transition: color 0.2s var(--ease);
-  margin-right: 1.5rem;
 }
 
 .topbar-brand:hover {
@@ -35,12 +41,19 @@
 }
 
 .topbar-nav a {
-  padding: 0.4rem 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 1rem;
   border-radius: 999px;
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--ink-faint);
   transition: all 0.18s var(--ease);
+}
+
+.topbar-nav a svg {
+  opacity: 0.75;
 }
 
 .topbar-nav a:hover {
@@ -53,8 +66,48 @@
   box-shadow: var(--shadow-s);
 }
 
+.topbar-nav a.active svg {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.topbar-right {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Light / system / dark segmented control. */
+.topbar-theme {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+}
+
+.topbar-theme button {
+  display: grid;
+  place-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  color: var(--ink-faint);
+  transition: all 0.18s var(--ease);
+}
+
+.topbar-theme button:hover {
+  color: var(--ink);
+}
+
+.topbar-theme button.active {
+  background: var(--paper-raised);
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-s);
+}
+
 .topbar-user {
-  margin-left: auto;
   position: relative;
 }
 

@@ -76,7 +76,20 @@
   color: #fff;
 }
 
-.airport-chip button {
+/* The chip body is the "make this my default" button. */
+.airport-chip-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: inherit;
+  font: inherit;
+}
+
+.airport-chip:not(.primary) .airport-chip-main:hover strong {
+  color: var(--accent-ink);
+}
+
+.airport-chip-remove {
   display: grid;
   place-content: center;
   width: 18px;
@@ -86,7 +99,7 @@
   opacity: 0.7;
 }
 
-.airport-chip button:hover {
+.airport-chip-remove:hover {
   opacity: 1;
   background: rgb(0 0 0 / 0.08);
 }

@@ -34,13 +34,25 @@ export function AirportPrefs({ onChange }: { onChange?: (codes: string[]) => voi
       <div className="airport-chips">
         {codes.map((c, i) => {
           const a = airportByCode(c);
+          const primary = i === 0;
           return (
-            <span key={c} className={`airport-chip ${i === 0 ? 'primary' : ''}`}>
-              {i === 0 && <span className="airport-chip-tag">standaard</span>}
-              <strong>{c}</strong>
-              {a && <small>{a.city}</small>}
+            <span key={c} className={`airport-chip ${primary ? 'primary' : ''}`}>
+              {/* Tap any other chip to promote it — that one then carries the
+                  "standaard" tag, instead of it being stuck on the first. */}
               <button
                 type="button"
+                className="airport-chip-main"
+                aria-label={primary ? `${c} is je standaard` : `${c} als standaard instellen`}
+                aria-pressed={primary}
+                onClick={() => !primary && update([c, ...codes.filter((x) => x !== c)])}
+              >
+                {primary && <span className="airport-chip-tag">standaard</span>}
+                <strong>{c}</strong>
+                {a && <small>{a.city}</small>}
+              </button>
+              <button
+                type="button"
+                className="airport-chip-remove"
                 aria-label={`${c} verwijderen`}
                 onClick={() => update(codes.filter((x) => x !== c))}
               >

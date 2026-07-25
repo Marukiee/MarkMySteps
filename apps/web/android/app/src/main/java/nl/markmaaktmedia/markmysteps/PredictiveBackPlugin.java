@@ -34,7 +34,11 @@ public class PredictiveBackPlugin extends Plugin {
 
     @Override
     public void load() {
-        callback = new OnBackPressedCallback(true) {
+        // Starts DISABLED: the web layer decided against driving the gesture
+        // itself (scaling the app dragged the fixed tab bar along with it), so
+        // back falls through to Capacitor's normal handling unless JS opts in
+        // via setEnabled.
+        callback = new OnBackPressedCallback(false) {
             @Override
             public void handleOnBackStarted(@NonNull BackEventCompat event) {
                 notifyListeners("backStarted", progressData(event));

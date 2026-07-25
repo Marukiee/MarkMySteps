@@ -44,7 +44,7 @@ body,
 .topbar,
 .bottom-nav,
 .settings-card,
-.trip-stats .stat,
+.trip-headcard,
 input,
 textarea,
 select {
@@ -124,55 +124,6 @@ html,
 body,
 #root {
   height: 100%;
-}
-
-/* --- Android Predictive Back Gesture ---------------------------------------
-   While the gesture is in progress the whole app shrinks and slides toward the
-   edge you're dragging from, revealing the page colour behind it. Committing
-   navigates first and then eases this back to 1, so the destination grows into
-   place; cancelling just eases back. --back-progress (0–1) comes from the
-   system via the PredictiveBack plugin. */
-#root.back-swipe {
-  --back-progress: 0;
-  /* Dragging from the left edge pushes the app right, and vice versa. */
-  --back-dir: 1;
-  /* Anchored at the bottom so the fixed tab bar stays put; only the top of the
-     app pulls away. Scaling around the centre lifted the tab bar off the
-     bottom edge, which read as it jumping. */
-  transform-origin: 50% 100%;
-  transform: scale(calc(1 - 0.08 * var(--back-progress)))
-    translateX(calc(var(--back-dir) * var(--back-progress) * 5%));
-  border-top-left-radius: calc(var(--back-progress) * 26px);
-  border-top-right-radius: calc(var(--back-progress) * 26px);
-  overflow: hidden;
-  /* Its own surface + shadow, so the shrinking app reads as a sheet lifting
-     away rather than the page mysteriously getting smaller. */
-  background: var(--paper);
-  box-shadow: 0 -6px 30px rgb(6 9 14 / calc(0.28 * var(--back-progress)));
-  will-change: transform;
-}
-
-/* A slightly sunken backdrop, not a black one: a dark plate made every map tile
-   that hadn't loaded yet painfully obvious. */
-html.back-swipe-bg,
-html.back-swipe-bg body {
-  background: var(--paper-sunken);
-}
-
-#root.back-swipe[data-back-edge='right'] {
-  --back-dir: -1;
-}
-
-#root.back-swipe-settling {
-  transition: transform 0.26s cubic-bezier(0.22, 0.61, 0.36, 1),
-    border-radius 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  #root.back-swipe {
-    transform: none;
-    border-radius: 0;
-  }
 }
 
 body {
