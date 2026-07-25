@@ -46,6 +46,15 @@ export function FlightEditor({
   );
   const [via, setVia] = useState<string[]>(viaAirports ?? []);
   const [flight, setFlight] = useState(flightNumber ?? '');
+  const [closing, setClosing] = useState(false);
+
+  const close = () => {
+    setClosing(true);
+    window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+    }, 180);
+  };
 
   const hasRoute = fromAirport && toAirport;
   const summaryStops = [fromAirport, ...(viaAirports ?? []), toAirport].filter(Boolean);
@@ -76,7 +85,15 @@ export function FlightEditor({
     setVia((cur) => cur.map((c, idx) => (idx === i ? v : c)));
 
   return (
-    <div className="flight-editor">
+    <div className={`flight-editor ${closing ? 'closing' : ''}`}>
+      <button
+        type="button"
+        className="flight-editor-close"
+        aria-label="Sluiten"
+        onClick={close}
+      >
+        <Icon name="close" size={16} />
+      </button>
       <div className="flight-row">
         <AirportField label="Van" value={from} onChange={setFrom} />
         <AirportField label="Naar" value={to} onChange={setTo} />
@@ -115,7 +132,7 @@ export function FlightEditor({
         />
       </div>
       <div className="flight-actions">
-        <button className="btn btn-ghost" onClick={() => setOpen(false)}>
+        <button className="btn btn-ghost" onClick={close}>
           Annuleren
         </button>
         <button
@@ -127,7 +144,7 @@ export function FlightEditor({
               toAirport: to || undefined,
               viaAirports: via.map((v) => v.trim().toUpperCase()).filter(Boolean),
             });
-            setOpen(false);
+            close();
           }}
         >
           Opslaan

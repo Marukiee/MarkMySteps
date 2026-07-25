@@ -20,6 +20,9 @@ export function webBase(): string {
 export function initStatusBar(): void {
   if (!isNativeApp()) return;
   void StatusBar.setOverlaysWebView({ overlay: true });
+  // Fully transparent bar so the page/globe shows through instead of a solid
+  // white strip. (Some Android builds keep a background even when overlaying.)
+  void StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => undefined);
   syncStatusBarTheme();
   // Re-sync whenever the app theme changes.
   window.addEventListener('mms-theme', syncStatusBarTheme);

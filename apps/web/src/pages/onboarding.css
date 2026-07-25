@@ -282,3 +282,16 @@
 .onb-globe .globe-backdrop::before {
   display: none;
 }
+
+/* Bold inline "Instellingen › Voorkeuren" pointer in body copy. */
+.onb-inline-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.onb-inline-path svg {
+  color: var(--ink-faint);
+}

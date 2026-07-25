@@ -673,15 +673,26 @@
   flex-wrap: wrap;
 }
 
+/* The flight/leg bar is the positioning context so the location picker can
+   centre under it. */
+.flight-leg {
+  position: relative;
+}
+
+.leg-connector-flight {
+  margin-left: 0;
+}
+
 /* Origin/destination picker on a standalone heen-/terugreis leg. */
 .leg-loc {
-  position: relative;
+  position: static;
 }
 
 .leg-loc-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  max-width: 150px;
   padding: 0.28rem 0.7rem;
   border-radius: 999px;
   background: var(--paper-sunken);
@@ -698,17 +709,72 @@
   color: var(--accent-ink);
 }
 
+/* Name inside the pill: clipped, and a long name gently scrolls left↔right so
+   the pill never stretches. */
+.leg-loc-text {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 108px;
+}
+
+.leg-loc-text > span {
+  display: inline-block;
+}
+
+.leg-loc-pill.marquee .leg-loc-text > span {
+  animation: legMarquee 7s linear infinite alternate;
+}
+
+@keyframes legMarquee {
+  0%,
+  15% {
+    transform: translateX(0);
+  }
+  85%,
+  100% {
+    transform: translateX(calc(-100% + 104px));
+  }
+}
+
 .leg-loc-search {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 40;
-  width: min(78vw, 300px);
+  width: min(86vw, 320px);
   padding: 0.5rem;
   display: grid;
   gap: 0.4rem;
   box-shadow: var(--shadow-m);
   animation: flightEditorIn 0.2s var(--ease);
+}
+
+/* Alternating km/duration metric on a leg bar. */
+.leg-alt-metric {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.leg-alt-metric-val {
+  display: inline-block;
+  animation: altMetricIn 0.35s var(--ease);
+}
+
+@keyframes altMetricIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .leg-loc-search input {

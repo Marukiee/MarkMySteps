@@ -121,10 +121,10 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
 
     function size() {
       const parent = canvas!.parentElement!;
-      // Keep the sphere within the container's HEIGHT (only a hair taller) so it
-      // never clips top/bottom — on a wide desktop the old 1.4 factor made the
-      // globe far taller than the short hero band and cut it off.
-      const s = Math.min(parent.clientWidth, Math.max(parent.clientHeight * 1.05, 300), 900);
+      // Keep the whole sphere INSIDE the container height (slightly smaller) so
+      // it's never clipped top/bottom — a wide desktop hero is short, and any
+      // factor ≥1 cut the globe off.
+      const s = Math.min(parent.clientWidth, Math.max(parent.clientHeight * 0.9, 300), 900);
       canvas!.width = s * dpr;
       canvas!.height = s * dpr;
       canvas!.style.width = `${s}px`;
@@ -190,9 +190,9 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
           const spread = tripSpread(trip);
           const zoom = Math.max(1.6, Math.min(3.4, 70 / (spread + 12)));
           rotation += (((-trip.anchor[0] - rotation + 540) % 360) - 180) * 0.03;
-          // Frame the trip a bit ABOVE centre (the blur/fade tail eats the lower
-          // third, so a dead-centre trip reads as "too low").
-          tilt += (trip.anchor[1] - CENTER_LAT - 10 - tilt) * 0.04;
+          // Frame the trip a touch above centre (the fade tail eats the lower
+          // third) — a small lift, not so much it sits near the top.
+          tilt += (trip.anchor[1] - CENTER_LAT - 4 - tilt) * 0.04;
           targetScale += (zoom - targetScale) * 0.035;
         }
       }
@@ -512,11 +512,11 @@ export function GlobeBackdrop({ trips, noTour }: { trips: Trip[]; noTour?: boole
               }
               return pts[pts.length - 1]!;
             };
-            glowDist += 0.09; // degrees per frame — relaxed, constant travel speed
+            glowDist += 0.05; // degrees per frame — slow, relaxed drift
             if (glowDist > total) glowDist -= total;
             const [gr, gg, gb] = legibleColor(act.color, dark);
-            const TRAIL = 14;
-            const GAP = 0.7; // degrees between trail points → a steady flow
+            const TRAIL = 6; // shorter comet → one calm glow, not a busy stream
+            const GAP = 1.1; // more space between trail points
             for (let k = 0; k < TRAIL; k++) {
               const gp = posAt(glowDist - k * GAP);
               if (center && distance(center, gp) > 90) continue;

@@ -231,11 +231,23 @@ function TripCard({
         : startsInDays === 1
           ? 'morgen van start'
           : `over ${startsInDays} dagen`;
-  const countdownEl = countdown && (
-    <span className="trip-countdown">
-      <Icon name="hourglass" size={13} />
-      {countdown}
+  // An ongoing trip (started, not finished) gets its own "onderweg" pill in the
+  // same spot as the countdown — those are mutually exclusive.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const ongoing =
+    trip.startDate.slice(0, 10) <= todayStr && trip.endDate.slice(0, 10) >= todayStr;
+  const statusEl = ongoing ? (
+    <span className="trip-countdown trip-ongoing">
+      <span className="trip-ongoing-dot" />
+      onderweg
     </span>
+  ) : (
+    countdown && (
+      <span className="trip-countdown">
+        <Icon name="hourglass" size={13} />
+        {countdown}
+      </span>
+    )
   );
 
   const menuEl = (
@@ -371,7 +383,7 @@ function TripCard({
               <> · {trip.distanceKm.toLocaleString('nl-NL')} km</>
             )}
           </span>
-          {countdownEl}
+          {statusEl}
         </div>
         {menuEl}
       </div>
@@ -409,7 +421,7 @@ function TripCard({
           <Icon name="compass" size={120} />
         </span>
       )}
-      {countdownEl}
+      {statusEl}
       <div className="trip-card-overlay">
         {renaming ? (
           <form onSubmit={rename} onClick={stop} className="trip-rename">

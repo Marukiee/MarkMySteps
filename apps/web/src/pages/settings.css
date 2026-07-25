@@ -649,3 +649,39 @@
     transform: translateY(0);
   }
 }
+
+/* Collapsible technical block inside route-tracking. */
+.tracking-advanced {
+  align-self: stretch;
+}
+
+.tracking-advanced > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding: 0.2rem 0;
+}
+
+.tracking-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.tracking-advanced[open] > summary .tracking-log-caret {
+  transform: rotate(90deg);
+}
+
+.tracking-advanced .tracking-log-caret {
+  transition: transform 0.18s var(--ease);
+}
+
+.tracking-advanced-body {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  animation: settingsAsyncIn 0.3s var(--ease);
+}

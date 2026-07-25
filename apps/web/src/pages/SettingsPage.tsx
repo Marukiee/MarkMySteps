@@ -59,7 +59,6 @@ export function SettingsPage() {
     { id: 'preferences', label: 'Voorkeuren', show: true },
     { id: 'immich', label: 'Immich', show: true },
     { id: 'import', label: 'Importeren', show: true },
-    { id: 'tracking', label: 'Tracking', show: isNative() },
     { id: 'accounts', label: 'Accounts', show: user?.role === 'ADMIN' },
     { id: 'about', label: 'Over', show: true },
     { id: 'developer', label: 'Ontwikkelaar', show: devUnlocked },
@@ -90,7 +89,6 @@ export function SettingsPage() {
           {section === 'preferences' && <PreferencesSection />}
           {section === 'immich' && <ImmichSection />}
           {section === 'import' && <PolarstepsSection />}
-          {section === 'tracking' && <TrackingSection />}
           {section === 'accounts' && <AccountsSection />}
           {section === 'about' && (
             <AboutSection
@@ -214,20 +212,23 @@ function DisplaySection() {
   );
 }
 
-/** Travel preferences: home airports (default departure), etc. */
+/** Travel preferences: home airports + (native) route tracking, merged. */
 function PreferencesSection() {
   return (
-    <section className="card settings-card">
-      <h2>Voorkeuren</h2>
-      <div className="field">
-        <label>Standaard vliegvelden</label>
-        <span className="muted">
-          Je thuis-vliegvelden. Het eerste is je standaard vertrek en wordt automatisch ingevuld bij
-          een nieuwe vlucht. Voeg er zoveel toe als je wilt.
-        </span>
-        <AirportPrefs />
-      </div>
-    </section>
+    <>
+      <section className="card settings-card">
+        <h2>Voorkeuren</h2>
+        <div className="field">
+          <label>Standaard vliegvelden</label>
+          <span className="muted">
+            Je thuis-vliegvelden. Het eerste is je standaard vertrek en wordt automatisch ingevuld
+            bij een nieuwe vlucht. Voeg er zoveel toe als je wilt.
+          </span>
+          <AirportPrefs />
+        </div>
+      </section>
+      {isNative() && <TrackingSection />}
+    </>
   );
 }
 
@@ -290,38 +291,52 @@ function TrackingSection() {
       {tracker.tripId ? (
         <div className="tracking-status">
           <span className="settings-ok">● Actief — {activeTrip?.title ?? 'reis'}</span>
-
-          <div className="tracking-live">
-            {tracker.lastFix ? (
-              <>
-                <span className="tracking-live-dot" />
-                <div>
-                  <strong>
-                    {tracker.lastFix.lat.toFixed(5)}, {tracker.lastFix.lng.toFixed(5)}
-                  </strong>
-                  <span className="muted">
-                    laatste fix {fixAge === null ? '' : fixAge < 2 ? 'zojuist' : `${fixAge}s geleden`}
-                    {tracker.lastFix.accuracy ? ` · ±${Math.round(tracker.lastFix.accuracy)} m` : ''}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <span className="muted">Wachten op eerste GPS-fix…</span>
-            )}
-          </div>
-          {activeTrip && (
-            <a className="tracking-view-link" href={`/trips/${activeTrip.id}`}>
-              Bekijk het gelopen pad op de kaart
-            </a>
-          )}
-
-          {tracker.buffered > 0 && (
-            <span className="muted">{tracker.buffered} punten in buffer (wacht op netwerk)</span>
-          )}
-          {tracker.lastError && <span className="error-text">{tracker.lastError}</span>}
           <button className="btn btn-danger" onClick={() => void stopTracking()}>
             <Icon name="stop" size={15} /> Stop tracking
           </button>
+          {tracker.lastError && <span className="error-text">{tracker.lastError}</span>}
+
+          {/* The technical live-status bits are tucked behind an expander. */}
+          <details className="tracking-advanced">
+            <summary>
+              <Icon name="chevron-right" size={16} className="tracking-log-caret" />
+              Details
+            </summary>
+            <div className="tracking-advanced-body">
+              <div className="tracking-live">
+                {tracker.lastFix ? (
+                  <>
+                    <span className="tracking-live-dot" />
+                    <div>
+                      <strong>
+                        {tracker.lastFix.lat.toFixed(5)}, {tracker.lastFix.lng.toFixed(5)}
+                      </strong>
+                      <span className="muted">
+                        laatste fix{' '}
+                        {fixAge === null ? '' : fixAge < 2 ? 'zojuist' : `${fixAge}s geleden`}
+                        {tracker.lastFix.accuracy
+                          ? ` · ±${Math.round(tracker.lastFix.accuracy)} m`
+                          : ''}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <span className="muted">Wachten op eerste GPS-fix…</span>
+                )}
+              </div>
+              {activeTrip && (
+                <a className="tracking-view-link" href={`/trips/${activeTrip.id}`}>
+                  Bekijk het gelopen pad op de kaart
+                </a>
+              )}
+              {tracker.buffered > 0 && (
+                <span className="muted">
+                  {tracker.buffered} punten in buffer (wacht op netwerk)
+                </span>
+              )}
+              <TrackingLog now={now} />
+            </div>
+          </details>
         </div>
       ) : (
         <div className="settings-form">
@@ -349,7 +364,7 @@ function TrackingSection() {
         </div>
       )}
 
-      <TrackingLog now={now} />
+      {!tracker.tripId && <TrackingLog now={now} />}
     </section>
   );
 }
@@ -770,7 +785,7 @@ function ImmichSection() {
     <section className="card settings-card">
       <h2>Immich</h2>
       <p className="muted">
-        Koppel je eigen Immich-server. Foto's blijven dáár staan — MarkMySteps bewaart alleen
+        Koppel je eigen Immich-server. Foto's blijven dáár staan. MarkMySteps bewaart alleen
         verwijzingen (asset-id, tijdstip, GPS uit EXIF).
       </p>
 
@@ -807,9 +822,12 @@ function ImmichSection() {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
           />
-          <span className="muted inline-path">
-            Immich <Icon name="chevron-right" size={12} /> Accountinstellingen{' '}
-            <Icon name="chevron-right" size={12} /> API-keys. Wordt AES-256 versleuteld opgeslagen.
+          <span className="muted">
+            <span className="inline-path">
+              Immich <Icon name="chevron-right" size={12} /> Accountinstellingen{' '}
+              <Icon name="chevron-right" size={12} /> API-keys
+            </span>
+            . Wordt AES-256 versleuteld opgeslagen.
           </span>
         </div>
         <div className="field">

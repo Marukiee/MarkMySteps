@@ -150,7 +150,7 @@ export function TripPlanner({
   // its driven kilometres get counted toward the trip distance.
   async function saveLegLocation(
     stop: PlannedStop,
-    data: { latitude: number; longitude: number; countryCode?: string },
+    data: { latitude: number; longitude: number; countryCode?: string; notes?: string },
   ) {
     refresh(
       await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, { method: 'PATCH', body: data }),
@@ -259,6 +259,18 @@ export function TripPlanner({
       <ol className="stop-list">
         {stops.map((stop, index) => {
           if (isStandaloneLeg(stop)) {
+            const outbound = index === 0;
+            const legPt =
+              stop.latitude !== null && stop.longitude !== null
+                ? ([stop.longitude, stop.latitude] as [number, number])
+                : null;
+            const otherPt = outbound ? firstCity : lastCity;
+            // Driven distance of this leg (origin↔nearest city) — only for a
+            // non-flight leg with a set location.
+            const legLegKm =
+              stop.travelMode !== 'FLIGHT' && legPt && otherPt
+                ? haversineKm(legPt, otherPt)
+                : null;
             return (
               <li key={stop.id} className="stop-row">
                 <div className="flight-leg card">
@@ -277,17 +289,21 @@ export function TripPlanner({
                         fromAirport={stop.fromAirport}
                         toAirport={stop.toAirport}
                         viaAirports={stop.viaAirports}
-                        toCity={index === 0 ? firstCity : null}
-                        fromCity={index === 0 ? null : lastCity}
+                        toCity={outbound ? firstCity : null}
+                        fromCity={outbound ? null : lastCity}
                         onSave={(data) => void saveFlight(stop, data)}
                       />
                     ) : (
                       <LegLocation
-                        outbound={index === 0}
-                        hasLocation={stop.latitude !== null && stop.longitude !== null}
+                        outbound={outbound}
+                        hasLocation={legPt !== null}
+                        savedLabel={stop.notes}
                         onSave={(data) => void saveLegLocation(stop, data)}
                         onFlyTo={onFlyTo}
                       />
+                    )}
+                    {legLegKm !== null && (
+                      <AltMetric km={legLegKm} mode={stop.travelMode} />
                     )}
                     <ModeMenu
                       current={stop.travelMode}
@@ -324,7 +340,7 @@ export function TripPlanner({
                   flight editor when it's a flight. Only from the 2nd stop on —
                   the first stop's arrival is the heenreis. */}
               {index > 0 && !prevIsStandalone && (
-                <div className="leg-connector">
+                <div className={`leg-connector ${isFlight ? 'leg-connector-flight' : ''}`}>
                   {isFlight ? (
                     // Same bar look as the heen-/terugreis legs, labelled "Vlucht".
                     <div className="flight-leg card">
@@ -339,6 +355,7 @@ export function TripPlanner({
                           toCity={cityCoord(stop)}
                           onSave={(data) => void saveFlight(stop, data)}
                         />
+                        {legKm !== null && <AltMetric km={legKm} mode={stop.travelMode} />}
                         <ModeMenu
                           current={stop.travelMode}
                           compact
@@ -346,12 +363,6 @@ export function TripPlanner({
                           onPick={(m) => void setStopMode(stop, m)}
                         />
                       </div>
-                      {legKm !== null && (
-                        <span className="flight-leg-km">
-                          {legKm.toLocaleString('nl-NL')} km ·{' '}
-                          {estimateDuration(legKm, stop.travelMode)}
-                        </span>
-                      )}
                     </div>
                   ) : (
                     <div className="leg-connector-row">
@@ -490,12 +501,19 @@ export function TripPlanner({
 function LegLocation({
   outbound,
   hasLocation,
+  savedLabel,
   onSave,
   onFlyTo,
 }: {
   outbound: boolean;
   hasLocation: boolean;
-  onSave: (data: { latitude: number; longitude: number; countryCode?: string }) => void;
+  savedLabel?: string | null;
+  onSave: (data: {
+    latitude: number;
+    longitude: number;
+    countryCode?: string;
+    notes?: string;
+  }) => void;
   onFlyTo: (lng: number, lat: number) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -533,20 +551,32 @@ function LegLocation({
     setQuery('');
     setOpen(false);
     onFlyTo(p.longitude, p.latitude);
-    onSave({ latitude: p.latitude, longitude: p.longitude, countryCode: p.countryCode });
+    onSave({
+      latitude: p.latitude,
+      longitude: p.longitude,
+      countryCode: p.countryCode,
+      notes: p.name, // remembered so the pill shows the place name, not "Ingesteld"
+    });
   }
 
-  const text = label ?? (hasLocation ? 'Ingesteld' : outbound ? 'Beginpunt' : 'Eindpunt');
+  // The chosen place name (this session), else the persisted one, else a prompt.
+  const name = label ?? savedLabel ?? null;
+  const text = name ?? (hasLocation ? 'Ingesteld' : outbound ? 'Beginpunt' : 'Eindpunt');
+  const isSet = hasLocation || !!label;
+  // A long place name scrolls inside the pill instead of stretching it.
+  const marquee = text.length > 14;
 
   return (
     <div className="leg-loc" ref={boxRef}>
       <button
         type="button"
-        className={`leg-loc-pill ${hasLocation || label ? 'set' : ''}`}
+        className={`leg-loc-pill ${isSet ? 'set' : ''} ${marquee ? 'marquee' : ''}`}
         onClick={() => setOpen((o) => !o)}
       >
         <Icon name="pin" size={13} />
-        <span>{text}</span>
+        <span className="leg-loc-text">
+          <span>{text}</span>
+        </span>
       </button>
       {open && (
         <div className="leg-loc-search card">
@@ -574,6 +604,23 @@ function LegLocation({
         </div>
       )}
     </div>
+  );
+}
+
+/** Right-aligned metric on a leg bar that alternates between distance and
+ *  duration every few seconds, to save horizontal space. */
+function AltMetric({ km, mode }: { km: number; mode: TravelMode }) {
+  const [showDur, setShowDur] = useState(false);
+  useEffect(() => {
+    const t = window.setInterval(() => setShowDur((v) => !v), 3000);
+    return () => window.clearInterval(t);
+  }, []);
+  return (
+    <span className="leg-alt-metric" title={`${Math.round(km)} km · ${estimateDuration(km, mode)}`}>
+      <span key={showDur ? 'd' : 'k'} className="leg-alt-metric-val">
+        {showDur ? estimateDuration(km, mode) : `${km.toLocaleString('nl-NL')} km`}
+      </span>
+    </span>
   );
 }
 

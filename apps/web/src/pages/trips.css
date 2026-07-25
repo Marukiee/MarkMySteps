@@ -159,6 +159,36 @@
   color: var(--accent-ink);
 }
 
+/* Ongoing trip: a live green chip instead of the orange countdown. */
+.trip-ongoing {
+  color: var(--teal) !important;
+}
+
+.trip-card > .trip-ongoing {
+  color: #0a7d55;
+}
+
+.trip-ongoing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 0 currentColor;
+  animation: ongoingPulse 1.8s ease-out infinite;
+}
+
+@keyframes ongoingPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(16 160 92 / 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgb(16 160 92 / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(16 160 92 / 0);
+  }
+}
+
 /* Compact row: photo on the left, name + meta beside it. Spans a full row so
    it can coexist with large photo tiles in the same grid. */
 .trip-card-compact {
@@ -173,7 +203,6 @@
   border-radius: var(--radius-m);
   box-shadow: var(--shadow-s);
   cursor: pointer;
-  overflow: hidden;
   animation: fadeIn 0.35s var(--ease) backwards;
   transition: transform 0.18s var(--ease), box-shadow 0.2s var(--ease);
 }

@@ -13,7 +13,8 @@
 }
 
 .flight-editor {
-  margin: 0.3rem 0 0.4rem 0.9rem;
+  position: relative;
+  margin: 0.4rem 0 0.2rem;
   padding: 0.85rem;
   display: grid;
   gap: 0.85rem;
@@ -21,7 +22,11 @@
   background: var(--paper-raised);
   border: 1px solid var(--line);
   transform-origin: top;
-  animation: flightEditorIn 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation: flightEditorIn 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.flight-editor.closing {
+  animation: flightEditorOut 0.18s ease forwards;
 }
 
 @keyframes flightEditorIn {
@@ -35,10 +40,38 @@
   }
 }
 
-/* Inside a standalone flight card the editor is flush — no nested surface. */
+@keyframes flightEditorOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scaleY(0.92);
+  }
+}
+
+.flight-editor-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  display: grid;
+  place-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  color: var(--ink-faint);
+}
+
+.flight-editor-close:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+/* Inside a flight card the editor is flush and full-width (equal gutters left
+   and right), no nested surface or left indent. */
 .flight-leg .flight-editor {
   background: transparent;
   border: none;
+  margin: 0.5rem 0 0;
+  padding: 1.7rem 0 0; /* room for the close ✕ above the fields */
 }
 
 .flight-row {

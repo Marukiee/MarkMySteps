@@ -222,9 +222,12 @@ export function OnboardingPage() {
       </span>
       <h1>Je vaste vliegvelden</h1>
       <p className="muted">
-        Vanaf welke vliegvelden vertrek je meestal? Schiphol staat al klaar — voeg toe wat je wilt.
-        Het eerste wordt automatisch ingevuld bij een nieuwe vlucht. Later aanpasbaar in
-        Instellingen → Voorkeuren.
+        Vanaf welke vliegvelden vertrek je meestal? Schiphol staat al klaar; voeg toe wat je wilt.
+        Het eerste wordt automatisch ingevuld bij een nieuwe vlucht. Later aanpasbaar via{' '}
+        <strong className="onb-inline-path">
+          Instellingen <Icon name="chevron-right" size={13} /> Voorkeuren
+        </strong>
+        .
       </p>
       <AirportPrefs />
     </div>,
