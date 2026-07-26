@@ -22,7 +22,7 @@ import { BufferedPoint, bufferPoint, bufferedCount, peekPoints, removePoints } f
  */
 
 interface MmsLocationPlugin {
-  start(options: { intervalMs: number; title?: string; message?: string }): Promise<void>;
+  start(options: { intervalMs: number; title?: string }): Promise<void>;
   stop(): Promise<void>;
   openSettings(): Promise<void>;
   backgroundStatus(): Promise<{ granted: boolean; foreground: boolean }>;
@@ -365,7 +365,6 @@ export async function startTracking(tripId: string): Promise<void> {
         // How often the service wakes for one single position.
         intervalMs: getTrackingIntervalMin() * 60_000,
         title: 'MarkMySteps volgt je route',
-        message: 'Locatie wordt zuinig bijgehouden tijdens je reis',
       });
     } catch (err) {
       emit({ lastError: err instanceof Error ? err.message : 'Tracking starten mislukt' });

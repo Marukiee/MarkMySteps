@@ -136,9 +136,6 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
                 MmsLocationService.EXTRA_INTERVAL,
                 interval == null ? 300_000L : interval.longValue());
         intent.putExtra(MmsLocationService.EXTRA_TITLE, call.getString("title", "MarkMySteps"));
-        intent.putExtra(
-                MmsLocationService.EXTRA_MESSAGE,
-                call.getString("message", "Route wordt bijgehouden"));
         try {
             ContextCompat.startForegroundService(getContext(), intent);
         } catch (Exception e) {

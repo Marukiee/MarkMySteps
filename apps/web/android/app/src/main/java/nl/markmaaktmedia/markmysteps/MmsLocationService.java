@@ -65,7 +65,6 @@ public class MmsLocationService extends Service {
 
     static final String EXTRA_INTERVAL = "intervalMs";
     static final String EXTRA_TITLE = "title";
-    static final String EXTRA_MESSAGE = "message";
 
     /** Good enough to stop waiting for a better fix. */
     private static final float GOOD_ACCURACY_M = 25f;
@@ -96,7 +95,6 @@ public class MmsLocationService extends Service {
 
     private long intervalMs = 5 * 60_000L;
     private String title = "MarkMySteps";
-    private String message = "Route wordt bijgehouden";
 
     /** Paused from the notification: the service stays alive (and keeps its
      *  settings) but asks the OS for nothing at all. */
@@ -148,7 +146,6 @@ public class MmsLocationService extends Service {
         if (intent != null && intent.hasExtra(EXTRA_INTERVAL)) {
             intervalMs = Math.max(60_000L, intent.getLongExtra(EXTRA_INTERVAL, intervalMs));
             title = orDefault(intent.getStringExtra(EXTRA_TITLE), title);
-            message = orDefault(intent.getStringExtra(EXTRA_MESSAGE), message);
             persistConfig();
         } else {
             // Restarted by the system after the process died — recover settings.
@@ -487,7 +484,6 @@ public class MmsLocationService extends Service {
                 .setContentTitle(title)
                 .setContentText(statusLine())
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(statusLine()))
-                .setSubText(message)
                 .setSmallIcon(R.drawable.ic_stat_track)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
@@ -546,7 +542,6 @@ public class MmsLocationService extends Service {
                 .edit()
                 .putLong(EXTRA_INTERVAL, intervalMs)
                 .putString(EXTRA_TITLE, title)
-                .putString(EXTRA_MESSAGE, message)
                 .apply();
     }
 
@@ -554,7 +549,6 @@ public class MmsLocationService extends Service {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         intervalMs = Math.max(60_000L, prefs.getLong(EXTRA_INTERVAL, intervalMs));
         title = orDefault(prefs.getString(EXTRA_TITLE, null), title);
-        message = orDefault(prefs.getString(EXTRA_MESSAGE, null), message);
     }
 
     private static String orDefault(@Nullable String value, String fallback) {
