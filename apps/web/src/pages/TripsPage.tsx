@@ -408,10 +408,10 @@ function TripCard({
             <span className="tcc-bg-scrim" />
           </div>
         )}
-        {trip.resolvedCoverId ? (
+        {/* No cover yet (an upcoming trip) → no thumbnail slot at all. A block of
+            gradient standing in for a photo reads as a broken image. */}
+        {trip.resolvedCoverId && (
           <AuthImage path={`/media/${trip.resolvedCoverId}/thumbnail`} alt="" className="tcc-photo" />
-        ) : (
-          <div className="tcc-photo" style={{ background: coverGradient(trip.id) }} />
         )}
         <div className="tcc-body">
           {renaming ? (
