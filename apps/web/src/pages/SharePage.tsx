@@ -397,7 +397,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
 
       {entries.length > 0 && (
         <section className="share-section">
-          <h2 className="share-section-title">Reis</h2>
+          <h2 className="share-section-title">Tijdlijn</h2>
           <div className="share-tl">
             {entries.map((entry) =>
               entry.kind === 'leg' ? (

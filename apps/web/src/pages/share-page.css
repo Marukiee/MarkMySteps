@@ -294,11 +294,17 @@
    instead of a numbered stop, matching the app's planner. */
 .share-tl-leg {
   position: relative;
+  /* Flex, not a text line: an inline-flex pill sits on the baseline, and the
+     descender space under it pushed its visual centre below the marker's. */
+  display: flex;
+  align-items: center;
+  min-height: 30px;
   animation: shareRise 0.45s var(--ease) both;
 }
 
 .share-tl-marker-leg {
-  top: 1px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 22px;
   height: 22px;
   margin-left: 12px;
@@ -307,9 +313,13 @@
   color: var(--ink-faint);
 }
 
+.share-tl-marker-leg svg {
+  display: block;
+}
+
 .share-tl-leg-pill {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.45rem;
   padding: 0.25rem 0.7rem;
   border-radius: 999px;
