@@ -47,6 +47,12 @@ export function TripDetailPage() {
   const [liveFixes, setLiveFixes] = useState<LiveFix[]>([]);
   // Ages next to each traveller tick on their own, between polls.
   const liveTick = useNow(5_000);
+  // How many travellers are shown besides you. The pill keeps rendering the
+  // last non-zero value so the counter doesn't read "+0" on its way out.
+  const extraCount = Math.max(0, visibleUsers.size - 1);
+  const shownExtraRef = useRef(extraCount);
+  if (extraCount > 0) shownExtraRef.current = extraCount;
+  const shownExtra = shownExtraRef.current;
   const [personMenuOpen, setPersonMenuOpen] = useState(false);
   const [personMenuClosing, setPersonMenuClosing] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
@@ -506,9 +512,11 @@ export function TripDetailPage() {
                 {trip.members.find((m) => m.userId === user?.id)?.user.displayName ?? 'Ik'}
               </span>
               {/* Stays mounted at zero width so the pill can GROW into the extra
-                  count instead of snapping wider the moment you tick someone. */}
-              <span className={`person-extra ${visibleUsers.size > 1 ? 'on' : ''}`}>
-                <span key={visibleUsers.size}>+{Math.max(0, visibleUsers.size - 1)}</span>
+                  count instead of snapping wider the moment you tick someone.
+                  It keeps showing the last real number while collapsing — the
+                  live count is 0 by then, and "+0" flashing past looks broken. */}
+              <span className={`person-extra ${extraCount > 0 ? 'on' : ''}`}>
+                <span key={shownExtra}>+{shownExtra}</span>
               </span>
               <Icon
                 name="chevron-down"

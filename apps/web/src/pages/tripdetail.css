@@ -216,31 +216,43 @@
 .person-extra {
   display: inline-grid;
   grid-template-columns: 0fr;
-  opacity: 0;
   margin-left: -0.5rem; /* cancels the button's gap while collapsed */
   color: var(--accent-ink);
   font-weight: 700;
+  /* Closing takes the width away a touch faster than opening gives it, so the
+     pill doesn't linger at a size that no longer means anything. */
   transition:
-    grid-template-columns 0.3s var(--ease),
-    opacity 0.22s var(--ease),
-    margin-left 0.3s var(--ease);
+    grid-template-columns 0.24s cubic-bezier(0.4, 0, 0.6, 1),
+    margin-left 0.24s cubic-bezier(0.4, 0, 0.6, 1);
 }
 
 .person-extra.on {
   grid-template-columns: 1fr;
-  opacity: 1;
   margin-left: 0;
+  transition:
+    grid-template-columns 0.34s var(--ease),
+    margin-left 0.34s var(--ease);
 }
 
+/* Collapsed state, and the transition that runs on the way OUT: shrinks and
+   fades without the overshoot — a bouncing exit reads as a glitch. */
 .person-extra > span {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
+  opacity: 0;
+  transform: scale(0.55);
+  transform-origin: left center;
+  transition:
+    opacity 0.14s var(--ease),
+    transform 0.2s cubic-bezier(0.4, 0, 1, 1);
 }
 
-/* Re-keyed on every change, so going 1 → 2 pops again. */
+/* On the way IN it pops. Re-keyed on every count change, so 1 → 2 pops again. */
 .person-extra.on > span {
-  animation: personExtraPop 0.32s var(--ease);
+  opacity: 1;
+  transform: scale(1);
+  animation: personExtraPop 0.34s var(--ease);
 }
 
 @keyframes personExtraPop {
