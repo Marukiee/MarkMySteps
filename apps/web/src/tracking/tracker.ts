@@ -60,10 +60,15 @@ const BATCH_SIZE = 500;
  * the GPS asleep.
  */
 function distanceFilterM(): number {
+  // Floor raised to 120 m: indoors a GPS fix wanders 50-100 m on its own, so a
+  // 50 m filter logged a spider's web of noise around a hotel all night.
   // Capped, or a 30-minute interval would ask for ~900 m and the route would
   // lose its shape through a town.
-  return Math.min(300, Math.max(50, getTrackingIntervalMin() * 30));
+  return Math.min(300, Math.max(120, getTrackingIntervalMin() * 40));
 }
+
+/** Fixes vaguer than this are drift, not travel. */
+const MAX_ACCURACY_M = 120;
 
 // Second line of defence: even if a provider reports more often than asked, we
 // only store a point every N minutes so the track stays lean.
@@ -176,13 +181,23 @@ async function record(tripId: string, position: NativePosition): Promise<void> {
   const here = { lat: position.latitude, lng: position.longitude };
   const moved = lastStored ? metresBetween(lastStored, here) : undefined;
 
-  // Fixes that arrive sooner than the configured interval are logged (proof the
-  // GPS is working) but not stored.
-  if (now - lastRecordAt < getTrackingIntervalMin() * 60_000) {
+  // Skipped fixes are still logged (proof the GPS is working) and still move
+  // the "you are here" dot; they just aren't part of the route.
+  const skip = (): void => {
     pushLog({ ...here, at: now, kept: false, movedM: moved });
     emit({ lastFix: { ...here, at: now, accuracy: position.accuracy } });
-    return;
-  }
+  };
+
+  // Arrived sooner than the configured interval.
+  if (now - lastRecordAt < getTrackingIntervalMin() * 60_000) return skip();
+
+  // Too vague to place: a ±300 m fix drags the route across a whole town.
+  if (position.accuracy !== undefined && position.accuracy > MAX_ACCURACY_M) return skip();
+
+  // Hasn't actually moved. The provider's own minDistance is unreliable
+  // indoors (it compares against ITS last fix, not our last stored point), so
+  // this is the filter that really keeps a stationary night off the map.
+  if (moved !== undefined && moved < distanceFilterM()) return skip();
   lastRecordAt = now;
   lastStored = here;
 

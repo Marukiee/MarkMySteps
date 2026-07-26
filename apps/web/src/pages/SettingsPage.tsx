@@ -315,10 +315,11 @@ function TrackingSection() {
         Route-tracking
         <HelpTip>
           Elk interval zet de app de GPS heel even aan voor één positie en daarna weer uit. Ligt
-          die positie minder dan ~50 m van de vorige, dan wordt hij weggegooid in plaats van
-          opgeslagen — zo blijft je route strak zonder een hoop punten op dezelfde plek. Blijf je
+          die positie te dicht bij de vorige (of is de meting te onnauwkeurig), dan wordt hij
+          weggegooid in plaats van opgeslagen, zodat stilstaan geen wirwar van punten oplevert. Blijf je
           langere tijd op dezelfde plek, dan stopt het meten helemaal en wacht de app op de
-          bewegingssensor van je toestel. Een groter interval scheelt dus flink batterij. Offline
+          bewegingssensor van je toestel. Een groter interval scheelt dus flink batterij, en
+          vergroot ook de afstand die je moet afleggen voordat een punt bewaard wordt. Offline
           wordt alles gebufferd en later geüpload. Vereist locatie op “Altijd toestaan”.
         </HelpTip>
       </h2>
