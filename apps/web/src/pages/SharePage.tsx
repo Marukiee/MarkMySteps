@@ -8,7 +8,7 @@ import { trimOutlierEnds } from '../lib/arc';
 import { colorForUser, flagEmoji, formatDay } from '../lib/colors';
 import { reversePlaceName } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
-import { Icon } from '../components/Icon';
+import { Icon, MODE_ICON } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
 import { TripFacts } from '../components/TripFacts';
 import { resolveFacts } from '../lib/tripFacts';
@@ -31,10 +31,13 @@ interface SharedTrip {
   };
 }
 
+const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
+
 interface SharedStop {
   id: string;
   name: string;
   countryCode: string | null;
+  travelMode: string | null;
   latitude: number | null;
   longitude: number | null;
   arrivalDate: string;
@@ -145,7 +148,8 @@ export function SharePage() {
 /** One chronological stream: stops and photo days in the order they happened. */
 type Entry =
   | { kind: 'stop'; key: string; date: string; stop: SharedStop; index: number }
-  | { kind: 'day'; key: string; date: string; items: SharedMedia[] };
+  | { kind: 'leg'; key: string; date: string; stop: SharedStop }
+  | { kind: 'day'; key: string; date: string; items: SharedMedia[]; place: string | null; flag: string | null };
 
 function SharedTripView({ slug, token }: { slug: string; token: string }) {
   const [trip, setTrip] = useState<SharedTrip | null>(null);
@@ -290,27 +294,53 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       const day = item.takenAt.slice(0, 10);
       days.set(day, [...(days.get(day) ?? []), item]);
     }
+    // Outbound/return legs are travel, not a destination — they don't get a
+    // number, and they don't take one from the stops either.
+    let number = 0;
+    const stopEntries: Entry[] = stops.map((stop) =>
+      LEG_NAMES.has(stop.name)
+        ? { kind: 'leg' as const, key: `leg-${stop.id}`, date: stop.arrivalDate.slice(0, 10), stop }
+        : {
+            kind: 'stop' as const,
+            key: `stop-${stop.id}`,
+            date: stop.arrivalDate.slice(0, 10),
+            stop,
+            index: number++,
+          },
+    );
+
+    // Where a day was spent, same rule as the app's timeline: a day trip is
+    // stored with zero nights, so it has to match on its arrival day too, and a
+    // day that touches two places names both.
+    const placeFor = (date: string) => {
+      const onDay = stops.filter((s) => {
+        if (LEG_NAMES.has(s.name)) return false;
+        const from = s.arrivalDate.slice(0, 10);
+        const to = s.departureDate.slice(0, 10);
+        return date === from || (date > from && date < to);
+      });
+      if (onDay.length === 0) return { place: null, flag: null };
+      return {
+        place: onDay.map((s) => s.name).join(' \u00b7 '),
+        flag: onDay[onDay.length - 1]!.countryCode
+          ? flagEmoji(onDay[onDay.length - 1]!.countryCode!)
+          : null,
+      };
+    };
+
     const list: Entry[] = [
-      ...stops.map((stop, index) => ({
-        kind: 'stop' as const,
-        key: `stop-${stop.id}`,
-        date: stop.arrivalDate.slice(0, 10),
-        stop,
-        index,
-      })),
+      ...stopEntries,
       ...[...days.entries()].map(([date, items]) => ({
         kind: 'day' as const,
         key: `day-${date}`,
         date,
         items,
+        ...placeFor(date),
       })),
     ];
-    // Same date: the stop heads the day it starts.
-    return list.sort(
-      (a, b) =>
-        a.date.localeCompare(b.date) ||
-        (a.kind === b.kind ? 0 : a.kind === 'stop' ? -1 : 1),
-    );
+    // Same date: stops and legs head the day they start.
+    const rank = (e: Entry) => (e.kind === 'day' ? 1 : 0);
+    return list.sort((a, b) => a.date.localeCompare(b.date) || rank(a) - rank(b));
   }, [stops, orderedMedia]);
 
   return (
@@ -370,7 +400,17 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
           <h2 className="share-section-title">Reis</h2>
           <div className="share-tl">
             {entries.map((entry) =>
-              entry.kind === 'stop' ? (
+              entry.kind === 'leg' ? (
+                <section key={entry.key} className="share-tl-leg">
+                  <span className="share-tl-marker share-tl-marker-leg" aria-hidden="true">
+                    <Icon name={MODE_ICON[entry.stop.travelMode ?? 'CAR'] ?? 'car'} size={14} />
+                  </span>
+                  <span className="share-tl-leg-pill">
+                    {entry.stop.name.startsWith('Heen') ? 'Heenreis' : 'Terugreis'}
+                    <small>{stopRange(entry.stop.arrivalDate, entry.stop.departureDate)}</small>
+                  </span>
+                </section>
+              ) : entry.kind === 'stop' ? (
                 <section key={entry.key} className="share-tl-stop">
                   <span className="share-tl-marker share-tl-marker-stop">{entry.index + 1}</span>
                   <div className="share-tl-stop-body">
@@ -389,6 +429,12 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                 <section key={entry.key} className="share-tl-day">
                   <span className="share-tl-marker share-tl-marker-day" aria-hidden="true" />
                   <h3>{formatDay(entry.items[0]!.takenAt)}</h3>
+                  {entry.place && (
+                    <p className="share-tl-place">
+                      {entry.flag && <span>{entry.flag}</span>}
+                      {entry.place}
+                    </p>
+                  )}
                   <div className="share-grid">
                     {entry.items.map((item) => (
                       <button

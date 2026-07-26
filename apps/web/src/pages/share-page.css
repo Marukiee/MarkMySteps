@@ -185,6 +185,14 @@
   inset: 0;
 }
 
+/* A WebGL canvas is composited on the GPU, so the parent's overflow:hidden
+   doesn't clip it — the corners have to be rounded on the canvas itself. */
+.share-map-inner,
+.share-map-inner .maplibregl-canvas-container,
+.share-map-inner canvas {
+  border-radius: var(--radius-l);
+}
+
 /* ---------- Sections ---------- */
 
 .share-section {
@@ -278,6 +286,51 @@
 
 .share-tl-stop-body .muted {
   font-size: 0.85rem;
+}
+
+/* Outbound / return: travel, not a destination — a slim pill on the rail
+   instead of a numbered stop, matching the app's planner. */
+.share-tl-leg {
+  position: relative;
+  animation: shareRise 0.45s var(--ease) both;
+}
+
+.share-tl-marker-leg {
+  top: 1px;
+  width: 22px;
+  height: 22px;
+  margin-left: 12px;
+  background: var(--paper-sunken);
+  border: 1.5px solid var(--line);
+  color: var(--ink-faint);
+}
+
+.share-tl-leg-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+
+.share-tl-leg-pill small {
+  font-weight: 500;
+  font-size: 0.76rem;
+  color: var(--ink-faint);
+}
+
+/* Where the day was spent, under its date — same line as the app's timeline. */
+.share-tl-place {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: -0.35rem 0 0.6rem;
+  font-size: 0.88rem;
+  color: var(--ink-faint);
 }
 
 .share-tl-day h3 {

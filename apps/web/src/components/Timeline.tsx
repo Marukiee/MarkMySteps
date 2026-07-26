@@ -45,13 +45,23 @@ export function Timeline({
   // Resolve a day's location: prefer the planned stop covering that day,
   // else the coordinates of the first photo taken that day.
   const locationForDay = (day: string, dayMedia: MediaItem[]) => {
-    const stop = stops.find((s) => day >= s.arrivalDate && day < s.departureDate);
-    if (stop && stop.latitude !== null && stop.longitude !== null) {
+    // Every stop that covers this day, in order. A day trip is stored with zero
+    // nights (arrival == departure), so it has to be matched on its arrival day
+    // as well — otherwise its photos end up labelled with the city you slept in.
+    const onDay = stops.filter((s) => {
+      const from = s.arrivalDate.slice(0, 10);
+      const to = s.departureDate.slice(0, 10);
+      return day === from || (day > from && day < to);
+    });
+    const located = onDay.filter((s) => s.latitude !== null && s.longitude !== null);
+    if (located.length > 0) {
+      const last = located[located.length - 1]!;
       return {
-        name: stop.name,
-        countryCode: stop.countryCode,
-        lat: stop.latitude,
-        lon: stop.longitude,
+        // "Gränna · Stockholm" when you passed through somewhere that day.
+        name: located.map((s) => s.name).join(' · '),
+        countryCode: last.countryCode,
+        lat: last.latitude!,
+        lon: last.longitude!,
       };
     }
     const withGps = dayMedia.find((m) => m.latitude !== null && m.longitude !== null);

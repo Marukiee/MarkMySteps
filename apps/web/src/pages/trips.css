@@ -251,6 +251,12 @@
   transition: transform 0.18s var(--ease), box-shadow 0.2s var(--ease);
 }
 
+/* Without a cover there's no thumbnail to sit behind, so the title would start
+   flush against the edge. Indent it to the same margin the large cards use. */
+.trip-card-compact:not(.has-cover) {
+  padding-left: 1.25rem;
+}
+
 /* With a cover photo the whole row uses that photo as a blurred backdrop under a
    theme-aware scrim, so the text stays readable (light veil in light mode, dark
    veil in dark mode). */
