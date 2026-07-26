@@ -3,7 +3,6 @@ package nl.markmaaktmedia.markmysteps;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.location.Location;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
@@ -62,9 +61,8 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
     }
 
     /**
-     * Start tracking. `intervalMs` becomes the provider's minTime — the knob
-     * that actually duty-cycles the GNSS engine — and `distanceFilterM` its
-     * minDistance.
+     * Start tracking. `intervalMs` is how often the service wakes up for one
+     * single position; the GNSS engine is off in between.
      */
     @PluginMethod
     public void start(PluginCall call) {
@@ -130,17 +128,13 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
             return;
         }
 
-        Long interval = call.getLong("intervalMs", 60_000L);
-        Float distance = call.getFloat("distanceFilterM", 50f);
+        Long interval = call.getLong("intervalMs", 300_000L);
         Intent intent = new Intent(getContext(), MmsLocationService.class);
-        // Unboxed explicitly: a boxed Long/Float would land in the Bundle as a
+        // Unboxed explicitly: a boxed Long would land in the Bundle as a
         // Serializable rather than a primitive extra.
         intent.putExtra(
                 MmsLocationService.EXTRA_INTERVAL,
-                interval == null ? 60_000L : interval.longValue());
-        intent.putExtra(
-                MmsLocationService.EXTRA_DISTANCE,
-                distance == null ? 50f : distance.floatValue());
+                interval == null ? 300_000L : interval.longValue());
         intent.putExtra(MmsLocationService.EXTRA_TITLE, call.getString("title", "MarkMySteps"));
         intent.putExtra(
                 MmsLocationService.EXTRA_MESSAGE,
@@ -184,17 +178,25 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
         call.resolve();
     }
 
+    /**
+     * Hands over every fix the service queued since the last call and clears
+     * the queue. Pulling rather than pushing is what makes tracking survive a
+     * destroyed WebView: the service keeps queueing while no page is alive, and
+     * the app collects the backlog the moment it comes back.
+     */
+    @PluginMethod
+    public void drain(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("fixes", MmsLocationService.drainQueue(getContext()));
+        call.resolve(result);
+    }
+
     // --- Sink ---------------------------------------------------------------
 
     @Override
-    public void onLocation(Location location) {
-        JSObject data = new JSObject();
-        data.put("latitude", location.getLatitude());
-        data.put("longitude", location.getLongitude());
-        if (location.hasAccuracy()) data.put("accuracy", (double) location.getAccuracy());
-        if (location.hasAltitude()) data.put("altitude", location.getAltitude());
-        data.put("time", location.getTime());
-        notifyListeners("location", data);
+    public void onLocation() {
+        // Only a nudge — the fix itself is picked up with drain().
+        notifyListeners("location", new JSObject());
     }
 
     @Override

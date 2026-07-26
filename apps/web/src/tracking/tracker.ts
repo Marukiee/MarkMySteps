@@ -8,31 +8,29 @@ import { BufferedPoint, bufferPoint, bufferedCount, peekPoints, removePoints } f
  *
  * Native (Android APK): our own MmsLocation plugin — a foreground service built
  * on the AOSP `LocationManager`, so it keeps recording with the screen off and
- * needs no Google Play Services (works on LineageOS / GrapheneOS). Its
- * `intervalMs` is the provider's minTime, which genuinely duty-cycles the GNSS
- * engine, and it parks itself on the significant-motion sensor while you stand
- * still. See MmsLocationService.java.
+ * needs no Google Play Services (works on LineageOS / GrapheneOS). It takes
+ * exactly one position per interval and keeps the GNSS engine off in between,
+ * so this side does no pacing of its own: every fix handed over is one
+ * scheduled check. See MmsLocationService.java.
  *
  * Web/PWA fallback: geolocation.watchPosition — foreground only (browsers
- * suspend background GPS), still useful for city walks with the screen on.
+ * suspend background GPS) and it reports continuously, so there the interval is
+ * applied here instead.
  *
  * Every fix goes to the IndexedDB buffer first; a flusher uploads batches
  * whenever the network allows (idempotent via clientId).
  */
 
 interface MmsLocationPlugin {
-  start(options: {
-    intervalMs: number;
-    distanceFilterM: number;
-    title?: string;
-    message?: string;
-  }): Promise<void>;
+  start(options: { intervalMs: number; title?: string; message?: string }): Promise<void>;
   stop(): Promise<void>;
   openSettings(): Promise<void>;
   backgroundStatus(): Promise<{ granted: boolean; foreground: boolean }>;
+  /** Collects the fixes the service queued (and clears its queue). */
+  drain(): Promise<{ fixes: NativePosition[] }>;
   addListener(
     event: 'location',
-    cb: (position: NativePosition) => void,
+    cb: () => void,
   ): Promise<{ remove: () => Promise<void> }>;
   addListener(
     event: 'status',
@@ -53,24 +51,17 @@ const MmsLocation = registerPlugin<MmsLocationPlugin>('MmsLocation');
 const FLUSH_INTERVAL_MS = 60_000;
 const BATCH_SIZE = 500;
 
-/**
- * Metres you must move before the OS bothers reporting a new fix. Scaled to the
- * chosen storage interval (~30 m per minute, floor 50 m) so a long interval also
- * ignores small wanders — together with the interval itself this is what keeps
- * the GPS asleep.
- */
-function distanceFilterM(): number {
-  // Floor lowered to 60 m so real travel in 50-80 m steps gets captured.
-  // Dynamic scaling: ~30 m per interval minute, floor 60 m, ceiling 200 m.
-  return Math.min(200, Math.max(60, getTrackingIntervalMin() * 30));
-}
-
 /** Fixes vaguer than this are drift, not travel. */
 const MAX_ACCURACY_M = 120;
 
-// Second line of defence: even if a provider reports more often than asked, we
-// only store a point every N minutes so the track stays lean.
-let lastRecordAt = 0;
+/**
+ * Radius around the first fix of a stay. Everything inside it is the same
+ * place — a hotel, a terrace, an office — and is merged into one point rather
+ * than sprayed across the map as a spiderweb. Membership is measured against
+ * that first fix, not against the running average, so walking away steadily
+ * still leaves the stay after ~75 m instead of dragging it along.
+ */
+const STAY_RADIUS_M = 75;
 
 const ACTIVE_TRIP_KEY = 'mms.tracking.trip';
 const LOG_KEY = 'mms.tracking.log';
@@ -79,11 +70,13 @@ export interface FixLogEntry {
   lat: number;
   lng: number;
   at: number;
-  /** false when the fix arrived but was dropped by the interval/distance rules
-   *  — so the log shows the GPS is alive even when nothing is stored. */
-  kept?: boolean;
-  /** Metres from the previously stored point, when known. */
+  /** Metres from the previous check, when known. */
   movedM?: number;
+  /** Reported accuracy of this fix, in metres. */
+  accuracyM?: number;
+  /** How many checks have now been merged into the same stay (2 or more means
+   *  this one did not add a new point but refined the existing one). */
+  stayCount?: number;
 }
 
 /** Recent GPS fixes (newest first), persisted so you can see it kept running. */
@@ -95,17 +88,9 @@ export function getTrackingLog(): FixLogEntry[] {
   }
 }
 
-let lastLogPushAt = 0;
-
+/** One line per scheduled check — no more, no less. */
 function pushLog(entry: FixLogEntry): void {
   try {
-    const now = Date.now();
-    // Kept points are always logged. Skipped points are throttled (at most once
-    // every 90 seconds unless significant movement occurred) to prevent log spamming.
-    if (!entry.kept && now - lastLogPushAt < 90_000 && (entry.movedM ?? 0) < 100) {
-      return;
-    }
-    lastLogPushAt = now;
     const log = [entry, ...getTrackingLog()].slice(0, 60);
     localStorage.setItem(LOG_KEY, JSON.stringify(log));
   } catch {
@@ -170,20 +155,27 @@ export async function openLocationSettings(): Promise<void> {
   await MmsLocation.openSettings().catch(() => undefined);
 }
 
-/** Last stored position, to report how far a new fix moved. */
-let lastStored: { lat: number; lng: number } | null = null;
+/** Position of the previous check, to report how far you moved. */
+let lastChecked: { lat: number; lng: number } | null = null;
 
-/** Recent stored positions to detect stationary stay clusters ("spinnenweb"). */
-const recentStored: { lat: number; lng: number; at: number }[] = [];
-
-/** Queue of recent fixes while waiting for interval or path confirmation. */
-interface CandidateFix {
-  position: NativePosition;
-  lat: number;
-  lng: number;
-  at: number;
+/**
+ * The place you are currently at. While fixes keep landing inside its radius
+ * they refine this one point instead of adding new ones, so standing still
+ * produces a single dot rather than a cluster.
+ */
+interface Stay {
+  /** First fix of the stay — the yardstick for "still the same place". */
+  anchor: { lat: number; lng: number };
+  sumLat: number;
+  sumLng: number;
+  count: number;
+  clientId: string;
+  startedAt: number;
+  /** Once uploaded the point can no longer be rewritten, so later fixes only
+   *  update the in-memory average. */
+  uploaded: boolean;
 }
-let candidateBuffer: CandidateFix[] = [];
+let stay: Stay | null = null;
 
 function metresBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const toRad = Math.PI / 180;
@@ -195,39 +187,111 @@ function metresBetween(a: { lat: number; lng: number }, b: { lat: number; lng: n
   return Math.round(6_371_000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)));
 }
 
-/** Returns true if recent stored points form a stationary cluster around a spot. */
-function inStationaryCluster(here: { lat: number; lng: number }): boolean {
-  if (recentStored.length < 3) return false;
-  // Calculate centroid of recent stored points
-  let sumLat = 0;
-  let sumLng = 0;
-  for (const p of recentStored) {
-    sumLat += p.lat;
-    sumLng += p.lng;
-  }
-  const center = { lat: sumLat / recentStored.length, lng: sumLng / recentStored.length };
-  
-  // Check if all recent stored points sit within 80 m of center
-  const allClose = recentStored.every((p) => metresBetween(center, p) <= 80);
-  if (!allClose) return false;
+/** Web fallback only: watchPosition fires far more often than we want. */
+let lastWebCheckAt = 0;
 
-  // If we are still within 100 m of the cluster center, suppress saving extra drift
-  return metresBetween(center, here) <= 100;
+/**
+ * Collects everything the native service queued and records it in order. The
+ * service keeps queueing while the WebView is gone, so a backlog after the app
+ * was killed still ends up in the route.
+ */
+async function drainNative(tripId: string): Promise<void> {
+  const { fixes } = await MmsLocation.drain().catch(() => ({ fixes: [] as NativePosition[] }));
+  for (const fix of fixes) await record(tripId, fix);
 }
 
-let isRecording = false;
+/** Serialises the checks, so two fixes arriving together can't both open a stay. */
+let recordChain: Promise<void> = Promise.resolve();
 
-async function storePoint(tripId: string, position: NativePosition, moved?: number): Promise<void> {
-  const now = Date.now();
+function record(tripId: string, position: NativePosition): Promise<void> {
+  recordChain = recordChain.then(() => handleFix(tripId, position)).catch(() => undefined);
+  return recordChain;
+}
+
+/**
+ * One scheduled check. It always produces exactly one log line; whether that
+ * check also adds a point depends only on whether you left the current stay.
+ */
+async function handleFix(tripId: string, position: NativePosition): Promise<void> {
+  const at = position.time && position.time > 0 ? position.time : Date.now();
   const here = { lat: position.latitude, lng: position.longitude };
-  lastRecordAt = now;
-  lastStored = here;
+  const moved = lastChecked ? metresBetween(lastChecked, here) : undefined;
 
-  recentStored.push({ ...here, at: now });
-  if (recentStored.length > 5) recentStored.shift();
+  // Too vague to place: a ±120 m fix drags the route across a whole town. It is
+  // logged (the GPS did answer) but never stored and never opens a stay.
+  if (position.accuracy !== undefined && position.accuracy > MAX_ACCURACY_M) {
+    pushLog({ ...here, at, movedM: moved, accuracyM: Math.round(position.accuracy) });
+    emit({ lastFix: { ...here, at, accuracy: position.accuracy } });
+    return;
+  }
 
-  const point: BufferedPoint = {
+  lastChecked = here;
+
+  if (stay && metresBetween(stay.anchor, here) <= STAY_RADIUS_M) {
+    await mergeIntoStay(tripId, position);
+    pushLog({
+      ...here,
+      at,
+      movedM: moved,
+      accuracyM: position.accuracy !== undefined ? Math.round(position.accuracy) : undefined,
+      stayCount: stay.count,
+    });
+  } else {
+    await openStay(tripId, position, at);
+    pushLog({
+      ...here,
+      at,
+      movedM: moved,
+      accuracyM: position.accuracy !== undefined ? Math.round(position.accuracy) : undefined,
+    });
+  }
+
+  emit({
+    buffered: await bufferedCount(),
+    lastFix: { ...here, at, accuracy: position.accuracy },
+  });
+}
+
+/** You moved somewhere new: store this fix and make it the new stay. */
+async function openStay(tripId: string, position: NativePosition, at: number): Promise<void> {
+  stay = {
+    anchor: { lat: position.latitude, lng: position.longitude },
+    sumLat: position.latitude,
+    sumLng: position.longitude,
+    count: 1,
     clientId: crypto.randomUUID(),
+    startedAt: at,
+    uploaded: false,
+  };
+  await bufferPoint(stayPoint(tripId, position));
+}
+
+/**
+ * Still the same place: fold this fix into the stay's average and rewrite the
+ * point that is already buffered, so a night in a hotel is one dot on the map.
+ * Once it has been uploaded it can no longer be rewritten (the server ignores a
+ * clientId it already has), so from then on only the average moves.
+ */
+async function mergeIntoStay(tripId: string, position: NativePosition): Promise<void> {
+  if (!stay) return;
+  stay.sumLat += position.latitude;
+  stay.sumLng += position.longitude;
+  stay.count += 1;
+  if (!stay.uploaded) {
+    await bufferPoint(
+      stayPoint(tripId, {
+        ...position,
+        latitude: stay.sumLat / stay.count,
+        longitude: stay.sumLng / stay.count,
+        time: stay.startedAt,
+      }),
+    );
+  }
+}
+
+function stayPoint(tripId: string, position: NativePosition): BufferedPoint {
+  return {
+    clientId: stay!.clientId,
     tripId,
     recordedAt: new Date(position.time ?? Date.now()).toISOString(),
     latitude: position.latitude,
@@ -235,103 +299,6 @@ async function storePoint(tripId: string, position: NativePosition, moved?: numb
     accuracy: position.accuracy,
     altitude: position.altitude,
   };
-  await bufferPoint(point);
-  pushLog({ ...here, at: now, kept: true, movedM: moved });
-  emit({
-    buffered: await bufferedCount(),
-    lastFix: {
-      lat: position.latitude,
-      lng: position.longitude,
-      at: Date.now(),
-      accuracy: position.accuracy,
-    },
-  });
-}
-
-async function record(tripId: string, position: NativePosition): Promise<void> {
-  if (isRecording) return;
-  isRecording = true;
-  try {
-    const now = Date.now();
-    const here = { lat: position.latitude, lng: position.longitude };
-
-    // Restore lastStored from existing tracking log if uninitialized (e.g. after app restart)
-    if (!lastStored) {
-      const logs = getTrackingLog();
-      const lastKept = logs.find((l) => l.kept);
-      if (lastKept) {
-        lastStored = { lat: lastKept.lat, lng: lastKept.lng };
-        lastRecordAt = lastKept.at;
-      }
-    }
-
-    const moved = lastStored ? metresBetween(lastStored, here) : undefined;
-
-    const skip = (): void => {
-      pushLog({ ...here, at: now, kept: false, movedM: moved });
-      emit({ lastFix: { ...here, at: now, accuracy: position.accuracy } });
-    };
-
-    // Too vague to place: a ±120 m fix drags the route across a whole town.
-    if (position.accuracy !== undefined && position.accuracy > MAX_ACCURACY_M) return skip();
-
-    // Add to candidate buffer for path evaluation
-    candidateBuffer.push({ position, ...here, at: now });
-    if (candidateBuffer.length > 15) candidateBuffer.shift();
-
-    // Check if stationary cluster (prevents hotel/stay spiderweb noise)
-    if (inStationaryCluster(here)) {
-      return skip();
-    }
-
-    const intervalMs = getTrackingIntervalMin() * 60_000;
-    const elapsed = now - lastRecordAt;
-    const filterM = distanceFilterM();
-
-    // If time interval elapsed AND we've moved at least min distance:
-    if (elapsed >= intervalMs) {
-      if (moved !== undefined && moved < filterM) {
-        return skip();
-      }
-
-      // If candidate buffer contains an intermediate turn point (midpoint along path), save it first!
-      if (lastStored && candidateBuffer.length >= 2) {
-        let bestMid: CandidateFix | null = null;
-        let maxDistFromLine = 0;
-        for (const cand of candidateBuffer.slice(0, -1)) {
-          const d1 = metresBetween(lastStored, cand);
-          const d2 = metresBetween(cand, here);
-          // If candidate sits between and extends path (d1 >= 40m, d2 >= 40m)
-          if (d1 >= 40 && d2 >= 40 && (d1 + d2) > moved!) {
-            const lineDist = Math.abs(d1 + d2 - moved!);
-            if (lineDist > maxDistFromLine) {
-              maxDistFromLine = lineDist;
-              bestMid = cand;
-            }
-          }
-        }
-        if (bestMid && maxDistFromLine > 30) {
-          await storePoint(tripId, bestMid.position, metresBetween(lastStored, bestMid));
-        }
-      }
-
-      await storePoint(tripId, position, moved);
-      candidateBuffer = [];
-      return;
-    }
-
-    // If interval hasn't fully elapsed yet, but we've moved significantly (> 1.5 * filterM),
-    // record immediately so fast travel is captured promptly.
-    if (moved !== undefined && moved >= filterM * 1.5 && elapsed >= 60_000) {
-      await storePoint(tripId, position, moved);
-      candidateBuffer = [];
-      return;
-    }
-
-    return skip();
-  } finally {
-    isRecording = false;
-  }
 }
 
 export async function flush(): Promise<void> {
@@ -354,7 +321,11 @@ export async function flush(): Promise<void> {
           points: tripPoints.map(({ tripId: _ignored, ...p }) => p),
         },
       });
-      await removePoints(tripPoints.map((p) => p.clientId));
+      const ids = tripPoints.map((p) => p.clientId);
+      // The server ignores a clientId it already stored, so a stay that has
+      // been uploaded can no longer be refined — stop rewriting it.
+      if (stay && ids.includes(stay.clientId)) stay.uploaded = true;
+      await removePoints(ids);
       emit({ lastError: null });
     } catch (err) {
       emit({ lastError: err instanceof Error ? err.message : 'Upload mislukt' });
@@ -367,11 +338,13 @@ export async function flush(): Promise<void> {
 export async function startTracking(tripId: string): Promise<void> {
   await stopTracking(false);
   localStorage.setItem(ACTIVE_TRIP_KEY, tripId);
-  lastRecordAt = 0; // record the first fix immediately
+  // A fresh watcher starts a fresh stay, so the first fix always lands.
+  stay = null;
+  lastWebCheckAt = 0;
 
   if (isNative()) {
     nativeHandles.push(
-      await MmsLocation.addListener('location', (position) => void record(tripId, position)),
+      await MmsLocation.addListener('location', () => void drainNative(tripId)),
     );
     nativeHandles.push(
       await MmsLocation.addListener('status', ({ state: s, message }) => {
@@ -382,16 +355,15 @@ export async function startTracking(tripId: string): Promise<void> {
         } else if (s === 'error') {
           emit({ lastError: message ?? 'Locatiefout', lastStatus: label });
         } else {
-          // 'tracking' and 'idle' are both healthy states.
-          emit({ lastError: null, lastStatus: label });
+          // 'nofix' is a missed check, not a failure — the next one may work.
+          emit({ lastStatus: label });
         }
       }),
     );
     try {
       await MmsLocation.start({
-        // minTime for the provider — the knob that duty-cycles the GNSS engine.
+        // How often the service wakes for one single position.
         intervalMs: getTrackingIntervalMin() * 60_000,
-        distanceFilterM: distanceFilterM(),
         title: 'MarkMySteps volgt je route',
         message: 'Locatie wordt zuinig bijgehouden tijdens je reis',
       });
@@ -400,20 +372,28 @@ export async function startTracking(tripId: string): Promise<void> {
       await stopTracking();
       return;
     }
+    // Anything the service recorded while the app was away.
+    void drainNative(tripId);
   } else {
     if (!('geolocation' in navigator)) {
       emit({ lastError: 'Geen GPS beschikbaar in deze browser' });
       return;
     }
     webWatchId = navigator.geolocation.watchPosition(
-      (pos) =>
+      (pos) => {
+        // watchPosition reports continuously; the interval lives here so the
+        // browser behaves like the native service: one check per interval.
+        const now = Date.now();
+        if (now - lastWebCheckAt < getTrackingIntervalMin() * 60_000) return;
+        lastWebCheckAt = now;
         void record(tripId, {
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
           altitude: pos.coords.altitude ?? undefined,
           time: pos.timestamp,
-        }),
+        });
+      },
       (err) => emit({ lastError: err.message }),
       { enableHighAccuracy: true, maximumAge: 30_000 },
     );
@@ -451,9 +431,9 @@ function onOnline(): void {
 }
 
 /**
- * Re-applies the storage interval to a RUNNING watcher. distanceFilter is only
- * read when the watcher is created, so without this a changed interval only took
- * effect after stopping and starting tracking again.
+ * Re-applies the interval to a RUNNING tracker. The service reads it once when
+ * it starts, so without this a changed interval only took effect after stopping
+ * and starting tracking again.
  */
 export async function refreshTrackingInterval(): Promise<void> {
   const tripId = state.tripId;

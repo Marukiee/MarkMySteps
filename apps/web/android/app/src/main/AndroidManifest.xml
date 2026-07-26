@@ -55,4 +55,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Held only for the seconds a single fix takes, so a scheduled check
+         completes even when the screen has been off for hours. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 </manifest>

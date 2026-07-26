@@ -926,7 +926,7 @@
   flex-shrink: 0;
 }
 
-/* Per-fix outcome in the location log. */
+/* Distance, accuracy and stay info of one check in the location log. */
 .tracking-log li em {
   font-style: normal;
   font-weight: 600;
@@ -934,16 +934,8 @@
   margin-left: 0.4rem;
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
-}
-
-.tracking-log li em.fix-kept {
-  background: rgb(42 143 133 / 0.15);
-  color: var(--teal);
-}
-
-.tracking-log li em.fix-skipped {
   background: var(--paper-sunken);
-  color: var(--ink-faint);
+  color: var(--ink-soft);
 }
 
 /* Square-ish chip so the pencil sits dead centre instead of drifting right. */

@@ -300,42 +300,125 @@ export class TrackingService {
       : Prisma.empty;
 
     const rows = await this.prisma.$queryRaw<
-      { userId: string; displayName: string; pointCount: bigint; geojson: string }[]
+      { userId: string; displayName: string; lat: number; lng: number }[]
     >`
       WITH pts AS (
         SELECT "userId", "recordedAt" AS t, geom
         FROM location_points
         WHERE "tripId" = ${tripId}::uuid ${userFilter}
         ${photoSource}
-      ),
-      lines AS (
-        SELECT "userId", ST_MakeLine(geom ORDER BY t) AS line, COUNT(*) AS n
-        FROM pts
-        GROUP BY "userId"
-        HAVING COUNT(*) >= 2
       )
       SELECT
-        l."userId",
+        p."userId",
         u."displayName",
-        l.n AS "pointCount",
-        ST_AsGeoJSON(ST_SimplifyPreserveTopology(l.line, ${tolerance})) AS geojson
-      FROM lines l
-      JOIN users u ON u.id = l."userId"
+        ST_Y(p.geom::geometry) AS lat,
+        ST_X(p.geom::geometry) AS lng
+      FROM pts p
+      JOIN users u ON u.id = p."userId"
+      ORDER BY p."userId", p.t
     `;
 
-    return {
-      type: 'FeatureCollection',
-      features: rows.map((row) => ({
-        type: 'Feature',
-        geometry: JSON.parse(row.geojson) as unknown,
-        properties: {
-          userId: row.userId,
-          displayName: row.displayName,
-          pointCount: Number(row.pointCount),
-        },
-      })),
-    };
+    const byUser = new Map<string, { displayName: string; coords: [number, number][] }>();
+    for (const row of rows) {
+      const entry = byUser.get(row.userId) ?? { displayName: row.displayName, coords: [] };
+      entry.coords.push([row.lng, row.lat]);
+      byUser.set(row.userId, entry);
+    }
+
+    const features = [];
+    for (const [userId, { displayName, coords }] of byUser) {
+      if (coords.length < 2) continue;
+      // Standing somewhere sprays fixes in a small web around one spot; each
+      // such run collapses to its own centre, so a stay is a point on the line
+      // instead of a scribble. Then the usual simplify thins the rest.
+      const line = simplifyLine(collapseStays(coords), tolerance);
+      if (line.length < 2) continue;
+      features.push({
+        type: 'Feature' as const,
+        geometry: { type: 'LineString', coordinates: line } as unknown,
+        properties: { userId, displayName, pointCount: coords.length },
+      });
+    }
+
+    return { type: 'FeatureCollection', features };
   }
+}
+
+/** Radius (metres) within which consecutive fixes count as the same place. */
+const STAY_RADIUS_M = 75;
+
+/**
+ * Replaces every run of consecutive points that stays inside STAY_RADIUS_M of
+ * where the run began by the average of that run.
+ */
+function collapseStays(coords: [number, number][]): [number, number][] {
+  const out: [number, number][] = [];
+  let anchor = coords[0]!;
+  let sumLng = 0;
+  let sumLat = 0;
+  let n = 0;
+
+  const close = (): void => {
+    if (n > 0) out.push([sumLng / n, sumLat / n]);
+  };
+
+  for (const c of coords) {
+    const away =
+      segLenKm({ lat: anchor[1], lng: anchor[0] }, { lat: c[1], lng: c[0] }) * 1000 >
+      STAY_RADIUS_M;
+    if (away) {
+      close();
+      anchor = c;
+      sumLng = 0;
+      sumLat = 0;
+      n = 0;
+    }
+    sumLng += c[0];
+    sumLat += c[1];
+    n += 1;
+  }
+  close();
+  return out;
+}
+
+/** Douglas-Peucker with the tolerance in degrees, as ST_Simplify used it. */
+function simplifyLine(coords: [number, number][], tolerance: number): [number, number][] {
+  if (coords.length < 3 || tolerance <= 0) return coords;
+  const keep = new Array<boolean>(coords.length).fill(false);
+  keep[0] = true;
+  keep[coords.length - 1] = true;
+
+  const stack: [number, number][] = [[0, coords.length - 1]];
+  while (stack.length > 0) {
+    const [first, last] = stack.pop()!;
+    let index = -1;
+    let far = tolerance;
+    for (let i = first + 1; i < last; i++) {
+      const d = perpDistanceDeg(coords[i]!, coords[first]!, coords[last]!);
+      if (d > far) {
+        far = d;
+        index = i;
+      }
+    }
+    if (index === -1) continue;
+    keep[index] = true;
+    stack.push([first, index], [index, last]);
+  }
+  return coords.filter((_, i) => keep[i]);
+}
+
+function perpDistanceDeg(
+  p: [number, number],
+  a: [number, number],
+  b: [number, number],
+): number {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
 }
 
 type Pt = { lat: number; lng: number };

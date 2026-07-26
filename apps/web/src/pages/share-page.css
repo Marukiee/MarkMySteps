@@ -248,8 +248,11 @@
   box-shadow: 0 0 0 4px var(--paper);
 }
 
+/* Centred on the whole two-line block (place + dates), not on its first line —
+   otherwise the number reads as belonging to the place and the date dangles. */
 .share-tl-marker-stop {
-  top: 0;
+  top: 50%;
+  transform: translateY(-50%);
   width: 30px;
   height: 30px;
   margin-left: 8px;
@@ -267,15 +270,19 @@
   background: var(--accent);
 }
 
+/* A grid with a min-height stretches its two rows apart, which is what pushed
+   the date away from the place name. Rows keep their own height and the block
+   as a whole is centred against the marker instead. */
 .share-tl-stop-body {
   display: grid;
-  gap: 0.1rem;
+  align-content: center;
+  gap: 0;
   min-height: 30px;
-  padding: 0.15rem 0;
 }
 
 .share-tl-stop-body strong {
   font-size: 1.08rem;
+  line-height: 1.25;
 }
 
 .share-tl-flag {
@@ -291,6 +298,7 @@
 
 .share-tl-stop-body .muted {
   font-size: 0.85rem;
+  line-height: 1.25;
 }
 
 /* Outbound / return: travel, not a destination — a slim pill on the rail
@@ -361,31 +369,34 @@
 }
 
 @media (max-width: 560px) {
+  /* The rail sits hard against the left edge on a phone, so the text gets the
+     width instead of the gutter. */
   .share-tl {
-    padding-left: 38px;
+    padding-left: 32px;
+    gap: 1.1rem;
   }
 
-  /* Rail centre at 22px; every marker below is centred on exactly that. */
+  /* Rail centre at 14px; every marker below is centred on exactly that. */
   .share-tl::before {
-    left: 21px;
+    left: 13px;
   }
 
   .share-tl-marker {
-    left: -38px;
+    left: -32px;
   }
 
   .share-tl-marker-stop {
     width: 26px;
     height: 26px;
-    margin-left: 9px;
+    margin-left: 1px;
   }
 
   .share-tl-marker-day {
-    margin-left: 17px;
+    margin-left: 9px;
   }
 
   .share-tl-marker-leg {
-    margin-left: 11px;
+    margin-left: 3px;
   }
 }
 

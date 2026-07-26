@@ -326,13 +326,11 @@ function TrackingSection() {
       <h2>
         Route-tracking
         <HelpTip>
-          Elk interval zet de app de GPS heel even aan voor één positie en daarna weer uit. Ligt
-          die positie te dicht bij de vorige (of is de meting te onnauwkeurig), dan wordt hij
-          weggegooid in plaats van opgeslagen, zodat stilstaan geen wirwar van punten oplevert. Blijf je
-          langere tijd op dezelfde plek, dan stopt het meten helemaal en wacht de app op de
-          bewegingssensor van je toestel. Een groter interval scheelt dus flink batterij, en
-          vergroot ook de afstand die je moet afleggen voordat een punt bewaard wordt. Offline
-          wordt alles gebufferd en later geüpload. Vereist locatie op “Altijd toestaan”.
+          Elk interval zet de app de GPS heel even aan voor precies één positie en daarna weer
+          uit; daartussen kost tracking niets. Blijf je op dezelfde plek, dan worden die metingen
+          samengevoegd tot één punt in plaats van een wirwar van stipjes. Een groter interval
+          scheelt dus flink batterij. Offline wordt alles gebufferd en later geüpload. Vereist
+          locatie op “Altijd toestaan”.
         </HelpTip>
       </h2>
       <p className="muted">Houdt je route bij tijdens een reis, ook met het scherm uit.</p>
@@ -565,12 +563,12 @@ function TripPicker({
   );
 }
 
-/** Persisted recent-fix log — proof tracking keeps recording, even backgrounded. */
+/** Persisted check log — one line per interval, proof tracking keeps running. */
 function TrackingLog({ now }: { now: number }) {
   const log = getTrackingLog();
   if (log.length === 0) return null;
   return (
-    <Collapsible className="tracking-log" summary={`Locatie-log · ${log.length} fixes`}>
+    <Collapsible className="tracking-log" summary={`Locatie-log · ${log.length} checks`}>
       <ul>
         {log.slice(0, 25).map((e, i) => {
           const ago = Math.round((now - e.at) / 1000);
@@ -579,11 +577,12 @@ function TrackingLog({ now }: { now: number }) {
               <span>
                 {new Date(e.at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
                 {ago < 3600 ? ` · ${Math.max(0, Math.round(ago / 60))}m geleden` : ''}
-                {/* Whether this fix was stored, and how far it had moved — so a
-                    working GPS is visible even when nothing is being saved. */}
-                <em className={e.kept === false ? 'fix-skipped' : 'fix-kept'}>
-                  {e.kept === false ? 'overgeslagen' : 'opgeslagen'}
-                  {e.movedM !== undefined ? ` · ${e.movedM} m` : ''}
+                {/* How far this check moved, how sharp it was, and whether it was
+                    folded into the place you're staying. */}
+                <em className="fix-meta">
+                  {e.movedM !== undefined ? `${e.movedM} m` : 'start'}
+                  {e.accuracyM !== undefined ? ` · ±${e.accuracyM} m` : ''}
+                  {e.stayCount ? ` · zelfde plek (${e.stayCount}×)` : ''}
                 </em>
               </span>
               <span className="muted">
