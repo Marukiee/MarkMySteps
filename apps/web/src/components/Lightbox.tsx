@@ -30,6 +30,13 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const [place, setPlace] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+
+  // Animate out before unmounting; closing used to be an abrupt cut.
+  const close = () => {
+    setClosing(true);
+    window.setTimeout(onClose, 200);
+  };
   const item = items[index];
 
   // City + country for the photo, when it carries a coordinate. Cached per ~1 km
@@ -111,7 +118,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') close();
       if (e.key === 'ArrowLeft' && index > 0) onNavigate(index - 1);
       if (e.key === 'ArrowRight' && index < items.length - 1) onNavigate(index + 1);
     };
@@ -137,19 +144,26 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       if (dx > 0 && index > 0) onNavigate(index - 1);
       else if (dx < 0 && index < items.length - 1) onNavigate(index + 1);
+    } else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      close(); // swipe down to dismiss
     }
   };
 
   // Portal to <body> so it sits above the fixed tab bar and any page stacking
   // context (the trip detail is itself position:fixed on mobile).
   return createPortal(
-    <div className="lightbox" onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className={`lightbox ${closing ? 'closing' : ''}`}
+      onClick={close}
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="lightbox-date">
         {formatDay(item.takenAt)}
         {place && <span className="lightbox-place">{place}</span>}
       </div>
 
-      <button className="lightbox-close" aria-label="Sluiten">
+      <button className="lightbox-close" aria-label="Sluiten" onClick={close}>
         <Icon name="close" size={22} />
       </button>
 
@@ -163,7 +177,12 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
           {item.assetType === 'VIDEO' && videoUrl ? (
             <video className="lightbox-img" src={videoUrl} controls autoPlay playsInline />
           ) : (
-            <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="lightbox-img" />
+            <AuthImage
+              key={item.id}
+              path={`/media/${item.id}/thumbnail`}
+              alt=""
+              className="lightbox-img"
+            />
           )}
           {item.assetType === 'VIDEO' && !videoUrl && (
             <p className="lightbox-videohint">Video laden…</p>

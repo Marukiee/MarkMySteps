@@ -396,7 +396,13 @@ export class TripsService {
 
   /** Headline numbers for the trip: distance, countries, days, photos. */
   async getStats(tripId: string, userId: string): Promise<TripStats> {
-    const trip = await this.getForMember(tripId, userId);
+    await this.getForMember(tripId, userId);
+    return this.getStatsUnchecked(tripId);
+  }
+
+  /** Same numbers without a membership check — for share links. */
+  async getStatsUnchecked(tripId: string): Promise<TripStats> {
+    const trip = await this.prisma.trip.findUniqueOrThrow({ where: { id: tripId } });
 
     const [distanceRow] = await this.prisma.$queryRaw<{ meters: number | null }[]>`
       SELECT ST_Length(

@@ -27,6 +27,7 @@ import { ImmichConnectionService } from '../immich/immich-connection.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlannedStop, StopsService } from '../stops/stops.service';
 import { RouteCollection, TrackingService } from '../tracking/tracking.service';
+import { TripsService } from '../trips/trips.service';
 import { ShareLinkInfo, ShareService, ShareTokenPayload } from './share.service';
 
 class CreateShareDto {
@@ -90,6 +91,7 @@ export class SharePublicController {
     private readonly share: ShareService,
     private readonly tracking: TrackingService,
     private readonly stops: StopsService,
+    private readonly trips: TripsService,
     private readonly prisma: PrismaService,
     private readonly connections: ImmichConnectionService,
     private readonly immich: ImmichClientService,
@@ -116,10 +118,26 @@ export class SharePublicController {
         description: true,
         startDate: true,
         endDate: true,
+        coverMediaId: true,
         members: { select: { userId: true, user: { select: { displayName: true } } } },
+        // Fallback cover: the first photo of the trip.
+        mediaRefs: { take: 1, orderBy: { takenAt: 'asc' }, select: { id: true } },
       },
     });
-    return trip;
+    const { mediaRefs, coverMediaId, ...rest } = trip;
+    // The public page shows the same header card as the app: cover, dates and
+    // the trip's numbers.
+    const [stats, stopCount] = await Promise.all([
+      this.trips.getStatsUnchecked(session.tripId),
+      this.prisma.stop.count({
+        where: { tripId: session.tripId, latitude: { not: null } },
+      }),
+    ]);
+    return {
+      ...rest,
+      resolvedCoverId: coverMediaId ?? mediaRefs[0]?.id ?? null,
+      stats: { ...stats, stops: stopCount },
+    };
   }
 
   @Get(':slug/route')

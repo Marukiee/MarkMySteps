@@ -2,11 +2,30 @@
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgb(16 21 27 / 0.92);
+  background: rgb(10 13 18 / 0.94);
   backdrop-filter: blur(6px);
   display: grid;
   place-content: center;
-  animation: fadeIn 0.2s var(--ease);
+  padding: clamp(1rem, 4vw, 2.5rem);
+  animation: lightboxIn 0.24s var(--ease);
+}
+
+.lightbox.closing {
+  animation: lightboxOut 0.2s ease forwards;
+}
+
+@keyframes lightboxIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+@keyframes lightboxOut {
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
 }
 
 .lightbox-stage {
@@ -18,13 +37,21 @@
 
 .lightbox-img {
   max-width: 100%;
-  max-height: 78vh;
+  max-height: min(78vh, calc(100dvh - 12rem));
   object-fit: contain;
   border-radius: var(--radius-m);
-  box-shadow: var(--shadow-l);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 0.55);
   background: #000;
-  min-width: 320px;
-  min-height: 200px;
+  /* No minimum: a portrait shot was being padded out to a landscape box, which
+     is where the odd empty margins came from. */
+  animation: lightboxPhotoIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes lightboxPhotoIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
 }
 
 .lightbox-bar {
@@ -93,10 +120,12 @@
   position: relative;
   display: inline-grid;
   justify-self: center;
-  /* Reserve height while the image loads so the nav arrows keep a stable
-     vertical position instead of centring on a tiny placeholder. */
-  min-height: 50vh;
   align-content: center;
+  /* Reserve a floor while the image loads so the nav arrows don't centre on a
+     tiny placeholder, then ease between shapes as you page through photos of
+     different aspect ratios. */
+  min-height: min(50vh, 340px);
+  transition: width 0.3s var(--ease), height 0.3s var(--ease);
 }
 
 .lightbox-nav {
@@ -132,8 +161,7 @@
   }
 
   .lightbox-img {
-    min-width: 0;
-    max-height: 70vh;
+    max-height: min(70vh, calc(100dvh - 11rem));
   }
 
   .lightbox-bar {

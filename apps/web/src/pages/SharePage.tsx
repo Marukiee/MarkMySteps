@@ -6,8 +6,13 @@ import { useParams } from 'react-router-dom';
 import type { MediaItem, RouteCollection } from '../api/types';
 import { trimOutlierEnds } from '../lib/arc';
 import { colorForUser, flagEmoji, formatDay } from '../lib/colors';
+import { reversePlaceName } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
 import { Icon } from '../components/Icon';
+import { LogoMark } from '../components/Logo';
+import { TripFacts } from '../components/TripFacts';
+import { resolveFacts } from '../lib/tripFacts';
+import '../components/tripmap.css'; // photo markers on the shared map
 import './share-page.css';
 
 interface SharedTrip {
@@ -16,6 +21,14 @@ interface SharedTrip {
   startDate: string;
   endDate: string;
   members: { userId: string; user: { displayName: string } }[];
+  resolvedCoverId: string | null;
+  stats: {
+    distanceKm: number;
+    countries: string[];
+    days: number;
+    photoCount: number;
+    stops: number;
+  };
 }
 
 interface SharedStop {
@@ -81,8 +94,14 @@ export function SharePage() {
   if (error && !token) {
     return (
       <div className="share-gate">
-        <h1>MarkMySteps</h1>
-        <p className="error-text">{error}</p>
+        <div className="share-gate-inner">
+          <span className="share-gate-brand">
+            <LogoMark size={38} />
+            MarkMySteps
+          </span>
+          <h1>Deze link werkt niet meer</h1>
+          <p className="muted">{error}</p>
+        </div>
       </div>
     );
   }
@@ -90,24 +109,32 @@ export function SharePage() {
   if (!token) {
     return (
       <div className="share-gate">
-        <h1>{title || 'Gedeelde reis'}</h1>
-        {needsPassword ? (
-          <form className="card share-gate-card" onSubmit={unlock}>
-            <div className="field">
-              <label htmlFor="sp-pw">Wachtwoord</label>
-              <input
-                id="sp-pw"
-                type="password"
-                autoFocus
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <button className="btn btn-primary">Bekijken</button>
-          </form>
-        ) : (
-          <p className="muted">Laden…</p>
-        )}
+        <div className="share-gate-inner">
+          <span className="share-gate-brand">
+            <LogoMark size={38} />
+            MarkMySteps
+          </span>
+          <h1>{title || 'Gedeelde reis'}</h1>
+          {needsPassword ? (
+            <form className="card share-gate-card" onSubmit={unlock}>
+              <p className="muted">Deze reis is beveiligd met een wachtwoord.</p>
+              <div className="field">
+                <label htmlFor="sp-pw">Wachtwoord</label>
+                <input
+                  id="sp-pw"
+                  type="password"
+                  autoFocus
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              {error && <p className="error-text">{error}</p>}
+              <button className="btn btn-primary">Bekijken</button>
+            </form>
+          ) : (
+            <p className="muted share-gate-loading">Laden…</p>
+          )}
+        </div>
       </div>
     );
   }
@@ -224,64 +251,130 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
 
   return (
     <div className="share-view">
-      <header className="share-head">
-        <span className="share-brand">MarkMySteps</span>
-        <h1>{trip?.title}</h1>
-        {trip && (
-          <p className="muted">
-            {trip.members.map((m) => m.user.displayName).join(' · ')}
-          </p>
-        )}
+      <header className="share-topbar">
+        <span className="share-brand">
+          <LogoMark size={26} />
+          MarkMySteps
+        </span>
       </header>
+
+      {/* Same header card as the app: cover, title, dates and the trip's facts. */}
+      <div className={`share-headcard ${trip?.resolvedCoverId ? 'has-cover' : ''}`}>
+        {trip?.resolvedCoverId && (
+          <ShareImage
+            slug={slug}
+            token={token}
+            mediaId={trip.resolvedCoverId}
+            className="share-headcard-img"
+          />
+        )}
+        <div className="share-headcard-body">
+          <h1>{trip?.title ?? ' '}</h1>
+          {trip && (
+            <p className="share-headcard-dates">
+              {formatDay(trip.startDate)} – {formatDay(trip.endDate)}
+            </p>
+          )}
+          <TripFacts
+            facts={
+              !trip
+                ? []
+                : resolveFacts(
+                    {
+                      distanceKm: trip.stats.distanceKm,
+                      days: trip.stats.days,
+                      stops: trip.stats.stops,
+                      photoCount: trip.stats.photoCount,
+                      travellers: trip.members.length,
+                      countries: trip.stats.countries.length,
+                    },
+                    null,
+                  )
+            }
+          />
+        </div>
+      </div>
+
+      {trip?.description && <p className="share-description">{trip.description}</p>}
 
       <div className="share-map card">
         <div ref={mapContainerRef} className="share-map-inner" />
       </div>
 
       {stops.length > 0 && (
-        <ol className="share-stops">
-          {stops.map((stop, i) => (
-            <li key={stop.id}>
-              <button
-                className="card share-stop"
-                onClick={() =>
-                  document
-                    .getElementById(`day-${stop.arrivalDate.slice(0, 10)}`)
-                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }
-              >
-                <span className="share-stop-num">{i + 1}</span>
-                <span className="share-stop-body">
-                  <strong>
-                    {flagEmoji(stop.countryCode)} {stop.name}
-                  </strong>
-                  <span className="muted">{stopRange(stop.arrivalDate, stop.departureDate)}</span>
-                </span>
-                <Icon name="chevron-right" size={16} className="share-stop-go" />
-              </button>
-            </li>
-          ))}
-        </ol>
+        <section className="share-section">
+          <h2 className="share-section-title">Route</h2>
+          <ol className="share-stops">
+            {stops.map((stop, i) => (
+              <li key={stop.id} style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
+                <button
+                  className="share-stop"
+                  onClick={() =>
+                    document
+                      .getElementById(`day-${stop.arrivalDate.slice(0, 10)}`)
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }
+                >
+                  <span className="share-stop-rail" aria-hidden="true">
+                    <span className="share-stop-dot">{i + 1}</span>
+                  </span>
+                  <span className="share-stop-body">
+                    <strong>
+                      {stop.countryCode && (
+                        <span className="share-stop-flag">{flagEmoji(stop.countryCode)}</span>
+                      )}
+                      {stop.name}
+                    </strong>
+                    <span className="muted">
+                      {stopRange(stop.arrivalDate, stop.departureDate)}
+                    </span>
+                  </span>
+                  <Icon name="chevron-right" size={16} className="share-stop-go" />
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
 
-      <div className="share-days">
-        {[...days.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, items]) => (
-          <section key={day} id={`day-${day}`}>
-            <h3>{formatDay(items[0]!.takenAt)}</h3>
-            <div className="share-grid">
-              {items.map((item) => (
-                <ShareImage
-                  key={item.id}
-                  slug={slug}
-                  token={token}
-                  mediaId={item.id}
-                  onOpen={() => setLightboxIndex(orderedMedia.findIndex((m) => m.id === item.id))}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+      <section className="share-section">
+        <h2 className="share-section-title">Tijdlijn</h2>
+        <div className="share-days">
+          {[...days.entries()]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([day, items]) => (
+              <section key={day} id={`day-${day}`} className="share-day">
+                <h3>
+                  <span className="share-day-dot" />
+                  {formatDay(items[0]!.takenAt)}
+                </h3>
+                <div className="share-grid">
+                  {items.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="share-photo-btn"
+                      onClick={() =>
+                        setLightboxIndex(orderedMedia.findIndex((m) => m.id === item.id))
+                      }
+                    >
+                      <ShareImage
+                        slug={slug}
+                        token={token}
+                        mediaId={item.id}
+                        className="share-photo"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
+        </div>
+      </section>
+
+      <footer className="share-footer">
+        Gedeeld met <LogoMark size={18} /> <strong>MarkMySteps</strong>
+      </footer>
 
       {lightboxIndex !== null && orderedMedia[lightboxIndex] && (
         <ShareLightbox
@@ -314,8 +407,16 @@ function ShareLightbox({
   onClose: () => void;
 }) {
   const [src, setSrc] = useState<string>();
+  const [closing, setClosing] = useState(false);
+  const [place, setPlace] = useState<string | null>(null);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const item = items[index]!;
+
+  // Animate out before unmounting, so closing isn't an abrupt cut.
+  const close = () => {
+    setClosing(true);
+    window.setTimeout(onClose, 200);
+  };
 
   const onTouchStart = (e: ReactTouchEvent) => {
     const t = e.touches[0]!;
@@ -331,6 +432,8 @@ function ShareLightbox({
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       if (dx > 0 && index > 0) onNavigate(index - 1);
       else if (dx < 0 && index < items.length - 1) onNavigate(index + 1);
+    } else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      close(); // swipe down to dismiss
     }
   };
 
@@ -350,30 +453,50 @@ function ShareLightbox({
     };
   }, [slug, token, item.id]);
 
+  // City + country, same as the app's viewer.
+  useEffect(() => {
+    setPlace(null);
+    if (item.latitude == null || item.longitude == null) return;
+    let alive = true;
+    void reversePlaceName(item.latitude, item.longitude).then(
+      (name) => alive && setPlace(name),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [item.id, item.latitude, item.longitude]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') close();
       if (e.key === 'ArrowLeft' && index > 0) onNavigate(index - 1);
       if (e.key === 'ArrowRight' && index < items.length - 1) onNavigate(index + 1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [index, items.length, onNavigate, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, items.length, onNavigate]);
 
   return (
-    <div className="share-lightbox" onClick={onClose}>
-      <button className="share-lightbox-close" aria-label="Sluiten" onClick={onClose}>
+    <div className={`share-lightbox ${closing ? 'closing' : ''}`} onClick={close}>
+      <button className="share-lightbox-close" aria-label="Sluiten" onClick={close}>
         <Icon name="close" size={22} />
       </button>
+
       <figure
         className="share-lightbox-fig"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        <span className="share-lightbox-date">{formatDay(item.takenAt)}</span>
+        {/* The frame sizes to the image, so a portrait after a landscape eases
+            between shapes instead of snapping. */}
         <div className="share-lightbox-imgwrap">
-          {src ? <img src={src} alt="" /> : <div className="share-lightbox-loading" />}
+          {src ? (
+            <img key={item.id} src={src} alt="" />
+          ) : (
+            <div className="share-lightbox-loading" />
+          )}
           {index > 0 && (
             <button
               className="share-lightbox-nav share-lightbox-prev"
@@ -399,6 +522,14 @@ function ShareLightbox({
             </button>
           )}
         </div>
+
+        <figcaption className="share-lightbox-caption">
+          <span className="share-lightbox-date">{formatDay(item.takenAt)}</span>
+          {place && <span className="share-lightbox-place">{place}</span>}
+          <span className="share-lightbox-count">
+            {index + 1} / {items.length}
+          </span>
+        </figcaption>
       </figure>
     </div>
   );
@@ -408,12 +539,12 @@ function ShareImage({
   slug,
   token,
   mediaId,
-  onOpen,
+  className,
 }: {
   slug: string;
   token: string;
   mediaId: string;
-  onOpen: () => void;
+  className?: string;
 }) {
   const [src, setSrc] = useState<string>();
 
@@ -432,14 +563,13 @@ function ShareImage({
     };
   }, [slug, token, mediaId]);
 
-  if (!src) return <div className="img-placeholder share-photo" />;
+  // Placeholder keeps the slot's size, so nothing reflows as photos arrive.
   return (
     <img
       src={src}
       alt=""
-      className="share-photo share-photo-btn"
+      className={`${className ?? ''} ${src ? 'is-loaded' : 'is-loading'}`}
       loading="lazy"
-      onClick={onOpen}
     />
   );
 }

@@ -1,50 +1,183 @@
+/* ==========================================================
+   Public share page — the read-only view behind a share link.
+   Deliberately mirrors the app's trip page (header card with
+   facts, route rail, timeline) so both feel like one product.
+   ========================================================== */
+
+/* ---------- Gate: link info / password ---------- */
+
 .share-gate {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
-  place-content: center;
-  gap: 1.2rem;
+  place-items: center;
+  padding: 2rem 1.25rem;
+  background:
+    radial-gradient(120% 80% at 50% -10%, var(--accent-soft), transparent 60%),
+    var(--paper);
+}
+
+.share-gate-inner {
+  width: min(420px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
   text-align: center;
-  padding: 2rem;
+  animation: shareRise 0.5s var(--ease) both;
+}
+
+.share-gate-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-brand);
+  font-weight: 620;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+  color: var(--ink-soft);
+  margin-bottom: 0.4rem;
+}
+
+.share-gate h1 {
+  font-size: clamp(1.7rem, 6vw, 2.3rem);
 }
 
 .share-gate-card {
-  padding: 1.5rem;
+  width: 100%;
+  margin-top: 0.9rem;
+  padding: 1.25rem;
   display: grid;
-  gap: 1rem;
-  width: min(90vw, 320px);
+  gap: 0.85rem;
+  text-align: left;
+  animation: shareRise 0.5s var(--ease) 0.08s both;
 }
 
+.share-gate-loading {
+  animation: sharePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes sharePulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ---------- Page shell ---------- */
+
 .share-view {
-  max-width: 900px;
+  max-width: 940px;
   margin: 0 auto;
-  padding: 1.5rem 1.5rem 4rem;
+  padding: 0 1.25rem 4rem;
   display: grid;
   gap: 1.5rem;
 }
 
-.share-head {
-  text-align: center;
-  display: grid;
-  gap: 0.3rem;
+.share-topbar {
+  display: flex;
+  align-items: center;
+  padding: 1.1rem 0 0.2rem;
 }
 
 .share-brand {
-  font-family: var(--font-display);
-  font-weight: 650;
-  color: var(--accent-ink);
-  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-brand);
+  font-weight: 620;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
 }
 
-.share-head h1 {
-  font-size: 2.2rem;
+/* ---------- Header card (cover + title + facts) ---------- */
+
+.share-headcard {
+  position: relative;
+  min-height: 200px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-s);
+  animation: shareRise 0.55s var(--ease) both;
 }
+
+.share-headcard.has-cover {
+  border: none;
+  min-height: clamp(220px, 34vw, 320px);
+}
+
+.share-headcard-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.share-headcard-body {
+  position: relative;
+  width: 100%;
+  display: grid;
+  gap: 0.3rem;
+  justify-items: center;
+  text-align: center;
+  padding: 1.15rem 1.25rem;
+}
+
+.share-headcard.has-cover .share-headcard-body {
+  padding-top: 5rem;
+  background: linear-gradient(to top, rgb(16 21 27 / 0.68), rgb(16 21 27 / 0.05) 72%, transparent);
+  color: #fff;
+}
+
+.share-headcard h1 {
+  font-size: clamp(1.5rem, 4.5vw, 2.1rem);
+}
+
+.share-headcard.has-cover h1 {
+  color: #fff;
+  text-shadow: 0 1px 14px rgb(0 0 0 / 0.35);
+}
+
+.share-headcard-dates {
+  font-size: 0.9rem;
+  color: var(--ink-faint);
+}
+
+.share-headcard.has-cover .share-headcard-dates {
+  color: rgb(255 255 255 / 0.85);
+}
+
+/* The fact chips come from the app's TripFacts; only the light-on-photo
+   variant needs restating here. */
+.share-headcard.has-cover .tstat {
+  background: rgb(255 255 255 / 0.16);
+  color: rgb(255 255 255 / 0.9);
+  backdrop-filter: blur(6px);
+}
+
+.share-headcard.has-cover .tstat strong {
+  color: #fff;
+}
+
+.share-description {
+  margin: -0.6rem 0 0;
+  color: var(--ink-soft);
+  max-width: 62ch;
+}
+
+/* ---------- Map ---------- */
 
 .share-map {
   position: relative;
-  height: 55vh;
-  min-height: 320px;
+  height: clamp(300px, 48vh, 460px);
+  border: none;
   border-radius: var(--radius-l);
   overflow: hidden;
+  box-shadow: var(--shadow-m);
+  animation: shareRise 0.55s var(--ease) 0.06s both;
 }
 
 .share-map-inner {
@@ -52,116 +185,347 @@
   inset: 0;
 }
 
-/* Map sticks to the top on mobile, mirroring the app. */
-@media (max-width: 700px) {
-  .share-view {
-    padding: 0 0 3rem;
-    gap: 1rem;
-  }
+/* ---------- Sections ---------- */
 
-  .share-head {
-    padding: 1.25rem 1.5rem 0;
-  }
-
-  .share-map {
-    order: -1;
-    position: sticky;
-    top: 0;
-    height: 42vh;
-    min-height: 0;
-    border-radius: 0 0 var(--radius-l) var(--radius-l);
-    z-index: 2;
-  }
-
-  .share-stops,
-  .share-days {
-    padding: 0 1.5rem;
-  }
+.share-section {
+  display: grid;
+  gap: 0.85rem;
 }
 
-/* Photo dots on the shared map. */
-.share-map .photo-marker {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2.5px solid #fff;
-  background: var(--paper-sunken) center / cover no-repeat;
-  box-shadow: var(--shadow-m);
-  cursor: pointer;
+.share-section-title {
+  font-size: 1.25rem;
+  color: var(--ink-soft);
 }
 
-.share-map .photo-marker-error {
+/* ---------- Route rail ---------- */
+
+.share-stops {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.share-stops li {
+  animation: shareRise 0.45s var(--ease) both;
+}
+
+.share-stop {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.55rem 0.75rem 0.55rem 0;
+  border-radius: var(--radius-m);
+  text-align: left;
+  color: inherit;
+  transition: background 0.18s var(--ease);
+}
+
+.share-stop:hover {
   background: var(--paper-sunken);
 }
 
+/* Numbered dot on a continuous line, so it reads as a route rather than a
+   stack of loose cards jammed against the page edge. */
+.share-stop-rail {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+}
+
+.share-stop-rail::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  bottom: -50%;
+  width: 2px;
+  background: var(--line);
+}
+
+.share-stops li:first-child .share-stop-rail::before {
+  top: 50%;
+}
+
+.share-stops li:last-child .share-stop-rail::before {
+  bottom: 50%;
+}
+
+.share-stop-dot {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-content: center;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.82rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 4px var(--paper);
+  transition: transform 0.18s var(--ease), background 0.18s var(--ease);
+}
+
+.share-stop:hover .share-stop-dot {
+  transform: scale(1.08);
+  background: var(--accent);
+  color: #fff;
+}
+
+.share-stop-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.35rem 0;
+}
+
+.share-stop-body strong {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.02rem;
+}
+
+.share-stop-flag {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.share-stop-body .muted {
+  font-size: 0.85rem;
+}
+
+.share-stop-go {
+  flex-shrink: 0;
+  color: var(--ink-faint);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
+}
+
+.share-stop:hover .share-stop-go {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- Timeline ---------- */
+
+.share-days {
+  display: grid;
+  gap: 1.6rem;
+}
+
+.share-day {
+  scroll-margin-top: 1.5rem;
+  animation: shareRise 0.5s var(--ease) both;
+}
+
+.share-day h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.7rem;
+}
+
+.share-day-dot {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.share-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(104px, 20vw, 150px), 1fr));
+  gap: 0.55rem;
+  margin-left: 1.55rem;
+}
+
 .share-photo-btn {
-  cursor: zoom-in;
-  transition: transform 0.15s var(--ease);
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border-radius: var(--radius-s);
+  overflow: hidden;
+  background: var(--paper-sunken);
+  cursor: pointer;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.share-photo-btn:hover {
-  transform: scale(1.02);
+@media (hover: hover) {
+  .share-photo-btn:hover {
+    transform: translateY(-3px) scale(1.015);
+    box-shadow: var(--shadow-m);
+    z-index: 2;
+  }
+
+  .share-photo-btn:hover .share-photo {
+    transform: scale(1.06);
+  }
 }
 
-/* Fullscreen viewer. */
+.share-photo-btn:active {
+  transform: scale(0.975);
+  transition-duration: 0.12s;
+}
+
+.share-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s var(--ease);
+}
+
+/* Thumbnails arrive one by one — fade each in rather than popping. */
+.share-photo.is-loading,
+.share-headcard-img.is-loading {
+  opacity: 0;
+}
+
+.share-photo.is-loaded,
+.share-headcard-img.is-loaded {
+  opacity: 1;
+}
+
+/* ---------- Footer ---------- */
+
+.share-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  color: var(--ink-faint);
+  font-size: 0.88rem;
+}
+
+.share-footer strong {
+  font-family: var(--font-brand);
+  font-weight: 620;
+  color: var(--ink-soft);
+}
+
+/* ---------- Photo viewer ---------- */
+
 .share-lightbox {
   position: fixed;
   inset: 0;
   z-index: 200;
   display: grid;
   place-items: center;
-  background: rgb(10 12 16 / 0.94);
-  animation: fadeIn 0.2s var(--ease);
+  padding: clamp(1rem, 4vw, 2.5rem);
+  background: rgb(8 11 15 / 0.94);
+  backdrop-filter: blur(6px);
+  animation: shareBoxIn 0.24s var(--ease);
 }
 
-.share-lightbox-fig {
-  position: relative;
-  max-width: 94vw;
-  max-height: 88vh;
-  display: grid;
-  gap: 0.6rem;
-  justify-items: center;
+.share-lightbox.closing {
+  animation: shareBoxOut 0.2s ease forwards;
 }
 
-.share-lightbox-imgwrap {
-  position: relative;
-  display: inline-grid;
-  justify-items: center;
+@keyframes shareBoxIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
 }
 
-.share-lightbox-fig img {
-  max-width: 94vw;
-  max-height: 82vh;
-  object-fit: contain;
-  border-radius: var(--radius-s);
-}
-
-.share-lightbox-loading {
-  width: min(80vw, 480px);
-  height: 60vh;
-  border-radius: var(--radius-s);
-  background: rgb(255 255 255 / 0.06);
-}
-
-.share-lightbox-date {
-  color: rgb(255 255 255 / 0.85);
-  font-weight: 600;
-  font-size: 0.9rem;
-  text-transform: capitalize;
+@keyframes shareBoxOut {
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
 }
 
 .share-lightbox-close {
   position: absolute;
-  top: calc(0.9rem + env(safe-area-inset-top));
-  right: 1rem;
+  top: clamp(0.75rem, 2vw, 1.25rem);
+  right: clamp(0.75rem, 2vw, 1.25rem);
   z-index: 2;
   display: grid;
   place-content: center;
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  color: #fff;
   background: rgb(255 255 255 / 0.12);
+  color: #fff;
+  transition: background 0.18s var(--ease), transform 0.15s var(--ease);
+}
+
+.share-lightbox-close:hover {
+  background: rgb(255 255 255 / 0.22);
+}
+
+.share-lightbox-close:active {
+  transform: scale(0.92);
+}
+
+.share-lightbox-fig {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Sizes to the image itself, so a portrait after a landscape eases between
+   shapes instead of the frame jumping. */
+.share-lightbox-imgwrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  transition: width 0.3s var(--ease), height 0.3s var(--ease);
+}
+
+.share-lightbox-imgwrap img {
+  max-width: min(100%, 1100px);
+  max-height: calc(100dvh - 11rem);
+  border-radius: var(--radius-m);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 0.55);
+  animation: sharePhotoIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes sharePhotoIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+.share-lightbox-loading {
+  width: min(70vw, 460px);
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius-m);
+  background: linear-gradient(
+    100deg,
+    rgb(255 255 255 / 0.06) 30%,
+    rgb(255 255 255 / 0.14) 50%,
+    rgb(255 255 255 / 0.06) 70%
+  );
+  background-size: 220% 100%;
+  animation: shareSkeleton 1.3s linear infinite;
+}
+
+@keyframes shareSkeleton {
+  from {
+    background-position: 140% 0;
+  }
+  to {
+    background-position: -40% 0;
+  }
 }
 
 .share-lightbox-nav {
@@ -173,96 +537,66 @@
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  color: #fff;
   background: rgb(255 255 255 / 0.12);
+  color: #fff;
+  transition: background 0.18s var(--ease), transform 0.15s var(--ease);
+}
+
+.share-lightbox-nav:hover {
+  background: rgb(255 255 255 / 0.24);
 }
 
 .share-lightbox-prev {
-  left: 0.8rem;
+  left: clamp(-3.5rem, -4vw, -0.6rem);
 }
 
 .share-lightbox-next {
-  right: 0.8rem;
+  right: clamp(-3.5rem, -4vw, -0.6rem);
 }
 
-.share-stops {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+@media (max-width: 640px) {
+  .share-lightbox-prev {
+    left: 0.5rem;
+  }
+
+  .share-lightbox-next {
+    right: 0.5rem;
+  }
+}
+
+.share-lightbox-caption {
   display: grid;
-  gap: 0.55rem;
+  justify-items: center;
+  gap: 0.15rem;
+  color: rgb(255 255 255 / 0.9);
+  animation: shareRise 0.35s var(--ease) both;
 }
 
-/* Each stop is a tappable card that jumps to that day's photos. */
-.share-stop {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  padding: 0.85rem 1.05rem;
-  text-align: left;
-  transition: transform 0.15s var(--ease), box-shadow 0.2s var(--ease);
+.share-lightbox-date {
+  font-weight: 650;
+  font-size: 0.95rem;
 }
 
-.share-stop:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-m);
-}
-
-.share-stop-num {
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--paper);
-  display: grid;
-  place-content: center;
-  font-weight: 700;
+.share-lightbox-place {
   font-size: 0.85rem;
+  opacity: 0.75;
 }
 
-.share-stop-body {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 0.1rem;
+.share-lightbox-count {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.55;
 }
 
-.share-stop-body strong {
-  font-size: 1.02rem;
-}
+/* ---------- Shared motion ---------- */
 
-.share-stop-body .muted {
-  font-size: 0.82rem;
-}
-
-.share-stop-go {
-  color: var(--ink-faint);
-  flex-shrink: 0;
-}
-
-.share-days {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.share-days h3 {
-  margin-bottom: 0.6rem;
-  text-transform: capitalize;
-}
-
-.share-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.5rem;
-}
-
-.share-photo {
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: var(--radius-s);
-  background: var(--paper-sunken);
-  box-shadow: var(--shadow-s);
+@keyframes shareRise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
