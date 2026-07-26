@@ -648,11 +648,13 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
 
   return (
     <section className="card settings-card">
-      <h2>Over MarkMySteps</h2>
-      <div className="about-brand">
-        <LogoMark size={46} />
+      <h2>Over</h2>
+      {/* The brand row doubles as the seven-tap target for developer options —
+          a second "MarkMySteps" underneath was just repeating itself. */}
+      <button type="button" className="about-brand" onClick={tapVersion}>
+        <LogoMark size={44} />
         <span className="about-brand-name">MarkMySteps</span>
-      </div>
+      </button>
       <p className="muted">
         Self-hosted reis-tracker over je eigen Immich-server. Open source (AGPL-3.0).
       </p>
@@ -678,9 +680,6 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
           </a>
         </li>
       </ul>
-      <button type="button" className="settings-version" onClick={tapVersion}>
-        MarkMySteps
-      </button>
       {hint && <span className="muted">{hint}</span>}
     </section>
   );
