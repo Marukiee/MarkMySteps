@@ -4,12 +4,14 @@
 .update-banner {
   position: sticky;
   top: 0;
-  padding-top: calc(0.7rem + env(safe-area-inset-top));
   z-index: 50;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.7rem 1rem;
+  /* Top padding clears the status bar the banner runs underneath. Must stay a
+     single shorthand: a separate padding-top above this line was silently
+     reset by it. */
+  padding: calc(0.7rem + env(safe-area-inset-top)) 1rem 0.7rem;
   background: var(--accent);
   color: #fff;
   box-shadow: var(--shadow-m);
