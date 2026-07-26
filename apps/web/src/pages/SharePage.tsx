@@ -1,6 +1,6 @@
 import maplibregl, { LngLatBounds, Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { TouchEvent as ReactTouchEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import type { MediaItem, RouteCollection } from '../api/types';
@@ -142,6 +142,11 @@ export function SharePage() {
   return <SharedTripView slug={slug!} token={token} />;
 }
 
+/** One chronological stream: stops and photo days in the order they happened. */
+type Entry =
+  | { kind: 'stop'; key: string; date: string; stop: SharedStop; index: number }
+  | { kind: 'day'; key: string; date: string; items: SharedMedia[] };
+
 function SharedTripView({ slug, token }: { slug: string; token: string }) {
   const [trip, setTrip] = useState<SharedTrip | null>(null);
   const [stops, setStops] = useState<SharedStop[]>([]);
@@ -149,11 +154,23 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const photoMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
 
-  // Media in a stable, chronological order — used for both the timeline grid
-  // and the lightbox so indices line up.
-  const orderedMedia = [...media].sort((a, b) => a.takenAt.localeCompare(b.takenAt));
+  // Thumbnails go through plain <img> tags: the token rides along as a query
+  // parameter so the browser can lazy-load and cache them itself.
+  const thumb = (id: string) =>
+    `/api/share/${slug}/media/${id}/thumbnail?t=${encodeURIComponent(token)}`;
+
+  // Stable chronological order — the timeline and the viewer share these indices.
+  const orderedMedia = useMemo(
+    () => [...media].sort((a, b) => a.takenAt.localeCompare(b.takenAt)),
+    [media],
+  );
+  const indexOf = useMemo(() => {
+    const map = new Map<string, number>();
+    orderedMedia.forEach((m, i) => map.set(m.id, i));
+    return map;
+  }, [orderedMedia]);
 
   useEffect(() => {
     const get = <T,>(path: string): Promise<T> =>
@@ -206,48 +223,95 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     };
   }, [slug, token]);
 
-  // Photo markers on the map — a small thumbnail dot per GPS-tagged photo that
-  // opens the lightbox, mirroring the main app.
+  // Photo markers, clustered per zoom level exactly like the app's map. Placing
+  // one marker per photo piles hundreds of DOM nodes (and their shadows) on top
+  // of each other, which is both unreadable and slow on a phone.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    for (const m of photoMarkersRef.current) m.remove();
-    photoMarkersRef.current = [];
-    const place = () => {
-      orderedMedia.forEach((item, idx) => {
-        if (item.latitude === null || item.longitude === null) return;
+
+    const draw = () => {
+      for (const m of markersRef.current) m.remove();
+      markersRef.current = [];
+
+      const withGps = orderedMedia.filter((m) => m.latitude !== null && m.longitude !== null);
+      const zoom = map.getZoom();
+      const cell = 40 / 2 ** zoom; // degrees per cluster cell
+      const clusters = new Map<string, SharedMedia[]>();
+      for (const item of withGps) {
+        const key = `${Math.round(item.latitude! / cell)}:${Math.round(item.longitude! / cell)}`;
+        clusters.set(key, [...(clusters.get(key) ?? []), item]);
+      }
+
+      for (const items of clusters.values()) {
+        const rep = items[0]!;
         const el = document.createElement('div');
         el.className = 'photo-marker';
-        el.style.borderColor = colorForUser(item.userId);
+        el.style.borderColor = colorForUser(rep.userId);
+        el.style.backgroundImage = `url(${thumb(rep.id)})`;
+        if (items.length > 1) {
+          const badge = document.createElement('span');
+          badge.className = 'photo-marker-count';
+          badge.textContent = items.length > 99 ? '99+' : String(items.length);
+          el.appendChild(badge);
+        }
+        // A single photo opens; a cluster zooms in until it splits.
         el.addEventListener('click', (e) => {
           e.stopPropagation();
-          setLightboxIndex(idx);
+          if (items.length > 1) {
+            map.easeTo({
+              center: [rep.longitude!, rep.latitude!],
+              zoom: Math.min(zoom + 2.5, 16),
+            });
+          } else {
+            setLightboxIndex(indexOf.get(rep.id) ?? 0);
+          }
         });
-        fetch(`/api/share/${slug}/media/${item.id}/thumbnail`, {
-          headers: { 'x-share-token': token },
-        })
-          .then((res) => (res.ok ? res.blob() : Promise.reject(new Error(String(res.status)))))
-          .then((blob) => {
-            el.style.backgroundImage = `url(${URL.createObjectURL(blob)})`;
-          })
-          .catch(() => el.classList.add('photo-marker-error'));
-        photoMarkersRef.current.push(
-          new maplibregl.Marker({ element: el })
-            .setLngLat([item.longitude, item.latitude])
-            .addTo(map),
+        markersRef.current.push(
+          new maplibregl.Marker({ element: el }).setLngLat([rep.longitude!, rep.latitude!]).addTo(map),
         );
-      });
+      }
     };
-    if (map.isStyleLoaded()) place();
-    else map.once('load', place);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [media, slug, token]);
 
-  const days = new Map<string, SharedMedia[]>();
-  for (const item of media) {
-    const day = item.takenAt.slice(0, 10);
-    days.set(day, [...(days.get(day) ?? []), item]);
-  }
+    if (map.isStyleLoaded()) draw();
+    else map.once('load', draw);
+    map.on('zoomend', draw);
+    return () => {
+      map.off('zoomend', draw);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderedMedia, indexOf, slug, token]);
+
+  // Stops and photo days woven into one stream, so the photos taken during a
+  // stay sit under that stop instead of in a separate list further down.
+  const entries = useMemo<Entry[]>(() => {
+    const days = new Map<string, SharedMedia[]>();
+    for (const item of orderedMedia) {
+      const day = item.takenAt.slice(0, 10);
+      days.set(day, [...(days.get(day) ?? []), item]);
+    }
+    const list: Entry[] = [
+      ...stops.map((stop, index) => ({
+        kind: 'stop' as const,
+        key: `stop-${stop.id}`,
+        date: stop.arrivalDate.slice(0, 10),
+        stop,
+        index,
+      })),
+      ...[...days.entries()].map(([date, items]) => ({
+        kind: 'day' as const,
+        key: `day-${date}`,
+        date,
+        items,
+      })),
+    ];
+    // Same date: the stop heads the day it starts.
+    return list.sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        (a.kind === b.kind ? 0 : a.kind === 'stop' ? -1 : 1),
+    );
+  }, [stops, orderedMedia]);
 
   return (
     <div className="share-view">
@@ -261,11 +325,11 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       {/* Same header card as the app: cover, title, dates and the trip's facts. */}
       <div className={`share-headcard ${trip?.resolvedCoverId ? 'has-cover' : ''}`}>
         {trip?.resolvedCoverId && (
-          <ShareImage
-            slug={slug}
-            token={token}
-            mediaId={trip.resolvedCoverId}
+          <img
+            src={thumb(trip.resolvedCoverId)}
+            alt=""
             className="share-headcard-img"
+            decoding="async"
           />
         )}
         <div className="share-headcard-body">
@@ -301,76 +365,65 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
         <div ref={mapContainerRef} className="share-map-inner" />
       </div>
 
-      {stops.length > 0 && (
+      {entries.length > 0 && (
         <section className="share-section">
-          <h2 className="share-section-title">Route</h2>
-          <ol className="share-stops">
-            {stops.map((stop, i) => (
-              <li key={stop.id} style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
-                <button
-                  className="share-stop"
-                  onClick={() =>
-                    document
-                      .getElementById(`day-${stop.arrivalDate.slice(0, 10)}`)
-                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                  }
-                >
-                  <span className="share-stop-rail" aria-hidden="true">
-                    <span className="share-stop-dot">{i + 1}</span>
-                  </span>
-                  <span className="share-stop-body">
+          <h2 className="share-section-title">Reis</h2>
+          <div className="share-tl">
+            {entries.map((entry) =>
+              entry.kind === 'stop' ? (
+                <section key={entry.key} className="share-tl-stop">
+                  <span className="share-tl-marker share-tl-marker-stop">{entry.index + 1}</span>
+                  <div className="share-tl-stop-body">
                     <strong>
-                      {stop.countryCode && (
-                        <span className="share-stop-flag">{flagEmoji(stop.countryCode)}</span>
+                      {entry.stop.countryCode && (
+                        <span className="share-tl-flag">{flagEmoji(entry.stop.countryCode)}</span>
                       )}
-                      {stop.name}
+                      {entry.stop.name}
                     </strong>
                     <span className="muted">
-                      {stopRange(stop.arrivalDate, stop.departureDate)}
+                      {stopRange(entry.stop.arrivalDate, entry.stop.departureDate)}
                     </span>
-                  </span>
-                  <Icon name="chevron-right" size={16} className="share-stop-go" />
-                </button>
-              </li>
-            ))}
-          </ol>
+                  </div>
+                </section>
+              ) : (
+                <section key={entry.key} className="share-tl-day">
+                  <span className="share-tl-marker share-tl-marker-day" aria-hidden="true" />
+                  <h3>{formatDay(entry.items[0]!.takenAt)}</h3>
+                  <div className="share-grid">
+                    {entry.items.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="share-photo-btn"
+                        onClick={() => setLightboxIndex(indexOf.get(item.id) ?? 0)}
+                      >
+                        <img
+                          src={thumb(item.id)}
+                          alt=""
+                          className="share-photo"
+                          loading="lazy"
+                          decoding="async"
+                          onLoad={(e) => e.currentTarget.setAttribute('data-loaded', '1')}
+                          // A cached image is already complete by the time React
+                          // attaches onLoad, and would otherwise stay invisible.
+                          ref={(el) => {
+                            if (el?.complete) el.setAttribute('data-loaded', '1');
+                          }}
+                        />
+                        {item.assetType === 'VIDEO' && (
+                          <span className="share-photo-video">
+                            <Icon name="play" size={20} />
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ),
+            )}
+          </div>
         </section>
       )}
-
-      <section className="share-section">
-        <h2 className="share-section-title">Tijdlijn</h2>
-        <div className="share-days">
-          {[...days.entries()]
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([day, items]) => (
-              <section key={day} id={`day-${day}`} className="share-day">
-                <h3>
-                  <span className="share-day-dot" />
-                  {formatDay(items[0]!.takenAt)}
-                </h3>
-                <div className="share-grid">
-                  {items.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className="share-photo-btn"
-                      onClick={() =>
-                        setLightboxIndex(orderedMedia.findIndex((m) => m.id === item.id))
-                      }
-                    >
-                      <ShareImage
-                        slug={slug}
-                        token={token}
-                        mediaId={item.id}
-                        className="share-photo"
-                      />
-                    </button>
-                  ))}
-                </div>
-              </section>
-            ))}
-        </div>
-      </section>
 
       <footer className="share-footer">
         Gedeeld met <LogoMark size={18} /> <strong>MarkMySteps</strong>
@@ -378,10 +431,9 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
 
       {lightboxIndex !== null && orderedMedia[lightboxIndex] && (
         <ShareLightbox
-          slug={slug}
-          token={token}
           items={orderedMedia}
           index={lightboxIndex}
+          srcFor={thumb}
           onNavigate={setLightboxIndex}
           onClose={() => setLightboxIndex(null)}
         />
@@ -392,21 +444,18 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
 
 /** Fullscreen photo viewer for the public share page (prev/next, esc, tap-out). */
 function ShareLightbox({
-  slug,
-  token,
   items,
   index,
+  srcFor,
   onNavigate,
   onClose,
 }: {
-  slug: string;
-  token: string;
   items: SharedMedia[];
   index: number;
+  srcFor: (id: string) => string;
   onNavigate: (i: number) => void;
   onClose: () => void;
 }) {
-  const [src, setSrc] = useState<string>();
   const [closing, setClosing] = useState(false);
   const [place, setPlace] = useState<string | null>(null);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
@@ -437,34 +486,24 @@ function ShareLightbox({
     }
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    setSrc(undefined);
-    fetch(`/api/share/${slug}/media/${item.id}/thumbnail`, {
-      headers: { 'x-share-token': token },
-    })
-      .then((res) => (res.ok ? res.blob() : Promise.reject(new Error(String(res.status)))))
-      .then((blob) => {
-        if (!cancelled) setSrc(URL.createObjectURL(blob));
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [slug, token, item.id]);
-
   // City + country, same as the app's viewer.
   useEffect(() => {
     setPlace(null);
     if (item.latitude == null || item.longitude == null) return;
     let alive = true;
-    void reversePlaceName(item.latitude, item.longitude).then(
-      (name) => alive && setPlace(name),
-    );
+    void reversePlaceName(item.latitude, item.longitude).then((name) => alive && setPlace(name));
     return () => {
       alive = false;
     };
   }, [item.id, item.latitude, item.longitude]);
+
+  // Preload the neighbours so paging through doesn't flash an empty frame.
+  useEffect(() => {
+    for (const i of [index - 1, index + 1]) {
+      const next = items[i];
+      if (next) new Image().src = srcFor(next.id);
+    }
+  }, [index, items, srcFor]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -492,11 +531,7 @@ function ShareLightbox({
         {/* The frame sizes to the image, so a portrait after a landscape eases
             between shapes instead of snapping. */}
         <div className="share-lightbox-imgwrap">
-          {src ? (
-            <img key={item.id} src={src} alt="" />
-          ) : (
-            <div className="share-lightbox-loading" />
-          )}
+          <img key={item.id} src={srcFor(item.id)} alt="" decoding="async" />
           {index > 0 && (
             <button
               className="share-lightbox-nav share-lightbox-prev"
@@ -532,44 +567,5 @@ function ShareLightbox({
         </figcaption>
       </figure>
     </div>
-  );
-}
-
-function ShareImage({
-  slug,
-  token,
-  mediaId,
-  className,
-}: {
-  slug: string;
-  token: string;
-  mediaId: string;
-  className?: string;
-}) {
-  const [src, setSrc] = useState<string>();
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/share/${slug}/media/${mediaId}/thumbnail`, {
-      headers: { 'x-share-token': token },
-    })
-      .then((res) => (res.ok ? res.blob() : Promise.reject(new Error(String(res.status)))))
-      .then((blob) => {
-        if (!cancelled) setSrc(URL.createObjectURL(blob));
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [slug, token, mediaId]);
-
-  // Placeholder keeps the slot's size, so nothing reflows as photos arrive.
-  return (
-    <img
-      src={src}
-      alt=""
-      className={`${className ?? ''} ${src ? 'is-loaded' : 'is-loading'}`}
-      loading="lazy"
-    />
   );
 }

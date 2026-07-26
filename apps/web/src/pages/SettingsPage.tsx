@@ -11,6 +11,8 @@ import { Avatar, bumpAvatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
 import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
+import { LogoMark } from '../components/Logo';
+import { isUpdateBannerSimulated, setUpdateBannerSimulated } from '../components/UpdateBanner';
 import { formatDate } from '../lib/colors';
 import {
   MAP_STYLES,
@@ -553,6 +555,10 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
   return (
     <section className="card settings-card">
       <h2>Over MarkMySteps</h2>
+      <div className="about-brand">
+        <LogoMark size={46} />
+        <span className="about-brand-name">MarkMySteps</span>
+      </div>
       <p className="muted">
         Self-hosted reis-tracker over je eigen Immich-server. Open source (AGPL-3.0).
       </p>
@@ -589,6 +595,7 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
 /** Hidden tab (unlocked from About) for testing-only tools. */
 function DeveloperSection({ onLock }: { onLock: () => void }) {
   const navigate = useNavigate();
+  const [simulating, setSimulating] = useState(isUpdateBannerSimulated());
   return (
     <section className="card settings-card">
       <h2>Ontwikkelaar</h2>
@@ -605,6 +612,22 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
         >
           Onboarding opnieuw bekijken
         </button>
+      </div>
+      <div className="field">
+        <label>Update-melding</label>
+        <button
+          type="button"
+          className="btn btn-ghost settings-reset-sizes"
+          onClick={() => {
+            setUpdateBannerSimulated(!simulating);
+            setSimulating(!simulating);
+          }}
+        >
+          {simulating ? 'Nepbanner uitzetten' : 'Nepbanner tonen'}
+        </button>
+        <span className="muted">
+          Toont de balk alsof er een nieuwe versie klaarstaat. Downloaden doet niets.
+        </span>
       </div>
       <button type="button" className="btn btn-ghost settings-reset-sizes" onClick={onLock}>
         Ontwikkelaarsmodus verbergen

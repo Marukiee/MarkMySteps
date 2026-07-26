@@ -10,6 +10,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Res,
   UnauthorizedException,
   UseGuards,
@@ -175,15 +176,22 @@ export class SharePublicController {
     });
   }
 
+  /**
+   * Thumbnails also accept the session token as a `?t=` query parameter. That
+   * lets the public page use plain <img src> tags, so the browser handles lazy
+   * loading, decoding and its own HTTP cache — fetching every photo as a blob
+   * instead is what made the shared trip crawl on a phone.
+   */
   @Get(':slug/media/:id/thumbnail')
-  @Throttle({ default: { ttl: 60_000, limit: 600 } })
+  @Throttle({ default: { ttl: 60_000, limit: 1200 } })
   async thumbnail(
     @Param('slug') slug: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Headers('x-share-token') token: string,
+    @Query('t') queryToken: string | undefined,
     @Res() res: ExpressResponse,
   ): Promise<void> {
-    const session = await this.requireSession(slug, token);
+    const session = await this.requireSession(slug, token || queryToken);
     const media = await this.prisma.mediaRef.findFirst({
       where: { id, tripId: session.tripId },
     });
@@ -198,7 +206,9 @@ export class SharePublicController {
       media.immichAssetId,
     );
     res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'image/jpeg');
-    res.setHeader('Cache-Control', 'private, max-age=86400');
+    // A media id always resolves to the same picture, so the browser can keep
+    // it without revalidating — scrolling back up costs nothing.
+    res.setHeader('Cache-Control', 'private, max-age=86400, immutable');
     if (upstream.body) {
       Readable.fromWeb(upstream.body as NodeReadableStream).pipe(res);
     } else {

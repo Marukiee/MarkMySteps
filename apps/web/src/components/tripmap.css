@@ -16,9 +16,10 @@
   border-radius: 50%;
   border: 3px solid var(--accent);
   background: var(--paper-sunken) center / cover no-repeat;
-  /* A theme shadow is tuned for pale panels and vanishes over a map; this is a
-     tight dark halo that reads on satellite and street styles alike. */
-  box-shadow: 0 2px 8px rgb(8 12 18 / 0.45), 0 0 0 1px rgb(8 12 18 / 0.12);
+  /* A theme shadow is tuned for pale panels and vanishes over a map. This is a
+     tight, low-alpha drop instead: markers that end up overlapping stack their
+     shadows, and a wide soft blur turns a cluster into one black blob. */
+  box-shadow: 0 1px 3px rgb(8 12 18 / 0.3), 0 0 0 1px rgb(8 12 18 / 0.14);
   cursor: pointer;
   transition: transform 0.18s var(--ease);
   /* Soft fade as clusters split/merge on zoom (opacity only — maplibre drives

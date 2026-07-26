@@ -197,157 +197,123 @@
   color: var(--ink-soft);
 }
 
-/* ---------- Route rail ---------- */
+/* ---------- Timeline: stops and photo days on one rail ---------- */
 
-.share-stops {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.share-tl {
+  position: relative;
   display: grid;
+  gap: 1.35rem;
+  /* Every row hangs off the same rail, so the photos of a stay sit visibly
+     under that stop instead of in a separate list further down. */
+  padding-left: 46px;
 }
 
-.share-stops li {
+/* The rail itself: one continuous line, stopping short of both ends so it
+   doesn't run out of the first marker or past the last one. */
+.share-tl::before {
+  content: '';
+  position: absolute;
+  left: 22px;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  background: var(--line);
+  border-radius: 1px;
+}
+
+.share-tl-stop,
+.share-tl-day {
+  position: relative;
+  scroll-margin-top: 1.5rem;
   animation: shareRise 0.45s var(--ease) both;
 }
 
-.share-stop {
-  position: relative;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  padding: 0.55rem 0.75rem 0.55rem 0;
-  border-radius: var(--radius-m);
-  text-align: left;
-  color: inherit;
-  transition: background 0.18s var(--ease);
-}
-
-.share-stop:hover {
-  background: var(--paper-sunken);
-}
-
-/* Numbered dot on a continuous line, so it reads as a route rather than a
-   stack of loose cards jammed against the page edge. */
-.share-stop-rail {
-  position: relative;
-  flex-shrink: 0;
-  width: 46px;
-  align-self: stretch;
-  display: grid;
-  place-items: center;
-}
-
-.share-stop-rail::before {
-  content: '';
+.share-tl-marker {
   position: absolute;
-  top: -50%;
-  bottom: -50%;
-  width: 2px;
-  background: var(--line);
-}
-
-.share-stops li:first-child .share-stop-rail::before {
-  top: 50%;
-}
-
-.share-stops li:last-child .share-stop-rail::before {
-  bottom: 50%;
-}
-
-.share-stop-dot {
-  position: relative;
-  width: 30px;
-  height: 30px;
+  left: -46px;
   display: grid;
   place-content: center;
   border-radius: 50%;
+  /* A ring in the page colour punches the rail out behind each marker. */
+  box-shadow: 0 0 0 4px var(--paper);
+}
+
+.share-tl-marker-stop {
+  top: 0;
+  width: 30px;
+  height: 30px;
+  margin-left: 8px;
   background: var(--ink);
   color: var(--paper);
   font-size: 0.82rem;
   font-weight: 700;
-  box-shadow: 0 0 0 4px var(--paper);
-  transition: transform 0.18s var(--ease), background 0.18s var(--ease);
 }
 
-.share-stop:hover .share-stop-dot {
-  transform: scale(1.08);
+.share-tl-marker-day {
+  top: 7px;
+  width: 10px;
+  height: 10px;
+  margin-left: 18px;
   background: var(--accent);
-  color: #fff;
 }
 
-.share-stop-body {
-  flex: 1;
-  min-width: 0;
+.share-tl-stop-body {
   display: grid;
   gap: 0.1rem;
-  padding: 0.35rem 0;
+  min-height: 30px;
+  padding: 0.15rem 0;
 }
 
-.share-stop-body strong {
+.share-tl-stop-body strong {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 1.02rem;
+  font-size: 1.08rem;
 }
 
-.share-stop-flag {
+.share-tl-flag {
   font-size: 1.05rem;
   line-height: 1;
 }
 
-.share-stop-body .muted {
+.share-tl-stop-body .muted {
   font-size: 0.85rem;
 }
 
-.share-stop-go {
-  flex-shrink: 0;
-  color: var(--ink-faint);
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
-}
-
-.share-stop:hover .share-stop-go {
-  opacity: 1;
-  transform: none;
-}
-
-/* ---------- Timeline ---------- */
-
-.share-days {
-  display: grid;
-  gap: 1.6rem;
-}
-
-.share-day {
-  scroll-margin-top: 1.5rem;
-  animation: shareRise 0.5s var(--ease) both;
-}
-
-.share-day h3 {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 1.05rem;
+.share-tl-day h3 {
+  font-size: 1.02rem;
   color: var(--ink-soft);
-  margin-bottom: 0.7rem;
-}
-
-.share-day-dot {
-  width: 9px;
-  height: 9px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-soft);
+  margin-bottom: 0.6rem;
 }
 
 .share-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(clamp(104px, 20vw, 150px), 1fr));
   gap: 0.55rem;
-  margin-left: 1.55rem;
+}
+
+@media (max-width: 560px) {
+  .share-tl {
+    padding-left: 38px;
+  }
+
+  .share-tl::before {
+    left: 15px;
+  }
+
+  .share-tl-marker {
+    left: -38px;
+  }
+
+  .share-tl-marker-stop {
+    width: 26px;
+    height: 26px;
+    margin-left: 2px;
+  }
+
+  .share-tl-marker-day {
+    margin-left: 11px;
+  }
 }
 
 .share-photo-btn {
@@ -387,15 +353,49 @@
   transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s var(--ease);
 }
 
-/* Thumbnails arrive one by one — fade each in rather than popping. */
-.share-photo.is-loading,
-.share-headcard-img.is-loading {
+/* Thumbnails arrive one by one — fade each in rather than popping. The tile
+   underneath shows a soft skeleton until then, so nothing reflows. */
+.share-photo {
   opacity: 0;
 }
 
-.share-photo.is-loaded,
-.share-headcard-img.is-loaded {
+.share-photo[data-loaded='1'] {
   opacity: 1;
+}
+
+.share-photo-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    var(--paper-sunken) 30%,
+    color-mix(in srgb, var(--paper-sunken) 60%, var(--paper)) 50%,
+    var(--paper-sunken) 70%
+  );
+  background-size: 240% 100%;
+  animation: shareSkeleton 1.4s ease-in-out infinite;
+}
+
+/* Skeleton retires the moment the picture is there. */
+.share-photo-btn:has(.share-photo[data-loaded='1'])::before {
+  display: none;
+}
+
+/* Video tiles carry the same play badge as the app's timeline. */
+.share-photo-video {
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0.35rem;
+  display: grid;
+  place-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #fff;
+  background: rgb(8 12 18 / 0.5);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
 }
 
 /* ---------- Footer ---------- */

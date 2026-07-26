@@ -357,6 +357,14 @@ export function GlobeBackdrop({
       const center = projection.invert!([w / 2, h / 2]);
       const frontFacing = trips.filter((t) => !center || distance(center, t.anchor) <= 90);
 
+      // The "active" trip whose name + glow are shown: on the homepage that's the
+      // trip you tapped, else the one the auto-tour is framing. Resolved here (not
+      // just before the labels) because a shared dot has to hold this trip's colour.
+      const activeId = noTourRef.current
+        ? null
+        : selectedId ??
+          (idle && tourPhase === 1 ? trips[Math.min(tourIdx, trips.length - 1)]?.id ?? null : null);
+
       // Small grey dots at every flight endpoint (departure/arrival airports) so
       // the dashed bows visibly start FROM a point, not out of thin air. Smaller
       // than the trip dots, deduped by coarse endpoint.
@@ -380,7 +388,12 @@ export function GlobeBackdrop({
       // Group endpoints by real-world proximity (~40 km), counting DISTINCT trips
       // so a single loop trip counts once, two separate visits count two.
       const SAME_PLACE_DEG = 0.4;
-      type Member = { col: [number, number, number]; upcoming: boolean; alpha: number };
+      type Member = {
+        id: string;
+        col: [number, number, number];
+        upcoming: boolean;
+        alpha: number;
+      };
       type Place = {
         lng: number;
         lat: number;
@@ -402,7 +415,7 @@ export function GlobeBackdrop({
         if (g) {
           if (!g.trips.has(tripId)) {
             g.trips.add(tripId);
-            g.members.push({ col, upcoming, alpha });
+            g.members.push({ id: tripId, col, upcoming, alpha });
           }
           g.city = g.city || city;
         } else {
@@ -411,7 +424,7 @@ export function GlobeBackdrop({
             lat: p[1],
             city,
             trips: new Set([tripId]),
-            members: [{ col, upcoming, alpha }],
+            members: [{ id: tripId, col, upcoming, alpha }],
           });
         }
       };
@@ -456,7 +469,12 @@ export function GlobeBackdrop({
             const g = places.find((q) => distance([q.lng, q.lat], p) < SAME_PLACE_DEG);
             if (g && !g.trips.has(trip.id)) {
               g.trips.add(trip.id);
-              g.members.push({ col, upcoming: trip.upcoming, alpha: tripAlpha(trip.id, now) });
+              g.members.push({
+                id: trip.id,
+                col,
+                upcoming: trip.upcoming,
+                alpha: tripAlpha(trip.id, now),
+              });
             }
           }
         }
@@ -508,6 +526,15 @@ export function GlobeBackdrop({
           ctx!.globalAlpha = 1;
           continue;
         }
+        // While a trip is highlighted, every dot it touches holds ITS colour —
+        // a city you've visited before shouldn't cycle away from the trip you're
+        // looking at. Cycling resumes once nothing is highlighted.
+        const held = activeId ? m.find((v) => v.id === activeId) : undefined;
+        if (held) {
+          drawSmallDot(x, y, held.col, held.upcoming);
+          ctx!.globalAlpha = 1;
+          continue;
+        }
         // Visited by more than one trip → the dot slowly cycles through each
         // trip's colour (crossfading), so every trip sharing this place is seen.
         const PERIOD = 2200; // ms per colour
@@ -521,14 +548,6 @@ export function GlobeBackdrop({
         ctx!.globalAlpha = 1;
       }
 
-      // The "active" trip whose name + direction glow are shown: on the homepage
-      // that's the trip you tapped, else the one the auto-tour is framing. In the
-      // onboarding demo there's no single active trip (names float over routes).
-      const activeId = noTourRef.current
-        ? null
-        : selectedId ??
-          (idle && tourPhase === 1 ? trips[Math.min(tourIdx, trips.length - 1)]?.id ?? null : null);
-
       // --- Active route glow: a single continuous ribbon of light that runs
       // along the trip's path in travel direction, brightest at its head and
       // fading out along its tail. It's stroked as one chain of short segments
@@ -538,72 +557,108 @@ export function GlobeBackdrop({
       if (activeId) {
         const act = trips.find((t) => t.id === activeId);
         const pts = act?.path?.flat();
-        if (act && pts && pts.length >= 2) {
-          const seglen: number[] = [];
-          let total = 0;
-          for (let i = 1; i < pts.length; i++) {
-            const d = distance(pts[i - 1]!, pts[i]!);
-            seglen.push(d);
-            total += d;
-          }
-          if (total > 0) {
-            const posAt = (d: number): [number, number] => {
-              d = ((d % total) + total) % total;
-              let acc = 0;
-              for (let i = 0; i < seglen.length; i++) {
-                if (acc + seglen[i]! >= d) {
-                  const f = (d - acc) / seglen[i]!;
-                  const a = pts[i]!;
-                  const b = pts[i + 1]!;
-                  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
-                }
-                acc += seglen[i]!;
+        const seglen: number[] = [];
+        let total = 0;
+        for (let i = 1; i < (pts?.length ?? 0); i++) {
+          const d = distance(pts![i - 1]!, pts![i]!);
+          seglen.push(d);
+          total += d;
+        }
+        // A route needs some length before a light can visibly travel along it.
+        // Below that (a city trip: one place, barely any line) the ribbon would
+        // be a flickering speck, so those get a pulsing halo instead.
+        const RIBBON_MIN_DEG = 1.2;
+        if (act && pts && pts.length >= 2 && total > RIBBON_MIN_DEG) {
+          const posAt = (d: number): [number, number] => {
+            d = ((d % total) + total) % total;
+            let acc = 0;
+            for (let i = 0; i < seglen.length; i++) {
+              if (acc + seglen[i]! >= d) {
+                const f = (d - acc) / seglen[i]!;
+                const a = pts[i]!;
+                const b = pts[i + 1]!;
+                return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
               }
-              return pts[pts.length - 1]!;
-            };
-            // Pause briefly at the end of the route, then restart — a light
-            // that loops instantly feels frantic.
-            const PAUSE = 22; // degrees' worth of dwell time past the end
-            glowDist += 0.055;
-            if (glowDist > total + PAUSE) glowDist = 0;
-            const [gr, gg, gb] = legibleColor(act.color, dark);
-
-            // Sample the ribbon head → tail. A sample whose distance is
-            // negative (or past the end) is simply dropped, so the ribbon slides
-            // on and off the route instead of wrapping around in one jump.
-            const TRAIL_DEG = Math.min(11, total * 0.4);
-            const STEPS = 28;
-            const samples: { pt: [number, number]; t: number }[] = [];
-            for (let i = 0; i <= STEPS; i++) {
-              const t = i / STEPS; // 0 = head, 1 = tail
-              const d = glowDist - TRAIL_DEG * t;
-              if (d < 0 || d > total) continue;
-              const gp = posAt(d);
-              if (center && distance(center, gp) > 90) continue;
-              const pr = projection(gp);
-              if (!pr) continue;
-              samples.push({ pt: [pr[0], pr[1]], t });
+              acc += seglen[i]!;
             }
+            return pts[pts.length - 1]!;
+          };
+          // Pause briefly at the end of the route, then restart — a light
+          // that loops instantly feels frantic.
+          const PAUSE = 22; // degrees' worth of dwell time past the end
+          glowDist += 0.055;
+          if (glowDist > total + PAUSE) glowDist = 0;
+          const [gr, gg, gb] = legibleColor(act.color, dark);
 
-            ctx!.lineCap = 'round';
-            ctx!.lineJoin = 'round';
-            // Two passes: a wide soft halo, then a thin bright core on top.
-            for (const pass of [
-              { width: 9 * dpr, peak: 0.22 },
-              { width: 2.8 * dpr, peak: 0.95 },
-            ]) {
-              ctx!.lineWidth = pass.width;
-              for (let i = 1; i < samples.length; i++) {
-                const a = samples[i - 1]!;
-                const b = samples[i]!;
-                // Guard against a segment that leapt across the globe.
-                if (Math.hypot(b.pt[0] - a.pt[0], b.pt[1] - a.pt[1]) > 60 * dpr) continue;
-                // Quadratic falloff → a long, soft tail rather than a hard edge.
-                const fade = (1 - b.t) * (1 - b.t);
-                ctx!.strokeStyle = `rgba(${gr},${gg},${gb},${pass.peak * fade})`;
+          // Sample the ribbon head → tail. A sample whose distance is
+          // negative (or past the end) is simply dropped, so the ribbon slides
+          // on and off the route instead of wrapping around in one jump.
+          const TRAIL_DEG = Math.min(11, total * 0.4);
+          const STEPS = 28;
+          const samples: { pt: [number, number]; t: number }[] = [];
+          for (let i = 0; i <= STEPS; i++) {
+            const t = i / STEPS; // 0 = head, 1 = tail
+            const d = glowDist - TRAIL_DEG * t;
+            if (d < 0 || d > total) continue;
+            const gp = posAt(d);
+            if (center && distance(center, gp) > 90) continue;
+            const pr = projection(gp);
+            if (!pr) continue;
+            samples.push({ pt: [pr[0], pr[1]], t });
+          }
+
+          ctx!.lineCap = 'round';
+          ctx!.lineJoin = 'round';
+          // Two passes: a wide soft halo, then a thin bright core on top.
+          for (const pass of [
+            { width: 9 * dpr, peak: 0.22 },
+            { width: 2.8 * dpr, peak: 0.95 },
+          ]) {
+            ctx!.lineWidth = pass.width;
+            for (let i = 1; i < samples.length; i++) {
+              const a = samples[i - 1]!;
+              const b = samples[i]!;
+              // Guard against a segment that leapt across the globe.
+              if (Math.hypot(b.pt[0] - a.pt[0], b.pt[1] - a.pt[1]) > 60 * dpr) continue;
+              // Quadratic falloff → a long, soft tail rather than a hard edge.
+              const fade = (1 - b.t) * (1 - b.t);
+              ctx!.strokeStyle = `rgba(${gr},${gg},${gb},${pass.peak * fade})`;
+              ctx!.beginPath();
+              ctx!.moveTo(a.pt[0], a.pt[1]);
+              ctx!.lineTo(b.pt[0], b.pt[1]);
+              ctx!.stroke();
+            }
+          }
+        } else if (act) {
+          // City trip: no line worth running a light along, so the dot itself
+          // breathes — a soft halo plus a ring that expands out of it and fades,
+          // which reads as "this one" just as clearly as the ribbon does.
+          const spot = act.path?.[0]?.[0] ?? act.anchor;
+          if (!center || distance(center, spot) <= 90) {
+            const pr = projection(spot);
+            if (pr) {
+              const [gr, gg, gb] = legibleColor(act.color, dark);
+              const [x, y] = pr;
+              const beat = (now % 1800) / 1800; // one ring per 1.8 s
+              const breathe = 0.5 + 0.5 * Math.sin((now / 1800) * Math.PI * 2);
+
+              // Steady halo underneath, so the dot never looks unlit between rings.
+              const haloR = (13 + breathe * 4) * dpr;
+              const grad = ctx!.createRadialGradient(x, y, 0, x, y, haloR);
+              grad.addColorStop(0, `rgba(${gr},${gg},${gb},0.34)`);
+              grad.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
+              ctx!.fillStyle = grad;
+              ctx!.beginPath();
+              ctx!.arc(x, y, haloR, 0, 2 * Math.PI);
+              ctx!.fill();
+
+              // Two rings half a cycle apart, so the pulse never fully stops.
+              for (const phase of [beat, (beat + 0.5) % 1]) {
+                const ease = 1 - (1 - phase) * (1 - phase); // ease-out
                 ctx!.beginPath();
-                ctx!.moveTo(a.pt[0], a.pt[1]);
-                ctx!.lineTo(b.pt[0], b.pt[1]);
+                ctx!.arc(x, y, (6 + ease * 16) * dpr, 0, 2 * Math.PI);
+                ctx!.lineWidth = 2 * dpr * (1 - ease * 0.6);
+                ctx!.strokeStyle = `rgba(${gr},${gg},${gb},${0.55 * (1 - ease)})`;
                 ctx!.stroke();
               }
             }

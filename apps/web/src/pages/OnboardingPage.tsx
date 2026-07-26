@@ -5,7 +5,7 @@ import type { Trip } from '../api/types';
 import { AirportPrefs } from '../components/AirportPrefs';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon, IconName } from '../components/Icon';
-import { Logo } from '../components/Logo';
+import { LogoMark } from '../components/Logo';
 import { isNativeApp, markOnboarded } from '../lib/native';
 import { getThemeId, setThemeId, ThemeId } from '../lib/prefs';
 import './onboarding.css';
@@ -155,7 +155,7 @@ export function OnboardingPage() {
 
   const slides: ReactNode[] = [
     <div className="onb-feature onb-welcome" key="welcome">
-      <Logo size={72} />
+      <LogoMark size={78} />
       <h1>Welkom bij MarkMySteps</h1>
       <p className="muted">
         Jouw reizen, op jouw eigen server. Volg je route, plan je trip en deel ‘m. Privé en zonder
