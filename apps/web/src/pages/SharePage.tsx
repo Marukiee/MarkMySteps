@@ -391,7 +391,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
 
       {trip?.description && <p className="share-description">{trip.description}</p>}
 
-      <div className="share-map card">
+      <div className="share-map">
         <div ref={mapContainerRef} className="share-map-inner" />
       </div>
 

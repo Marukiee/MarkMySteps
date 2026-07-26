@@ -190,7 +190,9 @@
 .share-map-inner,
 .share-map-inner .maplibregl-canvas-container,
 .share-map-inner canvas {
-  border-radius: var(--radius-l);
+  /* Inherited, not restated: the wrapper's own radius is the one to match, and
+     hard-coding a second value drew a corner just off the container's. */
+  border-radius: inherit;
 }
 
 /* ---------- Sections ---------- */
