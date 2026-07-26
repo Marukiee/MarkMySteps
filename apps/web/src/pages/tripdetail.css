@@ -273,6 +273,31 @@
   max-width: none;
 }
 
+/* How long ago this traveller's position came in — same wording as the pill
+   under their marker on the map. */
+.person-seen {
+  flex-shrink: 0;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  color: var(--ink-faint);
+  font-size: 0.7rem;
+  font-weight: 700;
+  animation: personSeenIn 0.25s var(--ease);
+}
+
+.person-seen.fresh {
+  background: color-mix(in srgb, #1f8f4d 16%, transparent);
+  color: #1f8f4d;
+}
+
+@keyframes personSeenIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
 /* Check mark stays mounted so it animates BOTH ways: pops in on select, shrinks
    out on deselect (an unmounted icon can't animate its exit). */
 .person-check {

@@ -11,6 +11,7 @@ import { useAuth } from './auth/AuthContext';
 import { BottomNav } from './components/BottomNav';
 import { TopBar } from './components/TopBar';
 import { TrackingPrompt } from './components/TrackingPrompt';
+import { OfflineBanner } from './components/OfflineBanner';
 import { UpdateBanner } from './components/UpdateBanner';
 import { isNativeApp, isOnboarded } from './lib/native';
 import { FriendsPage } from './pages/FriendsPage';
@@ -36,6 +37,7 @@ function Shell() {
   return (
     <>
       <UpdateBanner />
+      <OfflineBanner />
       <TopBar />
       {user?.mustChangePassword && (
         <div className="pw-banner">

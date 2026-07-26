@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Avatar } from './Avatar';
 import { confirmModal } from './confirm';
 import { Icon } from './Icon';
+import { UserPicker } from './UserPicker';
 import './members.css';
 
 export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () => void }) {
@@ -111,11 +112,11 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
 
       {isOwner && (
         <form className="members-add" onSubmit={addMember}>
-          <input
+          <UserPicker
             required
-            placeholder="@gebruikersnaam"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={setUsername}
+            exclude={trip.members.map((m) => m.user.username)}
           />
           <button className="btn btn-ghost" disabled={busy}>
             <Icon name="plus" size={16} /> Toevoegen

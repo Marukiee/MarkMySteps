@@ -47,12 +47,11 @@ const MEMBERS_INCLUDE = {
     orderBy: { takenAt: 'asc' },
     select: { id: true },
   },
-  // A geo anchor for the globe overview: prefer a planned stop's city.
+  // A geo anchor for the globe overview: the planned stops, in order.
   stops: {
     where: { latitude: { not: null } },
-    take: 1,
     orderBy: { orderIndex: 'asc' },
-    select: { latitude: true, longitude: true },
+    select: { name: true, latitude: true, longitude: true },
   },
 } as const;
 
@@ -63,7 +62,10 @@ export interface TripStats {
   photoCount: number;
 }
 
-type RawStop = { latitude: number | null; longitude: number | null };
+type RawStop = { name: string; latitude: number | null; longitude: number | null };
+
+/** Departure/arrival legs: real places, but at home, not on the trip. */
+const ANCHOR_SKIP = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
 
 type RawTripRow = Trip & {
   members: RawMember[];
@@ -74,14 +76,23 @@ type RawTripRow = Trip & {
 /** Maps Prisma rows (avatarMime, mediaRefs, stops) to the API shape. */
 function mapMembers(trip: RawTripRow): TripWithMembers {
   const { mediaRefs, stops, members, ...rest } = trip;
-  const stop = stops[0];
-  // A manual marker (interrail loop etc.) wins as the anchor; else the first
-  // located stop.
+  // The globe frames a trip on its anchor and hangs the name card off it, so it
+  // has to land ON the trip. The first stop is usually the outbound leg, which
+  // starts at home — a Sweden trip would then be framed on the Netherlands with
+  // its route pushed off the top of the view. Skip those legs and take the
+  // MIDDLE of the real destinations, which sits inside the route either way.
+  const cities = stops.filter((s) => !ANCHOR_SKIP.has(s.name));
+  const usable = (cities.length > 0 ? cities : stops).filter(
+    (s): s is { name: string; latitude: number; longitude: number } =>
+      s.latitude != null && s.longitude != null,
+  );
+  const mid = usable[Math.floor(usable.length / 2)];
+  // A manual marker (interrail loop etc.) still wins.
   const anchor: [number, number] | null =
     trip.markerLng != null && trip.markerLat != null
       ? [trip.markerLng, trip.markerLat]
-      : stop?.latitude != null && stop.longitude != null
-        ? [stop.longitude, stop.latitude]
+      : mid
+        ? [mid.longitude, mid.latitude]
         : null;
   return {
     ...rest,

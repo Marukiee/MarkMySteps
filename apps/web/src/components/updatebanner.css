@@ -1,10 +1,56 @@
 /* In the app the status bar overlays the WebView and is transparent, so
    setBackgroundColor does nothing: the banner has to run up UNDER the bar
    itself, otherwise the strip above it keeps showing the dark page. */
-.update-banner {
+/* The wrapper animates its row from 0fr to 1fr, so the page glides down as the
+   banner arrives instead of being shoved by something that appears at full
+   height in one frame. The banner itself slides in on top of that. */
+.update-banner-wrap {
   position: sticky;
   top: 0;
   z-index: 50;
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: updateWrapIn 0.42s var(--ease);
+}
+
+.update-banner-wrap.closing {
+  animation: updateWrapOut 0.28s var(--ease) forwards;
+}
+
+@keyframes updateWrapIn {
+  from {
+    grid-template-rows: 0fr;
+  }
+}
+
+@keyframes updateWrapOut {
+  to {
+    grid-template-rows: 0fr;
+  }
+}
+
+.update-banner-wrap.closing .update-banner {
+  animation: updateBannerOut 0.28s var(--ease) forwards;
+}
+
+@keyframes updateBannerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes updateBannerOut {
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.update-banner {
+  /* Must be able to shrink to nothing for the wrapper's row animation. */
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -15,7 +61,7 @@
   background: var(--accent);
   color: #fff;
   box-shadow: var(--shadow-m);
-  animation: fadeIn 0.3s var(--ease);
+  animation: updateBannerIn 0.42s var(--ease);
 }
 
 .update-banner-text {

@@ -18,6 +18,15 @@ export interface PublicUser {
   createdAt: Date;
 }
 
+export interface UserSuggestion {
+  id: string;
+  username: string;
+  displayName: string;
+  hasAvatar: boolean;
+  /** Trips you already share — companions are offered first. */
+  sharedTrips: number;
+}
+
 const PUBLIC_USER_SELECT = {
   id: true,
   email: true,
@@ -147,5 +156,47 @@ export class UsersService {
       else byUser.set(row.userId, { ...row.user, sharedTrips: 1 });
     }
     return [...byUser.values()].sort((a, b) => b.sharedTrips - a.sharedTrips);
+  }
+
+  /**
+   * Who to offer when adding someone to a trip. With no query that's the people
+   * you already travel with, so the field is useful the moment it's focused;
+   * once you type it searches every account by handle or name.
+   */
+  async suggestUsers(id: string, query = '', limit = 6): Promise<UserSuggestion[]> {
+    const q = query.trim().replace(/^@/, '');
+    const friends = await this.listFriends(id);
+    const sharedByUser = new Map(friends.map((f) => [f.id, f.sharedTrips]));
+
+    const rows = await this.prisma.user.findMany({
+      where: {
+        id: { not: id },
+        ...(q
+          ? {
+              OR: [
+                { username: { contains: q, mode: 'insensitive' as const } },
+                { displayName: { contains: q, mode: 'insensitive' as const } },
+              ],
+            }
+          : { id: { in: [...sharedByUser.keys()] } }),
+      },
+      select: { id: true, username: true, displayName: true, avatarMime: true },
+      take: 40,
+    });
+
+    return rows
+      .map((r) => ({
+        id: r.id,
+        username: r.username,
+        displayName: r.displayName,
+        hasAvatar: r.avatarMime !== null,
+        sharedTrips: sharedByUser.get(r.id) ?? 0,
+      }))
+      // Travel companions first, then alphabetically.
+      .sort(
+        (a, b) =>
+          b.sharedTrips - a.sharedTrips || a.displayName.localeCompare(b.displayName),
+      )
+      .slice(0, limit);
   }
 }

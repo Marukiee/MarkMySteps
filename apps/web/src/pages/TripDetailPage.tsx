@@ -16,6 +16,7 @@ import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
 import type { PlannedStop } from '../lib/arc';
 import { colorForUser, formatDate } from '../lib/colors';
+import { lastSeenLabel, useNow } from '../lib/lastSeen';
 import { stableViewportHeight } from '../lib/native';
 import { getMapStyle, getTripFacts } from '../lib/prefs';
 import { FactId, resolveFacts } from '../lib/tripFacts';
@@ -44,6 +45,8 @@ export function TripDetailPage() {
   const [currentLoc, setCurrentLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [liveTracking, setLiveTracking] = useState(false);
   const [liveFixes, setLiveFixes] = useState<LiveFix[]>([]);
+  // Ages next to each traveller tick on their own, between polls.
+  const liveTick = useNow(5_000);
   const [personMenuOpen, setPersonMenuOpen] = useState(false);
   const [personMenuClosing, setPersonMenuClosing] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
@@ -460,6 +463,8 @@ export function TripDetailPage() {
               <div className={`person-select-menu card ${personMenuClosing ? 'closing' : ''}`}>
                 {trip.members.map((member) => {
                   const active = visibleUsers.has(member.userId);
+                  const fix = liveFixes.find((f) => f.userId === member.userId);
+                  const seen = fix ? lastSeenLabel(fix.recordedAt, liveTick) : null;
                   return (
                     <button
                       key={member.userId}
@@ -474,6 +479,12 @@ export function TripDetailPage() {
                         {member.user.displayName}
                         {member.userId === user?.id && ' (ik)'}
                       </span>
+                      {/* Last known position, same wording as the map marker. */}
+                      {seen && (
+                        <span className={`person-seen ${seen.fresh ? 'fresh' : ''}`}>
+                          {seen.text}
+                        </span>
+                      )}
                       <span className={`person-check ${active ? 'on' : ''}`}>
                         <Icon name="check" size={15} />
                       </span>

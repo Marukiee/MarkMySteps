@@ -68,6 +68,29 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Whether the server answered the last request. GETs fall back to the offline
+ * cache below, so the app keeps working without a server — but writes don't,
+ * and the UI has to be able to say so.
+ */
+let serverReachable = true;
+const reachabilityListeners = new Set<(ok: boolean) => void>();
+
+export function isServerReachable(): boolean {
+  return serverReachable;
+}
+
+export function onServerReachability(fn: (ok: boolean) => void): () => void {
+  reachabilityListeners.add(fn);
+  return () => reachabilityListeners.delete(fn);
+}
+
+function setReachable(ok: boolean): void {
+  if (ok === serverReachable) return;
+  serverReachable = ok;
+  for (const fn of reachabilityListeners) fn(ok);
+}
+
 let refreshPromise: Promise<boolean> | null = null;
 
 async function tryRefresh(): Promise<boolean> {
@@ -115,6 +138,7 @@ export async function api<T>(
         options.formData ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
     });
   } catch (netError) {
+    setReachable(false);
     // No network: fall back to the offline read cache for GETs.
     if (isGet) {
       const cached = await cacheGetJson<T>(path);
@@ -122,6 +146,8 @@ export async function api<T>(
     }
     throw netError;
   }
+  // An HTTP answer of any kind means the server is there.
+  setReachable(true);
 
   if (res.status === 401 && !isRetry && !path.startsWith('/auth/')) {
     if (await tryRefresh()) {

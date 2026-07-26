@@ -311,6 +311,16 @@ function TrackingSection() {
   const activeTrip = trips.find((t) => t.id === tracker.tripId);
   const fixAge = tracker.lastFix ? Math.round((now - tracker.lastFix.at) / 1000) : null;
 
+  // Ongoing trips first, then the ones that haven't started. Anything already
+  // finished is left out entirely.
+  const today = new Date().toISOString().slice(0, 10);
+  const trackableTrips = trips
+    .filter((t) => t.endDate.slice(0, 10) >= today)
+    .sort((a, b) => {
+      const started = (t: Trip) => (t.startDate.slice(0, 10) <= today ? 0 : 1);
+      return started(a) - started(b) || a.startDate.localeCompare(b.startDate);
+    });
+
   return (
     <section className="card settings-card">
       <h2>
@@ -381,7 +391,7 @@ function TrackingSection() {
       </div>
 
       {tracker.tripId ? (
-        <div className="tracking-status">
+        <div className="tracking-status tracking-swap">
           <button
             className="btn btn-danger"
             onClick={async () => {
@@ -441,17 +451,12 @@ function TrackingSection() {
           </Collapsible>
         </div>
       ) : (
-        <div className="settings-form">
+        <div className="settings-form tracking-swap">
           <div className="field">
-            <label htmlFor="tr-trip">Reis</label>
-            <select id="tr-trip" value={selected} onChange={(e) => setSelected(e.target.value)}>
-              <option value="">Kies een reis…</option>
-              {trips.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title}
-                </option>
-              ))}
-            </select>
+            <label>Reis</label>
+            {/* Only trips you could still be travelling on: a finished trip has
+                nothing left to record. */}
+            <TripPicker trips={trackableTrips} value={selected} onChange={setSelected} />
           </div>
           {tracker.lastError && <p className="error-text">{tracker.lastError}</p>}
           <div className="settings-actions">
@@ -468,6 +473,95 @@ function TrackingSection() {
 
       {!tracker.tripId && <TrackingLog now={now} />}
     </section>
+  );
+}
+
+/**
+ * Trip chooser for tracking. A native <select> opens the system's own list,
+ * which looks nothing like the rest of the app and can't show whether a trip is
+ * already under way, so this is a plain popover instead.
+ */
+function TripPicker({
+  trips,
+  value,
+  onChange,
+}: {
+  trips: Trip[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const today = new Date().toISOString().slice(0, 10);
+  const chosen = trips.find((t) => t.id === value);
+
+  const close = () => {
+    setClosing(true);
+    window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+    }, 150);
+  };
+
+  // Tapping anywhere else puts it away.
+  useEffect(() => {
+    if (!open || closing) return;
+    const onDown = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) close();
+    };
+    window.addEventListener('pointerdown', onDown);
+    return () => window.removeEventListener('pointerdown', onDown);
+  }, [open, closing]);
+
+  return (
+    <div className="trip-picker" ref={wrapRef}>
+      <button
+        type="button"
+        className="trip-picker-btn"
+        aria-expanded={open}
+        onClick={() => (open && !closing ? close() : setOpen(true))}
+      >
+        <span className={chosen ? '' : 'muted'}>{chosen?.title ?? 'Kies een reis'}</span>
+        <Icon
+          name="chevron-down"
+          size={16}
+          className={`trip-picker-caret ${open && !closing ? 'open' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className={`trip-picker-menu card ${closing ? 'closing' : ''}`}>
+          {trips.map((t, i) => (
+            <button
+              key={t.id}
+              type="button"
+              className={t.id === value ? 'active' : ''}
+              style={{ animationDelay: `${Math.min(i, 6) * 28}ms` }}
+              onClick={() => {
+                onChange(t.id);
+                close();
+              }}
+            >
+              <span className="trip-picker-name">
+                {t.title}
+                <small>{formatDate(t.startDate)}</small>
+              </span>
+              {t.startDate.slice(0, 10) <= today && (
+                <span className="trip-picker-now">onderweg</span>
+              )}
+              <span className={`person-check ${t.id === value ? 'on' : ''}`}>
+                <Icon name="check" size={15} />
+              </span>
+            </button>
+          ))}
+          {trips.length === 0 && (
+            <span className="trip-picker-empty muted">
+              Geen lopende of komende reizen. Maak er eerst een aan.
+            </span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -9,6 +9,7 @@ import { confirmModal } from '../components/confirm';
 import { DateField } from '../components/DatePicker';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon } from '../components/Icon';
+import { LogoMark } from '../components/Logo';
 import { formatDate } from '../lib/colors';
 import {
   getShowSelfOnHome,
@@ -74,6 +75,13 @@ export function TripsPage() {
 
   return (
     <main className="page fade-in">
+      {/* Brand mark over the globe. On a phone there's no top bar, so without
+          this the app never shows its own name anywhere. */}
+      <span className="trips-brand">
+        <LogoMark size={24} />
+        MarkMySteps
+      </span>
+
       <GlobeBackdrop trips={trips ?? []} selfLocation={self} />
 
       <div className="trips-head">

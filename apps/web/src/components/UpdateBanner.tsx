@@ -41,6 +41,7 @@ const FAKE: LatestApp = {
 export function UpdateBanner() {
   const [info, setInfo] = useState<LatestApp | null>(null);
   const [simulated, setSimulated] = useState(isUpdateBannerSimulated());
+  const [closing, setClosing] = useState(false);
 
   // The simulator works on the web build too, so the banner can be checked
   // without an install — hence it's read outside the native-only check below.
@@ -100,30 +101,35 @@ export function UpdateBanner() {
 
   if (!shown) return null;
 
+  // Roll the banner away first, then drop it — vanishing mid-scroll is jarring.
+  const dismiss = () => {
+    setClosing(true);
+    window.setTimeout(() => {
+      setClosing(false);
+      if (simulated) {
+        setUpdateBannerSimulated(false);
+        return;
+      }
+      localStorage.setItem(DISMISS_KEY, String(shown.version));
+      setInfo(null);
+    }, 280);
+  };
+
   return (
-    <div className="update-banner">
-      <span className="update-banner-text">
-        <strong>Nieuwe versie beschikbaar</strong>
-        {shown.notes && <span className="muted"> · {shown.notes}</span>}
-      </span>
-      <div className="update-banner-actions">
-        <button className="update-banner-dl" onClick={() => shown.url && openExternal(shown.url)}>
-          <Icon name="download" size={15} /> Downloaden
-        </button>
-        <button
-          className="update-banner-close"
-          aria-label="Verbergen"
-          onClick={() => {
-            if (simulated) {
-              setUpdateBannerSimulated(false);
-              return;
-            }
-            localStorage.setItem(DISMISS_KEY, String(shown.version));
-            setInfo(null);
-          }}
-        >
-          <Icon name="close" size={16} />
-        </button>
+    <div className={`update-banner-wrap ${closing ? 'closing' : ''}`}>
+      <div className="update-banner">
+        <span className="update-banner-text">
+          <strong>Nieuwe versie beschikbaar</strong>
+          {shown.notes && <span className="muted"> · {shown.notes}</span>}
+        </span>
+        <div className="update-banner-actions">
+          <button className="update-banner-dl" onClick={() => shown.url && openExternal(shown.url)}>
+            <Icon name="download" size={15} /> Downloaden
+          </button>
+          <button className="update-banner-close" aria-label="Verbergen" onClick={dismiss}>
+            <Icon name="close" size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );

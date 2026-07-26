@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Res,
   UploadedFile,
   UseGuards,
@@ -22,7 +23,7 @@ import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ChangePasswordDto, UpdateProfileDto } from './dto/profile.dto';
-import { PublicUser, UsersService } from './users.service';
+import { PublicUser, UserSuggestion, UsersService } from './users.service';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -67,6 +68,16 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeAvatar(@CurrentUser() user: JwtPayload): Promise<void> {
     await this.users.removeAvatar(user.sub);
+  }
+
+  /** Type-ahead for the "add someone" fields. Declared above `:id/avatar` so
+   *  the literal path always wins. */
+  @Get('suggestions')
+  suggestions(
+    @CurrentUser() user: JwtPayload,
+    @Query('q') q?: string,
+  ): Promise<UserSuggestion[]> {
+    return this.users.suggestUsers(user.sub, q ?? '');
   }
 
   @Get(':id/avatar')

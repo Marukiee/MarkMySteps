@@ -711,15 +711,33 @@ export function GlobeBackdrop({
             a.y + a.h + 4 * dpr > b.y,
         );
       for (const trip of trips) {
-        const projected = projection(trip.anchor);
+        // Hang the name off a dot that is actually drawn for this trip, not off
+        // the raw anchor — those can sit a little apart, and a card floating in
+        // empty sea next to its route looks broken.
+        let base = trip.anchor;
+        let bestD = Infinity;
+        for (const pl of places) {
+          if (!pl.trips.has(trip.id)) continue;
+          const d = distance([pl.lng, pl.lat], trip.anchor);
+          if (d < bestD) {
+            bestD = d;
+            base = [pl.lng, pl.lat];
+          }
+        }
+        const projected = projection(base);
         if (!projected) continue;
-        if (center && distance(center, trip.anchor) > 90) continue;
+        if (center && distance(center, base) > 90) continue;
         const label = trip.title;
         ctx!.font = `${11 * dpr}px 'Inter Variable', sans-serif`;
         const tw = ctx!.measureText(label).width;
-        const px = projected[0] + 9 * dpr;
         const pw = tw + 12 * dpr;
         const ph = 18 * dpr;
+        // Sits to the right of the dot; flips to the left when that would run
+        // off the canvas, and is clamped so a long title is never half cut off.
+        const margin = 6 * dpr;
+        let px = projected[0] + 9 * dpr;
+        if (px + pw > w - margin) px = projected[0] - 9 * dpr - pw;
+        px = Math.max(margin, Math.min(px, w - pw - margin));
         const collides = overlaps({ x: px, y: projected[1] - 17 * dpr, w: pw, h: ph });
         // Suppress if not in the top-N or it would collide with a placed label.
         const target = showIds.has(trip.id) && !collides ? 1 : 0;
@@ -729,7 +747,10 @@ export function GlobeBackdrop({
         labelOpacity.set(trip.id, next);
         if (next < 0.03) continue;
         // Rises the last few pixels into place as it fades in, then sits still.
-        const py = projected[1] - 8 * dpr + (1 - next) * 7 * dpr;
+        const py = Math.max(
+          margin,
+          Math.min(projected[1] - 8 * dpr + (1 - next) * 7 * dpr, h - ph - margin),
+        );
         if (next > 0.5) placed.push({ x: px, y: py, w: pw, h: ph });
         if (next > 0.6) labelRects.push({ id: trip.id, x: px, y: py, w: pw, h: ph });
         // Scales up from 88% around its left edge, so it grows out of the dot.

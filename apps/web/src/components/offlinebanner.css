@@ -1,0 +1,38 @@
+/* Sits under the update banner, above the top bar. Same trick: the wrapper's
+   row grows so the page glides down instead of jumping. */
+.offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 45;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: calc(0.6rem + env(safe-area-inset-top)) 1rem 0.6rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  animation: offlineBannerIn 0.4s var(--ease);
+}
+
+/* Only the topmost banner needs to clear the status bar; when the update
+   banner is already there this one sits below it in normal flow. */
+.update-banner-wrap + .offline-banner {
+  padding-top: 0.6rem;
+}
+
+.offline-banner svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.offline-banner strong {
+  font-weight: 700;
+}
+
+@keyframes offlineBannerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}

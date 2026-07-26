@@ -141,61 +141,77 @@
 /* Live traveller markers (Snap-map style): coloured avatar pin + age bubble. */
 .live-marker {
   position: relative;
-  display: grid;
-  place-items: center;
+  display: block;
   cursor: pointer;
+  animation: liveMarkerIn 0.4s var(--ease) backwards;
+}
+
+@keyframes liveMarkerIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.85);
+  }
 }
 
 .live-marker-av {
-  width: 34px;
-  height: 34px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   display: grid;
   place-content: center;
-  background: var(--live-c, #5a6ee1);
+  background: var(--live-c, #5a6ee1) center / cover no-repeat;
   color: #fff;
   font-weight: 700;
-  font-size: 0.9rem;
-  border: 2.5px solid #fff;
-  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+  font-size: 1.15rem;
+  /* The ring is the person's colour, so who is who stays readable even with
+     a photo filling the circle. */
+  border: 3px solid #fff;
+  outline: 2px solid var(--live-c, #5a6ee1);
+  box-shadow: 0 1px 4px rgb(8 12 18 / 0.35);
 }
 
-/* Little pointer under the avatar. */
+/* Little pointer under the avatar, marking the actual position. */
 .live-marker::after {
   content: '';
   position: absolute;
-  bottom: -5px;
+  bottom: -4px;
   left: 50%;
   width: 10px;
   height: 10px;
-  background: var(--live-c, #5a6ee1);
-  border-right: 2.5px solid #fff;
-  border-bottom: 2.5px solid #fff;
+  background: #fff;
+  border-right: 2px solid var(--live-c, #5a6ee1);
+  border-bottom: 2px solid var(--live-c, #5a6ee1);
   transform: translateX(-50%) rotate(45deg);
 }
 
+/* Age pill hangs BELOW the pointer, centred on it. Absolutely positioned so it
+   stays out of the marker's own box — maplibre anchors that box on the fix, so
+   a pill inside it would shove the avatar off the position. */
 .live-marker-age {
   position: absolute;
-  top: -10px;
-  right: -8px;
-  z-index: 1;
-  padding: 0 5px;
-  height: 17px;
-  min-width: 17px;
+  top: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 7px;
+  height: 19px;
   display: grid;
   place-content: center;
+  white-space: nowrap;
   border-radius: 999px;
   background: #20303b;
   color: #fff;
-  font-size: 0.66rem;
+  font-size: 0.68rem;
   font-weight: 700;
   border: 1.5px solid #fff;
+  box-shadow: 0 1px 3px rgb(8 12 18 / 0.3);
 }
 
-.live-marker.fresh .live-marker-av {
+/* Just updated — green, and the avatar breathes so you notice the move. */
+.live-marker-age.fresh {
+  background: #1f8f4d;
+}
+
+.live-marker:has(.live-marker-age.fresh) .live-marker-av {
   animation: livePulse 1.8s ease-out infinite;
 }
 
-.live-marker.fresh .live-marker-age {
-  background: #e2483d;
-}
