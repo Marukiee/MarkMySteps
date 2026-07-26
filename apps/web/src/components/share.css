@@ -79,3 +79,8 @@
   border-radius: var(--radius-s);
   background: var(--paper-raised);
 }
+
+/* A new link should arrive, not appear. */
+.share-link-in {
+  animation: shareLinkIn 0.28s var(--ease) backwards;
+}
