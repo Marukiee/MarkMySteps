@@ -283,15 +283,28 @@ public class MmsLocationService extends Service implements LocationListener {
         updatesActive = false;
     }
 
+    private long lastSinkDeliveredAt = 0L;
+    @Nullable
+    private Location lastDeliveredLocation = null;
+
     @Override
     public void onLocationChanged(@NonNull Location location) {
-        lastFixAt = System.currentTimeMillis();
+        long now = System.currentTimeMillis();
+        lastFixAt = now;
         if (waitingForMotion) {
             waitingForMotion = false;
             updateNotification();
         }
         Sink current = sink;
-        if (current != null) current.onLocation(location);
+        if (current != null) {
+            float dist = lastDeliveredLocation != null ? location.distanceTo(lastDeliveredLocation) : 9999f;
+            long minSinkInterval = Math.min(intervalMs / 2, 15_000L);
+            if (lastDeliveredLocation == null || now - lastSinkDeliveredAt >= minSinkInterval || dist >= 30f) {
+                lastSinkDeliveredAt = now;
+                lastDeliveredLocation = location;
+                current.onLocation(location);
+            }
+        }
     }
 
     @Override

@@ -229,7 +229,12 @@ export function TripDetailPage() {
     if (tab === 'plan') {
       window.history.pushState({ mmsPlan: true }, '');
       planPushedRef.current = true;
-      const onPop = () => {
+      const onPop = (e: PopStateEvent) => {
+        // If popping returned to the mmsPlan state (e.g. after closing FlightSheet or PlaceSheet),
+        // remain on the plan tab instead of switching to timeline.
+        if (e.state?.mmsPlan) {
+          return;
+        }
         planPushedRef.current = false;
         setTab('timeline');
       };

@@ -448,10 +448,11 @@ export function GlobeBackdrop({
           continue;
         }
         // Dots sit on the route's REAL start and end (not the framing anchor, or
-        // they'd float mid-route). Falls back to the anchor for a city trip.
-        const start = trip.path?.[0]?.[0] ?? trip.anchor;
+        // they'd float mid-route). Falls back to flight endpoints, then anchor.
+        const start = trip.path?.[0]?.[0] ?? trip.flights?.[0]?.[0] ?? trip.anchor;
         const lastSeg = trip.path?.[trip.path.length - 1];
-        const end = lastSeg?.[lastSeg.length - 1];
+        const lastFlight = trip.flights?.[trip.flights.length - 1];
+        const end = lastSeg?.[lastSeg.length - 1] ?? lastFlight?.[lastFlight.length - 1];
         addEndpoint(start, col, trip.upcoming, isCity, trip.id);
         // Route end — only a distinct marker when it's clearly elsewhere (a loop
         // trip with ~the same start/end stays one dot).

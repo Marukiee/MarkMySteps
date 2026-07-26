@@ -35,8 +35,8 @@ export interface LiveFix {
   accuracy: number | null;
 }
 
-/** Simplification tolerance in degrees (~11 m at the equator). */
-const DEFAULT_TOLERANCE = 0.0001;
+/** Simplification tolerance in degrees (~33 m at the equator) to smooth out indoor stay jitter. */
+const DEFAULT_TOLERANCE = 0.0003;
 const MAX_TOLERANCE = 0.01;
 
 @Injectable()

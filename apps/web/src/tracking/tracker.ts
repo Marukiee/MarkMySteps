@@ -60,11 +60,9 @@ const BATCH_SIZE = 500;
  * the GPS asleep.
  */
 function distanceFilterM(): number {
-  // Floor raised to 120 m: indoors a GPS fix wanders 50-100 m on its own, so a
-  // 50 m filter logged a spider's web of noise around a hotel all night.
-  // Capped, or a 30-minute interval would ask for ~900 m and the route would
-  // lose its shape through a town.
-  return Math.min(300, Math.max(120, getTrackingIntervalMin() * 40));
+  // Floor lowered to 60 m so real travel in 50-80 m steps gets captured.
+  // Dynamic scaling: ~30 m per interval minute, floor 60 m, ceiling 200 m.
+  return Math.min(200, Math.max(60, getTrackingIntervalMin() * 30));
 }
 
 /** Fixes vaguer than this are drift, not travel. */
@@ -97,8 +95,17 @@ export function getTrackingLog(): FixLogEntry[] {
   }
 }
 
+let lastLogPushAt = 0;
+
 function pushLog(entry: FixLogEntry): void {
   try {
+    const now = Date.now();
+    // Kept points are always logged. Skipped points are throttled (at most once
+    // every 90 seconds unless significant movement occurred) to prevent log spamming.
+    if (!entry.kept && now - lastLogPushAt < 90_000 && (entry.movedM ?? 0) < 100) {
+      return;
+    }
+    lastLogPushAt = now;
     const log = [entry, ...getTrackingLog()].slice(0, 60);
     localStorage.setItem(LOG_KEY, JSON.stringify(log));
   } catch {
@@ -166,6 +173,18 @@ export async function openLocationSettings(): Promise<void> {
 /** Last stored position, to report how far a new fix moved. */
 let lastStored: { lat: number; lng: number } | null = null;
 
+/** Recent stored positions to detect stationary stay clusters ("spinnenweb"). */
+const recentStored: { lat: number; lng: number; at: number }[] = [];
+
+/** Queue of recent fixes while waiting for interval or path confirmation. */
+interface CandidateFix {
+  position: NativePosition;
+  lat: number;
+  lng: number;
+  at: number;
+}
+let candidateBuffer: CandidateFix[] = [];
+
 function metresBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const toRad = Math.PI / 180;
   const dLat = (b.lat - a.lat) * toRad;
@@ -176,30 +195,34 @@ function metresBetween(a: { lat: number; lng: number }, b: { lat: number; lng: n
   return Math.round(6_371_000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)));
 }
 
-async function record(tripId: string, position: NativePosition): Promise<void> {
+/** Returns true if recent stored points form a stationary cluster around a spot. */
+function inStationaryCluster(here: { lat: number; lng: number }): boolean {
+  if (recentStored.length < 3) return false;
+  // Calculate centroid of recent stored points
+  let sumLat = 0;
+  let sumLng = 0;
+  for (const p of recentStored) {
+    sumLat += p.lat;
+    sumLng += p.lng;
+  }
+  const center = { lat: sumLat / recentStored.length, lng: sumLng / recentStored.length };
+  
+  // Check if all recent stored points sit within 80 m of center
+  const allClose = recentStored.every((p) => metresBetween(center, p) <= 80);
+  if (!allClose) return false;
+
+  // If we are still within 100 m of the cluster center, suppress saving extra drift
+  return metresBetween(center, here) <= 100;
+}
+
+async function storePoint(tripId: string, position: NativePosition, moved?: number): Promise<void> {
   const now = Date.now();
   const here = { lat: position.latitude, lng: position.longitude };
-  const moved = lastStored ? metresBetween(lastStored, here) : undefined;
-
-  // Skipped fixes are still logged (proof the GPS is working) and still move
-  // the "you are here" dot; they just aren't part of the route.
-  const skip = (): void => {
-    pushLog({ ...here, at: now, kept: false, movedM: moved });
-    emit({ lastFix: { ...here, at: now, accuracy: position.accuracy } });
-  };
-
-  // Arrived sooner than the configured interval.
-  if (now - lastRecordAt < getTrackingIntervalMin() * 60_000) return skip();
-
-  // Too vague to place: a ±300 m fix drags the route across a whole town.
-  if (position.accuracy !== undefined && position.accuracy > MAX_ACCURACY_M) return skip();
-
-  // Hasn't actually moved. The provider's own minDistance is unreliable
-  // indoors (it compares against ITS last fix, not our last stored point), so
-  // this is the filter that really keeps a stationary night off the map.
-  if (moved !== undefined && moved < distanceFilterM()) return skip();
   lastRecordAt = now;
   lastStored = here;
+
+  recentStored.push({ ...here, at: now });
+  if (recentStored.length > 5) recentStored.shift();
 
   const point: BufferedPoint = {
     clientId: crypto.randomUUID(),
@@ -221,6 +244,75 @@ async function record(tripId: string, position: NativePosition): Promise<void> {
       accuracy: position.accuracy,
     },
   });
+}
+
+async function record(tripId: string, position: NativePosition): Promise<void> {
+  const now = Date.now();
+  const here = { lat: position.latitude, lng: position.longitude };
+  const moved = lastStored ? metresBetween(lastStored, here) : undefined;
+
+  const skip = (): void => {
+    pushLog({ ...here, at: now, kept: false, movedM: moved });
+    emit({ lastFix: { ...here, at: now, accuracy: position.accuracy } });
+  };
+
+  // Too vague to place: a ±120 m fix drags the route across a whole town.
+  if (position.accuracy !== undefined && position.accuracy > MAX_ACCURACY_M) return skip();
+
+  // Add to candidate buffer for path evaluation
+  candidateBuffer.push({ position, ...here, at: now });
+  if (candidateBuffer.length > 15) candidateBuffer.shift();
+
+  // Check if stationary cluster (prevents hotel/stay spiderweb noise)
+  if (inStationaryCluster(here)) {
+    return skip();
+  }
+
+  const intervalMs = getTrackingIntervalMin() * 60_000;
+  const elapsed = now - lastRecordAt;
+  const filterM = distanceFilterM();
+
+  // If time interval elapsed AND we've moved at least min distance:
+  if (elapsed >= intervalMs) {
+    if (moved !== undefined && moved < filterM) {
+      return skip();
+    }
+
+    // If candidate buffer contains an intermediate turn point (midpoint along path), save it first!
+    if (lastStored && candidateBuffer.length >= 2) {
+      let bestMid: CandidateFix | null = null;
+      let maxDistFromLine = 0;
+      for (const cand of candidateBuffer.slice(0, -1)) {
+        const d1 = metresBetween(lastStored, cand);
+        const d2 = metresBetween(cand, here);
+        // If candidate sits between and extends path (d1 >= 40m, d2 >= 40m)
+        if (d1 >= 40 && d2 >= 40 && (d1 + d2) > moved!) {
+          const lineDist = Math.abs(d1 + d2 - moved!);
+          if (lineDist > maxDistFromLine) {
+            maxDistFromLine = lineDist;
+            bestMid = cand;
+          }
+        }
+      }
+      if (bestMid && maxDistFromLine > 30) {
+        await storePoint(tripId, bestMid.position, metresBetween(lastStored, bestMid));
+      }
+    }
+
+    await storePoint(tripId, position, moved);
+    candidateBuffer = [];
+    return;
+  }
+
+  // If interval hasn't fully elapsed yet, but we've moved significantly (> 1.5 * filterM),
+  // record immediately so fast travel is captured promptly.
+  if (moved !== undefined && moved >= filterM * 1.5 && elapsed >= 60_000) {
+    await storePoint(tripId, position, moved);
+    candidateBuffer = [];
+    return;
+  }
+
+  return skip();
 }
 
 export async function flush(): Promise<void> {
