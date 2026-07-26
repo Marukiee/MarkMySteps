@@ -648,7 +648,6 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
 
   return (
     <section className="card settings-card">
-      <h2>Over</h2>
       {/* The brand row doubles as the seven-tap target for developer options —
           a second "MarkMySteps" underneath was just repeating itself. */}
       <button type="button" className="about-brand" onClick={tapVersion}>

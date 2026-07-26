@@ -33,6 +33,18 @@ interface SharedTrip {
 
 const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
 
+const REGION_NAMES = new Intl.DisplayNames(['nl'], { type: 'region' });
+
+/** "Zweden" for SE — reads better next to a city than a flag emoji does. */
+function countryName(code: string | null): string | null {
+  if (!code) return null;
+  try {
+    return REGION_NAMES.of(code.toUpperCase()) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 interface SharedStop {
   id: string;
   name: string;
@@ -338,9 +350,21 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
         ...placeFor(date),
       })),
     ];
-    // Same date: stops and legs head the day they start.
-    const rank = (e: Entry) => (e.kind === 'day' ? 1 : 0);
-    return list.sort((a, b) => a.date.localeCompare(b.date) || rank(a) - rank(b));
+    // Within one date: the first stop, then that date's photos, then any further
+    // stops. Two stops starting the same day means a day trip — its photos
+    // belong under the place you went, not under the city you slept in.
+    const byDate = new Map<string, Entry[]>();
+    for (const e of list) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
+    const out: Entry[] = [];
+    for (const date of [...byDate.keys()].sort()) {
+      const group = byDate.get(date)!;
+      const places = group.filter((e) => e.kind !== 'day');
+      const day = group.find((e) => e.kind === 'day');
+      if (places.length > 0) out.push(places[0]!);
+      if (day) out.push(day);
+      out.push(...places.slice(1));
+    }
+    return out;
   }, [stops, orderedMedia]);
 
   return (
@@ -415,10 +439,12 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                   <span className="share-tl-marker share-tl-marker-stop">{entry.index + 1}</span>
                   <div className="share-tl-stop-body">
                     <strong>
-                      {entry.stop.countryCode && (
-                        <span className="share-tl-flag">{flagEmoji(entry.stop.countryCode)}</span>
-                      )}
                       {entry.stop.name}
+                      {countryName(entry.stop.countryCode) && (
+                        <span className="share-tl-country">
+                          , {countryName(entry.stop.countryCode)}
+                        </span>
+                      )}
                     </strong>
                     <span className="muted">
                       {stopRange(entry.stop.arrivalDate, entry.stop.departureDate)}
