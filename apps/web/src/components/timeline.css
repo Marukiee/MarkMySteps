@@ -85,7 +85,13 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: var(--radius-s);
+  background: var(--paper-sunken);
+  border: 1px solid var(--line);
   color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 550;
 }
 
 .timeline-dot {

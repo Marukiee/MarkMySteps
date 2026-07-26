@@ -341,14 +341,19 @@
   color: var(--ink-faint);
 }
 
-/* Where the day was spent, under its date — same line as the app's timeline. */
+/* Where the day was spent, under its date — styled pill badge. */
 .share-tl-place {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  margin: -0.35rem 0 0.6rem;
-  font-size: 0.88rem;
-  color: var(--ink-faint);
+  margin: -0.2rem 0 0.6rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: var(--radius-s);
+  background: var(--paper-sunken);
+  border: 1px solid var(--line);
+  font-size: 0.8rem;
+  font-weight: 550;
+  color: var(--ink-soft);
 }
 
 .share-tl-day h3 {

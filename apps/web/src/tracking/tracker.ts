@@ -215,6 +215,8 @@ function inStationaryCluster(here: { lat: number; lng: number }): boolean {
   return metresBetween(center, here) <= 100;
 }
 
+let isRecording = false;
+
 async function storePoint(tripId: string, position: NativePosition, moved?: number): Promise<void> {
   const now = Date.now();
   const here = { lat: position.latitude, lng: position.longitude };
@@ -247,72 +249,89 @@ async function storePoint(tripId: string, position: NativePosition, moved?: numb
 }
 
 async function record(tripId: string, position: NativePosition): Promise<void> {
-  const now = Date.now();
-  const here = { lat: position.latitude, lng: position.longitude };
-  const moved = lastStored ? metresBetween(lastStored, here) : undefined;
+  if (isRecording) return;
+  isRecording = true;
+  try {
+    const now = Date.now();
+    const here = { lat: position.latitude, lng: position.longitude };
 
-  const skip = (): void => {
-    pushLog({ ...here, at: now, kept: false, movedM: moved });
-    emit({ lastFix: { ...here, at: now, accuracy: position.accuracy } });
-  };
+    // Restore lastStored from existing tracking log if uninitialized (e.g. after app restart)
+    if (!lastStored) {
+      const logs = getTrackingLog();
+      const lastKept = logs.find((l) => l.kept);
+      if (lastKept) {
+        lastStored = { lat: lastKept.lat, lng: lastKept.lng };
+        lastRecordAt = lastKept.at;
+      }
+    }
 
-  // Too vague to place: a ±120 m fix drags the route across a whole town.
-  if (position.accuracy !== undefined && position.accuracy > MAX_ACCURACY_M) return skip();
+    const moved = lastStored ? metresBetween(lastStored, here) : undefined;
 
-  // Add to candidate buffer for path evaluation
-  candidateBuffer.push({ position, ...here, at: now });
-  if (candidateBuffer.length > 15) candidateBuffer.shift();
+    const skip = (): void => {
+      pushLog({ ...here, at: now, kept: false, movedM: moved });
+      emit({ lastFix: { ...here, at: now, accuracy: position.accuracy } });
+    };
 
-  // Check if stationary cluster (prevents hotel/stay spiderweb noise)
-  if (inStationaryCluster(here)) {
-    return skip();
-  }
+    // Too vague to place: a ±120 m fix drags the route across a whole town.
+    if (position.accuracy !== undefined && position.accuracy > MAX_ACCURACY_M) return skip();
 
-  const intervalMs = getTrackingIntervalMin() * 60_000;
-  const elapsed = now - lastRecordAt;
-  const filterM = distanceFilterM();
+    // Add to candidate buffer for path evaluation
+    candidateBuffer.push({ position, ...here, at: now });
+    if (candidateBuffer.length > 15) candidateBuffer.shift();
 
-  // If time interval elapsed AND we've moved at least min distance:
-  if (elapsed >= intervalMs) {
-    if (moved !== undefined && moved < filterM) {
+    // Check if stationary cluster (prevents hotel/stay spiderweb noise)
+    if (inStationaryCluster(here)) {
       return skip();
     }
 
-    // If candidate buffer contains an intermediate turn point (midpoint along path), save it first!
-    if (lastStored && candidateBuffer.length >= 2) {
-      let bestMid: CandidateFix | null = null;
-      let maxDistFromLine = 0;
-      for (const cand of candidateBuffer.slice(0, -1)) {
-        const d1 = metresBetween(lastStored, cand);
-        const d2 = metresBetween(cand, here);
-        // If candidate sits between and extends path (d1 >= 40m, d2 >= 40m)
-        if (d1 >= 40 && d2 >= 40 && (d1 + d2) > moved!) {
-          const lineDist = Math.abs(d1 + d2 - moved!);
-          if (lineDist > maxDistFromLine) {
-            maxDistFromLine = lineDist;
-            bestMid = cand;
+    const intervalMs = getTrackingIntervalMin() * 60_000;
+    const elapsed = now - lastRecordAt;
+    const filterM = distanceFilterM();
+
+    // If time interval elapsed AND we've moved at least min distance:
+    if (elapsed >= intervalMs) {
+      if (moved !== undefined && moved < filterM) {
+        return skip();
+      }
+
+      // If candidate buffer contains an intermediate turn point (midpoint along path), save it first!
+      if (lastStored && candidateBuffer.length >= 2) {
+        let bestMid: CandidateFix | null = null;
+        let maxDistFromLine = 0;
+        for (const cand of candidateBuffer.slice(0, -1)) {
+          const d1 = metresBetween(lastStored, cand);
+          const d2 = metresBetween(cand, here);
+          // If candidate sits between and extends path (d1 >= 40m, d2 >= 40m)
+          if (d1 >= 40 && d2 >= 40 && (d1 + d2) > moved!) {
+            const lineDist = Math.abs(d1 + d2 - moved!);
+            if (lineDist > maxDistFromLine) {
+              maxDistFromLine = lineDist;
+              bestMid = cand;
+            }
           }
         }
+        if (bestMid && maxDistFromLine > 30) {
+          await storePoint(tripId, bestMid.position, metresBetween(lastStored, bestMid));
+        }
       }
-      if (bestMid && maxDistFromLine > 30) {
-        await storePoint(tripId, bestMid.position, metresBetween(lastStored, bestMid));
-      }
+
+      await storePoint(tripId, position, moved);
+      candidateBuffer = [];
+      return;
     }
 
-    await storePoint(tripId, position, moved);
-    candidateBuffer = [];
-    return;
-  }
+    // If interval hasn't fully elapsed yet, but we've moved significantly (> 1.5 * filterM),
+    // record immediately so fast travel is captured promptly.
+    if (moved !== undefined && moved >= filterM * 1.5 && elapsed >= 60_000) {
+      await storePoint(tripId, position, moved);
+      candidateBuffer = [];
+      return;
+    }
 
-  // If interval hasn't fully elapsed yet, but we've moved significantly (> 1.5 * filterM),
-  // record immediately so fast travel is captured promptly.
-  if (moved !== undefined && moved >= filterM * 1.5 && elapsed >= 60_000) {
-    await storePoint(tripId, position, moved);
-    candidateBuffer = [];
-    return;
+    return skip();
+  } finally {
+    isRecording = false;
   }
-
-  return skip();
 }
 
 export async function flush(): Promise<void> {

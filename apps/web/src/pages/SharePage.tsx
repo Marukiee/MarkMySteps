@@ -350,19 +350,19 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
         ...placeFor(date),
       })),
     ];
-    // Within one date: the first stop, then that date's photos, then any further
-    // stops. Two stops starting the same day means a day trip — its photos
-    // belong under the place you went, not under the city you slept in.
+    // Within one date: outbound/return legs first, then any planned stop header starting today,
+    // then today's photos, then any subsequent stops.
     const byDate = new Map<string, Entry[]>();
     for (const e of list) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
     const out: Entry[] = [];
     for (const date of [...byDate.keys()].sort()) {
       const group = byDate.get(date)!;
-      const places = group.filter((e) => e.kind !== 'day');
+      const legs = group.filter((e) => e.kind === 'leg');
+      const stops = group.filter((e) => e.kind === 'stop');
       const day = group.find((e) => e.kind === 'day');
-      if (places.length > 0) out.push(places[0]!);
+      out.push(...legs);
+      out.push(...stops);
       if (day) out.push(day);
-      out.push(...places.slice(1));
     }
     return out;
   }, [stops, orderedMedia]);
@@ -442,7 +442,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                       {entry.stop.name}
                       {countryName(entry.stop.countryCode) && (
                         <span className="share-tl-country">
-                          , {countryName(entry.stop.countryCode)}
+                          {`, ${countryName(entry.stop.countryCode)}`}
                         </span>
                       )}
                     </strong>
