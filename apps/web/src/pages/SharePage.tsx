@@ -442,7 +442,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                       {entry.stop.name}
                       {countryName(entry.stop.countryCode) && (
                         <span className="share-tl-country">
-                          {`, ${countryName(entry.stop.countryCode)}`}
+                          , {countryName(entry.stop.countryCode)}
                         </span>
                       )}
                     </strong>
@@ -456,8 +456,8 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                   <span className="share-tl-marker share-tl-marker-day" aria-hidden="true" />
                   <h3>{formatDay(entry.items[0]!.takenAt)}</h3>
                   {entry.place && (
-                    <p className="share-tl-place">
-                      {entry.flag && <span>{entry.flag}</span>}
+                    <p className="share-tl-place muted">
+                      {entry.flag && <span className="share-tl-place-flag">{entry.flag}</span>}
                       {entry.place}
                     </p>
                   )}

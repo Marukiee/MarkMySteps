@@ -146,14 +146,21 @@
 
 .trip-card-meta {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 1.4rem;
+  gap: clamp(0.75rem, 3vw, 1.25rem);
   margin-top: 0.55rem;
+  min-width: 0;
+}
+
+.tcm {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tcm strong {
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: clamp(0.95rem, 2.8vw, 1.15rem);
   font-weight: 600;
 }
 
@@ -167,6 +174,7 @@
 }
 
 .trip-card-meta .trip-card-members {
+  flex-shrink: 0;
   margin-left: auto;
 }
 
@@ -564,15 +572,36 @@
 
 .trip-card-members {
   display: flex;
+  align-items: center;
   margin-top: 0.3rem;
 }
 
 .trip-card-members > * + * {
-  margin-left: -9px; /* overlap so more travellers fit */
+  margin-left: -13px;
 }
 
 .member-dot {
-  position: relative; /* so the stacking z-index applies */
+  position: relative;
   border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+.member-more {
+  position: relative;
+  z-index: 0;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  margin-left: -13px;
+  display: grid;
+  place-content: center;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: rgb(255 255 255 / 0.22);
+  backdrop-filter: blur(4px);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
 }

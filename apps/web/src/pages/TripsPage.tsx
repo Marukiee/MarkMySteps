@@ -516,24 +516,7 @@ function TripCard({
               </strong>
             </div>
           )}
-          <div className="trip-card-members">
-            {[...trip.members]
-              .sort((a, b) =>
-                a.userId === trip.ownerId ? -1 : b.userId === trip.ownerId ? 1 : 0,
-              )
-              .map((m, i, arr) => (
-                <Avatar
-                  key={m.userId}
-                  userId={m.userId}
-                  displayName={m.user.displayName}
-                  hasAvatar={m.user.hasAvatar}
-                  size={28}
-                  className="member-dot"
-                  // Owner first + earlier avatars stack on top of later ones.
-                  style={{ zIndex: arr.length - i }}
-                />
-              ))}
-          </div>
+          <TripCardMembers members={trip.members} ownerId={trip.ownerId} />
         </div>
 
         {menuEl}
@@ -593,6 +576,38 @@ function daysUntil(startDate: string): number | null {
   today.setHours(0, 0, 0, 0);
   const diff = Math.round((start.getTime() - today.getTime()) / 86_400_000);
   return diff < 0 ? null : diff;
+}
+
+/** At most two avatars, stacked tight; any extras collapse to a +N chip. */
+function TripCardMembers({
+  members,
+  ownerId,
+}: {
+  members: Trip['members'];
+  ownerId: string;
+}) {
+  const sorted = [...members].sort((a, b) =>
+    a.userId === ownerId ? -1 : b.userId === ownerId ? 1 : 0,
+  );
+  const visible = sorted.slice(0, 2);
+  const extra = sorted.length - visible.length;
+
+  return (
+    <div className="trip-card-members">
+      {visible.map((m, i) => (
+        <Avatar
+          key={m.userId}
+          userId={m.userId}
+          displayName={m.user.displayName}
+          hasAvatar={m.user.hasAvatar}
+          size={26}
+          className="member-dot"
+          style={{ zIndex: visible.length - i }}
+        />
+      ))}
+      {extra > 0 && <span className="member-more">+{extra}</span>}
+    </div>
+  );
 }
 
 /** Background for a photo-less card: the trip's custom colour as a soft duotone,
