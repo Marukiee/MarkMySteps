@@ -26,22 +26,35 @@ export function initStatusBar(): void {
   syncStatusBarTheme();
   // Re-sync whenever the app theme changes.
   window.addEventListener('mms-theme', syncStatusBarTheme);
+  // Coming back from the background is where the transparency tends to get
+  // dropped, so claim it again every time.
+  document.addEventListener('resume', refreshStatusBar);
+  window.addEventListener('focus', refreshStatusBar);
 }
 
 /**
- * Tints the native status bar, so a coloured banner at the top of the page
- * doesn't sit under a black or white strip. Pass null to hand it back to the
- * theme.
+ * Re-asserts the transparent overlay. Some Android builds hand the bar back a
+ * background of their own after a resume or a theme change, which turns the
+ * strip above the page into a solid block.
+ */
+export function refreshStatusBar(): void {
+  if (!isNativeApp()) return;
+  void StatusBar.setOverlaysWebView({ overlay: true }).catch(() => undefined);
+  void StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => undefined);
+  syncStatusBarTheme();
+}
+
+/**
+ * Icon colour for a coloured banner running up under the bar. The bar itself
+ * stays transparent — the page paints through it — so only the icons change.
+ * Pass null to hand them back to the theme.
  */
 export function setStatusBarTint(color: string | null, lightIcons = true): void {
   if (!isNativeApp()) return;
   if (color === null) {
-    syncStatusBarTheme();
+    refreshStatusBar();
     return;
   }
-  // The bar overlays the WebView, so its background is whatever the page paints
-  // underneath. Only the icon colour is ours to set here; the banner extends up
-  // under the bar to supply the colour itself.
   void StatusBar.setStyle({ style: lightIcons ? Style.Dark : Style.Light }).catch(() => undefined);
 }
 

@@ -7,7 +7,7 @@ import { getMapStyle } from '../lib/prefs';
 import type { MediaItem, RouteCollection } from '../api/types';
 import { buildLegs, flightArc, haversineKm, StopPoint, trimOutlierEnds } from '../lib/arc';
 import { colorForUser, flagEmoji } from '../lib/colors';
-import { lastSeenLabel, useNow } from '../lib/lastSeen';
+import { useNow } from '../lib/lastSeen';
 import './tripmap.css';
 
 /** A single-hop jump longer than this in a route line is treated as a flight. */
@@ -88,8 +88,6 @@ export function TripMap({
   // Cache thumbnail object-URLs by media id so re-clustering on zoom reuses the
   // loaded image instead of flashing the empty placeholder white.
   const thumbCacheRef = useRef<Map<string, string>>(new Map());
-  // Same idea for traveller avatars on the live markers.
-  const avatarCacheRef = useRef<Map<string, string>>(new Map());
   // Ages on the live markers are relative, so they need their own clock.
   const liveTick = useNow(5_000);
   const waypointDeleteRef = useRef(onWaypointDelete);
@@ -543,56 +541,14 @@ export function TripMap({
     }
   }, [currentLocation]);
 
-  // Live avatar markers for other travellers (Snap-map style): their profile
-  // photo, with how long ago the fix came in on a pill underneath. Your own
-  // position is the pulsing "me" dot instead.
+  // Live markers for other travellers are switched off for now: the avatar sat
+  // off-centre from its own pointer and the marker jumped on every poll. The
+  // data still flows (the people menu shows each traveller's last-seen time),
+  // so turning this back on is a matter of flipping the flag once the marker
+  // itself is rebuilt.
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
     for (const m of liveMarkersRef.current) m.remove();
     liveMarkersRef.current = [];
-    for (const f of liveFixes ?? []) {
-      if (f.userId === selfUserId || !visibleUsers.has(f.userId)) continue;
-      const seen = lastSeenLabel(f.recordedAt, liveTick);
-      const el = document.createElement('div');
-      el.className = 'live-marker';
-      el.style.setProperty('--live-c', colorForUser(f.userId));
-      el.title = `${f.displayName} · ${seen.text}`;
-
-      const av = document.createElement('span');
-      av.className = 'live-marker-av';
-      if (f.hasAvatar) {
-        // Cached per user, so re-drawing on every poll doesn't re-download.
-        const cached = avatarCacheRef.current.get(f.userId);
-        if (cached) {
-          av.style.backgroundImage = `url(${cached})`;
-          av.classList.add('has-photo');
-        } else {
-          void fetchBlobUrl(`/users/${f.userId}/avatar`)
-            .then((url) => {
-              avatarCacheRef.current.set(f.userId, url);
-              av.style.backgroundImage = `url(${url})`;
-              av.classList.add('has-photo');
-            })
-            .catch(() => {
-              av.textContent = (f.displayName[0] ?? '?').toUpperCase();
-            });
-        }
-      } else {
-        av.textContent = (f.displayName[0] ?? '?').toUpperCase();
-      }
-
-      const age = document.createElement('span');
-      age.className = `live-marker-age ${seen.fresh ? 'fresh' : ''}`;
-      age.textContent = seen.text;
-
-      el.append(av, age);
-      liveMarkersRef.current.push(
-        new maplibregl.Marker({ element: el, anchor: 'bottom' })
-          .setLngLat([f.longitude, f.latitude])
-          .addTo(map),
-      );
-    }
   }, [liveFixes, visibleUsers, selfUserId, liveTick]);
 
   // Manual waypoints as small dots; click to delete when editing.

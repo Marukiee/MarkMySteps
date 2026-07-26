@@ -504,7 +504,11 @@ export function TripDetailPage() {
               />
               <span className="person-select-name">
                 {trip.members.find((m) => m.userId === user?.id)?.user.displayName ?? 'Ik'}
-                {visibleUsers.size > 1 && ` +${visibleUsers.size - 1}`}
+              </span>
+              {/* Stays mounted at zero width so the pill can GROW into the extra
+                  count instead of snapping wider the moment you tick someone. */}
+              <span className={`person-extra ${visibleUsers.size > 1 ? 'on' : ''}`}>
+                <span key={visibleUsers.size}>+{Math.max(0, visibleUsers.size - 1)}</span>
               </span>
               <Icon
                 name="chevron-down"

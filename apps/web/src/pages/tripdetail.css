@@ -211,6 +211,52 @@
   white-space: nowrap;
 }
 
+/* "+2" counter. A column that eases 0fr → 1fr, so the pill widens smoothly
+   around it rather than jumping to its new size in one frame. */
+.person-extra {
+  display: inline-grid;
+  grid-template-columns: 0fr;
+  opacity: 0;
+  margin-left: -0.5rem; /* cancels the button's gap while collapsed */
+  color: var(--accent-ink);
+  font-weight: 700;
+  transition:
+    grid-template-columns 0.3s var(--ease),
+    opacity 0.22s var(--ease),
+    margin-left 0.3s var(--ease);
+}
+
+.person-extra.on {
+  grid-template-columns: 1fr;
+  opacity: 1;
+  margin-left: 0;
+}
+
+.person-extra > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Re-keyed on every change, so going 1 → 2 pops again. */
+.person-extra.on > span {
+  animation: personExtraPop 0.32s var(--ease);
+}
+
+@keyframes personExtraPop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 .person-select-caret {
   color: var(--ink-faint);
   transition: transform 0.2s var(--ease);

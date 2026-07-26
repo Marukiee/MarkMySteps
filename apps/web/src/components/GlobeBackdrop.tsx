@@ -711,14 +711,16 @@ export function GlobeBackdrop({
             a.y + a.h + 4 * dpr > b.y,
         );
       for (const trip of trips) {
-        // Hang the name off a dot that is actually drawn for this trip, not off
-        // the raw anchor — those can sit a little apart, and a card floating in
-        // empty sea next to its route looks broken.
-        let base = trip.anchor;
+        // The name belongs at the trip's starting point, unless a marker was
+        // placed by hand in the trip settings — then it goes there. Either way
+        // it snaps to a dot that is actually drawn, so the card never floats in
+        // empty sea beside the route.
+        const want = trip.markerFixed ? trip.anchor : trip.path?.[0]?.[0] ?? trip.anchor;
+        let base = want;
         let bestD = Infinity;
         for (const pl of places) {
           if (!pl.trips.has(trip.id)) continue;
-          const d = distance([pl.lng, pl.lat], trip.anchor);
+          const d = distance([pl.lng, pl.lat], want);
           if (d < bestD) {
             bestD = d;
             base = [pl.lng, pl.lat];
