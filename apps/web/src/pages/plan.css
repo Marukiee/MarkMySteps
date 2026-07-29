@@ -1177,10 +1177,6 @@
   background: var(--paper-raised);
 }
 
-.daytrip-sep {
-  color: var(--ink-faint);
-}
-
 /* The date is editable in place, so it reads as text until you touch it. The
    picker's pin glyph is dropped here — it says "location" next to a date. */
 .daytrip-meta .date-field {

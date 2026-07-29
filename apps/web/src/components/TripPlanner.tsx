@@ -751,14 +751,12 @@ export function TripPlanner({
                         ? formatDateRange(stop.arrivalDate, stop.departureDate)
                         : formatDate(stop.arrivalDate)}
                       {stop.latitude !== null && stop.longitude !== null && (
-                        <>
-                          {' · '}
-                          <WeatherBadge
-                            lat={stop.latitude}
-                            lon={stop.longitude}
-                            day={stop.arrivalDate}
-                          />
-                        </>
+                        <WeatherBadge
+                          lat={stop.latitude}
+                          lon={stop.longitude}
+                          day={stop.arrivalDate}
+                          separator
+                        />
                       )}
                     </span>
                   </div>
@@ -1298,14 +1296,12 @@ function DayTrips({
                         onChange={(value) => value && onDate(trip, value)}
                       />
                       {trip.latitude !== null && trip.longitude !== null && (
-                        <>
-                          <span className="daytrip-sep">·</span>
-                          <WeatherBadge
-                            lat={trip.latitude}
-                            lon={trip.longitude}
-                            day={trip.arrivalDate}
-                          />
-                        </>
+                        <WeatherBadge
+                          lat={trip.latitude}
+                          lon={trip.longitude}
+                          day={trip.arrivalDate}
+                          separator
+                        />
                       )}
                     </span>
                   </div>

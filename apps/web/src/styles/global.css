@@ -458,3 +458,10 @@ textarea {
 .maplibregl-ctrl-bottom-right {
   opacity: 0.55;
 }
+
+/* The dot before a weather reading lives with the reading, so a place that has
+   no weather does not leave a separator hanging on its own. */
+.weather-sep {
+  color: var(--ink-faint);
+  white-space: pre;
+}

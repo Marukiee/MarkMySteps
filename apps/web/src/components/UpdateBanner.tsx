@@ -118,9 +118,12 @@ export function UpdateBanner() {
   return (
     <div className={`update-banner-wrap ${closing ? 'closing' : ''}`}>
       <div className="update-banner">
+        {/* Two lines, not one with a dot between: the build number wraps on a
+            phone either way, and the separator was then left stranded at the
+            end of the first line with nothing after it. */}
         <span className="update-banner-text">
           <strong>Nieuwe versie beschikbaar</strong>
-          {shown.notes && <span className="muted"> · {shown.notes}</span>}
+          {shown.notes && <span className="update-banner-notes">{shown.notes}</span>}
         </span>
         <div className="update-banner-actions">
           <button className="update-banner-dl" onClick={() => shown.url && openExternal(shown.url)}>

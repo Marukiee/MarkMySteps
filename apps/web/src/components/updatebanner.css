@@ -67,7 +67,17 @@
 .update-banner-text {
   flex: 1;
   min-width: 0;
+  display: grid;
+  line-height: 1.25;
   font-size: 0.9rem;
+}
+
+.update-banner-notes {
+  font-size: 0.82rem;
+  color: rgb(255 255 255 / 0.8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .update-banner-text .muted {
