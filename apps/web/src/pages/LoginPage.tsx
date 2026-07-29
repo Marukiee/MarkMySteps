@@ -6,6 +6,7 @@ import { DEFAULT_SERVER_URL } from '../config';
 import { isNative } from '../tracking/tracker';
 import { LocalModeSheet } from '../components/LocalModeSheet';
 import { PasswordInput } from '../components/PasswordInput';
+import { PasswordStrength } from '../components/PasswordStrength';
 import './login.css';
 
 export function LoginPage() {
@@ -138,6 +139,13 @@ export function LoginPage() {
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+          />
+          {/* Only when making one: judging the password you already have is
+              noise, and on a login screen it would be a hint to a shoulder. */}
+          <PasswordStrength
+            password={password}
+            personal={[username, displayName, email.split('@')[0] ?? '']}
+            open={mode === 'register'}
           />
           <span className="login-hint" data-open={mode === 'register'}>
             <span>Minimaal 10 tekens</span>

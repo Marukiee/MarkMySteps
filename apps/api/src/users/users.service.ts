@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
+import { assertStrongPassword } from '../auth/password-strength';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface PublicUser {
@@ -162,6 +163,11 @@ export class UsersService {
     if (!valid) {
       throw new UnauthorizedException('Current password is incorrect');
     }
+    assertStrongPassword(newPassword, [
+      user.username,
+      user.displayName,
+      user.email.split('@')[0] ?? null,
+    ]);
     await this.prisma.user.update({
       where: { id },
       data: {

@@ -15,6 +15,7 @@ import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
 import { ServerSteps } from '../components/LocalModeSheet';
 import { LogoMark } from '../components/Logo';
+import { PasswordStrength } from '../components/PasswordStrength';
 import { TrackPointsEditor } from '../components/TrackPointsEditor';
 import {
   checkForUpdate,
@@ -1682,6 +1683,10 @@ function ProfileSection() {
             autoComplete="new-password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
+          />
+          <PasswordStrength
+            password={newPassword}
+            personal={[user?.username ?? '', user?.displayName ?? '', user?.email.split('@')[0] ?? '']}
           />
         </div>
         <div className="settings-actions">

@@ -10,6 +10,7 @@ import { AccountStatus, UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertStrongPassword } from './password-strength';
 
 export interface AuthTokens {
   accessToken: string;
@@ -73,6 +74,11 @@ export class AuthService {
   ): Promise<RegisterResult> {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedUsername = username.trim().toLowerCase();
+    assertStrongPassword(password, [
+      normalizedUsername,
+      displayName,
+      normalizedEmail.split('@')[0] ?? null,
+    ]);
     const existing = await this.prisma.user.findFirst({
       where: { OR: [{ email: normalizedEmail }, { username: normalizedUsername }] },
     });
