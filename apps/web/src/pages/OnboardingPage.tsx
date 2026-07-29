@@ -196,14 +196,21 @@ export function OnboardingPage() {
   );
 
   const slides: ReactNode[] = [
-    // Without a server there is no account and no login screen, so this is the
-    // very first thing the app ever asks. A name, and only to put on your own
-    // trips.
+    <div className="onb-feature onb-welcome" key="welcome">
+      <LogoMark size={78} />
+      <h1>Welkom bij MarkMySteps</h1>
+      <p className="muted">
+        Volg je route, plan je reis en kijk 'm later terug. Alles blijft van jou.
+      </p>
+    </div>,
+    // Without a server there is no account to sign up for, so this replaces it:
+    // a name, and only to put on your own trips. After the welcome, not before
+    // it, because being asked something before being told anything is rude.
     ...(localOnly
       ? [
           <div className="onb-feature" key="name">
             <span className="onb-visual">
-              <Icon name="people" size={54} />
+              <Icon name="person" size={54} />
             </span>
             <h1>Hoe heet je?</h1>
             <p className="muted">
@@ -224,13 +231,6 @@ export function OnboardingPage() {
           </div>,
         ]
       : []),
-    <div className="onb-feature onb-welcome" key="welcome">
-      <LogoMark size={78} />
-      <h1>Welkom bij MarkMySteps</h1>
-      <p className="muted">
-        Volg je route, plan je reis en kijk 'm later terug. Alles blijft van jou.
-      </p>
-    </div>,
     <div className="onb-feature onb-globe-slide" key="globe">
       <div className="onb-globe" aria-hidden="true">
         <GlobeBackdrop trips={SAMPLE_TRIPS} noTour />

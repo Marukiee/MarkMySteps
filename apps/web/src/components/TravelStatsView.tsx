@@ -1,7 +1,6 @@
 import { CSSProperties, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { flagEmoji } from '../lib/colors';
-import { CountryGlobe } from './CountryGlobe';
+import { CountryGlobe, hueFor } from './CountryGlobe';
 import { Icon, IconName } from './Icon';
 import './travelstats.css';
 
@@ -61,43 +60,68 @@ const TILES: {
 export function StatGrid({ stats }: { stats: TravelStats | null }) {
   return (
     <div className="stat-grid">
-      <div className="stat-tile stat-tile-wide" style={{ animationDelay: '0ms' }}>
-        <span className="stat-tile-icon" style={{ '--tone': '#4a8f3c' } as CSSProperties}>
-          <Icon name="car" size={17} />
-        </span>
-        <strong>
-          {stats ? (
-            <CountUp value={stats.distanceKm} format={(v) => v.toLocaleString('nl-NL')} />
-          ) : (
-            <span className="stat-skeleton" />
-          )}
-        </strong>
-        <small>kilometer afgelegd</small>
-      </div>
-      <div className="stat-tile" style={{ animationDelay: '60ms' }}>
-        <span className="stat-tile-icon" style={{ '--tone': '#2f7fd4' } as CSSProperties}>
-          <Icon name="globe" size={17} />
-        </span>
-        <strong>
-          {stats ? <CountUp value={stats.countries.length} /> : <span className="stat-skeleton" />}
-        </strong>
-        <small>landen</small>
-      </div>
+      <Tile
+        wide
+        icon="car"
+        tone="#4a8f3c"
+        label="kilometer afgelegd"
+        delay={0}
+        value={stats?.distanceKm}
+        format={(v) => v.toLocaleString('nl-NL')}
+      />
+      <Tile
+        icon="globe"
+        tone="#2f7fd4"
+        label="landen"
+        delay={60}
+        value={stats?.countries.length}
+      />
       {TILES.map((tile, i) => (
-        <div
+        <Tile
           key={tile.key}
-          className="stat-tile"
-          style={{ animationDelay: `${120 + i * 60}ms` }}
-        >
-          <span className="stat-tile-icon" style={{ '--tone': tile.tone } as CSSProperties}>
-            <Icon name={tile.icon} size={17} />
-          </span>
-          <strong>
-            {stats ? <CountUp value={stats[tile.key]} /> : <span className="stat-skeleton" />}
-          </strong>
-          <small>{tile.label}</small>
-        </div>
+          icon={tile.icon}
+          tone={tile.tone}
+          label={tile.label}
+          delay={120 + i * 60}
+          value={stats?.[tile.key]}
+        />
       ))}
+    </div>
+  );
+}
+
+/** Icon in the corner, number as big as it fits, what it counts underneath. */
+function Tile({
+  icon,
+  tone,
+  label,
+  value,
+  delay,
+  wide,
+  format,
+}: {
+  icon: IconName;
+  tone: string;
+  label: string;
+  value: number | undefined;
+  delay: number;
+  wide?: boolean;
+  format?: (v: number) => string;
+}) {
+  return (
+    <div
+      className={`stat-tile ${wide ? 'stat-tile-wide' : ''}`}
+      style={{ '--tone': tone, animationDelay: `${delay}ms` } as CSSProperties}
+    >
+      <Icon name={icon} size={wide ? 20 : 18} className="stat-tile-icon" />
+      <strong>
+        {value === undefined ? (
+          <span className="stat-skeleton" />
+        ) : (
+          <CountUp value={value} format={format} />
+        )}
+      </strong>
+      <small>{label}</small>
     </div>
   );
 }
@@ -127,18 +151,42 @@ export function CountUp({ value, format }: { value: number; format?: (v: number)
   return <>{format ? format(shown) : shown}</>;
 }
 
-/** The globe, with the flags beside it as the legend it needs. */
+/** Dutch country names, for the legend beside the globe. */
+const COUNTRY_NAMES = new Intl.DisplayNames(['nl'], { type: 'region' });
+
+function countryName(code: string): string {
+  try {
+    return COUNTRY_NAMES.of(code.toUpperCase()) ?? code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
+  }
+}
+
+/**
+ * The globe, with the countries listed beside it.
+ *
+ * Not flag emoji: those are drawn by the system, in whatever style the phone
+ * happens to have, and they looked like stickers on a page that has none. A
+ * dot in the country's own colour does the same job and doubles as the legend
+ * the globe needs, since it is the very colour that country is painted in.
+ */
 export function CountryPanel({ countries }: { countries: string[] }) {
   if (countries.length === 0) return null;
+  const sorted = [...countries].sort((a, b) => countryName(a).localeCompare(countryName(b), 'nl'));
   return (
     <section className="country-panel">
       <CountryGlobe countries={countries} size={168} />
       <div className="country-panel-side">
         <h3>{plural(countries.length, 'land', 'landen')}</h3>
         <div className="country-row">
-          {countries.map((code, i) => (
-            <span key={code} className="country-flag" style={{ animationDelay: `${i * 35}ms` }}>
-              {flagEmoji(code) || code}
+          {sorted.map((code, i) => (
+            <span
+              key={code}
+              className="country-chip"
+              style={{ '--tone': hueFor(code.toUpperCase()), animationDelay: `${i * 35}ms` } as CSSProperties}
+            >
+              <span className="country-chip-dot" />
+              {countryName(code)}
             </span>
           ))}
         </div>

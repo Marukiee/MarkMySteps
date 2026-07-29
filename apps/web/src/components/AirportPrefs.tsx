@@ -37,16 +37,19 @@ export function AirportPrefs({ onChange }: { onChange?: (codes: string[]) => voi
           const primary = i === 0;
           return (
             <span key={c} className={`airport-chip ${primary ? 'primary' : ''}`}>
-              {/* Tap any other chip to promote it — that one then carries the
-                  "standaard" tag, instead of it being stuck on the first. */}
+              {/* Every chip here is a default airport, so every chip is in the
+                  accent colour. The first is only the one pre-filled on a new
+                  flight; tapping another promotes it, and the difference is a
+                  filled chip versus a tinted one rather than a word. */}
               <button
                 type="button"
                 className="airport-chip-main"
-                aria-label={primary ? `${c} is je standaard` : `${c} als standaard instellen`}
+                aria-label={
+                  primary ? `${c} wordt vooraf ingevuld` : `${c} vooraf laten invullen`
+                }
                 aria-pressed={primary}
                 onClick={() => !primary && update([c, ...codes.filter((x) => x !== c)])}
               >
-                {primary && <span className="airport-chip-tag">standaard</span>}
                 <strong>{c}</strong>
                 {a && <small>{a.city}</small>}
               </button>

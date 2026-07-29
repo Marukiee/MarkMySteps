@@ -64,8 +64,8 @@ export function FriendsPage() {
             <div className="stats-hero-name">
               <strong>{user.displayName}</strong>
               {/* Your own row does not need your handle back: you know who you
-                  are. What it needs to say is that these numbers are yours. */}
-              <span className="muted">Jij, in cijfers</span>
+                  are. What it needs to say is whose numbers these are. */}
+              <span className="muted">Jouw statistieken</span>
             </div>
             {!!mine?.ongoing && (
               <span className="stats-ongoing">

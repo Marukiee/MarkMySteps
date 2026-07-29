@@ -31,6 +31,7 @@ export type IconName =
   | 'external'
   | 'share'
   | 'people'
+  | 'person'
   | 'bell'
   | 'shield'
   | 'help'
@@ -197,6 +198,12 @@ const PATHS: Record<IconName, ReactNode> = {
       <circle cx="18" cy="6" r="2.5" />
       <circle cx="18" cy="18" r="2.5" />
       <path d="m8.2 10.8 7.6-4M8.2 13.2l7.6 4" />
+    </>
+  ),
+  person: (
+    <>
+      <circle cx="12" cy="8" r="3.6" />
+      <path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" />
     </>
   ),
   people: (

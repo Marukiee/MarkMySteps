@@ -28,7 +28,7 @@ const ALL = (topojson.feature(topo, topo.objects.countries) as unknown as { feat
  * accent: a wall of the same orange says "visited" no better than a grey fill
  * would, and the point of this globe is that it looks like a collection.
  */
-function hueFor(code: string): string {
+export function hueFor(code: string): string {
   let hash = 0;
   for (const char of code) hash = (hash * 131 + char.charCodeAt(0)) >>> 0;
   const hue = hash % 360;

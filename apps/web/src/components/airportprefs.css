@@ -26,8 +26,10 @@
   gap: 0.35rem;
   padding: 0.35rem 0.55rem 0.35rem 0.7rem;
   border-radius: 999px;
-  background: var(--paper-sunken);
-  border: 1px solid var(--line);
+  /* All of these ARE the default airports, so none of them is grey. */
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent-ink);
   font-size: 0.85rem;
   /* Staggered pop-in: without a delay the chips animated in lockstep with the
      settings panel itself, so they looked static next to everything else. */
@@ -51,29 +53,15 @@
   }
 }
 
+/* The one pre-filled on a new flight leg carries a full border. */
 .airport-chip.primary {
-  background: var(--accent-soft);
   border-color: var(--accent);
-  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .airport-chip small {
-  color: var(--ink-faint);
-}
-
-.airport-chip.primary small {
   color: var(--accent-ink);
-}
-
-.airport-chip-tag {
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 0.1rem 0.35rem;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
+  opacity: 0.75;
 }
 
 /* The chip body is the "make this my default" button. */

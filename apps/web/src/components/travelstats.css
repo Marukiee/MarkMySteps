@@ -19,34 +19,24 @@
   grid-column: 1 / -1;
 }
 
+/* Read top to bottom, one thing per line: what it is (a small icon in the
+   corner), how many (as large as the tile allows), and what that counts. The
+   earlier version stacked an icon in a box on top of the number, which put two
+   competing shapes in the same column. */
 .stat-tile {
   position: relative;
   display: grid;
+  align-content: end;
   gap: 0.1rem;
-  padding: 0.85rem 0.9rem 0.75rem;
+  min-height: 108px;
+  padding: 0.9rem 1rem 0.95rem;
   border-radius: var(--radius-m);
-  /* Tinted from the tile's own tone rather than a flat sunken grey: the block
-     should read as a set of different things, not as a table. */
-  background: color-mix(in srgb, var(--tone, var(--accent)) 9%, var(--paper-sunken));
-  overflow: hidden;
+  background: var(--paper-sunken);
   animation: statTileIn 0.5s var(--ease) both;
 }
 
 .stat-tile-wide {
-  padding-bottom: 0.85rem;
-}
-
-/* Faint disc bleeding off the corner, so a tile has some depth of its own. */
-.stat-tile::after {
-  content: '';
-  position: absolute;
-  right: -28px;
-  bottom: -34px;
-  width: 92px;
-  height: 92px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--tone, var(--accent)) 12%, transparent);
-  pointer-events: none;
+  min-height: 128px;
 }
 
 @keyframes statTileIn {
@@ -56,36 +46,41 @@
   }
 }
 
+/* The only colour in the block: enough to tell the tiles apart at a glance,
+   not enough to make the page a paint chart. */
 .stat-tile-icon {
-  display: grid;
-  place-content: center;
-  width: 30px;
-  height: 30px;
-  margin-bottom: 0.35rem;
-  border-radius: 10px;
-  background: var(--paper);
-  color: var(--tone, var(--accent-ink));
-  box-shadow: 0 1px 2px rgb(15 20 25 / 0.07);
+  position: absolute;
+  top: 0.9rem;
+  right: 1rem;
+  color: var(--tone, var(--accent));
 }
 
 .stat-tile strong {
-  position: relative;
   font-family: var(--font-display);
-  font-size: 1.75rem;
+  font-size: 2.4rem;
   font-weight: 620;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
+  line-height: 1;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
 
 .stat-tile-wide strong {
-  font-size: 2.3rem;
+  font-size: 3.1rem;
+}
+
+@media (max-width: 380px) {
+  .stat-tile strong {
+    font-size: 2rem;
+  }
+
+  .stat-tile-wide strong {
+    font-size: 2.6rem;
+  }
 }
 
 .stat-tile small {
-  position: relative;
   color: var(--ink-soft);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
 }
 
 /* Placeholder with the same footprint as a number, so nothing jumps when the
@@ -112,7 +107,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Countries: the globe, with the flags as its legend
+   Countries: the globe, with the names beside it as its legend
    --------------------------------------------------------------------------- */
 
 .country-panel {
@@ -145,7 +140,7 @@
 .country-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
 @media (max-width: 480px) {
@@ -154,16 +149,33 @@
   }
 }
 
-.country-flag {
-  font-size: 1.35rem;
-  line-height: 1.1;
-  animation: flagIn 0.4s var(--ease) both;
+/* Name plus a dot in the exact colour that country is painted on the globe, so
+   the list explains the sphere instead of repeating it. */
+.country-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: chipIn 0.4s var(--ease) both;
 }
 
-@keyframes flagIn {
+.country-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone, var(--accent));
+}
+
+@keyframes chipIn {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.7);
+    transform: translateY(6px) scale(0.9);
   }
 }
 

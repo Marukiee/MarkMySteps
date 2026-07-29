@@ -2,8 +2,10 @@
    follows the theme; the country fills do not, because their whole job is to
    be different from each other. */
 .country-globe {
-  --cg-water: color-mix(in srgb, var(--teal) 12%, var(--paper-sunken));
-  --cg-land: color-mix(in srgb, var(--ink) 12%, var(--paper-sunken));
+  /* Neutral, from the same paper the panel is made of: a tinted ocean read as
+     a different background than the card it sits in. */
+  --cg-water: color-mix(in srgb, var(--ink) 6%, var(--paper-sunken));
+  --cg-land: color-mix(in srgb, var(--ink) 15%, var(--paper-sunken));
   --cg-edge: var(--paper);
   display: block;
   flex-shrink: 0;
