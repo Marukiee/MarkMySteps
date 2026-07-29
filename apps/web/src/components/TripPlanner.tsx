@@ -26,6 +26,7 @@ import {
 import { flagEmoji, formatDate, formatDateRange } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { haptic } from '../lib/haptics';
+import { useExit } from '../lib/useExit';
 import { cachePutJson } from '../lib/offlineCache';
 import { enqueueWrite, onPendingChange } from '../lib/pendingWrites';
 import {
@@ -235,6 +236,12 @@ export function TripPlanner({
   // is saved on the device rather than lost.
   const [pending, setPending] = useState(0);
   useEffect(() => onPendingChange((list) => setPending(list.length)), []);
+  // Both of these disappear on their own, so they need to be held on screen
+  // long enough to animate out — and to keep their text while they do.
+  const [pendingShown, pendingClosing] = useExit(pending > 0, 240);
+  const lastPendingRef = useRef(pending);
+  if (pending > 0) lastPendingRef.current = pending;
+  const lastPending = lastPendingRef.current;
 
   // Which stop currently has its "add a day trip" panel expanded.
   const [dayTripFor, setDayTripFor] = useState<string | null>(null);
@@ -282,6 +289,10 @@ export function TripPlanner({
     afterId: string | null;
   } | null>(null);
   const undoTimer = useRef<number | null>(null);
+  const [undoShown, undoClosing] = useExit(undo !== null, 240);
+  const lastUndoNameRef = useRef('');
+  if (undo) lastUndoNameRef.current = undo.stop.name;
+  const lastUndoName = lastUndoNameRef.current;
 
   const offerUndo = (entry: NonNullable<typeof undo>) => {
     setUndo(entry);
@@ -536,10 +547,11 @@ export function TripPlanner({
           {plannedNights}/{tripNights} nachten gepland
         </div>
       )}
-      {pending > 0 && (
-        <div className="plan-pending">
+      {pendingShown && (
+        <div className={`plan-pending ${pendingClosing ? 'leaving' : ''}`}>
           <Icon name="cloud-off" size={14} />
-          {pending} {pending === 1 ? 'wijziging wacht' : 'wijzigingen wachten'} op verbinding
+          {lastPending} {lastPending === 1 ? 'wijziging wacht' : 'wijzigingen wachten'} op
+          verbinding
         </div>
       )}
       {error && <p className="error-text">{error}</p>}
@@ -850,11 +862,11 @@ export function TripPlanner({
 
       {/* Deleting is one gesture, so there has to be a way back. Sits above the
           tab bar and fades out after a few seconds. */}
-      {undo &&
+      {undoShown &&
         createPortal(
-          <div className="undo-pill">
+          <div className={`undo-pill ${undoClosing ? 'leaving' : ''}`}>
             <span className="undo-text">
-              <strong>{undo.stop.name}</strong> verwijderd
+              <strong>{lastUndoName}</strong> verwijderd
             </span>
             <button type="button" className="undo-btn" onClick={() => void undoDelete()}>
               Ongedaan maken

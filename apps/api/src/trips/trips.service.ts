@@ -220,6 +220,7 @@ export class TripsService {
     const { startDate, endDate } = parseDates(dto.startDate, dto.endDate);
     const trip = await this.prisma.trip.create({
       data: {
+        ...(dto.id ? { id: dto.id } : {}),
         title: dto.title.trim(),
         description: dto.description?.trim(),
         startDate,

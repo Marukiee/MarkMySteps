@@ -14,10 +14,17 @@ import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
 import { TrackPointsEditor } from '../components/TrackPointsEditor';
 import { isUpdateBannerSimulated, setUpdateBannerSimulated } from '../components/UpdateBanner';
-import { backupSize, createBackup, saveBackup } from '../lib/backup';
+import {
+  backupSize,
+  createBackup,
+  readBackupFile,
+  restoreBackup,
+  saveBackup,
+} from '../lib/backup';
 import { formatDate } from '../lib/colors';
 import { clearThumbCache, enforceThumbBudget, thumbCacheUsage } from '../lib/offlineCache';
 import { isLocalMode } from '../lib/localMode';
+import { useExit } from '../lib/useExit';
 import {
   MAP_STYLES,
   MapStyleId,
@@ -255,6 +262,12 @@ function StorageSection() {
     null,
   );
   const [result, setResult] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  // Held on screen while it fades, and holding its text while it does.
+  const [resultShown, resultClosing] = useExit(result !== null, 240);
+  const lastResultRef = useRef('');
+  if (result) lastResultRef.current = result;
+  const lastResult = lastResultRef.current;
 
   const refreshUsage = () => {
     void thumbCacheUsage().then(setUsage);
@@ -279,6 +292,55 @@ function StorageSection() {
       setResult(`Opgeslagen als ${where} · ${formatBytes(backupSize(backup))}`);
     } catch (err) {
       setResult(err instanceof Error ? err.message : 'Back-up mislukt');
+    } finally {
+      setBusy(false);
+      setProgress(null);
+    }
+  }
+
+  /**
+   * Restores a picked file. Asks first — it can add trips to what is already
+   * here, and that is not something to discover afterwards.
+   */
+  async function runRestore(file: File) {
+    setResult(null);
+    let backup;
+    try {
+      backup = await readBackupFile(file);
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : 'Bestand kon niet gelezen worden');
+      return;
+    }
+    const made = new Date(backup.createdAt).toLocaleDateString('nl-NL', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const ok = await confirmModal({
+      title: 'Back-up terugzetten?',
+      body: `Deze back-up is van ${made} en bevat ${backup.trips.length} ${
+        backup.trips.length === 1 ? 'reis' : 'reizen'
+      }. Reizen die je al hebt blijven zoals ze zijn; de rest wordt toegevoegd.`,
+      confirmLabel: 'Terugzetten',
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      const restored = await restoreBackup(backup, { settings: true }, (done, total, label) =>
+        setProgress({ done, total, label }),
+      );
+      const parts = [
+        `${restored.tripsAdded} ${restored.tripsAdded === 1 ? 'reis' : 'reizen'} teruggezet`,
+      ];
+      if (restored.tripsSkipped > 0) parts.push(`${restored.tripsSkipped} overgeslagen`);
+      if (restored.points > 0) parts.push(`${restored.points} routepunten`);
+      if (restored.coversLost > 0) {
+        parts.push("covers komen terug zodra je foto's gekoppeld zijn");
+      }
+      setResult(`${parts.join(' · ')}. Herlaad de app om alles te zien.`);
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : 'Terugzetten mislukt');
     } finally {
       setBusy(false);
       setProgress(null);
@@ -399,7 +461,8 @@ function StorageSection() {
         </h2>
         <p className="muted">
           Zet alles in één bestand in je Downloads-map, met daarna de deel-knop zodat je het meteen
-          ergens veilig kunt neerzetten.
+          ergens veilig kunt neerzetten. Terugzetten voegt toe wat je nog niet hebt en laat
+          bestaande reizen met rust.
         </p>
 
         {/* Grows out of the button while it runs, so a long export shows where
@@ -422,10 +485,36 @@ function StorageSection() {
           </div>
         </div>
 
-        <button className="btn btn-primary" disabled={busy} onClick={() => void runBackup()}>
-          <Icon name="download" size={16} /> {busy ? 'Bezig…' : 'Back-up maken'}
-        </button>
-        {result && <p className="muted settings-ok backup-result">{result}</p>}
+        <div className="backup-actions">
+          <button className="btn btn-primary" disabled={busy} onClick={() => void runBackup()}>
+            <Icon name="download" size={16} /> {busy ? 'Bezig…' : 'Back-up maken'}
+          </button>
+          <button
+            className="btn btn-ghost"
+            disabled={busy}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Icon name="archive" size={16} /> Terugzetten
+          </button>
+        </div>
+        {/* The system picker is enough here: a WebView handles <input type=file>
+            fine, and a plugin would only add a second way to do the same. */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = ''; // so picking the same file twice still fires
+            if (file) void runRestore(file);
+          }}
+        />
+        {resultShown && (
+          <p className={`muted settings-ok backup-result ${resultClosing ? 'leaving' : ''}`}>
+            {lastResult}
+          </p>
+        )}
       </section>
     </>
   );

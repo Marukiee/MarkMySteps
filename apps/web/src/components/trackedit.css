@@ -238,3 +238,36 @@
   padding: 0.5rem 0.85rem;
   font-size: 0.85rem;
 }
+
+.te-hint.leaving {
+  animation: teHintOut 0.2s var(--ease) forwards;
+}
+
+@keyframes teHintOut {
+  to {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+
+.te-error {
+  animation: teErrIn 0.22s var(--ease);
+}
+
+.te-error.leaving {
+  animation: teErrOut 0.2s var(--ease) forwards;
+}
+
+@keyframes teErrIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes teErrOut {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}

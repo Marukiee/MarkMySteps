@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client';
 import { getMapStyle } from '../lib/prefs';
+import { useExit } from '../lib/useExit';
 import { Icon } from './Icon';
 import './trackedit.css';
 
@@ -59,6 +60,12 @@ export function TrackPointsEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
+  // Held on screen while they animate away; without this they simply vanish.
+  const [hintShown, hintClosing] = useExit(adding, 220);
+  const [errorShown, errorClosing] = useExit(error !== null, 220);
+  const lastErrorRef = useRef('');
+  if (error) lastErrorRef.current = error;
+  const lastError = lastErrorRef.current;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -319,10 +326,16 @@ export function TrackPointsEditor({
 
       <div className="te-map">
         <div ref={containerRef} className="te-map-inner" />
-        {adding && <div className="te-hint">Tik op de kaart om een punt toe te voegen</div>}
+        {hintShown && (
+          <div className={`te-hint ${hintClosing ? 'leaving' : ''}`}>
+            Tik op de kaart om een punt toe te voegen
+          </div>
+        )}
       </div>
 
-      {error && <p className="error-text te-error">{error}</p>}
+      {errorShown && (
+        <p className={`error-text te-error ${errorClosing ? 'leaving' : ''}`}>{lastError}</p>
+      )}
 
       {/* The detail bar slides up when a point is selected and takes the
           toolbar's place, so the two never fight for the same strip. */}

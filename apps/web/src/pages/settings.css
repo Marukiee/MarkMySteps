@@ -1103,3 +1103,20 @@
     transform: translateY(-4px);
   }
 }
+
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.backup-result.leaving {
+  animation: backupGone 0.24s var(--ease) forwards;
+}
+
+@keyframes backupGone {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}

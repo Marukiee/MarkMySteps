@@ -1473,3 +1473,28 @@
   font-weight: 600;
   animation: stopIn 0.28s var(--ease);
 }
+
+/* Both of these arrive on their own and leave on their own, so they get a
+   matching way out — appearing with an animation and vanishing without one
+   reads as a glitch. */
+.undo-pill.leaving {
+  animation: undoOut 0.24s var(--ease) forwards;
+}
+
+@keyframes undoOut {
+  to {
+    opacity: 0;
+    transform: translate(-50%, 14px);
+  }
+}
+
+.plan-pending.leaving {
+  animation: pendingOut 0.24s var(--ease) forwards;
+}
+
+@keyframes pendingOut {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
