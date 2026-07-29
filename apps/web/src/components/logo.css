@@ -15,8 +15,24 @@
   }
 }
 
+/* Two full turns, easing out of the second one: it leaves with the camera and
+   arrives back at north as the globe settles, rather than stopping dead. */
+.logo-needle.sweeping {
+  animation: needleSweepOnce 1.9s cubic-bezier(0.36, 0, 0.16, 1) both;
+}
+
+@keyframes needleSweepOnce {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(720deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .logo-needle.spinning {
+  .logo-needle.spinning,
+  .logo-needle.sweeping {
     animation: none;
   }
 }

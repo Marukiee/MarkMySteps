@@ -25,6 +25,15 @@ export function TripsPage() {
   const [trips, setTrips] = useState<Trip[] | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [newClosing, setNewClosing] = useState(false);
+  // Bumped each time the globe zooms into a trip, which sends the wordmark's
+  // compass needle round once.
+  const [sweep, setSweep] = useState(0);
+
+  useEffect(() => {
+    const onFocus = () => setSweep((n) => n + 1);
+    window.addEventListener('mms-globe-focus', onFocus);
+    return () => window.removeEventListener('mms-globe-focus', onFocus);
+  }, []);
 
   // The form collapses away instead of vanishing, so the sections below slide
   // back up rather than jumping.
@@ -84,7 +93,7 @@ export function TripsPage() {
       <div className="trips-globe">
         <GlobeBackdrop trips={trips ?? []} selfLocation={self} />
         <span className="trips-brand" aria-label="MarkMySteps">
-          <LogoMark size={40} />
+          <LogoMark size={40} sweep={sweep} />
           <span>MarkMySteps</span>
         </span>
       </div>

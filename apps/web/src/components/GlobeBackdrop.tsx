@@ -262,6 +262,10 @@ export function GlobeBackdrop({
             glowDist = 0;
             glowRuns = 0;
             phaseStart = now;
+            // The wordmark's compass turns with the camera. Announced rather
+            // than called, because the mark is a sibling in another component
+            // and the globe has no business holding a ref to it.
+            window.dispatchEvent(new CustomEvent('mms-globe-focus'));
           } else if (glowRuns >= glowRunsNeeded || now - phaseStart > dur * 5) {
             // Hold the zoom until the light has travelled the whole route (with
             // a ceiling, so a route that never finishes can't strand the tour).
