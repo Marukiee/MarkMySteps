@@ -7,9 +7,10 @@ import { getMapStyle, getMapStyleId } from '../lib/prefs';
 import { setDarkBackdrop } from '../lib/native';
 import type { MediaItem, RouteCollection } from '../api/types';
 import { buildLegs, flightArc, haversineKm, StopPoint, trimOutlierEnds } from '../lib/arc';
-import { colorForUser, flagEmoji } from '../lib/colors';
+import { colorForUser } from '../lib/colors';
 import { useNow } from '../lib/lastSeen';
 import './tripmap.css';
+import { paintMarker } from './Flag';
 
 /** A single-hop jump longer than this in a route line is treated as a flight. */
 const FLIGHT_KM = 400;
@@ -502,7 +503,7 @@ export function TripMap({
         // A day trip is a place you visited, but not a stop on the route — a
         // smaller marker keeps the itinerary readable.
         el.className = stop.parentStopId ? 'stop-marker stop-marker-day' : 'stop-marker';
-        el.textContent = flagEmoji(stop.countryCode) || String(stop.orderIndex + 1);
+        paintMarker(el, stop.countryCode, stop.orderIndex + 1);
         stopMarkersRef.current.push(
           new maplibregl.Marker({ element: el })
             .setLngLat([stop.longitude, stop.latitude])

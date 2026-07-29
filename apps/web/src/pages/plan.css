@@ -133,6 +133,11 @@
   font-size: 1.5rem;
 }
 
+.city-thumb-flag .flag {
+  width: 28px;
+  height: 28px;
+}
+
 .city-thumb-badge {
   position: absolute;
   bottom: -4px;
@@ -552,6 +557,15 @@
   border: 2.5px solid #fff;
   box-shadow: var(--shadow-m);
   cursor: pointer;
+}
+
+/* The flag fills the marker: it IS the marker's face, not a glyph inside it. */
+.stop-marker-flag {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .stop-marker-pending {
@@ -1150,6 +1164,11 @@
 
 .daytrip-thumb .city-thumb-flag {
   font-size: 1.1rem;
+}
+
+.daytrip-thumb .city-thumb-flag .flag {
+  width: 21px;
+  height: 21px;
 }
 
 .daytrip-info {

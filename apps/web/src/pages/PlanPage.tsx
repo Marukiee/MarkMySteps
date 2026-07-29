@@ -16,10 +16,11 @@ import {
   TRAVEL_MODES,
   TravelMode,
 } from '../lib/arc';
-import { flagEmoji, formatDate } from '../lib/colors';
+import { formatDate } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
 import './plan.css';
+import { Flag, paintMarker } from '../components/Flag';
 
 interface PlannedStop {
   id: string;
@@ -119,8 +120,7 @@ export function PlanPage() {
       for (const stop of located) {
         const el = document.createElement('div');
         el.className = 'stop-marker';
-        const flag = flagEmoji(stop.countryCode);
-        el.textContent = flag || String(stop.orderIndex + 1);
+        paintMarker(el, stop.countryCode, stop.orderIndex + 1);
         markersRef.current.push(
           new maplibregl.Marker({ element: el })
             .setLngLat([stop.longitude!, stop.latitude!])
@@ -543,7 +543,7 @@ export function PlanPage() {
                 {suggestions.map((place, i) => (
                   <li key={i}>
                     <button type="button" onClick={() => pickSuggestion(place)}>
-                      <span>{flagEmoji(place.countryCode)}</span>
+                      <Flag code={place.countryCode} size={17} />
                       <span>
                         <strong>{place.name}</strong>
                         {place.region && <small> {place.region}</small>}

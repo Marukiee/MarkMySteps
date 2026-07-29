@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { cityPhoto } from '../lib/cityphoto';
-import { flagEmoji } from '../lib/colors';
+import { Flag } from './Flag';
 
 /** Square city photo (Wikipedia) with a numbered badge; flag fallback.
  *  `index` below zero hides the badge — a day trip has no route number. */
@@ -32,7 +32,11 @@ export function CityThumb({
       className={`city-thumb ${className}`.trim()}
       style={src ? { backgroundImage: `url(${src})` } : undefined}
     >
-      {!src && <span className="city-thumb-flag">{flagEmoji(countryCode) || '🏙️'}</span>}
+      {!src && (
+        <span className="city-thumb-flag">
+          {countryCode ? <Flag code={countryCode} /> : '🏙️'}
+        </span>
+      )}
       {index >= 0 && <span className="city-thumb-badge">{index + 1}</span>}
     </div>
   );

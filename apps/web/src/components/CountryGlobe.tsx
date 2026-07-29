@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as topojson from 'topojson-client';
 // Countries at the same ~110m resolution as the home globe's land outline.
 import countries110m from 'world-atlas/countries-110m.json';
+import { COUNTRY_COLOR } from '../lib/countryColors';
 import { COUNTRY_ID } from '../lib/countryShapes';
 import './countryglobe.css';
 
@@ -21,20 +22,43 @@ const topo = countries110m as unknown as Topology;
 const ALL = (topojson.feature(topo, topo.objects.countries) as unknown as { features: Feature[] })
   .features;
 
+function hexToHsl(hex: string): [number, number, number] {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l * 100];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const h =
+    max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s * 100, l * 100];
+}
+
 /**
- * A country's colour, from its own code.
+ * A country's colour, from its own flag.
  *
- * Deliberately spread across the whole wheel rather than tinted from one
- * accent: a wall of the same orange says "visited" no better than a grey fill
- * would, and the point of this globe is that it looks like a collection.
+ * The hue comes from the flag file (see lib/countryColors.ts); saturation and
+ * lightness do not, because a flag is printed on white and this is painted on
+ * a globe that is sometimes dark. Both are clamped into a band that reads on
+ * either theme, with a small per-country jitter so the many countries whose
+ * flags are the same red still come apart where they share a border.
  */
-export function hueFor(code: string): string {
+export function hueFor(code: string, dark = false): string {
   let hash = 0;
   for (const char of code) hash = (hash * 131 + char.charCodeAt(0)) >>> 0;
-  const hue = hash % 360;
-  // Skips the muddy 55-85° band, where a fill reads as unpainted land.
-  const safe = hue > 55 && hue < 85 ? hue + 40 : hue;
-  return `hsl(${safe} ${58 + (hash % 3) * 8}% ${52 + (hash % 4) * 4}%)`;
+
+  const flag = COUNTRY_COLOR[code.toUpperCase()];
+  const [h, s, l] = flag ? hexToHsl(flag) : [hash % 360, 60, 52];
+
+  const hue = (h + ((hash % 9) - 4)) % 360;
+  const sat = Math.max(38, Math.min(dark ? 62 : 72, s));
+  const base = dark ? 52 : 50;
+  const light = Math.max(dark ? 42 : 40, Math.min(dark ? 62 : 62, base + (l - 50) * 0.35));
+  return `hsl(${hue} ${sat}% ${light + ((hash % 5) - 2)}%)`;
 }
 
 /** Longitude/latitude to open on: the middle of what there is to see. */
@@ -112,6 +136,7 @@ export function CountryGlobe({ countries, size = 200 }: { countries: string[]; s
     let raf = 0;
     let last = performance.now();
 
+    const dark = document.documentElement.dataset.theme === 'dark';
     const styles = getComputedStyle(canvas);
     const water = styles.getPropertyValue('--cg-water').trim() || '#e8edf2';
     const landColor = styles.getPropertyValue('--cg-land').trim() || '#d3dae1';
@@ -134,7 +159,7 @@ export function CountryGlobe({ countries, size = 200 }: { countries: string[]; s
         const code = visited.get(String(feature.id));
         ctx!.beginPath();
         path(feature as unknown as GeoPermissibleObjects);
-        ctx!.fillStyle = code ? hueFor(code) : landColor;
+        ctx!.fillStyle = code ? hueFor(code, dark) : landColor;
         ctx!.fill();
         ctx!.lineWidth = 0.4;
         ctx!.strokeStyle = edge;

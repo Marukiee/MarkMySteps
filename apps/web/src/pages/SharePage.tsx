@@ -5,7 +5,7 @@ import type { TouchEvent as ReactTouchEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import type { MediaItem, RouteCollection } from '../api/types';
 import { trimOutlierEnds } from '../lib/arc';
-import { colorForUser, flagEmoji, formatDay } from '../lib/colors';
+import { colorForUser, formatDay } from '../lib/colors';
 import { reversePlaceName } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
 import { Icon } from '../components/Icon';
@@ -16,6 +16,7 @@ import { resolveFacts } from '../lib/tripFacts';
 import '../components/timeline.css'; // the shared timeline IS the app's timeline
 import '../components/tripmap.css'; // photo markers on the shared map
 import './share-page.css';
+import { Flag } from '../components/Flag';
 
 interface SharedTrip {
   title: string;
@@ -309,7 +310,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       const last = located[located.length - 1];
       return {
         place: onDay.length > 0 ? onDay.map((s) => s.name).join(' \u00b7 ') : null,
-        flag: last?.countryCode ? flagEmoji(last.countryCode) : null,
+        flag: last?.countryCode ?? null,
         lat: last?.latitude ?? null,
         lon: last?.longitude ?? null,
       };
@@ -390,7 +391,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                       <span className="timeline-day-meta">
                         {entry.place && (
                           <span className="timeline-place">
-                            {entry.flag} {entry.place}
+                            <Flag code={entry.flag} size={15} /> {entry.place}
                           </span>
                         )}
                         {entry.lat !== null && entry.lon !== null && (

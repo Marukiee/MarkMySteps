@@ -47,10 +47,14 @@
 }
 
 /* The only colour in the block: enough to tell the tiles apart at a glance,
-   not enough to make the page a paint chart. */
+   not enough to make the page a paint chart. Faded, because at this size a
+   full-strength icon competes with the number. */
 .stat-tile-icon {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.95rem;
   color: var(--tone, var(--accent));
-  flex-shrink: 0;
+  opacity: 0.75;
 }
 
 .stat-tile strong {
@@ -77,10 +81,6 @@
 }
 
 .stat-tile small {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.15rem;
   color: var(--ink-soft);
   font-size: 0.85rem;
 }
@@ -109,7 +109,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Countries: the globe, with the names beside it as its legend
+   Countries: the globe, with its flags beside it
    --------------------------------------------------------------------------- */
 
 .country-panel {
@@ -124,25 +124,15 @@
 @media (max-width: 480px) {
   .country-panel {
     flex-direction: column;
-    text-align: center;
   }
-}
-
-.country-panel-side {
-  display: grid;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.country-panel-side h3 {
-  font-size: 1rem;
-  font-weight: 620;
 }
 
 .country-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  align-content: center;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 @media (max-width: 480px) {
@@ -151,31 +141,52 @@
   }
 }
 
-/* The flag, then the name. */
+/* Closed it is the flag and nothing else; open it widens into the name. The
+   name's column goes 0fr → 1fr, which is the one way to animate to a width
+   nobody has measured. */
 .country-chip {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.55rem 0.2rem 0.45rem;
+  padding: 0.25rem;
   border-radius: 999px;
   background: var(--paper);
   border: 1px solid var(--line);
   font-size: 0.78rem;
   font-weight: 600;
-  white-space: nowrap;
+  color: var(--ink);
   animation: chipIn 0.4s var(--ease) both;
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease),
+    padding 0.3s var(--ease), transform 0.15s var(--ease);
 }
 
-.country-flag {
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.country-chip:active {
+  transform: scale(0.94);
 }
 
-.country-flag-emoji {
-  font-size: 0.95rem;
-  line-height: 1;
+.country-chip.open {
+  padding-right: 0.6rem;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.country-chip-name {
+  display: grid;
+  grid-template-columns: 0fr;
+  transition: grid-template-columns 0.3s var(--ease), opacity 0.2s var(--ease);
+  opacity: 0;
+}
+
+.country-chip.open .country-chip-name {
+  grid-template-columns: 1fr;
+  opacity: 1;
+}
+
+.country-chip-name > span {
+  overflow: hidden;
+  min-width: 0;
+  white-space: nowrap;
+  padding-left: 0.4rem;
 }
 
 @keyframes chipIn {

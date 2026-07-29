@@ -1,7 +1,7 @@
 import { CSSProperties, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { flagEmoji } from '../lib/colors';
 import { CountryGlobe } from './CountryGlobe';
+import { Flag } from './Flag';
 import { Icon, IconName } from './Icon';
 import './travelstats.css';
 
@@ -92,11 +92,10 @@ export function StatGrid({ stats }: { stats: TravelStats | null }) {
 }
 
 /**
- * The number as big as it fits, with the icon on the label's own line.
+ * Number and label down the left, icon in the top right corner.
  *
- * The icon used to sit alone in the top corner, which gave it a whole line to
- * itself and left the tile with a hole in it. Beside the label it is part of a
- * sentence, and it can be big enough to read.
+ * The corner is where it stays out of the way of the two things you read; the
+ * size is what stops it looking like an afterthought there.
  */
 function Tile({
   icon,
@@ -127,10 +126,8 @@ function Tile({
           <CountUp value={value} format={format} />
         )}
       </strong>
-      <small>
-        <Icon name={icon} size={wide ? 20 : 18} className="stat-tile-icon" />
-        {label}
-      </small>
+      <Icon name={icon} size={wide ? 30 : 26} className="stat-tile-icon" />
+      <small>{label}</small>
     </div>
   );
 }
@@ -172,44 +169,37 @@ function countryName(code: string): string {
 }
 
 /**
- * A round flag from public/flags (circle-flags, MIT), falling back to the
- * system emoji for the handful of codes that have no file.
+ * The globe, with every country beside it as a flag you can open.
  *
- * They are files rather than emoji because emoji flags are drawn by whatever
- * font the phone happens to ship, in a style that belongs to no app in
- * particular. These are one shape, at one size, in the app's own round.
+ * A row of names is a wall of text for anyone with a dozen countries, and the
+ * flag is the thing you recognise anyway. Tapping one widens it into its name,
+ * so the list stays a picture until you need it to be a list. The count is not
+ * repeated here: it is already one of the tiles above.
  */
-function Flag({ code }: { code: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return <span className="country-flag-emoji">{flagEmoji(code) || code}</span>;
-  return (
-    <img
-      className="country-flag"
-      src={`/flags/${code.toLowerCase()}.svg`}
-      alt=""
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
-/** The globe, with the countries listed beside it. */
 export function CountryPanel({ countries }: { countries: string[] }) {
+  const [open, setOpen] = useState<string | null>(null);
   if (countries.length === 0) return null;
   const sorted = [...countries].sort((a, b) => countryName(a).localeCompare(countryName(b), 'nl'));
   return (
     <section className="country-panel">
       <CountryGlobe countries={countries} size={168} />
-      <div className="country-panel-side">
-        <h3>{plural(countries.length, 'land', 'landen')}</h3>
-        <div className="country-row">
-          {sorted.map((code, i) => (
-            <span key={code} className="country-chip" style={{ animationDelay: `${i * 35}ms` }}>
-              <Flag code={code} />
-              {countryName(code)}
+      <div className="country-row">
+        {sorted.map((code, i) => (
+          <button
+            key={code}
+            type="button"
+            className={`country-chip ${open === code ? 'open' : ''}`}
+            style={{ animationDelay: `${i * 35}ms` }}
+            aria-label={countryName(code)}
+            aria-expanded={open === code}
+            onClick={() => setOpen((o) => (o === code ? null : code))}
+          >
+            <Flag code={code} size={20} />
+            <span className="country-chip-name">
+              <span>{countryName(code)}</span>
             </span>
-          ))}
-        </div>
+          </button>
+        ))}
       </div>
     </section>
   );

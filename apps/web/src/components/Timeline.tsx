@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import type { MediaItem } from '../api/types';
-import { colorForUser, flagEmoji, formatDay } from '../lib/colors';
+import { colorForUser, formatDay } from '../lib/colors';
 import { AuthImage } from './AuthImage';
 import { DayNote, TripNote } from './DayNote';
 import { Icon } from './Icon';
 import { WeatherBadge } from './WeatherBadge';
 import './timeline.css';
+import { Flag } from './Flag';
 
 export interface TimelineStop {
   name: string;
@@ -122,7 +123,7 @@ export function Timeline({
                 <span className="timeline-day-meta">
                   {loc.name && (
                     <span className="timeline-place">
-                      {flagEmoji(loc.countryCode)} {loc.name}
+                      <Flag code={loc.countryCode} size={15} /> {loc.name}
                     </span>
                   )}
                   <WeatherBadge lat={loc.lat} lon={loc.lon} day={day} />

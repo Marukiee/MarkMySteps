@@ -23,7 +23,7 @@ import {
   TRAVEL_MODES,
   TravelMode,
 } from '../lib/arc';
-import { flagEmoji, formatDate, formatDateRange } from '../lib/colors';
+import { formatDate, formatDateRange } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { haptic } from '../lib/haptics';
 import { useExit } from '../lib/useExit';
@@ -36,6 +36,7 @@ import {
   localUpdate,
 } from '../lib/plannerLocal';
 import '../pages/plan.css';
+import { Flag } from './Flag';
 
 // Names used for the standalone outbound/return legs (any travel mode).
 const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
@@ -828,7 +829,7 @@ export function TripPlanner({
               {suggestions.map((place, i) => (
                 <li key={i}>
                   <button type="button" onClick={() => pickSuggestion(place)}>
-                    <span>{flagEmoji(place.countryCode)}</span>
+                    <Flag code={place.countryCode} size={17} />
                     <span>
                       <strong>{place.name}</strong>
                       {place.region && <small> {place.region}</small>}
@@ -1340,7 +1341,7 @@ function DayTrips({
                 {sugg.map((place, i) => (
                   <li key={i}>
                     <button type="button" onClick={() => pick(place)}>
-                      <span>{flagEmoji(place.countryCode)}</span>
+                      <Flag code={place.countryCode} size={17} />
                       <span>
                         <strong>{place.name}</strong>
                         {place.region && <small> {place.region}</small>}
@@ -1519,7 +1520,9 @@ function PlaceSheet({
           {sugg.map((p, i) => (
             <li key={i}>
               <button type="button" onClick={() => onPick(p)}>
-                <span className="fe-picker-code">{flagEmoji(p.countryCode)}</span>
+                <span className="fe-picker-code">
+                  <Flag code={p.countryCode} size={20} />
+                </span>
                 <span className="fe-picker-name">
                   <strong>{p.name}</strong>
                   {p.region && <small>{p.region}</small>}
