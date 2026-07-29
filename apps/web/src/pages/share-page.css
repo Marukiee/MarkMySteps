@@ -571,6 +571,10 @@
   position: relative;
   display: grid;
   place-items: center;
+  /* Floors so an image that hasn't arrived yet doesn't collapse the frame and
+     leave the two nav arrows side by side in the middle. */
+  min-height: min(50vh, 340px);
+  min-width: min(72vw, 420px);
   transition: width 0.3s var(--ease), height 0.3s var(--ease);
 }
 

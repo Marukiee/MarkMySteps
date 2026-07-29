@@ -64,6 +64,7 @@ export class StopsService {
       const maxIndex = stops.reduce((max, s) => Math.max(max, s.orderIndex), -1);
       const created = await tx.stop.create({
         data: {
+          ...(dto.id ? { id: dto.id } : {}),
           tripId,
           name: dto.name.trim(),
           // A day trip never consumes a night — that is the whole point: you

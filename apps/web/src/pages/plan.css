@@ -907,9 +907,14 @@
   background: #c9463a;
   color: #fff;
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 500;
   opacity: 0;
-  transition: opacity 0.16s var(--ease), background 0.16s var(--ease);
+  transition: background 0.16s var(--ease);
+}
+
+/* No fade: it is revealed and covered again by the card moving over it. */
+.swipe-row[data-revealed='true'] .swipe-bg {
+  opacity: 1;
 }
 
 /* Whichever edge is being uncovered is where the label belongs, so it reads
@@ -922,14 +927,16 @@
   justify-content: flex-end;
 }
 
+/* Swiping left uncovers the right-hand edge, so the icon belongs on the
+   outside there too — nearest the edge, with the label beside it. */
+.swipe-row[data-dir='left'] .swipe-bg-inner {
+  flex-direction: row-reverse;
+}
+
 .swipe-bg-inner {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-.swipe-row[data-swiping='true'] .swipe-bg {
-  opacity: 1;
 }
 
 /* Past the threshold the bar deepens, so you can feel where "let go now" is. */
@@ -1443,4 +1450,21 @@
 
 .undo-btn:hover {
   background: rgb(255 255 255 / 0.24);
+}
+
+/* Edits made without a connection are kept on the device and replayed later;
+   this says so, so the plan never looks like it was lost. */
+.plan-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+  margin-top: 0.4rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  animation: stopIn 0.28s var(--ease);
 }

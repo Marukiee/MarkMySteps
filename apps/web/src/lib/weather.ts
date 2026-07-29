@@ -51,6 +51,52 @@ function dayCondition(
 
 const cache = new Map<string, Weather | null>();
 
+/**
+ * Disk cache, so a trip you have opened before still shows its weather with no
+ * connection at all. A past day's weather never changes, so it is kept
+ * indefinitely; "now" goes stale after half an hour.
+ */
+const STORE_KEY = 'mms.weather';
+const NOW_TTL_MS = 30 * 60_000;
+
+interface StoredWeather {
+  w: Weather | null;
+  /** When it was fetched — only checked for "current conditions". */
+  at: number;
+}
+
+function readStore(): Record<string, StoredWeather> {
+  try {
+    return JSON.parse(localStorage.getItem(STORE_KEY) ?? '{}') as Record<string, StoredWeather>;
+  } catch {
+    return {};
+  }
+}
+
+function storeGet(key: string, isNow: boolean): StoredWeather | null {
+  const entry = readStore()[key];
+  if (!entry) return null;
+  if (isNow && Date.now() - entry.at > NOW_TTL_MS) return null;
+  return entry;
+}
+
+function storePut(key: string, weather: Weather | null): void {
+  try {
+    const all = readStore();
+    all[key] = { w: weather, at: Date.now() };
+    // A trip is a few dozen days; a cap keeps a long history from growing
+    // without bound. Oldest entries go first.
+    const keys = Object.keys(all);
+    if (keys.length > 600) {
+      const oldest = keys.sort((a, b) => all[a]!.at - all[b]!.at).slice(0, keys.length - 600);
+      for (const k of oldest) delete all[k];
+    }
+    localStorage.setItem(STORE_KEY, JSON.stringify(all));
+  } catch {
+    /* storage full — the cache is best-effort */
+  }
+}
+
 const DAY_MS = 86_400_000;
 /** How far back the (high-resolution) forecast API still serves real data. */
 const PAST_DAYS_LIMIT = 90;
@@ -71,6 +117,11 @@ export async function fetchWeather(
 ): Promise<Weather | null> {
   const key = `${lat.toFixed(2)},${lon.toFixed(2)},${day ?? 'now'}`;
   if (cache.has(key)) return cache.get(key) ?? null;
+  const stored = storeGet(key, !day);
+  if (stored) {
+    cache.set(key, stored.w);
+    return stored.w;
+  }
 
   try {
     let weather: Weather | null = null;
@@ -130,7 +181,12 @@ export async function fetchWeather(
         }
       }
     }
-    cache.set(key, weather);
+    // A miss is not remembered at all: with no connection every lookup fails,
+    // and caching that would keep the weather hidden once you are back online.
+    if (weather) {
+      cache.set(key, weather);
+      storePut(key, weather);
+    }
     return weather;
   } catch {
     return null;

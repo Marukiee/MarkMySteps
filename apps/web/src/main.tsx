@@ -17,6 +17,7 @@ import {
   isNativeApp,
 } from './lib/native';
 import { applyTheme, getThemeId } from './lib/prefs';
+import { initPendingWrites } from './lib/pendingWrites';
 import { captureCurrentLocation, resumeIfTracking } from './tracking/tracker';
 import './styles/global.css';
 
@@ -31,6 +32,8 @@ resumeIfTracking();
 // One fix on launch, so the maps know where you are without waiting for the
 // next scheduled check (and even when no trip is being tracked at all).
 void captureCurrentLocation();
+// Edits made without a connection are replayed as soon as there is one.
+initPendingWrites();
 // Android back gesture support.
 initBackButton();
 // Overlay + style the native status bar.

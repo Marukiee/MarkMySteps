@@ -125,6 +125,9 @@
      tiny placeholder, then ease between shapes as you page through photos of
      different aspect ratios. */
   min-height: min(50vh, 340px);
+  /* And a floor on the width, or an image that hasn't arrived yet collapses the
+     frame to nothing and the two nav arrows end up side by side in the middle. */
+  min-width: min(72vw, 420px);
   transition: width 0.3s var(--ease), height 0.3s var(--ease);
 }
 

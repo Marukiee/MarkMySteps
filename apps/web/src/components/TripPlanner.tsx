@@ -26,6 +26,14 @@ import {
 } from '../lib/arc';
 import { flagEmoji, formatDate, formatDateRange } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
+import { cachePutJson } from '../lib/offlineCache';
+import { enqueueWrite, onPendingChange } from '../lib/pendingWrites';
+import {
+  localCreate,
+  localDelete,
+  localReorder,
+  localUpdate,
+} from '../lib/plannerLocal';
 import '../pages/plan.css';
 
 // Names used for the standalone outbound/return legs (any travel mode).
@@ -107,6 +115,37 @@ export function TripPlanner({
     onChanged?.();
   };
 
+  /**
+   * Every planner edit goes through here.
+   *
+   * With a connection it is a plain API call and the server answers with the
+   * recomputed list. Without one the same rules are applied locally, the list
+   * is written to the read cache so it survives a restart, and the request is
+   * queued to be replayed once there is a network again.
+   */
+  const tripStart = trip?.startDate ?? route[0]?.arrivalDate ?? new Date().toISOString();
+
+  async function mutate(
+    path: string,
+    method: string,
+    body: unknown,
+    local: (current: PlannedStop[]) => PlannedStop[],
+  ): Promise<PlannedStop[]> {
+    try {
+      return await api<PlannedStop[]>(path, { method, body });
+    } catch (err) {
+      // A status means the server answered and refused; only a missing network
+      // is worth queueing.
+      if (typeof (err as { status?: number }).status === 'number') throw err;
+      enqueueWrite({ path, method, body });
+      const next = local(stops);
+      void cachePutJson(`/trips/${tripId}/stops`, next);
+      return next;
+    }
+  }
+
+  const stopsPath = `/trips/${tripId}/stops`;
+
   function onNameInput(value: string) {
     setNewName(value);
     setNewCountry(undefined);
@@ -136,16 +175,17 @@ export function TripPlanner({
   async function addStop(event: FormEvent) {
     event.preventDefault();
     try {
-      const updated = await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
-        method: 'POST',
-        body: {
-          name: newName,
-          nights: newNights,
-          latitude: effectivePick?.lat,
-          longitude: effectivePick?.lng,
-          countryCode: newCountry,
-        },
-      });
+      const body = {
+        id: crypto.randomUUID(),
+        name: newName,
+        nights: newNights,
+        latitude: effectivePick?.lat,
+        longitude: effectivePick?.lng,
+        countryCode: newCountry,
+      };
+      const updated = await mutate(stopsPath, 'POST', body, (current) =>
+        localCreate(current, tripStart, body),
+      );
       refresh(updated);
       setNewName('');
       setNewNights(2);
@@ -163,7 +203,9 @@ export function TripPlanner({
     data: { flightNumber?: string; fromAirport?: string; toAirport?: string; viaAirports?: string[] },
   ) {
     refresh(
-      await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, { method: 'PATCH', body: data }),
+      await mutate(`${stopsPath}/${stop.id}`, 'PATCH', data, (current) =>
+        localUpdate(current, tripStart, stop.id, data),
+      ),
     );
   }
 
@@ -174,19 +216,25 @@ export function TripPlanner({
     data: { latitude: number; longitude: number; countryCode?: string; notes?: string },
   ) {
     refresh(
-      await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, { method: 'PATCH', body: data }),
+      await mutate(`${stopsPath}/${stop.id}`, 'PATCH', data, (current) =>
+        localUpdate(current, tripStart, stop.id, data),
+      ),
     );
   }
 
   async function changeNights(stop: PlannedStop, delta: number) {
     const nights = Math.max(0, stop.nights + delta);
     refresh(
-      await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, {
-        method: 'PATCH',
-        body: { nights },
-      }),
+      await mutate(`${stopsPath}/${stop.id}`, 'PATCH', { nights }, (current) =>
+        localUpdate(current, tripStart, stop.id, { nights }),
+      ),
     );
   }
+
+  // How many edits are still waiting for a connection, so it's clear the plan
+  // is saved on the device rather than lost.
+  const [pending, setPending] = useState(0);
+  useEffect(() => onPendingChange((list) => setPending(list.length)), []);
 
   // Which stop currently has its "add a day trip" panel expanded.
   const [dayTripFor, setDayTripFor] = useState<string | null>(null);
@@ -194,19 +242,18 @@ export function TripPlanner({
   /** An excursion from `parent` and back the same day (Saltsjöbaden → Stockholm). */
   async function addDayTrip(parent: PlannedStop, place: PlaceSuggestion, day: string) {
     try {
+      const body = {
+        id: crypto.randomUUID(),
+        name: place.name,
+        nights: 0,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        countryCode: place.countryCode,
+        parentStopId: parent.id,
+        dayTripDate: day,
+      };
       refresh(
-        await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
-          method: 'POST',
-          body: {
-            name: place.name,
-            nights: 0,
-            latitude: place.latitude,
-            longitude: place.longitude,
-            countryCode: place.countryCode,
-            parentStopId: parent.id,
-            dayTripDate: day,
-          },
-        }),
+        await mutate(stopsPath, 'POST', body, (current) => localCreate(current, tripStart, body)),
       );
       onFlyTo(place.longitude, place.latitude);
       setDayTripFor(null);
@@ -217,10 +264,9 @@ export function TripPlanner({
 
   async function setDayTripDate(dayTrip: PlannedStop, day: string) {
     refresh(
-      await api<PlannedStop[]>(`/trips/${tripId}/stops/${dayTrip.id}`, {
-        method: 'PATCH',
-        body: { dayTripDate: day },
-      }),
+      await mutate(`${stopsPath}/${dayTrip.id}`, 'PATCH', { dayTripDate: day }, (current) =>
+        localUpdate(current, tripStart, dayTrip.id, { dayTripDate: day }),
+      ),
     );
   }
 
@@ -260,7 +306,11 @@ export function TripPlanner({
     setRemovingId(stop.id);
     await new Promise((r) => window.setTimeout(r, 240));
     try {
-      refresh(await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, { method: 'DELETE' }));
+      refresh(
+        await mutate(`${stopsPath}/${stop.id}`, 'DELETE', undefined, (current) =>
+          localDelete(current, tripStart, stop.id),
+        ),
+      );
       offerUndo({ stop, dayTrips: children, afterId: previous });
     } finally {
       setRemovingId(null);
@@ -273,52 +323,56 @@ export function TripPlanner({
     const { stop, dayTrips, afterId } = undo;
     setUndo(null);
     try {
-      const before = new Set(stops.map((s) => s.id));
-      let list = await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
-        method: 'POST',
-        body: {
-          name: stop.name,
-          nights: stop.nights,
-          latitude: stop.latitude ?? undefined,
-          longitude: stop.longitude ?? undefined,
-          countryCode: stop.countryCode ?? undefined,
-          travelMode: stop.travelMode,
-          flightNumber: stop.flightNumber ?? undefined,
-          fromAirport: stop.fromAirport ?? undefined,
-          toAirport: stop.toAirport ?? undefined,
-          viaAirports: stop.viaAirports?.length ? stop.viaAirports : undefined,
-          notes: stop.notes ?? undefined,
-          parentStopId: stop.parentStopId ?? undefined,
-          dayTripDate: stop.parentStopId ? stop.arrivalDate.slice(0, 10) : undefined,
-          afterStopId: afterId ?? undefined,
-        },
-      });
-      // The API answers with the whole list, so the new id is the one that
-      // wasn't there a moment ago.
-      const restored = list.find((s) => !before.has(s.id));
+      // Re-created with its ORIGINAL id: nothing else refers to it any more,
+      // and keeping it means the day trips can be hung back on it without
+      // having to work out which row is the new one.
+      const body = {
+        id: stop.id,
+        name: stop.name,
+        nights: stop.nights,
+        latitude: stop.latitude ?? undefined,
+        longitude: stop.longitude ?? undefined,
+        countryCode: stop.countryCode ?? undefined,
+        travelMode: stop.travelMode,
+        flightNumber: stop.flightNumber ?? undefined,
+        fromAirport: stop.fromAirport ?? undefined,
+        toAirport: stop.toAirport ?? undefined,
+        viaAirports: stop.viaAirports?.length ? stop.viaAirports : undefined,
+        notes: stop.notes ?? undefined,
+        parentStopId: stop.parentStopId ?? undefined,
+        dayTripDate: stop.parentStopId ? stop.arrivalDate.slice(0, 10) : undefined,
+        afterStopId: afterId ?? undefined,
+      };
+      let list = await mutate(stopsPath, 'POST', body, (current) =>
+        localCreate(current, tripStart, body),
+      );
+
       for (const child of dayTrips) {
-        if (!restored) break;
-        list = await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
-          method: 'POST',
-          body: {
-            name: child.name,
-            nights: 0,
-            latitude: child.latitude ?? undefined,
-            longitude: child.longitude ?? undefined,
-            countryCode: child.countryCode ?? undefined,
-            parentStopId: restored.id,
-            dayTripDate: child.arrivalDate.slice(0, 10),
-          },
-        });
+        const childBody = {
+          id: child.id,
+          name: child.name,
+          nights: 0,
+          latitude: child.latitude ?? undefined,
+          longitude: child.longitude ?? undefined,
+          countryCode: child.countryCode ?? undefined,
+          parentStopId: stop.id,
+          dayTripDate: child.arrivalDate.slice(0, 10),
+        };
+        list = await mutate(stopsPath, 'POST', childBody, (current) =>
+          localCreate(current, tripStart, childBody),
+        );
       }
+
       // afterStopId has no way to say "at the very front", so a stop that was
       // first is put back there with an explicit reorder.
-      if (restored && !stop.parentStopId && afterId === null) {
-        const order = list.filter((s) => !s.parentStopId).map((s) => s.id);
-        list = await api<PlannedStop[]>(`/trips/${tripId}/stops/order`, {
-          method: 'PUT',
-          body: { stopIds: [restored.id, ...order.filter((id) => id !== restored.id)] },
-        });
+      if (!stop.parentStopId && afterId === null) {
+        const order = [
+          stop.id,
+          ...list.filter((s) => !s.parentStopId && s.id !== stop.id).map((s) => s.id),
+        ];
+        list = await mutate(`${stopsPath}/order`, 'PUT', { stopIds: order }, (current) =>
+          localReorder(current, tripStart, order),
+        );
       }
       refresh(list);
     } catch (err) {
@@ -327,35 +381,31 @@ export function TripPlanner({
   }
 
   async function addReturnLeg(mode: TravelMode) {
+    const body = { id: crypto.randomUUID(), name: 'Terugreis', nights: 0, travelMode: mode };
     refresh(
-      await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
-        method: 'POST',
-        body: { name: 'Terugreis', nights: 0, travelMode: mode },
-      }),
+      await mutate(stopsPath, 'POST', body, (current) => localCreate(current, tripStart, body)),
     );
   }
 
   async function addOutboundLeg(mode: TravelMode) {
-    const created = await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
-      method: 'POST',
-      body: { name: 'Heenreis', nights: 0, travelMode: mode },
-    });
-    const added = created[created.length - 1];
-    if (!added) return refresh(created);
+    const body = { id: crypto.randomUUID(), name: 'Heenreis', nights: 0, travelMode: mode };
+    const created = await mutate(stopsPath, 'POST', body, (current) =>
+      localCreate(current, tripStart, body),
+    );
+    // It has to lead the route, and afterStopId cannot express "at the front".
+    const order = [body.id, ...created.filter((s) => !s.parentStopId && s.id !== body.id).map((s) => s.id)];
     refresh(
-      await api<PlannedStop[]>(`/trips/${tripId}/stops/order`, {
-        method: 'PUT',
-        body: { stopIds: [added.id, ...created.filter((s) => s.id !== added.id).map((s) => s.id)] },
-      }),
+      await mutate(`${stopsPath}/order`, 'PUT', { stopIds: order }, (current) =>
+        localReorder(current, tripStart, order),
+      ),
     );
   }
 
   async function setStopMode(stop: PlannedStop, mode: TravelMode) {
     refresh(
-      await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, {
-        method: 'PATCH',
-        body: { travelMode: mode },
-      }),
+      await mutate(`${stopsPath}/${stop.id}`, 'PATCH', { travelMode: mode }, (current) =>
+        localUpdate(current, tripStart, stop.id, { travelMode: mode }),
+      ),
     );
   }
 
@@ -429,11 +479,11 @@ export function TripPlanner({
     const [moved] = next.splice(current.from, 1);
     next.splice(current.to, 0, moved!);
     onStopsChange([...next, ...stops.filter((s) => s.parentStopId)]); // optimistic
+    const order = next.map((s) => s.id);
     refresh(
-      await api<PlannedStop[]>(`/trips/${tripId}/stops/order`, {
-        method: 'PUT',
-        body: { stopIds: next.map((s) => s.id) },
-      }),
+      await mutate(`${stopsPath}/order`, 'PUT', { stopIds: order }, (current) =>
+        localReorder(current, tripStart, order),
+      ),
     );
   }
 
@@ -470,11 +520,11 @@ export function TripPlanner({
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved!);
     onStopsChange(next); // optimistic
+    const order = next.map((s) => s.id);
     refresh(
-      await api<PlannedStop[]>(`/trips/${tripId}/stops/order`, {
-        method: 'PUT',
-        body: { stopIds: next.map((s) => s.id) },
-      }),
+      await mutate(`${stopsPath}/order`, 'PUT', { stopIds: order }, (current) =>
+        localReorder(current, tripStart, order),
+      ),
     );
   }
 
@@ -486,6 +536,12 @@ export function TripPlanner({
             ●
           </span>
           {plannedNights}/{tripNights} nachten gepland
+        </div>
+      )}
+      {pending > 0 && (
+        <div className="plan-pending">
+          <Icon name="cloud-off" size={14} />
+          {pending} {pending === 1 ? 'wijziging wacht' : 'wijzigingen wachten'} op verbinding
         </div>
       )}
       {error && <p className="error-text">{error}</p>}
@@ -840,31 +896,32 @@ function SwipeToDelete({
 }) {
   const [dx, setDx] = useState(0);
   const [swiping, setSwiping] = useState(false);
+  /** Stays true until the card has slid back over the red, so the background is
+   *  covered up rather than fading out from under it. */
+  const [revealed, setRevealed] = useState(false);
+  const hideTimer = useRef<number | null>(null);
   const start = useRef<{ x: number; y: number; axis: 'none' | 'x' | 'y' } | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  /** Far enough to mean it: a third of the row, and never less than 90 px. */
-  const threshold = () => Math.max(90, (boxRef.current?.offsetWidth ?? 300) * 0.33);
+  /** Far enough to mean it: a fifth of the row, and never less than 64 px. */
+  const threshold = () => Math.max(64, (boxRef.current?.offsetWidth ?? 300) * 0.2);
   const armed = Math.abs(dx) >= threshold();
+  // A buzz the moment it comes loose, so "far enough" is something you feel.
+  const buzzed = useRef(false);
 
   /**
    * Finger travel → how far the row actually moves.
    *
-   * It resists at first (a row shouldn't come loose from a stray thumb), then
-   * gives way, and once it is past the threshold it snaps open the rest of the
-   * way and stays there — so "far enough" is something you feel, not something
-   * you have to guess from a colour.
+   * It resists at first, so a row never comes loose from a stray thumb, and
+   * then follows the finger one to one. No jump at the threshold: the haptic
+   * tick says you are there, and a row that leaps sideways under your finger
+   * reads as a glitch.
    */
   const resist = (raw: number): number => {
     const distance = Math.abs(raw);
-    const limit = threshold();
-    const STICK = 26; // barely moves until you mean it
-    if (distance <= STICK) return Math.sign(raw) * distance * 0.35;
-    const past = distance - STICK;
-    const free = STICK * 0.35 + past;
-    if (free < limit) return Math.sign(raw) * free;
-    // Broken loose: jump to the open position, then rubber-band beyond it.
-    return Math.sign(raw) * (limit + 22 + (free - limit) * 0.18);
+    const STICK = 22; // barely moves until you mean it
+    if (distance <= STICK) return Math.sign(raw) * distance * 0.4;
+    return Math.sign(raw) * (STICK * 0.4 + (distance - STICK));
   };
 
   const holdTimer = useRef<number | null>(null);
@@ -909,12 +966,19 @@ function SwipeToDelete({
     }
     mode.current = 'idle';
     if (s?.axis === 'x' && Math.abs(dx) >= threshold()) {
+      buzzed.current = false;
+      navigator.vibrate?.([0, 18]);
       // Let it fly off in the direction of travel, then delete.
       setDx(Math.sign(dx) * (boxRef.current?.offsetWidth ?? 400));
       window.setTimeout(onDelete, 170);
       return;
     }
+    buzzed.current = false;
     setDx(0);
+    // Matches the .swipe-fg return transition: the red disappears because the
+    // card is in front of it again, not because it faded.
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setRevealed(false), 280);
   };
 
   // Registered by hand because React's touchmove is passive: without
@@ -944,11 +1008,20 @@ function SwipeToDelete({
         if (s.axis === 'x') {
           mode.current = 'swipe';
           setSwiping(true);
+          if (hideTimer.current) window.clearTimeout(hideTimer.current);
+          setRevealed(true);
         }
       }
       if (s.axis !== 'x') return;
       e.preventDefault();
-      setDx(resist(moveX));
+      const next = resist(moveX);
+      // Tick once on the way out, once on the way back in.
+      const past = Math.abs(next) >= threshold();
+      if (past !== buzzed.current) {
+        buzzed.current = past;
+        navigator.vibrate?.(past ? 14 : 8);
+      }
+      setDx(next);
     };
     el.addEventListener('touchmove', onMove, { passive: false });
     return () => el.removeEventListener('touchmove', onMove);
@@ -960,6 +1033,7 @@ function SwipeToDelete({
       className="swipe-row"
       ref={boxRef}
       data-swiping={swiping}
+      data-revealed={revealed}
       data-armed={armed}
       data-dragging={dragging}
       data-dir={dx > 0 ? 'right' : dx < 0 ? 'left' : undefined}

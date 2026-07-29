@@ -23,6 +23,13 @@ export enum TravelModeDto {
 }
 
 export class CreateStopDto {
+  /** Client-chosen id. Lets a stop created without a connection keep the same
+   *  id once the queued request reaches the server, so the edits made after it
+   *  (rename, reorder, a day trip hanging off it) still refer to the right row. */
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @IsString()
   @Length(1, 120)
   name: string;
