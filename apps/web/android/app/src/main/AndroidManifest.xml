@@ -63,4 +63,17 @@
          turned into long straight lines. Granted by default below API 33; on
          newer versions the user can allow it in the app's settings. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- The phone's own photo library, for running without Immich. Android 13
+         split the old storage permission per media type; older versions still
+         need READ_EXTERNAL_STORAGE. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <!-- Without this MediaStore hands back a copy with the coordinates stripped,
+         and a trip would have photos but nothing on the map. -->
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 </manifest>

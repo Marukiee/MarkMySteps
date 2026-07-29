@@ -96,6 +96,9 @@ export interface SyncResult {
   usersSynced: number;
   assetsFound: number;
   assetsAdded: number;
+  /** Local gallery only: false when the photos came in without coordinates
+   *  because ACCESS_MEDIA_LOCATION was refused. */
+  hasLocation?: boolean;
 }
 
 export interface ImportedTripSummary {

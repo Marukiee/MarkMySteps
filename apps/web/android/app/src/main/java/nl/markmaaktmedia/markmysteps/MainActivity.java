@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PredictiveBackPlugin.class);
         registerPlugin(MmsLocationPlugin.class);
         registerPlugin(MmsHapticsPlugin.class);
+        registerPlugin(MmsGalleryPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -42,6 +42,9 @@
 @media (max-width: 900px) {
   .plan-side {
     padding-bottom: calc(84px + env(safe-area-inset-bottom));
+    /* Same reason as the trip page: this column spans the screen, so it is
+       where a swiped card should stop. */
+    overflow-x: clip;
   }
 }
 
@@ -162,10 +165,9 @@
      the edge of the screen. Matches the side padding of whatever contains the
      planner; zero on desktop, where the column is not full-bleed. */
   --plan-bleed: 0px;
-  /* Clip, not hidden: the bleed has to be allowed through, but a long place
-     name still must not make the whole page scroll sideways. */
-  overflow-x: clip;
-  overflow-clip-margin: var(--plan-bleed);
+  /* Deliberately does NOT clip: the clip lives on the scroll column, whose box
+     really is the width of the screen. Clipping here — even with a clip margin —
+     cut the swiped card off at the column's padding. */
 }
 
 @media (max-width: 900px) {
@@ -909,11 +911,9 @@
   min-width: 0;
   margin-inline: calc(var(--plan-bleed, 0px) * -1);
   padding-inline: var(--plan-bleed, 0px);
-  /* Sideways only, and with room for the card's own drop shadow — clipping at
-     the box edge shaved the shadow off both sides of every row. */
-  overflow-x: clip;
-  overflow-y: visible;
-  overflow-clip-margin: 14px;
+  /* Nothing is clipped here: the shadow of the card inside would lose its left
+     and right edge, and the swiped card has to keep going until the screen
+     ends, not until this row does. The column above handles that. */
 }
 
 /* Grows out of the edge being uncovered, rather than sitting behind the row as
@@ -1052,8 +1052,10 @@
   display: grid;
   gap: 8px;
   margin: 0.5rem 0 0.15rem;
-  /* Lines up with the centre of the 52px city photo above. */
-  padding-left: 26px;
+  /* Drops out of the LEFT of the 52px city photo rather than its centre: the
+     fork is just as readable there and it hands ~16px back to the day trip's
+     name and weather. */
+  padding-left: 13px;
   list-style: none;
   /* Keeps the branch behind the photos it connects. */
   z-index: 0;
@@ -1061,7 +1063,7 @@
 
 .daytrip-row {
   position: relative;
-  padding-left: 20px;
+  padding-left: 15px;
   min-width: 0;
   animation: dayTripIn 0.3s var(--ease) backwards;
 }
@@ -1100,7 +1102,7 @@
   position: absolute;
   left: 0;
   top: 50%;
-  width: 14px;
+  width: 11px;
   height: 2px;
   background: var(--line);
   border-radius: 2px;
@@ -1165,6 +1167,14 @@
   gap: 0.35rem;
   font-size: 0.78rem;
   white-space: nowrap;
+}
+
+/* The emoji all but disappeared against the card's beige; a light chip behind
+   it puts it back on the same white it has everywhere else. */
+.daytrip-meta .weather-badge {
+  padding: 0.05rem 0.35rem;
+  border-radius: 7px;
+  background: var(--paper-raised);
 }
 
 .daytrip-sep {

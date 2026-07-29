@@ -9,6 +9,7 @@ import { DateField } from '../components/DatePicker';
 import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
 import { TripFacts } from '../components/TripFacts';
+import { isLocalMode } from '../lib/localMode';
 import { getTripFacts, setTripFacts } from '../lib/prefs';
 import {
   FACT_NAMES,
@@ -191,8 +192,15 @@ export function TripSettingsPage() {
     setSyncMessage(null);
     try {
       const result = await api<SyncResult>(`/trips/${tripId}/sync`, { method: 'POST' });
+      const found = isLocalMode()
+        ? `${result.assetsAdded} nieuwe foto's (${result.assetsFound} gevonden)`
+        : `${result.assetsAdded} nieuwe foto's (${result.assetsFound} gevonden, ${result.usersSynced} reiziger${result.usersSynced === 1 ? '' : 's'})`;
+      // Without ACCESS_MEDIA_LOCATION every photo arrives without coordinates,
+      // which is worth saying rather than leaving an empty map.
       setSyncMessage(
-        `${result.assetsAdded} nieuwe foto's (${result.assetsFound} gevonden, ${result.usersSynced} reiziger${result.usersSynced === 1 ? '' : 's'})`,
+        result.hasLocation === false
+          ? `${found}. Let op: zonder toegang tot de locatie in foto's komen ze niet op de kaart.`
+          : found,
       );
     } catch (err) {
       setSyncMessage(err instanceof Error ? err.message : 'Sync mislukt');
@@ -273,13 +281,15 @@ export function TripSettingsPage() {
       {syncMessage && <p className="muted ts-sync-msg">{syncMessage}</p>}
       <section className="ts-sync">
         <div>
-          <strong>Foto's syncen</strong>
+          <strong>{isLocalMode() ? "Foto's koppelen" : "Foto's syncen"}</strong>
           <span className="muted">
-            Haal nieuwe foto's met GPS uit Immich op voor deze reis.
+            {isLocalMode()
+              ? "Zoekt in je fotobibliotheek naar foto's van deze reisdagen en zet ze met hun GPS op de kaart."
+              : "Haal nieuwe foto's met GPS uit Immich op voor deze reis."}
           </span>
         </div>
         <button className="btn btn-ghost" onClick={runSync} disabled={syncing}>
-          {syncing ? 'Bezig…' : "Foto's syncen"}
+          {syncing ? 'Bezig…' : isLocalMode() ? 'Zoeken' : "Foto's syncen"}
         </button>
       </section>
 

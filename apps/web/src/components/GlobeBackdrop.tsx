@@ -146,9 +146,11 @@ export function GlobeBackdrop({
     let tourPhase = 0; // 0 = overview, 1 = focus
     let phaseStart = performance.now();
     let tourIdx = 0; // which trip is being framed during a focus phase
-    /** The light has finished its run along the framed trip's route. Zooming
-     *  back out before that cuts the story off half way. */
-    let glowFinished = false;
+    /** Completed runs of the light along the framed trip's route. The tour
+     *  waits for two — one pass reads as a glance, two as having shown you the
+     *  route — and only once the trail behind the head is in as well. */
+    let glowRuns = 0;
+    const GLOW_RUNS_PER_FOCUS = 2;
     // Velocities for the camera springs (see easeTo). A plain lerp starts at
     // full speed, which is what made zooming out feel abrupt; a critically
     // damped spring starts from rest and settles without overshooting.
@@ -229,9 +231,9 @@ export function GlobeBackdrop({
             tourIdx = (tourIdx + 1) % trips.length;
             selectedId = null;
             glowDist = 0;
-            glowFinished = false;
+            glowRuns = 0;
             phaseStart = now;
-          } else if (glowFinished || now - phaseStart > dur * 3) {
+          } else if (glowRuns >= GLOW_RUNS_PER_FOCUS || now - phaseStart > dur * 5) {
             // Hold the zoom until the light has travelled the whole route (with
             // a ceiling, so a route that never finishes can't strand the tour).
             tourPhase = 0;
@@ -249,8 +251,8 @@ export function GlobeBackdrop({
           else if (centerLng >= hi) sweepDir = -1;
           rotation -= velocity * sweepDir;
           targetScale = 1;
-          [scale, scaleV] = ease(scale, scaleV, targetScale, 3.2);
-          [tilt, tiltV] = ease(tilt, tiltV, 0, 3.2);
+          [scale, scaleV] = ease(scale, scaleV, targetScale, 5.2);
+          [tilt, tiltV] = ease(tilt, tiltV, 0, 5.2);
         } else {
           // Focus: ease onto one real trip and frame it. Zoom adapts to how
           // spread out its route is, so a big trip fills the view nicely.
@@ -261,9 +263,9 @@ export function GlobeBackdrop({
           [rotation, rotV] = ease(rotation, rotV, rotation + shortest, 2.4);
           // Frame the trip a touch above centre (the fade tail eats the lower
           // third) — a small lift, not so much it sits near the top.
-          [tilt, tiltV] = ease(tilt, tiltV, trip.anchor[1] - CENTER_LAT - 4, 3.2);
+          [tilt, tiltV] = ease(tilt, tiltV, trip.anchor[1] - CENTER_LAT - 4, 5.2);
           targetScale = zoom;
-          [scale, scaleV] = ease(scale, scaleV, targetScale, 3.2);
+          [scale, scaleV] = ease(scale, scaleV, targetScale, 5.2);
         }
       }
 
@@ -637,20 +639,24 @@ export function GlobeBackdrop({
             }
             return pts[pts.length - 1]!;
           };
-          // Pause briefly at the end of the route, then restart — a light
-          // that loops instantly feels frantic.
-          const PAUSE = 22; // degrees' worth of dwell time past the end
-          glowDist += 0.055 * (dt * 60);
-          if (glowDist > total + PAUSE) {
+          // A run is over once the TAIL has arrived too, not just the head —
+          // otherwise the globe zooms out through the light's own trail. Then a
+          // short dwell before the next pass; looping instantly feels frantic.
+          const TRAIL_DEG = Math.min(11, total * 0.4);
+          const PAUSE = 10; // degrees' worth of dwell time past the end
+          // Constant speed, except on a route long enough that one pass would
+          // take forever — there the run is capped to a few seconds instead.
+          const speed = Math.max(0.055, total / (6.5 * 60));
+          glowDist += speed * (dt * 60);
+          if (glowDist > total + TRAIL_DEG + PAUSE) {
             glowDist = 0;
-            glowFinished = true;
+            glowRuns += 1;
           }
           const [gr, gg, gb] = legibleColor(act.color, dark);
 
           // Sample the ribbon head → tail. A sample whose distance is
           // negative (or past the end) is simply dropped, so the ribbon slides
           // on and off the route instead of wrapping around in one jump.
-          const TRAIL_DEG = Math.min(11, total * 0.4);
           const STEPS = 28;
           const samples: { pt: [number, number]; t: number }[] = [];
           for (let i = 0; i <= STEPS; i++) {
@@ -687,8 +693,8 @@ export function GlobeBackdrop({
             }
           }
         } else if (act) {
-          // A city trip has no ribbon to wait for; two pulses is its equivalent.
-          if (now - phaseStart > 3600) glowFinished = true;
+          // A city trip has no ribbon to wait for; four pulses is its equivalent.
+          if (now - phaseStart > 3600) glowRuns = GLOW_RUNS_PER_FOCUS;
           // City trip: no line worth running a light along, so the dot itself
           // breathes — a soft halo plus a ring that expands out of it and fades,
           // which reads as "this one" just as clearly as the ribbon does.

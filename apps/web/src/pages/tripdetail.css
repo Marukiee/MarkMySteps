@@ -77,6 +77,10 @@
     min-height: var(--vh-stable, 100vh);
     background: var(--paper);
     padding: 0.2rem 1.15rem calc(96px + env(safe-area-inset-bottom));
+    /* This box IS the width of the screen, so it is the right place to stop a
+       swiped card — anything narrower cut it off early. Clip, not hidden: no
+       scrollbar, and the vertical axis stays visible for the sticky map. */
+    overflow-x: clip;
   }
 
   /* Grab handle scrolls with the content, just under the map. */

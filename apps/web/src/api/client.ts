@@ -5,6 +5,7 @@
 
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SERVER_URL } from '../config';
+import { mediaSrc } from '../lib/gallery';
 import { localRequest } from '../lib/localBackend';
 import { isLocalMode } from '../lib/localMode';
 import {
@@ -204,7 +205,19 @@ function releaseBlobSlot(): void {
 }
 
 /** Authorized binary fetch → object URL (for Immich thumbnail proxying). */
+/** `/media/<encoded content:// uri>/thumbnail` — how local media is addressed. */
+const LOCAL_MEDIA = /^\/media\/(.+)\/thumbnail$/;
+
 export async function fetchBlobUrl(path: string): Promise<string> {
+  // A local photo is not fetched at all: its id IS its content URI, and the
+  // WebView can stream that straight into an <img> through Capacitor's file
+  // bridge. Pulling hundreds of full images across the bridge as blobs would
+  // be the slow way to arrive at the same picture.
+  if (isLocalMode()) {
+    const match = LOCAL_MEDIA.exec(path);
+    if (match) return mediaSrc(decodeURIComponent(match[1]!));
+    throw new ApiError(404, 'Geen afbeelding');
+  }
   await acquireBlobSlot();
   try {
     const token = getAccessToken();

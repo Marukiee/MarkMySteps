@@ -1,5 +1,6 @@
 import type { MediaItem, RouteCollection, Trip, TripMember } from '../api/types';
 import { PlannedStop, haversineKm } from './arc';
+import { mediaSrc, queryGallery, requestGalleryPermission } from './gallery';
 import { dbAll, dbByTrip, dbDelete, dbDeleteMany, dbGet, dbPut, dbPutMany } from './localDb';
 import { LOCAL_USER } from './localMode';
 import { localCreate, localDelete, localReorder, localUpdate } from './plannerLocal';
@@ -694,9 +695,54 @@ route('GET', '/trips/:id/members', async () => [selfMember()]);
 route('POST', '/trips/:id/members', async () => {
   throw new LocalUnsupported('Reisgenoten toevoegen');
 });
-route('POST', '/trips/:id/sync', async () => {
-  throw new LocalUnsupported('Synchroniseren met Immich');
+/**
+ * Pulls the trip's photos out of the phone's own library.
+ *
+ * The local counterpart of the Immich sync, and it works the same way: match on
+ * the day a photo was taken, keep its EXIF coordinates. A media id IS its
+ * content URI (encoded), so nothing has to look up where a thumbnail lives —
+ * see fetchBlobUrl.
+ */
+route('POST', '/trips/:id/sync', async (_req, [id]) => {
+  const trip = await requireTrip(id!);
+  const permissions = await requestGalleryPermission();
+  if (!permissions.library) {
+    throw new LocalUnsupported('Zonder toegang tot je fotobibliotheek koppelen');
+  }
+
+  const items = await queryGallery(trip.startDate, trip.endDate);
+  const existing = await dbByTrip<StoredMedia>('media', trip.id);
+  const known = new Set(existing.map((m) => m.id));
+  const fresh: StoredMedia[] = [];
+  for (const item of items) {
+    const mediaId = encodeURIComponent(item.uri);
+    if (known.has(mediaId)) continue;
+    fresh.push({
+      id: mediaId,
+      tripId: trip.id,
+      userId: LOCAL_USER.id,
+      immichAssetId: item.uri,
+      assetType: item.video ? 'VIDEO' : 'IMAGE',
+      takenAt: new Date(item.takenAt).toISOString(),
+      latitude: item.latitude ?? null,
+      longitude: item.longitude ?? null,
+    });
+  }
+  await dbPutMany('media', fresh);
+  return {
+    tripId: trip.id,
+    usersSynced: 1,
+    assetsFound: items.length,
+    assetsAdded: fresh.length,
+    // Worth surfacing: without it every photo lands without a map position.
+    hasLocation: permissions.location,
+  };
 });
+// A local video plays straight from its content URI; there is no proxy to ask.
+route('GET', '/media/:mediaId/video-url', async (_req, [mediaId]) => ({
+  url: mediaSrc(decodeURIComponent(mediaId!)),
+}));
+
 route('GET', '/immich/connection', async () => {
   throw new LocalNotFound('Geen Immich-koppeling');
 });
