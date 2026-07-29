@@ -2,7 +2,7 @@ import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { resetOnboarding } from '../lib/native';
+import { isNativeApp, openExternal, resetOnboarding } from '../lib/native';
 import { api, ApiError, fetchBlobUrl } from '../api/client';
 import { AirportPrefs } from '../components/AirportPrefs';
 import { AvatarCrop } from '../components/AvatarCrop';
@@ -15,7 +15,11 @@ import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
 import { TrackPointsEditor } from '../components/TrackPointsEditor';
-import { isUpdateBannerSimulated, setUpdateBannerSimulated } from '../components/UpdateBanner';
+import {
+  checkForUpdate,
+  isUpdateBannerSimulated,
+  setUpdateBannerSimulated,
+} from '../components/UpdateBanner';
 import {
   backupSize,
   createBackup,
@@ -75,13 +79,20 @@ type SectionId =
 export function SettingsPage() {
   const { user } = useAuth();
   const [section, setSection] = useState<SectionId>('profile');
+
+  // The app keeps the scroll position of the page you came from, which lands
+  // you halfway down a settings page you have just opened.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+    document.scrollingElement?.scrollTo({ top: 0 });
+  }, [section]);
   const [devUnlocked, setDevUnlocked] = useState(localStorage.getItem('mms.dev') === '1');
 
   const sections: { id: SectionId; label: string; show: boolean }[] = [
     { id: 'profile', label: 'Profiel', show: true },
     { id: 'display', label: 'Weergave', show: true },
     { id: 'preferences', label: 'Voorkeuren', show: true },
-    { id: 'immich', label: 'Immich', show: true },
+    { id: 'immich', label: 'Diensten', show: true },
     { id: 'import', label: 'Gegevens', show: true },
     { id: 'accounts', label: 'Accounts', show: user?.role === 'ADMIN' },
     { id: 'about', label: 'Over', show: true },
@@ -1207,8 +1218,60 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
           </a>
         </li>
       </ul>
+      {isNativeApp() && <UpdateCheck />}
       {hint && <span className="muted">{hint}</span>}
     </section>
+  );
+}
+
+/**
+ * Manual "am I up to date?".
+ *
+ * The banner only appears for a version you have not dismissed, so there was
+ * no way to ask on purpose. This one ignores that: if there is a newer build
+ * it says so, even one you waved away earlier.
+ */
+function UpdateCheck() {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ text: string; url?: string } | null>(null);
+  const [shown, closing] = useExit(result !== null, 240);
+  const lastRef = useRef<{ text: string; url?: string } | null>(null);
+  if (result) lastRef.current = result;
+  const last = lastRef.current;
+
+  async function run() {
+    setBusy(true);
+    setResult(null);
+    try {
+      const { current, latest, newer } = await checkForUpdate(true);
+      if (newer && latest?.url) {
+        setResult({ text: `Versie ${latest.version} is beschikbaar.`, url: latest.url });
+      } else {
+        setResult({ text: `Je bent bij. Build ${current} is de nieuwste.` });
+      }
+    } catch {
+      setResult({ text: 'Kon niet controleren. Ben je online?' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="update-check">
+      <button className="btn btn-ghost" disabled={busy} onClick={() => void run()}>
+        <Icon name="download" size={15} /> {busy ? 'Controleren…' : 'Check op updates'}
+      </button>
+      {shown && last && (
+        <p className={`muted update-check-result ${closing ? 'leaving' : ''}`}>
+          {last.text}
+          {last.url && (
+            <button className="ext-link" onClick={() => openExternal(last.url!)}>
+              Downloaden <Icon name="chevron-right" size={13} />
+            </button>
+          )}
+        </p>
+      )}
+    </div>
   );
 }
 

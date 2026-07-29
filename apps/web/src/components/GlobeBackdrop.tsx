@@ -1058,10 +1058,22 @@ function tripFraming(trip: GlobeTrip): { centre: [number, number]; spread: numbe
   return { centre, spread };
 }
 
-/** Golden-angle hue spread → a distinct, legible colour for trip index i. */
+/**
+ * A distinct colour per trip.
+ *
+ * The golden angle alone spreads hues nicely, but `legibleColor` then squeezes
+ * saturation and lightness into a narrow band to keep every dot readable on the
+ * globe — which pulled neighbouring hues back together, so a dozen trips ended
+ * up with several near-identical greens and reds. Cycling saturation and
+ * lightness alongside the hue puts that variation back: three bands of each,
+ * out of step with the hue, so trips that land on a similar hue differ in
+ * weight instead.
+ */
 function autoColor(i: number): [number, number, number] {
   const hue = (i * 137.508) % 360;
-  return hslToRgb(hue, 62, 55);
+  const saturation = [70, 55, 84][i % 3]!;
+  const lightness = [55, 42, 66][Math.floor(i / 3) % 3]!;
+  return hslToRgb(hue, saturation, lightness);
 }
 
 function hslToRgb(h: number, s: number, l: number): [number, number, number] {
@@ -1077,8 +1089,10 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
  *  darker on the light (beige) globe, lighter on the dark globe. */
 function legibleColor(rgb: [number, number, number], dark: boolean): [number, number, number] {
   const [h, s, l] = rgbToHsl(rgb);
-  const s2 = Math.max(s, 55);
-  const l2 = dark ? Math.max(l, 58) : Math.min(l, 46);
+  // Nudged into a readable range rather than flattened into one: clamping hard
+  // made trips of a similar hue indistinguishable.
+  const s2 = Math.min(96, Math.max(s, 48));
+  const l2 = dark ? Math.min(80, Math.max(l, 50)) : Math.max(26, Math.min(l, 54));
   return hslToRgb(h, s2, l2);
 }
 

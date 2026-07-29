@@ -947,25 +947,29 @@
   gap: 0.5rem;
 }
 
-/* "Back to the top" of the timeline. Between the map and the photos, so it
-   never sits on top of one, and it takes the camera back to the whole trip. */
+/* "Back to the top" of the timeline. Fixed to the viewport, just below the map
+   at its smallest — which is where the map is once you have scrolled far enough
+   for this button to appear at all. A sticky element in the side column had
+   nothing to stick to: on a phone the page is the scroll container, not that
+   column. */
 .trip-backtop {
-  position: sticky;
-  top: 0.4rem;
-  z-index: 5;
-  justify-self: center;
-  align-self: center;
+  /* One knob for both layouts, so the keyframes below work either way. */
+  --backtop-x: -50%;
+  position: fixed;
+  top: calc(32vh + 0.6rem);
+  left: 50%;
+  z-index: 6;
   display: grid;
   place-content: center;
-  width: 38px;
-  height: 38px;
-  margin: 0 auto -38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--glass);
   backdrop-filter: blur(8px);
   border: 1px solid var(--glass-border);
   color: var(--ink);
   box-shadow: var(--shadow-m);
+  transform: translateX(var(--backtop-x));
   animation: backTopIn 0.28s var(--ease);
 }
 
@@ -986,13 +990,31 @@
 @keyframes backTopIn {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.85);
+    transform: translate(var(--backtop-x), 10px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translate(var(--backtop-x), 0) scale(1);
   }
 }
 
 @keyframes backTopOut {
+  from {
+    opacity: 1;
+    transform: translate(var(--backtop-x), 0) scale(1);
+  }
   to {
     opacity: 0;
-    transform: translateY(10px) scale(0.85);
+    transform: translate(var(--backtop-x), 10px) scale(0.85);
+  }
+}
+
+/* Desktop: the side column scrolls, so it belongs at the top of that column. */
+@media (min-width: 901px) {
+  .trip-backtop {
+    --backtop-x: 0px;
+    top: 5.5rem;
+    left: auto;
+    right: 2.5rem;
   }
 }

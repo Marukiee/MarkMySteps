@@ -68,3 +68,25 @@
   gap: 0.6rem;
   margin-top: 0.7rem;
 }
+
+/* Name-to-confirm, for a deletion that cannot be undone. */
+.confirm-type {
+  margin-top: 0.2rem;
+  animation: confirmTypeIn 0.28s var(--ease);
+}
+
+.confirm-type label {
+  font-weight: 500;
+}
+
+.confirm-type strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+@keyframes confirmTypeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}

@@ -14,6 +14,13 @@
   font-size: 2rem;
 }
 
+@media (max-width: 720px) {
+  /* Beside the "new trip" pill, 2rem crowded the row. */
+  .trips-head h1 {
+    font-size: 1.6rem;
+  }
+}
+
 /* Same lockup as the top bar's, in the wordmark's own typeface. Pinned to the
    very top left, over the globe, where a logo belongs. */
 .trips-brand {

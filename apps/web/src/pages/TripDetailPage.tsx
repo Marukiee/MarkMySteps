@@ -493,7 +493,10 @@ export function TripDetailPage() {
           routes={routes}
           media={media}
           stops={stops}
-          waypoints={waypoints}
+          // Hand-placed points are editing scaffolding: they belong in the
+          // points editor, where you can drag them, not scattered over the
+          // trip's own map.
+          waypoints={addPointMode ? waypoints : undefined}
           onWaypointDelete={addPointMode ? deleteWaypoint : undefined}
           visibleUsers={visibleUsers}
           onMapClick={handleMapClick}

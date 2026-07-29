@@ -4,14 +4,45 @@
   gap: 1.25rem;
 }
 
+/* Back button and save indicator are the same width, so the title lands in
+   the true middle of the row rather than wherever the back button leaves off. */
 .ts-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
   align-items: center;
-  gap: 1rem;
+  gap: 0.6rem;
 }
 
 .ts-head h1 {
-  font-size: 1.7rem;
+  font-size: 1.45rem;
+  text-align: center;
+}
+
+.ts-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  background: var(--paper-sunken);
+  transition: background 0.15s var(--ease), color 0.15s var(--ease),
+    transform 0.15s var(--ease);
+}
+
+.ts-back:hover {
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-s);
+}
+
+.ts-back:active {
+  transform: scale(0.92);
+}
+
+.ts-delete {
+  width: 100%;
 }
 
 .ts-cover {
@@ -497,9 +528,9 @@
 .ts-autosave {
   display: inline-flex;
   align-items: center;
-  min-height: 38px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   color: var(--ink-faint);
   transition: color 0.25s var(--ease);
 }
@@ -520,4 +551,36 @@
     opacity: 0;
     transform: translateY(4px);
   }
+}
+
+/* Shortcut to the app-wide tracking settings. */
+.ts-track-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-s);
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.ts-track-link span {
+  flex: 1;
+}
+
+.ts-track-link:hover {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.ts-track-link svg:last-child {
+  color: var(--ink-faint);
+  transition: transform 0.18s var(--ease);
+}
+
+.ts-track-link:hover svg:last-child {
+  transform: translateX(3px);
 }

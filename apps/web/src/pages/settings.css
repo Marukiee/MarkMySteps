@@ -1379,3 +1379,37 @@
   font-size: 0.76rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* Manual update check, in the About card. */
+.update-check {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+}
+
+.update-check-result {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  animation: updateCheckIn 0.3s var(--ease);
+}
+
+.update-check-result.leaving {
+  animation: updateCheckOut 0.22s var(--ease) forwards;
+}
+
+@keyframes updateCheckIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes updateCheckOut {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}

@@ -246,9 +246,10 @@ function TripCard({
   async function remove() {
     const ok = await confirmModal({
       title: 'Reis verwijderen?',
-      body: `"${trip.title}" en alle routes/foto-koppelingen worden verwijderd.`,
+      body: `"${trip.title}" wordt definitief verwijderd, samen met de route, de notities en de foto-koppelingen. Dit kan niet ongedaan gemaakt worden.`,
       confirmLabel: 'Verwijderen',
       danger: true,
+      typeToConfirm: trip.title,
     });
     if (!ok) return;
     await api(`/trips/${trip.id}`, { method: 'DELETE' });

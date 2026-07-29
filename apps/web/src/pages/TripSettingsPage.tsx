@@ -195,9 +195,10 @@ export function TripSettingsPage() {
     if (!tripId) return;
     const ok = await confirmModal({
       title: 'Reis verwijderen?',
-      body: `"${trip?.title}" wordt definitief verwijderd, samen met de routes en foto-koppelingen.`,
+      body: `"${trip?.title}" wordt definitief verwijderd, samen met de route, de notities en de foto-koppelingen. Dit kan niet ongedaan gemaakt worden.`,
       confirmLabel: 'Verwijderen',
       danger: true,
+      typeToConfirm: trip?.title,
     });
     if (!ok) return;
     await api(`/trips/${tripId}`, { method: 'DELETE' });
@@ -255,11 +256,22 @@ export function TripSettingsPage() {
 
   return (
     <main className="page fade-in trip-settings">
+      {/* Back button as a plain round icon, so the title can sit in the middle
+          of the row rather than wherever the button leaves room. */}
       <div className="ts-head">
-        <Link to={`/trips/${tripId}`} className="btn btn-ghost">
-          <Icon name="arrow-left" size={16} /> Terug
+        <Link
+          to={`/trips/${tripId}`}
+          className="ts-back"
+          aria-label="Terug naar de reis"
+        >
+          <Icon name="arrow-left" size={20} />
         </Link>
         <h1>Reisinstellingen</h1>
+        <span className="ts-autosave" data-state={saving ? 'saving' : saved ? 'saved' : 'idle'}>
+          <span className="ts-autosave-face" key={saving ? 'saving' : saved ? 'saved' : 'idle'}>
+            {saving ? <Icon name="hourglass" size={16} /> : saved ? <Icon name="check" size={16} /> : null}
+          </span>
+        </span>
       </div>
 
       {trip?.resolvedCoverId && (
@@ -418,6 +430,15 @@ export function TripSettingsPage() {
           />
         </label>
 
+        {/* How often it checks, whether it is running right now, the log: all
+            of that is one setting for the whole app, not per trip. This is the
+            way there rather than a second copy of it. */}
+        <Link to="/settings" className="ts-track-link">
+          <Icon name="gear" size={15} />
+          <span>Tracking-instellingen</span>
+          <Icon name="chevron-right" size={15} />
+        </Link>
+
         <div className="ts-track-box ts-track-danger">
           <div>
             <strong>Getrackte data wissen</strong>
@@ -468,24 +489,11 @@ export function TripSettingsPage() {
 
       {isOwner && (
         <div className="ts-actions ts-actions-bottom">
-          <button className="btn btn-danger" onClick={remove}>
-            Reis verwijderen
+          {/* Full width now that there is no save button beside it — the page
+              saves itself, and the header says so. */}
+          <button className="btn btn-danger ts-delete" onClick={remove}>
+            <Icon name="trash" size={17} /> Reis verwijderen
           </button>
-          {/* No save button: the page saves itself. This says so, and confirms
-              when it has. */}
-          <span className="ts-autosave" data-state={saving ? 'saving' : saved ? 'saved' : 'idle'}>
-            <span className="ts-autosave-face" key={saving ? 'saving' : saved ? 'saved' : 'idle'}>
-              {saving ? (
-                'Opslaan…'
-              ) : saved ? (
-                <>
-                  <Icon name="check" size={15} /> Opgeslagen
-                </>
-              ) : (
-                'Wijzigingen worden vanzelf bewaard'
-              )}
-            </span>
-          </span>
         </div>
       )}
     </main>

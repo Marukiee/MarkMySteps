@@ -33,6 +33,31 @@ const FAKE: LatestApp = {
 };
 
 /**
+ * Asks the server what the latest APK is and compares it with this install.
+ *
+ * Shared with the manual check in Settings, so both answer the same question
+ * the same way — including "you already dismissed this one", which a manual
+ * check must ignore.
+ */
+export async function checkForUpdate(
+  ignoreDismissed = false,
+): Promise<{ current: number; latest: LatestApp | null; newer: boolean }> {
+  const [{ build }, latest] = await Promise.all([
+    App.getInfo(),
+    api<LatestApp>('/app/latest'),
+  ]);
+  const current = Number(build);
+  const usable =
+    latest && typeof latest.version === 'number' && latest.url ? latest : null;
+  const newer =
+    usable !== null &&
+    Number.isFinite(current) &&
+    usable.version! > current &&
+    (ignoreDismissed || localStorage.getItem(DISMISS_KEY) !== String(usable.version));
+  return { current, latest: usable, newer };
+}
+
+/**
  * Native-only "new version available" banner. The server advertises the latest
  * APK (build number + download URL) via GET /app/latest; if it's newer than this
  * install, we show a download button (there's no Play Store on the target
@@ -56,22 +81,8 @@ export function UpdateBanner() {
     let cancelled = false;
     const check = async () => {
       try {
-        const [{ build }, latest] = await Promise.all([
-          App.getInfo(),
-          api<LatestApp>('/app/latest'),
-        ]);
-        const current = Number(build);
-        if (
-          cancelled ||
-          !latest.version ||
-          !latest.url ||
-          !Number.isFinite(current) ||
-          latest.version <= current ||
-          localStorage.getItem(DISMISS_KEY) === String(latest.version)
-        ) {
-          return;
-        }
-        setInfo(latest);
+        const { latest, newer } = await checkForUpdate();
+        if (!cancelled && newer && latest) setInfo(latest);
       } catch {
         /* offline / not configured — no banner */
       }
