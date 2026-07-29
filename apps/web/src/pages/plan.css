@@ -1137,7 +1137,9 @@
   padding: 0.4rem 0.6rem 0.4rem 0.4rem;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: var(--paper-sunken);
+  /* Only just off the card it sits in: enough to read as its own row, light
+     enough that the weather emoji does not disappear into it. */
+  background: color-mix(in srgb, var(--paper-sunken) 42%, var(--paper-raised));
 }
 
 .daytrip-thumb {
@@ -1167,14 +1169,6 @@
   gap: 0.35rem;
   font-size: 0.78rem;
   white-space: nowrap;
-}
-
-/* The emoji all but disappeared against the card's beige; a light chip behind
-   it puts it back on the same white it has everywhere else. */
-.daytrip-meta .weather-badge {
-  padding: 0.05rem 0.35rem;
-  border-radius: 7px;
-  background: var(--paper-raised);
 }
 
 /* The date is editable in place, so it reads as text until you touch it. The

@@ -643,10 +643,12 @@ export function GlobeBackdrop({
           // otherwise the globe zooms out through the light's own trail. Then a
           // short dwell before the next pass; looping instantly feels frantic.
           const TRAIL_DEG = Math.min(11, total * 0.4);
-          const PAUSE = 10; // degrees' worth of dwell time past the end
+          // Just enough of a beat to read as two passes rather than one long
+          // one; any more and the globe sits there doing nothing.
+          const PAUSE = 2.5; // degrees' worth of dwell time past the end
           // Constant speed, except on a route long enough that one pass would
           // take forever — there the run is capped to a few seconds instead.
-          const speed = Math.max(0.055, total / (6.5 * 60));
+          const speed = Math.max(0.07, total / (5 * 60));
           glowDist += speed * (dt * 60);
           if (glowDist > total + TRAIL_DEG + PAUSE) {
             glowDist = 0;
