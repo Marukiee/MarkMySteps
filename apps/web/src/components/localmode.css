@@ -101,7 +101,9 @@
 
 .lm-scroll {
   overflow-y: auto;
-  padding: 0.8rem 1.35rem 0.4rem;
+  /* The last section used to stop right at the fold; this gives it somewhere
+     to scroll to. */
+  padding: 0.8rem 1.35rem 1.6rem;
   display: grid;
   gap: 1.4rem;
 }
@@ -127,14 +129,16 @@
   gap: 0.7rem;
 }
 
+/* Sentence case, in the heading face: the all-caps version fought with every
+   other heading on the page. */
 .lm-group-title {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 560;
+  letter-spacing: -0.01em;
 }
 
 .lm-group-title.lm-yes {
@@ -219,12 +223,32 @@
 }
 
 .lm-steps code {
-  display: inline-block;
-  margin-left: 0.3rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: 6px;
+  display: block;
+  margin-top: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
   background: var(--paper-raised);
-  font-size: 0.85em;
+  font-size: 0.8em;
+  /* A git URL is longer than the sheet is wide. */
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* "Instellingen › Profiel", the same shape the settings pages use. */
+.lm-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0 0.15rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 7px;
+  background: var(--paper-raised);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lm-path svg {
+  color: var(--ink-faint);
 }
 
 .lm-note {
@@ -243,26 +267,23 @@
   flex: 1;
 }
 
-/* The link under the login form. */
+/* The link under the login form: a quiet, underlined line rather than a second
+   button competing with the one above it. */
 .login-nolink {
   justify-self: center;
   margin-top: 0.2rem;
-  padding: 0.5rem 0.9rem;
-  border-radius: 999px;
+  padding: 0.5rem 0.6rem;
   font-size: 0.88rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--ink-soft);
-  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color 0.15s var(--ease);
 }
 
 .login-nolink:hover {
-  background: var(--paper-sunken);
   color: var(--ink);
-}
-
-.login-nolink u {
-  text-decoration-color: var(--accent);
-  text-underline-offset: 3px;
 }
 
 /* Shown while the local backend is still being built. */

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, IconName } from './Icon';
 import { LogoMark } from './Logo';
@@ -15,7 +15,7 @@ const WORKS: Feature[] = [
   {
     icon: 'pin',
     title: 'Route-tracking',
-    body: 'De GPS-tracker draait volledig op je toestel. Punten worden lokaal bewaard, ook zonder internet.',
+    body: 'Je locatie wordt op je toestel bewaard, ook als je geen internet hebt. De tracker draait volledig op je telefoon.',
   },
   {
     icon: 'compass',
@@ -39,36 +39,30 @@ const NEEDS_SERVER: Feature[] = [
   {
     icon: 'people',
     title: 'Reisgenoten',
-    body: 'Samen aan één reis werken en elkaars live positie zien kan alleen via een server.',
+    body: 'Samen aan één reis werken en elkaars live positie zien. Daar zijn twee toestellen voor nodig die elkaar ergens kunnen vinden.',
   },
   {
     icon: 'share',
     title: 'Deel-links',
-    body: 'In plaats daarvan exporteer je een reis als één bestand dat je zelf doorstuurt.',
+    body: 'In plaats daarvan zet je een reis in één bestand dat je zelf doorstuurt.',
   },
   {
     icon: 'archive',
     title: 'Automatische back-up',
-    body: 'Alles staat op je toestel. Maak zelf af en toe een back-up, of koppel later alsnog een server.',
+    body: 'Alles staat op je toestel. Maak zelf af en toe een back-up via Instellingen.',
   },
   {
     icon: 'camera',
     title: 'Immich',
-    body: "Je eigen Immich-server kun je later koppelen als je je foto's al daar bewaart.",
+    body: "Bewaar je je foto's al op een eigen Immich-server, dan kun je die later koppelen.",
   },
 ];
 
 /**
- * Flip to true once localBackend can serve the app. Until then the sheet is
- * honest about it rather than dropping someone into an app with no data layer.
- */
-const LOCAL_MODE_READY = true;
-
-/**
  * The "no server" explainer, opened from the login screen.
  *
- * The honest version: what you keep, what you give up, and that the choice
- * isn't final. That last part matters most — someone who knows they can add a
+ * The honest version: what you keep, what you give up, and that the choice is
+ * not final. That last part matters most: someone who knows they can add a
  * server later will actually try the app now.
  */
 export function LocalModeSheet({
@@ -79,27 +73,32 @@ export function LocalModeSheet({
   onContinue: () => void;
 }) {
   const [closing, setClosing] = useState(false);
+  /** Set when the caller is about to navigate: the entry pushed on open must
+   *  then stay put, or the navigation is undone by the pop below. */
+  const keepHistory = useRef(false);
+  const closeRef = useRef<() => void>(() => undefined);
 
   const close = () => {
     setClosing(true);
     window.setTimeout(onClose, 220);
   };
+  closeRef.current = close;
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current();
     document.addEventListener('keydown', onKey);
     // Back closes the sheet rather than leaving the login screen.
     window.history.pushState({ mmsLocalMode: true }, '');
     let popped = false;
     const onPop = () => {
       popped = true;
-      close();
+      closeRef.current();
     };
     window.addEventListener('popstate', onPop);
     return () => {
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('popstate', onPop);
-      if (!popped) window.history.back();
+      if (!popped && !keepHistory.current) window.history.back();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -164,47 +163,54 @@ export function LocalModeSheet({
             <h3>
               <Icon name="external" size={16} /> Later alsnog een server?
             </h3>
+            <p className="muted lm-note">
+              Een server is gewoon een computer die altijd aan staat. Een oude laptop met Linux en
+              Docker werkt prima; een Raspberry Pi of een NAS ook.
+            </p>
             <ol className="lm-steps">
               <li>
-                Zet MarkMySteps op je eigen machine of NAS — één commando:
-                <code>./install.sh</code>
+                Installeer Docker op dat toestel en haal de code op:
+                <code>git clone https://github.com/Marukiee/MarkMySteps.git</code>
               </li>
               <li>
-                Ga naar <strong>Instellingen → Account</strong> en vul het adres van je server in.
+                Draai in die map <code>./install.sh</code>. Dat vraagt om het adres waarop je de app
+                wilt bereiken en zet daarna alles zelf klaar.
               </li>
               <li>
-                Alles wat je lokaal hebt gemaakt wordt in één keer geüpload. Je raakt niets kwijt,
-                en je hoeft niets opnieuw in te voeren.
+                Maak op dat adres een account aan. Vanaf dat moment kun je ook mensen uitnodigen.
+              </li>
+              <li>
+                Ga in de app naar
+                <span className="lm-path">
+                  Instellingen <Icon name="chevron-right" size={12} /> Profiel
+                </span>
+                , kies <strong>Server koppelen</strong> en vul dat adres in.
               </li>
             </ol>
             <p className="muted lm-note">
-              Je kunt ook de andere kant op: een server loskoppelen laat je gegevens gewoon op je
-              toestel staan.
+              Je reizen gaan in één keer mee. Je hoeft niets opnieuw in te voeren, en je kunt ook
+              weer terug: een server loskoppelen laat alles gewoon op je toestel staan.
             </p>
           </section>
         </div>
 
         <footer className="lm-actions">
-          {LOCAL_MODE_READY ? (
-            <>
-              <button type="button" className="btn btn-ghost" onClick={close}>
-                Terug
-              </button>
-              <button type="button" className="btn btn-primary" onClick={onContinue}>
-                Zonder server beginnen
-              </button>
-            </>
-          ) : (
-            <div className="lm-soon">
-              <span>
-                <strong>Bijna zover.</strong> De lokale modus wordt nu gebouwd — dit scherm laat
-                alvast zien wat je ervan kunt verwachten.
-              </span>
-              <button type="button" className="btn btn-ghost" onClick={close}>
-                Terug
-              </button>
-            </div>
-          )}
+          <button type="button" className="btn btn-ghost" onClick={close}>
+            Terug
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              // The history entry pushed on open must NOT be popped here: the
+              // caller navigates away, and popping would have taken that
+              // navigation straight back to the login screen.
+              keepHistory.current = true;
+              onContinue();
+            }}
+          >
+            Zonder server beginnen
+          </button>
         </footer>
       </div>
     </div>,

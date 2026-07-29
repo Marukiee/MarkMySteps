@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { AccountStatus, UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -9,8 +9,10 @@ export interface AdminUserRow {
   username: string;
   displayName: string;
   role: UserRole;
+  status: AccountStatus;
   mustChangePassword: boolean;
   createdAt: Date;
+  decidedAt: Date | null;
   tripCount: number;
 }
 
@@ -20,8 +22,10 @@ const ROW_SELECT = {
   username: true,
   displayName: true,
   role: true,
+  status: true,
   mustChangePassword: true,
   createdAt: true,
+  decidedAt: true,
   _count: { select: { tripMemberships: true } },
 } as const;
 
@@ -60,6 +64,10 @@ export class AdminService {
         displayName: displayName.trim(),
         passwordHash: await argon2.hash(tempPassword, { type: argon2.argon2id }),
         mustChangePassword: true,
+        // An admin creating the account IS the approval.
+        status: AccountStatus.APPROVED,
+        approvalSeen: true,
+        decidedAt: new Date(),
       },
       select: ROW_SELECT,
     });
@@ -76,6 +84,47 @@ export class AdminService {
       },
     });
     // Kick every session of that account.
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /**
+   * Lets a waiting account in.
+   *
+   * Their existing tokens still say "pending", so every session is revoked:
+   * the app signs in again (or refreshes) and gets a full token. Leaving the
+   * old ones alive would mean the guard kept refusing someone who had just
+   * been approved.
+   */
+  async approve(userId: string, adminId: string): Promise<void> {
+    const user = await this.requireUser(userId);
+    if (user.status === AccountStatus.APPROVED) return;
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: AccountStatus.APPROVED,
+        decidedAt: new Date(),
+        decidedById: adminId,
+        approvalSeen: false,
+      },
+    });
+  }
+
+  /**
+   * Refuses one. The row stays: it keeps the email and username taken, and a
+   * refusal that quietly frees them up invites the same request again.
+   */
+  async reject(userId: string, adminId: string): Promise<void> {
+    const user = await this.requireUser(userId);
+    if (user.id === adminId) {
+      throw new BadRequestException('You cannot reject your own account');
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { status: AccountStatus.REJECTED, decidedAt: new Date(), decidedById: adminId },
+    });
     await this.prisma.refreshToken.updateMany({
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
@@ -99,9 +148,10 @@ export class AdminService {
     await this.prisma.user.delete({ where: { id: userId } });
   }
 
-  private async requireUser(userId: string): Promise<void> {
+  private async requireUser(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
+    return user;
   }
 }
 
@@ -111,8 +161,10 @@ function toRow(user: {
   username: string;
   displayName: string;
   role: UserRole;
+  status: AccountStatus;
   mustChangePassword: boolean;
   createdAt: Date;
+  decidedAt: Date | null;
   _count: { tripMemberships: number };
 }): AdminUserRow {
   const { _count, ...rest } = user;

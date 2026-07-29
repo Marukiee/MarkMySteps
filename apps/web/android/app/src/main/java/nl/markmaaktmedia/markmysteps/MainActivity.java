@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MmsHapticsPlugin.class);
         registerPlugin(MmsGalleryPlugin.class);
         registerPlugin(MmsExportPlugin.class);
+        registerPlugin(MmsNotifyPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

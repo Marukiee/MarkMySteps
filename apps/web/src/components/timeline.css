@@ -2,13 +2,14 @@
   display: grid;
   gap: 1.5rem;
   position: relative;
-  padding-left: 0.25rem;
+  padding-left: 0;
 }
 
 .timeline::before {
   content: '';
   position: absolute;
-  left: 9px;
+  /* Centred under the day dot, which starts at -1px and is 13px wide. */
+  left: 4.5px;
   top: 12px;
   bottom: 12px;
   width: 2px;
@@ -103,7 +104,8 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 0.5rem;
-  margin-left: 1.6rem;
+  /* Hard against the rail: every millimetre here is a millimetre of photo. */
+  margin-left: 1.15rem;
 }
 
 .timeline-photo {

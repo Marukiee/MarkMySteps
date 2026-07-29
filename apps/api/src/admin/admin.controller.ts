@@ -64,6 +64,24 @@ export class AdminController {
     return this.admin.createUser(dto.email, dto.username, dto.displayName, dto.tempPassword);
   }
 
+  @Post(':id/approve')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async approve(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.admin.approve(id, user.sub);
+  }
+
+  @Post(':id/reject')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async reject(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.admin.reject(id, user.sub);
+  }
+
   @Post(':id/reset-password')
   @HttpCode(HttpStatus.NO_CONTENT)
   async resetPassword(

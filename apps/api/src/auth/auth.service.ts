@@ -1,6 +1,12 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { AccountStatus, UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,9 +19,31 @@ export interface AuthTokens {
 export interface JwtPayload {
   sub: string; // user id
   email: string;
+  /**
+   * Present and true while the account is still waiting for an admin.
+   *
+   * A pending user gets a real token so the app can ask about its own status,
+   * but the guard refuses that token everywhere except the handful of routes
+   * that opt in. Denying by default is the point: forgetting to add a check to
+   * a new endpoint leaves it closed, not open.
+   */
+  pending?: true;
+}
+
+export interface RegisterResult extends AuthTokens {
+  status: 'PENDING' | 'APPROVED';
 }
 
 const REFRESH_TOKEN_BYTES = 48;
+
+/**
+ * How many sign-ups may be waiting for a decision at once.
+ *
+ * This is a private server for you and the people you travel with, so the
+ * honest number is small. Sitting at the cap is a signal in itself: either
+ * there are requests to deal with, or someone is trying it on.
+ */
+const MAX_PENDING_REQUESTS = 15;
 
 @Injectable()
 export class AuthService {
@@ -29,12 +57,20 @@ export class AuthService {
     this.refreshTtlMs = parseDuration(config.get<string>('REFRESH_TOKEN_EXPIRES_IN') ?? '30d');
   }
 
+  /**
+   * Signing up is a REQUEST, not an account.
+   *
+   * The row is created straight away (so the name and email are taken and the
+   * password is stored hashed) but with PENDING status, which the guard treats
+   * as "may do nothing". The one exception is the first account on a fresh
+   * server: there would otherwise be nobody who could approve anybody.
+   */
   async register(
     email: string,
     username: string,
     displayName: string,
     password: string,
-  ): Promise<AuthTokens> {
+  ): Promise<RegisterResult> {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedUsername = username.trim().toLowerCase();
     const existing = await this.prisma.user.findFirst({
@@ -48,6 +84,23 @@ export class AuthService {
       );
     }
 
+    const first = (await this.prisma.user.count()) === 0;
+
+    // A sign-up costs an admin a decision, so the queue has a ceiling. Without
+    // one, anybody who can reach the server could bury the accounts screen
+    // under thousands of rows and make real requests impossible to find. The
+    // per-IP rate limit sits in front of this; the cap is what holds when the
+    // requests come from many addresses at once.
+    if (!first) {
+      const waiting = await this.prisma.user.count({
+        where: { status: AccountStatus.PENDING },
+      });
+      if (waiting >= MAX_PENDING_REQUESTS) {
+        throw new ForbiddenException(
+          'Er staan te veel aanvragen open op deze server. Probeer het later opnieuw.',
+        );
+      }
+    }
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
     const user = await this.prisma.user.create({
       data: {
@@ -55,10 +108,40 @@ export class AuthService {
         username: normalizedUsername,
         displayName: displayName.trim(),
         passwordHash,
+        role: first ? UserRole.ADMIN : UserRole.USER,
+        status: first ? AccountStatus.APPROVED : AccountStatus.PENDING,
+        approvalSeen: first,
+        decidedAt: first ? new Date() : null,
       },
     });
 
-    return this.issueTokens(user.id, user.email);
+    return {
+      ...(await this.issueTokens(user.id, user.email, user.status)),
+      status: first ? 'APPROVED' : 'PENDING',
+    };
+  }
+
+  /**
+   * What a waiting account is allowed to ask: whether it is still waiting.
+   *
+   * Answered from the database rather than from the token, so an approval takes
+   * effect immediately and a rejection cannot be sat out with an old token.
+   */
+  async approvalStatus(userId: string): Promise<{
+    status: AccountStatus;
+    /** True the first time the app sees an approval, so it can say so once. */
+    justApproved: boolean;
+  }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Account no longer exists');
+    const justApproved = user.status === AccountStatus.APPROVED && !user.approvalSeen;
+    if (justApproved) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { approvalSeen: true },
+      });
+    }
+    return { status: user.status, justApproved };
   }
 
   /** `identifier` is an email address or a username. */
@@ -76,8 +159,14 @@ export class AuthService {
     if (!user || !valid) {
       throw new UnauthorizedException('Invalid email or password');
     }
+    if (user.status === AccountStatus.REJECTED) {
+      throw new ForbiddenException('This account has not been approved');
+    }
 
-    return this.issueTokens(user.id, user.email);
+    // A pending account may sign in — it just gets a token that can do nothing
+    // but ask whether it is still pending. Refusing the login outright would
+    // leave the app with no way to find out it had been approved.
+    return this.issueTokens(user.id, user.email, user.status);
   }
 
   /**
@@ -110,7 +199,12 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
 
-    return this.issueTokens(stored.user.id, stored.user.email);
+    if (stored.user.status === AccountStatus.REJECTED) {
+      throw new ForbiddenException('This account has not been approved');
+    }
+    // Read from the row, not carried over from the old token: refreshing is
+    // how a just-approved session is upgraded to a full one.
+    return this.issueTokens(stored.user.id, stored.user.email, stored.user.status);
   }
 
   async logout(rawToken: string): Promise<void> {
@@ -120,8 +214,13 @@ export class AuthService {
     });
   }
 
-  private async issueTokens(userId: string, email: string): Promise<AuthTokens> {
+  private async issueTokens(
+    userId: string,
+    email: string,
+    status: AccountStatus,
+  ): Promise<AuthTokens> {
     const payload: JwtPayload = { sub: userId, email };
+    if (status !== AccountStatus.APPROVED) payload.pending = true;
     const accessToken = await this.jwt.signAsync(payload);
 
     const refreshToken = randomBytes(REFRESH_TOKEN_BYTES).toString('base64url');

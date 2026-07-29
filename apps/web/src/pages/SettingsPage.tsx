@@ -915,6 +915,9 @@ function TrackingLog({ now }: { now: number }) {
     <>
       <Collapsible
         className="tracking-log"
+        // It sits inside the "Details" expander; needing a second press to see
+        // anything was one press too many.
+        defaultOpen
         summary={
           <>
             Locatie-log · {log.length} checks
@@ -1125,13 +1128,17 @@ function TrackingLogSheet({
 function Collapsible({
   summary,
   className = '',
+  defaultOpen = false,
   children,
 }: {
   summary: ReactNode;
   className?: string;
+  /** For an expander that lives inside another one: opening the outer should
+   *  not leave you with a second thing to press before you see anything. */
+  defaultOpen?: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div className={`collapsible ${className} ${open ? 'open' : ''}`}>
       <button
@@ -1574,8 +1581,25 @@ function ImmichSection() {
       <h2>
         Immich
         <HelpTip>
-          Koppel je eigen Immich-server. Foto's blijven dáár staan. MarkMySteps bewaart alleen
-          verwijzingen (asset-id, tijdstip, GPS uit EXIF).
+          Immich is een gratis, open-source fotobibliotheek die je zelf draait: je eigen Google
+          Photos, maar op je eigen server. Heb je die niet, dan hoef je hier niets in te vullen —
+          MarkMySteps gebruikt dan de galerij van je toestel.
+          <br />
+          <br />
+          Koppel je 'm wel, dan blijven je foto's dáár staan. MarkMySteps bewaart alleen
+          verwijzingen: het asset-id, het tijdstip en de GPS uit de EXIF. Je API-sleutel gaat
+          versleuteld de database in.
+          <br />
+          <br />
+          <a
+            href="https://immich.app"
+            target="_blank"
+            rel="noreferrer"
+            className="ext-link"
+            onClick={(e) => e.stopPropagation()}
+          >
+            immich.app <Icon name="external" size={12} />
+          </a>
         </HelpTip>
       </h2>
 
@@ -1661,8 +1685,82 @@ interface AdminUserRow {
   username: string;
   displayName: string;
   role: 'ADMIN' | 'USER';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   mustChangePassword: boolean;
+  createdAt: string;
   tripCount: number;
+}
+
+/**
+ * Sign-up requests, at the top because they are the only thing on this page
+ * that is waiting on you.
+ *
+ * The refusal is the server's: a pending account's token is rejected
+ * everywhere except the status check. This is only where the decision is made.
+ */
+function PendingRequests({
+  rows,
+  onDecide,
+}: {
+  rows: AdminUserRow[];
+  onDecide: (row: AdminUserRow, approve: boolean) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [shown, closing] = useExit(rows.length > 0, 260);
+  const lastRows = useRef<AdminUserRow[]>(rows);
+  if (rows.length > 0) lastRows.current = rows;
+  if (!shown) return null;
+
+  return (
+    <section className={`card settings-card admin-pending ${closing ? 'leaving' : ''}`}>
+      <h2>
+        <Icon name="people" size={18} />
+        {lastRows.current.length === 1 ? '1 aanvraag' : `${lastRows.current.length} aanvragen`}
+      </h2>
+      <p className="muted">
+        Deze mensen hebben zich aangemeld op je server. Tot je ze toelaat kunnen ze niets: hun
+        sessie wordt overal geweigerd.
+      </p>
+      <ul className="admin-users">
+        {lastRows.current.map((row) => (
+          <li key={row.id} className="admin-request">
+            <div className="admin-user-info">
+              <strong>
+                {row.displayName} <small className="muted">@{row.username}</small>
+              </strong>
+              <span className="muted">
+                {row.email} · aangemeld {formatDate(row.createdAt)}
+              </span>
+            </div>
+            <div className="admin-user-actions">
+              <button
+                className="btn btn-ghost"
+                disabled={busy === row.id}
+                onClick={async () => {
+                  setBusy(row.id);
+                  await onDecide(row, false);
+                  setBusy(null);
+                }}
+              >
+                Afwijzen
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={busy === row.id}
+                onClick={async () => {
+                  setBusy(row.id);
+                  await onDecide(row, true);
+                  setBusy(null);
+                }}
+              >
+                <Icon name="check" size={15} /> Toelaten
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 /** Admin-only: manage every account on this server. */
@@ -1713,6 +1811,31 @@ function AccountsSection() {
     }
   }
 
+  async function decideRequest(row: AdminUserRow, approve: boolean) {
+    setError(null);
+    setMessage(null);
+    if (!approve) {
+      const ok = await confirmModal({
+        title: `Aanvraag van ${row.displayName} afwijzen?`,
+        body: 'Diegene kan niet inloggen. Het account blijft bestaan, zodat dezelfde naam en e-mail niet meteen opnieuw gebruikt kunnen worden.',
+        confirmLabel: 'Afwijzen',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    try {
+      await api(`/admin/users/${row.id}/${approve ? 'approve' : 'reject'}`, { method: 'POST' });
+      setMessage(
+        approve
+          ? `${row.displayName} is toegelaten. Diegene krijgt bericht zodra de app kijkt.`
+          : `Aanvraag van ${row.displayName} afgewezen.`,
+      );
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Mislukt');
+    }
+  }
+
   async function resetPassword(row: AdminUserRow) {
     const temp = window.prompt(`Nieuw tijdelijk wachtwoord voor @${row.username} (min. 10 tekens):`);
     if (!temp) return;
@@ -1748,13 +1871,20 @@ function AccountsSection() {
     load();
   }
 
+  const requests = users.filter((u) => u.status === 'PENDING');
+  const settled = users.filter((u) => u.status !== 'PENDING');
+
   return (
-    <section className="card settings-card">
+    <>
+      <PendingRequests rows={requests} onDecide={decideRequest} />
+
+      <section className="card settings-card">
       <h2>
         Accounts (beheer)
         <HelpTip>
-          Bij de eerste login kiezen ze zelf een eigen wachtwoord. Overslaan kan, dan blijven ze
-          een herinnering zien tot ze het alsnog doen.
+          Wie zich aanmeldt komt eerst in de wachtrij: pas als jij die aanvraag toelaat kan diegene
+          iets. Maak je hier zelf een account aan, dan is dat meteen goedgekeurd. Bij de eerste
+          login kiezen ze een eigen wachtwoord; overslaan kan, dan blijven ze een herinnering zien.
         </HelpTip>
       </h2>
       <p className="muted">Maak accounts voor vrienden met een tijdelijk wachtwoord.</p>
@@ -1768,7 +1898,7 @@ function AccountsSection() {
         </ul>
       )}
       <ul className="admin-users">
-        {users.map((row) => (
+        {settled.map((row) => (
           <li key={row.id}>
             <div className="admin-user-info">
               <strong>
@@ -1777,6 +1907,7 @@ function AccountsSection() {
               <span className="muted">
                 {row.email} · {row.tripCount} {row.tripCount === 1 ? 'reis' : 'reizen'}
                 {row.role === 'ADMIN' && ' · admin'}
+                {row.status === 'REJECTED' && ' · afgewezen'}
                 {row.mustChangePassword && ' · tijdelijk wachtwoord'}
               </span>
             </div>
@@ -1844,7 +1975,8 @@ function AccountsSection() {
 
       {message && <p className="settings-ok">{message}</p>}
       {error && <p className="error-text">{error}</p>}
-    </section>
+      </section>
+    </>
   );
 }
 

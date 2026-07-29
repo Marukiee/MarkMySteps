@@ -2,7 +2,7 @@ import type { MediaItem, RouteCollection, Trip, TripMember } from '../api/types'
 import { PlannedStop, haversineKm } from './arc';
 import { mediaSrc, queryGallery, requestGalleryPermission } from './gallery';
 import { dbAll, dbByTrip, dbDelete, dbDeleteMany, dbGet, dbPut, dbPutMany } from './localDb';
-import { LOCAL_USER } from './localMode';
+import { LOCAL_USER, localUser, setLocalName } from './localMode';
 import { localCreate, localDelete, localReorder, localUpdate } from './plannerLocal';
 
 /**
@@ -83,13 +83,14 @@ const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']
 
 /** The only member a local trip has. */
 function selfMember(): TripMember {
+  const me = localUser();
   return {
-    userId: LOCAL_USER.id,
+    userId: me.id,
     role: 'OWNER',
     canTrack: true,
     user: {
-      displayName: LOCAL_USER.displayName,
-      username: LOCAL_USER.username,
+      displayName: me.displayName,
+      username: me.username,
       hasAvatar: false,
     },
   };
@@ -345,12 +346,12 @@ function route(method: string, pattern: string, handle: Handler): void {
 
 /* ---- Account ---- */
 
-route('GET', '/users/me', async () => LOCAL_USER);
+route('GET', '/users/me', async () => localUser());
 route('PATCH', '/users/me', async (req) => {
-  const stored = (await dbGet<typeof LOCAL_USER>('meta', 'user')) ?? LOCAL_USER;
-  const next = { ...stored, ...req.body } as typeof LOCAL_USER;
-  await dbPut('meta', next, 'user');
-  return next;
+  // The name is the one thing there is to change, and it lives where the rest
+  // of the app can read it without opening the database.
+  if (typeof req.body.displayName === 'string') setLocalName(req.body.displayName);
+  return localUser();
 });
 route('GET', '/users/friends', async () => []);
 route('GET', '/users/suggestions', async () => []);

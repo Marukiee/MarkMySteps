@@ -1,3 +1,8 @@
+/* The brand is pinned inside this page, over the globe. */
+.trips-page {
+  position: relative;
+}
+
 .trips-head {
   display: flex;
   align-items: center;
@@ -9,19 +14,23 @@
   font-size: 2rem;
 }
 
-/* Same lockup as the top bar's, in the wordmark's own typeface. Sits above
-   the "Reizen" heading rather than replacing it. */
+/* Same lockup as the top bar's, in the wordmark's own typeface. Pinned to the
+   very top left, over the globe, where a logo belongs. */
 .trips-brand {
   display: none;
+  position: absolute;
+  top: calc(0.9rem + env(safe-area-inset-top));
+  left: 1.25rem;
+  z-index: 3;
   align-items: center;
   gap: 0.4rem;
-  margin-bottom: 0.9rem;
   font-family: var(--font-brand);
   font-weight: 620;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   letter-spacing: -0.02em;
-  color: var(--ink-soft);
+  color: var(--ink);
   user-select: none;
+  pointer-events: none;
   animation: rise 0.45s var(--ease) backwards;
 }
 
@@ -29,6 +38,11 @@
 @media (max-width: 720px) {
   .trips-brand {
     display: inline-flex;
+  }
+
+  /* Room for it above the heading, since it no longer takes any of its own. */
+  .trips-head {
+    margin-top: 2.4rem;
   }
 }
 
@@ -518,6 +532,15 @@
   background: var(--paper-raised);
   color: var(--ink);
   box-shadow: var(--shadow-s);
+}
+
+/* The segmented control is centred; only the menu ITEMS below it are ranged
+   left. Written this way round because both selectors are equally specific and
+   this one has to win. */
+.trip-menu .trip-menu-seg button {
+  text-align: center;
+  min-width: 0;
+  padding-inline: 0.2rem;
 }
 
 .trip-menu button {

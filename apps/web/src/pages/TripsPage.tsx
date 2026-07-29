@@ -75,7 +75,7 @@ export function TripsPage() {
   const past = trips?.filter((t) => t.endDate.slice(0, 10) < today) ?? [];
 
   return (
-    <main className="page fade-in">
+    <main className="page fade-in trips-page">
       <GlobeBackdrop trips={trips ?? []} selfLocation={self} />
 
       {/* The wordmark belongs at the top left of the first screen you see. On a

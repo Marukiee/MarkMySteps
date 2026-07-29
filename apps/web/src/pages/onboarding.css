@@ -93,6 +93,16 @@
   box-shadow: var(--shadow-m);
 }
 
+.onb-name {
+  width: 100%;
+  max-width: 260px;
+}
+
+.onb-name input {
+  text-align: center;
+  font-size: 1.05rem;
+}
+
 .onb-airports-slide {
   max-width: 380px;
 }

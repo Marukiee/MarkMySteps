@@ -55,3 +55,55 @@
   color: var(--ink);
   box-shadow: var(--shadow-s);
 }
+
+/* Switching tab used to add and remove two fields in one frame, which made the
+   card jump. It grows and shrinks instead: 0fr → 1fr on a grid row is the one
+   way to animate to a height nobody knows in advance. */
+.login-extra,
+.login-hint {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.32s var(--ease), opacity 0.24s var(--ease);
+}
+
+.login-extra[data-open='true'],
+.login-hint[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.login-extra-inner,
+.login-hint > span {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.login-extra-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  /* Room for the shadow of a focused field, which a hidden overflow would
+     otherwise shave off. */
+  padding: 4px;
+  margin: -4px;
+}
+
+.login-hint > span {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+}
+
+/* The button's label crossfades with the tab instead of swapping outright. */
+.login-submit-face {
+  display: inline-block;
+  animation: loginFace 0.28s var(--ease);
+}
+
+@keyframes loginFace {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}

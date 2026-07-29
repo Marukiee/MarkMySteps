@@ -2,6 +2,7 @@ import { registerPlugin } from '@capacitor/core';
 import { ReactNode, TouchEvent as ReactTouchEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Trip } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { AirportPrefs } from '../components/AirportPrefs';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon, IconName } from '../components/Icon';
@@ -11,7 +12,7 @@ import {
   galleryPermissions,
   requestGalleryPermission,
 } from '../lib/gallery';
-import { isLocalMode } from '../lib/localMode';
+import { getLocalName, isLocalMode, setLocalName } from '../lib/localMode';
 import { isNativeApp, markOnboarded } from '../lib/native';
 import { getThemeId, setThemeId, ThemeId } from '../lib/prefs';
 import './onboarding.css';
@@ -120,6 +121,7 @@ const MmsLocation = registerPlugin<MmsLocationPlugin>('MmsLocation');
 /** First-run flow: a swipeable tour of what the app does, then permissions. */
 export function OnboardingPage() {
   const navigate = useNavigate();
+  const { refresh } = useAuth();
   const isApp = isNativeApp();
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState<1 | -1>(1);
@@ -139,6 +141,7 @@ export function OnboardingPage() {
   const localOnly = isApp && isLocalMode();
   const [gallery, setGallery] = useState<GalleryPermissions>({ library: false, location: false });
   const [galleryAsked, setGalleryAsked] = useState(false);
+  const [name, setName] = useState(getLocalName());
 
   // Reflect what is already granted (re-running the tour, or a partial answer).
   useEffect(() => {
@@ -172,6 +175,8 @@ export function OnboardingPage() {
     setLeaving(true);
     window.setTimeout(() => {
       markOnboarded();
+      // Picks up the name typed on the first slide.
+      void refresh();
       navigate('/', { replace: true });
     }, 300);
   }
@@ -191,10 +196,36 @@ export function OnboardingPage() {
       <LogoMark size={78} />
       <h1>Welkom bij MarkMySteps</h1>
       <p className="muted">
-        Jouw reizen, op jouw eigen server. Volg je route, plan je trip en deel ‘m. Privé en zonder
-        big tech.
+        Volg je route, plan je reis en kijk 'm later terug. Alles blijft van jou.
       </p>
     </div>,
+    // Without a server there is no account, so there is nothing to sign up for.
+    // A name is all the app needs, and only to put on your own trips.
+    ...(localOnly
+      ? [
+          <div className="onb-feature" key="name">
+            <span className="onb-visual">
+              <Icon name="people" size={54} />
+            </span>
+            <h1>Hoe heet je?</h1>
+            <p className="muted">
+              Zonder server is er geen account en geen wachtwoord. Je naam staat alleen op je eigen
+              reizen, en blijft op dit toestel.
+            </p>
+            <div className="field onb-name">
+              <input
+                autoComplete="name"
+                placeholder="Je naam"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setLocalName(e.target.value);
+                }}
+              />
+            </div>
+          </div>,
+        ]
+      : []),
     <div className="onb-feature onb-globe-slide" key="globe">
       <div className="onb-globe" aria-hidden="true">
         <GlobeBackdrop trips={SAMPLE_TRIPS} noTour />

@@ -44,7 +44,7 @@ export function LoginPage() {
     <div className="login-shell">
       <div className="login-hero">
         <h1>MarkMySteps</h1>
-        <p>Jouw reizen, jouw server.</p>
+        <p>Leg vast waar je geweest bent, zonder dat iemand anders meekijkt.</p>
       </div>
 
       <form className="card login-card fade-in" onSubmit={submit}>
@@ -91,13 +91,16 @@ export function LoginPage() {
           />
         </div>
 
-        {mode === 'register' && (
-          <>
+        {/* Grows and shrinks with the tab rather than snapping: the two extra
+            fields used to appear and disappear in one frame. */}
+        <div className="login-extra" data-open={mode === 'register'}>
+          <div className="login-extra-inner">
             <div className="field">
               <label htmlFor="username">Gebruikersnaam</label>
               <input
                 id="username"
-                required
+                required={mode === 'register'}
+                disabled={mode !== 'register'}
                 pattern="[a-zA-Z0-9._\-]{3,30}"
                 autoComplete="username"
                 placeholder="bijv. mark"
@@ -110,14 +113,15 @@ export function LoginPage() {
               <label htmlFor="name">Naam</label>
               <input
                 id="name"
-                required
+                required={mode === 'register'}
+                disabled={mode !== 'register'}
                 autoComplete="name"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
               />
             </div>
-          </>
-        )}
+          </div>
+        </div>
 
         <div className="field">
           <label htmlFor="password">Wachtwoord</label>
@@ -129,19 +133,23 @@ export function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          {mode === 'register' && <span className="muted">Minimaal 10 tekens</span>}
+          <span className="login-hint" data-open={mode === 'register'}>
+            <span>Minimaal 10 tekens</span>
+          </span>
         </div>
 
         {error && <p className="error-text">{error}</p>}
 
         <button className="btn btn-primary" disabled={busy}>
-          {busy ? 'Even geduld…' : mode === 'login' ? 'Inloggen' : 'Account maken'}
+          <span key={mode} className="login-submit-face">
+            {busy ? 'Even geduld…' : mode === 'login' ? 'Inloggen' : 'Account maken'}
+          </span>
         </button>
 
         {/* The app is usable with nothing but the phone; saying so here is the
             only place anyone would look for it. */}
         <button type="button" className="login-nolink" onClick={() => setLocalInfo(true)}>
-          Doorgaan <u>zonder server</u>
+          Doorgaan zonder server
         </button>
       </form>
 

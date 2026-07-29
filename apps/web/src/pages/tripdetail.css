@@ -946,3 +946,53 @@
   display: grid;
   gap: 0.5rem;
 }
+
+/* "Back to the top" of the timeline. Between the map and the photos, so it
+   never sits on top of one, and it takes the camera back to the whole trip. */
+.trip-backtop {
+  position: sticky;
+  top: 0.4rem;
+  z-index: 5;
+  justify-self: center;
+  align-self: center;
+  display: grid;
+  place-content: center;
+  width: 38px;
+  height: 38px;
+  margin: 0 auto -38px;
+  border-radius: 50%;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  color: var(--ink);
+  box-shadow: var(--shadow-m);
+  animation: backTopIn 0.28s var(--ease);
+}
+
+.trip-backtop.leaving {
+  animation: backTopOut 0.2s var(--ease) forwards;
+}
+
+/* The chevron points down in the icon set; this one goes up. */
+.trip-backtop svg {
+  transform: rotate(180deg);
+  transition: transform 0.2s var(--ease);
+}
+
+.trip-backtop:active svg {
+  transform: rotate(180deg) scale(0.85);
+}
+
+@keyframes backTopIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.85);
+  }
+}
+
+@keyframes backTopOut {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.85);
+  }
+}

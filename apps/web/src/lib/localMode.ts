@@ -17,7 +17,20 @@ export function setLocalMode(on: boolean): void {
   else localStorage.removeItem(KEY);
 }
 
-/** The one account that exists on the device. Never leaves it. */
+const NAME_KEY = 'mms.localName';
+
+/** Your name, asked once during onboarding. */
+export function getLocalName(): string {
+  return localStorage.getItem(NAME_KEY) ?? '';
+}
+
+export function setLocalName(name: string): void {
+  const clean = name.trim();
+  if (clean) localStorage.setItem(NAME_KEY, clean);
+  else localStorage.removeItem(NAME_KEY);
+}
+
+/** The one identity that exists on the device. Never leaves it. */
 export const LOCAL_USER = {
   id: '00000000-0000-4000-8000-000000000001',
   email: 'lokaal@markmysteps',
@@ -29,3 +42,13 @@ export const LOCAL_USER = {
   mustChangePassword: false,
   hasAvatar: false,
 };
+
+/**
+ * Without a server there is no account, so this is not one: it is just the
+ * name that goes on your own trips. Read fresh each time, because onboarding
+ * can set it after the app has already started.
+ */
+export function localUser(): typeof LOCAL_USER {
+  const name = getLocalName();
+  return name ? { ...LOCAL_USER, displayName: name, username: name } : LOCAL_USER;
+}

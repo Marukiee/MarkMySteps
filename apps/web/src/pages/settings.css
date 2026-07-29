@@ -569,6 +569,10 @@
 
 .tracking-view-link {
   align-self: start;
+  /* It is a <button> now, and a button centres its label — which put this one
+     in the middle of the column instead of against its left edge. */
+  text-align: left;
+  padding: 0;
   font-weight: 600;
   color: var(--accent-ink);
 }
@@ -839,6 +843,36 @@
 .file-drop-icon {
   display: inline-flex;
   color: var(--ink-soft);
+}
+
+/* Sign-up requests: the one thing on this page that is waiting on you, so it
+   is marked as such rather than sitting in the list below. */
+.admin-pending {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-s);
+  animation: rise 0.4s var(--ease) both;
+}
+
+.admin-pending.leaving {
+  animation: adminPendingOut 0.26s var(--ease) forwards;
+}
+
+@keyframes adminPendingOut {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.admin-pending h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--accent-ink);
+}
+
+.admin-request {
+  animation: rise 0.35s var(--ease) backwards;
 }
 
 .admin-users {

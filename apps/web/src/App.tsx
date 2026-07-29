@@ -17,6 +17,7 @@ import { isNativeApp, isOnboarded } from './lib/native';
 import { FriendsPage } from './pages/FriendsPage';
 import { LoginPage } from './pages/LoginPage';
 import { OnboardingPage } from './pages/OnboardingPage';
+import { PendingPage } from './pages/PendingPage';
 import { PlanPage } from './pages/PlanPage';
 import { TripSettingsPage } from './pages/TripSettingsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -25,8 +26,11 @@ import { TripDetailPage } from './pages/TripDetailPage';
 import { TripsPage } from './pages/TripsPage';
 
 function RequireAuth({ children }: { children: ReactNode }) {
-  const { user, ready } = useAuth();
+  const { user, ready, pending } = useAuth();
   if (!ready) return null;
+  // Signed in, but the server has not let this account in yet. It refuses
+  // everything for such a session anyway; this is the screen that says so.
+  if (pending) return <PendingPage />;
   if (!user) return <Navigate to="/login" replace />;
   if (isNativeApp() && !isOnboarded()) return <Navigate to="/onboarding" replace />;
   return <>{children}</>;

@@ -21,6 +21,15 @@ enum UserRole {
   USER
 }
 
+/// Whether an account may actually be used. Someone who registers lands on
+/// PENDING and can do nothing at all until an admin approves them; the server
+/// enforces that, not the app.
+enum AccountStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique
@@ -29,6 +38,15 @@ model User {
   displayName  String
   passwordHash String
   role         UserRole @default(USER)
+  /// New sign-ups wait for an admin. The very first account of a fresh server
+  /// approves itself — otherwise there would be nobody able to approve anyone.
+  status       AccountStatus @default(PENDING)
+  /// When the decision was made, and by whom (kept for the accounts list).
+  decidedAt    DateTime?
+  decidedById  String?   @db.Uuid
+  /// Set once the app has told this user they were let in, so the message is
+  /// shown once rather than on every launch.
+  approvalSeen Boolean   @default(false)
   /// Set on admin-created accounts with a temporary password; cleared when
   /// the user picks their own. UI nags until then.
   mustChangePassword Boolean @default(false)

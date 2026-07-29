@@ -1,0 +1,107 @@
+/* The waiting room, shown while an account has not been approved yet. */
+
+.pending-shell {
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  padding: 2rem 1.25rem;
+  background:
+    radial-gradient(ellipse 60% 40% at 70% 10%, rgb(232 97 60 / 0.08), transparent),
+    var(--paper);
+}
+
+.pending-card {
+  width: min(92vw, 400px);
+  padding: 2rem 1.75rem 1.5rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.7rem;
+  text-align: center;
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-m);
+  animation: rise 0.5s var(--ease) both;
+}
+
+.pending-brand {
+  display: inline-flex;
+}
+
+.pending-card h1 {
+  font-size: 1.5rem;
+}
+
+.pending-card p {
+  max-width: 34ch;
+}
+
+.pending-hint {
+  font-size: 0.85rem;
+}
+
+/* Three dots filling in turn: something is happening, and it is not something
+   you can hurry along. */
+.pending-dots {
+  display: inline-flex;
+  gap: 7px;
+  margin: 0.3rem 0 0.2rem;
+}
+
+.pending-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+  animation: pendingDot 1.4s var(--ease) infinite;
+}
+
+.pending-dots i:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.pending-dots i:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes pendingDot {
+  0%,
+  60%,
+  100% {
+    background: var(--line);
+    transform: scale(1);
+  }
+  30% {
+    background: var(--accent);
+    transform: scale(1.35);
+  }
+}
+
+.pending-icon {
+  display: grid;
+  place-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  margin-bottom: 0.2rem;
+}
+
+.pending-icon-no {
+  background: #fbeae4;
+  color: #b3402a;
+}
+
+.pending-foot {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  width: 100%;
+}
+
+.pending-status {
+  font-size: 0.8rem;
+  transition: opacity 0.25s var(--ease);
+}
+
+.pending-status[data-busy='true'] {
+  opacity: 0.6;
+}

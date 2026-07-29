@@ -59,6 +59,8 @@ export interface TripMapApi {
   setHiddenBottom: (px: number) => void;
   /** Ease the camera to a single point (e.g. a searched planner place). */
   flyTo: (lng: number, lat: number, zoom?: number) => void;
+  /** Frame the whole trip again, as it was when the page opened. */
+  resetView: () => void;
 }
 
 export function TripMap({
@@ -91,6 +93,8 @@ export function TripMap({
   const stopMarkersRef = useRef<maplibregl.Marker[]>([]);
   const waypointMarkersRef = useRef<maplibregl.Marker[]>([]);
   const meMarkerRef = useRef<maplibregl.Marker | null>(null);
+  /** The bounds that framed the whole trip, for resetView. */
+  const wholeTripRef = useRef<LngLatBounds | null>(null);
   const liveMarkersRef = useRef<maplibregl.Marker[]>([]);
   // Cache thumbnail object-URLs by media id so re-clustering on zoom reuses the
   // loaded image instead of flashing the empty placeholder white.
@@ -200,6 +204,11 @@ export function TripMap({
         }),
       setHiddenBottom: (px) => {
         hiddenBottom = Math.max(0, Math.round(px));
+      },
+      resetView: () => {
+        const bounds = wholeTripRef.current;
+        if (!bounds) return;
+        map.fitBounds(bounds, { padding: camPadding(), maxZoom: 13, duration: 700 });
       },
     });
 
@@ -361,6 +370,9 @@ export function TripMap({
       }
 
       if (hasPoints) {
+        // Remembered so the camera can be sent back here — scrolling the
+        // timeline walks it away from the trip as a whole.
+        wholeTripRef.current = bounds;
         map.fitBounds(bounds, { padding: 80, maxZoom: 13, duration: 900 });
       }
     };

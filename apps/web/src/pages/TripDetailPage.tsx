@@ -16,6 +16,7 @@ import { TripFacts } from '../components/TripFacts';
 import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
 import { countStopPlaces, type PlannedStop } from '../lib/arc';
+import { useExit } from '../lib/useExit';
 import { colorForUser, formatDate } from '../lib/colors';
 import { lastSeenLabel, useNow } from '../lib/lastSeen';
 import { stableViewportHeight } from '../lib/native';
@@ -67,6 +68,9 @@ export function TripDetailPage() {
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   // Tapping your own dot on the map opens today's raw fixes.
   const [pointsOpen, setPointsOpen] = useState(false);
+  // Far enough down the timeline that getting back up is worth a button.
+  const [scrolled, setScrolled] = useState(false);
+  const [backTopShown, backTopClosing] = useExit(scrolled, 220);
   const scrollRef = useRef<HTMLElement>(null);
   const sideRef = useRef<HTMLElement>(null);
   const mapPanelRef = useRef<HTMLDivElement>(null);
@@ -138,6 +142,14 @@ export function TripDetailPage() {
     const onScroll = () => {
       // Height update on rAF so it stays glued to the scroll (no lag/jank).
       if (!raf) raf = requestAnimationFrame(() => { raf = 0; shrinkMap(); });
+      const top = el.scrollTop;
+      setScrolled(top > 260);
+      // Back at the top: the camera has been walking along with the timeline,
+      // so put it back on the trip as a whole.
+      if (top < 40 && lastKey !== '') {
+        lastKey = '';
+        mapApiRef.current?.resetView();
+      }
       window.clearTimeout(focusTimer);
       focusTimer = window.setTimeout(focusVisible, 180);
     };
@@ -373,6 +385,23 @@ export function TripDetailPage() {
     });
   }, []);
 
+  /**
+   * Only travellers who actually put something on this map.
+   *
+   * A companion who never tracked and never added a photo has nothing to show
+   * or hide, so offering them as a filter is a switch that does nothing.
+   */
+  const shownMembers = useMemo(() => {
+    if (!trip) return [];
+    const contributed = new Set<string>();
+    for (const feature of routes?.features ?? []) {
+      if (feature.geometry.coordinates.length > 0) contributed.add(feature.properties.userId);
+    }
+    for (const item of media) contributed.add(item.userId);
+    for (const fix of liveFixes) contributed.add(fix.userId);
+    return trip.members.filter((m) => contributed.has(m.userId));
+  }, [trip, routes, media, liveFixes]);
+
   const visibleMedia = useMemo(
     () => media.filter((m) => visibleUsers.has(m.userId)),
     [media, visibleUsers],
@@ -501,11 +530,11 @@ export function TripDetailPage() {
           </button>
         )}
 
-        {trip && trip.members.length > 1 && (
+        {trip && shownMembers.length > 1 && (
           <div className="person-select">
             {personMenuOpen && (
               <div className={`person-select-menu card ${personMenuClosing ? 'closing' : ''}`}>
-                {trip.members.map((member) => {
+                {shownMembers.map((member) => {
                   const active = visibleUsers.has(member.userId);
                   const fix = liveFixes.find((f) => f.userId === member.userId);
                   const seen = fix ? lastSeenLabel(fix.recordedAt, liveTick) : null;
@@ -594,6 +623,24 @@ export function TripDetailPage() {
 
       <aside className="trip-side" ref={sideRef}>
         <div className="sheet-grab" aria-hidden="true" />
+
+        {/* Sits between the map and the timeline, so it never covers a photo.
+            Appears once you are far enough down that scrolling back is a chore,
+            and takes the map's camera back to the whole trip with it. */}
+        {backTopShown && (
+          <button
+            type="button"
+            className={`trip-backtop ${backTopClosing ? 'leaving' : ''}`}
+            aria-label="Terug naar boven"
+            onClick={() => {
+              scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+              sideRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+              mapApiRef.current?.resetView();
+            }}
+          >
+            <Icon name="chevron-down" size={20} />
+          </button>
+        )}
         {/* One header block: cover photo, title, dates and the trip's numbers —
             rather than a photo followed by a row of separate stat boxes. */}
         <div className={`trip-headcard ${trip?.resolvedCoverId ? 'has-cover' : ''}`}>
