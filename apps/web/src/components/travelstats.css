@@ -109,84 +109,40 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Countries: the globe, with its flags beside it
+   Countries: the globe, with its flags named underneath
    --------------------------------------------------------------------------- */
 
+/* Waits for the tiles above it to land: the panel used to be sitting there,
+   background and all, while the numbers were still arriving. */
 .country-panel {
-  display: flex;
-  align-items: center;
-  gap: 1.1rem;
-  padding: 0.9rem 1rem;
+  animation: statTileIn 0.5s var(--ease) 0.42s both;
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  padding: 1rem;
   border-radius: var(--radius-m);
   background: var(--paper-sunken);
-}
-
-@media (max-width: 480px) {
-  .country-panel {
-    flex-direction: column;
-  }
 }
 
 .country-row {
   display: flex;
   flex-wrap: wrap;
-  align-content: center;
+  justify-content: center;
   gap: 0.35rem;
-  min-width: 0;
 }
 
-@media (max-width: 480px) {
-  .country-row {
-    justify-content: center;
-  }
-}
-
-/* Closed it is the flag and nothing else; open it widens into the name. The
-   name's column goes 0fr → 1fr, which is the one way to animate to a width
-   nobody has measured. */
 .country-chip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  padding: 0.25rem;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem 0.2rem 0.45rem;
   border-radius: 999px;
   background: var(--paper);
   border: 1px solid var(--line);
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--ink);
-  animation: chipIn 0.4s var(--ease) both;
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease),
-    padding 0.3s var(--ease), transform 0.15s var(--ease);
-}
-
-.country-chip:active {
-  transform: scale(0.94);
-}
-
-.country-chip.open {
-  padding-right: 0.6rem;
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-}
-
-.country-chip-name {
-  display: grid;
-  grid-template-columns: 0fr;
-  transition: grid-template-columns 0.3s var(--ease), opacity 0.2s var(--ease);
-  opacity: 0;
-}
-
-.country-chip.open .country-chip-name {
-  grid-template-columns: 1fr;
-  opacity: 1;
-}
-
-.country-chip-name > span {
-  overflow: hidden;
-  min-width: 0;
   white-space: nowrap;
-  padding-left: 0.4rem;
+  animation: chipIn 0.4s var(--ease) both;
 }
 
 @keyframes chipIn {
@@ -203,6 +159,7 @@
 .recent-trips {
   display: grid;
   gap: 0.55rem;
+  animation: statTileIn 0.5s var(--ease) 0.54s both;
 }
 
 .recent-trips h3 {
@@ -219,7 +176,7 @@
 }
 
 .recent-trips li {
-  animation: rise 0.4s var(--ease) both;
+  animation: rise 0.4s var(--ease) 0.54s both;
 }
 
 .recent-trips a {

@@ -111,15 +111,10 @@ export function PendingPage() {
   return (
     <div className="pending-shell">
       <div className="pending-card card">
+        {/* The compass needle sweeps round while you wait: something is
+            happening, and it is not something you can hurry along. */}
         <span className="pending-brand">
-          <LogoMark size={34} />
-        </span>
-        {/* Three dots that fill in turn: something is happening, and it is not
-            something you can hurry along. */}
-        <span className="pending-dots" aria-hidden="true">
-          <i />
-          <i />
-          <i />
+          <LogoMark size={52} spin />
         </span>
         <h1>Even wachten op goedkeuring</h1>
         <p className="muted">

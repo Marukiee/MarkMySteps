@@ -150,7 +150,9 @@
 }
 
 .members-hint {
-  font-size: 0.82rem;
+  margin-top: -0.25rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
 }
 
 /* Members arrive with the request — stagger them in rather than popping. */

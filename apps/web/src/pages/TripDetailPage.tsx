@@ -364,7 +364,7 @@ export function TripDetailPage() {
     }, 240);
   }, []);
 
-  // Same trap for the "Reisgenoten & delen" sheet: a back gesture should close
+  // Same trap for the "Mensen & delen" sheet: a back gesture should close
   // the sheet, not walk out of the trip.
   useEffect(() => {
     if (!peopleOpen || peopleClosing) return;
@@ -479,7 +479,7 @@ export function TripDetailPage() {
           <div className="trip-fabs">
             <button
               className="trip-fab"
-              aria-label="Reisgenoten & delen"
+              aria-label="Mensen & delen"
               onClick={() => setPeopleOpen(true)}
             >
               <Icon name="people" size={20} />
@@ -754,7 +754,7 @@ export function TripDetailPage() {
         >
           <div className="people-sheet card" onClick={(e) => e.stopPropagation()}>
             <div className="people-sheet-head">
-              <h2>Reisgenoten &amp; delen</h2>
+              <h2>Mensen &amp; delen</h2>
               <button
                 className="people-sheet-close"
                 aria-label="Sluiten"

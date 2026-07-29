@@ -24,6 +24,7 @@
 
 .pending-brand {
   display: inline-flex;
+  margin-bottom: 0.35rem;
 }
 
 .pending-card h1 {
@@ -36,43 +37,6 @@
 
 .pending-hint {
   font-size: 0.85rem;
-}
-
-/* Three dots filling in turn: something is happening, and it is not something
-   you can hurry along. */
-.pending-dots {
-  display: inline-flex;
-  gap: 7px;
-  margin: 0.3rem 0 0.2rem;
-}
-
-.pending-dots i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--line);
-  animation: pendingDot 1.4s var(--ease) infinite;
-}
-
-.pending-dots i:nth-child(2) {
-  animation-delay: 0.18s;
-}
-
-.pending-dots i:nth-child(3) {
-  animation-delay: 0.36s;
-}
-
-@keyframes pendingDot {
-  0%,
-  60%,
-  100% {
-    background: var(--line);
-    transform: scale(1);
-  }
-  30% {
-    background: var(--accent);
-    transform: scale(1.35);
-  }
 }
 
 .pending-icon {

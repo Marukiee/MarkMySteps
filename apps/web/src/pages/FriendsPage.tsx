@@ -82,15 +82,15 @@ export function FriendsPage() {
 
       {!local && (
         <>
-          <h2 className="friends-heading">Reisgenoten</h2>
+          <h2 className="friends-heading">Mensen op je reizen</h2>
           <p className="muted friends-intro">
-            Iedereen met wie je een reis deelt. Toevoegen doe je per reis: open een reis, tik het
-            mensen-icoon en vul de @gebruikersnaam in.
+            Iedereen met wie je een reis deelt, reisgenoot of gast. Toevoegen doe je per reis: open
+            een reis, tik het mensen-icoon en vul de @gebruikersnaam in.
           </p>
 
           {friends?.length === 0 && (
             <div className="card friends-empty">
-              <h2>Nog geen reisgenoten</h2>
+              <h2>Nog niemand</h2>
               <p className="muted">
                 Laat je vrienden een account maken op deze server en voeg ze toe aan een reis.
               </p>

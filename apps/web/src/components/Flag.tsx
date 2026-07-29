@@ -24,7 +24,8 @@ export function Flag({
   className = '',
 }: {
   code?: string | null;
-  /** Left off when the caller's CSS sizes it (a marker, a thumbnail). */
+  /** Height in px; the width follows from the 4:3 ratio. Left off when the
+   *  caller's CSS sizes it (a marker, a thumbnail). */
   size?: number;
   className?: string;
 }) {
@@ -45,7 +46,7 @@ export function Flag({
     <img
       className={`flag ${className}`.trim()}
       src={url}
-      style={size ? { width: size, height: size } : undefined}
+      style={size ? { height: size } : undefined}
       alt=""
       loading="lazy"
       onError={() => setFailed(true)}

@@ -169,36 +169,24 @@ function countryName(code: string): string {
 }
 
 /**
- * The globe, with every country beside it as a flag you can open.
+ * The globe, with every country named underneath it.
  *
- * A row of names is a wall of text for anyone with a dozen countries, and the
- * flag is the thing you recognise anyway. Tapping one widens it into its name,
- * so the list stays a picture until you need it to be a list. The count is not
- * repeated here: it is already one of the tiles above.
+ * Under rather than beside: at a dozen countries the names wrap into a column
+ * so narrow that half of them break in two. The count is not repeated here —
+ * it is already one of the tiles above.
  */
 export function CountryPanel({ countries }: { countries: string[] }) {
-  const [open, setOpen] = useState<string | null>(null);
   if (countries.length === 0) return null;
   const sorted = [...countries].sort((a, b) => countryName(a).localeCompare(countryName(b), 'nl'));
   return (
     <section className="country-panel">
-      <CountryGlobe countries={countries} size={168} />
+      <CountryGlobe countries={countries} size={190} />
       <div className="country-row">
         {sorted.map((code, i) => (
-          <button
-            key={code}
-            type="button"
-            className={`country-chip ${open === code ? 'open' : ''}`}
-            style={{ animationDelay: `${i * 35}ms` }}
-            aria-label={countryName(code)}
-            aria-expanded={open === code}
-            onClick={() => setOpen((o) => (o === code ? null : code))}
-          >
-            <Flag code={code} size={20} />
-            <span className="country-chip-name">
-              <span>{countryName(code)}</span>
-            </span>
-          </button>
+          <span key={code} className="country-chip" style={{ animationDelay: `${i * 35}ms` }}>
+            <Flag code={code} size={13} />
+            {countryName(code)}
+          </span>
         ))}
       </div>
     </section>

@@ -51,7 +51,13 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
 
   return (
     <section className="members-panel">
-      <h2 className="trip-side-heading">Reisgenoten</h2>
+      <h2 className="trip-side-heading">Mensen</h2>
+      {/* Said once, here, because the difference only matters when you are
+          choosing between the two. */}
+      <p className="muted members-hint">
+        Reisgenoten waren erbij en tellen de reis mee in hun statistieken. Gasten kijken alleen
+        mee: voor hen telt deze reis niet.
+      </p>
       <ul className="members-list">
         {trip.members.map((member) => (
           <li key={member.userId}>

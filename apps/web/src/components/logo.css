@@ -1,0 +1,22 @@
+/* The needle turns inside the ring: the mark is already a compass, so it can
+   be the spinner too, and one turning thing beats a logo plus three dots. */
+.logo-needle {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+}
+
+.logo-needle.spinning {
+  animation: needleSweep 2.6s linear infinite;
+}
+
+@keyframes needleSweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-needle.spinning {
+    animation: none;
+  }
+}

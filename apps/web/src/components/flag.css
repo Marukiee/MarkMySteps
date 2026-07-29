@@ -1,11 +1,15 @@
-/* The flag files are round (circle-flags), so the element is too; the rule is
-   here rather than per caller so every flag in the app matches. */
+/* Rectangles with rounded corners, at a 4:3 ratio. The rule lives here rather
+   than at each caller so every flag in the app matches. */
 .flag {
   display: inline-block;
   flex-shrink: 0;
-  border-radius: 50%;
-  vertical-align: -0.15em;
+  width: auto;
+  aspect-ratio: 4 / 3;
+  border-radius: 3px;
+  vertical-align: -0.2em;
   object-fit: cover;
+  /* Several flags are mostly white; without this they dissolve into the page. */
+  box-shadow: 0 0 0 1px rgb(15 20 25 / 0.1);
 }
 
 .flag-emoji {

@@ -216,6 +216,10 @@ export class UsersService {
    * public just because you both have an account here. Distance and photos
    * count that person's own contribution; days and countries count the trips
    * they were on, because those are shared by definition.
+   *
+   * Guests are left out of their own totals. Being invited to look at a trip
+   * is not the same as having been on it, and counting a grandmother's fifteen
+   * days in Vietnam because she followed along is simply wrong.
    */
   async travelStats(viewerId: string, targetId: string): Promise<TravelStats> {
     let sharedTrips = 0;
@@ -233,7 +237,7 @@ export class UsersService {
     if (!target) throw new NotFoundException('User not found');
 
     const trips = await this.prisma.trip.findMany({
-      where: { members: { some: { userId: targetId } } },
+      where: { members: { some: { userId: targetId, role: { not: 'GUEST' } } } },
       select: {
         id: true,
         title: true,
