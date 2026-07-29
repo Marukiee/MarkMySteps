@@ -17,7 +17,7 @@ import {
   isNativeApp,
 } from './lib/native';
 import { applyTheme, getThemeId } from './lib/prefs';
-import { resumeIfTracking } from './tracking/tracker';
+import { captureCurrentLocation, resumeIfTracking } from './tracking/tracker';
 import './styles/global.css';
 
 // Theme before first paint; keep following the OS when set to "system".
@@ -28,6 +28,9 @@ window
 
 // After an app restart mid-trip, pick tracking back up automatically.
 resumeIfTracking();
+// One fix on launch, so the maps know where you are without waiting for the
+// next scheduled check (and even when no trip is being tracked at all).
+void captureCurrentLocation();
 // Android back gesture support.
 initBackButton();
 // Overlay + style the native status bar.

@@ -26,6 +26,8 @@ interface MmsLocationPlugin {
   stop(): Promise<void>;
   openSettings(): Promise<void>;
   backgroundStatus(): Promise<{ granted: boolean; foreground: boolean }>;
+  /** One position now, without starting the service. Rejects without permission. */
+  currentPosition(): Promise<NativePosition>;
   /** Collects the fixes the service queued (and clears its queue). */
   drain(): Promise<{ fixes: NativePosition[] }>;
   addListener(
@@ -473,4 +475,40 @@ export async function refreshTrackingInterval(): Promise<void> {
 export function resumeIfTracking(): void {
   const tripId = localStorage.getItem(ACTIVE_TRIP_KEY);
   if (tripId) void startTracking(tripId);
+}
+
+/**
+ * One position at app start, whether or not a trip is being tracked, so the
+ * maps and the globe can show where you are straight away instead of only
+ * after the first scheduled check.
+ *
+ * Never prompts: without the permission it quietly does nothing. When a trip IS
+ * being tracked the fix goes through the normal recording path, so it also
+ * closes the gap left while the app was shut.
+ */
+export async function captureCurrentLocation(): Promise<void> {
+  if (!isNative()) return;
+  const granted = await MmsLocation.backgroundStatus()
+    .then((r) => r.foreground)
+    .catch(() => false);
+  if (!granted) return;
+
+  const fix = await MmsLocation.currentPosition().catch(() => null);
+  if (!fix) return;
+
+  const tripId = state.tripId ?? localStorage.getItem(ACTIVE_TRIP_KEY);
+  if (tripId) {
+    await record(tripId, fix);
+    void flush();
+    return;
+  }
+  // Not tracking: it is only a position to draw, not a point on any route.
+  emit({
+    lastFix: {
+      lat: fix.latitude,
+      lng: fix.longitude,
+      at: fix.time && fix.time > 0 ? fix.time : Date.now(),
+      accuracy: fix.accuracy,
+    },
+  });
 }

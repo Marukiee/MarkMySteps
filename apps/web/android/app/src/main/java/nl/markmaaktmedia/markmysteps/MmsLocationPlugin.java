@@ -1,12 +1,20 @@
 package nl.markmaaktmedia.markmysteps;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
@@ -231,6 +239,130 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
     public void stop(PluginCall call) {
         getContext().stopService(new Intent(getContext(), MmsLocationService.class));
         call.resolve();
+    }
+
+    /**
+     * One position, right now, without starting the tracking service.
+     *
+     * The app asks for this once at launch so the maps can show where you are
+     * even when you are not tracking a trip. It never prompts: if the
+     * permission isn't there it simply reports back that it isn't.
+     */
+    @PluginMethod
+    public void currentPosition(PluginCall call) {
+        if (!hasForegroundPermission()) {
+            call.reject("Geen locatietoestemming");
+            return;
+        }
+        LocationManager manager =
+                (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
+        if (manager == null) {
+            call.reject("Geen locatieprovider beschikbaar");
+            return;
+        }
+
+        long timeoutMs = getContext().getMainLooper() == null ? 0 : 20_000L;
+        final Handler handler = new Handler(Looper.getMainLooper());
+        final boolean[] done = new boolean[1];
+        final Location[] best = new Location[1];
+        final LocationListener[] holder = new LocationListener[1];
+
+        // Anything recent enough to still describe where you are is already an
+        // answer; the live request only has to improve on it.
+        Location known = bestLastKnown(manager);
+        if (known != null && System.currentTimeMillis() - known.getTime() < 2 * 60_000L) {
+            call.resolve(toResult(known));
+            return;
+        }
+        best[0] = known;
+
+        final Runnable finish = () -> {
+            if (done[0]) return;
+            done[0] = true;
+            if (holder[0] != null) {
+                try {
+                    manager.removeUpdates(holder[0]);
+                } catch (SecurityException ignored) {
+                }
+            }
+            if (best[0] != null) call.resolve(toResult(best[0]));
+            else call.reject("Geen positie gevonden");
+        };
+
+        holder[0] = new LocationListener() {
+            @Override
+            public void onLocationChanged(@NonNull Location location) {
+                if (best[0] == null
+                        || !best[0].hasAccuracy()
+                        || (location.hasAccuracy() && location.getAccuracy() < best[0].getAccuracy())) {
+                    best[0] = location;
+                }
+                if (location.hasAccuracy() && location.getAccuracy() <= 40f) finish.run();
+            }
+
+            @Override
+            public void onProviderDisabled(@NonNull String provider) {
+            }
+
+            @Override
+            public void onProviderEnabled(@NonNull String provider) {
+            }
+
+            @Override
+            public void onStatusChanged(String provider, int status, Bundle extras) {
+            }
+        };
+
+        boolean any = false;
+        for (String provider : new String[] {
+                LocationManager.GPS_PROVIDER,
+                LocationManager.NETWORK_PROVIDER,
+        }) {
+            if (!manager.getAllProviders().contains(provider)) continue;
+            try {
+                manager.requestLocationUpdates(provider, 0L, 0f, holder[0], Looper.getMainLooper());
+                any = true;
+            } catch (SecurityException e) {
+                call.reject("Geen locatietoestemming");
+                return;
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        if (!any) {
+            finish.run();
+            return;
+        }
+        handler.postDelayed(finish, timeoutMs);
+    }
+
+    @Nullable
+    private Location bestLastKnown(LocationManager manager) {
+        Location best = null;
+        for (String provider : new String[] {
+                LocationManager.GPS_PROVIDER,
+                LocationManager.NETWORK_PROVIDER,
+                LocationManager.PASSIVE_PROVIDER,
+        }) {
+            try {
+                if (!manager.getAllProviders().contains(provider)) continue;
+                Location known = manager.getLastKnownLocation(provider);
+                if (known == null) continue;
+                if (best == null || known.getTime() > best.getTime()) best = known;
+            } catch (SecurityException e) {
+                return null;
+            }
+        }
+        return best;
+    }
+
+    private static JSObject toResult(Location location) {
+        JSObject result = new JSObject();
+        result.put("latitude", location.getLatitude());
+        result.put("longitude", location.getLongitude());
+        if (location.hasAccuracy()) result.put("accuracy", location.getAccuracy());
+        if (location.hasAltitude()) result.put("altitude", location.getAltitude());
+        result.put("time", location.getTime() > 0 ? location.getTime() : System.currentTimeMillis());
+        return result;
     }
 
     /** Opens this app's system settings, for flipping location to "Always". */

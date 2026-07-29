@@ -1,4 +1,5 @@
 import {
+  CSSProperties,
   DragEvent,
   FormEvent,
   ReactNode,
@@ -227,13 +228,101 @@ export function TripPlanner({
   // row (a leg bar especially) just blinks out of existence.
   const [removingId, setRemovingId] = useState<string | null>(null);
 
+  /** What the last delete removed, so it can be put back. Deleting a stop takes
+   *  its day trips with it, so those are remembered too. */
+  const [undo, setUndo] = useState<{
+    stop: PlannedStop;
+    dayTrips: PlannedStop[];
+    afterId: string | null;
+  } | null>(null);
+  const undoTimer = useRef<number | null>(null);
+
+  const offerUndo = (entry: NonNullable<typeof undo>) => {
+    setUndo(entry);
+    if (undoTimer.current) window.clearTimeout(undoTimer.current);
+    undoTimer.current = window.setTimeout(() => setUndo(null), 7000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (undoTimer.current) window.clearTimeout(undoTimer.current);
+    };
+  }, []);
+
   async function removeStop(stop: PlannedStop) {
+    // Captured before the delete, because that is when the route still knows
+    // where this stop sat and which day trips hung off it.
+    const previous = stop.parentStopId
+      ? null
+      : route[route.findIndex((s) => s.id === stop.id) - 1]?.id ?? null;
+    const children = stop.parentStopId ? [] : dayTripsByParent.get(stop.id) ?? [];
+
     setRemovingId(stop.id);
     await new Promise((r) => window.setTimeout(r, 240));
     try {
       refresh(await api<PlannedStop[]>(`/trips/${tripId}/stops/${stop.id}`, { method: 'DELETE' }));
+      offerUndo({ stop, dayTrips: children, afterId: previous });
     } finally {
       setRemovingId(null);
+    }
+  }
+
+  /** Re-creates the deleted stop where it was, with its day trips. */
+  async function undoDelete() {
+    if (!undo) return;
+    const { stop, dayTrips, afterId } = undo;
+    setUndo(null);
+    try {
+      const before = new Set(stops.map((s) => s.id));
+      let list = await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
+        method: 'POST',
+        body: {
+          name: stop.name,
+          nights: stop.nights,
+          latitude: stop.latitude ?? undefined,
+          longitude: stop.longitude ?? undefined,
+          countryCode: stop.countryCode ?? undefined,
+          travelMode: stop.travelMode,
+          flightNumber: stop.flightNumber ?? undefined,
+          fromAirport: stop.fromAirport ?? undefined,
+          toAirport: stop.toAirport ?? undefined,
+          viaAirports: stop.viaAirports?.length ? stop.viaAirports : undefined,
+          notes: stop.notes ?? undefined,
+          parentStopId: stop.parentStopId ?? undefined,
+          dayTripDate: stop.parentStopId ? stop.arrivalDate.slice(0, 10) : undefined,
+          afterStopId: afterId ?? undefined,
+        },
+      });
+      // The API answers with the whole list, so the new id is the one that
+      // wasn't there a moment ago.
+      const restored = list.find((s) => !before.has(s.id));
+      for (const child of dayTrips) {
+        if (!restored) break;
+        list = await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
+          method: 'POST',
+          body: {
+            name: child.name,
+            nights: 0,
+            latitude: child.latitude ?? undefined,
+            longitude: child.longitude ?? undefined,
+            countryCode: child.countryCode ?? undefined,
+            parentStopId: restored.id,
+            dayTripDate: child.arrivalDate.slice(0, 10),
+          },
+        });
+      }
+      // afterStopId has no way to say "at the very front", so a stop that was
+      // first is put back there with an explicit reorder.
+      if (restored && !stop.parentStopId && afterId === null) {
+        const order = list.filter((s) => !s.parentStopId).map((s) => s.id);
+        list = await api<PlannedStop[]>(`/trips/${tripId}/stops/order`, {
+          method: 'PUT',
+          body: { stopIds: [restored.id, ...order.filter((id) => id !== restored.id)] },
+        });
+      }
+      refresh(list);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Terugzetten mislukt');
     }
   }
 
@@ -268,6 +357,102 @@ export function TripPlanner({
         body: { travelMode: mode },
       }),
     );
+  }
+
+  /* ---- Touch reordering -------------------------------------------------
+     HTML5 drag and drop does not exist on a phone, so a long press picks the
+     row up and the rows around it slide out of the way live, showing exactly
+     where it will land. */
+  const rowRefs = useRef(new Map<string, HTMLLIElement>());
+  const [touchDrag, setTouchDrag] = useState<{
+    id: string;
+    from: number;
+    to: number;
+    dy: number;
+    height: number;
+  } | null>(null);
+  /** Row boxes as they were when the drag began; the maths stays stable even
+   *  while everything is being translated around. */
+  const dragRects = useRef<{ top: number; height: number }[]>([]);
+  const dragScrollY = useRef(0);
+  /** Vertical spacing between rows (the .stop-row margin). */
+  const ROW_GAP = 8;
+
+  function beginTouchDrag(stop: PlannedStop, index: number) {
+    const rects = route.map((s) => {
+      const el = rowRefs.current.get(s.id);
+      const box = el?.getBoundingClientRect();
+      return { top: box?.top ?? 0, height: box?.height ?? 0 };
+    });
+    dragRects.current = rects;
+    dragScrollY.current = window.scrollY;
+    setTouchDrag({
+      id: stop.id,
+      from: index,
+      to: index,
+      dy: 0,
+      height: rects[index]?.height ?? 0,
+    });
+    // A short buzz is the only signal that the row has come loose.
+    navigator.vibrate?.(12);
+  }
+
+  function moveTouchDrag(dy: number) {
+    setTouchDrag((current) => {
+      if (!current) return current;
+      const rects = dragRects.current;
+      const own = rects[current.from];
+      if (!own) return current;
+      // The row follows the finger on screen; the page may have scrolled under
+      // it in the meantime, and the row moves with the page.
+      const shift = dy + (window.scrollY - dragScrollY.current);
+      const centre = own.top + own.height / 2 + shift;
+      let to = current.from;
+      for (let i = 0; i < rects.length; i++) {
+        const r = rects[i]!;
+        if (centre >= r.top && centre <= r.top + r.height) {
+          to = i;
+          break;
+        }
+        if (i === 0 && centre < r.top) to = 0;
+        if (i === rects.length - 1 && centre > r.top + r.height) to = i;
+      }
+      return { ...current, dy: shift, to };
+    });
+  }
+
+  async function endTouchDrag() {
+    const current = touchDrag;
+    setTouchDrag(null);
+    if (!current || current.to === current.from) return;
+    const next = [...route];
+    const [moved] = next.splice(current.from, 1);
+    next.splice(current.to, 0, moved!);
+    onStopsChange([...next, ...stops.filter((s) => s.parentStopId)]); // optimistic
+    refresh(
+      await api<PlannedStop[]>(`/trips/${tripId}/stops/order`, {
+        method: 'PUT',
+        body: { stopIds: next.map((s) => s.id) },
+      }),
+    );
+  }
+
+  /** Transform for one row while a reorder is in progress. */
+  function rowStyle(index: number, id: string): CSSProperties | undefined {
+    if (!touchDrag) return undefined;
+    const offset = touchDrag.id === id ? touchDrag.dy : dragOffset(index);
+    return offset === 0 ? undefined : { transform: `translateY(${offset}px)` };
+  }
+
+  /** How far row `index` has to step aside to open the gap. */
+  function dragOffset(index: number): number {
+    if (!touchDrag) return 0;
+    const { from, to, height } = touchDrag;
+    const step = height + ROW_GAP;
+    if (index === from) return 0;
+    if (from < to && index > from && index <= to) return -step;
+    if (to < from && index >= to && index < from) return step;
+    return 0;
   }
 
   function onDragOver(event: DragEvent, index: number) {
@@ -338,9 +523,26 @@ export function TripPlanner({
                 ? haversineKm(legPt, otherPt)
                 : null;
             return (
-              <li key={stop.id} className={`stop-row ${removingId === stop.id ? 'leaving' : ''}`}>
+              <li
+                key={stop.id}
+                ref={(el) => {
+                  if (el) rowRefs.current.set(stop.id, el);
+                  else rowRefs.current.delete(stop.id);
+                }}
+                className={`stop-row ${removingId === stop.id ? 'leaving' : ''} ${
+                  touchDrag?.id === stop.id ? 'lifted' : ''
+                }`}
+                style={rowStyle(index, stop.id)}
+              >
                 <div className="stop-row-inner">
-                <SwipeToDelete onDelete={() => removeStop(stop)} label="Reis verwijderen">
+                <SwipeToDelete
+                  onDelete={() => removeStop(stop)}
+                  label="Reis verwijderen"
+                  dragging={touchDrag?.id === stop.id}
+                  onDragStart={() => beginTouchDrag(stop, index)}
+                  onDragMove={moveTouchDrag}
+                  onDragEnd={() => void endTouchDrag()}
+                >
                 {/* Keyed on the travel mode so switching flight ↔ car/bus
                     remounts the bar and replays its entry animation. */}
                 <div className="flight-leg card" key={stop.travelMode}>
@@ -398,7 +600,17 @@ export function TripPlanner({
               ? haversineKm([prev.longitude, prev.latitude], [stop.longitude, stop.latitude])
               : null;
           return (
-            <li key={stop.id} className={`stop-row ${removingId === stop.id ? 'leaving' : ''}`}>
+            <li
+              key={stop.id}
+              ref={(el) => {
+                if (el) rowRefs.current.set(stop.id, el);
+                else rowRefs.current.delete(stop.id);
+              }}
+              className={`stop-row ${removingId === stop.id ? 'leaving' : ''} ${
+                touchDrag?.id === stop.id ? 'lifted' : ''
+              }`}
+              style={rowStyle(index, stop.id)}
+            >
               <div className="stop-row-inner">
               {/* Incoming leg: a mode dropdown (same as heenreis), plus the
                   flight editor when it's a flight. Only from the 2nd stop on —
@@ -430,7 +642,14 @@ export function TripPlanner({
                   </div>
                 </div>
               )}
-              <SwipeToDelete onDelete={() => removeStop(stop)} label="Stop verwijderen">
+              <SwipeToDelete
+                onDelete={() => removeStop(stop)}
+                label="Stop verwijderen"
+                dragging={touchDrag?.id === stop.id}
+                onDragStart={() => beginTouchDrag(stop, index)}
+                onDragMove={moveTouchDrag}
+                onDragEnd={() => void endTouchDrag()}
+              >
               <div
                 className={`card stop-item ${dragIndex === index ? 'dragging' : ''} ${
                   overIndex === index && dragIndex !== null && dragIndex !== index
@@ -574,6 +793,21 @@ export function TripPlanner({
         </span>
         <button className="btn btn-primary">Stop toevoegen</button>
       </form>
+
+      {/* Deleting is one gesture, so there has to be a way back. Sits above the
+          tab bar and fades out after a few seconds. */}
+      {undo &&
+        createPortal(
+          <div className="undo-pill">
+            <span className="undo-text">
+              <strong>{undo.stop.name}</strong> verwijderd
+            </span>
+            <button type="button" className="undo-btn" onClick={() => void undoDelete()}>
+              Ongedaan maken
+            </button>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -589,10 +823,19 @@ export function TripPlanner({
 function SwipeToDelete({
   onDelete,
   label,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  dragging,
   children,
 }: {
   onDelete: () => void;
   label: string;
+  /** Long-pressing the row starts a reorder instead of a swipe. */
+  onDragStart?: () => void;
+  onDragMove?: (dy: number) => void;
+  onDragEnd?: () => void;
+  dragging?: boolean;
   children: ReactNode;
 }) {
   const [dx, setDx] = useState(0);
@@ -602,7 +845,38 @@ function SwipeToDelete({
 
   /** Far enough to mean it: a third of the row, and never less than 90 px. */
   const threshold = () => Math.max(90, (boxRef.current?.offsetWidth ?? 300) * 0.33);
-  const armed = Math.abs(dx) > threshold();
+  const armed = Math.abs(dx) >= threshold();
+
+  /**
+   * Finger travel → how far the row actually moves.
+   *
+   * It resists at first (a row shouldn't come loose from a stray thumb), then
+   * gives way, and once it is past the threshold it snaps open the rest of the
+   * way and stays there — so "far enough" is something you feel, not something
+   * you have to guess from a colour.
+   */
+  const resist = (raw: number): number => {
+    const distance = Math.abs(raw);
+    const limit = threshold();
+    const STICK = 26; // barely moves until you mean it
+    if (distance <= STICK) return Math.sign(raw) * distance * 0.35;
+    const past = distance - STICK;
+    const free = STICK * 0.35 + past;
+    if (free < limit) return Math.sign(raw) * free;
+    // Broken loose: jump to the open position, then rubber-band beyond it.
+    return Math.sign(raw) * (limit + 22 + (free - limit) * 0.18);
+  };
+
+  const holdTimer = useRef<number | null>(null);
+  // Read inside the native listener, which is registered once.
+  const mode = useRef<'idle' | 'swipe' | 'drag'>('idle');
+  const handlers = useRef({ onDragStart, onDragMove, onDragEnd, onDelete });
+  handlers.current = { onDragStart, onDragMove, onDragEnd, onDelete };
+
+  const cancelHold = () => {
+    if (holdTimer.current) window.clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  };
 
   const onTouchStart = (e: ReactTouchEvent) => {
     // A day trip's row sits inside its stop's row: without this, swiping the
@@ -610,42 +884,76 @@ function SwipeToDelete({
     e.stopPropagation();
     const t = e.touches[0]!;
     start.current = { x: t.clientX, y: t.clientY, axis: 'none' };
-  };
-
-  const onTouchMove = (e: ReactTouchEvent) => {
-    e.stopPropagation();
-    const s = start.current;
-    if (!s) return;
-    const t = e.touches[0]!;
-    const moveX = t.clientX - s.x;
-    const moveY = t.clientY - s.y;
-    // Decide once whether this is a swipe or a scroll, then stick to it —
-    // re-deciding mid-gesture makes the row twitch while you scroll past it.
-    if (s.axis === 'none') {
-      if (Math.abs(moveX) < 12 && Math.abs(moveY) < 12) return;
-      s.axis = Math.abs(moveX) > Math.abs(moveY) * 1.4 ? 'x' : 'y';
-      if (s.axis === 'x') setSwiping(true);
-    }
-    if (s.axis !== 'x') return;
-    // Rubber-band past the threshold so it never slides off the screen.
-    const over = Math.max(0, Math.abs(moveX) - threshold());
-    const eased = Math.sign(moveX) * (Math.min(Math.abs(moveX), threshold()) + over * 0.25);
-    setDx(eased);
+    mode.current = 'idle';
+    if (!onDragStart) return;
+    // Hold still for a moment and the row comes up for reordering; move first
+    // and it is a swipe or a scroll instead.
+    cancelHold();
+    holdTimer.current = window.setTimeout(() => {
+      if (mode.current !== 'idle') return;
+      mode.current = 'drag';
+      handlers.current.onDragStart?.();
+    }, 380);
   };
 
   const onTouchEnd = (e: ReactTouchEvent) => {
     e.stopPropagation();
+    cancelHold();
     const s = start.current;
     start.current = null;
     setSwiping(false);
-    if (s?.axis === 'x' && Math.abs(dx) > threshold()) {
+    if (mode.current === 'drag') {
+      mode.current = 'idle';
+      handlers.current.onDragEnd?.();
+      return;
+    }
+    mode.current = 'idle';
+    if (s?.axis === 'x' && Math.abs(dx) >= threshold()) {
       // Let it fly off in the direction of travel, then delete.
       setDx(Math.sign(dx) * (boxRef.current?.offsetWidth ?? 400));
-      window.setTimeout(onDelete, 160);
+      window.setTimeout(onDelete, 170);
       return;
     }
     setDx(0);
   };
+
+  // Registered by hand because React's touchmove is passive: without
+  // preventDefault the page scrolls away underneath a swipe or a reorder.
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const onMove = (e: TouchEvent) => {
+      e.stopPropagation();
+      const s = start.current;
+      if (!s) return;
+      const t = e.touches[0]!;
+      const moveX = t.clientX - s.x;
+      const moveY = t.clientY - s.y;
+
+      if (mode.current === 'drag') {
+        e.preventDefault();
+        handlers.current.onDragMove?.(moveY);
+        return;
+      }
+      // Decide once whether this is a swipe or a scroll, then stick to it —
+      // re-deciding mid-gesture makes the row twitch while you scroll past it.
+      if (s.axis === 'none') {
+        if (Math.abs(moveX) < 12 && Math.abs(moveY) < 12) return;
+        cancelHold();
+        s.axis = Math.abs(moveX) > Math.abs(moveY) * 1.4 ? 'x' : 'y';
+        if (s.axis === 'x') {
+          mode.current = 'swipe';
+          setSwiping(true);
+        }
+      }
+      if (s.axis !== 'x') return;
+      e.preventDefault();
+      setDx(resist(moveX));
+    };
+    el.addEventListener('touchmove', onMove, { passive: false });
+    return () => el.removeEventListener('touchmove', onMove);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div
@@ -653,18 +961,18 @@ function SwipeToDelete({
       ref={boxRef}
       data-swiping={swiping}
       data-armed={armed}
+      data-dragging={dragging}
+      data-dir={dx > 0 ? 'right' : dx < 0 ? 'left' : undefined}
       onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}
     >
+      {/* The label sits against the edge the row is uncovering, so it is the
+          first thing you read instead of appearing from the far side. */}
       <div className="swipe-bg" aria-hidden="true">
-        <span className="swipe-bg-side">
-          <Icon name="trash" size={18} />
-        </span>
-        <span className="swipe-bg-label">{label}</span>
-        <span className="swipe-bg-side">
-          <Icon name="trash" size={18} />
+        <span className="swipe-bg-inner">
+          <Icon name="trash" size={17} />
+          <span className="swipe-bg-label">{label}</span>
         </span>
       </div>
       <div
@@ -762,7 +1070,6 @@ function DayTrips({
               key={trip.id}
               className={`daytrip-row ${removingId === trip.id ? 'leaving' : ''}`}
             >
-              <SwipeToDelete onDelete={() => onRemove(trip)} label="Dagtrip verwijderen">
                 <div className="daytrip-card">
                   <CityThumb
                     name={trip.name}
@@ -790,8 +1097,17 @@ function DayTrips({
                       )}
                     </span>
                   </div>
+                  {/* A day trip keeps its cross: the rows are small, and a swipe
+                      on something this size is fiddly. */}
+                  <button
+                    type="button"
+                    className="daytrip-delete"
+                    onClick={() => onRemove(trip)}
+                    aria-label="Dagtrip verwijderen"
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
                 </div>
-              </SwipeToDelete>
             </li>
           ))}
         </ul>

@@ -890,6 +890,11 @@
   position: relative;
   min-width: 0;
   border-radius: var(--radius-m);
+  /* The card slides within its own row rather than being cut off wherever the
+     planner column happens to end. Clipped sideways only, so a mode dropdown
+     inside the row can still hang out below it. */
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .swipe-bg {
@@ -897,7 +902,6 @@
   inset: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0 1.1rem;
   border-radius: var(--radius-m);
   background: #c9463a;
@@ -906,6 +910,22 @@
   font-weight: 700;
   opacity: 0;
   transition: opacity 0.16s var(--ease), background 0.16s var(--ease);
+}
+
+/* Whichever edge is being uncovered is where the label belongs, so it reads
+   immediately instead of only once the row is halfway across. */
+.swipe-row[data-dir='right'] .swipe-bg {
+  justify-content: flex-start;
+}
+
+.swipe-row[data-dir='left'] .swipe-bg {
+  justify-content: flex-end;
+}
+
+.swipe-bg-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .swipe-row[data-swiping='true'] .swipe-bg {
@@ -917,13 +937,9 @@
   background: #a8382e;
 }
 
-.swipe-bg-side {
-  display: inline-flex;
-  opacity: 0.85;
-}
-
 .swipe-bg-label {
-  opacity: 0;
+  white-space: nowrap;
+  opacity: 0.75;
   transition: opacity 0.16s var(--ease);
 }
 
@@ -1320,4 +1336,111 @@
     color: #b3402a;
     background: #fbeae4;
   }
+}
+
+/* Small cross on a day trip: the rows are compact, so a swipe on one is fiddly. */
+.daytrip-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0.3rem;
+  border-radius: 8px;
+  color: var(--ink-faint);
+  transition: color 0.15s var(--ease), background 0.15s var(--ease),
+    transform 0.15s var(--ease);
+}
+
+.daytrip-delete:hover {
+  color: #b3402a;
+  background: #fbeae4;
+}
+
+.daytrip-delete:active {
+  transform: scale(0.9);
+}
+
+/* ---------------------------------------------------------------------------
+   Reordering by touch
+
+   HTML5 drag and drop does not exist on a phone. A long press lifts the row and
+   the rows around it slide out of the way live, so the gap shows exactly where
+   it will land.
+   --------------------------------------------------------------------------- */
+
+.stop-row {
+  transition: grid-template-rows 0.26s var(--ease), opacity 0.2s var(--ease),
+    margin-bottom 0.26s var(--ease), transform 0.2s var(--ease);
+}
+
+/* The row under your finger must not lag behind it. */
+.stop-row.lifted {
+  transition: none;
+  position: relative;
+  z-index: 6;
+}
+
+.stop-row.lifted .card {
+  box-shadow: var(--shadow-l);
+  transform: scale(1.02);
+  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease);
+}
+
+.swipe-row[data-dragging='true'] {
+  touch-action: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Undo pill
+   --------------------------------------------------------------------------- */
+
+.undo-pill {
+  position: fixed;
+  left: 50%;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  z-index: 60;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  max-width: min(92vw, 460px);
+  padding: 0.6rem 0.7rem 0.6rem 1rem;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: var(--shadow-l);
+  animation: undoIn 0.26s var(--ease);
+}
+
+@keyframes undoIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 14px);
+  }
+}
+
+.undo-text {
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.undo-btn {
+  flex-shrink: 0;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.14);
+  color: var(--paper);
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: background 0.15s var(--ease), transform 0.15s var(--ease);
+}
+
+.undo-btn:active {
+  transform: scale(0.95);
+}
+
+.undo-btn:hover {
+  background: rgb(255 255 255 / 0.24);
 }

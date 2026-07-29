@@ -151,7 +151,10 @@ export function TripDetailPage() {
   // for location permission on every trip page — it now never does.
   useEffect(() => {
     return onTrackerChange((s) => {
-      if (s.lastFix && s.tripId === tripId) {
+      // Any recent fix places the "you are here" dot, including the single one
+      // taken at app start — you shouldn't have to be tracking THIS trip to see
+      // where you are on its map.
+      if (s.lastFix && Date.now() - s.lastFix.at < 30 * 60_000) {
         setCurrentLoc({ lat: s.lastFix.lat, lng: s.lastFix.lng });
       }
       setLiveTracking(s.tripId === tripId && !!tripId);
