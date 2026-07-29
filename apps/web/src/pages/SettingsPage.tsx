@@ -15,6 +15,7 @@ import { LogoMark } from '../components/Logo';
 import { TrackPointsEditor } from '../components/TrackPointsEditor';
 import { isUpdateBannerSimulated, setUpdateBannerSimulated } from '../components/UpdateBanner';
 import { formatDate } from '../lib/colors';
+import { isLocalMode } from '../lib/localMode';
 import {
   MAP_STYLES,
   MapStyleId,
@@ -91,7 +92,12 @@ export function SettingsPage() {
           </nav>
         </div>
         <div className="settings-content" key={section}>
-          {section === 'profile' && <ProfileSection />}
+          {section === 'profile' && (
+            <>
+              <LocalModeCard />
+              <ProfileSection />
+            </>
+          )}
           {section === 'display' && <DisplaySection />}
           {section === 'preferences' && <PreferencesSection />}
           {section === 'immich' && <ImmichSection />}
@@ -215,6 +221,34 @@ function DisplaySection() {
         </div>
         <span className="muted">Geldt voor alle kaarten op dit apparaat.</span>
       </div>
+    </section>
+  );
+}
+
+/**
+ * Shown only without a server: says where the data lives and offers the way
+ * back to one. Leaving local mode keeps everything on the device — it just
+ * returns to the login screen.
+ */
+function LocalModeCard() {
+  const { logout } = useAuth();
+  if (!isLocalMode()) return null;
+  return (
+    <section className="card settings-card local-card">
+      <h2>
+        <Icon name="cloud-off" size={18} /> Zonder server
+      </h2>
+      <p className="muted">
+        Al je reizen, punten en notities staan op dit toestel. Er gaat niets naar buiten, en er is
+        geen account nodig.
+      </p>
+      <p className="muted">
+        Reisgenoten, deel-links en automatische back-ups hebben wel een server nodig. Koppel je er
+        later een, dan wordt alles wat hier staat in één keer geüpload.
+      </p>
+      <button className="btn btn-ghost" onClick={logout}>
+        Server koppelen
+      </button>
     </section>
   );
 }

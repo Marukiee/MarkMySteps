@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { api, clearTokens, isLoggedIn, setLogoutHandler, setTokens } from '../api/client';
 import type { AuthTokens, User } from '../api/types';
+import { isLocalMode, LOCAL_USER, setLocalMode } from '../lib/localMode';
 
 interface AuthState {
   user: User | null;
@@ -16,6 +17,8 @@ interface AuthState {
   login(identifier: string, password: string): Promise<void>;
   register(email: string, username: string, displayName: string, password: string): Promise<void>;
   logout(): void;
+  /** Switch to the device-only mode: no account, no server, no login. */
+  startLocalMode(): void;
   /** Re-fetch the current user (e.g. after changing the profile photo). */
   refresh(): Promise<void>;
 }
@@ -28,11 +31,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearTokens();
+    // Leaving local mode is the way back to the login screen; there is no
+    // session to end.
+    setLocalMode(false);
     setUser(null);
   }, []);
 
   useEffect(() => {
     setLogoutHandler(logout);
+    // No server: the device's own account, no login step at all.
+    if (isLocalMode()) {
+      setUser(LOCAL_USER);
+      setReady(true);
+      return;
+    }
     if (!isLoggedIn()) {
       setReady(true);
       return;
@@ -64,13 +76,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const startLocalMode = useCallback(() => {
+    clearTokens();
+    setLocalMode(true);
+    setUser(LOCAL_USER);
+  }, []);
+
   const refresh = useCallback(async () => {
     setUser(await api<User>('/users/me').catch(() => null));
   }, []);
 
   const value = useMemo(
-    () => ({ user, ready, login, register, logout, refresh }),
-    [user, ready, login, register, logout, refresh],
+    () => ({ user, ready, login, register, logout, startLocalMode, refresh }),
+    [user, ready, login, register, logout, startLocalMode, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

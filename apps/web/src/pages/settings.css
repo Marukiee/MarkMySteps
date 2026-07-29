@@ -1021,3 +1021,14 @@
 .avatar-meta {
   padding-top: 0.35rem;
 }
+
+/* The "no server" card at the top of Profile. */
+.local-card h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.local-card .btn {
+  justify-self: start;
+}

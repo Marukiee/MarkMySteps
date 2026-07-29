@@ -62,7 +62,7 @@ const NEEDS_SERVER: Feature[] = [
  * Flip to true once localBackend can serve the app. Until then the sheet is
  * honest about it rather than dropping someone into an app with no data layer.
  */
-const LOCAL_MODE_READY = false;
+const LOCAL_MODE_READY = true;
 
 /**
  * The "no server" explainer, opened from the login screen.

@@ -5,6 +5,8 @@
 
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SERVER_URL } from '../config';
+import { localRequest } from '../lib/localBackend';
+import { isLocalMode } from '../lib/localMode';
 import {
   cacheGetJson,
   cachePutJson,
@@ -122,6 +124,11 @@ export async function api<T>(
   options: { method?: string; body?: unknown; formData?: FormData } = {},
   isRetry = false,
 ): Promise<T> {
+  // Without a server every request is answered on the device, using the same
+  // paths and the same shapes — so nothing above this line knows the
+  // difference. See localBackend.
+  if (isLocalMode()) return localRequest<T>(path, options);
+
   const token = getAccessToken();
   const method = options.method ?? 'GET';
   const isGet = method === 'GET';

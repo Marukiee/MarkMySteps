@@ -1,4 +1,5 @@
 import { api } from '../api/client';
+import { isLocalMode } from './localMode';
 
 /**
  * Write-behind queue for edits made without a connection.
@@ -71,7 +72,9 @@ let flushing = false;
  * and leaves the rest queued for the next attempt.
  */
 export async function flushPendingWrites(): Promise<void> {
-  if (flushing || !navigator.onLine) return;
+  // Without a server there is nothing to catch up with, and replaying a queue
+  // left over from a server session into the local store would be wrong.
+  if (flushing || isLocalMode() || !navigator.onLine) return;
   flushing = true;
   try {
     let queue = read();

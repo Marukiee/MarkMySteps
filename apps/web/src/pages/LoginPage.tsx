@@ -9,7 +9,7 @@ import { PasswordInput } from '../components/PasswordInput';
 import './login.css';
 
 export function LoginPage() {
-  const { login, register } = useAuth();
+  const { login, register, startLocalMode } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [server, setServer] = useState(getServerBase());
@@ -150,7 +150,8 @@ export function LoginPage() {
           onClose={() => setLocalInfo(false)}
           onContinue={() => {
             setLocalInfo(false);
-            navigate('/');
+            startLocalMode();
+            navigate('/', { replace: true });
           }}
         />
       )}
