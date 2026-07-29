@@ -91,6 +91,22 @@ export function setTrackingIntervalMin(min: number): void {
   localStorage.setItem(TRACK_INTERVAL_KEY, String(min));
 }
 
+/* ---------- Photo cache ---------- */
+
+const THUMB_LIMIT_KEY = 'mms.thumbLimitMb';
+
+/** Megabytes of photo thumbnails kept for offline viewing; 0 = no limit. */
+export function getThumbCacheLimitMb(): number {
+  const raw = localStorage.getItem(THUMB_LIMIT_KEY);
+  if (raw === null) return 250;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : 250;
+}
+
+export function setThumbCacheLimitMb(mb: number): void {
+  localStorage.setItem(THUMB_LIMIT_KEY, String(Math.max(0, Math.round(mb))));
+}
+
 const TRIP_FACTS_KEY = 'mms.tripFacts';
 
 /** Per-trip choice of header chips; null means "auto" (priority order). */

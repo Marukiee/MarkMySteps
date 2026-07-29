@@ -14,7 +14,9 @@ import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
 import { TrackPointsEditor } from '../components/TrackPointsEditor';
 import { isUpdateBannerSimulated, setUpdateBannerSimulated } from '../components/UpdateBanner';
+import { backupSize, createBackup, saveBackup } from '../lib/backup';
 import { formatDate } from '../lib/colors';
+import { clearThumbCache, enforceThumbBudget, thumbCacheUsage } from '../lib/offlineCache';
 import { isLocalMode } from '../lib/localMode';
 import {
   MAP_STYLES,
@@ -25,12 +27,14 @@ import {
   getMapStyleId,
   getThemeId,
   getShowSelfOnHome,
+  getThumbCacheLimitMb,
   getTrackingIntervalMin,
   getTripCardSize,
   hasTripCardOverrides,
   setMapStyleId,
   setShowSelfOnHome,
   setThemeId,
+  setThumbCacheLimitMb,
   setTrackingIntervalMin,
   setTripCardSize,
 } from '../lib/prefs';
@@ -52,6 +56,7 @@ type SectionId =
   | 'immich'
   | 'import'
   | 'tracking'
+  | 'storage'
   | 'accounts'
   | 'about'
   | 'developer';
@@ -67,6 +72,7 @@ export function SettingsPage() {
     { id: 'preferences', label: 'Voorkeuren', show: true },
     { id: 'immich', label: 'Immich', show: true },
     { id: 'import', label: 'Importeren', show: true },
+    { id: 'storage', label: 'Opslag', show: true },
     { id: 'accounts', label: 'Accounts', show: user?.role === 'ADMIN' },
     { id: 'about', label: 'Over', show: true },
     { id: 'developer', label: 'Ontwikkelaar', show: devUnlocked },
@@ -102,6 +108,7 @@ export function SettingsPage() {
           {section === 'preferences' && <PreferencesSection />}
           {section === 'immich' && <ImmichSection />}
           {section === 'import' && <PolarstepsSection />}
+          {section === 'storage' && <StorageSection />}
           {section === 'accounts' && <AccountsSection />}
           {section === 'about' && (
             <AboutSection
@@ -223,6 +230,213 @@ function DisplaySection() {
       </div>
     </section>
   );
+}
+
+/**
+ * Photo cache + backup.
+ *
+ * Thumbnails used to be kept forever, which on a photo-heavy account quietly
+ * grows into hundreds of megabytes. The ceiling is a choice, so here it is,
+ * next to the only other thing about storage anyone cares about: getting a
+ * copy out.
+ */
+function StorageSection() {
+  const LIMITS = [100, 250, 500, 1000];
+  const [limit, setLimit] = useState(getThumbCacheLimitMb());
+  const [customOpen, setCustomOpen] = useState(
+    !LIMITS.includes(getThumbCacheLimitMb()) && getThumbCacheLimitMb() !== 0,
+  );
+  const [customValue, setCustomValue] = useState(String(getThumbCacheLimitMb()));
+  const [usage, setUsage] = useState(0);
+  const [clearing, setClearing] = useState(false);
+
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(
+    null,
+  );
+  const [result, setResult] = useState<string | null>(null);
+
+  const refreshUsage = () => {
+    void thumbCacheUsage().then(setUsage);
+  };
+  useEffect(refreshUsage, []);
+
+  const applyLimit = (mb: number) => {
+    setLimit(mb);
+    setThumbCacheLimitMb(mb);
+    // Lowering it should take effect now, not the next time a photo loads.
+    void enforceThumbBudget().then(refreshUsage);
+  };
+
+  async function runBackup() {
+    setBusy(true);
+    setResult(null);
+    try {
+      const backup = await createBackup((done, total, label) =>
+        setProgress({ done, total, label }),
+      );
+      const where = await saveBackup(backup);
+      setResult(`Opgeslagen als ${where} · ${formatBytes(backupSize(backup))}`);
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : 'Back-up mislukt');
+    } finally {
+      setBusy(false);
+      setProgress(null);
+    }
+  }
+
+  const limitBytes = limit * 1024 * 1024;
+  const filled = limitBytes > 0 ? Math.min(1, usage / limitBytes) : 0;
+
+  return (
+    <>
+      <section className="card settings-card">
+        <h2>
+          Foto-cache
+          <HelpTip>
+            Foto's die je bekijkt worden bewaard, zodat je ze zonder internet terugziet. Zonder
+            grens groeit dat op een volle account door tot honderden megabytes; bereikt de cache de
+            grens, dan verdwijnen de foto's die je het langst niet hebt bekeken als eerste.
+          </HelpTip>
+        </h2>
+
+        <div className="cache-meter" data-full={filled > 0.9}>
+          <div className="cache-meter-bar" style={{ width: `${Math.round(filled * 100)}%` }} />
+        </div>
+        <span className="muted cache-usage">
+          {formatBytes(usage)} in gebruik
+          {limit > 0 ? ` van ${limit >= 1000 ? `${limit / 1000} GB` : `${limit} MB`}` : ' (geen grens)'}
+        </span>
+
+        <div className="field">
+          <label>Maximale grootte</label>
+          <div className="theme-choice theme-choice-wrap">
+            {LIMITS.map((mb) => (
+              <button
+                key={mb}
+                type="button"
+                className={`theme-opt ${!customOpen && limit === mb ? 'active' : ''}`}
+                onClick={() => {
+                  setCustomOpen(false);
+                  applyLimit(mb);
+                }}
+              >
+                {mb >= 1000 ? `${mb / 1000} GB` : `${mb} MB`}
+              </button>
+            ))}
+            <button
+              type="button"
+              className={`theme-opt ${limit === 0 ? 'active' : ''}`}
+              onClick={() => {
+                setCustomOpen(false);
+                applyLimit(0);
+              }}
+            >
+              Geen grens
+            </button>
+            <button
+              type="button"
+              className={`theme-opt theme-opt-icon ${customOpen ? 'active' : ''}`}
+              title="Eigen grootte"
+              aria-label="Eigen grootte"
+              onClick={() => {
+                setCustomValue(String(limit));
+                setCustomOpen(true);
+              }}
+            >
+              <Icon name="pencil" size={15} />
+            </button>
+          </div>
+          <div className="cache-custom" data-open={customOpen}>
+            <div className="cache-custom-inner">
+              <div className="interval-custom">
+                <input
+                  type="number"
+                  min={20}
+                  max={20000}
+                  value={customValue}
+                  onChange={(e) => {
+                    setCustomValue(e.target.value);
+                    const mb = Number(e.target.value);
+                    if (mb >= 20) applyLimit(mb);
+                  }}
+                />
+                <span>MB</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          className="btn btn-ghost"
+          disabled={clearing || usage === 0}
+          onClick={async () => {
+            const ok = await confirmModal({
+              title: 'Cache leegmaken?',
+              body: "Bewaarde foto's worden gewist. Ze worden opnieuw opgehaald zodra je online bent — er gaat niets van je reizen verloren.",
+              confirmLabel: 'Leegmaken',
+              danger: true,
+            });
+            if (!ok) return;
+            setClearing(true);
+            await clearThumbCache();
+            refreshUsage();
+            setClearing(false);
+          }}
+        >
+          <Icon name="trash" size={15} /> Cache leegmaken
+        </button>
+      </section>
+
+      <section className="card settings-card">
+        <h2>
+          Back-up
+          <HelpTip>
+            Eén bestand met al je reizen, stops, routepunten en notities, plus je instellingen.
+            Foto's zitten er als verwijzing in, niet als bestand — die staan al in je galerij of op
+            je Immich-server.
+          </HelpTip>
+        </h2>
+        <p className="muted">
+          Zet alles in één bestand in je Downloads-map, met daarna de deel-knop zodat je het meteen
+          ergens veilig kunt neerzetten.
+        </p>
+
+        {/* Grows out of the button while it runs, so a long export shows where
+            it is instead of freezing on a spinner. */}
+        <div className="backup-progress" data-open={busy}>
+          <div className="backup-progress-inner">
+            <div className="cache-meter">
+              <div
+                className="cache-meter-bar"
+                style={{
+                  width: progress && progress.total > 0
+                    ? `${Math.round((progress.done / progress.total) * 100)}%`
+                    : '8%',
+                }}
+              />
+            </div>
+            <span className="muted">
+              {progress?.label ? `${progress.label}…` : 'Verzamelen…'}
+            </span>
+          </div>
+        </div>
+
+        <button className="btn btn-primary" disabled={busy} onClick={() => void runBackup()}>
+          <Icon name="download" size={16} /> {busy ? 'Bezig…' : 'Back-up maken'}
+        </button>
+        {result && <p className="muted settings-ok backup-result">{result}</p>}
+      </section>
+    </>
+  );
+}
+
+/** "1,4 GB" / "820 MB" / "64 kB". */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} kB`;
+  if (bytes < 1024 * 1024 * 1024) return `${Math.round(bytes / (1024 * 1024))} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 /**

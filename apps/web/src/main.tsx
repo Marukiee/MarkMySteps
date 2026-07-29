@@ -17,6 +17,7 @@ import {
   isNativeApp,
 } from './lib/native';
 import { applyTheme, getThemeId } from './lib/prefs';
+import { enforceThumbBudget } from './lib/offlineCache';
 import { initPendingWrites } from './lib/pendingWrites';
 import { captureCurrentLocation, resumeIfTracking } from './tracking/tracker';
 import './styles/global.css';
@@ -34,6 +35,8 @@ resumeIfTracking();
 void captureCurrentLocation();
 // Edits made without a connection are replayed as soon as there is one.
 initPendingWrites();
+// Applies a photo-cache limit that was lowered in a previous session.
+void enforceThumbBudget();
 // Android back gesture support.
 initBackButton();
 // Overlay + style the native status bar.

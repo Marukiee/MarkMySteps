@@ -11,9 +11,9 @@
  */
 
 const DB_NAME = 'mms-local';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
-export type StoreName = 'trips' | 'stops' | 'points' | 'notes' | 'media' | 'meta';
+export type StoreName = 'trips' | 'stops' | 'points' | 'notes' | 'media' | 'meta' | 'thumbs';
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -40,6 +40,12 @@ function open(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('meta')) {
         db.createObjectStore('meta');
+      }
+      // Bookkeeping for the thumbnail cache: what is in it, how big it is and
+      // when it was last looked at. Cache Storage itself cannot answer any of
+      // those, so the budget has to be tracked alongside it.
+      if (!db.objectStoreNames.contains('thumbs')) {
+        db.createObjectStore('thumbs', { keyPath: 'path' }).createIndex('at', 'at');
       }
     };
     request.onsuccess = () => resolve(request.result);

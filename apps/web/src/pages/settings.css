@@ -1032,3 +1032,74 @@
 .local-card .btn {
   justify-self: start;
 }
+
+/* ---------------------------------------------------------------------------
+   Storage: photo cache + backup
+   --------------------------------------------------------------------------- */
+
+.cache-meter {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  overflow: hidden;
+}
+
+.cache-meter-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  /* Eases when the limit changes or the cache is cleared, so the bar reads as
+     a level rather than a number that jumped. */
+  transition: width 0.45s var(--ease), background 0.3s var(--ease);
+}
+
+.cache-meter[data-full='true'] .cache-meter-bar {
+  background: #c9463a;
+}
+
+.cache-usage {
+  margin-top: -0.45rem;
+  font-size: 0.82rem;
+}
+
+/* 0fr → 1fr expander, same as the tracking interval's. */
+.cache-custom,
+.backup-progress {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.3s var(--ease), opacity 0.24s var(--ease);
+}
+
+.cache-custom[data-open='true'],
+.backup-progress[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.cache-custom-inner,
+.backup-progress-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.backup-progress-inner {
+  display: grid;
+  gap: 0.4rem;
+  padding-bottom: 0.2rem;
+}
+
+.backup-progress-inner .muted {
+  font-size: 0.82rem;
+}
+
+.backup-result {
+  animation: backupDone 0.35s var(--ease);
+}
+
+@keyframes backupDone {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
