@@ -146,6 +146,16 @@ export function GlobeBackdrop({
     let tourPhase = 0; // 0 = overview, 1 = focus
     let phaseStart = performance.now();
     let tourIdx = 0; // which trip is being framed during a focus phase
+    /** The light has finished its run along the framed trip's route. Zooming
+     *  back out before that cuts the story off half way. */
+    let glowFinished = false;
+    // Velocities for the camera springs (see easeTo). A plain lerp starts at
+    // full speed, which is what made zooming out feel abrupt; a critically
+    // damped spring starts from rest and settles without overshooting.
+    let scaleV = 0;
+    let tiltV = 0;
+    let rotV = 0;
+    let lastFrame = performance.now();
     // Screen rects of the drawn labels, so tapping a name opens its trip.
     let labelRects: { id: string; x: number; y: number; w: number; h: number }[] = [];
 
@@ -178,7 +188,23 @@ export function GlobeBackdrop({
       const trips = globeTrips();
 
       const now = performance.now();
+      // Clamped: a backgrounded tab hands back a huge gap on its first frame.
+      const dt = Math.min(0.05, Math.max(0.001, (now - lastFrame) / 1000));
+      lastFrame = now;
       const idle = !dragging && now - lastInteract > 1400;
+
+      /** Critically damped step toward `target`. Returns [value, velocity]. */
+      const ease = (
+        value: number,
+        velocity: number,
+        target: number,
+        stiffness: number,
+      ): [number, number] => {
+        const damping = 2 * Math.sqrt(stiffness);
+        const accel = -stiffness * (value - target) - damping * velocity;
+        const v = velocity + accel * dt;
+        return [value + v * dt, v];
+      };
 
       // --- Auto-tour (idle only) ---
       // Phase 0: wide overview, pendulum-sweep across all trips.
@@ -202,10 +228,15 @@ export function GlobeBackdrop({
             tourPhase = 1;
             tourIdx = (tourIdx + 1) % trips.length;
             selectedId = null;
-          } else {
+            glowDist = 0;
+            glowFinished = false;
+            phaseStart = now;
+          } else if (glowFinished || now - phaseStart > dur * 3) {
+            // Hold the zoom until the light has travelled the whole route (with
+            // a ceiling, so a route that never finishes can't strand the tour).
             tourPhase = 0;
+            phaseStart = now;
           }
-          phaseStart = now;
         }
 
         if (tourPhase === 0) {
@@ -217,24 +248,30 @@ export function GlobeBackdrop({
           if (centerLng <= lo) sweepDir = 1;
           else if (centerLng >= hi) sweepDir = -1;
           rotation -= velocity * sweepDir;
-          targetScale += (1 - targetScale) * 0.04;
-          tilt += (0 - tilt) * 0.04;
+          targetScale = 1;
+          [scale, scaleV] = ease(scale, scaleV, targetScale, 3.2);
+          [tilt, tiltV] = ease(tilt, tiltV, 0, 3.2);
         } else {
           // Focus: ease onto one real trip and frame it. Zoom adapts to how
           // spread out its route is, so a big trip fills the view nicely.
           const trip = trips[Math.min(tourIdx, trips.length - 1)]!;
           const spread = tripSpread(trip);
           const zoom = Math.max(1.6, Math.min(3.4, 70 / (spread + 12)));
-          rotation += (((-trip.anchor[0] - rotation + 540) % 360) - 180) * 0.03;
+          const shortest = ((-trip.anchor[0] - rotation + 540) % 360) - 180;
+          [rotation, rotV] = ease(rotation, rotV, rotation + shortest, 2.4);
           // Frame the trip a touch above centre (the fade tail eats the lower
           // third) — a small lift, not so much it sits near the top.
-          tilt += (trip.anchor[1] - CENTER_LAT - 4 - tilt) * 0.04;
-          targetScale += (zoom - targetScale) * 0.035;
+          [tilt, tiltV] = ease(tilt, tiltV, trip.anchor[1] - CENTER_LAT - 4, 3.2);
+          targetScale = zoom;
+          [scale, scaleV] = ease(scale, scaleV, targetScale, 3.2);
         }
       }
 
-      // Smooth zoom toward the target every frame (no jumps).
-      scale += (targetScale - scale) * 0.15;
+      // Dragging and pinching set targetScale directly; catch up quickly there,
+      // since the finger is the one in charge.
+      if (!idle || trips.length === 0) {
+        [scale, scaleV] = ease(scale, scaleV, targetScale, 26);
+      }
 
       // Radius fits the SHORTER side, so the sphere is as big as it can be
       // without ever being clipped left/right or top/bottom.
@@ -603,8 +640,11 @@ export function GlobeBackdrop({
           // Pause briefly at the end of the route, then restart — a light
           // that loops instantly feels frantic.
           const PAUSE = 22; // degrees' worth of dwell time past the end
-          glowDist += 0.055;
-          if (glowDist > total + PAUSE) glowDist = 0;
+          glowDist += 0.055 * (dt * 60);
+          if (glowDist > total + PAUSE) {
+            glowDist = 0;
+            glowFinished = true;
+          }
           const [gr, gg, gb] = legibleColor(act.color, dark);
 
           // Sample the ribbon head → tail. A sample whose distance is
@@ -647,6 +687,8 @@ export function GlobeBackdrop({
             }
           }
         } else if (act) {
+          // A city trip has no ribbon to wait for; two pulses is its equivalent.
+          if (now - phaseStart > 3600) glowFinished = true;
           // City trip: no line worth running a light along, so the dot itself
           // breathes — a soft halo plus a ring that expands out of it and fades,
           // which reads as "this one" just as clearly as the ribbon does.

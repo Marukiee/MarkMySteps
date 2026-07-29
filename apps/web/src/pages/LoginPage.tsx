@@ -4,6 +4,7 @@ import { getServerBase, setServerBase } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_SERVER_URL } from '../config';
 import { isNative } from '../tracking/tracker';
+import { LocalModeSheet } from '../components/LocalModeSheet';
 import { PasswordInput } from '../components/PasswordInput';
 import './login.css';
 
@@ -18,6 +19,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [localInfo, setLocalInfo] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -135,7 +137,23 @@ export function LoginPage() {
         <button className="btn btn-primary" disabled={busy}>
           {busy ? 'Even geduld…' : mode === 'login' ? 'Inloggen' : 'Account maken'}
         </button>
+
+        {/* The app is usable with nothing but the phone; saying so here is the
+            only place anyone would look for it. */}
+        <button type="button" className="login-nolink" onClick={() => setLocalInfo(true)}>
+          Doorgaan <u>zonder server</u>
+        </button>
       </form>
+
+      {localInfo && (
+        <LocalModeSheet
+          onClose={() => setLocalInfo(false)}
+          onContinue={() => {
+            setLocalInfo(false);
+            navigate('/');
+          }}
+        />
+      )}
     </div>
   );
 }

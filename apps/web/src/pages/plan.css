@@ -158,7 +158,25 @@
 .trip-planner {
   min-width: 0;
   max-width: 100%;
-  overflow-x: hidden;
+  /* How far a swipe row may bleed past this column, so a swiped card reaches
+     the edge of the screen. Matches the side padding of whatever contains the
+     planner; zero on desktop, where the column is not full-bleed. */
+  --plan-bleed: 0px;
+  /* Clip, not hidden: the bleed has to be allowed through, but a long place
+     name still must not make the whole page scroll sideways. */
+  overflow-x: clip;
+  overflow-clip-margin: var(--plan-bleed);
+}
+
+@media (max-width: 900px) {
+  .trip-detail .trip-planner {
+    /* .trip-side's own padding on a phone. */
+    --plan-bleed: 1.15rem;
+  }
+
+  .plan-page .trip-planner {
+    --plan-bleed: 0.9rem;
+  }
 }
 
 .stop-list,
@@ -880,88 +898,71 @@
 /* ---------------------------------------------------------------------------
    Swipe to delete
 
-   A row slides aside under your finger and is removed once it passes a third of
-   its width — the same gesture a music app uses for its queue. It replaced the
-   × in every card's corner, which crowded the row and was easy to hit by
-   accident while scrolling.
+   The row spans the full width of the screen even though the card inside it is
+   inset, so a swiped card travels all the way to the edge instead of being cut
+   off at the column's padding. The reveal is inset by the same amount, so it
+   lines up with the card it is uncovering.
    --------------------------------------------------------------------------- */
 
 .swipe-row {
   position: relative;
   min-width: 0;
-  border-radius: var(--radius-m);
-  /* The card slides within its own row rather than being cut off wherever the
-     planner column happens to end. Clipped sideways only, so a mode dropdown
-     inside the row can still hang out below it. */
+  margin-inline: calc(var(--plan-bleed, 0px) * -1);
+  padding-inline: var(--plan-bleed, 0px);
+  /* Sideways only, and with room for the card's own drop shadow — clipping at
+     the box edge shaved the shadow off both sides of every row. */
   overflow-x: clip;
   overflow-y: visible;
+  overflow-clip-margin: 14px;
 }
 
-.swipe-bg {
+/* Grows out of the edge being uncovered, rather than sitting behind the row as
+   a full-width block. */
+.swipe-reveal {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  opacity: 0;
   display: flex;
   align-items: center;
-  padding: 0 1.1rem;
   border-radius: var(--radius-m);
   background: #c9463a;
   color: #fff;
-  font-size: 0.85rem;
-  font-weight: 500;
-  opacity: 0;
-  transition: background 0.16s var(--ease);
+  overflow: hidden;
 }
 
-/* No fade: it is revealed and covered again by the card moving over it. */
-.swipe-row[data-revealed='true'] .swipe-bg {
-  opacity: 1;
-}
-
-/* Whichever edge is being uncovered is where the label belongs, so it reads
-   immediately instead of only once the row is halfway across. */
-.swipe-row[data-dir='right'] .swipe-bg {
+.swipe-reveal[data-dir='right'] {
+  left: var(--plan-bleed, 0px);
   justify-content: flex-start;
 }
 
-.swipe-row[data-dir='left'] .swipe-bg {
+.swipe-reveal[data-dir='left'] {
+  right: var(--plan-bleed, 0px);
   justify-content: flex-end;
 }
 
-/* Swiping left uncovers the right-hand edge, so the icon belongs on the
-   outside there too — nearest the edge, with the label beside it. */
-.swipe-row[data-dir='left'] .swipe-bg-inner {
-  flex-direction: row-reverse;
-}
-
-.swipe-bg-inner {
+/* The icon hugs the swiped edge and the label sits a fixed distance inward, so
+   left and right read the same way round. */
+.swipe-reveal-inner {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-/* Past the threshold the bar deepens, so you can feel where "let go now" is. */
-.swipe-row[data-armed='true'] .swipe-bg {
-  background: #a8382e;
-}
-
-.swipe-bg-label {
+  gap: 0.6rem;
+  padding-inline: 1.15rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   white-space: nowrap;
-  opacity: 0.75;
-  transition: opacity 0.16s var(--ease);
 }
 
-.swipe-row[data-armed='true'] .swipe-bg-label {
-  opacity: 1;
+.swipe-reveal[data-dir='left'] .swipe-reveal-inner {
+  flex-direction: row-reverse;
 }
 
 .swipe-fg {
   position: relative;
   /* Vertical scrolling still belongs to the page; only sideways is ours. */
   touch-action: pan-y;
-}
-
-.swipe-row:not([data-swiping='true']) .swipe-fg {
-  transition: transform 0.26s var(--ease);
+  will-change: transform;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1303,12 +1304,6 @@
 .daytrip-actions .btn {
   padding: 0.45rem 0.9rem;
   font-size: 0.85rem;
-}
-
-/* A day trip's swipe layer follows the rounder shape of its own card. */
-.daytrip-row .swipe-row,
-.daytrip-row .swipe-bg {
-  border-radius: 16px;
 }
 
 /* Desktop only: there is no swipe with a mouse, and the card's drag gesture is

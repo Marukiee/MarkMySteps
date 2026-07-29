@@ -3,7 +3,6 @@ import {
   DragEvent,
   FormEvent,
   ReactNode,
-  TouchEvent as ReactTouchEvent,
   useEffect,
   useRef,
   useState,
@@ -26,6 +25,7 @@ import {
 } from '../lib/arc';
 import { flagEmoji, formatDate, formatDateRange } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
+import { haptic } from '../lib/haptics';
 import { cachePutJson } from '../lib/offlineCache';
 import { enqueueWrite, onPendingChange } from '../lib/pendingWrites';
 import {
@@ -443,8 +443,6 @@ export function TripPlanner({
       dy: 0,
       height: rects[index]?.height ?? 0,
     });
-    // A short buzz is the only signal that the row has come loose.
-    navigator.vibrate?.(12);
   }
 
   function moveTouchDrag(dy: number) {
@@ -869,12 +867,26 @@ export function TripPlanner({
 }
 
 /**
- * Swipe a row aside to delete it, either direction — the same gesture as a
- * queue item in a music app. It replaces the little × that used to sit in the
- * corner of every card and crowd the row.
+ * Swipe a row aside to delete it, either direction.
  *
- * Only touch is handled: on a desktop the card is still an HTML5 drag handle
- * for reordering, and the two would fight over the pointer.
+ * The feel is ported from a Compose implementation that got it right, and it is
+ * worth spelling out because "just follow the finger" is what it is NOT:
+ *
+ *   tension  the row barely moves (20 px at most) for the first 60 px of
+ *            travel, so scrolling a list never nudges rows sideways;
+ *   release  past that it springs to catch up with the finger, with a haptic
+ *            tick — the moment the row comes loose is something you feel;
+ *   free     from there it tracks one to one, ticking again when it crosses
+ *            (or leaves) the commit threshold;
+ *   commit   letting go past the threshold flings the row off in the direction
+ *            of travel while its height collapses in step, so the gap closes
+ *            instead of the row blinking out.
+ *
+ * The reveal grows out of the edge you are uncovering rather than sitting
+ * behind the row as a full-width block.
+ *
+ * Touch only: a desktop has no swipe, and the card's drag gesture there is
+ * already reordering the route.
  */
 function SwipeToDelete({
   onDelete,
@@ -894,165 +906,278 @@ function SwipeToDelete({
   dragging?: boolean;
   children: ReactNode;
 }) {
-  const [dx, setDx] = useState(0);
-  const [swiping, setSwiping] = useState(false);
-  /** Stays true until the card has slid back over the red, so the background is
-   *  covered up rather than fading out from under it. */
-  const [revealed, setRevealed] = useState(false);
-  const hideTimer = useRef<number | null>(null);
-  const start = useRef<{ x: number; y: number; axis: 'none' | 'x' | 'y' } | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+  const fgRef = useRef<HTMLDivElement>(null);
+  const bgRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
 
-  /** Far enough to mean it: a fifth of the row, and never less than 64 px. */
-  const threshold = () => Math.max(64, (boxRef.current?.offsetWidth ?? 300) * 0.2);
-  const armed = Math.abs(dx) >= threshold();
-  // A buzz the moment it comes loose, so "far enough" is something you feel.
-  const buzzed = useRef(false);
+  /** Travel before the row comes loose, and how far it may creep in that time. */
+  const TENSION_PX = 60;
+  const TENSION_MAX_PX = 20;
+  /** Past this fraction of the row, letting go deletes. */
+  const COMMIT_FRACTION = 0.35;
+  /** The reveal's icon has faded fully in by the time it is this wide. */
+  const REVEAL_FADE_PX = 56;
 
-  /**
-   * Finger travel → how far the row actually moves.
-   *
-   * It resists at first, so a row never comes loose from a stray thumb, and
-   * then follows the finger one to one. No jump at the threshold: the haptic
-   * tick says you are there, and a row that leaps sideways under your finger
-   * reads as a glitch.
-   */
-  const resist = (raw: number): number => {
-    const distance = Math.abs(raw);
-    const STICK = 22; // barely moves until you mean it
-    if (distance <= STICK) return Math.sign(raw) * distance * 0.4;
-    return Math.sign(raw) * (STICK * 0.4 + (distance - STICK));
-  };
-
+  // Everything below runs off the animation loop and writes to the DOM
+  // directly. Re-rendering React on every frame of a drag is the one thing
+  // guaranteed to make it feel cheap.
+  const anim = useRef({
+    x: 0,
+    v: 0,
+    target: 0,
+    stiffness: 0,
+    damping: 0,
+    raf: 0,
+    last: 0,
+    /** Set while the row is flying off; the spring is not in charge then. */
+    fling: null as null | { from: number; to: number; start: number; ms: number },
+  });
+  const gesture = useRef({
+    startX: 0,
+    startY: 0,
+    axis: 'none' as 'none' | 'x' | 'y',
+    acc: 0,
+    phase: 'idle' as 'idle' | 'tension' | 'free',
+    committed: false,
+    mode: 'idle' as 'idle' | 'swipe' | 'drag',
+  });
   const holdTimer = useRef<number | null>(null);
-  // Read inside the native listener, which is registered once.
-  const mode = useRef<'idle' | 'swipe' | 'drag'>('idle');
-  const handlers = useRef({ onDragStart, onDragMove, onDragEnd, onDelete });
-  handlers.current = { onDragStart, onDragMove, onDragEnd, onDelete };
+  const callbacks = useRef({ onDragStart, onDragMove, onDragEnd, onDelete });
+  callbacks.current = { onDragStart, onDragMove, onDragEnd, onDelete };
 
-  const cancelHold = () => {
-    if (holdTimer.current) window.clearTimeout(holdTimer.current);
-    holdTimer.current = null;
-  };
+  const width = () => boxRef.current?.offsetWidth ?? 320;
+  const commitPx = () => width() * COMMIT_FRACTION;
 
-  const onTouchStart = (e: ReactTouchEvent) => {
-    // A day trip's row sits inside its stop's row: without this, swiping the
-    // day trip would drag the whole stop along with it.
-    e.stopPropagation();
-    const t = e.touches[0]!;
-    start.current = { x: t.clientX, y: t.clientY, axis: 'none' };
-    mode.current = 'idle';
-    if (!onDragStart) return;
-    // Hold still for a moment and the row comes up for reordering; move first
-    // and it is a swipe or a scroll instead.
-    cancelHold();
-    holdTimer.current = window.setTimeout(() => {
-      if (mode.current !== 'idle') return;
-      mode.current = 'drag';
-      handlers.current.onDragStart?.();
-    }, 380);
-  };
-
-  const onTouchEnd = (e: ReactTouchEvent) => {
-    e.stopPropagation();
-    cancelHold();
-    const s = start.current;
-    start.current = null;
-    setSwiping(false);
-    if (mode.current === 'drag') {
-      mode.current = 'idle';
-      handlers.current.onDragEnd?.();
+  /** Paints the current offset: the row's transform and the reveal's width. */
+  const paint = (x: number) => {
+    const fg = fgRef.current;
+    const bg = bgRef.current;
+    if (fg) fg.style.transform = x === 0 ? '' : `translateX(${x}px)`;
+    if (!bg) return;
+    const shown = Math.abs(x);
+    bg.style.width = `${shown}px`;
+    if (shown === 0) {
+      bg.style.opacity = '0';
       return;
     }
-    mode.current = 'idle';
-    if (s?.axis === 'x' && Math.abs(dx) >= threshold()) {
-      buzzed.current = false;
-      navigator.vibrate?.([0, 18]);
-      // Let it fly off in the direction of travel, then delete.
-      setDx(Math.sign(dx) * (boxRef.current?.offsetWidth ?? 400));
-      window.setTimeout(onDelete, 170);
-      return;
+    bg.style.opacity = '1';
+    bg.dataset.dir = x > 0 ? 'right' : 'left';
+    if (innerRef.current) {
+      innerRef.current.style.opacity = String(Math.min(1, shown / REVEAL_FADE_PX));
     }
-    buzzed.current = false;
-    setDx(0);
-    // Matches the .swipe-fg return transition: the red disappears because the
-    // card is in front of it again, not because it faded.
-    if (hideTimer.current) window.clearTimeout(hideTimer.current);
-    hideTimer.current = window.setTimeout(() => setRevealed(false), 280);
   };
 
-  // Registered by hand because React's touchmove is passive: without
-  // preventDefault the page scrolls away underneath a swipe or a reorder.
+  const step = () => {
+    const a = anim.current;
+    const now = performance.now();
+    const elapsed = Math.min(64, now - a.last);
+    a.last = now;
+
+    if (a.fling) {
+      const t = Math.min(1, (now - a.fling.start) / a.fling.ms);
+      // Fast-out-slow-in, the same curve the reference tween uses.
+      const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      a.x = a.fling.from + (a.fling.to - a.fling.from) * eased;
+      paint(a.x);
+      if (t >= 1) {
+        a.fling = null;
+        a.raf = 0;
+        return;
+      }
+      a.raf = requestAnimationFrame(step);
+      return;
+    }
+
+    // Semi-implicit Euler, sub-stepped: a stiff spring is unstable at 60 Hz in
+    // one go, and "stiff" is exactly what a 1:1 follow needs.
+    const steps = Math.max(1, Math.ceil((elapsed / 1000) * 240));
+    const dt = elapsed / 1000 / steps;
+    for (let i = 0; i < steps; i++) {
+      const accel = -a.stiffness * (a.x - a.target) - a.damping * a.v;
+      a.v += accel * dt;
+      a.x += a.v * dt;
+    }
+    if (Math.abs(a.x - a.target) < 0.25 && Math.abs(a.v) < 2) {
+      a.x = a.target;
+      a.v = 0;
+      paint(a.x);
+      a.raf = 0;
+      return;
+    }
+    paint(a.x);
+    a.raf = requestAnimationFrame(step);
+  };
+
+  /** dampingRatio 1 = no bounce; below that it overshoots. */
+  const springTo = (target: number, stiffness: number, dampingRatio: number) => {
+    const a = anim.current;
+    a.target = target;
+    a.stiffness = stiffness;
+    a.damping = 2 * dampingRatio * Math.sqrt(stiffness);
+    if (!a.raf) {
+      a.last = performance.now();
+      a.raf = requestAnimationFrame(step);
+    }
+  };
+
+  const snapTo = (x: number) => {
+    const a = anim.current;
+    a.x = x;
+    a.v = 0;
+    a.target = x;
+    paint(x);
+  };
+
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
+
+    const cancelHold = () => {
+      if (holdTimer.current) window.clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    };
+
+    const onStart = (e: TouchEvent) => {
+      // A day trip's row sits inside its stop's row: without this, swiping the
+      // day trip would drag the whole stop along with it.
+      e.stopPropagation();
+      const t = e.touches[0]!;
+      const g = gesture.current;
+      g.startX = t.clientX;
+      g.startY = t.clientY;
+      g.axis = 'none';
+      g.acc = 0;
+      g.phase = 'idle';
+      g.committed = false;
+      g.mode = 'idle';
+      if (!callbacks.current.onDragStart) return;
+      cancelHold();
+      // Hold still for a moment and the row comes up for reordering; move first
+      // and it is a swipe or a scroll instead.
+      holdTimer.current = window.setTimeout(() => {
+        if (gesture.current.mode !== 'idle') return;
+        gesture.current.mode = 'drag';
+        haptic('long-press');
+        callbacks.current.onDragStart?.();
+      }, 380);
+    };
+
     const onMove = (e: TouchEvent) => {
       e.stopPropagation();
-      const s = start.current;
-      if (!s) return;
+      const g = gesture.current;
       const t = e.touches[0]!;
-      const moveX = t.clientX - s.x;
-      const moveY = t.clientY - s.y;
+      const moveX = t.clientX - g.startX;
+      const moveY = t.clientY - g.startY;
 
-      if (mode.current === 'drag') {
+      if (g.mode === 'drag') {
         e.preventDefault();
-        handlers.current.onDragMove?.(moveY);
+        callbacks.current.onDragMove?.(moveY);
         return;
       }
       // Decide once whether this is a swipe or a scroll, then stick to it —
       // re-deciding mid-gesture makes the row twitch while you scroll past it.
-      if (s.axis === 'none') {
-        if (Math.abs(moveX) < 12 && Math.abs(moveY) < 12) return;
+      if (g.axis === 'none') {
+        if (Math.abs(moveX) < 10 && Math.abs(moveY) < 10) return;
         cancelHold();
-        s.axis = Math.abs(moveX) > Math.abs(moveY) * 1.4 ? 'x' : 'y';
-        if (s.axis === 'x') {
-          mode.current = 'swipe';
-          setSwiping(true);
-          if (hideTimer.current) window.clearTimeout(hideTimer.current);
-          setRevealed(true);
+        g.axis = Math.abs(moveX) > Math.abs(moveY) ? 'x' : 'y';
+        if (g.axis === 'x') {
+          g.mode = 'swipe';
+          g.phase = 'tension';
         }
       }
-      if (s.axis !== 'x') return;
+      if (g.axis !== 'x') return;
       e.preventDefault();
-      const next = resist(moveX);
-      // Tick once on the way out, once on the way back in.
-      const past = Math.abs(next) >= threshold();
-      if (past !== buzzed.current) {
-        buzzed.current = past;
-        navigator.vibrate?.(past ? 14 : 8);
+      g.acc = moveX;
+      const dir = Math.sign(g.acc);
+
+      if (g.phase === 'tension') {
+        if (Math.abs(g.acc) < TENSION_PX) {
+          snapTo(dir * TENSION_MAX_PX * (Math.abs(g.acc) / TENSION_PX));
+          return;
+        }
+        // Comes loose: spring up to the finger rather than jumping to it.
+        haptic('threshold-on');
+        g.phase = 'free';
+        springTo(g.acc, 200, 0.8);
+        return;
       }
-      setDx(next);
+
+      const past = Math.abs(g.acc) > commitPx();
+      if (past !== g.committed) {
+        g.committed = past;
+        haptic(past ? 'threshold-on' : 'threshold-off');
+        boxRef.current?.setAttribute('data-armed', String(past));
+      }
+      springTo(g.acc, 10_000, 1);
     };
+
+    const onEnd = (e: TouchEvent) => {
+      e.stopPropagation();
+      cancelHold();
+      const g = gesture.current;
+      if (g.mode === 'drag') {
+        g.mode = 'idle';
+        callbacks.current.onDragEnd?.();
+        return;
+      }
+      const committed = g.axis === 'x' && Math.abs(g.acc) > commitPx();
+      g.mode = 'idle';
+      g.axis = 'none';
+      g.phase = 'idle';
+      g.committed = false;
+      boxRef.current?.setAttribute('data-armed', 'false');
+
+      if (committed) {
+        haptic('end');
+        const dir = Math.sign(g.acc);
+        const a = anim.current;
+        a.fling = {
+          from: a.x,
+          to: dir * width() * 1.1,
+          start: performance.now(),
+          ms: 260,
+        };
+        if (!a.raf) {
+          a.last = performance.now();
+          a.raf = requestAnimationFrame(step);
+        }
+        // Fired now, not after the fling: the row's height collapses in step
+        // with it, so the gap closes as it glides away.
+        callbacks.current.onDelete();
+        return;
+      }
+      // Cancelled: an elastic settle back to where it was.
+      springTo(0, 1500, 0.75);
+    };
+
+    el.addEventListener('touchstart', onStart, { passive: true });
     el.addEventListener('touchmove', onMove, { passive: false });
-    return () => el.removeEventListener('touchmove', onMove);
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
+      cancelHold();
+      if (anim.current.raf) cancelAnimationFrame(anim.current.raf);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div
-      className="swipe-row"
-      ref={boxRef}
-      data-swiping={swiping}
-      data-revealed={revealed}
-      data-armed={armed}
-      data-dragging={dragging}
-      data-dir={dx > 0 ? 'right' : dx < 0 ? 'left' : undefined}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchEnd}
-    >
-      {/* The label sits against the edge the row is uncovering, so it is the
-          first thing you read instead of appearing from the far side. */}
-      <div className="swipe-bg" aria-hidden="true">
-        <span className="swipe-bg-inner">
-          <Icon name="trash" size={17} />
-          <span className="swipe-bg-label">{label}</span>
+    <div className="swipe-row" ref={boxRef} data-dragging={dragging} data-armed="false">
+      {/* Grows out of the edge you are uncovering; the icon hugs that edge and
+          the label sits a fixed distance inward, so both directions read the
+          same way round. */}
+      <div className="swipe-reveal" ref={bgRef} aria-hidden="true">
+        <span className="swipe-reveal-inner" ref={innerRef}>
+          <Icon name="trash" size={18} className="swipe-reveal-icon" />
+          <span className="swipe-reveal-label">{label}</span>
         </span>
       </div>
-      <div
-        className="swipe-fg"
-        style={dx === 0 ? undefined : { transform: `translateX(${dx}px)` }}
-      >
+      <div className="swipe-fg" ref={fgRef}>
         {children}
       </div>
       {/* Mouse-and-keyboard fallback: there is no swipe on a desktop, and the
@@ -1063,6 +1188,7 @@ function SwipeToDelete({
     </div>
   );
 }
+
 
 /**
  * The day trips hanging off one stop, plus the panel to add another.

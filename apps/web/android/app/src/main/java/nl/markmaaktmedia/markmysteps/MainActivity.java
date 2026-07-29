@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         // Must be registered before the bridge starts loading the web app.
         registerPlugin(PredictiveBackPlugin.class);
         registerPlugin(MmsLocationPlugin.class);
+        registerPlugin(MmsHapticsPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

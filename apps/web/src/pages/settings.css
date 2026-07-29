@@ -93,7 +93,12 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin: -0.15rem 0 0.1rem;
+  /* A <button> keeps the UA's 1px 6px padding unless it is told not to, which
+     is what pushed the whole row right of the text below it. The negative
+     margin then pulls the compass's ink — it sits ~6% inside its own box — onto
+     the same line as that text. */
+  padding: 0;
+  margin: -0.15rem 0 0.1rem -0.18rem;
   color: inherit;
   user-select: none;
 }

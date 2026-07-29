@@ -1,0 +1,281 @@
+/* "Zonder server" explainer, opened from the login screen. */
+
+.lm-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: end center;
+  animation: lmIn 0.24s var(--ease);
+}
+
+.lm-layer.closing {
+  animation: lmOut 0.22s var(--ease) forwards;
+}
+
+@keyframes lmIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes lmOut {
+  to {
+    opacity: 0;
+  }
+}
+
+.lm-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(10 14 18 / 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.lm-sheet {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(88dvh, 780px);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+  background: var(--paper);
+  box-shadow: var(--shadow-l);
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: lmRise 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.lm-layer.closing .lm-sheet {
+  animation: lmDrop 0.22s var(--ease) forwards;
+}
+
+@keyframes lmRise {
+  from {
+    transform: translateY(26px);
+  }
+}
+
+@keyframes lmDrop {
+  to {
+    transform: translateY(26px);
+  }
+}
+
+@media (min-width: 640px) {
+  .lm-layer {
+    place-items: center;
+  }
+
+  .lm-sheet {
+    border-radius: var(--radius-l);
+  }
+}
+
+.lm-grab {
+  width: 42px;
+  height: 5px;
+  margin: 0.6rem auto 0;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.lm-close {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.9rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  background: var(--paper-sunken);
+  transition: transform 0.15s var(--ease);
+}
+
+.lm-close:active {
+  transform: scale(0.92);
+}
+
+.lm-scroll {
+  overflow-y: auto;
+  padding: 0.8rem 1.35rem 0.4rem;
+  display: grid;
+  gap: 1.4rem;
+}
+
+.lm-head {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  text-align: center;
+  padding-top: 0.4rem;
+}
+
+.lm-head h2 {
+  font-size: 1.5rem;
+}
+
+.lm-head p {
+  max-width: 40ch;
+}
+
+.lm-group {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.lm-group-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.lm-group-title.lm-yes {
+  color: var(--teal);
+}
+
+.lm-group-title.lm-no {
+  color: var(--ink-faint);
+}
+
+.lm-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.lm-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.lm-list li > span:last-child {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.lm-list strong {
+  font-size: 0.95rem;
+}
+
+.lm-list small {
+  color: var(--ink-soft);
+  font-size: 0.83rem;
+  line-height: 1.4;
+}
+
+.lm-icon {
+  display: grid;
+  place-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+}
+
+.lm-icon-yes {
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  color: var(--teal);
+}
+
+.lm-icon-no {
+  background: var(--paper-sunken);
+  color: var(--ink-faint);
+}
+
+.lm-later {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-m);
+  background: var(--accent-soft);
+}
+
+.lm-later h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1rem;
+  color: var(--accent-ink);
+}
+
+.lm-steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.lm-steps code {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  background: var(--paper-raised);
+  font-size: 0.85em;
+}
+
+.lm-note {
+  font-size: 0.82rem;
+}
+
+.lm-actions {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.9rem 1.35rem 1.1rem;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.lm-actions .btn {
+  flex: 1;
+}
+
+/* The link under the login form. */
+.login-nolink {
+  justify-self: center;
+  margin-top: 0.2rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.login-nolink:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.login-nolink u {
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+/* Shown while the local backend is still being built. */
+.lm-soon {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.lm-soon .btn {
+  flex-shrink: 0;
+}

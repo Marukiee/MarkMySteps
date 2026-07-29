@@ -658,10 +658,10 @@
   animation-delay: 0.05s;
 }
 
+/* Opacity only, for the same reason: the pop used to scale the glass. */
 @keyframes fabPop {
   from {
     opacity: 0;
-    transform: scale(0.6);
   }
 }
 
@@ -675,15 +675,27 @@
   backdrop-filter: blur(8px);
   color: var(--ink);
   box-shadow: var(--shadow-m);
-  transition: transform 0.15s var(--ease);
+  transition: background 0.18s var(--ease), box-shadow 0.18s var(--ease);
+}
+
+/* The glass button itself is never transformed: scaling an element with a
+   backdrop-filter re-samples its backdrop every frame, which shimmers — and it
+   looked worst under the blur of the sheet that opens on top of it. The icon
+   carries the press instead. */
+.trip-fab svg {
+  transition: transform 0.16s var(--ease);
 }
 
 .trip-fab:hover {
-  transform: scale(1.06);
+  box-shadow: var(--shadow-l);
 }
 
-.trip-fab:active {
-  transform: scale(0.94);
+.trip-fab:hover svg {
+  transform: scale(1.08);
+}
+
+.trip-fab:active svg {
+  transform: scale(0.86);
 }
 
 .trip-fab-back {
