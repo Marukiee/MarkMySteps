@@ -1426,3 +1426,10 @@
     transform: translateY(-4px);
   }
 }
+
+/* Row of preview buttons in the developer options. */
+.dev-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

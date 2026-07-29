@@ -348,16 +348,26 @@ export function TrackPointsEditor({
       {/* The detail bar slides up when a point is selected and takes the
           toolbar's place, so the two never fight for the same strip. */}
       <div className="te-bar" data-mode={selected ? 'point' : 'tools'}>
+        {/* One line that explains the map, and one control that changes what a
+            tap does. Side by side they read as two competing buttons, so the
+            hint sits above the control instead. */}
         <div className="te-bar-tools">
+          <span className="te-legend" key={adding ? 'adding' : 'idle'}>
+            {adding
+              ? 'Tik op de kaart waar het punt moet komen.'
+              : 'Sleep een punt om de route te corrigeren.'}
+          </span>
           <button
             type="button"
-            className={`btn ${adding ? 'btn-primary' : 'btn-ghost'}`}
+            className={`te-add ${adding ? 'on' : ''}`}
             disabled={busy}
             onClick={() => setAdding((v) => !v)}
           >
-            <Icon name="plus" size={16} /> {adding ? 'Klaar' : 'Punt toevoegen'}
+            <span className="te-add-icon">
+              <Icon name="plus" size={17} />
+            </span>
+            {adding ? 'Klaar' : 'Punt toevoegen'}
           </button>
-          <span className="muted te-legend">Sleep een punt om de route te corrigeren</span>
         </div>
         <div className="te-bar-point">
           {selected && (

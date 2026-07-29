@@ -62,6 +62,9 @@ export function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
+        {/* Developer options open this to check the waiting room without
+            having to make an account and get it refused. */}
+        <Route path="/preview/pending" element={<PendingPage />} />
         <Route path="/s/:slug" element={<SharePage />} />
         <Route
           element={

@@ -30,25 +30,47 @@
 }
 
 .member-role-seg {
-  display: inline-flex;
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 2px;
   padding: 3px;
   border-radius: 10px;
   background: var(--paper-sunken);
 }
 
+/* The white pill behind the active label: one element that slides between the
+   two, so switching role is a movement instead of two repaints. */
+.member-role-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 4px);
+  border-radius: 7px;
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-s);
+  transition: transform 0.28s var(--ease);
+}
+
+.member-role-seg[data-role='GUEST'] .member-role-thumb {
+  transform: translateX(calc(100% + 2px));
+}
+
 .member-role-seg button {
+  position: relative;
+  z-index: 1;
   padding: 0.3rem 0.7rem;
   border-radius: 7px;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--ink-faint);
+  transition: color 0.24s var(--ease);
 }
 
 .member-role-seg button.active {
-  background: var(--paper-raised);
   color: var(--ink);
-  box-shadow: var(--shadow-s);
 }
 
 .member-track {
@@ -64,6 +86,24 @@
   width: 18px;
   height: 18px;
   border-radius: 6px;
+}
+
+/* Folds away for a guest instead of vanishing. */
+.member-track-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.28s var(--ease), opacity 0.22s var(--ease);
+}
+
+.member-track-wrap[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.member-track-wrap > div {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .members-name small {

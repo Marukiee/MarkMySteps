@@ -15,9 +15,9 @@
 }
 
 @media (max-width: 720px) {
-  /* Beside the "new trip" pill, 2rem crowded the row. */
+  /* Beside the "new trip" pill, 2rem crowded the row — but 1.6 undersold it. */
   .trips-head h1 {
-    font-size: 1.6rem;
+    font-size: 1.8rem;
   }
 }
 
@@ -32,13 +32,13 @@
   display: none;
   position: absolute;
   top: calc(0.7rem + env(safe-area-inset-top, 0px));
-  left: 1.25rem;
+  left: 0.9rem;
   z-index: 3;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   font-family: var(--font-brand);
   font-weight: 620;
-  font-size: 1.2rem;
+  font-size: 1.45rem;
   letter-spacing: -0.02em;
   color: var(--ink);
   user-select: none;
@@ -498,7 +498,7 @@
      contents, which cut the menu in half. */
   position: fixed;
   z-index: 120;
-  min-width: 168px;
+  min-width: 210px;
   padding: 0.35rem;
   display: grid;
   gap: 0.1rem;

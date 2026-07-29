@@ -1348,17 +1348,34 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
       <h2>Ontwikkelaar</h2>
       <p className="muted">Verborgen opties om dingen te testen.</p>
       <div className="field">
-        <label>Rondleiding</label>
-        <button
-          type="button"
-          className="btn btn-ghost settings-reset-sizes"
-          onClick={() => {
-            resetOnboarding();
-            navigate('/onboarding');
-          }}
-        >
-          Onboarding opnieuw bekijken
-        </button>
+        <label>Schermen bekijken</label>
+        <div className="dev-buttons">
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              resetOnboarding();
+              navigate('/onboarding');
+            }}
+          >
+            Onboarding
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={() => navigate('/login')}>
+            Inlogscherm
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => navigate('/preview/pending')}
+          >
+            Wachten op goedkeuring
+          </button>
+        </div>
+        <span className="muted">
+          Dit zijn de echte schermen, niet een kopie — wat je hier ziet is wat een nieuwe gebruiker
+          ziet. De onboarding toont de vragen over je naam en je fotobibliotheek alleen zonder
+          server; met een server hoort dat er niet te staan.
+        </span>
       </div>
       <div className="field">
         <label>Update-melding</label>

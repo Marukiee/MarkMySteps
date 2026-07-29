@@ -1519,3 +1519,14 @@
 .trip-planner > .mode-menu {
   animation: rise 0.4s var(--ease) backwards;
 }
+
+/* Where a flight leaves from or lands: the same small grey dot the globe uses,
+   so an arc starts and ends somewhere rather than out of nowhere. */
+.airport-marker {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #8a94a3;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+}

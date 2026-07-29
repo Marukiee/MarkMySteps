@@ -199,16 +199,26 @@
   position: relative;
   display: grid;
   padding: 0.7rem 0.9rem 0.9rem;
-  min-height: 62px;
+  min-height: 84px;
 }
 
 .te-bar-tools,
 .te-bar-point {
   grid-area: 1 / 1;
+  transition: opacity 0.22s var(--ease), transform 0.22s var(--ease);
+}
+
+/* Hint above, control below: side by side they read as two buttons. */
+.te-bar-tools {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: stretch;
+}
+
+.te-bar-point {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  transition: opacity 0.22s var(--ease), transform 0.22s var(--ease);
 }
 
 .te-bar[data-mode='tools'] .te-bar-point,
@@ -219,7 +229,63 @@
 }
 
 .te-legend {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  text-align: center;
+  animation: teLegend 0.3s var(--ease);
+}
+
+@keyframes teLegend {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Full width, with the plus in its own disc so the row has a clear anchor. */
+.te-add {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.9rem 0.5rem 0.5rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  color: var(--ink);
+  font-weight: 650;
+  font-size: 0.92rem;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease),
+    transform 0.15s var(--ease);
+}
+
+.te-add:active {
+  transform: scale(0.98);
+}
+
+.te-add-icon {
+  display: grid;
+  place-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+  box-shadow: var(--shadow-s);
+  transition: transform 0.24s var(--ease), background 0.2s var(--ease),
+    color 0.2s var(--ease);
+}
+
+/* Armed: the whole row goes accent and the plus turns into a cross. */
+.te-add.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.te-add.on .te-add-icon {
+  background: rgb(255 255 255 / 0.22);
+  color: #fff;
+  transform: rotate(135deg);
+  box-shadow: none;
 }
 
 .te-point-info {

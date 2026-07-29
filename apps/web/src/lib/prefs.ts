@@ -147,8 +147,11 @@ export function setShowSelfOnHome(on: boolean): void {
 
 const AIRPORTS_KEY = 'mms.airports';
 
+/** The airports you actually leave from, until you say otherwise. */
+const HOME_AIRPORTS = ['AMS', 'EIN'];
+
 /** IATA codes of the user's home airports; the first is the default departure
- *  pre-filled on new flight legs. Defaults to Schiphol. */
+ *  pre-filled on new flight legs. */
 export function getDefaultAirports(): string[] {
   try {
     const v = JSON.parse(localStorage.getItem(AIRPORTS_KEY) ?? 'null');
@@ -156,11 +159,14 @@ export function getDefaultAirports(): string[] {
   } catch {
     /* ignore malformed */
   }
-  return ['AMS'];
+  return HOME_AIRPORTS;
 }
 
 export function setDefaultAirports(codes: string[]): void {
-  localStorage.setItem(AIRPORTS_KEY, JSON.stringify(codes.length > 0 ? codes : ['AMS']));
+  localStorage.setItem(
+    AIRPORTS_KEY,
+    JSON.stringify(codes.length > 0 ? codes : HOME_AIRPORTS),
+  );
 }
 
 /* ---------- Trip card size on the home page ---------- */

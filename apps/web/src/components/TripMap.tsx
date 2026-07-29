@@ -511,6 +511,26 @@ export function TripMap({
         );
       }
 
+      // Airports a flight touches get the same small grey dot the globe uses,
+      // so an arc visibly starts and ends somewhere instead of out of nowhere.
+      const airportSeen = new Set<string>();
+      for (const leg of buildLegs(stops ?? [])) {
+        if (!leg.isFlight) continue;
+        const coords = (leg.feature.geometry as GeoJSON.LineString)
+          .coordinates as [number, number][];
+        for (const point of [coords[0], coords[coords.length - 1]]) {
+          if (!point) continue;
+          const key = `${point[0].toFixed(2)},${point[1].toFixed(2)}`;
+          if (airportSeen.has(key)) continue;
+          airportSeen.add(key);
+          const el = document.createElement('div');
+          el.className = 'airport-marker';
+          stopMarkersRef.current.push(
+            new maplibregl.Marker({ element: el }).setLngLat(point).addTo(map),
+          );
+        }
+      }
+
       // Day trips as a spur off the stop you slept at. Hidden once real GPS
       // exists, exactly like the planned ground legs — the track already
       // contains the drive.

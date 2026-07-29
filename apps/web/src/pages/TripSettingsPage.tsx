@@ -431,13 +431,15 @@ export function TripSettingsPage() {
         </label>
 
         {/* How often it checks, whether it is running right now, the log: all
-            of that is one setting for the whole app, not per trip. This is the
-            way there rather than a second copy of it. */}
-        <Link to="/settings" className="ts-track-link">
-          <Icon name="gear" size={15} />
-          <span>Tracking-instellingen</span>
-          <Icon name="chevron-right" size={15} />
-        </Link>
+            of that is one setting for the whole app, not per trip. A quiet
+            pointer, not a second button competing with the toggle above it. */}
+        <p className="muted ts-track-hint">
+          Interval, status en log staan bij{' '}
+          <Link to="/settings" className="ts-track-link">
+            de tracking-instellingen
+          </Link>
+          .
+        </p>
 
         <div className="ts-track-box ts-track-danger">
           <div>

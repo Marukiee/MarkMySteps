@@ -71,6 +71,8 @@ export function TripDetailPage() {
   // Far enough down the timeline that getting back up is worth a button.
   const [scrolled, setScrolled] = useState(false);
   const [backTopShown, backTopClosing] = useExit(scrolled, 220);
+  /** Until this moment, the timeline must not drag the camera around. */
+  const suppressFocus = useRef(0);
   const scrollRef = useRef<HTMLElement>(null);
   const sideRef = useRef<HTMLElement>(null);
   const mapPanelRef = useRef<HTMLDivElement>(null);
@@ -94,7 +96,10 @@ export function TripDetailPage() {
     // the timeline, and only once scrolling settles.
     const focusVisible = () => {
       const api = mapApiRef.current;
-      if (!api) return;
+      // While the page is smooth-scrolling back to the top, the photos flying
+      // past would each pull the camera to themselves and the map would end up
+      // wherever the scroll happened to finish.
+      if (!api || suppressFocus.current > Date.now()) return;
       // On a phone the map covers the top of the screen; on desktop it's a
       // separate column, so the whole viewport height counts.
       const mapBottom = window.matchMedia('(max-width: 900px)').matches
@@ -636,9 +641,12 @@ export function TripDetailPage() {
             className={`trip-backtop ${backTopClosing ? 'leaving' : ''}`}
             aria-label="Terug naar boven"
             onClick={() => {
+              // Long enough for the smooth scroll to land; the camera is set
+              // once, at the end, so it actually stays on the whole trip.
+              suppressFocus.current = Date.now() + 1200;
               scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
               sideRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-              mapApiRef.current?.resetView();
+              window.setTimeout(() => mapApiRef.current?.resetView(), 420);
             }}
           >
             <Icon name="chevron-down" size={20} />

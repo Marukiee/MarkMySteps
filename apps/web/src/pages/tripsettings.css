@@ -553,34 +553,16 @@
   }
 }
 
-/* Shortcut to the app-wide tracking settings. */
+/* Quiet pointer to the app-wide tracking settings. */
+.ts-track-hint {
+  margin-top: -0.4rem;
+  font-size: 0.84rem;
+}
+
 .ts-track-link {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 0.85rem;
-  border-radius: var(--radius-s);
-  background: var(--paper-sunken);
-  color: var(--ink-soft);
-  font-weight: 600;
-  font-size: 0.9rem;
-  transition: background 0.15s var(--ease), color 0.15s var(--ease);
-}
-
-.ts-track-link span {
-  flex: 1;
-}
-
-.ts-track-link:hover {
-  background: var(--accent-soft);
   color: var(--accent-ink);
-}
-
-.ts-track-link svg:last-child {
-  color: var(--ink-faint);
-  transition: transform 0.18s var(--ease);
-}
-
-.ts-track-link:hover svg:last-child {
-  transform: translateX(3px);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }

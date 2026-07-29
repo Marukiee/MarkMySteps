@@ -80,7 +80,10 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
 
             {isOwner && member.role !== 'OWNER' && (
               <div className="member-controls">
-                <div className="member-role-seg">
+                <div className="member-role-seg" data-role={member.role}>
+                  {/* The highlight is one element that slides, so switching
+                      role reads as a move rather than two separate repaints. */}
+                  <span className="member-role-thumb" aria-hidden="true" />
                   <button
                     className={member.role === 'MEMBER' ? 'active' : ''}
                     onClick={() => void setMember(member.userId, { role: 'MEMBER' })}
@@ -94,16 +97,23 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
                     Gast
                   </button>
                 </div>
-                {member.role === 'MEMBER' && (
-                  <label className="member-track">
-                    <input
-                      type="checkbox"
-                      checked={member.canTrack}
-                      onChange={(e) => void setMember(member.userId, { canTrack: e.target.checked })}
-                    />
-                    mag tracken
-                  </label>
-                )}
+                {/* A guest cannot track, so the option folds away rather than
+                    disappearing between one frame and the next. */}
+                <div className="member-track-wrap" data-open={member.role === 'MEMBER'}>
+                  <div>
+                    <label className="member-track">
+                      <input
+                        type="checkbox"
+                        checked={member.canTrack}
+                        disabled={member.role !== 'MEMBER'}
+                        onChange={(e) =>
+                          void setMember(member.userId, { canTrack: e.target.checked })
+                        }
+                      />
+                      mag tracken
+                    </label>
+                  </div>
+                </div>
               </div>
             )}
           </li>
