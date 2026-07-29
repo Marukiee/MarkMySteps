@@ -1360,7 +1360,16 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
       <h2>Ontwikkelaar</h2>
       <p className="muted">Verborgen opties om dingen te testen.</p>
       <div className="field">
-        <label>Schermen bekijken</label>
+        <label>
+          Schermen bekijken
+          <HelpTip>
+            Dit zijn de echte schermen, niet een kopie: wat je hier ziet is wat een nieuwe
+            gebruiker ziet. De tweede knop toont de versie zonder server, met de vragen over je
+            naam en je fotobibliotheek erbij; je naam wordt dan niet bewaard. In het inlogscherm
+            doet &ldquo;Zonder server beginnen&rdquo; niets, zodat je je eigen server niet
+            kwijtraakt.
+          </HelpTip>
+        </label>
         <div className="dev-buttons">
           <button
             type="button"
@@ -1397,12 +1406,6 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
             Wachten op goedkeuring
           </button>
         </div>
-        <span className="muted">
-          Dit zijn de echte schermen, niet een kopie: wat je hier ziet is wat een nieuwe gebruiker
-          ziet. De tweede knop toont de versie zonder server, met de vragen over je naam en je
-          fotobibliotheek erbij; je naam wordt dan niet bewaard. In het inlogscherm doet
-          &ldquo;Zonder server beginnen&rdquo; niets, zodat je je eigen server niet kwijtraakt.
-        </span>
       </div>
       <div className="field">
         <label>Update-melding</label>

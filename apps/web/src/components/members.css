@@ -9,14 +9,25 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.45rem;
 }
 
+/* One person per block, with a rule between them: their role switch and their
+   tracking checkbox sit on a second line, and without a divider there was
+   nothing saying which of the two names above them they belonged to. */
 .members-list li {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem 0.6rem;
+  padding: 0.55rem 0;
+}
+
+.members-list li + li {
+  border-top: 1px solid var(--line);
+}
+
+.members-list li:first-child {
+  padding-top: 0.15rem;
 }
 
 /* Owner controls for a member's role + tracking permission. */
@@ -26,7 +37,9 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.6rem;
-  padding-left: calc(30px + 0.6rem);
+  /* Lined up under the name, not the avatar, so the indent reads as "these
+     belong to the row above". */
+  margin-left: calc(30px + 0.6rem);
 }
 
 .member-role-seg {
