@@ -163,7 +163,7 @@ export async function api<T>(
     }
     clearTokens();
     onLogout?.();
-    throw new ApiError(401, 'Sessie verlopen — log opnieuw in');
+    throw new ApiError(401, 'Sessie verlopen, log opnieuw in');
   }
 
   if (!res.ok) {

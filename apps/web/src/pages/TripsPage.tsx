@@ -84,7 +84,7 @@ export function TripsPage() {
       <div className="trips-globe">
         <GlobeBackdrop trips={trips ?? []} selfLocation={self} />
         <span className="trips-brand" aria-label="MarkMySteps">
-          <LogoMark size={34} />
+          <LogoMark size={40} />
           <span>MarkMySteps</span>
         </span>
       </div>

@@ -23,6 +23,7 @@ import { TripSettingsPage } from './pages/TripSettingsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SharePage } from './pages/SharePage';
 import { TripDetailPage } from './pages/TripDetailPage';
+import { TravellerPage } from './pages/TravellerPage';
 import { TripsPage } from './pages/TripsPage';
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -45,7 +46,7 @@ function Shell() {
       <TopBar />
       {user?.mustChangePassword && (
         <div className="pw-banner">
-          Je gebruikt nog een tijdelijk wachtwoord — kies een eigen wachtwoord bij{' '}
+          Je gebruikt nog een tijdelijk wachtwoord. Kies een eigen wachtwoord bij{' '}
           <Link to="/settings">Instellingen</Link>.
         </div>
       )}
@@ -78,6 +79,7 @@ export function App() {
           <Route path="/trips/:tripId/plan" element={<PlanPage />} />
           <Route path="/trips/:tripId/settings" element={<TripSettingsPage />} />
           <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/friends/:userId" element={<TravellerPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

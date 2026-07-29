@@ -52,3 +52,11 @@ export function localUser(): typeof LOCAL_USER {
   const name = getLocalName();
   return name ? { ...LOCAL_USER, displayName: name, username: name } : LOCAL_USER;
 }
+
+/**
+ * Without a server there are no other travellers, so the tab is only your own
+ * numbers. Calling it "Reizigers" then names something that isn't there.
+ */
+export function travellersTabLabel(): string {
+  return isLocalMode() ? 'Statistieken' : 'Reizigers';
+}

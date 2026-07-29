@@ -356,6 +356,61 @@ route('PATCH', '/users/me', async (req) => {
 route('GET', '/users/friends', async () => []);
 route('GET', '/users/suggestions', async () => []);
 
+/**
+ * The same numbers the server computes, over the device's own database. There
+ * is only one traveller here, so the id in the path is not checked against
+ * anything: whoever asks, gets their own.
+ */
+route('GET', '/users/:id/stats', async () => {
+  const trips = await dbAll<StoredTrip>('trips');
+  trips.sort((a, b) => b.startDate.localeCompare(a.startDate));
+
+  const countries = new Set<string>();
+  const places = new Set<string>();
+  let flights = 0;
+  let days = 0;
+  let ongoing = 0;
+  let distanceKm = 0;
+  const today = new Date().toISOString().slice(0, 10);
+
+  for (const trip of trips) {
+    for (const stop of await stopsOf(trip.id)) {
+      const code = stop.countryCode?.toUpperCase();
+      if (code && code !== HOME_COUNTRY) countries.add(code);
+      places.add(`${code ?? ''}/${stop.name.trim().toLowerCase()}`);
+      if (stop.travelMode === 'FLIGHT') flights += 1;
+    }
+    days +=
+      Math.round(
+        (new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / DAY_MS,
+      ) + 1;
+    if (trip.startDate.slice(0, 10) <= today && trip.endDate.slice(0, 10) >= today) ongoing += 1;
+    distanceKm += await routeKm(trip.id);
+  }
+
+  const media = await dbAll<StoredMedia>('media');
+
+  return {
+    user: localUser(),
+    sharedTrips: 0,
+    trips: trips.length,
+    ongoing,
+    days,
+    countries: [...countries].sort(),
+    places: places.size,
+    flights,
+    distanceKm: Math.round(distanceKm),
+    photoCount: media.length,
+    recent: trips.slice(0, 5).map((t) => ({
+      id: t.id,
+      title: t.title,
+      startDate: t.startDate.slice(0, 10),
+      endDate: t.endDate.slice(0, 10),
+      color: t.color ?? null,
+    })),
+  };
+});
+
 /* ---- Trips ---- */
 
 route('GET', '/trips', async () => {

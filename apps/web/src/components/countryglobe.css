@@ -1,0 +1,18 @@
+/* The visited-countries globe. Its three neutrals come from CSS so the sphere
+   follows the theme; the country fills do not, because their whole job is to
+   be different from each other. */
+.country-globe {
+  --cg-water: color-mix(in srgb, var(--teal) 12%, var(--paper-sunken));
+  --cg-land: color-mix(in srgb, var(--ink) 12%, var(--paper-sunken));
+  --cg-edge: var(--paper);
+  display: block;
+  flex-shrink: 0;
+  animation: cgIn 0.6s var(--ease) both;
+}
+
+@keyframes cgIn {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+}

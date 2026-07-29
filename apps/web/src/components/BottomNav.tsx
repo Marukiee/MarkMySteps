@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import './bottomnav.css';
+import { travellersTabLabel } from '../lib/localMode';
 
 const ICONS = {
   trips: (
@@ -40,7 +41,7 @@ export function BottomNav() {
       </Link>
       <Link to="/friends" className={friendsActive ? 'active' : ''}>
         {ICONS.friends}
-        <span>Reizigers</span>
+        <span>{travellersTabLabel()}</span>
       </Link>
       <Link to="/settings" className={settingsActive ? 'active' : ''}>
         {ICONS.settings}

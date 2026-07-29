@@ -562,7 +562,7 @@ export function TripPlanner({
             <Icon name="compass" size={30} />
           </span>
           <p className="muted">
-            Nog geen stops. Zoek hieronder een stad en bouw je route op — versleep om te herordenen.
+            Nog geen stops. Zoek hieronder een stad en bouw je route op. Versleep om te herordenen.
             Tik het vervoer-pilletje bij een stop om te wisselen tussen auto, trein, bus, boot of
             vlucht.
           </p>

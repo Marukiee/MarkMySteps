@@ -412,34 +412,35 @@ export function TripSettingsPage() {
           </p>
         )}
 
-        <label className={`ts-toggle ${ended ? 'ts-disabled' : ''}`}>
-          <div>
-            <strong>Automatisch tracken</strong>
-            <span className="muted">
-              Start route-tracking automatisch zodra de reis begint (app, op de achtergrond).
-            </span>
-          </div>
-          <input
-            type="checkbox"
-            checked={autoTrack}
-            disabled={!isOwner || ended}
-            onChange={(e) => {
-              setAutoTrack(e.target.checked);
-              if (isOwner) void save();
-            }}
-          />
-        </label>
-
-        {/* How often it checks, whether it is running right now, the log: all
-            of that is one setting for the whole app, not per trip. A quiet
-            pointer, not a second button competing with the toggle above it. */}
-        <p className="muted ts-track-hint">
-          Interval, status en log staan bij{' '}
-          <Link to="/settings" className="ts-track-link">
-            de tracking-instellingen
-          </Link>
-          .
-        </p>
+        {/* The pointer to the app-wide settings lives inside this box rather
+            than under it: it is about the same thing the toggle is, and on its
+            own it read as a stray line between two framed blocks. */}
+        <div className={`ts-auto-box ${ended ? 'ts-disabled' : ''}`}>
+          <label className="ts-toggle">
+            <div>
+              <strong>Automatisch tracken</strong>
+              <span className="muted">
+                Start route-tracking automatisch zodra de reis begint (app, op de achtergrond).
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={autoTrack}
+              disabled={!isOwner || ended}
+              onChange={(e) => {
+                setAutoTrack(e.target.checked);
+                if (isOwner) void save();
+              }}
+            />
+          </label>
+          <p className="muted ts-track-hint">
+            Meer opties staan bij{' '}
+            <Link to="/settings" className="ts-track-link">
+              de tracking-instellingen
+            </Link>
+            .
+          </p>
+        </div>
 
         <div className="ts-track-box ts-track-danger">
           <div>

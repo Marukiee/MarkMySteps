@@ -553,9 +553,22 @@
   }
 }
 
+/* Toggle + pointer share one outline, so the hint belongs to the setting it
+   talks about instead of floating between two boxes. */
+.ts-auto-box {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+}
+
+.ts-auto-box .ts-toggle {
+  border: none;
+  padding-bottom: 0.6rem;
+}
+
 /* Quiet pointer to the app-wide tracking settings. */
 .ts-track-hint {
-  margin-top: -0.4rem;
+  margin: 0;
+  padding: 0 1.15rem 0.9rem;
   font-size: 0.84rem;
 }
 

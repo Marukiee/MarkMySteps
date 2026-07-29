@@ -64,8 +64,8 @@
     pointer-events: none;
     border-radius: inherit;
     box-shadow: inset 0 0 0 1px var(--line);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 48%, #000 60%);
-    mask-image: linear-gradient(to bottom, transparent 48%, #000 60%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 38%, #000 88%);
+    mask-image: linear-gradient(to bottom, transparent 38%, #000 88%);
   }
 
   /* Content slides up UNDER the fixed map (map covers its top). Starts below the

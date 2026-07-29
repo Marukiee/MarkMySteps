@@ -128,7 +128,15 @@ export function SettingsPage() {
           )}
           {section === 'display' && <DisplaySection />}
           {section === 'preferences' && <PreferencesSection />}
-          {section === 'immich' && <ImmichSection />}
+          {section === 'immich' && (
+            <>
+              {/* Coupling a server IS a service, and this is the tab someone
+                  opens looking for one. It also sits under Profiel, because
+                  that is where the account it replaces lives. */}
+              <LocalModeCard />
+              <ImmichSection />
+            </>
+          )}
           {section === 'import' && (
             <>
               <BackupSection />
@@ -374,7 +382,7 @@ function PhotoCacheSection() {
         onClick={async () => {
           const ok = await confirmModal({
             title: 'Cache leegmaken?',
-            body: "Bewaarde foto's worden gewist. Ze worden opnieuw opgehaald zodra je online bent — er gaat niets van je reizen verloren.",
+            body: "Bewaarde foto's worden gewist. Ze worden opnieuw opgehaald zodra je online bent. Er gaat niets van je reizen verloren.",
             confirmLabel: 'Leegmaken',
             danger: true,
           });
@@ -477,7 +485,7 @@ function BackupSection() {
         Back-up
         <HelpTip>
           Eén bestand met al je reizen, stops, routepunten en notities, plus je instellingen.
-          Foto's zitten er als verwijzing in, niet als bestand — die staan al in je galerij of op
+          Foto's zitten er als verwijzing in, niet als bestand: die staan al in je galerij of op
           je Immich-server.
         </HelpTip>
       </h2>
@@ -585,8 +593,8 @@ function PreferencesSection() {
         <h2>
           Standaard vliegvelden
           <HelpTip>
-            Voeg er zoveel toe als je wilt. Tik een vliegveld aan om het je standaard te maken —
-            dat is degene die vooraf ingevuld wordt als vertrek bij een nieuwe vlucht.
+            Voeg er zoveel toe als je wilt. Tik een vliegveld aan om het je standaard te maken. Dat
+            is degene die vooraf ingevuld wordt als vertrek bij een nieuwe vlucht.
           </HelpTip>
         </h2>
         <p className="muted">Je thuis-vliegvelden, voor het invullen van vluchten.</p>
@@ -1364,7 +1372,21 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
           >
             Onboarding
           </button>
-          <button type="button" className="btn btn-ghost" onClick={() => navigate('/login')}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              resetOnboarding();
+              navigate('/onboarding?local=1');
+            }}
+          >
+            Onboarding zonder server
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => navigate('/login?preview=1')}
+          >
             Inlogscherm
           </button>
           <button
@@ -1376,9 +1398,10 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
           </button>
         </div>
         <span className="muted">
-          Dit zijn de echte schermen, niet een kopie — wat je hier ziet is wat een nieuwe gebruiker
-          ziet. De onboarding toont de vragen over je naam en je fotobibliotheek alleen zonder
-          server; met een server hoort dat er niet te staan.
+          Dit zijn de echte schermen, niet een kopie: wat je hier ziet is wat een nieuwe gebruiker
+          ziet. De tweede knop toont de versie zonder server, met de vragen over je naam en je
+          fotobibliotheek erbij; je naam wordt dan niet bewaard. In het inlogscherm doet
+          &ldquo;Zonder server beginnen&rdquo; niets, zodat je je eigen server niet kwijtraakt.
         </span>
       </div>
       <div className="field">
@@ -1730,7 +1753,7 @@ function ImmichSection() {
         Immich
         <HelpTip>
           Immich is een gratis, open-source fotobibliotheek die je zelf draait: je eigen Google
-          Photos, maar op je eigen server. Heb je die niet, dan hoef je hier niets in te vullen —
+          Photos, maar op je eigen server. Heb je die niet, dan hoef je hier niets in te vullen.
           MarkMySteps gebruikt dan de galerij van je toestel.
           <br />
           <br />
@@ -1992,7 +2015,7 @@ function AccountsSection() {
         method: 'POST',
         body: { tempPassword: temp },
       });
-      setMessage(`Wachtwoord van @${row.username} gereset — alle sessies uitgelogd.`);
+      setMessage(`Wachtwoord van @${row.username} gereset. Alle sessies uitgelogd.`);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reset mislukt');

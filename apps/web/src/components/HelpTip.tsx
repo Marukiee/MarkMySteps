@@ -22,6 +22,7 @@ export function HelpTip({ children, label = 'Uitleg' }: { children: ReactNode; l
   const [closing, setClosing] = useState(false);
   const [place, setPlace] = useState<Placement | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
 
   const close = () => {
     setClosing(true);
@@ -48,14 +49,25 @@ export function HelpTip({ children, label = 'Uitleg' }: { children: ReactNode; l
   };
 
   // Any scroll/resize moves the anchor out from under the bubble → close it.
+  // A tap outside closes it too, watched from the document rather than through
+  // a full-screen scrim: a scrim swallows the start of a swipe and then leaves
+  // from under the finger, and the browser hands the whole accumulated delta to
+  // the page at once — which is why scrolling with a tip open bolted away.
   useEffect(() => {
     if (!open || closing) return;
     const onScroll = () => close();
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (popRef.current?.contains(target) || btnRef.current?.contains(target)) return;
+      close();
+    };
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onScroll);
+    document.addEventListener('pointerdown', onDown, true);
     return () => {
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onScroll);
+      document.removeEventListener('pointerdown', onDown, true);
     };
   }, [open, closing]);
 
@@ -78,20 +90,18 @@ export function HelpTip({ children, label = 'Uitleg' }: { children: ReactNode; l
       {open &&
         place &&
         createPortal(
-          <>
-            <div className="help-tip-scrim" onClick={close} />
-            <div
-              className={`help-tip-pop card ${place.above ? 'above' : ''} ${closing ? 'closing' : ''}`}
-              style={{
-                left: place.left,
-                width: place.width,
-                ...(place.above ? { bottom: place.bottom } : { top: place.top }),
-              }}
-              role="tooltip"
-            >
-              {children}
-            </div>
-          </>,
+          <div
+            ref={popRef}
+            className={`help-tip-pop card ${place.above ? 'above' : ''} ${closing ? 'closing' : ''}`}
+            style={{
+              left: place.left,
+              width: place.width,
+              ...(place.above ? { bottom: place.bottom } : { top: place.top }),
+            }}
+            role="tooltip"
+          >
+            {children}
+          </div>,
           document.body,
         )}
     </>

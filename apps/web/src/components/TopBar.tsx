@@ -6,6 +6,7 @@ import { LogoMark } from './Logo';
 import { ThemeId, getThemeId, setThemeId } from '../lib/prefs';
 import { Avatar } from './Avatar';
 import './topbar.css';
+import { travellersTabLabel } from '../lib/localMode';
 
 const THEMES: { id: ThemeId; icon: IconName; label: string }[] = [
   { id: 'light', icon: 'sun', label: 'Licht' },
@@ -44,7 +45,7 @@ export function TopBar() {
         </NavLink>
         <NavLink to="/friends">
           <Icon name="people" size={16} />
-          Reizigers
+          {travellersTabLabel()}
         </NavLink>
         <NavLink to="/settings">
           <Icon name="settings" size={16} />

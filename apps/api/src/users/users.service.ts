@@ -29,10 +29,23 @@ export interface Friend {
 
 /** Everything the profile screen shows about one traveller. */
 export interface TravelStats {
+  /** Who this is about, so the page can stand on its own URL. */
+  user: {
+    id: string;
+    username: string;
+    displayName: string;
+    hasAvatar: boolean;
+  };
+  /** Trips you and this traveller have both been on (0 when it is yourself). */
+  sharedTrips: number;
   trips: number;
   ongoing: number;
   days: number;
   countries: string[];
+  /** Distinct places stopped at, day trips included. */
+  places: number;
+  /** Legs flown, counted per trip leg rather than per airport. */
+  flights: number;
   distanceKm: number;
   photoCount: number;
   recent: {
@@ -199,12 +212,19 @@ export class UsersService {
    * they were on, because those are shared by definition.
    */
   async travelStats(viewerId: string, targetId: string): Promise<TravelStats> {
+    let sharedTrips = 0;
     if (viewerId !== targetId) {
-      const shared = await this.prisma.tripMember.count({
+      sharedTrips = await this.prisma.tripMember.count({
         where: { userId: targetId, trip: { members: { some: { userId: viewerId } } } },
       });
-      if (shared === 0) throw new NotFoundException('User not found');
+      if (sharedTrips === 0) throw new NotFoundException('User not found');
     }
+
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetId },
+      select: { id: true, username: true, displayName: true, avatarMime: true },
+    });
+    if (!target) throw new NotFoundException('User not found');
 
     const trips = await this.prisma.trip.findMany({
       where: { members: { some: { userId: targetId } } },
@@ -214,7 +234,7 @@ export class UsersService {
         startDate: true,
         endDate: true,
         color: true,
-        stops: { select: { countryCode: true } },
+        stops: { select: { countryCode: true, name: true, travelMode: true } },
       },
       orderBy: { startDate: 'desc' },
     });
@@ -230,6 +250,10 @@ export class UsersService {
     const photoCount = await this.prisma.mediaRef.count({ where: { userId: targetId } });
 
     const countries = new Set<string>();
+    // Places are counted across trips, not per trip: going back to Stockholm
+    // three times is one place you have been.
+    const places = new Set<string>();
+    let flights = 0;
     let days = 0;
     let ongoing = 0;
     const today = new Date().toISOString().slice(0, 10);
@@ -237,6 +261,8 @@ export class UsersService {
       for (const stop of trip.stops) {
         const code = stop.countryCode?.toUpperCase();
         if (code && code !== HOME_COUNTRY) countries.add(code);
+        places.add(`${code ?? ''}/${stop.name.trim().toLowerCase()}`);
+        if (stop.travelMode === 'FLIGHT') flights += 1;
       }
       days +=
         Math.round((trip.endDate.getTime() - trip.startDate.getTime()) / 86_400_000) + 1;
@@ -246,10 +272,19 @@ export class UsersService {
     }
 
     return {
+      user: {
+        id: target.id,
+        username: target.username,
+        displayName: target.displayName,
+        hasAvatar: target.avatarMime !== null,
+      },
+      sharedTrips,
       trips: trips.length,
       ongoing,
       days,
       countries: [...countries].sort(),
+      places: places.size,
+      flights,
       distanceKm: Math.round((distanceRow?.meters ?? 0) / 1000),
       photoCount,
       recent: trips.slice(0, 5).map((t) => ({

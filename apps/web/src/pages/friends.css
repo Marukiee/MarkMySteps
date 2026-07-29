@@ -8,6 +8,17 @@
   font-size: 2rem;
 }
 
+.friends-heading {
+  margin-top: 0.6rem;
+  font-size: 1.25rem;
+}
+
+.friends-intro {
+  margin-top: -0.6rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
 .friends-empty {
   padding: 2.5rem 2rem;
   text-align: center;
@@ -25,19 +36,43 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.15rem;
+  color: var(--ink);
   animation: rise 0.4s var(--ease) both;
+  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease);
 }
 
-.friend-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+.friend-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-l);
+}
+
+.friend-card:active {
+  transform: scale(0.99);
+}
+
+.friend-card-body {
+  flex: 1;
+  min-width: 0;
   display: grid;
-  place-content: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: 1.1rem;
+  gap: 0.1rem;
+  line-height: 1.3;
+}
+
+.friend-card-body p {
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-card-caret {
+  color: var(--ink-faint);
   flex-shrink: 0;
+  transition: transform 0.16s var(--ease);
+}
+
+.friend-card:hover .friend-card-caret {
+  transform: translateX(3px);
 }
 
 /* ---------------------------------------------------------------------------
@@ -45,13 +80,32 @@
    --------------------------------------------------------------------------- */
 
 .stats-hero {
+  position: relative;
   padding: 1.25rem;
   display: grid;
   gap: 1rem;
+  overflow: hidden;
   animation: rise 0.45s var(--ease) both;
 }
 
+/* A wash of colour across the top of the card, so the block you came for does
+   not look like the same white rectangle as everything under it. */
+.stats-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 120px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 16%, transparent),
+    color-mix(in srgb, var(--teal) 14%, transparent) 70%,
+    transparent
+  );
+  pointer-events: none;
+}
+
 .stats-hero-head {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.85rem;
@@ -59,12 +113,19 @@
 
 .stats-hero-name {
   display: grid;
-  line-height: 1.2;
+  line-height: 1.25;
   min-width: 0;
 }
 
 .stats-hero-name strong {
-  font-size: 1.15rem;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 620;
+  letter-spacing: -0.015em;
+}
+
+.stats-hero-name span {
+  font-size: 0.85rem;
 }
 
 .stats-ongoing {
@@ -74,7 +135,7 @@
   margin-left: auto;
   padding: 0.25rem 0.7rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--teal) 14%, transparent);
+  background: color-mix(in srgb, var(--teal) 16%, var(--paper));
   color: var(--teal);
   font-size: 0.78rem;
   font-weight: 700;
@@ -86,315 +147,115 @@
   height: 7px;
   border-radius: 50%;
   background: currentColor;
-  animation: ongoingPulse 1.8s ease-out infinite;
+  animation: ongoingPulse 1.8s ease-in-out infinite;
 }
 
-/* ---------------------------------------------------------------------------
-   Stat tiles
-   --------------------------------------------------------------------------- */
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 0.5rem;
-}
-
-.stat-tile {
-  display: grid;
-  justify-items: center;
-  gap: 0.1rem;
-  padding: 0.8rem 0.5rem 0.7rem;
-  border-radius: var(--radius-m);
-  background: var(--paper-sunken);
-  text-align: center;
-  animation: rise 0.45s var(--ease) backwards;
-}
-
-.stat-tile-icon {
-  display: grid;
-  place-content: center;
-  width: 30px;
-  height: 30px;
-  margin-bottom: 0.2rem;
-  border-radius: 10px;
-  background: var(--paper-raised);
-  color: var(--ink-faint);
-  box-shadow: var(--shadow-s);
-}
-
-.stat-tile strong {
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 600;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-grid-big .stat-tile strong {
-  font-size: 1.6rem;
-}
-
-.stat-tile small {
-  font-size: 0.72rem;
-  color: var(--ink-faint);
-  letter-spacing: 0.01em;
-}
-
-/* Holds the number's space while the request is in flight. */
-.stat-skeleton {
-  display: inline-block;
-  width: 2.2ch;
-  height: 1em;
-  border-radius: 5px;
-  background: var(--line);
-  animation: statPulse 1.4s ease-in-out infinite;
-}
-
-@keyframes statPulse {
+@keyframes ongoingPulse {
   50% {
-    opacity: 0.4;
+    opacity: 0.35;
+    transform: scale(0.75);
   }
 }
 
-/* Flags of the countries visited, arriving one after another. */
-.country-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
+/* ---------------------------------------------------------------------------
+   One companion, on their own page
+   --------------------------------------------------------------------------- */
+
+.traveller-page {
+  display: grid;
+  gap: 1rem;
+  max-width: 720px;
+  animation: travellerIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.country-flag {
-  font-size: 1.25rem;
-  line-height: 1.2;
-  animation: flagIn 0.4s var(--ease) backwards;
-}
-
-@keyframes flagIn {
+/* Arrives from the side, the way the list it came from would if it left. */
+@keyframes travellerIn {
   from {
     opacity: 0;
-    transform: scale(0.5);
+    transform: translateX(22px);
   }
 }
 
-/* ---------------------------------------------------------------------------
-   The list of companions
-   --------------------------------------------------------------------------- */
-
-.friends-heading {
-  margin-top: 1.75rem;
-  font-size: 1.3rem;
+.traveller-back {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: -0.3rem;
+  padding: 0.35rem 0.6rem 0.35rem 0.35rem;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
 
-.friends-intro {
-  margin-top: -0.6rem;
+.traveller-back svg {
+  transform: rotate(180deg);
+}
+
+.traveller-back:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.traveller-head {
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  text-align: center;
+  padding: 0.5rem 0 0.2rem;
+}
+
+/* Ring behind the avatar, in the two accent colours, so the head of the page
+   has something of its own. */
+.traveller-avatar {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 210deg,
+    var(--accent),
+    var(--teal),
+    color-mix(in srgb, var(--accent) 60%, var(--teal)),
+    var(--accent)
+  );
+  animation: avatarRing 0.55s var(--ease) both;
+}
+
+@keyframes avatarRing {
+  from {
+    opacity: 0;
+    transform: scale(0.82) rotate(-12deg);
+  }
+}
+
+.traveller-head h1 {
+  font-size: 1.7rem;
+  min-height: 1.7rem;
+}
+
+.traveller-head > span.muted {
   font-size: 0.88rem;
 }
 
-.friend-card {
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  transition: transform 0.18s var(--ease), box-shadow 0.18s var(--ease);
-}
-
-.friend-card:active {
-  transform: scale(0.985);
-}
-
-@media (hover: hover) {
-  .friend-card:hover {
-    box-shadow: var(--shadow-m);
-  }
-
-  .friend-card:hover .friend-card-caret {
-    transform: translateX(3px);
-  }
-}
-
-.friend-card-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.friend-card-caret {
-  color: var(--ink-faint);
-  flex-shrink: 0;
-  transition: transform 0.18s var(--ease);
-}
-
-/* ---------------------------------------------------------------------------
-   Profile sheet
-   --------------------------------------------------------------------------- */
-
-.fs-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: grid;
-  place-items: end center;
-  animation: fsIn 0.24s var(--ease);
-}
-
-.fs-layer.closing {
-  animation: fsOut 0.22s var(--ease) forwards;
-}
-
-@keyframes fsIn {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes fsOut {
-  to {
-    opacity: 0;
-  }
-}
-
-.fs-scrim {
-  position: absolute;
-  inset: 0;
-  background: rgb(10 14 18 / 0.45);
-  backdrop-filter: blur(3px);
-}
-
-.fs-sheet {
-  position: relative;
-  width: min(520px, 100%);
-  max-height: 88dvh;
-  overflow-y: auto;
-  display: grid;
-  gap: 1.1rem;
-  padding: 0.6rem 1.35rem calc(1.4rem + env(safe-area-inset-bottom));
-  border-radius: var(--radius-l) var(--radius-l) 0 0;
-  background: var(--paper);
-  box-shadow: var(--shadow-l);
-  animation: fsRise 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.fs-layer.closing .fs-sheet {
-  animation: fsDrop 0.22s var(--ease) forwards;
-}
-
-@keyframes fsRise {
-  from {
-    transform: translateY(30px);
-  }
-}
-
-@keyframes fsDrop {
-  to {
-    transform: translateY(30px);
-  }
-}
-
-@media (min-width: 640px) {
-  .fs-layer {
-    place-items: center;
-  }
-
-  .fs-sheet {
-    border-radius: var(--radius-l);
-  }
-}
-
-.fs-grab {
-  width: 42px;
-  height: 5px;
-  margin: 0.2rem auto 0;
-  border-radius: 3px;
-  background: var(--line);
-}
-
-.fs-head {
-  display: grid;
-  justify-items: center;
-  gap: 0.15rem;
-  text-align: center;
-  animation: rise 0.4s var(--ease) both;
-}
-
-.fs-head strong {
-  margin-top: 0.4rem;
-  font-size: 1.3rem;
-}
-
-.fs-shared {
-  margin-top: 0.4rem;
-  padding: 0.2rem 0.7rem;
+.traveller-shared {
+  margin-top: 0.15rem;
+  padding: 0.25rem 0.75rem;
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent-ink);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
 }
 
-.fs-recent {
+.traveller-head .stats-ongoing {
+  margin-left: 0;
+}
+
+.traveller-body {
+  padding: 1.15rem;
   display: grid;
-  gap: 0.5rem;
-}
-
-.fs-recent h3 {
-  font-size: 1rem;
-  color: var(--ink-soft);
-}
-
-.fs-recent ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.fs-recent li {
-  animation: rise 0.4s var(--ease) backwards;
-}
-
-.fs-recent a {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.55rem 0.6rem;
-  border-radius: var(--radius-s);
-  transition: background 0.15s var(--ease);
-}
-
-.fs-recent a:hover {
-  background: var(--paper-sunken);
-}
-
-.fs-recent-dot {
-  width: 10px;
-  height: 10px;
-  flex-shrink: 0;
-  border-radius: 50%;
-}
-
-.fs-recent-name {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  line-height: 1.25;
-}
-
-.fs-recent-name strong {
-  font-size: 0.95rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.fs-recent-name small {
-  color: var(--ink-faint);
-  font-size: 0.78rem;
-}
-
-.fs-recent svg {
-  color: var(--ink-faint);
-  flex-shrink: 0;
-}
-
-.fs-close {
-  justify-self: center;
+  gap: 1rem;
 }

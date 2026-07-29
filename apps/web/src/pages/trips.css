@@ -27,18 +27,22 @@
 }
 
 /* Same lockup as the top bar's, in the wordmark's own typeface. Pinned to the
-   very top left, over the globe, where a logo belongs. */
+   very top left, over the globe, where a logo belongs.
+
+   The wrapper's box is the page's content box, so left: 0 already lines the
+   mark up with "Reizen" and the section titles; the small negative nudge pays
+   back the mark's own side bearing, which otherwise reads as an indent. */
 .trips-brand {
   display: none;
   position: absolute;
   top: calc(0.7rem + env(safe-area-inset-top, 0px));
-  left: 0.5rem;
+  left: -0.3rem;
   z-index: 3;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   font-family: var(--font-brand);
   font-weight: 620;
-  font-size: 1.45rem;
+  font-size: 1.62rem;
   letter-spacing: -0.02em;
   color: var(--ink);
   user-select: none;
@@ -54,7 +58,7 @@
 
   /* Room for it above the heading, since it no longer takes any of its own. */
   .trips-head {
-    margin-top: 2.4rem;
+    margin-top: 2.7rem;
   }
 }
 

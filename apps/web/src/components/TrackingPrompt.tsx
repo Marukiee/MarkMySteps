@@ -57,7 +57,7 @@ export function TrackingPrompt() {
   return (
     <div className="track-prompt">
       <div>
-        <strong>{trip.title}</strong> is bezig — route bijhouden?
+        <strong>{trip.title}</strong> is bezig. Route bijhouden?
       </div>
       <div className="track-prompt-actions">
         <button

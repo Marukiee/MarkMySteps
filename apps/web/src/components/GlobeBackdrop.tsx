@@ -200,9 +200,11 @@ export function GlobeBackdrop({
 
     const projection = geoOrthographic().clipAngle(90);
     const path = geoPath(projection, ctx);
-    // Lifts the framing toward Europe so Africa isn't dominant. Raised a touch
-    // when the bottom fade got shorter: the sphere sat low in what was left.
-    const CENTER_LAT = 27;
+    // The latitude that sits at the centre of the sphere. Below the routes'
+    // own latitude on purpose, so Europe reads as the top half of a globe
+    // rather than the middle of a disc — but close enough that the routes are
+    // not pinned against the upper edge.
+    const CENTER_LAT = 38;
 
     function draw() {
       const w = canvas!.width;

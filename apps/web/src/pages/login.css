@@ -107,3 +107,13 @@
     transform: translateY(5px);
   }
 }
+
+/* Only shown in the developer preview: says what the button would have done. */
+.login-note {
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-s);
+  background: var(--paper-sunken);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  animation: loginFace 0.28s var(--ease);
+}

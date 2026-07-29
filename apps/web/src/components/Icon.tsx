@@ -18,6 +18,7 @@ export type IconName =
   | 'walk'
   | 'pencil'
   | 'compass'
+  | 'globe'
   | 'check'
   | 'dots'
   | 'pin'
@@ -131,6 +132,13 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="m15.5 8.5-2 5-5 2 2-5Z" />
+    </>
+  ),
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18Z" />
     </>
   ),
   check: <path d="M20 6 9 17l-5-5" />,

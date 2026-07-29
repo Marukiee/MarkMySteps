@@ -1,6 +1,6 @@
 import { registerPlugin } from '@capacitor/core';
 import { ReactNode, TouchEvent as ReactTouchEvent, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AirportPrefs } from '../components/AirportPrefs';
@@ -122,6 +122,10 @@ const MmsLocation = registerPlugin<MmsLocationPlugin>('MmsLocation');
 export function OnboardingPage() {
   const navigate = useNavigate();
   const { refresh } = useAuth();
+  const [params] = useSearchParams();
+  // Developer options open the no-server variant from an account that does have
+  // one, to look at the slides it adds. The name typed here is not kept.
+  const previewLocal = params.get('local') === '1';
   const isApp = isNativeApp();
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState<1 | -1>(1);
@@ -138,7 +142,7 @@ export function OnboardingPage() {
   const [denied, setDenied] = useState<Partial<Record<keyof PermissionStatus, boolean>>>({});
   // Only asked for without a server: with one, the photos come from Immich and
   // nothing about this flow changes.
-  const localOnly = isApp && isLocalMode();
+  const localOnly = previewLocal || (isApp && isLocalMode());
   const [gallery, setGallery] = useState<GalleryPermissions>({ library: false, location: false });
   const [galleryAsked, setGalleryAsked] = useState(false);
   const [name, setName] = useState(getLocalName());
@@ -192,15 +196,9 @@ export function OnboardingPage() {
   );
 
   const slides: ReactNode[] = [
-    <div className="onb-feature onb-welcome" key="welcome">
-      <LogoMark size={78} />
-      <h1>Welkom bij MarkMySteps</h1>
-      <p className="muted">
-        Volg je route, plan je reis en kijk 'm later terug. Alles blijft van jou.
-      </p>
-    </div>,
-    // Without a server there is no account, so there is nothing to sign up for.
-    // A name is all the app needs, and only to put on your own trips.
+    // Without a server there is no account and no login screen, so this is the
+    // very first thing the app ever asks. A name, and only to put on your own
+    // trips.
     ...(localOnly
       ? [
           <div className="onb-feature" key="name">
@@ -219,13 +217,20 @@ export function OnboardingPage() {
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
-                  setLocalName(e.target.value);
+                  if (!previewLocal) setLocalName(e.target.value);
                 }}
               />
             </div>
           </div>,
         ]
       : []),
+    <div className="onb-feature onb-welcome" key="welcome">
+      <LogoMark size={78} />
+      <h1>Welkom bij MarkMySteps</h1>
+      <p className="muted">
+        Volg je route, plan je reis en kijk 'm later terug. Alles blijft van jou.
+      </p>
+    </div>,
     <div className="onb-feature onb-globe-slide" key="globe">
       <div className="onb-globe" aria-hidden="true">
         <GlobeBackdrop trips={SAMPLE_TRIPS} noTour />

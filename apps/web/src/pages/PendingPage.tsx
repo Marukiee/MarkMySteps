@@ -13,6 +13,14 @@ interface Status {
 
 const POLL_MS = 20_000;
 
+/** "Net gecontroleerd" / "3 min geleden". */
+function lastChecked(at: number | null): string {
+  if (at === null) return 'Nog niet gecontroleerd';
+  const minutes = Math.floor((Date.now() - at) / 60_000);
+  if (minutes < 1) return 'Net gecontroleerd';
+  return `${minutes} min geleden gecontroleerd`;
+}
+
 /**
  * The waiting room: shown instead of the app while an account has not been
  * approved yet.
@@ -26,7 +34,10 @@ export function PendingPage() {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rejected, setRejected] = useState(false);
-  const [waited, setWaited] = useState(0);
+  // When the last check came back, not how long the screen has been open: a
+  // per-second counter suggests this is worth watching, and it is not.
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
+  const [, setNow] = useState(0);
   const notified = useRef(false);
 
   useEffect(() => {
@@ -39,6 +50,7 @@ export function PendingPage() {
         const result = await api<Status>('/auth/status');
         if (!alive) return;
         setError(null);
+        setCheckedAt(Date.now());
         if (result.status === 'REJECTED') {
           setRejected(true);
           return;
@@ -65,7 +77,8 @@ export function PendingPage() {
     // Coming back to the app is the most likely moment for news.
     const onVisible = () => document.visibilityState === 'visible' && void check();
     document.addEventListener('visibilitychange', onVisible);
-    const tick = window.setInterval(() => setWaited((v) => v + 1), 1000);
+    // Only to re-render the "x min geleden" line; minutes need no faster tick.
+    const tick = window.setInterval(() => setNow((v) => v + 1), 30_000);
     return () => {
       alive = false;
       window.clearInterval(poll);
@@ -119,7 +132,7 @@ export function PendingPage() {
 
         <div className="pending-foot">
           <span className="muted pending-status" data-busy={checking}>
-            {error ? error : checking ? 'Controleren…' : `Gecontroleerd, ${waited}s geleden`}
+            {error ? error : checking ? 'Controleren…' : lastChecked(checkedAt)}
           </span>
           <button className="btn btn-ghost" onClick={logout}>
             Uitloggen

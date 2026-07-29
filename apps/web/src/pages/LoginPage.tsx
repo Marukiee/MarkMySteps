@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getServerBase, setServerBase } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_SERVER_URL } from '../config';
@@ -11,6 +11,11 @@ import './login.css';
 export function LoginPage() {
   const { login, register, startLocalMode } = useAuth();
   const navigate = useNavigate();
+  // Opened from developer options to look at the screen. Everything on it works
+  // except starting local mode, which would sign the tester out of the server
+  // they are testing from.
+  const [params] = useSearchParams();
+  const preview = params.get('preview') === '1';
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [server, setServer] = useState(getServerBase());
   const [email, setEmail] = useState('');
@@ -20,6 +25,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [localInfo, setLocalInfo] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -146,6 +152,8 @@ export function LoginPage() {
           </span>
         </button>
 
+        {note && <p className="muted login-note">{note}</p>}
+
         {/* The app is usable with nothing but the phone; saying so here is the
             only place anyone would look for it. */}
         <button type="button" className="login-nolink" onClick={() => setLocalInfo(true)}>
@@ -158,6 +166,10 @@ export function LoginPage() {
           onClose={() => setLocalInfo(false)}
           onContinue={() => {
             setLocalInfo(false);
+            if (preview) {
+              setNote('Test: hier zou de app zonder server starten. Er is niets veranderd.');
+              return;
+            }
             startLocalMode();
             navigate('/', { replace: true });
           }}

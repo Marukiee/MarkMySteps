@@ -1,0 +1,245 @@
+/* One traveller's numbers: the tile grid, the country globe and the recent
+   trips. Shared by your own block on /friends and a companion's own page. */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+}
+
+@media (min-width: 560px) {
+  .stat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Distance is the four- or five-digit number; on its own it looked cramped
+   between two two-digit ones, so it gets the whole first row. */
+.stat-tile-wide {
+  grid-column: 1 / -1;
+}
+
+.stat-tile {
+  position: relative;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.85rem 0.9rem 0.75rem;
+  border-radius: var(--radius-m);
+  /* Tinted from the tile's own tone rather than a flat sunken grey: the block
+     should read as a set of different things, not as a table. */
+  background: color-mix(in srgb, var(--tone, var(--accent)) 9%, var(--paper-sunken));
+  overflow: hidden;
+  animation: statTileIn 0.5s var(--ease) both;
+}
+
+.stat-tile-wide {
+  padding-bottom: 0.85rem;
+}
+
+/* Faint disc bleeding off the corner, so a tile has some depth of its own. */
+.stat-tile::after {
+  content: '';
+  position: absolute;
+  right: -28px;
+  bottom: -34px;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tone, var(--accent)) 12%, transparent);
+  pointer-events: none;
+}
+
+@keyframes statTileIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+
+.stat-tile-icon {
+  display: grid;
+  place-content: center;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 0.35rem;
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--tone, var(--accent-ink));
+  box-shadow: 0 1px 2px rgb(15 20 25 / 0.07);
+}
+
+.stat-tile strong {
+  position: relative;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 620;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-tile-wide strong {
+  font-size: 2.3rem;
+}
+
+.stat-tile small {
+  position: relative;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+/* Placeholder with the same footprint as a number, so nothing jumps when the
+   request lands. */
+.stat-skeleton {
+  display: inline-block;
+  width: 2.2ch;
+  height: 1.3rem;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ink) 8%, transparent),
+    color-mix(in srgb, var(--ink) 14%, transparent),
+    color-mix(in srgb, var(--ink) 8%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: statShimmer 1.2s linear infinite;
+}
+
+@keyframes statShimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Countries: the globe, with the flags as its legend
+   --------------------------------------------------------------------------- */
+
+.country-panel {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+}
+
+@media (max-width: 480px) {
+  .country-panel {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+.country-panel-side {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.country-panel-side h3 {
+  font-size: 1rem;
+  font-weight: 620;
+}
+
+.country-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+@media (max-width: 480px) {
+  .country-row {
+    justify-content: center;
+  }
+}
+
+.country-flag {
+  font-size: 1.35rem;
+  line-height: 1.1;
+  animation: flagIn 0.4s var(--ease) both;
+}
+
+@keyframes flagIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.7);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Recent trips
+   --------------------------------------------------------------------------- */
+
+.recent-trips {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.recent-trips h3 {
+  font-size: 1rem;
+  font-weight: 620;
+}
+
+.recent-trips ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.recent-trips li {
+  animation: rise 0.4s var(--ease) both;
+}
+
+.recent-trips a {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-m);
+  color: var(--ink);
+  background: var(--paper-sunken);
+  transition: background 0.15s var(--ease), transform 0.15s var(--ease);
+}
+
+.recent-trips a:hover {
+  background: var(--paper-raised);
+  transform: translateX(2px);
+}
+
+.recent-trips a:active {
+  transform: scale(0.99);
+}
+
+.recent-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.recent-name {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.recent-name strong {
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-name small {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.recent-trips svg {
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
