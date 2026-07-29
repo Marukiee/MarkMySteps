@@ -75,6 +75,8 @@ export function GlobeBackdrop({
     let moved = 0; // drag distance, to tell a pan from a tap
     const pointers = new Map<number, { x: number; y: number }>();
     let pinchStart = 0;
+    /** Last zoom level the wordmark was told about. */
+    let lastToldScale = 1;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const today = new Date().toISOString().slice(0, 10);
 
@@ -262,10 +264,6 @@ export function GlobeBackdrop({
             glowDist = 0;
             glowRuns = 0;
             phaseStart = now;
-            // The wordmark's compass turns with the camera. Announced rather
-            // than called, because the mark is a sibling in another component
-            // and the globe has no business holding a ref to it.
-            window.dispatchEvent(new CustomEvent('mms-globe-focus'));
           } else if (glowRuns >= glowRunsNeeded || now - phaseStart > dur * 5) {
             // Hold the zoom until the light has travelled the whole route (with
             // a ceiling, so a route that never finishes can't strand the tour).
@@ -308,6 +306,16 @@ export function GlobeBackdrop({
       // since the finger is the one in charge.
       if (!idle || trips.length === 0) {
         [scale, scaleV] = ease(scale, scaleV, targetScale, 26);
+      }
+
+      // The wordmark's compass needle is driven by the zoom: one turn and a bit
+      // per unit of scale, in whichever direction the globe is going. Announced
+      // rather than called, because the mark is a sibling in another component
+      // and the globe has no business holding a ref to it. Only on a real
+      // change, so a still globe is silent.
+      if (Math.abs(scale - lastToldScale) > 0.015) {
+        lastToldScale = scale;
+        window.dispatchEvent(new CustomEvent('mms-globe-scale', { detail: scale }));
       }
 
       // Radius fits the SHORTER side, so the sphere is as big as it can be
@@ -739,14 +747,16 @@ export function GlobeBackdrop({
           // as it widens and thins — a single expanding circle read as a blip,
           // and a bare halo read as nothing at all.
           glowRunsNeeded = 2;
-          if (now - phaseStart > 3600) glowRuns = glowRunsNeeded;
+          if (now - phaseStart > 5400) glowRuns = glowRunsNeeded;
           const spot = act.path?.[0]?.[0] ?? act.anchor;
           if (!center || distance(center, spot) <= 90) {
             const pr = projection(spot);
             if (pr) {
               const [gr, gg, gb] = legibleColor(act.color, dark);
               const [x, y] = pr;
-              const PERIOD = 2000;
+              // Slow enough to watch a ring widen rather than register that one
+              // went past.
+              const PERIOD = 2800;
 
               // A halo that breathes with the rings rather than sitting still.
               const breathe = 0.5 + 0.5 * Math.sin((now / PERIOD) * Math.PI * 2);

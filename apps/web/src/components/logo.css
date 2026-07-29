@@ -44,24 +44,19 @@
   100% { transform: rotate(720.0deg); }
 }
 
-/* Two full turns, easing out of the second one: it leaves with the camera and
-   arrives back at north as the globe settles, rather than stopping dead. */
-.logo-needle.sweeping {
-  animation: needleSweepOnce 1.9s cubic-bezier(0.36, 0, 0.16, 1) both;
-}
-
-@keyframes needleSweepOnce {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(720deg);
-  }
+/* Points wherever the home globe's zoom puts it. The short transition only
+   bridges the gap between two zoom reports; the motion itself comes from the
+   globe's own eased scale. */
+.logo-needle {
+  transition: transform 0.1s linear;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .logo-needle.spinning,
-  .logo-needle.sweeping {
+  .logo-needle.spinning {
     animation: none;
+  }
+
+  .logo-needle {
+    transition: none;
   }
 }

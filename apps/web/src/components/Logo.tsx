@@ -1,3 +1,4 @@
+import { Ref } from 'react';
 import './logo.css';
 
 /**
@@ -7,13 +8,13 @@ import './logo.css';
 export function LogoMark({
   size = 30,
   spin = false,
-  sweep = 0,
+  needleRef,
 }: {
   size?: number;
   /** Turns forever: the waiting screen. */
   spin?: boolean;
-  /** Bump this to send the needle round once and back to north. */
-  sweep?: number;
+  /** Handle on the needle, for anything that wants to point it somewhere. */
+  needleRef?: Ref<SVGPathElement>;
 }) {
   return (
     <svg
@@ -33,11 +34,9 @@ export function LogoMark({
       >
         <circle cx="12" cy="12" r="9.4" />
         {/* The needle is its own element so it can turn inside the ring. */}
-        {/* Keyed on `sweep` so a bump remounts the path and the animation
-            starts over, however soon after the last one it comes. */}
         <path
-          key={sweep}
-          className={`logo-needle${spin ? ' spinning' : ''}${sweep ? ' sweeping' : ''}`}
+          ref={needleRef}
+          className={`logo-needle${spin ? ' spinning' : ''}`}
           d="m16.4 7.6-2.5 6.3-6.3 2.5 2.5-6.3Z"
         />
       </g>
