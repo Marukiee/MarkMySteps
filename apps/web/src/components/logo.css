@@ -10,37 +10,39 @@
 }
 
 /* Two turns per cycle, but not at one speed: the needle winds up and eases off
-   twice on the way round, the way a loading spinner breathes. Written out as
-   samples of `720t + 40(1 - cos 4πt)`, which is chosen so that both the angle
-   AND the speed match at the loop boundary — otherwise every repeat lands as a
-   visible jolt. Interpolated linearly between the samples, since the curve is
-   already in the numbers. */
+   twice on the way round, the way a loading spinner breathes. Samples of
+   `720t - 52·sin 4πt`, whose slow points fall exactly on 0° and 360° — the
+   needle's own north-east rest pose. Phased any other way it dawdles somewhere
+   arbitrary, which reads as a stutter rather than a beat. The term also makes
+   the angle AND the speed match at the loop boundary, so a repeat does not
+   land as a jolt; interpolation is linear because the curve is in the numbers
+   already. */
 @keyframes needleSweep {
   0% { transform: rotate(0.0deg); }
-  4% { transform: rotate(35.2deg); }
-  8% { transform: rotate(81.7deg); }
-  12% { transform: rotate(135.1deg); }
-  16% { transform: rotate(189.3deg); }
-  20% { transform: rotate(238.1deg); }
-  24% { transform: rotate(276.4deg); }
-  28% { transform: rotate(301.9deg); }
-  32% { transform: rotate(315.5deg); }
-  36% { transform: rotate(320.9deg); }
-  40% { transform: rotate(323.9deg); }
-  44% { transform: rotate(330.9deg); }
-  48% { transform: rotate(347.2deg); }
-  52% { transform: rotate(376.0deg); }
-  56% { transform: rotate(417.3deg); }
-  60% { transform: rotate(467.9deg); }
-  64% { transform: rotate(522.5deg); }
-  68% { transform: rotate(574.7deg); }
-  72% { transform: rotate(618.7deg); }
-  76% { transform: rotate(650.8deg); }
-  80% { transform: rotate(670.1deg); }
-  84% { transform: rotate(678.9deg); }
-  88% { transform: rotate(682.3deg); }
-  92% { transform: rotate(686.5deg); }
-  96% { transform: rotate(697.6deg); }
+  4% { transform: rotate(3.7deg); }
+  8% { transform: rotate(13.7deg); }
+  12% { transform: rotate(34.5deg); }
+  16% { transform: rotate(68.1deg); }
+  20% { transform: rotate(113.4deg); }
+  24% { transform: rotate(166.3deg); }
+  28% { transform: rotate(220.7deg); }
+  32% { transform: rotate(270.5deg); }
+  36% { transform: rotate(310.3deg); }
+  40% { transform: rotate(337.5deg); }
+  44% { transform: rotate(352.4deg); }
+  48% { transform: rotate(358.5deg); }
+  52% { transform: rotate(361.5deg); }
+  56% { transform: rotate(367.6deg); }
+  60% { transform: rotate(382.5deg); }
+  64% { transform: rotate(409.7deg); }
+  68% { transform: rotate(449.5deg); }
+  72% { transform: rotate(499.3deg); }
+  76% { transform: rotate(553.7deg); }
+  80% { transform: rotate(606.6deg); }
+  84% { transform: rotate(651.9deg); }
+  88% { transform: rotate(685.5deg); }
+  92% { transform: rotate(706.3deg); }
+  96% { transform: rotate(716.3deg); }
   100% { transform: rotate(720.0deg); }
 }
 
