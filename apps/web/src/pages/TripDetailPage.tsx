@@ -270,9 +270,35 @@ export function TripDetailPage() {
   const handleLongPress = useCallback(
     async (lngLat: { lng: number; lat: number }) => {
       if (!tripId || tab === 'plan') return;
+      // Long-pressing an already-drawn stretch takes it back; anywhere else it
+      // draws a new one. Same gesture, and the wording says which one it is.
+      const onDrawn = await api<{ near: boolean }>(
+        `/trips/${tripId}/route-fill/near?lng=${lngLat.lng}&lat=${lngLat.lat}`,
+      ).catch(() => ({ near: false }));
+
+      if (onDrawn.near) {
+        const ok = await confirmModal({
+          title: 'Getekende route wissen?',
+          body: 'Alleen dit automatisch getekende stuk verdwijnt. Je eigen getrackte GPS blijft staan.',
+          confirmLabel: 'Wissen',
+          danger: true,
+        });
+        if (!ok) return;
+        try {
+          await api(
+            `/trips/${tripId}/route-fill?lng=${lngLat.lng}&lat=${lngLat.lat}`,
+            { method: 'DELETE' },
+          );
+          api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Wissen mislukt');
+        }
+        return;
+      }
+
       const ok = await confirmModal({
         title: 'Route via wegen tekenen?',
-        body: 'Het dichtstbijzijnde rechte stuk zonder tracking wordt automatisch aangevuld via de snelste weg.',
+        body: 'Het dichtstbijzijnde rechte stuk zonder tracking wordt automatisch aangevuld via de snelste weg. Houd de getekende route later ingedrukt om ‘m weer te wissen.',
         confirmLabel: 'Tekenen',
       });
       if (!ok) return;

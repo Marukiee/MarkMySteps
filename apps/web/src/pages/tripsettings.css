@@ -491,3 +491,33 @@
     background-position: -40% 0;
   }
 }
+
+/* The page saves itself; this is the only thing that says so, so it swaps
+   between its three states rather than snapping. */
+.ts-autosave {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+  transition: color 0.25s var(--ease);
+}
+
+.ts-autosave[data-state='saved'] {
+  color: var(--teal);
+}
+
+.ts-autosave-face {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  animation: tsSaveFace 0.3s var(--ease);
+}
+
+@keyframes tsSaveFace {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}

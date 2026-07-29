@@ -1,4 +1,5 @@
 import { FormEvent, MouseEvent, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
@@ -8,6 +9,7 @@ import { Avatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
 import { DateField } from '../components/DatePicker';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
+import { LogoMark } from '../components/Logo';
 import { Icon } from '../components/Icon';
 import { formatDate } from '../lib/colors';
 import {
@@ -77,7 +79,14 @@ export function TripsPage() {
       <GlobeBackdrop trips={trips ?? []} selfLocation={self} />
 
       <div className="trips-head">
-        <h1>Reizen</h1>
+        {/* The wordmark belongs at the top left of the first screen you see.
+            On a wide window the top bar already carries it, so this one only
+            shows where that bar is gone (phone, and the app). */}
+        <span className="trips-brand" aria-label="MarkMySteps">
+          <LogoMark size={30} />
+          <span>MarkMySteps</span>
+        </span>
+        <h1 className="trips-title">Reizen</h1>
         <button
           className="btn btn-primary"
           onClick={() => (showNew ? closeNew() : setShowNew(true))}
@@ -184,6 +193,9 @@ function TripCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
   const [menuUp, setMenuUp] = useState(false);
+  /** Where the menu sits against the viewport (it is portalled out of the card,
+   *  which clips its own contents when it has a cover photo). */
+  const [menuAt, setMenuAt] = useState<{ top: number; right: number } | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [newTitle, setNewTitle] = useState(trip.title);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -306,9 +318,15 @@ function TripCard({
           stop(e);
           if (menuOpen) closeMenu();
           else {
-            // Not enough room below (last card on screen) → open upward.
+            // A card with a cover clips its own contents, so the menu is
+            // rendered against the viewport instead — anchored to the button.
             const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            setMenuUp(r.bottom + 250 > window.innerHeight);
+            const up = r.bottom + 260 > window.innerHeight;
+            setMenuUp(up);
+            setMenuAt({
+              top: up ? r.top - 8 : r.bottom + 8,
+              right: Math.max(8, window.innerWidth - r.right),
+            });
             window.dispatchEvent(new CustomEvent('mms-menu-open', { detail: trip.id }));
             setMenuOpen(true);
           }
@@ -316,8 +334,18 @@ function TripCard({
       >
         <Icon name="dots" size={22} />
       </button>
-      {menuOpen && (
-        <div className={`trip-menu card ${menuUp ? 'up' : ''} ${menuClosing ? 'closing' : ''}`}>
+      {menuOpen &&
+        menuAt &&
+        createPortal(
+        <div
+          className={`trip-menu card ${menuUp ? 'up' : ''} ${menuClosing ? 'closing' : ''}`}
+          style={
+            menuUp
+              ? { bottom: window.innerHeight - menuAt.top, right: menuAt.right }
+              : { top: menuAt.top, right: menuAt.right }
+          }
+          onClick={stop}
+        >
           <div className="trip-menu-seg" onClick={stop}>
             {(['auto', 'large', 'compact'] as const).map((opt) => {
               const cur = getTripCardOverride(trip.id) ?? 'auto';
@@ -379,7 +407,8 @@ function TripCard({
               Reis verlaten
             </button>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

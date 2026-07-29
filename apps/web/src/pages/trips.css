@@ -9,6 +9,31 @@
   font-size: 2rem;
 }
 
+/* Same lockup as the top bar's, in the wordmark's own typeface. */
+.trips-brand {
+  display: none;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-brand);
+  font-weight: 620;
+  font-size: 1.45rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  user-select: none;
+  animation: rise 0.45s var(--ease) backwards;
+}
+
+/* Below this width the top bar is gone, so the page carries the brand. */
+@media (max-width: 720px) {
+  .trips-brand {
+    display: inline-flex;
+  }
+
+  .trips-title {
+    display: none;
+  }
+}
+
 .trips-empty {
   padding: 3rem 2rem;
   text-align: center;
@@ -369,18 +394,9 @@
   filter: none;
 }
 
-/* Opens ON TOP of the ⋯, same as the large card. */
-.trip-card-compact .trip-menu {
-  top: 0;
-  right: 0;
-  transform-origin: top right;
-}
-
 /* Near the bottom of the screen there's no room below — grow upward instead of
    off-screen. */
 .trip-menu.up {
-  top: auto;
-  bottom: 0;
   transform-origin: bottom right;
 }
 
@@ -454,10 +470,10 @@
 }
 
 .trip-menu {
-  position: absolute;
-  right: 0;
-  top: 0;
-  z-index: 60;
+  /* Against the viewport, not the card: a card with a cover clips its own
+     contents, which cut the menu in half. */
+  position: fixed;
+  z-index: 120;
   min-width: 168px;
   padding: 0.35rem;
   display: grid;

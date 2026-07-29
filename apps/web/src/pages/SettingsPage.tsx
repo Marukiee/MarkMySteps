@@ -1,4 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
+import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { resetOnboarding } from '../lib/native';
 import { api, ApiError, fetchBlobUrl } from '../api/client';
@@ -22,6 +24,7 @@ import {
   saveBackup,
 } from '../lib/backup';
 import { formatDate } from '../lib/colors';
+import { reversePlaceName } from '../lib/geocode';
 import { clearThumbCache, enforceThumbBudget, thumbCacheUsage } from '../lib/offlineCache';
 import { isLocalMode } from '../lib/localMode';
 import { useExit } from '../lib/useExit';
@@ -34,6 +37,7 @@ import {
   getMapStyleId,
   getThemeId,
   getShowSelfOnHome,
+  getMapStyle,
   getThumbCacheLimitMb,
   getTrackingIntervalMin,
   getTripCardSize,
@@ -46,6 +50,7 @@ import {
   setTripCardSize,
 } from '../lib/prefs';
 import {
+  FixLogEntry,
   TrackerState,
   getTrackingLog,
   isNative,
@@ -759,27 +764,13 @@ function TrackingSection() {
           <Collapsible summary="Details" className="tracking-advanced">
             <div className="tracking-advanced-body">
               <span className="settings-ok">● Actief: {activeTrip?.title ?? 'reis'}</span>
-              <div className="tracking-live">
-                {tracker.lastFix ? (
-                  <>
-                    <span className="tracking-live-dot" />
-                    <div>
-                      <strong>
-                        {tracker.lastFix.lat.toFixed(5)}, {tracker.lastFix.lng.toFixed(5)}
-                      </strong>
-                      <span className="muted">
-                        laatste fix{' '}
-                        {fixAge === null ? '' : fixAge < 2 ? 'zojuist' : `${fixAge}s geleden`}
-                        {tracker.lastFix.accuracy
-                          ? ` · ±${Math.round(tracker.lastFix.accuracy)} m`
-                          : ''}
-                      </span>
-                    </div>
-                  </>
-                ) : (
+              {tracker.lastFix ? (
+                <LastFix fix={tracker.lastFix} ageSeconds={fixAge} />
+              ) : (
+                <div className="tracking-live">
                   <span className="muted">Wachten op eerste GPS-fix…</span>
-                )}
-              </div>
+                </div>
+              )}
               {activeTrip && (
                 <a className="tracking-view-link" href={`/trips/${activeTrip.id}`}>
                   Bekijk het gelopen pad op de kaart
@@ -919,33 +910,208 @@ function TripPicker({
 /** Persisted check log — one line per interval, proof tracking keeps running. */
 function TrackingLog({ now }: { now: number }) {
   const log = getTrackingLog();
+  const [full, setFull] = useState(false);
   if (log.length === 0) return null;
   return (
-    <Collapsible className="tracking-log" summary={`Locatie-log · ${log.length} checks`}>
-      <ul>
-        {log.slice(0, 25).map((e, i) => {
-          const ago = Math.round((now - e.at) / 1000);
-          return (
-            <li key={i}>
-              <span>
-                {new Date(e.at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
-                {ago < 3600 ? ` · ${Math.max(0, Math.round(ago / 60))}m geleden` : ''}
-                {/* How far this check moved, how sharp it was, and whether it was
-                    folded into the place you're staying. */}
-                <em className="fix-meta">
-                  {e.movedM !== undefined ? `${e.movedM} m` : 'start'}
-                  {e.accuracyM !== undefined ? ` · ±${e.accuracyM} m` : ''}
-                  {e.stayCount ? ` · zelfde plek (${e.stayCount}×)` : ''}
-                </em>
-              </span>
-              <span className="muted">
-                {e.lat.toFixed(4)}, {e.lng.toFixed(4)}
-              </span>
-            </li>
-          );
-        })}
+    <>
+      <Collapsible
+        className="tracking-log"
+        summary={
+          <>
+            Locatie-log · {log.length} checks
+            <button
+              type="button"
+              className="log-expand"
+              aria-label="Log op volledig scherm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFull(true);
+              }}
+            >
+              <Icon name="external" size={14} />
+            </button>
+          </>
+        }
+      >
+        <ul className="log-list">
+          {log.slice(0, 25).map((entry, i) => (
+            <LogRow key={entry.at + '-' + i} entry={entry} now={now} />
+          ))}
+        </ul>
+      </Collapsible>
+      {full && <TrackingLogSheet log={log} now={now} onClose={() => setFull(false)} />}
+    </>
+  );
+}
+
+/**
+ * Where the last check landed.
+ *
+ * A pair of coordinates says nothing about whether the tracker is in the right
+ * place. A name and a map do — so the place is looked up and the point is drawn
+ * on it, and the numbers move to the second line where they belong.
+ */
+function LastFix({
+  fix,
+  ageSeconds,
+}: {
+  fix: { lat: number; lng: number; at: number; accuracy?: number };
+  ageSeconds: number | null;
+}) {
+  const [place, setPlace] = useState<string | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapObj = useRef<MapLibreMap | null>(null);
+  const markerRef = useRef<maplibregl.Marker | null>(null);
+
+  // Rounded, so drifting a few metres doesn't re-ask on every fix.
+  const key = `${fix.lat.toFixed(3)},${fix.lng.toFixed(3)}`;
+  useEffect(() => {
+    let alive = true;
+    void reversePlaceName(fix.lat, fix.lng).then((name) => alive && setPlace(name));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  useEffect(() => {
+    if (!mapRef.current || mapObj.current) return;
+    const map = new maplibregl.Map({
+      container: mapRef.current,
+      style: getMapStyle(),
+      center: [fix.lng, fix.lat],
+      zoom: 13,
+      interactive: false,
+      attributionControl: false,
+    });
+    mapObj.current = map;
+    const el = document.createElement('div');
+    el.className = 'fix-marker';
+    markerRef.current = new maplibregl.Marker({ element: el })
+      .setLngLat([fix.lng, fix.lat])
+      .addTo(map);
+    return () => {
+      map.remove();
+      mapObj.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Follow later fixes without rebuilding the map.
+  useEffect(() => {
+    markerRef.current?.setLngLat([fix.lng, fix.lat]);
+    mapObj.current?.easeTo({ center: [fix.lng, fix.lat], duration: 600 });
+  }, [fix.lat, fix.lng]);
+
+  return (
+    <div className="last-fix">
+      <div className="last-fix-map" ref={mapRef} />
+      <div className="last-fix-body">
+        <strong className="last-fix-place">
+          <span className="tracking-live-dot" />
+          {place ?? 'Plaats opzoeken…'}
+        </strong>
+        <span className="muted">
+          laatste fix{' '}
+          {ageSeconds === null ? '' : ageSeconds < 2 ? 'zojuist' : `${ageSeconds}s geleden`}
+          {fix.accuracy ? ` · ±${Math.round(fix.accuracy)} m` : ''}
+        </span>
+        <span className="muted last-fix-coords">
+          {fix.lat.toFixed(5)}, {fix.lng.toFixed(5)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One check.
+ *
+ * Three columns rather than a run-on line: the time, what the check did, and
+ * where. Wrapping a single sentence pushed the "same place" chip onto its own
+ * line and left the coordinates dangling, which is what made the log hard to
+ * read at a glance.
+ */
+function LogRow({ entry, now }: { entry: FixLogEntry; now: number }) {
+  const ago = Math.round((now - entry.at) / 1000);
+  const stayed = !!entry.stayCount;
+  return (
+    <li className="log-row" data-stay={stayed}>
+      <span className="log-time">
+        {new Date(entry.at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+        <small>{ago < 3600 ? `${Math.max(0, Math.round(ago / 60))} min` : ''}</small>
+      </span>
+      <span className="log-what">
+        <span className="log-moved">
+          {entry.movedM !== undefined ? `${entry.movedM} m` : 'start'}
+        </span>
+        {entry.accuracyM !== undefined && (
+          <span className="log-acc">±{entry.accuracyM} m</span>
+        )}
+        {stayed && <span className="log-stay">zelfde plek ×{entry.stayCount}</span>}
+      </span>
+      <span className="log-coords">
+        {entry.lat.toFixed(4)}
+        <br />
+        {entry.lng.toFixed(4)}
+      </span>
+    </li>
+  );
+}
+
+/** The same log, full screen, where every row fits on one line. */
+function TrackingLogSheet({
+  log,
+  now,
+  onClose,
+}: {
+  log: FixLogEntry[];
+  now: number;
+  onClose: () => void;
+}) {
+  const [closing, setClosing] = useState(false);
+  const close = () => {
+    setClosing(true);
+    window.setTimeout(onClose, 200);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    document.addEventListener('keydown', onKey);
+    // Back closes the sheet rather than leaving the settings page.
+    window.history.pushState({ mmsLog: true }, '');
+    let popped = false;
+    const onPop = () => {
+      popped = true;
+      close();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onPop);
+      if (!popped) window.history.back();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return createPortal(
+    <div className={`log-layer ${closing ? 'closing' : ''}`}>
+      <header className="log-head">
+        <button type="button" className="te-icon-btn" aria-label="Sluiten" onClick={close}>
+          <Icon name="close" size={20} />
+        </button>
+        <div className="log-head-title">
+          <strong>Locatie-log</strong>
+          <small>{log.length} checks</small>
+        </div>
+      </header>
+      <ul className="log-list log-list-full">
+        {log.map((entry, i) => (
+          <LogRow key={entry.at + '-' + i} entry={entry} now={now} />
+        ))}
       </ul>
-    </Collapsible>
+    </div>,
+    document.body,
   );
 }
 

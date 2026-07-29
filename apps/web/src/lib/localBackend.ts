@@ -620,8 +620,47 @@ route('DELETE', '/trips/:id/tracked', async (req, [id]) => {
   return { deleted: doomed.length };
 });
 
-route('DELETE', '/trips/:id/route-fill', async (_req, [id]) => {
+route('GET', '/trips/:id/route-fill/near', async (req, [id]) => {
+  const lng = Number(req.query.get('lng'));
+  const lat = Number(req.query.get('lat'));
   const points = await dbByTrip<StoredPoint>('points', id!);
+  const near = points.some(
+    (p) => p.source === 'ROUTE_FILL' && haversineKm([lng, lat], [p.longitude, p.latitude]) <= 25,
+  );
+  return { near };
+});
+
+route('DELETE', '/trips/:id/route-fill', async (req, [id]) => {
+  const points = (await dbByTrip<StoredPoint>('points', id!)).sort((a, b) =>
+    a.recordedAt.localeCompare(b.recordedAt),
+  );
+  const lng = Number(req.query.get('lng'));
+  const lat = Number(req.query.get('lat'));
+
+  // With a coordinate: only the one drawn stretch you pressed on. A drawn route
+  // is a contiguous run in time, so the nearest point plus its neighbours is
+  // exactly that stretch.
+  if (Number.isFinite(lng) && Number.isFinite(lat)) {
+    let nearest = -1;
+    let best = Number.POSITIVE_INFINITY;
+    points.forEach((p, i) => {
+      if (p.source !== 'ROUTE_FILL') return;
+      const d = haversineKm([lng, lat], [p.longitude, p.latitude]);
+      if (d < best) {
+        best = d;
+        nearest = i;
+      }
+    });
+    if (nearest === -1 || best > 25) throw new LocalNotFound('Geen getekende route in de buurt');
+    let from = nearest;
+    while (from > 0 && points[from - 1]!.source === 'ROUTE_FILL') from -= 1;
+    let to = nearest;
+    while (to < points.length - 1 && points[to + 1]!.source === 'ROUTE_FILL') to += 1;
+    const ids = points.slice(from, to + 1).map((p) => p.id);
+    await dbDeleteMany('points', ids);
+    return { deleted: ids.length };
+  }
+
   const doomed = points.filter((p) => p.source === 'ROUTE_FILL' || p.source === 'MANUAL');
   await dbDeleteMany('points', doomed.map((p) => p.id));
   return { deleted: doomed.length };

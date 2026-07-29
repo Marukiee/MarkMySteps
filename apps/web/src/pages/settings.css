@@ -619,22 +619,175 @@
   transform: rotate(90deg);
 }
 
-.tracking-log ul {
+.log-list {
   list-style: none;
   margin: 0.6rem 0 0.1rem;
   padding: 0;
   display: grid;
-  gap: 0.35rem;
-  max-height: 260px;
+  gap: 2px;
+  max-height: 300px;
   overflow-y: auto;
 }
 
-.tracking-log li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.82rem;
+/* Three columns, not one wrapping sentence: when, what, where. The old line
+   pushed the "same place" chip onto its own row and left the coordinates
+   dangling under it. */
+.log-row {
+  display: grid;
+  grid-template-columns: 3.6rem 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
+  animation: rise 0.3s var(--ease) backwards;
+}
+
+/* Alternating rows: 60 lines of numbers need something to track along. */
+.log-row:nth-child(odd) {
+  background: var(--paper-sunken);
+}
+
+/* A check that only refined the place you were already at is background noise
+   next to one that actually moved. */
+.log-row[data-stay='true'] .log-moved {
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
+.log-time {
+  display: grid;
+  line-height: 1.1;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.log-time small {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+
+.log-what {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.log-moved {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.log-acc,
+.log-stay {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--paper-raised);
+  color: var(--ink-faint);
+  border: 1px solid var(--line);
+}
+
+.log-coords {
+  text-align: right;
+  line-height: 1.15;
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* Full-screen log. */
+.log-expand {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--ink-faint);
+  transition: background 0.15s var(--ease), color 0.15s var(--ease),
+    transform 0.15s var(--ease);
+}
+
+.log-expand:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.log-expand:active {
+  transform: scale(0.9);
+}
+
+.log-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: var(--paper);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: logIn 0.24s var(--ease);
+}
+
+.log-layer.closing {
+  animation: logOut 0.2s var(--ease) forwards;
+}
+
+@keyframes logIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes logOut {
+  to {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.log-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem 0.5rem;
+}
+
+.log-head-title {
+  display: grid;
+  line-height: 1.15;
+}
+
+.log-head-title small {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+
+.log-list-full {
+  max-height: none;
+  margin: 0;
+  padding: 0 0.9rem 1rem;
+  overflow-y: auto;
+}
+
+/* Room to breathe on a screen that is all log. */
+.log-list-full .log-row {
+  grid-template-columns: 4.2rem 1fr auto;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.log-list-full .log-coords {
+  font-size: 0.78rem;
 }
 
 .theme-choice {
@@ -1119,4 +1272,63 @@
     opacity: 0;
     transform: translateY(-4px);
   }
+}
+
+/* Where the last check landed: a name and a map, with the raw numbers
+   underneath — coordinates alone never answered "is this right?". */
+.last-fix {
+  display: flex;
+  align-items: stretch;
+  gap: 0.8rem;
+  padding: 0.6rem;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+  animation: rise 0.35s var(--ease) backwards;
+}
+
+.last-fix-map {
+  position: relative;
+  width: 96px;
+  flex-shrink: 0;
+  min-height: 96px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-s);
+}
+
+/* The canvas is composited on the GPU, so the parent's overflow can't round it. */
+.last-fix-map .maplibregl-canvas-container,
+.last-fix-map canvas {
+  border-radius: inherit;
+}
+
+.fix-marker {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3884ff;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.4);
+}
+
+.last-fix-body {
+  display: grid;
+  align-content: center;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.last-fix-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.last-fix-coords {
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
 }

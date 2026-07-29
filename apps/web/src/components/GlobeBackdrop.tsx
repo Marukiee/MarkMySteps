@@ -254,16 +254,18 @@ export function GlobeBackdrop({
           [scale, scaleV] = ease(scale, scaleV, targetScale, 5.2);
           [tilt, tiltV] = ease(tilt, tiltV, 0, 5.2);
         } else {
-          // Focus: ease onto one real trip and frame it. Zoom adapts to how
-          // spread out its route is, so a big trip fills the view nicely.
+          // Focus: ease onto one real trip and frame the WHOLE of it — its
+          // middle, and a zoom taken from how far the route reaches from there.
+          // Framing on the anchor put the first dot in the centre with the rest
+          // of the route trailing off one side.
           const trip = trips[Math.min(tourIdx, trips.length - 1)]!;
-          const spread = tripSpread(trip);
-          const zoom = Math.max(1.6, Math.min(3.4, 70 / (spread + 12)));
-          const shortest = ((-trip.anchor[0] - rotation + 540) % 360) - 180;
+          const { centre, spread } = tripFraming(trip);
+          const zoom = Math.max(1.5, Math.min(3.4, 46 / (spread + 9)));
+          const shortest = ((-centre[0] - rotation + 540) % 360) - 180;
           [rotation, rotV] = ease(rotation, rotV, rotation + shortest, 2.4);
-          // Frame the trip a touch above centre (the fade tail eats the lower
-          // third) — a small lift, not so much it sits near the top.
-          [tilt, tiltV] = ease(tilt, tiltV, trip.anchor[1] - CENTER_LAT - 4, 5.2);
+          // A touch above centre: the fade tail eats the lower third, so the
+          // route would otherwise sit low in the view.
+          [tilt, tiltV] = ease(tilt, tiltV, centre[1] - CENTER_LAT - 3, 5.2);
           targetScale = zoom;
           [scale, scaleV] = ease(scale, scaleV, targetScale, 5.2);
         }
@@ -649,10 +651,13 @@ export function GlobeBackdrop({
           // Constant speed, except on a route long enough that one pass would
           // take forever — there the run is capped to a few seconds instead.
           const speed = Math.max(0.07, total / (5 * 60));
-          glowDist += speed * (dt * 60);
-          if (glowDist > total + TRAIL_DEG + PAUSE) {
-            glowDist = 0;
-            glowRuns += 1;
+          if (glowRuns < GLOW_RUNS_PER_FOCUS) {
+            glowDist += speed * (dt * 60);
+            if (glowDist > total + TRAIL_DEG + PAUSE) {
+              // Straight into the next pass; the dwell above already happened.
+              glowDist = glowRuns + 1 < GLOW_RUNS_PER_FOCUS ? 0 : glowDist;
+              glowRuns += 1;
+            }
           }
           const [gr, gg, gb] = legibleColor(act.color, dark);
 
@@ -695,37 +700,43 @@ export function GlobeBackdrop({
             }
           }
         } else if (act) {
-          // A city trip has no ribbon to wait for; four pulses is its equivalent.
+          // A city trip has no route to run a light along, so the place itself
+          // is what gets highlighted. Two rings a beat apart, each easing out
+          // as it widens and thins — a single expanding circle read as a blip,
+          // and a bare halo read as nothing at all.
           if (now - phaseStart > 3600) glowRuns = GLOW_RUNS_PER_FOCUS;
-          // City trip: no line worth running a light along, so the dot itself
-          // breathes — a soft halo plus a ring that expands out of it and fades,
-          // which reads as "this one" just as clearly as the ribbon does.
           const spot = act.path?.[0]?.[0] ?? act.anchor;
           if (!center || distance(center, spot) <= 90) {
             const pr = projection(spot);
             if (pr) {
               const [gr, gg, gb] = legibleColor(act.color, dark);
               const [x, y] = pr;
-              const beat = (now % 1800) / 1800; // one ring per 1.8 s
-              const breathe = 0.5 + 0.5 * Math.sin((now / 1800) * Math.PI * 2);
+              const PERIOD = 2000;
 
-              // Steady halo underneath, so the dot never looks unlit between rings.
-              const haloR = (13 + breathe * 4) * dpr;
+              // A halo that breathes with the rings rather than sitting still.
+              const breathe = 0.5 + 0.5 * Math.sin((now / PERIOD) * Math.PI * 2);
+              const haloR = (14 + breathe * 5) * dpr;
               const grad = ctx!.createRadialGradient(x, y, 0, x, y, haloR);
-              grad.addColorStop(0, `rgba(${gr},${gg},${gb},0.34)`);
+              grad.addColorStop(0, `rgba(${gr},${gg},${gb},${0.26 + breathe * 0.12})`);
+              grad.addColorStop(0.55, `rgba(${gr},${gg},${gb},0.1)`);
               grad.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
               ctx!.fillStyle = grad;
               ctx!.beginPath();
               ctx!.arc(x, y, haloR, 0, 2 * Math.PI);
               ctx!.fill();
 
-              // Two rings half a cycle apart, so the pulse never fully stops.
-              for (const phase of [beat, (beat + 0.5) % 1]) {
-                const ease = 1 - (1 - phase) * (1 - phase); // ease-out
+              for (const offset of [0, 0.5]) {
+                const phase = ((now / PERIOD + offset) % 1 + 1) % 1;
+                // Ease-out quart: quick out of the dot, then drifting.
+                const ease = 1 - Math.pow(1 - phase, 4);
+                const radius = (5.5 + ease * 21) * dpr;
+                // Fades over the last two thirds, so a ring is fully formed
+                // before it starts disappearing.
+                const alpha = 0.6 * Math.min(1, phase * 3) * (1 - ease);
                 ctx!.beginPath();
-                ctx!.arc(x, y, (6 + ease * 16) * dpr, 0, 2 * Math.PI);
-                ctx!.lineWidth = 2 * dpr * (1 - ease * 0.6);
-                ctx!.strokeStyle = `rgba(${gr},${gg},${gb},${0.55 * (1 - ease)})`;
+                ctx!.arc(x, y, radius, 0, 2 * Math.PI);
+                ctx!.lineWidth = Math.max(0.6, 2.4 * (1 - ease)) * dpr;
+                ctx!.strokeStyle = `rgba(${gr},${gg},${gb},${alpha})`;
                 ctx!.stroke();
               }
             }
@@ -981,6 +992,43 @@ function tripSpread(trip: GlobeTrip): number {
     }
   }
   return max;
+}
+
+/**
+ * Where to point the camera to see the WHOLE trip, and how far away.
+ *
+ * Framing on the anchor put the first dot (and its name card) in the middle
+ * with the rest of the route trailing off one side. This takes the middle of
+ * everything the trip touches — route and flights — and a zoom from how far
+ * that reaches, so a long route sits inside the view instead of running out of
+ * it.
+ */
+function tripFraming(trip: GlobeTrip): { centre: [number, number]; spread: number } {
+  const points: [number, number][] = [];
+  for (const seg of trip.path ?? []) points.push(...seg);
+  for (const seg of trip.flights ?? []) points.push(...seg);
+  if (points.length === 0) return { centre: trip.anchor, spread: 0 };
+
+  // Averaged as unit vectors: a plain mean of longitudes falls apart either
+  // side of the date line, and a trip can straddle it.
+  const toRad = Math.PI / 180;
+  let x = 0;
+  let y = 0;
+  let z = 0;
+  for (const [lng, lat] of points) {
+    const la = lat * toRad;
+    const lo = lng * toRad;
+    x += Math.cos(la) * Math.cos(lo);
+    y += Math.cos(la) * Math.sin(lo);
+    z += Math.sin(la);
+  }
+  const centre: [number, number] = [
+    Math.atan2(y, x) / toRad,
+    Math.atan2(z, Math.hypot(x, y)) / toRad,
+  ];
+  let spread = 0;
+  for (const p of points) spread = Math.max(spread, distance(centre, p));
+  return { centre, spread };
 }
 
 /** Golden-angle hue spread → a distinct, legible colour for trip index i. */

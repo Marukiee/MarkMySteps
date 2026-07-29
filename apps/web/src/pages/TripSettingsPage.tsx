@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { SyncResult, Trip } from '../api/types';
@@ -48,6 +48,7 @@ export function TripSettingsPage() {
   const [endDate, setEndDate] = useState('');
   const [autoTrack, setAutoTrack] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
@@ -78,15 +79,56 @@ export function TripSettingsPage() {
   const canTrack =
     !ended && !!me && (me.role === 'OWNER' || (me.role === 'MEMBER' && me.canTrack));
 
+  /**
+   * Saves on its own, shortly after you stop typing.
+   *
+   * The explicit button read as optional — a colour or a marker saved itself
+   * the moment you touched it, while the title quietly waited for a press
+   * nobody made. Now everything on this page behaves the same way.
+   */
+  const dirty = useRef(false);
+  const saveTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!trip || !isOwner) return;
+    // Not on the first render: `load()` fills these in, and that is not an edit.
+    const unchanged =
+      title === trip.title &&
+      startDate === trip.startDate.slice(0, 10) &&
+      endDate === trip.endDate.slice(0, 10) &&
+      autoTrack === trip.autoTrack;
+    if (unchanged) return;
+    dirty.current = true;
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => void save(), 700);
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, startDate, endDate, autoTrack, trip, isOwner]);
+
+  // Leaving the page mid-edit must not lose the last keystroke.
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      if (dirty.current) void save();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function save(e?: FormEvent) {
     e?.preventDefault();
     if (!tripId) return;
     setError(null);
+    dirty.current = false;
+    setSaving(true);
     try {
       await api(`/trips/${tripId}`, {
         method: 'PATCH',
         body: { title, startDate, endDate, autoTrack },
       });
+      // Keep the local copy in step, or the effect above sees an edit again.
+      setTrip((t) => (t ? { ...t, title, startDate, endDate, autoTrack } : t));
       setSaved(true);
       window.setTimeout(() => setSaved(false), 1600);
       // If you switch auto-track on while the trip is already running, start
@@ -100,6 +142,8 @@ export function TripSettingsPage() {
       if (started && tripId) void startTracking(tripId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Opslaan mislukt');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -427,15 +471,21 @@ export function TripSettingsPage() {
           <button className="btn btn-danger" onClick={remove}>
             Reis verwijderen
           </button>
-          <button className="btn btn-primary" onClick={() => void save()}>
-            {saved ? (
-              <>
-                <Icon name="check" size={16} /> Opgeslagen
-              </>
-            ) : (
-              'Wijzigingen opslaan'
-            )}
-          </button>
+          {/* No save button: the page saves itself. This says so, and confirms
+              when it has. */}
+          <span className="ts-autosave" data-state={saving ? 'saving' : saved ? 'saved' : 'idle'}>
+            <span className="ts-autosave-face" key={saving ? 'saving' : saved ? 'saved' : 'idle'}>
+              {saving ? (
+                'Opslaan…'
+              ) : saved ? (
+                <>
+                  <Icon name="check" size={15} /> Opgeslagen
+                </>
+              ) : (
+                'Wijzigingen worden vanzelf bewaard'
+              )}
+            </span>
+          </span>
         </div>
       )}
     </main>

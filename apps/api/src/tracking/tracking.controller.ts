@@ -103,12 +103,21 @@ export class TrackingController {
     return this.tracking.clearTracked(tripId, user.sub, day);
   }
 
-  /** Remove only the auto-drawn road routes; keeps real tracked GPS. */
+  /**
+   * Remove the auto-drawn road routes; keeps real tracked GPS. With `lng`/`lat`
+   * only the one drawn stretch nearest that point goes, so a route drawn by
+   * mistake can be taken back without losing the others.
+   */
   @Delete('route-fill')
   clearRouteFills(
     @CurrentUser() user: JwtPayload,
     @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Query('lng') lng?: string,
+    @Query('lat') lat?: string,
   ): Promise<{ deleted: number }> {
+    if (lng !== undefined && lat !== undefined) {
+      return this.tracking.clearRouteFillNear(tripId, user.sub, Number(lng), Number(lat));
+    }
     return this.tracking.clearRouteFills(tripId, user.sub);
   }
 
@@ -154,6 +163,18 @@ export class TrackingController {
     @Body() dto: RouteFillDto,
   ): Promise<{ added: number }> {
     return this.tracking.fillRoute(tripId, user.sub, dto.lng, dto.lat);
+  }
+
+  /** Whether an auto-drawn stretch sits near this point, so a long press can
+   *  ask the right question before it does anything. */
+  @Get('route-fill/near')
+  routeFillNear(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Query('lng') lng: string,
+    @Query('lat') lat: string,
+  ): Promise<{ near: boolean }> {
+    return this.tracking.hasRouteFillNear(tripId, user.sub, Number(lng), Number(lat));
   }
 
   /** Latest fix per travelling member — for the live map. */

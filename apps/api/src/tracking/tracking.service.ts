@@ -305,6 +305,67 @@ export class TrackingService {
     return { added: data.length };
   }
 
+  /** Is there an auto-drawn stretch near this point? */
+  async hasRouteFillNear(
+    tripId: string,
+    userId: string,
+    lng: number,
+    lat: number,
+  ): Promise<{ near: boolean }> {
+    await this.trips.getForMember(tripId, userId);
+    const points = await this.prisma.locationPoint.findMany({
+      where: { tripId, userId, source: PointSource.ROUTE_FILL },
+      select: { latitude: true, longitude: true },
+    });
+    const near = points.some(
+      (p) => segLenKm({ lat, lng }, { lat: p.latitude, lng: p.longitude }) <= 25,
+    );
+    return { near };
+  }
+
+  /**
+   * Removes ONE drawn stretch: the run of auto-drawn points nearest where you
+   * pressed. A drawn route is a contiguous run in time, so finding the closest
+   * point and walking outwards over its neighbours picks out exactly the
+   * stretch you meant and leaves every other one alone.
+   */
+  async clearRouteFillNear(
+    tripId: string,
+    userId: string,
+    lng: number,
+    lat: number,
+  ): Promise<{ deleted: number }> {
+    await this.trips.getForEditor(tripId, userId);
+    const points = await this.prisma.locationPoint.findMany({
+      where: { tripId, userId },
+      orderBy: { recordedAt: 'asc' },
+      select: { id: true, latitude: true, longitude: true, source: true },
+    });
+
+    let nearest = -1;
+    let best = Number.POSITIVE_INFINITY;
+    points.forEach((p, i) => {
+      if (p.source !== PointSource.ROUTE_FILL) return;
+      const d = segLenKm({ lat, lng }, { lat: p.latitude, lng: p.longitude });
+      if (d < best) {
+        best = d;
+        nearest = i;
+      }
+    });
+    if (nearest === -1 || best > 25) {
+      throw new BadRequestException('Geen getekende route in de buurt.');
+    }
+
+    let from = nearest;
+    while (from > 0 && points[from - 1]!.source === PointSource.ROUTE_FILL) from -= 1;
+    let to = nearest;
+    while (to < points.length - 1 && points[to + 1]!.source === PointSource.ROUTE_FILL) to += 1;
+
+    const ids = points.slice(from, to + 1).map((p) => p.id);
+    const { count } = await this.prisma.locationPoint.deleteMany({ where: { id: { in: ids } } });
+    return { deleted: count };
+  }
+
   /** Remove only the auto-drawn road routes (+ legacy manual fills). Real
    *  tracked/imported GPS is kept. */
   async clearRouteFills(tripId: string, userId: string): Promise<{ deleted: number }> {
