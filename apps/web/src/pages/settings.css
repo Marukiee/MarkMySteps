@@ -673,8 +673,11 @@
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  flex-wrap: wrap;
+  /* One line: the chips used to wrap under the distance and doubled the
+     height of every row. */
+  flex-wrap: nowrap;
   min-width: 0;
+  overflow: hidden;
 }
 
 .log-moved {
@@ -1319,13 +1322,23 @@
 }
 
 .last-fix-place {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 0.45rem;
   font-size: 1rem;
+  min-width: 0;
+}
+
+/* The ellipsis belongs to the NAME, not the row: clipping the row shaved the
+   dot off its left edge. */
+.last-fix-place span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.last-fix-place .tracking-live-dot {
+  flex-shrink: 0;
 }
 
 .last-fix-coords {

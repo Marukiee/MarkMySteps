@@ -752,12 +752,6 @@ function TrackingSection() {
           >
             <Icon name="stop" size={15} /> Stop tracking
           </button>
-          {/* Check-and-fix: the day's raw fixes on a map, draggable, with a way
-              to fill a gap by hand — the only way to see whether a long straight
-              stretch is a real drive or a missed check. */}
-          <button className="btn btn-ghost" onClick={() => setEditDay(true)}>
-            <Icon name="pin" size={15} /> Punten van vandaag
-          </button>
           {tracker.lastError && <span className="error-text">{tracker.lastError}</span>}
 
           {/* The technical live-status bits are tucked behind an expander. */}
@@ -771,11 +765,16 @@ function TrackingSection() {
                   <span className="muted">Wachten op eerste GPS-fix…</span>
                 </div>
               )}
-              {activeTrip && (
-                <a className="tracking-view-link" href={`/trips/${activeTrip.id}`}>
-                  Bekijk het gelopen pad op de kaart
-                </a>
-              )}
+              {/* The trip page shows the same route with the photos mixed in;
+                  what you want while checking the tracker is the bare fixes,
+                  which is exactly what this opens. */}
+              <button
+                type="button"
+                className="tracking-view-link"
+                onClick={() => setEditDay(true)}
+              >
+                Punten van vandaag op de kaart
+              </button>
               {tracker.buffered > 0 && (
                 <span className="muted">
                   {tracker.buffered} punten in buffer (wacht op netwerk)
@@ -1009,7 +1008,7 @@ function LastFix({
       <div className="last-fix-body">
         <strong className="last-fix-place">
           <span className="tracking-live-dot" />
-          {place ?? 'Plaats opzoeken…'}
+          <span>{place ?? 'Plaats opzoeken…'}</span>
         </strong>
         <span className="muted">
           laatste fix{' '}
@@ -1048,7 +1047,11 @@ function LogRow({ entry, now }: { entry: FixLogEntry; now: number }) {
         {entry.accuracyM !== undefined && (
           <span className="log-acc">±{entry.accuracyM} m</span>
         )}
-        {stayed && <span className="log-stay">zelfde plek ×{entry.stayCount}</span>}
+        {stayed && (
+          <span className="log-stay" title={`Zelfde plek, ${entry.stayCount} metingen samengevoegd`}>
+            ×{entry.stayCount}
+          </span>
+        )}
       </span>
       <span className="log-coords">
         {entry.lat.toFixed(4)}

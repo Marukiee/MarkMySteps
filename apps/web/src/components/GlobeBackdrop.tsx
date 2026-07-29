@@ -5,6 +5,8 @@ import * as topojson from 'topojson-client';
 // Low-res land outline bundled locally (no CDN); ~110m resolution.
 import land110m from 'world-atlas/land-110m.json';
 import type { Trip } from '../api/types';
+import { airportByCode } from '../lib/airports';
+import { getDefaultAirports } from '../lib/prefs';
 import './globe.css';
 
 // Minimal shape of the TopoJSON we consume (avoids a types-only dep).
@@ -150,7 +152,14 @@ export function GlobeBackdrop({
      *  waits for two — one pass reads as a glance, two as having shown you the
      *  route — and only once the trail behind the head is in as well. */
     let glowRuns = 0;
-    const GLOW_RUNS_PER_FOCUS = 2;
+    /** Two passes read as "here is the route"; on a route long enough that one
+     *  pass already takes a while, a second is just waiting. */
+    const glowRunsFor = (totalDeg: number) => (totalDeg > 40 ? 1 : 2);
+    let glowRunsNeeded = 2;
+    /** Which trip the tour framed last, by id: picking by index went round
+     *  again whenever the list came back in a different order, which showed the
+     *  same trip twice. */
+    let lastFocusId: string | null = null;
     // Velocities for the camera springs (see easeTo). A plain lerp starts at
     // full speed, which is what made zooming out feel abrupt; a critically
     // damped spring starts from rest and settles without overshooting.
@@ -179,6 +188,15 @@ export function GlobeBackdrop({
     // freshly mounted page — re-measure whenever the container settles.
     const ro = new ResizeObserver(() => size());
     ro.observe(canvas.parentElement!);
+
+    // The airports you fly out of are not destinations — they get the small
+    // grey airport dot and stay out of the coloured, colour-cycling trip dots.
+    const homeAirports = getDefaultAirports()
+      .map((code) => airportByCode(code))
+      .filter((a): a is NonNullable<typeof a> => !!a)
+      .map((a) => [a.lon, a.lat] as [number, number]);
+    const isHomeAirport = (p: [number, number]) =>
+      homeAirports.some((h) => distance(h, p) < 0.4);
 
     const projection = geoOrthographic().clipAngle(90);
     const path = geoPath(projection, ctx);
@@ -228,12 +246,19 @@ export function GlobeBackdrop({
             // Entering a focus: frame the next trip (biggest first). A stale tap
             // selection is cleared so the tour can highlight this one.
             tourPhase = 1;
-            tourIdx = (tourIdx + 1) % trips.length;
+            // Step to the next trip by id, so a reordered list cannot land on
+            // the one just shown.
+            const at = trips.findIndex((t) => t.id === lastFocusId);
+            tourIdx = trips.length > 1 ? (at + 1) % trips.length : 0;
+            if (trips.length > 1 && trips[tourIdx]!.id === lastFocusId) {
+              tourIdx = (tourIdx + 1) % trips.length;
+            }
+            lastFocusId = trips[tourIdx]!.id;
             selectedId = null;
             glowDist = 0;
             glowRuns = 0;
             phaseStart = now;
-          } else if (glowRuns >= GLOW_RUNS_PER_FOCUS || now - phaseStart > dur * 5) {
+          } else if (glowRuns >= glowRunsNeeded || now - phaseStart > dur * 5) {
             // Hold the zoom until the light has travelled the whole route (with
             // a ceiling, so a route that never finishes can't strand the tour).
             tourPhase = 0;
@@ -506,8 +531,8 @@ export function GlobeBackdrop({
         for (const seg of trip.flights ?? []) {
           const firstPt = seg[0];
           const lastPt = seg[seg.length - 1];
-          if (firstPt) tripPoints.push(firstPt);
-          if (lastPt) tripPoints.push(lastPt);
+          if (firstPt && !isHomeAirport(firstPt)) tripPoints.push(firstPt);
+          if (lastPt && !isHomeAirport(lastPt)) tripPoints.push(lastPt);
         }
         if (tripPoints.length === 0) {
           tripPoints.push(trip.anchor);
@@ -651,11 +676,12 @@ export function GlobeBackdrop({
           // Constant speed, except on a route long enough that one pass would
           // take forever — there the run is capped to a few seconds instead.
           const speed = Math.max(0.07, total / (5 * 60));
-          if (glowRuns < GLOW_RUNS_PER_FOCUS) {
+          glowRunsNeeded = glowRunsFor(total);
+          if (glowRuns < glowRunsNeeded) {
             glowDist += speed * (dt * 60);
             if (glowDist > total + TRAIL_DEG + PAUSE) {
               // Straight into the next pass; the dwell above already happened.
-              glowDist = glowRuns + 1 < GLOW_RUNS_PER_FOCUS ? 0 : glowDist;
+              glowDist = glowRuns + 1 < glowRunsNeeded ? 0 : glowDist;
               glowRuns += 1;
             }
           }
@@ -704,7 +730,8 @@ export function GlobeBackdrop({
           // is what gets highlighted. Two rings a beat apart, each easing out
           // as it widens and thins — a single expanding circle read as a blip,
           // and a bare halo read as nothing at all.
-          if (now - phaseStart > 3600) glowRuns = GLOW_RUNS_PER_FOCUS;
+          glowRunsNeeded = 2;
+          if (now - phaseStart > 3600) glowRuns = glowRunsNeeded;
           const spot = act.path?.[0]?.[0] ?? act.anchor;
           if (!center || distance(center, spot) <= 90) {
             const pr = projection(spot);

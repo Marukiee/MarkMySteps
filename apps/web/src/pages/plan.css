@@ -1018,20 +1018,19 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.28rem 0.6rem;
-  border-radius: 999px;
-  background: var(--paper-sunken);
+  /* No pill: next to the nights control it read as a second, competing
+     button. Plain text is enough for something you use now and then. */
+  padding: 0.25rem 0.1rem;
+  background: none;
   color: var(--ink-soft);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
-  transition: background 0.18s var(--ease), color 0.18s var(--ease),
-    transform 0.18s var(--ease);
+  transition: color 0.18s var(--ease), transform 0.18s var(--ease);
 }
 
 .daytrip-btn:hover,
 .daytrip-btn.open {
-  background: var(--accent-soft);
   color: var(--accent-ink);
 }
 

@@ -78,15 +78,16 @@ export function TripsPage() {
     <main className="page fade-in">
       <GlobeBackdrop trips={trips ?? []} selfLocation={self} />
 
+      {/* The wordmark belongs at the top left of the first screen you see. On a
+          wide window the top bar already carries it, so this row only shows
+          where that bar is gone (phone, and the app). */}
+      <span className="trips-brand" aria-label="MarkMySteps">
+        <LogoMark size={28} />
+        <span>MarkMySteps</span>
+      </span>
+
       <div className="trips-head">
-        {/* The wordmark belongs at the top left of the first screen you see.
-            On a wide window the top bar already carries it, so this one only
-            shows where that bar is gone (phone, and the app). */}
-        <span className="trips-brand" aria-label="MarkMySteps">
-          <LogoMark size={30} />
-          <span>MarkMySteps</span>
-        </span>
-        <h1 className="trips-title">Reizen</h1>
+        <h1>Reizen</h1>
         <button
           className="btn btn-primary"
           onClick={() => (showNew ? closeNew() : setShowNew(true))}
@@ -321,10 +322,12 @@ function TripCard({
             // A card with a cover clips its own contents, so the menu is
             // rendered against the viewport instead — anchored to the button.
             const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            // Anchored to the button's own corner, so the menu opens ON TOP of
+            // the ⋯ rather than hanging below it.
             const up = r.bottom + 260 > window.innerHeight;
             setMenuUp(up);
             setMenuAt({
-              top: up ? r.top - 8 : r.bottom + 8,
+              top: up ? r.bottom : r.top,
               right: Math.max(8, window.innerWidth - r.right),
             });
             window.dispatchEvent(new CustomEvent('mms-menu-open', { detail: trip.id }));

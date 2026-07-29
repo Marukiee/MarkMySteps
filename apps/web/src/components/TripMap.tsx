@@ -47,6 +47,8 @@ interface TripMapProps {
   tripStarted?: boolean;
   /** Exposes an imperative focus API once the map is ready. */
   onReady?: (api: TripMapApi) => void;
+  /** Tapping your own live dot (opens today's recorded points). */
+  onSelfClick?: () => void;
 }
 
 export interface TripMapApi {
@@ -78,7 +80,11 @@ export function TripMap({
   selfUserId,
   tripStarted,
   onReady,
+  onSelfClick,
 }: TripMapProps) {
+  // Read from a marker listener that is only attached once.
+  const onSelfClickRef = useRef(onSelfClick);
+  onSelfClickRef.current = onSelfClick;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -582,6 +588,13 @@ export function TripMap({
       const el = document.createElement('div');
       el.className = 'me-marker';
       el.innerHTML = '<span class="me-marker-pulse"></span><span class="me-marker-dot"></span>';
+      // Tapping yourself opens today's raw fixes — the natural question to ask
+      // of the dot that says where the tracker thinks you are.
+      el.title = 'Punten van vandaag';
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onSelfClickRef.current?.();
+      });
       meMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat([
         currentLocation.lng,
         currentLocation.lat,

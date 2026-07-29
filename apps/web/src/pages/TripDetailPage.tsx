@@ -10,6 +10,7 @@ import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
 import { SharePanel } from '../components/SharePanel';
 import { Timeline } from '../components/Timeline';
+import { TrackPointsEditor } from '../components/TrackPointsEditor';
 import { TripMap, TripMapApi, Waypoint } from '../components/TripMap';
 import { TripFacts } from '../components/TripFacts';
 import { TripPlanner } from '../components/TripPlanner';
@@ -64,6 +65,8 @@ export function TripDetailPage() {
   const [stats, setStats] = useState<TripStats | null>(null);
   const [notes, setNotes] = useState<TripNote[]>([]);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
+  // Tapping your own dot on the map opens today's raw fixes.
+  const [pointsOpen, setPointsOpen] = useState(false);
   const scrollRef = useRef<HTMLElement>(null);
   const sideRef = useRef<HTMLElement>(null);
   const mapPanelRef = useRef<HTMLDivElement>(null);
@@ -466,6 +469,7 @@ export function TripDetailPage() {
           visibleUsers={visibleUsers}
           onMapClick={handleMapClick}
           onLongPress={handleLongPress}
+          onSelfClick={() => setPointsOpen(true)}
           onPhotoOpen={openPhoto}
           onPhotoFocus={scrollTimelineTo}
           clickMode={addPointMode}
@@ -709,6 +713,17 @@ export function TripDetailPage() {
           onNavigate={setLightboxIndex}
           coverTripId={trip?.ownerId === user?.id ? tripId : undefined}
           onCoverSet={loadData}
+        />
+      )}
+
+      {pointsOpen && tripId && (
+        <TrackPointsEditor
+          tripId={tripId}
+          onClose={() => {
+            setPointsOpen(false);
+            // Points may have been dragged, added or removed — redraw the line.
+            api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
+          }}
         />
       )}
     </main>

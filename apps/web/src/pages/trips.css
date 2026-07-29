@@ -9,16 +9,18 @@
   font-size: 2rem;
 }
 
-/* Same lockup as the top bar's, in the wordmark's own typeface. */
+/* Same lockup as the top bar's, in the wordmark's own typeface. Sits above
+   the "Reizen" heading rather than replacing it. */
 .trips-brand {
   display: none;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
   font-family: var(--font-brand);
   font-weight: 620;
-  font-size: 1.45rem;
+  font-size: 1.15rem;
   letter-spacing: -0.02em;
-  color: var(--ink);
+  color: var(--ink-soft);
   user-select: none;
   animation: rise 0.45s var(--ease) backwards;
 }
@@ -27,10 +29,6 @@
 @media (max-width: 720px) {
   .trips-brand {
     display: inline-flex;
-  }
-
-  .trips-title {
-    display: none;
   }
 }
 
@@ -504,6 +502,9 @@
 }
 
 .trip-menu-seg button {
+  /* The menu's own items are left-aligned; the segment's are not. */
+  text-align: center;
+  min-width: 0;
   padding: 0.35rem 0.2rem;
   border-radius: 7px;
   font-size: 0.78rem;

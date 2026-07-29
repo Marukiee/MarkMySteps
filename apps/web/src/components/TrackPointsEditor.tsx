@@ -77,20 +77,28 @@ export function TrackPointsEditor({
   const pointsRef = useRef(points);
   pointsRef.current = points;
 
+  // Held in a ref so the history trap below can run exactly once. It used to
+  // depend on `close`, which changed identity whenever the settings page
+  // re-rendered — once a second, for the "x sec ago" ticker. Every one of those
+  // re-ran the effect: its cleanup called history.back(), and the popstate that
+  // caused landed on the listener the new effect had just registered, which
+  // closed the editor again. It looked like it never opened at all.
+  const closeRef = useRef<() => void>(() => undefined);
   const close = useCallback(() => {
     setClosing(true);
     window.setTimeout(onClose, 200);
   }, [onClose]);
+  closeRef.current = close;
 
   // Back gesture closes the editor instead of leaving the settings page.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current();
     document.addEventListener('keydown', onKey);
     window.history.pushState({ mmsTrackEdit: true }, '');
     let popped = false;
     const onPop = () => {
       popped = true;
-      close();
+      closeRef.current();
     };
     window.addEventListener('popstate', onPop);
     return () => {
@@ -98,7 +106,7 @@ export function TrackPointsEditor({
       window.removeEventListener('popstate', onPop);
       if (!popped) window.history.back();
     };
-  }, [close]);
+  }, []);
 
   const load = useCallback(
     async (which: string) => {

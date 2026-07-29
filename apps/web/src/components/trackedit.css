@@ -3,7 +3,7 @@
 .te-layer {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 200;
   display: grid;
   grid-template-rows: auto auto 1fr auto auto;
   background: var(--paper);
