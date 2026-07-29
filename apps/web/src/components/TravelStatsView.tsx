@@ -1,6 +1,7 @@
 import { CSSProperties, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CountryGlobe, hueFor } from './CountryGlobe';
+import { flagEmoji } from '../lib/colors';
+import { CountryGlobe } from './CountryGlobe';
 import { Icon, IconName } from './Icon';
 import './travelstats.css';
 
@@ -90,7 +91,13 @@ export function StatGrid({ stats }: { stats: TravelStats | null }) {
   );
 }
 
-/** Icon in the corner, number as big as it fits, what it counts underneath. */
+/**
+ * The number as big as it fits, with the icon on the label's own line.
+ *
+ * The icon used to sit alone in the top corner, which gave it a whole line to
+ * itself and left the tile with a hole in it. Beside the label it is part of a
+ * sentence, and it can be big enough to read.
+ */
 function Tile({
   icon,
   tone,
@@ -113,7 +120,6 @@ function Tile({
       className={`stat-tile ${wide ? 'stat-tile-wide' : ''}`}
       style={{ '--tone': tone, animationDelay: `${delay}ms` } as CSSProperties}
     >
-      <Icon name={icon} size={wide ? 20 : 18} className="stat-tile-icon" />
       <strong>
         {value === undefined ? (
           <span className="stat-skeleton" />
@@ -121,7 +127,10 @@ function Tile({
           <CountUp value={value} format={format} />
         )}
       </strong>
-      <small>{label}</small>
+      <small>
+        <Icon name={icon} size={wide ? 20 : 18} className="stat-tile-icon" />
+        {label}
+      </small>
     </div>
   );
 }
@@ -163,13 +172,28 @@ function countryName(code: string): string {
 }
 
 /**
- * The globe, with the countries listed beside it.
+ * A round flag from public/flags (circle-flags, MIT), falling back to the
+ * system emoji for the handful of codes that have no file.
  *
- * Not flag emoji: those are drawn by the system, in whatever style the phone
- * happens to have, and they looked like stickers on a page that has none. A
- * dot in the country's own colour does the same job and doubles as the legend
- * the globe needs, since it is the very colour that country is painted in.
+ * They are files rather than emoji because emoji flags are drawn by whatever
+ * font the phone happens to ship, in a style that belongs to no app in
+ * particular. These are one shape, at one size, in the app's own round.
  */
+function Flag({ code }: { code: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <span className="country-flag-emoji">{flagEmoji(code) || code}</span>;
+  return (
+    <img
+      className="country-flag"
+      src={`/flags/${code.toLowerCase()}.svg`}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+/** The globe, with the countries listed beside it. */
 export function CountryPanel({ countries }: { countries: string[] }) {
   if (countries.length === 0) return null;
   const sorted = [...countries].sort((a, b) => countryName(a).localeCompare(countryName(b), 'nl'));
@@ -180,12 +204,8 @@ export function CountryPanel({ countries }: { countries: string[] }) {
         <h3>{plural(countries.length, 'land', 'landen')}</h3>
         <div className="country-row">
           {sorted.map((code, i) => (
-            <span
-              key={code}
-              className="country-chip"
-              style={{ '--tone': hueFor(code.toUpperCase()), animationDelay: `${i * 35}ms` } as CSSProperties}
-            >
-              <span className="country-chip-dot" />
+            <span key={code} className="country-chip" style={{ animationDelay: `${i * 35}ms` }}>
+              <Flag code={code} />
               {countryName(code)}
             </span>
           ))}

@@ -28,7 +28,7 @@
   display: grid;
   align-content: end;
   gap: 0.1rem;
-  min-height: 108px;
+  min-height: 96px;
   padding: 0.9rem 1rem 0.95rem;
   border-radius: var(--radius-m);
   background: var(--paper-sunken);
@@ -36,7 +36,7 @@
 }
 
 .stat-tile-wide {
-  min-height: 128px;
+  min-height: 112px;
 }
 
 @keyframes statTileIn {
@@ -49,10 +49,8 @@
 /* The only colour in the block: enough to tell the tiles apart at a glance,
    not enough to make the page a paint chart. */
 .stat-tile-icon {
-  position: absolute;
-  top: 0.9rem;
-  right: 1rem;
   color: var(--tone, var(--accent));
+  flex-shrink: 0;
 }
 
 .stat-tile strong {
@@ -79,8 +77,12 @@
 }
 
 .stat-tile small {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
   color: var(--ink-soft);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
 }
 
 /* Placeholder with the same footprint as a number, so nothing jumps when the
@@ -149,8 +151,7 @@
   }
 }
 
-/* Name plus a dot in the exact colour that country is painted on the globe, so
-   the list explains the sphere instead of repeating it. */
+/* The flag, then the name. */
 .country-chip {
   display: inline-flex;
   align-items: center;
@@ -165,11 +166,16 @@
   animation: chipIn 0.4s var(--ease) both;
 }
 
-.country-chip-dot {
-  width: 8px;
-  height: 8px;
+.country-flag {
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
-  background: var(--tone, var(--accent));
+  flex-shrink: 0;
+}
+
+.country-flag-emoji {
+  font-size: 0.95rem;
+  line-height: 1;
 }
 
 @keyframes chipIn {

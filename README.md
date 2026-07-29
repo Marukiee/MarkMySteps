@@ -91,3 +91,6 @@ Nodig: Node ≥ 22, pnpm, Docker. De lokale opzet staat onderaan
 ## Licentie
 
 AGPL-3.0
+
+De ronde landvlaggen in `apps/web/public/flags` komen uit
+[circle-flags](https://github.com/HatScripts/circle-flags) (MIT).
