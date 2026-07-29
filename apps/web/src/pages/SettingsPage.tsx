@@ -1320,7 +1320,7 @@ function UpdateCheck() {
     setBusy(true);
     setResult(null);
     try {
-      const { current, latest, newer } = await checkForUpdate(true);
+      const { current, latest, newer } = await checkForUpdate(true, true);
       if (newer && latest?.url) {
         setResult({ text: `Versie ${latest.version} is beschikbaar.`, url: latest.url });
       } else {

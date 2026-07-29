@@ -37,14 +37,17 @@ const FAKE: LatestApp = {
  *
  * Shared with the manual check in Settings, so both answer the same question
  * the same way — including "you already dismissed this one", which a manual
- * check must ignore.
+ * check must ignore. That check also passes `fresh`, which makes the server
+ * ask GitHub now instead of repeating what it heard a couple of minutes ago;
+ * the automatic check on launch does not, because it happens on every launch.
  */
 export async function checkForUpdate(
   ignoreDismissed = false,
+  fresh = false,
 ): Promise<{ current: number; latest: LatestApp | null; newer: boolean }> {
   const [{ build }, latest] = await Promise.all([
     App.getInfo(),
-    api<LatestApp>('/app/latest'),
+    api<LatestApp>(`/app/latest${fresh ? '?fresh=1' : ''}`),
   ]);
   const current = Number(build);
   const usable =
