@@ -25,6 +25,16 @@ export interface RouteCollection {
   features: RouteFeature[];
 }
 
+/** One raw stored fix, as shown in the day editor. */
+export interface TrackedPoint {
+  id: string;
+  latitude: number;
+  longitude: number;
+  recordedAt: string;
+  accuracy: number | null;
+  source: PointSource;
+}
+
 export interface LiveFix {
   userId: string;
   displayName: string;
@@ -84,6 +94,71 @@ export class TrackingService {
       select: { id: true, latitude: true, longitude: true, recordedAt: true },
     });
     return points.map((p) => ({ ...p, recordedAt: p.recordedAt.toISOString() }));
+  }
+
+  /**
+   * Every one of the caller's OWN points for one calendar day, raw and
+   * unsimplified — this is the editing view, where you check whether the route
+   * actually matches where you went and drag the odd fix into place.
+   */
+  async listDayPoints(tripId: string, userId: string, day: string): Promise<TrackedPoint[]> {
+    await this.trips.getForMember(tripId, userId);
+    const start = new Date(`${day}T00:00:00.000Z`);
+    if (Number.isNaN(start.getTime())) {
+      throw new BadRequestException('day must be YYYY-MM-DD');
+    }
+    const points = await this.prisma.locationPoint.findMany({
+      where: {
+        tripId,
+        userId,
+        recordedAt: { gte: start, lt: new Date(start.getTime() + 86_400_000) },
+      },
+      orderBy: { recordedAt: 'asc' },
+      select: {
+        id: true,
+        latitude: true,
+        longitude: true,
+        recordedAt: true,
+        accuracy: true,
+        source: true,
+      },
+    });
+    return points.map((p) => ({
+      id: p.id,
+      latitude: p.latitude,
+      longitude: p.longitude,
+      recordedAt: p.recordedAt.toISOString(),
+      accuracy: p.accuracy,
+      source: p.source,
+    }));
+  }
+
+  /** Which days of the trip the caller has points for, newest first. */
+  async listTrackedDays(tripId: string, userId: string): Promise<{ day: string; count: number }[]> {
+    await this.trips.getForMember(tripId, userId);
+    const rows = await this.prisma.$queryRaw<{ day: Date; count: bigint }[]>`
+      SELECT date_trunc('day', "recordedAt") AS day, COUNT(*) AS count
+      FROM location_points
+      WHERE "tripId" = ${tripId}::uuid AND "userId" = ${userId}::uuid
+      GROUP BY 1
+      ORDER BY 1 DESC
+    `;
+    return rows.map((r) => ({ day: r.day.toISOString().slice(0, 10), count: Number(r.count) }));
+  }
+
+  /** Drag a point to where you actually were. Only your own points. */
+  async movePoint(
+    tripId: string,
+    userId: string,
+    pointId: string,
+    latitude: number,
+    longitude: number,
+  ): Promise<void> {
+    const { count } = await this.prisma.locationPoint.updateMany({
+      where: { id: pointId, tripId, userId },
+      data: { latitude, longitude },
+    });
+    if (count === 0) throw new NotFoundException('Point not found');
   }
 
   /** Hand-placed point to complete a route where tracking has gaps. */

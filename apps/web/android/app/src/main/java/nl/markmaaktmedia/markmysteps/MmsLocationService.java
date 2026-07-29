@@ -70,9 +70,28 @@ public class MmsLocationService extends Service {
     private static final float GOOD_ACCURACY_M = 25f;
     /** Never keep the GNSS engine on longer than this per tick. */
     private static final long MAX_FIX_WAIT_MS = 45_000L;
-    private static final long MIN_FIX_WAIT_MS = 15_000L;
-    /** Cap on unread fixes kept for the app; ~2 days at 5 minutes. */
-    private static final int MAX_PENDING = 600;
+    private static final long MIN_FIX_WAIT_MS = 20_000L;
+    /** Cap on unread fixes kept for the app; ~4 days at 5 minutes. */
+    private static final int MAX_PENDING = 1200;
+
+    /**
+     * Moved at least this far since the previous fix → you are travelling, and
+     * the next check comes sooner. One point every 5 minutes at 100 km/h is a
+     * point every 8 km, which draws the motorway as one long straight line; this
+     * is what puts the corners back in without costing anything while you sit
+     * still.
+     */
+    private static final float MOVING_M = 250f;
+    /** Floor for the shortened interval while travelling. */
+    private static final long MIN_MOVING_INTERVAL_MS = 60_000L;
+
+    /**
+     * Fixes other apps request are handed to us for free on the passive
+     * provider — the GNSS engine is already on, so listening costs no extra
+     * battery at all. They fill the gaps between our own scheduled checks.
+     */
+    private static final long PASSIVE_MIN_TIME_MS = 30_000L;
+    private static final float PASSIVE_MIN_DISTANCE_M = 100f;
 
     /** Where fixes are announced. Same process as the plugin, so a plain
      *  reference beats a broadcast round-trip. The queue is the source of
@@ -104,6 +123,11 @@ public class MmsLocationService extends Service {
     @Nullable
     private Location lastFix = null;
     private long nextTickAt = 0L;
+    /** True while the last two fixes were far enough apart to be travel. */
+    private boolean moving = false;
+    /** Permanent, free listener on the passive provider (see PASSIVE_MIN_*). */
+    @Nullable
+    private LocationListener passiveListener = null;
 
     private final Runnable tickRunnable = this::runTick;
 
@@ -134,10 +158,12 @@ public class MmsLocationService extends Service {
             if (paused) {
                 cancelSchedule();
                 abortFix();
+                stopPassive();
                 notifyStatus("paused", null);
                 startInForeground();
             } else {
                 startInForeground();
+                startPassive();
                 runTick();
             }
             return START_STICKY;
@@ -154,10 +180,11 @@ public class MmsLocationService extends Service {
 
         paused = false;
         startInForeground();
+        startPassive();
         // Reopening the app is not a check: if the last one is still recent,
         // keep the existing cadence instead of forcing an extra fix.
-        if (lastFixAt > 0 && System.currentTimeMillis() - lastFixAt < intervalMs) {
-            scheduleAt(lastFixAt + intervalMs);
+        if (lastFixAt > 0 && System.currentTimeMillis() - lastFixAt < currentIntervalMs()) {
+            scheduleAt(lastFixAt + currentIntervalMs());
         } else {
             runTick();
         }
@@ -168,8 +195,17 @@ public class MmsLocationService extends Service {
     public void onDestroy() {
         cancelSchedule();
         abortFix();
+        stopPassive();
         releaseWakeLock();
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().clear().apply();
+        // The queue is deliberately NOT cleared. The app stops and restarts this
+        // service on every launch (and whenever the interval changes); wiping the
+        // prefs here threw away every fix recorded while the app was closed,
+        // which is exactly the backlog that has to survive.
+        getSharedPreferences(PREFS, MODE_PRIVATE)
+                .edit()
+                .remove(EXTRA_INTERVAL)
+                .remove(EXTRA_TITLE)
+                .apply();
         super.onDestroy();
     }
 
@@ -188,6 +224,72 @@ public class MmsLocationService extends Service {
         fixInFlight = true;
         acquireWakeLock();
         requestSingleFix();
+    }
+
+    /** The cadence in force right now: shorter while you are actually moving. */
+    private long currentIntervalMs() {
+        if (!moving) return intervalMs;
+        return Math.max(MIN_MOVING_INTERVAL_MS, Math.min(intervalMs, intervalMs / 3));
+    }
+
+    /**
+     * Listens on the passive provider for as long as tracking runs. It never
+     * turns a radio on by itself: it only receives positions some other app
+     * already asked for, so it is free and it fills the gaps between our own
+     * checks (navigation running in the car being the obvious case).
+     */
+    private void startPassive() {
+        if (passiveListener != null || locationManager == null) return;
+        if (!locationManager.getAllProviders().contains(LocationManager.PASSIVE_PROVIDER)) return;
+        LocationListener listener = new LocationListener() {
+            @Override
+            public void onLocationChanged(@NonNull Location location) {
+                onPassiveFix(location);
+            }
+
+            @Override
+            public void onProviderDisabled(@NonNull String provider) {
+            }
+
+            @Override
+            public void onProviderEnabled(@NonNull String provider) {
+            }
+
+            @Override
+            public void onStatusChanged(String provider, int status, Bundle extras) {
+            }
+        };
+        try {
+            locationManager.requestLocationUpdates(
+                    LocationManager.PASSIVE_PROVIDER,
+                    PASSIVE_MIN_TIME_MS,
+                    PASSIVE_MIN_DISTANCE_M,
+                    listener,
+                    Looper.getMainLooper());
+            passiveListener = listener;
+        } catch (SecurityException | IllegalArgumentException ignored) {
+        }
+    }
+
+    private void stopPassive() {
+        if (passiveListener == null || locationManager == null) return;
+        try {
+            locationManager.removeUpdates(passiveListener);
+        } catch (SecurityException ignored) {
+        }
+        passiveListener = null;
+    }
+
+    /** A free fix from another app. Kept only when it genuinely adds something. */
+    private void onPassiveFix(Location location) {
+        if (paused) return;
+        if (location.hasAccuracy() && location.getAccuracy() > 120f) return;
+        long since = System.currentTimeMillis() - lastFixAt;
+        if (lastFix != null) {
+            if (since < PASSIVE_MIN_TIME_MS) return;
+            if (location.distanceTo(lastFix) < PASSIVE_MIN_DISTANCE_M) return;
+        }
+        recordFix(location);
     }
 
     /**
@@ -266,7 +368,7 @@ public class MmsLocationService extends Service {
             stopListening(activeListener);
             finishTick(best[0] != null ? best[0] : recentLastKnown());
         };
-        long wait = Math.max(MIN_FIX_WAIT_MS, Math.min(MAX_FIX_WAIT_MS, intervalMs / 3));
+        long wait = Math.max(MIN_FIX_WAIT_MS, Math.min(MAX_FIX_WAIT_MS, currentIntervalMs() / 3));
         handler.postDelayed(fixTimeout, wait);
     }
 
@@ -304,11 +406,7 @@ public class MmsLocationService extends Service {
             location = recentLastKnown();
         }
         if (location != null) {
-            lastFix = location;
-            lastFixAt = System.currentTimeMillis();
-            enqueue(location);
-            Sink current = sink;
-            if (current != null) current.onLocation();
+            recordFix(location);
         } else {
             notifyStatus("nofix", "Geen positie gevonden");
         }
@@ -316,6 +414,18 @@ public class MmsLocationService extends Service {
         scheduleNext();
         updateNotification();
         releaseWakeLock();
+    }
+
+    /** Stores one accepted position and updates the travelling/standing state. */
+    private void recordFix(Location location) {
+        if (lastFix != null) {
+            moving = location.distanceTo(lastFix) >= MOVING_M;
+        }
+        lastFix = location;
+        lastFixAt = System.currentTimeMillis();
+        enqueue(location);
+        Sink current = sink;
+        if (current != null) current.onLocation();
     }
 
     /** Best last-known position, but only if it can still describe where you are. */
@@ -358,7 +468,7 @@ public class MmsLocationService extends Service {
     }
 
     private void scheduleNext() {
-        scheduleAt(System.currentTimeMillis() + intervalMs);
+        scheduleAt(System.currentTimeMillis() + currentIntervalMs());
     }
 
     private void scheduleAt(long triggerAt) {
@@ -367,19 +477,37 @@ public class MmsLocationService extends Service {
         // Never sooner than a few seconds from now, whatever the caller asked.
         nextTickAt = Math.max(triggerAt, System.currentTimeMillis() + 5_000L);
         long delay = nextTickAt - System.currentTimeMillis();
-        // Handler: exact while the CPU is up. Alarm: survives Doze, but the OS
-        // may hold it back a few minutes when the phone is deeply asleep.
+        // Handler: exact while the CPU is up. Alarm: survives Doze.
         handler.postDelayed(tickRunnable, delay);
         if (alarmManager == null) return;
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTickAt, tickIntent());
-            } else {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
                 alarmManager.set(AlarmManager.RTC_WAKEUP, nextTickAt, tickIntent());
+            } else if (canScheduleExact()) {
+                // Plain setAndAllowWhileIdle is rate-limited by Doze to roughly
+                // one firing per 9 minutes, so a 2- or 5-minute interval quietly
+                // became 9+ with the screen off. The exact variant is not.
+                alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP, nextTickAt, tickIntent());
+            } else {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTickAt, tickIntent());
+            }
+        } catch (SecurityException e) {
+            // Exact-alarm permission revoked while running — fall back.
+            try {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTickAt, tickIntent());
+            } catch (Exception ignored) {
             }
         } catch (Exception e) {
             Log.w(TAG, "alarm scheduling failed: " + e.getMessage());
         }
+    }
+
+    private boolean canScheduleExact() {
+        if (alarmManager == null) return false;
+        // Below API 31 SCHEDULE_EXACT_ALARM is granted just by declaring it.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true;
+        return alarmManager.canScheduleExactAlarms();
     }
 
     private void cancelSchedule() {
@@ -508,7 +636,18 @@ public class MmsLocationService extends Service {
             out.append(fixInFlight ? "Positie bepalen…" : "Nog geen positie");
         }
         if (nextTickAt > 0) out.append(" · volgende ").append(clock(nextTickAt));
+        // Spelling out the cadence makes a wrong interval visible immediately
+        // instead of having to work it out from two clock times.
+        out.append("\nElke ").append(minutes(currentIntervalMs()));
+        if (moving) out.append(" (onderweg)");
+        else if (currentIntervalMs() != intervalMs) out.append(" van ").append(minutes(intervalMs));
         return out.toString();
+    }
+
+    private static String minutes(long ms) {
+        long min = Math.round(ms / 60_000.0);
+        if (min <= 1) return "minuut";
+        return min + " min";
     }
 
     private static String clock(long at) {

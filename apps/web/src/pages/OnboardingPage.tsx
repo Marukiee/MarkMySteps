@@ -1,5 +1,5 @@
 import { registerPlugin } from '@capacitor/core';
-import { ReactNode, TouchEvent as ReactTouchEvent, useState } from 'react';
+import { ReactNode, TouchEvent as ReactTouchEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Trip } from '../api/types';
 import { AirportPrefs } from '../components/AirportPrefs';
@@ -94,8 +94,18 @@ const SAMPLE_TRIPS = [
 ] as unknown as Trip[];
 
 /** Our own AOSP location plugin (see MmsLocationPlugin.java). */
+interface PermissionStatus {
+  location: boolean;
+  background: boolean;
+  notifications: boolean;
+}
+
 interface MmsLocationPlugin {
-  start(options: { startService: false }): Promise<{ granted: boolean; background: boolean }>;
+  /** Asks for exactly one permission, so each slide fires its own dialog. */
+  requestPermission(options: {
+    type: 'location' | 'background' | 'notifications';
+  }): Promise<PermissionStatus>;
+  permissionStatus(): Promise<PermissionStatus>;
   openSettings(): Promise<void>;
 }
 
@@ -107,29 +117,31 @@ export function OnboardingPage() {
   const isApp = isNativeApp();
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState<1 | -1>(1);
-  const [permissionState, setPermissionState] = useState<'idle' | 'granted' | 'denied'>('idle');
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
-  const [notifDone, setNotifDone] = useState(false);
   const [touchX, setTouchX] = useState<number | null>(null);
   const [leaving, setLeaving] = useState(false);
+  // One entry per permission. Each slide asks for its own and nothing else —
+  // chaining them fired all three dialogs off the first button.
+  const [perms, setPerms] = useState<PermissionStatus>({
+    location: false,
+    background: false,
+    notifications: false,
+  });
+  const [denied, setDenied] = useState<Partial<Record<keyof PermissionStatus, boolean>>>({});
 
-  async function requestNotifications() {
-    try {
-      if ('Notification' in window) await Notification.requestPermission();
-    } catch {
-      /* best effort — Android also asks when tracking starts */
-    }
-    setNotifDone(true);
-  }
+  // Reflect what is already granted (re-running the tour, or a partial answer).
+  useEffect(() => {
+    if (!isApp) return;
+    void MmsLocation.permissionStatus().then(setPerms).catch(() => undefined);
+  }, [isApp]);
 
-  async function requestLocation() {
+  async function ask(type: keyof PermissionStatus) {
     try {
-      // Runs the permission chain (fine → background → notifications) without
-      // switching tracking on.
-      const { granted } = await MmsLocation.start({ startService: false });
-      setPermissionState(granted ? 'granted' : 'denied');
+      const status = await MmsLocation.requestPermission({ type });
+      setPerms(status);
+      setDenied((d) => ({ ...d, [type]: !status[type] }));
     } catch {
-      setPermissionState('denied');
+      setDenied((d) => ({ ...d, [type]: true }));
     }
   }
 
@@ -236,15 +248,15 @@ export function OnboardingPage() {
               Voor route-tracking vraagt de app om je locatie. Er wordt alléén een GPS-punt bewaard
               als je verplaatst, dat spaart je accu.
             </p>
-            <div className={`onb-perm ${permissionState === 'granted' ? 'granted' : ''}`}>
-              <button className="btn btn-primary onb-ask" onClick={() => void requestLocation()}>
+            <div className={`onb-perm ${perms.location ? 'granted' : ''}`}>
+              <button className="btn btn-primary onb-ask" onClick={() => void ask('location')}>
                 Toestemming vragen
               </button>
               <p className="onb-ok">
                 <Icon name="check" size={18} /> Toestemming gegeven
               </p>
             </div>
-            {permissionState === 'denied' && (
+            {denied.location && !perms.location && (
               <p className="error-text">Geweigerd. Je kunt dit later aanzetten via Instellingen.</p>
             )}
           </div>,
@@ -254,7 +266,8 @@ export function OnboardingPage() {
             </span>
             <h1>“Altijd toestaan”</h1>
             <p className="muted">
-              Tracking met het scherm uit kan alleen als locatie op “Altijd toestaan” staat:
+              Tracking met het scherm uit kan alleen als locatie op “Altijd toestaan” staat. Vraag
+              het hier aan; stuurt Android je door naar de instellingen, volg dan dit pad:
             </p>
             <div className="onb-path">
               {['Apps', 'MarkMySteps', 'Rechten', 'Locatie', 'Altijd toestaan'].map((p, i) => (
@@ -264,9 +277,23 @@ export function OnboardingPage() {
                 </span>
               ))}
             </div>
-            <button className="btn btn-ghost" onClick={() => void MmsLocation.openSettings()}>
-              Open systeeminstellingen
-            </button>
+            <div className={`onb-perm ${perms.background ? 'granted' : ''}`}>
+              <button
+                className="btn btn-primary onb-ask"
+                disabled={!perms.location}
+                onClick={() => void ask('background')}
+              >
+                Altijd toestaan vragen
+              </button>
+              <p className="onb-ok">
+                <Icon name="check" size={18} /> Altijd toegestaan
+              </p>
+            </div>
+            {!perms.background && (
+              <button className="btn btn-ghost" onClick={() => void MmsLocation.openSettings()}>
+                Open systeeminstellingen
+              </button>
+            )}
           </div>,
           <div className="onb-feature" key="notifs">
             <span className="onb-visual">
@@ -277,14 +304,19 @@ export function OnboardingPage() {
               Voor de tracking-status en updates van reisgenoten. Je kunt dit altijd aanpassen in de
               toestelinstellingen.
             </p>
-            <div className={`onb-perm ${notifDone ? 'granted' : ''}`}>
-              <button className="btn btn-primary onb-ask" onClick={() => void requestNotifications()}>
+            <div className={`onb-perm ${perms.notifications ? 'granted' : ''}`}>
+              <button className="btn btn-primary onb-ask" onClick={() => void ask('notifications')}>
                 Meldingen toestaan
               </button>
               <p className="onb-ok">
                 <Icon name="check" size={18} /> Ingesteld
               </p>
             </div>
+            {denied.notifications && !perms.notifications && (
+              <p className="error-text">
+                Geweigerd. Zonder melding kan de tracking niet op de achtergrond draaien.
+              </p>
+            )}
           </div>,
         ]
       : []),

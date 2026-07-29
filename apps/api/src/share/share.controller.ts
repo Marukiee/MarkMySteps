@@ -28,7 +28,7 @@ import { ImmichConnectionService } from '../immich/immich-connection.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlannedStop, StopsService } from '../stops/stops.service';
 import { RouteCollection, TrackingService } from '../tracking/tracking.service';
-import { TripsService } from '../trips/trips.service';
+import { countStopPlaces, TripsService } from '../trips/trips.service';
 import { ShareLinkInfo, ShareService, ShareTokenPayload } from './share.service';
 
 class CreateShareDto {
@@ -128,16 +128,17 @@ export class SharePublicController {
     const { mediaRefs, coverMediaId, ...rest } = trip;
     // The public page shows the same header card as the app: cover, dates and
     // the trip's numbers.
-    const [stats, stopCount] = await Promise.all([
+    const [stats, planned] = await Promise.all([
       this.trips.getStatsUnchecked(session.tripId),
-      this.prisma.stop.count({
+      this.prisma.stop.findMany({
         where: { tripId: session.tripId, latitude: { not: null } },
+        select: { latitude: true, longitude: true, parentStopId: true },
       }),
     ]);
     return {
       ...rest,
       resolvedCoverId: coverMediaId ?? mediaRefs[0]?.id ?? null,
-      stats: { ...stats, stops: stopCount },
+      stats: { ...stats, stops: countStopPlaces(planned) },
     };
   }
 

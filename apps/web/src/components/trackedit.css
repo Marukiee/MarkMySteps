@@ -1,0 +1,240 @@
+/* Full-screen editor for one day of recorded GPS points. */
+
+.te-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto;
+  background: var(--paper);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: teIn 0.24s var(--ease);
+}
+
+.te-layer.closing {
+  animation: teOut 0.2s var(--ease) forwards;
+}
+
+@keyframes teIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes teOut {
+  to {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.te-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem 0.4rem;
+}
+
+.te-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  background: var(--paper-sunken);
+  transition: background 0.15s var(--ease), transform 0.15s var(--ease);
+}
+
+.te-icon-btn:active {
+  transform: scale(0.93);
+}
+
+.te-title {
+  display: grid;
+  line-height: 1.15;
+}
+
+.te-title small {
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+}
+
+/* Day strip: today first, then every day that has points. */
+.te-days {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding: 0.2rem 0.9rem 0.6rem;
+  scrollbar-width: none;
+}
+
+.te-days::-webkit-scrollbar {
+  display: none;
+}
+
+.te-day {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease),
+    transform 0.18s var(--ease);
+}
+
+.te-day:active {
+  transform: scale(0.96);
+}
+
+.te-day small {
+  font-size: 0.68rem;
+  color: var(--ink-faint);
+}
+
+.te-day.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.te-day.active small {
+  color: rgb(255 255 255 / 0.8);
+}
+
+.te-map {
+  position: relative;
+  min-height: 0;
+  margin: 0 0.9rem;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  box-shadow: var(--shadow-s);
+}
+
+.te-map-inner {
+  position: absolute;
+  inset: 0;
+}
+
+.te-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 0.8rem;
+  transform: translateX(-50%);
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: teHintIn 0.28s var(--ease);
+}
+
+@keyframes teHintIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+
+/* One dot per stored fix. Its source is visible at a glance: real GPS is
+   solid, a hand-placed point is hollow, a snapped road fill is faint. */
+.te-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #3884ff;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  cursor: grab;
+  transition: transform 0.15s var(--ease);
+}
+
+.te-dot:hover {
+  transform: scale(1.25);
+}
+
+.te-dot.dragging {
+  cursor: grabbing;
+  transform: scale(1.45);
+}
+
+.te-dot-manual {
+  background: var(--accent);
+}
+
+.te-dot-route_fill {
+  width: 9px;
+  height: 9px;
+  background: #9aa5b1;
+  border-width: 1.5px;
+}
+
+.te-dot-first {
+  background: #2fa36b;
+  width: 16px;
+  height: 16px;
+}
+
+.te-dot-last {
+  background: #d1483a;
+  width: 16px;
+  height: 16px;
+}
+
+.te-error {
+  padding: 0 0.9rem;
+}
+
+/* Toolbar ⇄ selected-point bar: both live in one strip and cross-fade. */
+.te-bar {
+  position: relative;
+  display: grid;
+  padding: 0.7rem 0.9rem 0.9rem;
+  min-height: 62px;
+}
+
+.te-bar-tools,
+.te-bar-point {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  transition: opacity 0.22s var(--ease), transform 0.22s var(--ease);
+}
+
+.te-bar[data-mode='tools'] .te-bar-point,
+.te-bar[data-mode='point'] .te-bar-tools {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+}
+
+.te-legend {
+  font-size: 0.78rem;
+}
+
+.te-point-info {
+  display: grid;
+  line-height: 1.15;
+  flex: 1;
+  min-width: 0;
+}
+
+.te-point-info small {
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+}
+
+.te-bar .btn {
+  padding: 0.5rem 0.85rem;
+  font-size: 0.85rem;
+}

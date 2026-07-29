@@ -58,4 +58,9 @@
     <!-- Held only for the seconds a single fix takes, so a scheduled check
          completes even when the screen has been off for hours. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Without it Doze defers setAndAllowWhileIdle alarms to roughly one every
+         9 minutes, so a 2- or 5-minute interval silently became 9+ and the route
+         turned into long straight lines. Granted by default below API 33; on
+         newer versions the user can allow it in the app's settings. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 </manifest>

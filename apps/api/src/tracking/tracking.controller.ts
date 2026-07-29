@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -17,8 +18,14 @@ import { LocationPoint } from '@prisma/client';
 import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ManualPointDto, RouteFillDto, TrackBatchDto } from './dto/track-points.dto';
-import { BatchResult, LiveFix, RouteCollection, TrackingService } from './tracking.service';
+import { ManualPointDto, MovePointDto, RouteFillDto, TrackBatchDto } from './dto/track-points.dto';
+import {
+  BatchResult,
+  LiveFix,
+  RouteCollection,
+  TrackedPoint,
+  TrackingService,
+} from './tracking.service';
 
 @Controller('trips/:tripId')
 @UseGuards(JwtAuthGuard)
@@ -43,6 +50,37 @@ export class TrackingController {
     @Param('tripId', ParseUUIDPipe) tripId: string,
   ): Promise<{ id: string; latitude: number; longitude: number; recordedAt: string }[]> {
     return this.tracking.listManualPoints(tripId, user.sub);
+  }
+
+  /** Every raw fix of one calendar day — the "does this route look right?" view. */
+  @Get('points/day')
+  listDay(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Query('day') day: string,
+  ): Promise<TrackedPoint[]> {
+    return this.tracking.listDayPoints(tripId, user.sub, day);
+  }
+
+  /** Which days have points, so the editor can offer them. */
+  @Get('points/days')
+  listDays(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+  ): Promise<{ day: string; count: number }[]> {
+    return this.tracking.listTrackedDays(tripId, user.sub);
+  }
+
+  /** Drag a stored fix to where you actually were. */
+  @Patch('points/:pointId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async movePoint(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Param('pointId', ParseUUIDPipe) pointId: string,
+    @Body() dto: MovePointDto,
+  ): Promise<void> {
+    await this.tracking.movePoint(tripId, user.sub, pointId, dto.latitude, dto.longitude);
   }
 
   /** Hand-placed point to complete the route. */

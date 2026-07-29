@@ -128,13 +128,15 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
             return;
         }
 
-        Long interval = call.getLong("intervalMs", 300_000L);
+        // NOT call.getLong: Capacitor's implementation returns the default
+        // unless the JSON value is literally a java.lang.Long, and a JS number
+        // arrives as an Integer — so every interval silently became 5 minutes.
+        // JSONObject.optLong coerces Integer/Double/String properly.
+        long interval = call.getData().optLong("intervalMs", 300_000L);
         Intent intent = new Intent(getContext(), MmsLocationService.class);
         // Unboxed explicitly: a boxed Long would land in the Bundle as a
         // Serializable rather than a primitive extra.
-        intent.putExtra(
-                MmsLocationService.EXTRA_INTERVAL,
-                interval == null ? 300_000L : interval.longValue());
+        intent.putExtra(MmsLocationService.EXTRA_INTERVAL, interval);
         intent.putExtra(MmsLocationService.EXTRA_TITLE, call.getString("title", "MarkMySteps"));
         try {
             ContextCompat.startForegroundService(getContext(), intent);
@@ -145,6 +147,72 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
             return;
         }
         call.resolve();
+    }
+
+    /**
+     * Asks for exactly ONE permission and nothing else.
+     *
+     * The onboarding has a slide per permission, so chaining them (as start()
+     * does) fired every system dialog the moment you tapped the first button.
+     * `type` is "location", "background" or "notifications".
+     */
+    @PluginMethod
+    public void requestPermission(PluginCall call) {
+        String type = call.getString("type", "location");
+        if ("background".equals(type)) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+                    || getPermissionState(BACKGROUND) == PermissionState.GRANTED) {
+                resolvePermissions(call);
+                return;
+            }
+            // Android 11+ only shows this dialog once the foreground permission
+            // is already granted; without it the request is denied instantly.
+            if (!hasForegroundPermission()) {
+                call.reject("Vraag eerst de gewone locatietoestemming");
+                return;
+            }
+            requestPermissionForAlias(BACKGROUND, call, "afterSingle");
+            return;
+        }
+        if ("notifications".equals(type)) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                    || getPermissionState(NOTIFICATIONS) == PermissionState.GRANTED) {
+                resolvePermissions(call);
+                return;
+            }
+            requestPermissionForAlias(NOTIFICATIONS, call, "afterSingle");
+            return;
+        }
+        if (hasForegroundPermission()) {
+            resolvePermissions(call);
+            return;
+        }
+        requestPermissionForAlias(FOREGROUND, call, "afterSingle");
+    }
+
+    @PermissionCallback
+    private void afterSingle(PluginCall call) {
+        resolvePermissions(call);
+    }
+
+    /** Current state of all three permissions, in one object. */
+    @PluginMethod
+    public void permissionStatus(PluginCall call) {
+        resolvePermissions(call);
+    }
+
+    private void resolvePermissions(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("location", hasForegroundPermission());
+        result.put(
+                "background",
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+                        || getPermissionState(BACKGROUND) == PermissionState.GRANTED);
+        result.put(
+                "notifications",
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                        || getPermissionState(NOTIFICATIONS) == PermissionState.GRANTED);
+        call.resolve(result);
     }
 
     /** Whether "allow all the time" is actually granted, so the UI doesn't have

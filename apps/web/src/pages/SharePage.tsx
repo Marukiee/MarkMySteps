@@ -8,10 +8,12 @@ import { trimOutlierEnds } from '../lib/arc';
 import { colorForUser, flagEmoji, formatDay } from '../lib/colors';
 import { reversePlaceName } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
-import { Icon, MODE_ICON } from '../components/Icon';
+import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
 import { TripFacts } from '../components/TripFacts';
+import { WeatherBadge } from '../components/WeatherBadge';
 import { resolveFacts } from '../lib/tripFacts';
+import '../components/timeline.css'; // the shared timeline IS the app's timeline
 import '../components/tripmap.css'; // photo markers on the shared map
 import './share-page.css';
 
@@ -33,18 +35,6 @@ interface SharedTrip {
 
 const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
 
-const REGION_NAMES = new Intl.DisplayNames(['nl'], { type: 'region' });
-
-/** "Zweden" for SE — reads better next to a city than a flag emoji does. */
-function countryName(code: string | null): string | null {
-  if (!code) return null;
-  try {
-    return REGION_NAMES.of(code.toUpperCase()) ?? null;
-  } catch {
-    return null;
-  }
-}
-
 interface SharedStop {
   id: string;
   name: string;
@@ -57,15 +47,6 @@ interface SharedStop {
 }
 
 type SharedMedia = Omit<MediaItem, 'immichAssetId'>;
-
-/** Compact stay range, e.g. "20 – 23 aug" (or a single day). */
-function stopRange(arrival: string, departure: string): string {
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
-  const a = arrival.slice(0, 10);
-  const d = departure.slice(0, 10);
-  return a === d ? fmt(arrival) : `${fmt(arrival)} – ${fmt(departure)}`;
-}
 
 /** Read-only public trip view behind an unguessable slug (+ optional password). */
 export function SharePage() {
@@ -157,11 +138,15 @@ export function SharePage() {
   return <SharedTripView slug={slug!} token={token} />;
 }
 
-/** One chronological stream: stops and photo days in the order they happened. */
-type Entry =
-  | { kind: 'stop'; key: string; date: string; stop: SharedStop; index: number }
-  | { kind: 'leg'; key: string; date: string; stop: SharedStop }
-  | { kind: 'day'; key: string; date: string; items: SharedMedia[]; place: string | null; flag: string | null };
+/** One entry per day with photos — the same shape the app's timeline uses. */
+interface DayEntry {
+  date: string;
+  items: SharedMedia[];
+  place: string | null;
+  flag: string | null;
+  lat: number | null;
+  lon: number | null;
+}
 
 function SharedTripView({ slug, token }: { slug: string; token: string }) {
   const [trip, setTrip] = useState<SharedTrip | null>(null);
@@ -298,32 +283,21 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderedMedia, indexOf, slug, token]);
 
-  // Stops and photo days woven into one stream, so the photos taken during a
-  // stay sit under that stop instead of in a separate list further down.
-  const entries = useMemo<Entry[]>(() => {
+  // One section per day, exactly like the app's timeline: the date, the places
+  // that day touched (day trips included), the weather, then the photos. The
+  // numbered stop bullets that used to sit in between are gone — they repeated
+  // information the day rows already carry, and they put a day trip's photos
+  // under the city you slept in.
+  const entries = useMemo<DayEntry[]>(() => {
     const days = new Map<string, SharedMedia[]>();
     for (const item of orderedMedia) {
       const day = item.takenAt.slice(0, 10);
       days.set(day, [...(days.get(day) ?? []), item]);
     }
-    // Outbound/return legs are travel, not a destination — they don't get a
-    // number, and they don't take one from the stops either.
-    let number = 0;
-    const stopEntries: Entry[] = stops.map((stop) =>
-      LEG_NAMES.has(stop.name)
-        ? { kind: 'leg' as const, key: `leg-${stop.id}`, date: stop.arrivalDate.slice(0, 10), stop }
-        : {
-            kind: 'stop' as const,
-            key: `stop-${stop.id}`,
-            date: stop.arrivalDate.slice(0, 10),
-            stop,
-            index: number++,
-          },
-    );
 
-    // Where a day was spent, same rule as the app's timeline: a day trip is
-    // stored with zero nights, so it has to match on its arrival day too, and a
-    // day that touches two places names both.
+    // Every place that day covers, in itinerary order. A day trip is stored
+    // with zero nights (arrival === departure), so it has to be matched on its
+    // arrival day as well.
     const placeFor = (date: string) => {
       const onDay = stops.filter((s) => {
         if (LEG_NAMES.has(s.name)) return false;
@@ -331,40 +305,19 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
         const to = s.departureDate.slice(0, 10);
         return date === from || (date > from && date < to);
       });
-      if (onDay.length === 0) return { place: null, flag: null };
+      const located = onDay.filter((s) => s.latitude !== null && s.longitude !== null);
+      const last = located[located.length - 1];
       return {
-        place: onDay.map((s) => s.name).join(' \u00b7 '),
-        flag: onDay[onDay.length - 1]!.countryCode
-          ? flagEmoji(onDay[onDay.length - 1]!.countryCode!)
-          : null,
+        place: onDay.length > 0 ? onDay.map((s) => s.name).join(' \u00b7 ') : null,
+        flag: last?.countryCode ? flagEmoji(last.countryCode) : null,
+        lat: last?.latitude ?? null,
+        lon: last?.longitude ?? null,
       };
     };
 
-    const list: Entry[] = [
-      ...stopEntries,
-      ...[...days.entries()].map(([date, items]) => ({
-        kind: 'day' as const,
-        key: `day-${date}`,
-        date,
-        items,
-        ...placeFor(date),
-      })),
-    ];
-    // Within one date: outbound/return legs first, then any planned stop header starting today,
-    // then today's photos, then any subsequent stops.
-    const byDate = new Map<string, Entry[]>();
-    for (const e of list) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
-    const out: Entry[] = [];
-    for (const date of [...byDate.keys()].sort()) {
-      const group = byDate.get(date)!;
-      const legs = group.filter((e) => e.kind === 'leg');
-      const stops = group.filter((e) => e.kind === 'stop');
-      const day = group.find((e) => e.kind === 'day');
-      out.push(...legs);
-      out.push(...stops);
-      if (day) out.push(day);
-    }
-    return out;
+    return [...days.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, items]) => ({ date, items, ...placeFor(date) }));
   }, [stops, orderedMedia]);
 
   return (
@@ -422,77 +375,62 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       {entries.length > 0 && (
         <section className="share-section">
           <h2 className="share-section-title">Tijdlijn</h2>
-          <div className="share-tl">
-            {entries.map((entry) =>
-              entry.kind === 'leg' ? (
-                <section key={entry.key} className="share-tl-leg">
-                  <span className="share-tl-marker share-tl-marker-leg" aria-hidden="true">
-                    <Icon name={MODE_ICON[entry.stop.travelMode ?? 'CAR'] ?? 'car'} size={14} />
-                  </span>
-                  <span className="share-tl-leg-pill">
-                    {entry.stop.name.startsWith('Heen') ? 'Heenreis' : 'Terugreis'}
-                    <small>{stopRange(entry.stop.arrivalDate, entry.stop.departureDate)}</small>
-                  </span>
-                </section>
-              ) : entry.kind === 'stop' ? (
-                <section key={entry.key} className="share-tl-stop">
-                  <span className="share-tl-marker share-tl-marker-stop">{entry.index + 1}</span>
-                  <div className="share-tl-stop-body">
-                    <strong>
-                      {entry.stop.name}
-                      {countryName(entry.stop.countryCode) && (
-                        <span className="share-tl-country">
-                          , {countryName(entry.stop.countryCode)}
-                        </span>
-                      )}
-                    </strong>
-                    <span className="muted">
-                      {stopRange(entry.stop.arrivalDate, entry.stop.departureDate)}
+          {/* Same markup and classes as the app's timeline, so the shared page
+              reads identically: one row per day with its places and weather. */}
+          <div className="timeline">
+            {entries.map((entry) => (
+              <section key={entry.date} className="timeline-day">
+                <h3>
+                  <span className="timeline-dot" />
+                  <span className="timeline-day-label">
+                    <span className="timeline-day-top">
+                      {formatDay(entry.items[0]!.takenAt)}
                     </span>
-                  </div>
-                </section>
-              ) : (
-                <section key={entry.key} className="share-tl-day">
-                  <span className="share-tl-marker share-tl-marker-day" aria-hidden="true" />
-                  <h3>{formatDay(entry.items[0]!.takenAt)}</h3>
-                  {entry.place && (
-                    <p className="share-tl-place muted">
-                      {entry.flag && <span className="share-tl-place-flag">{entry.flag}</span>}
-                      {entry.place}
-                    </p>
-                  )}
-                  <div className="share-grid">
-                    {entry.items.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className="share-photo-btn"
-                        onClick={() => setLightboxIndex(indexOf.get(item.id) ?? 0)}
-                      >
-                        <img
-                          src={thumb(item.id)}
-                          alt=""
-                          className="share-photo"
-                          loading="lazy"
-                          decoding="async"
-                          onLoad={(e) => e.currentTarget.setAttribute('data-loaded', '1')}
-                          // A cached image is already complete by the time React
-                          // attaches onLoad, and would otherwise stay invisible.
-                          ref={(el) => {
-                            if (el?.complete) el.setAttribute('data-loaded', '1');
-                          }}
-                        />
-                        {item.assetType === 'VIDEO' && (
-                          <span className="share-photo-video">
-                            <Icon name="play" size={20} />
+                    {(entry.place || entry.lat !== null) && (
+                      <span className="timeline-day-meta">
+                        {entry.place && (
+                          <span className="timeline-place">
+                            {entry.flag} {entry.place}
                           </span>
                         )}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              ),
-            )}
+                        {entry.lat !== null && entry.lon !== null && (
+                          <WeatherBadge lat={entry.lat} lon={entry.lon} day={entry.date} />
+                        )}
+                      </span>
+                    )}
+                  </span>
+                </h3>
+                <div className="timeline-grid">
+                  {entry.items.map((item) => (
+                    <figure
+                      key={item.id}
+                      className="timeline-photo"
+                      role="button"
+                      onClick={() => setLightboxIndex(indexOf.get(item.id) ?? 0)}
+                    >
+                      <img
+                        src={thumb(item.id)}
+                        alt=""
+                        className="timeline-img"
+                        loading="lazy"
+                        decoding="async"
+                        onLoad={(e) => e.currentTarget.setAttribute('data-loaded', '1')}
+                        // A cached image is already complete by the time React
+                        // attaches onLoad, and would otherwise stay invisible.
+                        ref={(el) => {
+                          if (el?.complete) el.setAttribute('data-loaded', '1');
+                        }}
+                      />
+                      {item.assetType === 'VIDEO' && (
+                        <span className="timeline-video">
+                          <Icon name="play" size={22} />
+                        </span>
+                      )}
+                    </figure>
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
         </section>
       )}

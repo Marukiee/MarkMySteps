@@ -58,9 +58,22 @@ export function setStatusBarTint(color: string | null, lightIcons = true): void 
   void StatusBar.setStyle({ style: lightIcons ? Style.Dark : Style.Light }).catch(() => undefined);
 }
 
+/**
+ * Forces light status-bar icons while something dark fills the top of the
+ * screen. The satellite map is the case that needs it: in the light theme the
+ * icons are dark, and over aerial imagery they all but disappear. Pass false to
+ * hand them back to the theme.
+ */
+export function setDarkBackdrop(on: boolean): void {
+  darkBackdrop = on;
+  syncStatusBarTheme();
+}
+
+let darkBackdrop = false;
+
 function syncStatusBarTheme(): void {
   if (!isNativeApp()) return;
-  const dark = document.documentElement.dataset.theme === 'dark';
+  const dark = document.documentElement.dataset.theme === 'dark' || darkBackdrop;
   // Style.Dark = light icons (for a dark UI); Style.Light = dark icons.
   void StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light });
 }

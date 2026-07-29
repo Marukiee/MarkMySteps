@@ -507,6 +507,16 @@
   animation: pulse 1.2s ease-in-out infinite;
 }
 
+/* A day trip is a real place, but not a stop on the route — smaller, so the
+   itinerary still reads as the itinerary. */
+.stop-marker-day {
+  width: 22px;
+  height: 22px;
+  font-size: 0.7rem;
+  border-width: 2px;
+  background: var(--ink-soft, #58636f);
+}
+
 .stop-search {
   position: relative;
 }
@@ -834,3 +844,307 @@
   }
 }
 
+
+/* ---------------------------------------------------------------------------
+   Day trips — an excursion from a stop and back the same day.
+
+   The stop card becomes a column: the normal row on top, then a branch that
+   drops out of the city photo and forks right to each day trip. Adding one
+   unfolds a panel inside the same card, so nothing ever covers the route.
+   --------------------------------------------------------------------------- */
+
+.stop-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.stop-main {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+/* The nights pill moves up so the day-trip button can sit under it. */
+.stop-nights {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.daytrip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease),
+    transform 0.18s var(--ease);
+}
+
+.daytrip-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.daytrip-btn:active {
+  transform: scale(0.95);
+}
+
+.daytrip-btn.open {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* The button's + rotates into an × while the panel is open. */
+.daytrip-btn svg {
+  transition: transform 0.24s var(--ease);
+}
+
+.daytrip-btn.open svg {
+  transform: rotate(135deg);
+}
+
+.daytrips {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  margin: 0.55rem 0 0.15rem;
+  /* Lines up with the centre of the 52px city photo above. */
+  padding-left: 26px;
+  list-style: none;
+}
+
+.daytrip-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-left: 22px;
+  animation: dayTripIn 0.3s var(--ease) backwards;
+}
+
+/* The vertical stretch of the branch, drawn per row so the line simply stops
+   at the last day trip instead of dangling below it. */
+.daytrip-row::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -10px;
+  height: calc(50% + 10px);
+  width: 2px;
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.daytrip-row:first-child::after {
+  top: -22px;
+  height: calc(50% + 22px);
+}
+
+/* The fork out to this day trip's photo. */
+.daytrip-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 16px;
+  height: 2px;
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.daytrip-row.leaving {
+  animation: dayTripOut 0.24s var(--ease) forwards;
+}
+
+@keyframes dayTripIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
+
+@keyframes dayTripOut {
+  to {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
+
+.daytrip-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+}
+
+.daytrip-thumb .city-thumb-flag {
+  font-size: 1.1rem;
+}
+
+.daytrip-info {
+  display: grid;
+  gap: 0.05rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.daytrip-info strong {
+  font-size: 0.92rem;
+}
+
+.daytrip-info .muted {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+}
+
+/* The date is editable in place, so it reads as text until you touch it. */
+.daytrip-info .date-field {
+  display: inline-flex;
+}
+
+.daytrip-info .date-field label {
+  display: none;
+}
+
+.daytrip-info .date-field-btn {
+  padding: 0.1rem 0.4rem;
+  border-radius: 7px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  min-height: 0;
+}
+
+.daytrip-info .date-field-btn:hover {
+  background: var(--paper-sunken);
+}
+
+.daytrip-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.28rem;
+  border-radius: 8px;
+  color: var(--ink-faint);
+  transition: all 0.15s;
+}
+
+.daytrip-delete:hover {
+  color: #b3402a;
+  background: #fbeae4;
+}
+
+/* Expander: 0fr → 1fr so the card grows with the panel. */
+.daytrip-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.32s var(--ease), opacity 0.24s var(--ease);
+  opacity: 0;
+}
+
+.daytrip-panel[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.daytrip-panel-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.daytrip-form {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+}
+
+.daytrip-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-s, 10px);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-s);
+  color: var(--ink-faint);
+}
+
+.daytrip-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.daytrip-search input:focus {
+  outline: none;
+}
+
+.daytrip-suggestions {
+  display: grid;
+  gap: 2px;
+  max-height: 190px;
+  overflow-y: auto;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  animation: dayTripSuggIn 0.22s var(--ease);
+}
+
+@keyframes dayTripSuggIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.daytrip-suggestions button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px;
+  text-align: left;
+  background: transparent;
+  transition: background 0.15s var(--ease);
+}
+
+.daytrip-suggestions button:hover {
+  background: var(--paper-raised);
+}
+
+.daytrip-suggestions small {
+  color: var(--ink-faint);
+}
+
+.daytrip-when .date-field label {
+  font-size: 0.75rem;
+}
+
+.daytrip-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.daytrip-actions .btn {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+}

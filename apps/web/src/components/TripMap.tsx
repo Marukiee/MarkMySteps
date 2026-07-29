@@ -3,7 +3,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import { fetchBlobUrl } from '../api/client';
 import type { LiveFix } from '../api/types';
-import { getMapStyle } from '../lib/prefs';
+import { getMapStyle, getMapStyleId } from '../lib/prefs';
+import { setDarkBackdrop } from '../lib/native';
 import type { MediaItem, RouteCollection } from '../api/types';
 import { buildLegs, flightArc, haversineKm, StopPoint, trimOutlierEnds } from '../lib/arc';
 import { colorForUser, flagEmoji } from '../lib/colors';
@@ -213,6 +214,19 @@ export function TripMap({
       loadedRef.current = false;
     };
   }, []);
+
+  // Satellite imagery is dark whatever the app theme is, and the map runs up
+  // under the transparent status bar — so its icons have to go light or they
+  // vanish into the aerial photo.
+  useEffect(() => {
+    const apply = () => setDarkBackdrop(getMapStyleId() === 'satellite');
+    apply();
+    window.addEventListener('mms-theme', apply);
+    return () => {
+      window.removeEventListener('mms-theme', apply);
+      setDarkBackdrop(false);
+    };
+  }, [styleUrl]);
 
   // Follow the app's light/dark theme live: swap the map style, then re-add the
   // route/stop layers once the new style has loaded.
@@ -467,7 +481,9 @@ export function TripMap({
         if (stop.latitude === null || stop.longitude === null) continue;
         if (LEG_NAMES.has(stop.name)) continue;
         const el = document.createElement('div');
-        el.className = 'stop-marker';
+        // A day trip is a place you visited, but not a stop on the route — a
+        // smaller marker keeps the itinerary readable.
+        el.className = stop.parentStopId ? 'stop-marker stop-marker-day' : 'stop-marker';
         el.textContent = flagEmoji(stop.countryCode) || String(stop.orderIndex + 1);
         stopMarkersRef.current.push(
           new maplibregl.Marker({ element: el })
@@ -475,6 +491,40 @@ export function TripMap({
             .setPopup(new maplibregl.Popup({ offset: 18 }).setText(stop.name))
             .addTo(map),
         );
+      }
+
+      // Day trips as a spur off the stop you slept at. Hidden once real GPS
+      // exists, exactly like the planned ground legs — the track already
+      // contains the drive.
+      if (!hasTrackedRef.current && !tripStartedRef.current) {
+        const byId = new Map((stops ?? []).map((s) => [s.id, s]));
+        for (const stop of stops ?? []) {
+          if (!stop.parentStopId || stop.latitude === null || stop.longitude === null) continue;
+          const parent = byId.get(stop.parentStopId);
+          if (!parent || parent.latitude === null || parent.longitude === null) continue;
+          const id = `leg-day-${stop.id}`;
+          map.addSource(id, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: [
+                  [parent.longitude, parent.latitude],
+                  [stop.longitude, stop.latitude],
+                ],
+              },
+            },
+          });
+          map.addLayer({
+            id,
+            type: 'line',
+            source: id,
+            paint: { 'line-color': '#a9846a', 'line-width': 1.6, 'line-dasharray': [1, 2.4] },
+            layout: { 'line-cap': 'round' },
+          });
+        }
       }
 
       // Legs. Flight arcs always show (they bridge gaps the tracked line leaves

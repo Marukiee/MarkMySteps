@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { CityThumb } from './CityThumb';
+import { DateField } from './DatePicker';
 import { FlightEditor } from './FlightEditor';
 import { Icon, MODE_ICON } from './Icon';
 import { WeatherBadge } from './WeatherBadge';
@@ -60,7 +61,16 @@ export function TripPlanner({
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchTimerRef = useRef<number | null>(null);
 
-  const plannedNights = stops.reduce((sum, s) => sum + s.nights, 0);
+  // Day trips hang off a stop; they are not rows of the route, so everything
+  // that walks the itinerary (numbering, legs, dragging) uses `route`.
+  const route = stops.filter((s) => !s.parentStopId);
+  const dayTripsByParent = new Map<string, PlannedStop[]>();
+  for (const s of stops) {
+    if (!s.parentStopId) continue;
+    dayTripsByParent.set(s.parentStopId, [...(dayTripsByParent.get(s.parentStopId) ?? []), s]);
+  }
+
+  const plannedNights = route.reduce((sum, s) => sum + s.nights, 0);
   const tripNights = trip
     ? Math.round(
         (new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86_400_000,
@@ -71,8 +81,8 @@ export function TripPlanner({
   // well carry a coordinate (the begin/end point you picked); that must not turn
   // it back into a normal stop row — it stays the slim leg bar.
   const isStandaloneLeg = (s?: PlannedStop) => !!s && LEG_NAMES.has(s.name);
-  const hasOutbound = isStandaloneLeg(stops[0]);
-  const hasReturn = isStandaloneLeg(stops[stops.length - 1]);
+  const hasOutbound = isStandaloneLeg(route[0]);
+  const hasReturn = isStandaloneLeg(route[route.length - 1]);
 
   // First/last real city (with coordinates) — used to auto-fill airports on the
   // outbound/return flight legs.
@@ -80,8 +90,8 @@ export function TripPlanner({
     s && !isStandaloneLeg(s) && s.latitude !== null && s.longitude !== null
       ? [s.longitude, s.latitude]
       : null;
-  const firstCity = cityCoord(stops.find((s) => cityCoord(s)));
-  const lastCity = cityCoord([...stops].reverse().find((s) => cityCoord(s)));
+  const firstCity = cityCoord(route.find((s) => cityCoord(s)));
+  const lastCity = cityCoord([...route].reverse().find((s) => cityCoord(s)));
 
   const refresh = (updated: PlannedStop[]) => {
     onStopsChange(updated);
@@ -169,6 +179,42 @@ export function TripPlanner({
     );
   }
 
+  // Which stop currently has its "add a day trip" panel expanded.
+  const [dayTripFor, setDayTripFor] = useState<string | null>(null);
+
+  /** An excursion from `parent` and back the same day (Saltsjöbaden → Stockholm). */
+  async function addDayTrip(parent: PlannedStop, place: PlaceSuggestion, day: string) {
+    try {
+      refresh(
+        await api<PlannedStop[]>(`/trips/${tripId}/stops`, {
+          method: 'POST',
+          body: {
+            name: place.name,
+            nights: 0,
+            latitude: place.latitude,
+            longitude: place.longitude,
+            countryCode: place.countryCode,
+            parentStopId: parent.id,
+            dayTripDate: day,
+          },
+        }),
+      );
+      onFlyTo(place.longitude, place.latitude);
+      setDayTripFor(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Dagtrip toevoegen mislukt');
+    }
+  }
+
+  async function setDayTripDate(dayTrip: PlannedStop, day: string) {
+    refresh(
+      await api<PlannedStop[]>(`/trips/${tripId}/stops/${dayTrip.id}`, {
+        method: 'PATCH',
+        body: { dayTripDate: day },
+      }),
+    );
+  }
+
   // Deleting plays a collapse animation first, then hits the API — otherwise the
   // row (a leg bar especially) just blinks out of existence.
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -227,7 +273,7 @@ export function TripPlanner({
     setDragIndex(null);
     setOverIndex(null);
     if (from === null || to === null || from === to) return;
-    const next = [...stops];
+    const next = [...route];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved!);
     onStopsChange(next); // optimistic
@@ -251,7 +297,7 @@ export function TripPlanner({
       )}
       {error && <p className="error-text">{error}</p>}
 
-      {stops.length === 0 && (
+      {route.length === 0 && (
         <div className="plan-empty">
           <span className="plan-empty-icon">
             <Icon name="compass" size={30} />
@@ -269,7 +315,7 @@ export function TripPlanner({
       )}
 
       <ol className="stop-list">
-        {stops.map((stop, index) => {
+        {route.map((stop, index) => {
           if (isStandaloneLeg(stop)) {
             const outbound = index === 0;
             const legPt =
@@ -335,7 +381,7 @@ export function TripPlanner({
               </li>
             );
           }
-          const prev = index > 0 ? stops[index - 1] : null;
+          const prev = index > 0 ? route[index - 1] : null;
           const prevIsStandalone = isStandaloneLeg(prev ?? undefined);
           const isFlight = stop.travelMode === 'FLIGHT';
           const legKm =
@@ -387,44 +433,67 @@ export function TripPlanner({
                     : ''
                 }`}
                 draggable
-                onDragStart={() => setDragIndex(index)}
+                onDragStart={(e) => {
+                  // The whole card is the drag handle, but the day-trip panel
+                  // inside it holds a text field — dragging there must type, not
+                  // reorder the route.
+                  if ((e.target as HTMLElement).closest('.daytrip-panel, .daytrips')) {
+                    e.preventDefault();
+                    return;
+                  }
+                  setDragIndex(index);
+                }}
                 onDragOver={(e) => onDragOver(e, index)}
                 onDragEnd={onDrop}
                 onDrop={onDrop}
               >
-                <CityThumb name={stop.name} index={index} countryCode={stop.countryCode} />
-                <div className="stop-info">
-                  <strong>{stop.name}</strong>
-                  <span className="muted">
-                    {formatDate(stop.arrivalDate)}
-                    {stop.nights > 0 && ` – ${formatDate(stop.departureDate)}`}
-                    {stop.latitude !== null && stop.longitude !== null && (
-                      <>
-                        {' · '}
-                        <WeatherBadge lat={stop.latitude} lon={stop.longitude} day={stop.arrivalDate} />
-                      </>
-                    )}
-                  </span>
-                </div>
-                <div className="stop-nights">
-                  <div className="nights-buttons">
-                    <button
-                      className="nights-btn"
-                      onClick={() => changeNights(stop, -1)}
-                      aria-label="Minder nachten"
-                    >
-                      <Icon name="minus" size={16} />
-                    </button>
-                    <span className="nights-count">
-                      {stop.nights}
-                      <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
+                <div className="stop-main">
+                  <CityThumb name={stop.name} index={index} countryCode={stop.countryCode} />
+                  <div className="stop-info">
+                    <strong>{stop.name}</strong>
+                    <span className="muted">
+                      {formatDate(stop.arrivalDate)}
+                      {stop.nights > 0 && ` – ${formatDate(stop.departureDate)}`}
+                      {stop.latitude !== null && stop.longitude !== null && (
+                        <>
+                          {' · '}
+                          <WeatherBadge
+                            lat={stop.latitude}
+                            lon={stop.longitude}
+                            day={stop.arrivalDate}
+                          />
+                        </>
+                      )}
                     </span>
+                  </div>
+                  <div className="stop-nights">
+                    <div className="nights-buttons">
+                      <button
+                        className="nights-btn"
+                        onClick={() => changeNights(stop, -1)}
+                        aria-label="Minder nachten"
+                      >
+                        <Icon name="minus" size={16} />
+                      </button>
+                      <span className="nights-count">
+                        {stop.nights}
+                        <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
+                      </span>
+                      <button
+                        className="nights-btn"
+                        onClick={() => changeNights(stop, 1)}
+                        aria-label="Meer nachten"
+                      >
+                        <Icon name="plus" size={16} />
+                      </button>
+                    </div>
                     <button
-                      className="nights-btn"
-                      onClick={() => changeNights(stop, 1)}
-                      aria-label="Meer nachten"
+                      type="button"
+                      className={`daytrip-btn ${dayTripFor === stop.id ? 'open' : ''}`}
+                      onClick={() => setDayTripFor(dayTripFor === stop.id ? null : stop.id)}
                     >
-                      <Icon name="plus" size={16} />
+                      <Icon name="plus" size={13} />
+                      Dagtrip
                     </button>
                   </div>
                 </div>
@@ -435,6 +504,17 @@ export function TripPlanner({
                 >
                   <Icon name="close" size={15} />
                 </button>
+                <DayTrips
+                  parent={stop}
+                  dayTrips={dayTripsByParent.get(stop.id) ?? []}
+                  open={dayTripFor === stop.id}
+                  removingId={removingId}
+                  onClose={() => setDayTripFor(null)}
+                  onAdd={(place, date) => addDayTrip(stop, place, date)}
+                  onDate={(trip, date) => setDayTripDate(trip, date)}
+                  onRemove={removeStop}
+                  onFlyTo={onFlyTo}
+                />
               </div>
             </li>
           );
@@ -489,6 +569,176 @@ export function TripPlanner({
         <button className="btn btn-primary">Stop toevoegen</button>
       </form>
     </div>
+  );
+}
+
+/**
+ * The day trips hanging off one stop, plus the panel to add another.
+ *
+ * Visually it is a branch: a line drops out of the stop's photo and forks right
+ * to each day trip, so a second and third excursion simply extend the same
+ * line instead of looking like new stops in the route.
+ */
+function DayTrips({
+  parent,
+  dayTrips,
+  open,
+  removingId,
+  onClose,
+  onAdd,
+  onDate,
+  onRemove,
+  onFlyTo,
+}: {
+  parent: PlannedStop;
+  dayTrips: PlannedStop[];
+  open: boolean;
+  removingId: string | null;
+  onClose: () => void;
+  onAdd: (place: PlaceSuggestion, day: string) => void;
+  onDate: (dayTrip: PlannedStop, day: string) => void;
+  onRemove: (stop: PlannedStop) => void;
+  onFlyTo: (lng: number, lat: number) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [sugg, setSugg] = useState<PlaceSuggestion[]>([]);
+  const [picked, setPicked] = useState<PlaceSuggestion | null>(null);
+  // Defaults to the day you arrive at the stop — the usual answer, and it opens
+  // the calendar on the right month straight away.
+  const [day, setDay] = useState(parent.arrivalDate.slice(0, 10));
+  const timer = useRef<number | null>(null);
+  const abort = useRef<AbortController | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Reset the form every time the panel opens, and put the caret in the search
+  // box so you can start typing right away.
+  useEffect(() => {
+    if (!open) return;
+    setQuery('');
+    setSugg([]);
+    setPicked(null);
+    setDay(parent.arrivalDate.slice(0, 10));
+    const t = window.setTimeout(() => inputRef.current?.focus(), 240);
+    return () => window.clearTimeout(t);
+  }, [open, parent.arrivalDate]);
+
+  function onInput(value: string) {
+    setQuery(value);
+    setPicked(null);
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      abort.current?.abort();
+      const controller = new AbortController();
+      abort.current = controller;
+      searchPlaces(value, controller.signal).then(setSugg).catch(() => undefined);
+    }, 280);
+  }
+
+  function pick(place: PlaceSuggestion) {
+    setPicked(place);
+    setQuery(place.name);
+    setSugg([]);
+    onFlyTo(place.longitude, place.latitude);
+  }
+
+  return (
+    <>
+      {dayTrips.length > 0 && (
+        <ul className="daytrips">
+          {dayTrips.map((trip) => (
+            <li
+              key={trip.id}
+              className={`daytrip-row ${removingId === trip.id ? 'leaving' : ''}`}
+            >
+              <CityThumb
+                name={trip.name}
+                index={-1}
+                countryCode={trip.countryCode}
+                className="daytrip-thumb"
+              />
+              <div className="daytrip-info">
+                <strong>{trip.name}</strong>
+                <span className="muted">
+                  <DateField
+                    value={trip.arrivalDate.slice(0, 10)}
+                    nearDate={parent.arrivalDate.slice(0, 10)}
+                    onChange={(value) => value && onDate(trip, value)}
+                  />
+                  {trip.latitude !== null && trip.longitude !== null && (
+                    <WeatherBadge
+                      lat={trip.latitude}
+                      lon={trip.longitude}
+                      day={trip.arrivalDate}
+                    />
+                  )}
+                </span>
+              </div>
+              <button
+                className="daytrip-delete"
+                onClick={() => onRemove(trip)}
+                aria-label="Dagtrip verwijderen"
+              >
+                <Icon name="close" size={13} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* 0fr → 1fr expander: the card itself grows, so the panel unfolds out of
+          the stop instead of appearing on top of it. */}
+      <div className="daytrip-panel" data-open={open}>
+        <div className="daytrip-panel-inner">
+          <div className="daytrip-form">
+            <div className="daytrip-search">
+              <Icon name="search" size={15} />
+              <input
+                ref={inputRef}
+                value={query}
+                placeholder={`Waar ging je heen vanuit ${parent.name}?`}
+                onChange={(e) => onInput(e.target.value)}
+              />
+            </div>
+            {sugg.length > 0 && (
+              <ul className="daytrip-suggestions">
+                {sugg.map((place, i) => (
+                  <li key={i}>
+                    <button type="button" onClick={() => pick(place)}>
+                      <span>{flagEmoji(place.countryCode)}</span>
+                      <span>
+                        <strong>{place.name}</strong>
+                        {place.region && <small> {place.region}</small>}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="daytrip-when">
+              <DateField
+                label="Welke dag?"
+                value={day}
+                nearDate={parent.arrivalDate.slice(0, 10)}
+                onChange={setDay}
+              />
+            </div>
+            <div className="daytrip-actions">
+              <button type="button" className="btn btn-ghost" onClick={onClose}>
+                Annuleren
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!picked || !day}
+                onClick={() => picked && onAdd(picked, day)}
+              >
+                Toevoegen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

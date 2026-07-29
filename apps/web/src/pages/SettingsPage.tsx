@@ -12,6 +12,7 @@ import { confirmModal } from '../components/confirm';
 import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
+import { TrackPointsEditor } from '../components/TrackPointsEditor';
 import { isUpdateBannerSimulated, setUpdateBannerSimulated } from '../components/UpdateBanner';
 import { formatDate } from '../lib/colors';
 import {
@@ -288,6 +289,7 @@ function TrackingSection() {
   const INTERVALS = [1, 5, 10, 15];
   const [customOpen, setCustomOpen] = useState(!INTERVALS.includes(interval));
   const [customValue, setCustomValue] = useState(String(interval));
+  const [editDay, setEditDay] = useState(false);
 
   const applyInterval = (minutes: number) => {
     setIntervalMin(minutes);
@@ -404,6 +406,12 @@ function TrackingSection() {
           >
             <Icon name="stop" size={15} /> Stop tracking
           </button>
+          {/* Check-and-fix: the day's raw fixes on a map, draggable, with a way
+              to fill a gap by hand — the only way to see whether a long straight
+              stretch is a real drive or a missed check. */}
+          <button className="btn btn-ghost" onClick={() => setEditDay(true)}>
+            <Icon name="pin" size={15} /> Punten van vandaag
+          </button>
           {tracker.lastError && <span className="error-text">{tracker.lastError}</span>}
 
           {/* The technical live-status bits are tucked behind an expander. */}
@@ -470,6 +478,10 @@ function TrackingSection() {
       )}
 
       {!tracker.tripId && <TrackingLog now={now} />}
+
+      {editDay && tracker.tripId && (
+        <TrackPointsEditor tripId={tracker.tripId} onClose={() => setEditDay(false)} />
+      )}
     </section>
   );
 }

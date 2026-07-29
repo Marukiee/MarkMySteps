@@ -30,12 +30,44 @@ export type TripWithMembers = Trip & {
    * never shows as a straight coloured line — flightPath draws the arc instead.
    */
   routePath?: [number, number][][];
-  /** Flight legs as separate great-circle arcs, drawn dashed on the globe. */
+  /**
+   * Flight legs, drawn dashed on the globe. One entry per flight, listing the
+   * full itinerary — [departure, ...layovers, arrival] — so the globe can bow
+   * each hop while still knowing which points are mere layovers.
+   */
   flightPath?: [number, number][][];
 };
 
 /** Country you live in — excluded from a trip's "countries visited" count. */
 const HOME_COUNTRY = 'NL';
+
+/**
+ * How many places a trip's plan covers, for the "aantal stops" chip.
+ *
+ * Route stops always count, even a city you sleep in twice. Day trips only
+ * count the first time: going into Stockholm three times from Saltsjöbaden is
+ * still one place you visited, not three stops.
+ */
+export function countStopPlaces(
+  stops: {
+    latitude: number | null;
+    longitude: number | null;
+    parentStopId?: string | null;
+  }[],
+): number {
+  const seen = new Set<string>();
+  let count = 0;
+  for (const stop of stops) {
+    if (stop.latitude == null || stop.longitude == null) continue;
+    // ~100 m grid: the same city searched twice never lands on the exact
+    // same coordinate.
+    const key = `${stop.latitude.toFixed(3)},${stop.longitude.toFixed(3)}`;
+    if (stop.parentStopId && seen.has(key)) continue;
+    seen.add(key);
+    count += 1;
+  }
+  return count;
+}
 
 const MEMBERS_INCLUDE = {
   members: {
@@ -47,9 +79,10 @@ const MEMBERS_INCLUDE = {
     orderBy: { takenAt: 'asc' },
     select: { id: true },
   },
-  // A geo anchor for the globe overview: the planned stops, in order.
+  // A geo anchor for the globe overview: the planned stops, in order. Day
+  // trips are excursions off the route, so they must not drag the framing.
   stops: {
-    where: { latitude: { not: null } },
+    where: { latitude: { not: null }, parentStopId: null },
     orderBy: { orderIndex: 'asc' },
     select: { name: true, latitude: true, longitude: true },
   },
@@ -250,7 +283,9 @@ export class TripsService {
       where: { tripId: { in: tripIds } },
       orderBy: [{ tripId: 'asc' }, { orderIndex: 'asc' }],
       select: {
+        id: true,
         tripId: true,
+        parentStopId: true,
         latitude: true,
         longitude: true,
         travelMode: true,
@@ -271,7 +306,10 @@ export class TripsService {
     const stopsByTrip = new Map<string, [number, number][][]>();
     // Flight legs kept separately so the globe draws them as thin dashed arcs.
     const flightsByTrip = new Map<string, [number, number][][]>();
-    for (const [tripId, list] of rawByTrip) {
+    for (const [tripId, all] of rawByTrip) {
+      // Day trips branch off the route rather than being part of it, so the
+      // main line is built from the route stops only.
+      const list = all.filter((s) => !s.parentStopId);
       const segments: [number, number][][] = [];
       let seg: [number, number][] = [];
       const flights: [number, number][][] = [];
@@ -290,13 +328,12 @@ export class TripsService {
           const via = (s.viaAirports ?? [])
             .map((c) => asLngLat(airportCoord(c)))
             .filter((c): c is [number, number] => !!c);
-          const pts = [from, ...via, to];
-          // Emit each hop as its own endpoint pair so a layover flight draws as
-          // TWO separate bows on the globe (AMS→KEF, KEF→JFK), not one arc that
-          // skips the stopover.
-          for (let k = 1; k < pts.length; k++) {
-            flights.push([pts[k - 1]!, pts[k]!]);
-          }
+          // One entry per flight, holding the whole itinerary including its
+          // layovers: [AMS, KEF, JFK]. The globe bows each hop separately but
+          // only treats the OUTER ends as places you visited — a layover is an
+          // airport you changed planes at, so it gets a grey airport dot, never
+          // a coloured trip dot.
+          flights.push([from, ...via, to]);
           if (seg.length >= 2) segments.push(seg);
           seg = [];
           prev = to; // ground resumes from the arrival
@@ -307,6 +344,21 @@ export class TripsService {
         prev = to;
       }
       if (seg.length >= 2) segments.push(seg);
+
+      // Day trips as a spur: a short line from the stop you slept at out to the
+      // place you went for the day. It gets its own coloured dot at the end,
+      // and it never joins the through-route.
+      const byId = new Map(all.map((s) => [s.id, s]));
+      for (const s of all) {
+        if (!s.parentStopId || s.latitude == null || s.longitude == null) continue;
+        const parent = byId.get(s.parentStopId);
+        if (!parent || parent.latitude == null || parent.longitude == null) continue;
+        segments.push([
+          [parent.longitude, parent.latitude],
+          [s.longitude, s.latitude],
+        ]);
+      }
+
       if (segments.length > 0) stopsByTrip.set(tripId, segments);
       if (flights.length > 0) flightsByTrip.set(tripId, flights);
     }
@@ -433,7 +485,14 @@ export class TripsService {
       this.prisma.stop.findMany({
         where: { tripId },
         orderBy: { orderIndex: 'asc' },
-        select: { name: true, latitude: true, longitude: true, travelMode: true },
+        select: {
+          id: true,
+          name: true,
+          latitude: true,
+          longitude: true,
+          travelMode: true,
+          parentStopId: true,
+        },
       }),
     ]);
 
@@ -444,8 +503,23 @@ export class TripsService {
     const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
     const hasCoord = (s: { latitude: number | null; longitude: number | null }) =>
       s.latitude != null && s.longitude != null;
-    const cities = orderedStops.filter((s) => hasCoord(s) && !LEG_NAMES.has(s.name));
+    const cities = orderedStops.filter(
+      (s) => hasCoord(s) && !LEG_NAMES.has(s.name) && !s.parentStopId,
+    );
     let extraKm = 0;
+
+    // A day trip is a there-and-back detour from the stop you slept at, and
+    // those kilometres are never tracked (you leave the phone's route as one
+    // long stay), so they're added from the plan.
+    const stopById = new Map(orderedStops.map((s) => [s.id, s]));
+    for (const s of orderedStops) {
+      if (!s.parentStopId || !hasCoord(s)) continue;
+      const parent = stopById.get(s.parentStopId);
+      if (!parent || !hasCoord(parent)) continue;
+      extraKm +=
+        2 * kmLngLat([s.longitude!, s.latitude!], [parent.longitude!, parent.latitude!]);
+    }
+
     orderedStops.forEach((s, i) => {
       if (!hasCoord(s) || !LEG_NAMES.has(s.name) || s.travelMode === 'FLIGHT') return;
       // Leading leg connects to the first city, trailing leg to the last city.

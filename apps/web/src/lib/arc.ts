@@ -162,6 +162,8 @@ export interface LegStop {
   fromAirport: string | null;
   toAirport: string | null;
   viaAirports: string[];
+  /** Day trips hang off a stop; they are never a leg of the route. */
+  parentStopId?: string | null;
 }
 
 export interface Leg {
@@ -176,9 +178,12 @@ export interface Leg {
  * "stops" without a city still draw (airport → airport), and each leg chains
  * from wherever the previous one ended.
  */
-export function buildLegs(stops: LegStop[]): Leg[] {
+export function buildLegs(all: LegStop[]): Leg[] {
   const legs: Leg[] = [];
   let prev: [number, number] | null = null;
+  // A day trip is an excursion from a stop, not a leg between two stops — it
+  // would otherwise insert a detour into the through-route.
+  const stops = all.filter((s) => !s.parentStopId);
   for (const s of stops) {
     const dep = airportByCode(s.fromAirport);
     const arr = airportByCode(s.toAirport);
@@ -221,12 +226,39 @@ export interface StopPoint {
   orderIndex: number;
   arrivalDate: string;
   departureDate: string;
+  /** Set when this stop is a day trip made FROM that stop and back the same
+   *  day. Day trips are not part of the route and consume no nights. */
+  parentStopId?: string | null;
+  /** The single day a day trip took place (yyyy-mm-dd). */
+  dayTripDate?: string | null;
 }
 
 /** A stop with the extra planner fields (nights, notes). */
 export interface PlannedStop extends StopPoint {
   nights: number;
   notes: string | null;
+}
+
+/**
+ * How many places a plan covers, for the "aantal stops" chip.
+ *
+ * Route stops always count, even a city you sleep in twice. Day trips only
+ * count the first time: going into Stockholm three times from Saltsjöbaden is
+ * one place you visited, not three stops. Mirrors countStopPlaces on the API.
+ */
+export function countStopPlaces(
+  stops: { latitude: number | null; longitude: number | null; parentStopId?: string | null }[],
+): number {
+  const seen = new Set<string>();
+  let count = 0;
+  for (const stop of stops) {
+    if (stop.latitude === null || stop.longitude === null) continue;
+    const key = `${stop.latitude.toFixed(3)},${stop.longitude.toFixed(3)}`;
+    if (stop.parentStopId && seen.has(key)) continue;
+    seen.add(key);
+    count += 1;
+  }
+  return count;
 }
 
 /**

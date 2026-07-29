@@ -268,10 +268,18 @@ export function GlobeBackdrop({
       // Collect every flight leg (explicit + implicit) as endpoint pairs, then
       // draw them deduped so overlapping/close flights become one line.
       const flightPairs: { a: [number, number]; b: [number, number]; up: boolean }[] = [];
+      // Every point a flight touches, layovers included — they get a grey
+      // airport dot, unlike the coloured dots reserved for real destinations.
+      const airportPoints: [number, number][] = [];
       for (const trip of trips) {
         const [r, g, b] = legibleColor(trip.color, dark);
         for (const seg of trip.flights ?? []) {
-          flightPairs.push({ a: seg[0]!, b: seg[seg.length - 1]!, up: trip.upcoming });
+          // A flight is stored as its whole itinerary; bow each hop so a
+          // stopover visibly breaks the line at that airport.
+          for (let k = 1; k < seg.length; k++) {
+            flightPairs.push({ a: seg[k - 1]!, b: seg[k]!, up: trip.upcoming });
+          }
+          for (const p of seg) airportPoints.push(p);
         }
         if (!trip.path) continue;
 
@@ -300,6 +308,7 @@ export function GlobeBackdrop({
             if (distance(seg[i - 1]!, seg[i]!) > FLIGHT_DEG) {
               flushRun();
               flightPairs.push({ a: seg[i - 1]!, b: seg[i]!, up: trip.upcoming });
+              airportPoints.push(seg[i - 1]!, seg[i]!);
               run = [seg[i]!];
             } else {
               run.push(seg[i]!);
@@ -370,19 +379,17 @@ export function GlobeBackdrop({
       // than the trip dots, deduped by coarse endpoint.
       const airportSeen = new Set<string>();
       ctx!.setLineDash([]);
-      for (const { a: s, b: e } of flightPairs) {
-        for (const ap of [s, e]) {
-          const kk = key(ap);
-          if (airportSeen.has(kk)) continue;
-          airportSeen.add(kk);
-          if (center && distance(center, ap) > 90) continue;
-          const pr = projection(ap);
-          if (!pr) continue;
-          ctx!.beginPath();
-          ctx!.arc(pr[0], pr[1], 2.6 * dpr, 0, 2 * Math.PI);
-          ctx!.fillStyle = dark ? 'rgba(150,160,172,0.9)' : 'rgba(120,128,140,0.85)';
-          ctx!.fill();
-        }
+      for (const ap of airportPoints) {
+        const kk = key(ap);
+        if (airportSeen.has(kk)) continue;
+        airportSeen.add(kk);
+        if (center && distance(center, ap) > 90) continue;
+        const pr = projection(ap);
+        if (!pr) continue;
+        ctx!.beginPath();
+        ctx!.arc(pr[0], pr[1], 2.6 * dpr, 0, 2 * Math.PI);
+        ctx!.fillStyle = dark ? 'rgba(150,160,172,0.9)' : 'rgba(120,128,140,0.85)';
+        ctx!.fill();
       }
 
       // Group endpoints by real-world proximity (~40 km), counting DISTINCT trips

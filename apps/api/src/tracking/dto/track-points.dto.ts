@@ -66,6 +66,19 @@ export class ManualPointDto {
   recordedAt?: string;
 }
 
+/** Dragging a stored fix to where you actually were. */
+export class MovePointDto {
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude: number;
+
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude: number;
+}
+
 export class RouteFillDto {
   @IsNumber()
   @Min(-90)

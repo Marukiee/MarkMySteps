@@ -14,7 +14,7 @@ import { TripMap, TripMapApi, Waypoint } from '../components/TripMap';
 import { TripFacts } from '../components/TripFacts';
 import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
-import type { PlannedStop } from '../lib/arc';
+import { countStopPlaces, type PlannedStop } from '../lib/arc';
 import { colorForUser, formatDate } from '../lib/colors';
 import { lastSeenLabel, useNow } from '../lib/lastSeen';
 import { stableViewportHeight } from '../lib/native';
@@ -584,7 +584,7 @@ export function TripDetailPage() {
                   {
                     distanceKm: stats.distanceKm,
                     days: stats.days,
-                    stops: stops.filter((st) => st.latitude !== null).length,
+                    stops: countStopPlaces(stops),
                     photoCount: stats.photoCount,
                     travellers: trip?.members.length ?? 0,
                     countries: stats.countries.length,

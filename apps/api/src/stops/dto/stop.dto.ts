@@ -1,6 +1,7 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsDateString,
   IsEnum,
   IsInt,
   IsNumber,
@@ -83,6 +84,16 @@ export class CreateStopDto {
   @IsOptional()
   @IsUUID()
   afterStopId?: string;
+
+  /** Makes this a day trip FROM that stop instead of a leg of the route. */
+  @IsOptional()
+  @IsUUID()
+  parentStopId?: string;
+
+  /** The day the day trip took place (yyyy-mm-dd). */
+  @IsOptional()
+  @IsDateString()
+  dayTripDate?: string;
 }
 
 export class UpdateStopDto {
@@ -143,6 +154,11 @@ export class UpdateStopDto {
   @IsString({ each: true })
   @Length(3, 4, { each: true })
   viaAirports?: string[];
+
+  /** Moves a day trip to another day (yyyy-mm-dd). */
+  @IsOptional()
+  @IsDateString()
+  dayTripDate?: string;
 }
 
 export class ReorderStopsDto {

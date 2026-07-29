@@ -8,9 +8,9 @@
   padding: calc(2rem + env(safe-area-inset-top)) 1.5rem calc(1.5rem + env(safe-area-inset-bottom));
   text-align: center;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse 60% 40% at 70% 10%, rgb(232 97 60 / 0.1), transparent),
-    var(--paper);
+  /* Flat surface: the accent wash that used to sit here read as a smudge on an
+     otherwise clean page. */
+  background: var(--paper);
   /* Match the settings theme switch: the whole surface cross-fades on light/dark
      instead of snapping. */
   transition: background 0.3s var(--ease);

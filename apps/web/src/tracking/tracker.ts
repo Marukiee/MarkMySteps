@@ -200,6 +200,12 @@ async function drainNative(tripId: string): Promise<void> {
   for (const fix of fixes) await record(tripId, fix);
 }
 
+/** Collects the native backlog when the app comes back to the foreground. */
+let resumeDrain: (() => void) | null = null;
+function onVisible(): void {
+  if (document.visibilityState === 'visible') resumeDrain?.();
+}
+
 /** Serialises the checks, so two fixes arriving together can't both open a stay. */
 let recordChain: Promise<void> = Promise.resolve();
 
@@ -336,6 +342,11 @@ export async function flush(): Promise<void> {
 }
 
 export async function startTracking(tripId: string): Promise<void> {
+  // Everything the service queued while the app was away has to be collected
+  // BEFORE the listeners are torn down and the service is reconfigured.
+  if (isNative() && localStorage.getItem(ACTIVE_TRIP_KEY)) {
+    await drainNative(localStorage.getItem(ACTIVE_TRIP_KEY)!).catch(() => undefined);
+  }
   await stopTracking(false);
   localStorage.setItem(ACTIVE_TRIP_KEY, tripId);
   // A fresh watcher starts a fresh stay, so the first fix always lands.
@@ -373,6 +384,13 @@ export async function startTracking(tripId: string): Promise<void> {
     }
     // Anything the service recorded while the app was away.
     void drainNative(tripId);
+    // The 'location' event only arrives while a page is alive, so coming back
+    // to the foreground is the other moment the backlog has to be collected.
+    resumeDrain = () => {
+      void drainNative(tripId).then(() => flush());
+    };
+    document.addEventListener('resume', resumeDrain);
+    document.addEventListener('visibilitychange', onVisible);
   } else {
     if (!('geolocation' in navigator)) {
       emit({ lastError: 'Geen GPS beschikbaar in deze browser' });
@@ -405,9 +423,15 @@ export async function startTracking(tripId: string): Promise<void> {
 
 export async function stopTracking(clearTrip = true): Promise<void> {
   if (isNative()) {
+    const active = localStorage.getItem(ACTIVE_TRIP_KEY);
+    // Collect whatever is still queued before anything is taken down.
+    if (clearTrip && active) await drainNative(active).catch(() => undefined);
     for (const handle of nativeHandles) await handle.remove().catch(() => undefined);
     nativeHandles = [];
-    await MmsLocation.stop().catch(() => undefined);
+    // Only a real stop takes the service down. Restarting the watcher (app
+    // launch, changed interval) leaves it running: killing and recreating it on
+    // every launch dropped the fix currently in flight and reset its cadence.
+    if (clearTrip) await MmsLocation.stop().catch(() => undefined);
   }
   if (webWatchId !== null) {
     navigator.geolocation.clearWatch(webWatchId);
@@ -418,6 +442,11 @@ export async function stopTracking(clearTrip = true): Promise<void> {
     flushTimer = null;
   }
   window.removeEventListener('online', onOnline);
+  if (resumeDrain) {
+    document.removeEventListener('resume', resumeDrain);
+    document.removeEventListener('visibilitychange', onVisible);
+    resumeDrain = null;
+  }
   if (clearTrip) {
     localStorage.removeItem(ACTIVE_TRIP_KEY);
     await flush(); // final attempt to push what's left
