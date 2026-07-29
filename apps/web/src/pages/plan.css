@@ -174,11 +174,46 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.5rem;
+  /* No grid gap: the spacing is a margin on the rows, so it can collapse along
+     with a row that is being deleted. */
+  gap: 0;
 }
 
+/* Deleting a row collapses its height, so everything below eases up into the
+   gap rather than jumping. The 1fr → 0fr grid is what makes an unknown height
+   animatable at all. */
 .stop-row {
   display: grid;
+  grid-template-rows: 1fr;
+  margin-bottom: 0.5rem;
+  transition: grid-template-rows 0.26s var(--ease), opacity 0.2s var(--ease),
+    margin-bottom 0.26s var(--ease);
+}
+
+.stop-row:last-child {
+  margin-bottom: 0;
+}
+
+.stop-row > * {
+  min-height: 0;
+}
+
+.stop-row.leaving {
+  grid-template-rows: 0fr;
+  margin-bottom: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.stop-row-inner {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+/* The standalone /plan page has no inner wrapper: its children sit directly in
+   the row, so the row itself carries the spacing there. */
+.stop-row:not(:has(> .stop-row-inner)) {
   gap: 0.35rem;
 }
 
@@ -265,10 +300,6 @@
   padding: 0.8rem 2.2rem 0.8rem 1rem;
   cursor: grab;
   transition: box-shadow 0.2s var(--ease), opacity 0.2s, transform 0.2s var(--ease);
-}
-
-.stop-item:hover {
-  transform: translateX(2px);
 }
 
 .stop-nights {
@@ -845,6 +876,71 @@
 }
 
 
+
+/* ---------------------------------------------------------------------------
+   Swipe to delete
+
+   A row slides aside under your finger and is removed once it passes a third of
+   its width — the same gesture a music app uses for its queue. It replaced the
+   × in every card's corner, which crowded the row and was easy to hit by
+   accident while scrolling.
+   --------------------------------------------------------------------------- */
+
+.swipe-row {
+  position: relative;
+  min-width: 0;
+  border-radius: var(--radius-m);
+}
+
+.swipe-bg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.1rem;
+  border-radius: var(--radius-m);
+  background: #c9463a;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.16s var(--ease), background 0.16s var(--ease);
+}
+
+.swipe-row[data-swiping='true'] .swipe-bg {
+  opacity: 1;
+}
+
+/* Past the threshold the bar deepens, so you can feel where "let go now" is. */
+.swipe-row[data-armed='true'] .swipe-bg {
+  background: #a8382e;
+}
+
+.swipe-bg-side {
+  display: inline-flex;
+  opacity: 0.85;
+}
+
+.swipe-bg-label {
+  opacity: 0;
+  transition: opacity 0.16s var(--ease);
+}
+
+.swipe-row[data-armed='true'] .swipe-bg-label {
+  opacity: 1;
+}
+
+.swipe-fg {
+  position: relative;
+  /* Vertical scrolling still belongs to the page; only sideways is ours. */
+  touch-action: pan-y;
+}
+
+.swipe-row:not([data-swiping='true']) .swipe-fg {
+  transition: transform 0.26s var(--ease);
+}
+
 /* ---------------------------------------------------------------------------
    Day trips — an excursion from a stop and back the same day.
 
@@ -853,10 +949,17 @@
    unfolds a panel inside the same card, so nothing ever covers the route.
    --------------------------------------------------------------------------- */
 
-.stop-item {
+.swipe-row .stop-item {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
+  /* Symmetric now that the delete × is gone, so the day-trip panel sits
+     centred in the card instead of hugging the left edge. */
+  padding: 0.8rem 1rem;
+}
+
+.swipe-row .flight-leg {
+  padding: 0.55rem 0.85rem;
 }
 
 .stop-main {
@@ -865,8 +968,22 @@
   gap: 0.85rem;
 }
 
+/* The stop's dates and weather stay on one line: a wrapped line would put the
+   separator dot at the start of the second row, which reads as a bullet. */
+.stop-meta {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The photo sits above the branch line that drops out of it. */
+.stop-main .city-thumb {
+  z-index: 1;
+}
+
 /* The nights pill moves up so the day-trip button can sit under it. */
-.stop-nights {
+.swipe-row .stop-nights {
   flex-direction: column;
   align-items: flex-end;
   gap: 0.35rem;
@@ -887,18 +1004,14 @@
     transform 0.18s var(--ease);
 }
 
-.daytrip-btn:hover {
+.daytrip-btn:hover,
+.daytrip-btn.open {
   background: var(--accent-soft);
   color: var(--accent-ink);
 }
 
 .daytrip-btn:active {
   transform: scale(0.95);
-}
-
-.daytrip-btn.open {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
 }
 
 /* The button's + rotates into an × while the panel is open. */
@@ -913,38 +1026,48 @@
 .daytrips {
   position: relative;
   display: grid;
-  gap: 10px;
-  margin: 0.55rem 0 0.15rem;
+  gap: 8px;
+  margin: 0.5rem 0 0.15rem;
   /* Lines up with the centre of the 52px city photo above. */
   padding-left: 26px;
   list-style: none;
+  /* Keeps the branch behind the photos it connects. */
+  z-index: 0;
 }
 
 .daytrip-row {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding-left: 22px;
+  padding-left: 20px;
+  min-width: 0;
   animation: dayTripIn 0.3s var(--ease) backwards;
 }
 
-/* The vertical stretch of the branch, drawn per row so the line simply stops
-   at the last day trip instead of dangling below it. */
+/* The vertical stretch of the branch. Every row draws it down to its own
+   bottom so consecutive day trips form one unbroken line; the last one stops
+   at its own centre, where its fork leaves. */
 .daytrip-row::after {
   content: '';
   position: absolute;
   left: 0;
-  top: -10px;
-  height: calc(50% + 10px);
+  top: -8px;
+  height: calc(100% + 8px);
   width: 2px;
   background: var(--line);
   border-radius: 2px;
+  z-index: -1;
 }
 
 .daytrip-row:first-child::after {
-  top: -22px;
-  height: calc(50% + 22px);
+  top: -30px;
+  height: calc(100% + 30px);
+}
+
+.daytrip-row:last-child::after {
+  height: calc(50% + 8px);
+}
+
+.daytrip-row:first-child:last-child::after {
+  height: calc(50% + 30px);
 }
 
 /* The fork out to this day trip's photo. */
@@ -953,10 +1076,11 @@
   position: absolute;
   left: 0;
   top: 50%;
-  width: 16px;
+  width: 14px;
   height: 2px;
   background: var(--line);
   border-radius: 2px;
+  z-index: -1;
 }
 
 .daytrip-row.leaving {
@@ -975,6 +1099,19 @@
     opacity: 0;
     transform: translateX(-10px);
   }
+}
+
+/* A framed row, so a day trip reads as something that belongs to this stop
+   rather than as a second stop that lost its card. */
+.daytrip-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem 0.4rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper-sunken);
 }
 
 .daytrip-thumb {
@@ -998,24 +1135,32 @@
   font-size: 0.92rem;
 }
 
-.daytrip-info .muted {
+.daytrip-meta {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   font-size: 0.78rem;
+  white-space: nowrap;
 }
 
-/* The date is editable in place, so it reads as text until you touch it. */
-.daytrip-info .date-field {
+.daytrip-sep {
+  color: var(--ink-faint);
+}
+
+/* The date is editable in place, so it reads as text until you touch it. The
+   picker's pin glyph is dropped here — it says "location" next to a date. */
+.daytrip-meta .date-field {
   display: inline-flex;
 }
 
-.daytrip-info .date-field label {
+.daytrip-meta .date-field label,
+.daytrip-meta .date-field-cal {
   display: none;
 }
 
-.daytrip-info .date-field-btn {
-  padding: 0.1rem 0.4rem;
+.daytrip-meta .date-field-btn {
+  padding: 0.1rem 0.35rem;
+  margin-left: -0.35rem;
   border-radius: 7px;
   background: transparent;
   border: none;
@@ -1025,23 +1170,8 @@
   min-height: 0;
 }
 
-.daytrip-info .date-field-btn:hover {
-  background: var(--paper-sunken);
-}
-
-.daytrip-delete {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.28rem;
-  border-radius: 8px;
-  color: var(--ink-faint);
-  transition: all 0.15s;
-}
-
-.daytrip-delete:hover {
-  color: #b3402a;
-  background: #fbeae4;
+.daytrip-meta .date-field-btn:hover {
+  background: var(--paper-raised);
 }
 
 /* Expander: 0fr → 1fr so the card grows with the panel. */
@@ -1076,10 +1206,12 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.7rem;
-  border-radius: var(--radius-s, 10px);
+  border-radius: 12px;
+  border: 1.5px solid transparent;
   background: var(--paper-raised);
   box-shadow: var(--shadow-s);
   color: var(--ink-faint);
+  transition: border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
 
 .daytrip-search input {
@@ -1088,7 +1220,8 @@
   border: none;
   background: none;
   padding: 0;
-  font-size: 0.9rem;
+  /* 16px or Android zooms the page in when the field is focused. */
+  font-size: 16px;
   color: var(--ink);
 }
 
@@ -1147,4 +1280,44 @@
 .daytrip-actions .btn {
   padding: 0.45rem 0.9rem;
   font-size: 0.85rem;
+}
+
+/* A day trip's swipe layer follows the rounder shape of its own card. */
+.daytrip-row .swipe-row,
+.daytrip-row .swipe-bg {
+  border-radius: 16px;
+}
+
+/* Desktop only: there is no swipe with a mouse, and the card's drag gesture is
+   already reordering the route, so a small cross appears on hover instead. */
+.swipe-x {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0.28rem;
+  border-radius: 8px;
+  color: var(--ink-faint);
+  background: var(--paper-raised);
+  opacity: 0;
+  transition: opacity 0.15s var(--ease), color 0.15s var(--ease),
+    background 0.15s var(--ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .swipe-x {
+    display: inline-flex;
+  }
+
+  .swipe-row:hover .swipe-x {
+    opacity: 1;
+  }
+
+  .swipe-x:hover {
+    color: #b3402a;
+    background: #fbeae4;
+  }
 }

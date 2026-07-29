@@ -1,4 +1,12 @@
-import { DragEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import {
+  DragEvent,
+  FormEvent,
+  ReactNode,
+  TouchEvent as ReactTouchEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
@@ -15,7 +23,7 @@ import {
   TRAVEL_MODES,
   TravelMode,
 } from '../lib/arc';
-import { flagEmoji, formatDate } from '../lib/colors';
+import { flagEmoji, formatDate, formatDateRange } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import '../pages/plan.css';
 
@@ -331,6 +339,8 @@ export function TripPlanner({
                 : null;
             return (
               <li key={stop.id} className={`stop-row ${removingId === stop.id ? 'leaving' : ''}`}>
+                <div className="stop-row-inner">
+                <SwipeToDelete onDelete={() => removeStop(stop)} label="Reis verwijderen">
                 {/* Keyed on the travel mode so switching flight ↔ car/bus
                     remounts the bar and replays its entry animation. */}
                 <div className="flight-leg card" key={stop.travelMode}>
@@ -370,13 +380,8 @@ export function TripPlanner({
                       onPick={(m) => void setStopMode(stop, m)}
                     />
                   </div>
-                  <button
-                    className="stop-delete"
-                    onClick={() => removeStop(stop)}
-                    aria-label="Reis verwijderen"
-                  >
-                    <Icon name="close" size={15} />
-                  </button>
+                </div>
+                </SwipeToDelete>
                 </div>
               </li>
             );
@@ -394,6 +399,7 @@ export function TripPlanner({
               : null;
           return (
             <li key={stop.id} className={`stop-row ${removingId === stop.id ? 'leaving' : ''}`}>
+              <div className="stop-row-inner">
               {/* Incoming leg: a mode dropdown (same as heenreis), plus the
                   flight editor when it's a flight. Only from the 2nd stop on —
                   the first stop's arrival is the heenreis. */}
@@ -424,6 +430,7 @@ export function TripPlanner({
                   </div>
                 </div>
               )}
+              <SwipeToDelete onDelete={() => removeStop(stop)} label="Stop verwijderen">
               <div
                 className={`card stop-item ${dragIndex === index ? 'dragging' : ''} ${
                   overIndex === index && dragIndex !== null && dragIndex !== index
@@ -451,9 +458,13 @@ export function TripPlanner({
                   <CityThumb name={stop.name} index={index} countryCode={stop.countryCode} />
                   <div className="stop-info">
                     <strong>{stop.name}</strong>
-                    <span className="muted">
-                      {formatDate(stop.arrivalDate)}
-                      {stop.nights > 0 && ` – ${formatDate(stop.departureDate)}`}
+                    {/* One line: shortening the range is what keeps the weather
+                        beside the dates, so the separator dot is never left
+                        dangling at the start of a wrapped line. */}
+                    <span className="muted stop-meta">
+                      {stop.nights > 0
+                        ? formatDateRange(stop.arrivalDate, stop.departureDate)
+                        : formatDate(stop.arrivalDate)}
                       {stop.latitude !== null && stop.longitude !== null && (
                         <>
                           {' · '}
@@ -497,13 +508,6 @@ export function TripPlanner({
                     </button>
                   </div>
                 </div>
-                <button
-                  className="stop-delete"
-                  onClick={() => removeStop(stop)}
-                  aria-label="Stop verwijderen"
-                >
-                  <Icon name="close" size={15} />
-                </button>
                 <DayTrips
                   parent={stop}
                   dayTrips={dayTripsByParent.get(stop.id) ?? []}
@@ -515,6 +519,8 @@ export function TripPlanner({
                   onRemove={removeStop}
                   onFlyTo={onFlyTo}
                 />
+              </div>
+              </SwipeToDelete>
               </div>
             </li>
           );
@@ -573,6 +579,110 @@ export function TripPlanner({
 }
 
 /**
+ * Swipe a row aside to delete it, either direction — the same gesture as a
+ * queue item in a music app. It replaces the little × that used to sit in the
+ * corner of every card and crowd the row.
+ *
+ * Only touch is handled: on a desktop the card is still an HTML5 drag handle
+ * for reordering, and the two would fight over the pointer.
+ */
+function SwipeToDelete({
+  onDelete,
+  label,
+  children,
+}: {
+  onDelete: () => void;
+  label: string;
+  children: ReactNode;
+}) {
+  const [dx, setDx] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+  const start = useRef<{ x: number; y: number; axis: 'none' | 'x' | 'y' } | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  /** Far enough to mean it: a third of the row, and never less than 90 px. */
+  const threshold = () => Math.max(90, (boxRef.current?.offsetWidth ?? 300) * 0.33);
+  const armed = Math.abs(dx) > threshold();
+
+  const onTouchStart = (e: ReactTouchEvent) => {
+    // A day trip's row sits inside its stop's row: without this, swiping the
+    // day trip would drag the whole stop along with it.
+    e.stopPropagation();
+    const t = e.touches[0]!;
+    start.current = { x: t.clientX, y: t.clientY, axis: 'none' };
+  };
+
+  const onTouchMove = (e: ReactTouchEvent) => {
+    e.stopPropagation();
+    const s = start.current;
+    if (!s) return;
+    const t = e.touches[0]!;
+    const moveX = t.clientX - s.x;
+    const moveY = t.clientY - s.y;
+    // Decide once whether this is a swipe or a scroll, then stick to it —
+    // re-deciding mid-gesture makes the row twitch while you scroll past it.
+    if (s.axis === 'none') {
+      if (Math.abs(moveX) < 12 && Math.abs(moveY) < 12) return;
+      s.axis = Math.abs(moveX) > Math.abs(moveY) * 1.4 ? 'x' : 'y';
+      if (s.axis === 'x') setSwiping(true);
+    }
+    if (s.axis !== 'x') return;
+    // Rubber-band past the threshold so it never slides off the screen.
+    const over = Math.max(0, Math.abs(moveX) - threshold());
+    const eased = Math.sign(moveX) * (Math.min(Math.abs(moveX), threshold()) + over * 0.25);
+    setDx(eased);
+  };
+
+  const onTouchEnd = (e: ReactTouchEvent) => {
+    e.stopPropagation();
+    const s = start.current;
+    start.current = null;
+    setSwiping(false);
+    if (s?.axis === 'x' && Math.abs(dx) > threshold()) {
+      // Let it fly off in the direction of travel, then delete.
+      setDx(Math.sign(dx) * (boxRef.current?.offsetWidth ?? 400));
+      window.setTimeout(onDelete, 160);
+      return;
+    }
+    setDx(0);
+  };
+
+  return (
+    <div
+      className="swipe-row"
+      ref={boxRef}
+      data-swiping={swiping}
+      data-armed={armed}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+    >
+      <div className="swipe-bg" aria-hidden="true">
+        <span className="swipe-bg-side">
+          <Icon name="trash" size={18} />
+        </span>
+        <span className="swipe-bg-label">{label}</span>
+        <span className="swipe-bg-side">
+          <Icon name="trash" size={18} />
+        </span>
+      </div>
+      <div
+        className="swipe-fg"
+        style={dx === 0 ? undefined : { transform: `translateX(${dx}px)` }}
+      >
+        {children}
+      </div>
+      {/* Mouse-and-keyboard fallback: there is no swipe on a desktop, and the
+          card's own drag gesture is already taken by reordering. */}
+      <button type="button" className="swipe-x" aria-label={label} onClick={onDelete}>
+        <Icon name="close" size={14} />
+      </button>
+    </div>
+  );
+}
+
+/**
  * The day trips hanging off one stop, plus the panel to add another.
  *
  * Visually it is a branch: a line drops out of the stop's photo and forks right
@@ -618,7 +728,9 @@ function DayTrips({
     setSugg([]);
     setPicked(null);
     setDay(parent.arrivalDate.slice(0, 10));
-    const t = window.setTimeout(() => inputRef.current?.focus(), 240);
+    // After the 0.32s expander has settled, so the field is where it will stay
+    // when the keyboard-scroll handler measures it.
+    const t = window.setTimeout(() => inputRef.current?.focus(), 340);
     return () => window.clearTimeout(t);
   }, [open, parent.arrivalDate]);
 
@@ -650,36 +762,36 @@ function DayTrips({
               key={trip.id}
               className={`daytrip-row ${removingId === trip.id ? 'leaving' : ''}`}
             >
-              <CityThumb
-                name={trip.name}
-                index={-1}
-                countryCode={trip.countryCode}
-                className="daytrip-thumb"
-              />
-              <div className="daytrip-info">
-                <strong>{trip.name}</strong>
-                <span className="muted">
-                  <DateField
-                    value={trip.arrivalDate.slice(0, 10)}
-                    nearDate={parent.arrivalDate.slice(0, 10)}
-                    onChange={(value) => value && onDate(trip, value)}
+              <SwipeToDelete onDelete={() => onRemove(trip)} label="Dagtrip verwijderen">
+                <div className="daytrip-card">
+                  <CityThumb
+                    name={trip.name}
+                    index={-1}
+                    countryCode={trip.countryCode}
+                    className="daytrip-thumb"
                   />
-                  {trip.latitude !== null && trip.longitude !== null && (
-                    <WeatherBadge
-                      lat={trip.latitude}
-                      lon={trip.longitude}
-                      day={trip.arrivalDate}
-                    />
-                  )}
-                </span>
-              </div>
-              <button
-                className="daytrip-delete"
-                onClick={() => onRemove(trip)}
-                aria-label="Dagtrip verwijderen"
-              >
-                <Icon name="close" size={13} />
-              </button>
+                  <div className="daytrip-info">
+                    <strong>{trip.name}</strong>
+                    <span className="muted daytrip-meta">
+                      <DateField
+                        value={trip.arrivalDate.slice(0, 10)}
+                        nearDate={parent.arrivalDate.slice(0, 10)}
+                        onChange={(value) => value && onDate(trip, value)}
+                      />
+                      {trip.latitude !== null && trip.longitude !== null && (
+                        <>
+                          <span className="daytrip-sep">·</span>
+                          <WeatherBadge
+                            lat={trip.latitude}
+                            lon={trip.longitude}
+                            day={trip.arrivalDate}
+                          />
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </SwipeToDelete>
             </li>
           ))}
         </ul>
@@ -690,7 +802,7 @@ function DayTrips({
       <div className="daytrip-panel" data-open={open}>
         <div className="daytrip-panel-inner">
           <div className="daytrip-form">
-            <div className="daytrip-search">
+            <div className="daytrip-search searchbox">
               <Icon name="search" size={15} />
               <input
                 ref={inputRef}
@@ -870,7 +982,7 @@ function PlaceSheet({
             <Icon name="close" size={18} />
           </button>
         </header>
-        <div className="fe-picker-search">
+        <div className="fe-picker-search searchbox">
           <Icon name="search" size={16} />
           <input
             autoFocus

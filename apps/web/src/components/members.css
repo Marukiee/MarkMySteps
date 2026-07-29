@@ -63,7 +63,7 @@
 .member-track input {
   width: 18px;
   height: 18px;
-  accent-color: var(--accent);
+  border-radius: 6px;
 }
 
 .members-name small {

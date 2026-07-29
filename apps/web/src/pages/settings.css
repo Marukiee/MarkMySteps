@@ -919,12 +919,7 @@
   font-size: 0.82rem;
 }
 
-.settings-toggle input {
-  width: 22px;
-  height: 22px;
-  accent-color: var(--accent);
-  flex-shrink: 0;
-}
+
 
 /* Distance, accuracy and stay info of one check in the location log. */
 .tracking-log li em {

@@ -25,6 +25,23 @@ export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/**
+ * Compact stay range: "20 – 29 jul 2026", "20 jul – 3 aug 2026". Repeating the
+ * month and year on both ends made the line too long to keep the weather beside
+ * it, which is the only reason this exists.
+ */
+export function formatDateRange(from: string, to: string): string {
+  const a = new Date(from);
+  const b = new Date(to);
+  const day = (d: Date) => d.toLocaleDateString('nl-NL', { day: 'numeric' });
+  const dayMonth = (d: Date) => d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+  const full = (d: Date) =>
+    d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+  if (a.getFullYear() !== b.getFullYear()) return `${full(a)} – ${full(b)}`;
+  if (a.getMonth() === b.getMonth()) return `${day(a)} – ${full(b)}`;
+  return `${dayMonth(a)} – ${full(b)}`;
+}
+
 export function formatDay(iso: string): string {
   return new Date(iso).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' });
 }

@@ -9,7 +9,13 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { AuthProvider } from './auth/AuthContext';
-import { initBackButton, initStableViewport, initStatusBar, isNativeApp } from './lib/native';
+import {
+  initBackButton,
+  initKeyboardScroll,
+  initStableViewport,
+  initStatusBar,
+  isNativeApp,
+} from './lib/native';
 import { applyTheme, getThemeId } from './lib/prefs';
 import { resumeIfTracking } from './tracking/tracker';
 import './styles/global.css';
@@ -28,6 +34,8 @@ initBackButton();
 initStatusBar();
 // Keyboard-proof viewport height (--vh-stable) for the map panels.
 initStableViewport();
+// Centres a focused field above the keyboard once it has finished opening.
+initKeyboardScroll();
 // Lets CSS style the APK differently (no topbar, tab bar always on).
 if (isNativeApp()) document.documentElement.classList.add('native-app');
 

@@ -345,7 +345,7 @@ function AirportPicker({
         </button>
         <strong>{title}</strong>
       </header>
-      <div className="fe-picker-search">
+      <div className="fe-picker-search searchbox">
         <Icon name="search" size={16} />
         <input
           autoFocus

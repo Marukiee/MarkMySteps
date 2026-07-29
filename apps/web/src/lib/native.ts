@@ -124,6 +124,100 @@ export function initStableViewport(): void {
   });
 }
 
+/**
+ * Brings the focused field into view once the on-screen keyboard has settled.
+ *
+ * Android scrolls the field into view itself, but it does so against the
+ * pre-keyboard viewport, so a field low on the page ends up right under the
+ * keyboard or hidden behind a sticky map. Waiting for visualViewport to report
+ * its new height and then centring the field in what's left is the only way to
+ * land in the right place.
+ */
+export function initKeyboardScroll(): void {
+  let target: HTMLElement | null = null;
+  let timer = 0;
+
+  const centre = () => {
+    if (!target || !target.isConnected) return;
+    const vv = window.visualViewport;
+    const viewTop = vv?.offsetTop ?? 0;
+    const viewBottom = viewTop + (vv?.height ?? window.innerHeight);
+    // A pinned map covers the top of the page on a phone, so "visible" starts
+    // below it, not at the top of the viewport.
+    const usableTop = Math.max(viewTop, stickyTopBottom());
+    const rect = target.getBoundingClientRect();
+
+    // Only move when the field is actually out of reach — behind the keyboard,
+    // or hidden under the map. A field you can already see stays put.
+    const hiddenBelow = rect.bottom > viewBottom - 12;
+    const hiddenAbove = rect.top < usableTop + 12;
+    if (!hiddenBelow && !hiddenAbove) return;
+
+    // Land it a little above the middle of the usable strip, leaving room for
+    // the suggestion list that usually drops out of a search field.
+    const wanted = usableTop + (viewBottom - usableTop) * 0.32;
+    const delta = rect.top - wanted;
+    if (Math.abs(delta) < 8) return;
+    const scroller = scrollParent(target);
+    if (scroller) scroller.scrollBy({ top: delta, behavior: 'smooth' });
+    else window.scrollBy({ top: delta, behavior: 'smooth' });
+  };
+
+  /** Bottom edge of whatever is pinned across the top of the page, if anything. */
+  function stickyTopBottom(): number {
+    let bottom = 0;
+    for (const node of document.querySelectorAll<HTMLElement>('.trip-map-panel, .plan-map')) {
+      const position = getComputedStyle(node).position;
+      if (position !== 'sticky' && position !== 'fixed') continue;
+      const rect = node.getBoundingClientRect();
+      if (rect.top <= 4 && rect.bottom > bottom) bottom = rect.bottom;
+    }
+    return bottom;
+  }
+
+  const schedule = () => {
+    window.clearTimeout(timer);
+    // The keyboard animates in; measuring before it settles gives the old size.
+    timer = window.setTimeout(centre, 260);
+  };
+
+  document.addEventListener('focusin', (event) => {
+    const el = event.target as HTMLElement | null;
+    if (!el) return;
+    const tag = el.tagName;
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA' && !el.isContentEditable) return;
+    if (el instanceof HTMLInputElement && ['checkbox', 'radio', 'button'].includes(el.type)) {
+      return;
+    }
+    target = el;
+    schedule();
+  });
+
+  document.addEventListener('focusout', () => {
+    target = null;
+    window.clearTimeout(timer);
+  });
+
+  // Fires when the keyboard actually opens or closes.
+  window.visualViewport?.addEventListener('resize', schedule);
+}
+
+/** Nearest ancestor that actually scrolls vertically. */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  let node: HTMLElement | null = el.parentElement;
+  while (node) {
+    const overflow = getComputedStyle(node).overflowY;
+    if (
+      (overflow === 'auto' || overflow === 'scroll') &&
+      node.scrollHeight > node.clientHeight + 4
+    ) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
 /** Current keyboard-independent viewport height in px. */
 export function stableViewportHeight(): number {
   const v = parseFloat(
