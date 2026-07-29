@@ -174,7 +174,7 @@ function DisplaySection() {
   const cardSizes: { id: TripCardSize; label: string }[] = [
     { id: 'auto', label: 'Automatisch' },
     { id: 'large', label: 'Groot' },
-    { id: 'compact', label: 'Compact' },
+    { id: 'compact', label: 'Klein' },
   ];
 
   return (
@@ -770,7 +770,12 @@ function TrackingSection() {
             <div className="tracking-advanced-body">
               <span className="settings-ok">● Actief: {activeTrip?.title ?? 'reis'}</span>
               {tracker.lastFix ? (
-                <LastFix fix={tracker.lastFix} ageSeconds={fixAge} />
+                <LastFix
+                  fix={tracker.lastFix}
+                  ageSeconds={fixAge}
+                  tripId={tracker.tripId}
+                  onOpenMap={() => setEditDay(true)}
+                />
               ) : (
                 <div className="tracking-live">
                   <span className="muted">Wachten op eerste GPS-fix…</span>
@@ -967,12 +972,17 @@ function TrackingLog({ now }: { now: number }) {
 function LastFix({
   fix,
   ageSeconds,
+  tripId,
+  onOpenMap,
 }: {
   fix: { lat: number; lng: number; at: number; accuracy?: number };
   ageSeconds: number | null;
+  /** Whose route to draw behind the dot. */
+  tripId: string | null;
+  onOpenMap: () => void;
 }) {
   const [place, setPlace] = useState<string | null>(null);
-  const mapRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<HTMLButtonElement>(null);
   const mapObj = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
 
@@ -1016,9 +1026,63 @@ function LastFix({
     mapObj.current?.easeTo({ center: [fix.lng, fix.lat], duration: 600 });
   }, [fix.lat, fix.lng]);
 
+  /**
+   * The day's own line behind the dot.
+   *
+   * One dot on a patch of forest says nothing about whether the tracker is
+   * following you; the road you came in on does. Today's raw points, not the
+   * smoothed trip route: this is the tracker's own view.
+   */
+  useEffect(() => {
+    if (!tripId) return;
+    let alive = true;
+    const day = new Date().toISOString().slice(0, 10);
+    void api<{ latitude: number; longitude: number }[]>(
+      `/trips/${tripId}/points/day?day=${day}`,
+    )
+      .then((points) => {
+        const map = mapObj.current;
+        if (!alive || !map || points.length < 2) return;
+        const coords = points.map((p) => [p.longitude, p.latitude] as [number, number]);
+        const data: GeoJSON.Feature<GeoJSON.LineString> = {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: coords },
+        };
+        const draw = () => {
+          const existing = map.getSource('fix-line') as maplibregl.GeoJSONSource | undefined;
+          if (existing) {
+            existing.setData(data);
+            return;
+          }
+          map.addSource('fix-line', { type: 'geojson', data });
+          map.addLayer({
+            id: 'fix-line',
+            type: 'line',
+            source: 'fix-line',
+            paint: { 'line-color': '#3884ff', 'line-width': 2.5, 'line-opacity': 0.9 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+          });
+        };
+        if (map.isStyleLoaded()) draw();
+        else map.once('load', draw);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+    // Re-read on every new fix: the line grows as you move.
+  }, [tripId, fix.at]);
+
   return (
     <div className="last-fix">
-      <div className="last-fix-map" ref={mapRef} />
+      <button
+        type="button"
+        className="last-fix-map"
+        aria-label="Punten van vandaag op de kaart"
+        ref={mapRef}
+        onClick={onOpenMap}
+      />
       <div className="last-fix-body">
         <strong className="last-fix-place">
           <span className="tracking-live-dot" />

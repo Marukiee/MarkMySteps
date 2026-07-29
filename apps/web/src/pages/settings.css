@@ -1328,9 +1328,22 @@
   width: 96px;
   flex-shrink: 0;
   min-height: 96px;
+  padding: 0;
+  border: none;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--shadow-s);
+  cursor: pointer;
+  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease);
+}
+
+/* It opens the full points view, so it should read as something you can press. */
+.last-fix-map:hover {
+  box-shadow: var(--shadow-m);
+}
+
+.last-fix-map:active {
+  transform: scale(0.97);
 }
 
 /* The canvas is composited on the GPU, so the parent's overflow can't round it. */

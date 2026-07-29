@@ -76,15 +76,18 @@ export function TripsPage() {
 
   return (
     <main className="page fade-in trips-page">
-      <GlobeBackdrop trips={trips ?? []} selfLocation={self} />
-
-      {/* The wordmark belongs at the top left of the first screen you see. On a
-          wide window the top bar already carries it, so this row only shows
-          where that bar is gone (phone, and the app). */}
-      <span className="trips-brand" aria-label="MarkMySteps">
-        <LogoMark size={28} />
-        <span>MarkMySteps</span>
-      </span>
+      {/* The wordmark sits in the globe's own box, which is the thing that
+          actually reaches the top of the screen — positioning it against the
+          page put it below the page's padding instead. On a wide window the top
+          bar already carries the brand, so this only shows where that bar is
+          gone (phone, and the app). */}
+      <div className="trips-globe">
+        <GlobeBackdrop trips={trips ?? []} selfLocation={self} />
+        <span className="trips-brand" aria-label="MarkMySteps">
+          <LogoMark size={28} />
+          <span>MarkMySteps</span>
+        </span>
+      </div>
 
       <div className="trips-head">
         <h1>Reizen</h1>
@@ -199,6 +202,7 @@ function TripCard({
   const [menuAt, setMenuAt] = useState<{ top: number; right: number } | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [newTitle, setNewTitle] = useState(trip.title);
+  const renameRef = useRef<HTMLFormElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const isOwner = trip.ownerId === user?.id;
 
@@ -230,6 +234,23 @@ function TripCard({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuOpen]);
+
+  // Tapping anywhere else abandons a rename, the same way the ⋯ menu closes.
+  useEffect(() => {
+    if (!renaming) return;
+    const close = (e: Event) => {
+      if (!renameRef.current?.contains(e.target as Node)) cancelRename();
+    };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renaming]);
+
+  function cancelRename() {
+    setRenaming(false);
+    // Discard the half-typed title, or reopening shows it again.
+    setNewTitle(trip.title);
+  }
 
   function stop(e: MouseEvent) {
     e.stopPropagation();
@@ -362,7 +383,7 @@ function TripCard({
                     setSize(opt === 'auto' ? null : opt);
                   }}
                 >
-                  {opt === 'auto' ? 'Auto' : opt === 'large' ? 'Groot' : 'Compact'}
+                  {opt === 'auto' ? 'Auto' : opt === 'large' ? 'Groot' : 'Klein'}
                 </button>
               );
             })}
@@ -448,7 +469,7 @@ function TripCard({
         )}
         <div className="tcc-body">
           {renaming ? (
-            <form onSubmit={rename} onClick={stop} className="trip-rename">
+            <form ref={renameRef} onSubmit={rename} onClick={stop} className="trip-rename">
               <input
                 autoFocus
                 value={newTitle}
@@ -456,11 +477,22 @@ function TripCard({
                 onChange={(e) => setNewTitle(e.target.value)}
                 onKeyDown={(e) => {
                   e.stopPropagation();
-                  if (e.key === 'Escape') setRenaming(false);
+                  if (e.key === 'Escape') cancelRename();
                 }}
               />
-              <button className="btn btn-primary" type="submit">
-                OK
+              <button
+                type="button"
+                className="trip-rename-cancel"
+                aria-label="Annuleren"
+                onClick={(e) => {
+                  stop(e);
+                  cancelRename();
+                }}
+              >
+                <Icon name="close" size={16} />
+              </button>
+              <button className="btn btn-primary trip-rename-ok" type="submit">
+                <Icon name="check" size={16} />
               </button>
             </form>
           ) : (

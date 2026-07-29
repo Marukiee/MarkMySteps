@@ -21,12 +21,17 @@
   }
 }
 
+/* Wrapper whose box IS the globe's, so the brand can be pinned to its corner. */
+.trips-globe {
+  position: relative;
+}
+
 /* Same lockup as the top bar's, in the wordmark's own typeface. Pinned to the
    very top left, over the globe, where a logo belongs. */
 .trips-brand {
   display: none;
   position: absolute;
-  top: calc(0.9rem + env(safe-area-inset-top));
+  top: calc(0.7rem + env(safe-area-inset-top, 0px));
   left: 1.25rem;
   z-index: 3;
   align-items: center;
@@ -651,4 +656,45 @@
   line-height: 1;
   color: #fff;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+/* Rename box: a way out that is not the Escape key, and a confirm that matches
+   its size — the old "OK" button was wider than the field it belonged to. */
+.trip-rename {
+  align-items: center;
+  animation: renameIn 0.24s var(--ease);
+}
+
+@keyframes renameIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
+.trip-rename-cancel,
+.trip-rename-ok {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  transition: transform 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.trip-rename-cancel {
+  color: var(--ink-faint);
+  background: var(--paper-sunken);
+}
+
+.trip-rename-cancel:hover {
+  color: var(--ink);
+}
+
+.trip-rename-cancel:active,
+.trip-rename-ok:active {
+  transform: scale(0.9);
 }
