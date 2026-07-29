@@ -18,6 +18,35 @@ export interface PublicUser {
   createdAt: Date;
 }
 
+export interface Friend {
+  id: string;
+  username: string;
+  displayName: string;
+  hasAvatar: boolean;
+  /** How many trips you have been on together. */
+  sharedTrips: number;
+}
+
+/** Everything the profile screen shows about one traveller. */
+export interface TravelStats {
+  trips: number;
+  ongoing: number;
+  days: number;
+  countries: string[];
+  distanceKm: number;
+  photoCount: number;
+  recent: {
+    id: string;
+    title: string;
+    startDate: string;
+    endDate: string;
+    color: string | null;
+  }[];
+}
+
+/** Your own country doesn't count as one you visited. */
+const HOME_COUNTRY = 'NL';
+
 export interface UserSuggestion {
   id: string;
   username: string;
@@ -135,27 +164,102 @@ export class UsersService {
   }
 
   /** Everyone you share at least one trip with. Never exposes their email. */
-  async listFriends(
-    id: string,
-  ): Promise<{ id: string; username: string; displayName: string; sharedTrips: number }[]> {
+  async listFriends(id: string): Promise<Friend[]> {
     const rows = await this.prisma.tripMember.findMany({
       where: {
         userId: { not: id },
         trip: { members: { some: { userId: id } } },
       },
-      include: { user: { select: { id: true, username: true, displayName: true } } },
+      include: {
+        user: {
+          select: { id: true, username: true, displayName: true, avatarMime: true },
+        },
+      },
     });
 
-    const byUser = new Map<
-      string,
-      { id: string; username: string; displayName: string; sharedTrips: number }
-    >();
+    const byUser = new Map<string, Friend>();
     for (const row of rows) {
       const existing = byUser.get(row.userId);
-      if (existing) existing.sharedTrips++;
-      else byUser.set(row.userId, { ...row.user, sharedTrips: 1 });
+      if (existing) {
+        existing.sharedTrips++;
+        continue;
+      }
+      const { avatarMime, ...user } = row.user;
+      byUser.set(row.userId, { ...user, hasAvatar: avatarMime !== null, sharedTrips: 1 });
     }
     return [...byUser.values()].sort((a, b) => b.sharedTrips - a.sharedTrips);
+  }
+
+  /**
+   * A traveller's numbers, over every trip they are a member of.
+   *
+   * Only for people you actually travel with: someone else's history is not
+   * public just because you both have an account here. Distance and photos
+   * count that person's own contribution; days and countries count the trips
+   * they were on, because those are shared by definition.
+   */
+  async travelStats(viewerId: string, targetId: string): Promise<TravelStats> {
+    if (viewerId !== targetId) {
+      const shared = await this.prisma.tripMember.count({
+        where: { userId: targetId, trip: { members: { some: { userId: viewerId } } } },
+      });
+      if (shared === 0) throw new NotFoundException('User not found');
+    }
+
+    const trips = await this.prisma.trip.findMany({
+      where: { members: { some: { userId: targetId } } },
+      select: {
+        id: true,
+        title: true,
+        startDate: true,
+        endDate: true,
+        color: true,
+        stops: { select: { countryCode: true } },
+      },
+      orderBy: { startDate: 'desc' },
+    });
+
+    const [distanceRow] = await this.prisma.$queryRaw<{ meters: number | null }[]>`
+      SELECT SUM(len) AS meters FROM (
+        SELECT ST_Length(ST_MakeLine(geom ORDER BY "recordedAt")::geography) AS len
+        FROM location_points
+        WHERE "userId" = ${targetId}::uuid
+        GROUP BY "tripId"
+      ) x
+    `;
+    const photoCount = await this.prisma.mediaRef.count({ where: { userId: targetId } });
+
+    const countries = new Set<string>();
+    let days = 0;
+    let ongoing = 0;
+    const today = new Date().toISOString().slice(0, 10);
+    for (const trip of trips) {
+      for (const stop of trip.stops) {
+        const code = stop.countryCode?.toUpperCase();
+        if (code && code !== HOME_COUNTRY) countries.add(code);
+      }
+      days +=
+        Math.round((trip.endDate.getTime() - trip.startDate.getTime()) / 86_400_000) + 1;
+      const from = trip.startDate.toISOString().slice(0, 10);
+      const to = trip.endDate.toISOString().slice(0, 10);
+      if (from <= today && to >= today) ongoing += 1;
+    }
+
+    return {
+      trips: trips.length,
+      ongoing,
+      days,
+      countries: [...countries].sort(),
+      distanceKm: Math.round((distanceRow?.meters ?? 0) / 1000),
+      photoCount,
+      recent: trips.slice(0, 5).map((t) => ({
+        id: t.id,
+        title: t.title,
+        startDate: t.startDate.toISOString().slice(0, 10),
+        endDate: t.endDate.toISOString().slice(0, 10),
+        color: t.color,
+      })),
+    };
   }
 
   /**

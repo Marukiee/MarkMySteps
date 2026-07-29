@@ -200,7 +200,9 @@ export function GlobeBackdrop({
 
     const projection = geoOrthographic().clipAngle(90);
     const path = geoPath(projection, ctx);
-    const CENTER_LAT = 32; // lift the framing to Europe so Africa isn't dominant
+    // Lifts the framing toward Europe so Africa isn't dominant. Raised a touch
+    // when the bottom fade got shorter: the sphere sat low in what was left.
+    const CENTER_LAT = 27;
 
     function draw() {
       const w = canvas!.width;

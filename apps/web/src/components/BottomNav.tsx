@@ -40,7 +40,7 @@ export function BottomNav() {
       </Link>
       <Link to="/friends" className={friendsActive ? 'active' : ''}>
         {ICONS.friends}
-        <span>Vrienden</span>
+        <span>Reizigers</span>
       </Link>
       <Link to="/settings" className={settingsActive ? 'active' : ''}>
         {ICONS.settings}

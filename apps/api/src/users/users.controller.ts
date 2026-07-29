@@ -23,7 +23,7 @@ import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ChangePasswordDto, UpdateProfileDto } from './dto/profile.dto';
-import { PublicUser, UserSuggestion, UsersService } from './users.service';
+import { PublicUser, TravelStats, UserSuggestion, UsersService } from './users.service';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -89,6 +89,18 @@ export class UsersController {
     res.setHeader('Content-Type', mime);
     res.setHeader('Cache-Control', 'private, max-age=3600');
     res.end(buffer);
+  }
+
+  /**
+   * A traveller's numbers. Your own, or someone you actually travel with —
+   * the service refuses anyone else.
+   */
+  @Get(':id/stats')
+  stats(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TravelStats> {
+    return this.users.travelStats(user.sub, id);
   }
 
   @Get('friends')

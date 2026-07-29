@@ -32,7 +32,7 @@
   display: none;
   position: absolute;
   top: calc(0.7rem + env(safe-area-inset-top, 0px));
-  left: 0.9rem;
+  left: 0.5rem;
   z-index: 3;
   align-items: center;
   gap: 0.45rem;

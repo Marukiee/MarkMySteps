@@ -101,6 +101,8 @@
 
 .lm-scroll {
   overflow-y: auto;
+  /* Nothing here may make the sheet scroll sideways. */
+  overflow-x: hidden;
   /* The last section used to stop right at the fold; this gives it somewhere
      to scroll to. */
   padding: 0.8rem 1.35rem 1.6rem;
@@ -146,7 +148,7 @@
 }
 
 .lm-group-title.lm-no {
-  color: var(--ink-faint);
+  color: var(--accent-ink);
 }
 
 .lm-list {
@@ -193,24 +195,61 @@
 }
 
 .lm-icon-no {
-  background: var(--paper-sunken);
-  color: var(--ink-faint);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
 }
 
 .lm-later {
-  display: grid;
-  gap: 0.6rem;
-  padding: 1rem 1.1rem;
   border-radius: var(--radius-m);
-  background: var(--accent-soft);
+  background: var(--paper-sunken);
+  overflow: hidden;
 }
 
-.lm-later h3 {
-  display: inline-flex;
+.lm-later-head {
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 1rem;
-  color: var(--accent-ink);
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 560;
+  color: var(--ink);
+  text-align: left;
+}
+
+.lm-later-head > span {
+  flex: 1;
+}
+
+.lm-later-caret {
+  color: var(--ink-faint);
+  transition: transform 0.26s var(--ease);
+}
+
+.lm-later.open .lm-later-caret {
+  transform: rotate(90deg);
+}
+
+/* 0fr → 1fr, so it folds rather than jumping open. */
+.lm-later-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.32s var(--ease), opacity 0.24s var(--ease);
+  opacity: 0;
+}
+
+.lm-later.open .lm-later-body {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.lm-later-body > div {
+  overflow: hidden;
+  min-height: 0;
+  display: grid;
+  gap: 0.6rem;
+  padding: 0 1.1rem 1rem;
 }
 
 .lm-steps {
@@ -228,10 +267,11 @@
   padding: 0.35rem 0.5rem;
   border-radius: 8px;
   background: var(--paper-raised);
-  font-size: 0.8em;
-  /* A git URL is longer than the sheet is wide. */
-  overflow-x: auto;
-  white-space: nowrap;
+  font-size: 0.78em;
+  /* A git URL is longer than the sheet is wide. Wrapping it keeps the sheet
+     from scrolling sideways, which is worse than a two-line command. */
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 /* "Instellingen › Profiel", the same shape the settings pages use. */

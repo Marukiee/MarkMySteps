@@ -44,7 +44,7 @@ export function TopBar() {
         </NavLink>
         <NavLink to="/friends">
           <Icon name="people" size={16} />
-          Vrienden
+          Reizigers
         </NavLink>
         <NavLink to="/settings">
           <Icon name="settings" size={16} />

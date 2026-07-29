@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { LiveFix, MediaItem, RouteCollection, Trip } from '../api/types';
@@ -632,10 +633,11 @@ export function TripDetailPage() {
       <aside className="trip-side" ref={sideRef}>
         <div className="sheet-grab" aria-hidden="true" />
 
-        {/* Sits between the map and the timeline, so it never covers a photo.
-            Appears once you are far enough down that scrolling back is a chore,
-            and takes the map's camera back to the whole trip with it. */}
-        {backTopShown && (
+        {/* Portalled out of the side column on purpose: that column sets its
+            own z-index, which makes it a stacking context, and no z-index
+            inside it can beat the map panel above. */}
+        {backTopShown &&
+          createPortal(
           <button
             type="button"
             className={`trip-backtop ${backTopClosing ? 'leaving' : ''}`}
@@ -650,7 +652,8 @@ export function TripDetailPage() {
             }}
           >
             <Icon name="chevron-down" size={20} />
-          </button>
+          </button>,
+          document.body,
         )}
         {/* One header block: cover photo, title, dates and the trip's numbers —
             rather than a photo followed by a row of separate stat boxes. */}
@@ -688,7 +691,10 @@ export function TripDetailPage() {
         </div>
         {trip?.description && <p>{trip.description}</p>}
 
-        <div className="side-tabs" role="tablist">
+        <div className="side-tabs" role="tablist" data-tab={tab}>
+          {/* One pill that slides between the two, so switching reads as a
+              movement rather than two separate repaints. */}
+          <span className="side-tabs-thumb" aria-hidden="true" />
           <button
             className={tab === 'timeline' ? 'active' : ''}
             role="tab"

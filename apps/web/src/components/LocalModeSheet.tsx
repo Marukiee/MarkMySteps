@@ -59,6 +59,55 @@ const NEEDS_SERVER: Feature[] = [
 ];
 
 /**
+ * How to put a server behind this later.
+ *
+ * Exported because it is also the answer to "how do I get back?" once you are
+ * already running without one, so the settings show the same thing.
+ */
+export function ServerSteps({ defaultOpen = false }: { defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className={`lm-later ${open ? 'open' : ''}`}>
+      <button type="button" className="lm-later-head" onClick={() => setOpen((v) => !v)}>
+        <Icon name="external" size={16} />
+        <span>Later alsnog een server?</span>
+        <Icon name="chevron-right" size={16} className="lm-later-caret" />
+      </button>
+      <div className="lm-later-body">
+        <div>
+          <p className="muted lm-note">
+            Een server is gewoon een computer die altijd aan staat. Een oude laptop met Linux en
+            Docker werkt prima; een Raspberry Pi of een NAS ook.
+          </p>
+          <ol className="lm-steps">
+            <li>
+              Installeer Docker op dat toestel en haal de code op:
+              <code>git clone https://github.com/Marukiee/MarkMySteps.git</code>
+            </li>
+            <li>
+              Draai in die map <code>./install.sh</code>. Dat vraagt om het adres waarop je de app
+              wilt bereiken en zet daarna alles zelf klaar.
+            </li>
+            <li>Maak op dat adres een account aan. Vanaf dan kun je ook mensen uitnodigen.</li>
+            <li>
+              Ga in de app naar
+              <span className="lm-path">
+                Instellingen <Icon name="chevron-right" size={12} /> Profiel
+              </span>
+              , kies <strong>Server koppelen</strong> en vul dat adres in.
+            </li>
+          </ol>
+          <p className="muted lm-note">
+            Je reizen gaan in één keer mee. Je hoeft niets opnieuw in te voeren, en je kunt ook
+            weer terug: een server loskoppelen laat alles gewoon op je toestel staan.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
  * The "no server" explainer, opened from the login screen.
  *
  * The honest version: what you keep, what you give up, and that the choice is
@@ -159,39 +208,7 @@ export function LocalModeSheet({
             </ul>
           </section>
 
-          <section className="lm-later">
-            <h3>
-              <Icon name="external" size={16} /> Later alsnog een server?
-            </h3>
-            <p className="muted lm-note">
-              Een server is gewoon een computer die altijd aan staat. Een oude laptop met Linux en
-              Docker werkt prima; een Raspberry Pi of een NAS ook.
-            </p>
-            <ol className="lm-steps">
-              <li>
-                Installeer Docker op dat toestel en haal de code op:
-                <code>git clone https://github.com/Marukiee/MarkMySteps.git</code>
-              </li>
-              <li>
-                Draai in die map <code>./install.sh</code>. Dat vraagt om het adres waarop je de app
-                wilt bereiken en zet daarna alles zelf klaar.
-              </li>
-              <li>
-                Maak op dat adres een account aan. Vanaf dat moment kun je ook mensen uitnodigen.
-              </li>
-              <li>
-                Ga in de app naar
-                <span className="lm-path">
-                  Instellingen <Icon name="chevron-right" size={12} /> Profiel
-                </span>
-                , kies <strong>Server koppelen</strong> en vul dat adres in.
-              </li>
-            </ol>
-            <p className="muted lm-note">
-              Je reizen gaan in één keer mee. Je hoeft niets opnieuw in te voeren, en je kunt ook
-              weer terug: een server loskoppelen laat alles gewoon op je toestel staan.
-            </p>
-          </section>
+          <ServerSteps />
         </div>
 
         <footer className="lm-actions">

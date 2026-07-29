@@ -13,6 +13,7 @@ import { Avatar, bumpAvatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
 import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
+import { ServerSteps } from '../components/LocalModeSheet';
 import { LogoMark } from '../components/Logo';
 import { TrackPointsEditor } from '../components/TrackPointsEditor';
 import {
@@ -1282,6 +1283,9 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
           </a>
         </li>
       </ul>
+      {/* Without a server, this is also the answer to "how do I get back?" —
+          so it lives where you would go looking for it. */}
+      {isLocalMode() && <ServerSteps />}
       {isNativeApp() && <UpdateCheck />}
       {hint && <span className="muted">{hint}</span>}
     </section>
