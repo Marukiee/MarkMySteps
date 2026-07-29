@@ -6,6 +6,12 @@ import { AirportPrefs } from '../components/AirportPrefs';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon, IconName } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
+import {
+  GalleryPermissions,
+  galleryPermissions,
+  requestGalleryPermission,
+} from '../lib/gallery';
+import { isLocalMode } from '../lib/localMode';
 import { isNativeApp, markOnboarded } from '../lib/native';
 import { getThemeId, setThemeId, ThemeId } from '../lib/prefs';
 import './onboarding.css';
@@ -128,12 +134,27 @@ export function OnboardingPage() {
     notifications: false,
   });
   const [denied, setDenied] = useState<Partial<Record<keyof PermissionStatus, boolean>>>({});
+  // Only asked for without a server: with one, the photos come from Immich and
+  // nothing about this flow changes.
+  const localOnly = isApp && isLocalMode();
+  const [gallery, setGallery] = useState<GalleryPermissions>({ library: false, location: false });
+  const [galleryAsked, setGalleryAsked] = useState(false);
 
   // Reflect what is already granted (re-running the tour, or a partial answer).
   useEffect(() => {
     if (!isApp) return;
     void MmsLocation.permissionStatus().then(setPerms).catch(() => undefined);
   }, [isApp]);
+
+  useEffect(() => {
+    if (!localOnly) return;
+    void galleryPermissions().then(setGallery).catch(() => undefined);
+  }, [localOnly]);
+
+  async function askGallery() {
+    setGallery(await requestGalleryPermission());
+    setGalleryAsked(true);
+  }
 
   async function ask(type: keyof PermissionStatus) {
     try {
@@ -295,6 +316,42 @@ export function OnboardingPage() {
               </button>
             )}
           </div>,
+          ...(localOnly
+            ? [
+                <div className="onb-feature" key="gallery">
+                  <span className="onb-visual">
+                    <Icon name="camera" size={54} />
+                  </span>
+                  <h1>Je foto's</h1>
+                  <p className="muted">
+                    Zonder server komen je foto's uit de galerij van je toestel. Ze blijven waar ze
+                    staan: de app leest ze alleen, en er gaat niets naar buiten.
+                  </p>
+                  <p className="muted">
+                    Android geeft de locatie in een foto pas vrij met een aparte toestemming. Zonder
+                    die tweede vraag krijg je je foto's wél te zien, maar komen ze niet op de kaart.
+                  </p>
+                  <div className={`onb-perm ${gallery.library ? 'granted' : ''}`}>
+                    <button className="btn btn-primary onb-ask" onClick={() => void askGallery()}>
+                      Toegang tot foto's
+                    </button>
+                    <p className="onb-ok">
+                      <Icon name="check" size={18} /> Toegang gegeven
+                    </p>
+                  </div>
+                  {gallery.library && !gallery.location && (
+                    <p className="error-text">
+                      Locatie in foto's geweigerd. Je foto's komen dan niet op de kaart te staan.
+                    </p>
+                  )}
+                  {galleryAsked && !gallery.library && (
+                    <p className="error-text">
+                      Geweigerd. Je kunt dit later aanzetten via Instellingen.
+                    </p>
+                  )}
+                </div>,
+              ]
+            : []),
           <div className="onb-feature" key="notifs">
             <span className="onb-visual">
               <Icon name="bell" size={54} />
