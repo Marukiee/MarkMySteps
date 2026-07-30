@@ -192,6 +192,31 @@ export function GlobeBackdrop({
     const stopReveal = new Map<string, number>();
     /** Where the travelling light is right now, for the dots to react to. */
     let headGeo: [number, number] | null = null;
+    /**
+     * Every vertex of the active trip's journey with how far into it it lies.
+     *
+     * A dot lights up when the light REACHES it, which is a question about
+     * distance along the journey and not about distance across the map. Asking
+     * the map instead lit places the route happens to pass near — a city later
+     * in the trip, flared while the light was still four stops away, because a
+     * flight went over it.
+     */
+    let journeyMarks: { p: [number, number]; d: number }[] | null = null;
+    /** How far into the journey a dot sits, or null if it is not on it. */
+    const journeyDistOf = (p: [number, number]): number | null => {
+      if (!journeyMarks) return null;
+      let best = Infinity;
+      let at: number | null = null;
+      for (const mark of journeyMarks) {
+        const d = distance(mark.p, p);
+        if (d < best) {
+          best = d;
+          at = mark.d;
+        }
+      }
+      // Far from every point of the journey: not a place this trip went.
+      return best <= 1.2 ? at : null;
+    };
     /** The plane's heading, eased so it never twitches. Null while on the ground. */
     let planeAngle: number | null = null;
     /**
@@ -245,7 +270,8 @@ export function GlobeBackdrop({
         flares.set(key, holdPulse);
         return holdPulse;
       }
-      const near = headGeo ? Math.max(0, 1 - distance(headGeo, p) / 2.6) : 0;
+      const mark = headGeo ? journeyDistOf(p) : null;
+      const near = mark === null ? 0 : Math.max(0, 1 - Math.abs(glowDist - mark) / 2.2);
       const lit = Math.max((flares.get(key) ?? 0) * Math.pow(0.05, dt), near * near);
       if (lit < 0.004) flares.delete(key);
       else flares.set(key, lit);
@@ -491,6 +517,22 @@ export function GlobeBackdrop({
       ctx!.fillStyle = dark ? '#2d3742' : '#d8c9ad';
       ctx!.fill();
 
+      // Where the middle of the disc is, so a flight can be lifted off the
+      // surface: an orthographic point at height R sits R times as far from the
+      // centre, which is the whole trick.
+      const discX = w / 2;
+      const discY = h / 2 + inset;
+      const flightPoint = (
+        p: [number, number],
+        t: number,
+        arcDeg: number,
+      ): [number, number] | null => {
+        const pr = projection(p);
+        if (!pr) return null;
+        const lift = flightLift(t, arcDeg);
+        return [discX + (pr[0] - discX) * lift, discY + (pr[1] - discY) * lift];
+      };
+
       // A jump longer than this within a route line is treated as an (unmarked)
       // flight, so photos NL→Rome draw a flight bow, not a straight blue line.
       const FLIGHT_DEG = 6; // ~660 km
@@ -590,8 +632,21 @@ export function GlobeBackdrop({
         ctx!.strokeStyle = dark
           ? `rgba(165,175,187,${0.9 * (0.3 + 0.7 * stand)})`
           : `rgba(105,115,128,${0.85 * (0.3 + 0.7 * stand)})`;
+        const arc = greatCircle(start, end);
+        const arcDeg = distance(start, end);
         ctx!.beginPath();
-        path({ type: 'LineString', coordinates: greatCircle(start, end) } as GeoPermissibleObjects);
+        let pen = false;
+        for (let i = 0; i < arc.length; i++) {
+          const sp = flightPoint(arc[i]!, i / (arc.length - 1), arcDeg);
+          if (!sp) {
+            // Round the back of the globe: pick the line up again on the far side.
+            pen = false;
+            continue;
+          }
+          if (pen) ctx!.lineTo(sp[0], sp[1]);
+          else ctx!.moveTo(sp[0], sp[1]);
+          pen = true;
+        }
         ctx!.stroke();
       }
       ctx!.setLineDash([]);
@@ -910,10 +965,36 @@ export function GlobeBackdrop({
       }
 
       inFlight = null;
+      journeyMarks = null;
       if (activeId) {
         const act = trips.find((t) => t.id === activeId);
         const legs = act ? journeyLegs(act) : [];
         const total = legs.reduce((sum, leg) => sum + leg.len, 0);
+
+        // The journey laid out as points with their distance into it, so a dot
+        // can be asked how far along it sits rather than how near it looks.
+        const marks: { p: [number, number]; d: number }[] = [];
+        let walkedSoFar = 0;
+        for (const leg of legs) {
+          if (leg.kind === 'ground') {
+            // A recorded route can be hundreds of points, and every dot on the
+            // globe asks this list a question every frame. One in every few is
+            // plenty to place a dot along a line.
+            const step = Math.max(1, Math.ceil(leg.pts.length / 120));
+            for (let i = 0; i < leg.pts.length; i += step) {
+              marks.push({ p: leg.pts[i]!, d: walkedSoFar + leg.cum[i]! });
+            }
+            marks.push({
+              p: leg.pts[leg.pts.length - 1]!,
+              d: walkedSoFar + leg.len,
+            });
+          } else {
+            marks.push({ p: leg.a, d: walkedSoFar });
+            marks.push({ p: leg.b, d: walkedSoFar + leg.len });
+          }
+          walkedSoFar += leg.len;
+        }
+        journeyMarks = marks;
 
         /**
          * Where the head is, `d` degrees into the journey: on the ground a point
@@ -959,16 +1040,17 @@ export function GlobeBackdrop({
                 leg: i,
               };
             }
-            // The same great circle the arc is drawn along, so the plane is on
-            // the line you can see rather than on a second one of its own.
+            // The same lifted great circle the arc is drawn along, so the
+            // plane is on the line you can see rather than on a second one of
+            // its own — and it flies at the same height the arc is drawn at.
             const along = geoInterpolate(leg.a, leg.b);
             const geo = along(f) as [number, number];
-            const pr = projection(geo);
+            const pr = flightPoint(geo, f, leg.len);
             if (!pr) return { geo, screen: null, angle: 0, flying: true, f, leg: i };
             // Heading from a step further along the same curve — the tangent of
             // a projected arc is not something to work out analytically.
-            const ahead = projection(along(Math.min(1, f + 0.01)) as [number, number]);
-            const behind = projection(along(Math.max(0, f - 0.01)) as [number, number]);
+            const ahead = flightPoint(along(Math.min(1, f + 0.01)) as [number, number], Math.min(1, f + 0.01), leg.len);
+            const behind = flightPoint(along(Math.max(0, f - 0.01)) as [number, number], Math.max(0, f - 0.01), leg.len);
             const angle =
               ahead && behind ? Math.atan2(ahead[1] - behind[1], ahead[0] - behind[0]) : 0;
             return { geo, screen: [pr[0], pr[1]], angle, flying: true, f, leg: i };
@@ -1002,11 +1084,15 @@ export function GlobeBackdrop({
           for (let i = 0; i < legs.length - 1; i++) {
             walked += legs[i]!.len;
             if (legs[i + 1]!.len <= 0.25) continue;
-            // Changing planes is not arriving somewhere. Keflavík on the way to
-            // New York is an hour in a terminal, not a place you went — but the
-            // plane does touch down, so the light pauses for a beat rather than
-            // either stopping properly or sailing straight through.
-            const layover = legs[i]!.kind === 'flight' && legs[i + 1]!.kind === 'flight';
+            // Changing planes is not arriving somewhere: Keflavík on the way to
+            // New York is an hour in a terminal. The plane does touch down
+            // though, so it pauses for a beat rather than sailing through.
+            //
+            // Only a change of planes INSIDE one flight counts. "Two flights in
+            // a row" also describes Krakau to Praag to Schiphol, where Praag is
+            // a city you stayed in — and it was getting the layover's beat.
+            const here = legs[i]!;
+            const layover = here.kind === 'flight' && here.layoverAfter;
             arrivals.push({ at: walked, ms: layover ? LAYOVER_MS : DWELL_MS });
           }
 
@@ -1191,9 +1277,10 @@ export function GlobeBackdrop({
       if (landing) {
         landing.f = Math.min(1, landing.f + landing.rate * dt);
         const along = geoInterpolate(landing.a, landing.b);
+        const arcDeg = distance(landing.a, landing.b);
         const geo = along(landing.f) as [number, number];
         if (!center || distance(center, geo) <= 90) {
-          const pr = projection(geo);
+          const pr = flightPoint(geo, landing.f, arcDeg);
           if (pr) {
             // A stub of contrail behind it, so it is flying rather than sliding.
             const tail = 0.06;
@@ -1203,8 +1290,8 @@ export function GlobeBackdrop({
               const back = landing.f - (tail * i) / 6;
               const next = landing.f - (tail * (i - 1)) / 6;
               if (back < 0) break;
-              const p1 = projection(along(back) as [number, number]);
-              const p2 = projection(along(next) as [number, number]);
+              const p1 = flightPoint(along(back) as [number, number], back, arcDeg);
+              const p2 = flightPoint(along(next) as [number, number], next, arcDeg);
               if (!p1 || !p2) continue;
               const fade = 1 - i / 6;
               ctx!.strokeStyle = dark
@@ -1215,8 +1302,10 @@ export function GlobeBackdrop({
               ctx!.lineTo(p2[0], p2[1]);
               ctx!.stroke();
             }
-            const ahead = projection(along(Math.min(1, landing.f + 0.01)) as [number, number]);
-            const behind = projection(along(Math.max(0, landing.f - 0.01)) as [number, number]);
+            const aheadT = Math.min(1, landing.f + 0.01);
+            const behindT = Math.max(0, landing.f - 0.01);
+            const ahead = flightPoint(along(aheadT) as [number, number], aheadT, arcDeg);
+            const behind = flightPoint(along(behindT) as [number, number], behindT, arcDeg);
             const angle =
               ahead && behind ? Math.atan2(ahead[1] - behind[1], ahead[0] - behind[0]) : 0;
             const ends = Math.min(landing.f, 1 - landing.f);
@@ -1476,7 +1565,20 @@ function roundRect(
 /** One leg of a journey: a stretch on the ground, or one hop through the air. */
 type Leg =
   | { kind: 'ground'; pts: [number, number][]; cum: number[]; len: number }
-  | { kind: 'flight'; a: [number, number]; b: [number, number]; len: number };
+  | {
+      kind: 'flight';
+      a: [number, number];
+      b: [number, number];
+      len: number;
+      /**
+       * True when this hop ends at a layover — an airport inside one flight's
+       * itinerary, where you change planes. Praag on a Krakau–Praag–Schiphol
+       * trip is NOT one of these: it is three separate flights with a stay in
+       * between, and the difference is whether the two hops came out of the
+       * same itinerary or out of two different stops.
+       */
+      layoverAfter: boolean;
+    };
 
 /** Two points count as the same place when handing one leg over to the next. */
 const LEG_JOIN_DEG = 0.8;
@@ -1513,22 +1615,37 @@ function stitch(legs: Leg[]): Leg[] {
 }
 
 /**
- * The path a plane actually takes, as points on the sphere.
+ * A flight's path, as points on the sphere.
  *
- * This used to be a quadratic curve drawn in screen space, bulging to whichever
- * side the maths landed on. Two problems with that: the side is decided from
- * screen coordinates, so turning the globe eventually flipped the arc to the
- * other side of the line in one frame; and the light travelling the flight
- * computed its own curve, which did not always come out as the one drawn — two
- * arcs between the same two cities, taking different routes. A great circle has
- * neither problem. It is also the truth: it is the way the plane went.
+ * The route itself is the great circle between the two airports — the way the
+ * plane went. It used to be a quadratic curve drawn in screen space, bulging to
+ * whichever side the maths landed on, which turning the globe eventually
+ * flipped across the line in one frame, and which the travelling light copied
+ * imperfectly, giving two different arcs between the same two cities.
  */
 function greatCircle(a: [number, number], b: [number, number]): [number, number][] {
   const along = geoInterpolate(a, b);
-  const steps = Math.max(12, Math.min(64, Math.round(distance(a, b) * 1.4)));
+  const steps = Math.max(16, Math.min(64, Math.round(distance(a, b) * 1.4)));
   const points: [number, number][] = [];
   for (let i = 0; i <= steps; i++) points.push(along(i / steps) as [number, number]);
   return points;
+}
+
+/**
+ * How high above the surface a flight flies, at `t` along its leg.
+ *
+ * A great circle drawn flat on an orthographic globe is nearly a straight line,
+ * which is honest and reads as nothing at all: the flights stopped looking like
+ * flights. So the arc is lifted off the surface, highest in the middle, and the
+ * projection does the rest — an orthographic point at radius R sits R times as
+ * far from the centre of the disc, so height turns into exactly the bow you
+ * would see looking at a real one from space. It cannot flip, because there is
+ * no side to it: it is up.
+ *
+ * Longer flights climb higher, the way they do.
+ */
+function flightLift(t: number, arcDeg: number): number {
+  return 1 + (0.05 + 0.13 * Math.min(1, arcDeg / 70)) * Math.sin(Math.PI * t);
 }
 
 /** A stretch on the ground, with the distance to each vertex measured out. */
@@ -1565,7 +1682,13 @@ function journeyLegs(trip: GlobeTrip): Leg[] {
         for (let i = 1; i < leg.points.length; i++) {
           const a = leg.points[i - 1]!;
           const b = leg.points[i]!;
-          ordered.push({ kind: 'flight', a, b, len: distance(a, b) });
+          ordered.push({
+            kind: 'flight',
+            a,
+            b,
+            len: distance(a, b),
+            layoverAfter: i < leg.points.length - 1,
+          });
         }
         continue;
       }
@@ -1586,7 +1709,13 @@ function journeyLegs(trip: GlobeTrip): Leg[] {
     for (let i = 1; i < itinerary.length; i++) {
       const a = itinerary[i - 1]!;
       const b = itinerary[i]!;
-      legs.push({ kind: 'flight', a, b, len: distance(a, b) });
+      legs.push({
+        kind: 'flight',
+        a,
+        b,
+        len: distance(a, b),
+        layoverAfter: i < itinerary.length - 1,
+      });
     }
   }
   if (legs.length <= 1) return legs;
