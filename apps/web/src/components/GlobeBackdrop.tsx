@@ -1,4 +1,4 @@
-import { geoOrthographic, geoPath, GeoPermissibleObjects } from 'd3-geo';
+import { geoInterpolate, geoOrthographic, geoPath, GeoPermissibleObjects } from 'd3-geo';
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as topojson from 'topojson-client';
@@ -117,7 +117,7 @@ export function GlobeBackdrop({
       const custom = new Map(tripsRef.current.map((t) => [t.id, t.color ?? null]));
       for (const t of list) {
         const c = custom.get(t.id);
-        t.color = c ? hexToRgb(c) : autoColor(colorIdx.get(t.id) ?? 0);
+        t.color = c ? hexToRgb(c) : autoColor(colorIdx.get(t.id) ?? 0, list.length);
       }
       // Biggest trips first — they get labelled first / at the lowest zoom.
       return list.sort((a, b) => b.size - a.size);
@@ -168,6 +168,8 @@ export function GlobeBackdrop({
      *  again whenever the list came back in a different order, which showed the
      *  same trip twice. */
     let lastFocusId: string | null = null;
+    /** Trips still to be shown this round, shuffled. Refilled when it runs out. */
+    let tourQueue: string[] = [];
     // Velocities for the camera springs (see easeTo). A plain lerp starts at
     // full speed, which is what made zooming out feel abrupt; a critically
     // damped spring starts from rest and settles without overshooting.
@@ -199,18 +201,36 @@ export function GlobeBackdrop({
      * them rather than as arriving. Long enough for the dot to throw two rings.
      */
     const DWELL_MS = 1900;
+    /** A layover: the plane touches down, but nobody gets off. */
+    const LAYOVER_MS = 450;
     let holdUntil = 0;
+    /** How long the wait in progress lasts, so the rings fit inside it. */
+    let holdMs = DWELL_MS;
     let holdSince = 0;
     let holdPoint: [number, number] | null = null;
     /** Falls 1 → 0 twice over a wait, which is what makes the two rings. */
     let holdPulse = 0;
     /** Whose journey the light is currently running, so a change can restart it. */
     let glowTripId: string | null = null;
-    /** A trip whose plane is still finishing its leg after you looked away. */
-    let landingId: string | null = null;
-    let landingTarget = 0;
-    /** Where the leg being flown ends, while one is being flown. */
-    let flightEndsAt: number | null = null;
+    /**
+     * A plane still in the air over a trip nobody is watching any more.
+     *
+     * Look away mid-flight — tap another trip, or tap nothing — and the plane
+     * finishes its leg and lands. It keeps flying on its own from here, so it
+     * does not matter that the light has already moved on to another journey;
+     * two things are simply in the air at once, which is what would be true.
+     */
+    type Landing = {
+      col: [number, number, number];
+      a: [number, number];
+      b: [number, number];
+      /** How far along, and how much of that it covers per second. */
+      f: number;
+      rate: number;
+    };
+    let landing: Landing | null = null;
+    /** The flight under way this frame, ready to be handed over as a landing. */
+    let inFlight: Landing | null = null;
     /** Per dot: how brightly it is still lit after the light went past. */
     const flares = new Map<string, number>();
     /**
@@ -328,13 +348,24 @@ export function GlobeBackdrop({
             // Entering a focus: frame the next trip (biggest first). A stale tap
             // selection is cleared so the tour can highlight this one.
             tourPhase = 1;
-            // Step to the next trip by id, so a reordered list cannot land on
-            // the one just shown.
-            const at = trips.findIndex((t) => t.id === lastFocusId);
-            tourIdx = trips.length > 1 ? (at + 1) % trips.length : 0;
-            if (trips.length > 1 && trips[tourIdx]!.id === lastFocusId) {
-              tourIdx = (tourIdx + 1) % trips.length;
+            // Shuffled rather than in order: the same trips in the same
+            // sequence every time made the globe feel like a slideshow with a
+            // fixed running order. Each round is a fresh shuffle of whatever
+            // trips there are now, and it never opens with the one it just
+            // closed with.
+            if (tourQueue.length === 0) {
+              tourQueue = trips.map((t) => t.id);
+              for (let i = tourQueue.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [tourQueue[i], tourQueue[j]] = [tourQueue[j]!, tourQueue[i]!];
+              }
+              if (tourQueue.length > 1 && tourQueue[0] === lastFocusId) {
+                [tourQueue[0], tourQueue[1]] = [tourQueue[1]!, tourQueue[0]!];
+              }
             }
+            const nextId = tourQueue.shift()!;
+            const found = trips.findIndex((t) => t.id === nextId);
+            tourIdx = found >= 0 ? found : 0;
             lastFocusId = trips[tourIdx]!.id;
             selectedId = null;
             glowDist = 0;
@@ -559,23 +590,8 @@ export function GlobeBackdrop({
         ctx!.strokeStyle = dark
           ? `rgba(165,175,187,${0.9 * (0.3 + 0.7 * stand)})`
           : `rgba(105,115,128,${0.85 * (0.3 + 0.7 * stand)})`;
-        const a = projection(start);
-        const b = projection(end);
-        if (!a || !b) continue;
-        const dx = b[0] - a[0];
-        const dy = b[1] - a[1];
-        const len = Math.hypot(dx, dy);
-        if (len < 2) continue;
-        const off = Math.min(len * 0.22, 70 * dpr);
-        let px = dy / len;
-        let py = -dx / len;
-        if (py > 0) {
-          px = -px;
-          py = -py;
-        }
         ctx!.beginPath();
-        ctx!.moveTo(a[0], a[1]);
-        ctx!.quadraticCurveTo((a[0] + b[0]) / 2 + px * off, (a[1] + b[1]) / 2 + py * off, b[0], b[1]);
+        path({ type: 'LineString', coordinates: greatCircle(start, end) } as GeoPermissibleObjects);
         ctx!.stroke();
       }
       ctx!.setLineDash([]);
@@ -883,51 +899,21 @@ export function GlobeBackdrop({
       // already full; and coming back to a trip picked up mid-flight, halfway
       // across a sea, which is not where a journey begins.
       if (activeId !== glowTripId) {
-        if (activeId) {
-          glowDist = 0;
-          glowRuns = 0;
-          holdUntil = 0;
-          holdPoint = null;
-          landingId = null;
-        } else if (flightEndsAt !== null && glowTripId) {
-          // Let go of a trip mid-flight and the plane still lands: it flies on
-          // to the airport it was heading for, and stops there. Stopping dead
-          // over the sea reads as a bug, which is what it looked like.
-          landingId = glowTripId;
-          landingTarget = flightEndsAt;
-        }
+        // Whatever was in the air keeps flying, on its own, to the airport it
+        // was heading for. Cutting it off mid-ocean was the abrupt bit.
+        if (inFlight) landing = inFlight;
+        glowDist = 0;
+        glowRuns = 0;
+        holdUntil = 0;
+        holdPoint = null;
         glowTripId = activeId;
       }
 
-      const lightId = activeId ?? landingId;
-      flightEndsAt = null;
-      if (lightId) {
-        const act = trips.find((t) => t.id === lightId);
+      inFlight = null;
+      if (activeId) {
+        const act = trips.find((t) => t.id === activeId);
         const legs = act ? journeyLegs(act) : [];
         const total = legs.reduce((sum, leg) => sum + leg.len, 0);
-
-        /** The drawn bow between two airports, so the light can follow it. */
-        const bowOf = (a: [number, number], b: [number, number]) => {
-          const A = projection(a);
-          const B = projection(b);
-          if (!A || !B) return null;
-          const dx = B[0] - A[0];
-          const dy = B[1] - A[1];
-          const len = Math.hypot(dx, dy);
-          if (len < 2) return null;
-          const off = Math.min(len * 0.22, 70 * dpr);
-          let px = dy / len;
-          let py = -dx / len;
-          if (py > 0) {
-            px = -px;
-            py = -py;
-          }
-          return {
-            A: A as [number, number],
-            B: B as [number, number],
-            C: [(A[0] + B[0]) / 2 + px * off, (A[1] + B[1]) / 2 + py * off] as [number, number],
-          };
-        };
 
         /**
          * Where the head is, `d` degrees into the journey: on the ground a point
@@ -973,22 +959,19 @@ export function GlobeBackdrop({
                 leg: i,
               };
             }
-            // Straight in geographic terms (good enough to know WHERE it is and
-            // which dot it is arriving at), curved on screen (what you see).
-            const geo: [number, number] = [
-              leg.a[0] + (leg.b[0] - leg.a[0]) * f,
-              leg.a[1] + (leg.b[1] - leg.a[1]) * f,
-            ];
-            const bow = bowOf(leg.a, leg.b);
-            if (!bow) return { geo, screen: null, angle: 0, flying: true, f, leg: i };
-            const u = 1 - f;
-            const screen: [number, number] = [
-              u * u * bow.A[0] + 2 * u * f * bow.C[0] + f * f * bow.B[0],
-              u * u * bow.A[1] + 2 * u * f * bow.C[1] + f * f * bow.B[1],
-            ];
-            const tx = 2 * u * (bow.C[0] - bow.A[0]) + 2 * f * (bow.B[0] - bow.C[0]);
-            const ty = 2 * u * (bow.C[1] - bow.A[1]) + 2 * f * (bow.B[1] - bow.C[1]);
-            return { geo, screen, angle: Math.atan2(ty, tx), flying: true, f, leg: i };
+            // The same great circle the arc is drawn along, so the plane is on
+            // the line you can see rather than on a second one of its own.
+            const along = geoInterpolate(leg.a, leg.b);
+            const geo = along(f) as [number, number];
+            const pr = projection(geo);
+            if (!pr) return { geo, screen: null, angle: 0, flying: true, f, leg: i };
+            // Heading from a step further along the same curve — the tangent of
+            // a projected arc is not something to work out analytically.
+            const ahead = projection(along(Math.min(1, f + 0.01)) as [number, number]);
+            const behind = projection(along(Math.max(0, f - 0.01)) as [number, number]);
+            const angle =
+              ahead && behind ? Math.atan2(ahead[1] - behind[1], ahead[0] - behind[0]) : 0;
+            return { geo, screen: [pr[0], pr[1]], angle, flying: true, f, leg: i };
           }
           return null;
         };
@@ -1005,23 +988,26 @@ export function GlobeBackdrop({
           // Just enough of a beat to read as two passes rather than one long
           // one; any more and the globe sits there doing nothing.
           const PAUSE = 2.5; // degrees' worth of dwell time past the end
-          // Base pace. A route long enough that one pass would take forever is
-          // capped to a few seconds instead.
-          const speed = Math.max(0.07, total / (5 * 60));
+          // Base pace, with a ceiling as well as a floor. Without the ceiling a
+          // long-haul flight is dragged across the globe: the rate was set from
+          // the journey's own length so that a long one would not take forever,
+          // which made the longest ones move fastest of all.
+          const speed = Math.min(0.14, Math.max(0.07, total / (7 * 60)));
 
-          // Where a leg hands over to the next, and the light is worth holding.
-          // A short hop out to the airport is part of arriving rather than a
-          // stop of its own, so the wait goes at the end of THAT instead.
-          const arrivals: number[] = [];
+          // Where a leg hands over to the next, and how long the light waits
+          // there. A short hop out to the airport is part of arriving rather
+          // than a stop of its own, so the wait goes at the end of THAT instead.
+          const arrivals: { at: number; ms: number }[] = [];
           let walked = 0;
           for (let i = 0; i < legs.length - 1; i++) {
             walked += legs[i]!.len;
             if (legs[i + 1]!.len <= 0.25) continue;
             // Changing planes is not arriving somewhere. Keflavík on the way to
-            // New York is an hour in a terminal, not a place you went, so the
-            // light carries straight on through it.
-            if (legs[i]!.kind === 'flight' && legs[i + 1]!.kind === 'flight') continue;
-            arrivals.push(walked);
+            // New York is an hour in a terminal, not a place you went — but the
+            // plane does touch down, so the light pauses for a beat rather than
+            // either stopping properly or sailing straight through.
+            const layover = legs[i]!.kind === 'flight' && legs[i + 1]!.kind === 'flight';
+            arrivals.push({ at: walked, ms: layover ? LAYOVER_MS : DWELL_MS });
           }
 
           // A journey that shows itself as it goes needs one pass, not two:
@@ -1029,10 +1015,7 @@ export function GlobeBackdrop({
           // way. A straight line from A to B still gets its second.
           const hasFlight = legs.some((leg) => leg.kind === 'flight');
           glowRunsNeeded = hasFlight || arrivals.length >= 2 ? 1 : glowRunsFor(total);
-          // Flying on after you looked away: no waiting anywhere, just get to
-          // the airport.
-          const landing = !activeId;
-          if ((landing || glowRuns < glowRunsNeeded) && (landing || now >= holdUntil)) {
+          if (glowRuns < glowRunsNeeded && now >= holdUntil) {
             // Away from a stop and up to speed, then off it again at the next:
             // one constant rate for the whole journey read as a cursor being
             // dragged rather than as something travelling. Past the end there
@@ -1044,44 +1027,43 @@ export function GlobeBackdrop({
               glowDist >= total ? 1.5 : 0.28 + 0.72 * Math.pow(Math.sin(Math.PI * legF), 0.55);
             const before = glowDist;
             glowDist += speed * pace * (dt * 60);
-            if (landing) {
-              if (glowDist >= landingTarget) {
-                glowDist = landingTarget;
-                landingId = null;
+            // Arriving somewhere is worth two rings' worth of standing still.
+            for (const arrival of arrivals) {
+              if (before < arrival.at && glowDist >= arrival.at) {
+                glowDist = arrival.at;
+                holdUntil = now + arrival.ms;
+                holdSince = now;
+                holdMs = arrival.ms;
+                holdPoint = at(arrival.at)?.geo ?? null;
+                break;
               }
-            } else {
-              // Arriving somewhere is worth two rings' worth of standing still.
-              for (const arrival of arrivals) {
-                if (before < arrival && glowDist >= arrival) {
-                  glowDist = arrival;
-                  holdUntil = now + DWELL_MS;
-                  holdSince = now;
-                  holdPoint = at(arrival)?.geo ?? null;
-                  break;
-                }
-              }
-              if (glowDist > total + TRAIL_DEG + PAUSE) {
-                // Straight into the next pass; the dwell above already happened.
-                glowDist = glowRuns + 1 < glowRunsNeeded ? 0 : glowDist;
-                glowRuns += 1;
-              }
+            }
+            if (glowDist > total + TRAIL_DEG + PAUSE) {
+              // Straight into the next pass; the dwell above already happened.
+              glowDist = glowRuns + 1 < glowRunsNeeded ? 0 : glowDist;
+              glowRuns += 1;
             }
           }
           // The dot it is waiting at throws a ring, twice, while it waits.
-          holdPulse =
-            now < holdUntil ? 1 - (((now - holdSince) / DWELL_MS) * 2) % 1 : 0;
+          holdPulse = now < holdUntil ? 1 - (((now - holdSince) / holdMs) * 2) % 1 : 0;
           if (now >= holdUntil) holdPoint = null;
           const [gr, gg, gb] = legibleColor(act.color, dark);
 
           // Where the light is now, for the dots to light up as it reaches them.
           const head = glowDist <= total ? at(glowDist) : null;
           if (head && (!center || distance(center, head.geo) <= 90)) headGeo = head.geo;
-          // Remember where this flight ends while one is under way, so letting
-          // go of the trip can hand the plane a runway to reach.
-          if (head?.flying) {
-            let end = 0;
-            for (let i = 0; i <= head.leg; i++) end += legs[i]!.len;
-            flightEndsAt = end;
+          // Keep the flight under way ready to be handed over: if you look at
+          // something else in the next second, this is what carries on alone.
+          const flying = legs[head?.leg ?? -1];
+          if (head?.flying && flying?.kind === 'flight' && flying.len > 0) {
+            inFlight = {
+              col: [gr, gg, gb],
+              a: flying.a,
+              b: flying.b,
+              f: head.f,
+              // Degrees per second along this leg, as a fraction of its length.
+              rate: (speed * 60) / flying.len,
+            };
           }
 
           // Sample the ribbon head → tail. A sample whose distance is
@@ -1199,6 +1181,58 @@ export function GlobeBackdrop({
             }
           }
         }
+      }
+
+      // --- A plane finishing a flight nobody is watching any more ---
+      // It carries its own short contrail and lands where it was going. Drawn
+      // apart from the light so it can share the sky with another trip's
+      // journey: tapping trip B does not make trip A's plane disappear from
+      // over the Atlantic.
+      if (landing) {
+        landing.f = Math.min(1, landing.f + landing.rate * dt);
+        const along = geoInterpolate(landing.a, landing.b);
+        const geo = along(landing.f) as [number, number];
+        if (!center || distance(center, geo) <= 90) {
+          const pr = projection(geo);
+          if (pr) {
+            // A stub of contrail behind it, so it is flying rather than sliding.
+            const tail = 0.06;
+            ctx!.lineCap = 'round';
+            ctx!.lineWidth = 2.4 * dpr;
+            for (let i = 1; i <= 6; i++) {
+              const back = landing.f - (tail * i) / 6;
+              const next = landing.f - (tail * (i - 1)) / 6;
+              if (back < 0) break;
+              const p1 = projection(along(back) as [number, number]);
+              const p2 = projection(along(next) as [number, number]);
+              if (!p1 || !p2) continue;
+              const fade = 1 - i / 6;
+              ctx!.strokeStyle = dark
+                ? `rgba(186,195,205,${0.4 * fade})`
+                : `rgba(128,137,148,${0.4 * fade})`;
+              ctx!.beginPath();
+              ctx!.moveTo(p1[0], p1[1]);
+              ctx!.lineTo(p2[0], p2[1]);
+              ctx!.stroke();
+            }
+            const ahead = projection(along(Math.min(1, landing.f + 0.01)) as [number, number]);
+            const behind = projection(along(Math.max(0, landing.f - 0.01)) as [number, number]);
+            const angle =
+              ahead && behind ? Math.atan2(ahead[1] - behind[1], ahead[0] - behind[0]) : 0;
+            const ends = Math.min(landing.f, 1 - landing.f);
+            drawPlane(
+              ctx!,
+              pr[0],
+              pr[1],
+              angle,
+              dpr,
+              dark,
+              0.5 + 0.5 * Math.min(1, ends / 0.2),
+              Math.min(1, ends / 0.07),
+            );
+          }
+        }
+        if (landing.f >= 1) landing = null;
       }
 
       // --- Your own live position: a soft pulsing beacon, so it reads as "you"
@@ -1478,6 +1512,25 @@ function stitch(legs: Leg[]): Leg[] {
   return out;
 }
 
+/**
+ * The path a plane actually takes, as points on the sphere.
+ *
+ * This used to be a quadratic curve drawn in screen space, bulging to whichever
+ * side the maths landed on. Two problems with that: the side is decided from
+ * screen coordinates, so turning the globe eventually flipped the arc to the
+ * other side of the line in one frame; and the light travelling the flight
+ * computed its own curve, which did not always come out as the one drawn — two
+ * arcs between the same two cities, taking different routes. A great circle has
+ * neither problem. It is also the truth: it is the way the plane went.
+ */
+function greatCircle(a: [number, number], b: [number, number]): [number, number][] {
+  const along = geoInterpolate(a, b);
+  const steps = Math.max(12, Math.min(64, Math.round(distance(a, b) * 1.4)));
+  const points: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) points.push(along(i / steps) as [number, number]);
+  return points;
+}
+
 /** A stretch on the ground, with the distance to each vertex measured out. */
 function groundLeg(pts: [number, number][]): Leg {
   const cum = [0];
@@ -1677,16 +1730,24 @@ function tripFraming(trip: GlobeTrip): { centre: [number, number]; spread: numbe
 /**
  * A distinct colour per trip.
  *
- * The golden angle alone spreads hues nicely, but `legibleColor` then squeezes
- * saturation and lightness into a narrow band to keep every dot readable on the
- * globe — which pulled neighbouring hues back together, so a dozen trips ended
- * up with several near-identical greens and reds. Cycling saturation and
- * lightness alongside the hue puts that variation back: three bands of each,
- * out of step with the hue, so trips that land on a similar hue differ in
- * weight instead.
+ * The golden angle is the right answer when you do not know how many there
+ * will be, but here you do — and for a known count, spreading the hues evenly
+ * puts the most possible distance between any two of them. The golden angle was
+ * handing near-identical hues to trips that happened to land two apart, which
+ * showed up exactly where it hurts: two routes over the same road, in the same
+ * colour.
+ *
+ * `legibleColor` then squeezes saturation and lightness into a narrow band to
+ * keep every dot readable on the globe, which pulls neighbouring hues back
+ * together again. Cycling saturation and lightness alongside the hue puts that
+ * variation back: three bands of each, out of step with the hue, so trips that
+ * still land close in hue differ in weight instead.
  */
-function autoColor(i: number): [number, number, number] {
-  const hue = (i * 137.508) % 360;
+function autoColor(i: number, count: number): [number, number, number] {
+  // Alternating halves of the wheel, so consecutive trips are opposite rather
+  // than neighbours — and a trip added later does not reshuffle the rest.
+  const step = 360 / Math.max(1, count);
+  const hue = (i * step + (i % 2 ? 180 : 0) + 18) % 360;
   const saturation = [70, 55, 84][i % 3]!;
   const lightness = [55, 42, 66][Math.floor(i / 3) % 3]!;
   return hslToRgb(hue, saturation, lightness);
