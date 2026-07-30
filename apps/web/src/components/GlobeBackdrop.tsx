@@ -192,6 +192,18 @@ export function GlobeBackdrop({
     let headGeo: [number, number] | null = null;
     /** The plane's heading, eased so it never twitches. Null while on the ground. */
     let planeAngle: number | null = null;
+    /**
+     * Standing still at a place before moving on.
+     *
+     * Krakau to Praag ran straight through both, which read as passing over
+     * them rather than as arriving. Long enough for the dot to throw two rings.
+     */
+    const DWELL_MS = 1900;
+    let holdUntil = 0;
+    let holdSince = 0;
+    let holdPoint: [number, number] | null = null;
+    /** Falls 1 → 0 twice over a wait, which is what makes the two rings. */
+    let holdPulse = 0;
     /** Per dot: how brightly it is still lit after the light went past. */
     const flares = new Map<string, number>();
     /**
@@ -200,6 +212,12 @@ export function GlobeBackdrop({
      * than pulsing symmetrically as it passes.
      */
     const flareAt = (key: string, p: [number, number], dt: number): number => {
+      // A dot the light is waiting at pulses instead of sitting lit: the head
+      // is not moving, so proximity alone would hold it at one brightness.
+      if (holdPoint && distance(holdPoint, p) < 0.6) {
+        flares.set(key, holdPulse);
+        return holdPulse;
+      }
       const near = headGeo ? Math.max(0, 1 - distance(headGeo, p) / 2.6) : 0;
       const lit = Math.max((flares.get(key) ?? 0) * Math.pow(0.05, dt), near * near);
       if (lit < 0.004) flares.delete(key);
@@ -303,6 +321,9 @@ export function GlobeBackdrop({
             selectedId = null;
             glowDist = 0;
             glowRuns = 0;
+            // A wait belongs to the trip that was being shown, not to the next.
+            holdUntil = 0;
+            holdPoint = null;
             phaseStart = now;
           } else if (glowRuns >= glowRunsNeeded || now - phaseStart > dur * 5) {
             // Hold the zoom until the light has travelled the whole route (with
@@ -397,10 +418,14 @@ export function GlobeBackdrop({
 
       // Radius fits the SHORTER side, so the sphere is as big as it can be
       // without ever being clipped left/right or top/bottom.
-      const radius = Math.min(w, h) / 2 - 2 * dpr;
+      // Nudged down and in by a hair, so the top of the sphere sits under the
+      // top of the screen instead of running off it. The bottom loses the same
+      // amount, where the fade eats it anyway.
+      const inset = 10 * dpr;
+      const radius = Math.min(w, h) / 2 - 2 * dpr - inset;
       projection
         .scale(radius * scale)
-        .translate([w / 2, h / 2])
+        .translate([w / 2, h / 2 + inset])
         .rotate([rotation, -(CENTER_LAT + tilt), 0]);
 
       ctx!.clearRect(0, 0, w, h);
@@ -876,6 +901,7 @@ export function GlobeBackdrop({
           flying: boolean;
           /** How far into this leg, 0 at the gate it left, 1 at the one it reaches. */
           f: number;
+          leg: number;
         } | null => {
           const want = Math.max(0, Math.min(total, d));
           let acc = 0;
@@ -902,6 +928,7 @@ export function GlobeBackdrop({
                 angle: 0,
                 flying: false,
                 f,
+                leg: i,
               };
             }
             // Straight in geographic terms (good enough to know WHERE it is and
@@ -911,7 +938,7 @@ export function GlobeBackdrop({
               leg.a[1] + (leg.b[1] - leg.a[1]) * f,
             ];
             const bow = bowOf(leg.a, leg.b);
-            if (!bow) return { geo, screen: null, angle: 0, flying: true, f };
+            if (!bow) return { geo, screen: null, angle: 0, flying: true, f, leg: i };
             const u = 1 - f;
             const screen: [number, number] = [
               u * u * bow.A[0] + 2 * u * f * bow.C[0] + f * f * bow.B[0],
@@ -919,7 +946,7 @@ export function GlobeBackdrop({
             ];
             const tx = 2 * u * (bow.C[0] - bow.A[0]) + 2 * f * (bow.B[0] - bow.C[0]);
             const ty = 2 * u * (bow.C[1] - bow.A[1]) + 2 * f * (bow.B[1] - bow.C[1]);
-            return { geo, screen, angle: Math.atan2(ty, tx), flying: true, f };
+            return { geo, screen, angle: Math.atan2(ty, tx), flying: true, f, leg: i };
           }
           return null;
         };
@@ -936,18 +963,51 @@ export function GlobeBackdrop({
           // Just enough of a beat to read as two passes rather than one long
           // one; any more and the globe sits there doing nothing.
           const PAUSE = 2.5; // degrees' worth of dwell time past the end
-          // Constant speed, except on a route long enough that one pass would
-          // take forever — there the run is capped to a few seconds instead.
+          // Base pace. A route long enough that one pass would take forever is
+          // capped to a few seconds instead.
           const speed = Math.max(0.07, total / (5 * 60));
-          glowRunsNeeded = glowRunsFor(total);
-          if (glowRuns < glowRunsNeeded) {
-            glowDist += speed * (dt * 60);
+
+          // Where a leg hands over to the next, and the light is worth holding.
+          // A short hop out to the airport is part of arriving rather than a
+          // stop of its own, so the wait goes at the end of THAT instead.
+          const arrivals: number[] = [];
+          let walked = 0;
+          for (let i = 0; i < legs.length - 1; i++) {
+            walked += legs[i]!.len;
+            if (legs[i + 1]!.len > 0.25) arrivals.push(walked);
+          }
+
+          // A journey that stops along the way already shows itself as it goes,
+          // so one pass is enough; a straight line from A to B gets its second.
+          glowRunsNeeded = arrivals.length >= 2 ? 1 : glowRunsFor(total);
+          if (glowRuns < glowRunsNeeded && now >= holdUntil) {
+            // Away from a stop and up to speed, then off it again at the next:
+            // one constant rate for the whole journey read as a cursor being
+            // dragged rather than as something travelling.
+            const legF = at(glowDist)?.f ?? 0.5;
+            const pace = 0.28 + 0.72 * Math.pow(Math.sin(Math.PI * legF), 0.55);
+            const before = glowDist;
+            glowDist += speed * pace * (dt * 60);
+            // Arriving somewhere is worth two rings' worth of standing still.
+            for (const arrival of arrivals) {
+              if (before < arrival && glowDist >= arrival) {
+                glowDist = arrival;
+                holdUntil = now + DWELL_MS;
+                holdSince = now;
+                holdPoint = at(arrival)?.geo ?? null;
+                break;
+              }
+            }
             if (glowDist > total + TRAIL_DEG + PAUSE) {
               // Straight into the next pass; the dwell above already happened.
               glowDist = glowRuns + 1 < glowRunsNeeded ? 0 : glowDist;
               glowRuns += 1;
             }
           }
+          // The dot it is waiting at throws a ring, twice, while it waits.
+          holdPulse =
+            now < holdUntil ? 1 - (((now - holdSince) / DWELL_MS) * 2) % 1 : 0;
+          if (now >= holdUntil) holdPoint = null;
           const [gr, gg, gb] = legibleColor(act.color, dark);
 
           // Where the light is now, for the dots to light up as it reaches them.
@@ -958,7 +1018,7 @@ export function GlobeBackdrop({
           // negative (or past the end) is simply dropped, so the ribbon slides
           // on and off the route instead of wrapping around in one jump.
           const STEPS = 28;
-          const samples: { pt: [number, number]; t: number }[] = [];
+          const samples: { pt: [number, number]; t: number; flying: boolean }[] = [];
           for (let i = 0; i <= STEPS; i++) {
             const t = i / STEPS; // 0 = head, 1 = tail
             const d = glowDist - TRAIL_DEG * t;
@@ -966,19 +1026,20 @@ export function GlobeBackdrop({
             const sample = at(d);
             if (!sample || !sample.screen) continue;
             if (center && distance(center, sample.geo) > 90) continue;
-            samples.push({ pt: sample.screen, t });
+            samples.push({ pt: sample.screen, t, flying: sample.flying });
           }
 
           ctx!.lineCap = 'round';
           ctx!.lineJoin = 'round';
-          // On the ground the light IS the thing moving, so it carries the
-          // brightness. Behind a plane it is a contrail: still there, but the
-          // plane is what you are meant to be watching.
-          const trail = head?.flying ? 0.4 : 1;
+          // Behind a plane the trail is a contrail, so it goes grey and thin:
+          // it is exhaust, not the trip's own colour, and the plane is what you
+          // are meant to be watching. On the ground the light IS the thing
+          // moving, so there it keeps the trip's colour and its brightness.
+          const CONTRAIL: [number, number, number] = dark ? [186, 195, 205] : [128, 137, 148];
           // Two passes: a wide soft halo, then a thin bright core on top.
           for (const pass of [
-            { width: 9 * dpr, peak: 0.22 * trail },
-            { width: 2.8 * dpr, peak: 0.95 * trail },
+            { width: 9 * dpr, peak: 0.22 },
+            { width: 2.8 * dpr, peak: 0.95 },
           ]) {
             ctx!.lineWidth = pass.width;
             for (let i = 1; i < samples.length; i++) {
@@ -988,7 +1049,9 @@ export function GlobeBackdrop({
               if (Math.hypot(b.pt[0] - a.pt[0], b.pt[1] - a.pt[1]) > 60 * dpr) continue;
               // Quadratic falloff → a long, soft tail rather than a hard edge.
               const fade = (1 - b.t) * (1 - b.t);
-              ctx!.strokeStyle = `rgba(${gr},${gg},${gb},${pass.peak * fade})`;
+              const [cr, cg, cb] = b.flying ? CONTRAIL : [gr, gg, gb];
+              const weight = b.flying ? 0.45 : 1;
+              ctx!.strokeStyle = `rgba(${cr},${cg},${cb},${pass.peak * fade * weight})`;
               ctx!.beginPath();
               ctx!.moveTo(a.pt[0], a.pt[1]);
               ctx!.lineTo(b.pt[0], b.pt[1]);
@@ -1010,10 +1073,13 @@ export function GlobeBackdrop({
               planeAngle += delta * (1 - Math.pow(0.0001, dt));
             }
             // Climbs away and settles onto the runway: small at both gates,
-            // full size in the cruise between them.
+            // full size in the cruise between them. It fades over the same
+            // stretch, because a plane that simply stopped existing at the gate
+            // was the ugliest moment of the whole thing.
             const ends = Math.min(head.f, 1 - head.f);
-            const lift = 0.62 + 0.38 * Math.min(1, ends / 0.16);
-            drawPlane(ctx!, head.screen[0], head.screen[1], planeAngle, dpr, dark, lift);
+            const lift = 0.5 + 0.5 * Math.min(1, ends / 0.2);
+            const alpha = Math.min(1, ends / 0.07);
+            drawPlane(ctx!, head.screen[0], head.screen[1], planeAngle, dpr, dark, lift, alpha);
           } else if (!head?.flying) {
             planeAngle = null;
           }
@@ -1196,7 +1262,7 @@ export function GlobeBackdrop({
       if (pointers.size === 2) {
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (pinchStart > 0) {
-          targetScale = Math.min(5, Math.max(1, targetScale * (pinchDist() / pinchStart)));
+          targetScale = Math.min(MAX_ZOOM, Math.max(1, targetScale * (pinchDist() / pinchStart)));
           pinchStart = pinchDist();
         }
         return;
@@ -1219,7 +1285,7 @@ export function GlobeBackdrop({
     function onWheel(e: WheelEvent) {
       e.preventDefault();
       lastInteract = performance.now();
-      targetScale = Math.min(5, Math.max(1, targetScale * (1 - e.deltaY * 0.0015)));
+      targetScale = Math.min(MAX_ZOOM, Math.max(1, targetScale * (1 - e.deltaY * 0.0015)));
     }
     function onClick(e: PointerEvent) {
       if (moved > 8) return; // it was a pan, not a tap
@@ -1310,6 +1376,13 @@ type Leg =
 
 /** Two points count as the same place when handing one leg over to the next. */
 const LEG_JOIN_DEG = 0.8;
+
+/**
+ * How far in you can pinch. The auto-tour never goes past ~3.4, so this is
+ * about looking at a city yourself. The land outline is a 1:110M coastline and
+ * does get blocky up here; the routes are what you are actually zooming in on.
+ */
+const MAX_ZOOM = 12;
 
 /**
  * Closes the gaps between legs, so the light never jumps.
@@ -1437,8 +1510,11 @@ function drawPlane(
   dpr: number,
   dark: boolean,
   size = 1,
+  alpha = 1,
 ): void {
+  if (alpha <= 0.01) return;
   ctx.save();
+  ctx.globalAlpha = alpha;
   ctx.translate(x, y);
   ctx.rotate(angle);
   // Just enough shadow to sit above the map rather than be printed on it. An
