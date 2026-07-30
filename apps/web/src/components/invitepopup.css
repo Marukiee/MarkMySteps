@@ -1,0 +1,142 @@
+/* "Somebody added you to a trip." Same weight as the confirm dialog, because
+   it interrupts the same way: it is the first thing you see on launch. */
+.invite-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 320;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgb(16 21 27 / 0.5);
+  backdrop-filter: blur(4px);
+  animation: inviteFade 0.24s var(--ease);
+}
+
+.invite-backdrop.closing {
+  animation: inviteFadeOut 0.18s var(--ease) forwards;
+}
+
+@keyframes inviteFade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes inviteFadeOut {
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+.invite-card {
+  width: min(400px, 100%);
+  padding: 1.5rem 1.35rem 1.15rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  text-align: center;
+  animation: invitePop 0.34s var(--ease);
+}
+
+.invite-backdrop.closing .invite-card {
+  animation: invitePopOut 0.18s var(--ease) forwards;
+}
+
+@keyframes invitePop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+}
+
+@keyframes invitePopOut {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+/* The needle swings in and settles: the news is that somewhere new is yours. */
+.invite-mark {
+  display: block;
+  animation: inviteMark 0.9s var(--ease) 0.1s backwards;
+}
+
+@keyframes inviteMark {
+  from {
+    transform: rotate(-140deg) scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: rotate(12deg) scale(1.04);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(0) scale(1);
+  }
+}
+
+.invite-card h3 {
+  font-family: var(--font-brand);
+  font-size: 1.3rem;
+  line-height: 1.25;
+}
+
+.invite-list {
+  list-style: none;
+  margin: 0.2rem 0 0.3rem;
+  padding: 0;
+  width: 100%;
+  display: grid;
+  gap: 1px;
+  text-align: left;
+}
+
+.invite-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 9px;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  animation: inviteRowIn 0.4s var(--ease) both;
+}
+
+.invite-list li:nth-child(2) { animation-delay: 0.07s; }
+.invite-list li:nth-child(3) { animation-delay: 0.14s; }
+.invite-list li:nth-child(n + 4) { animation-delay: 0.2s; }
+
+@keyframes inviteRowIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.invite-list li span {
+  display: grid;
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.invite-list li small {
+  color: var(--ink-faint);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.invite-actions {
+  margin-top: 0.35rem;
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.invite-actions .btn {
+  flex: 1;
+  justify-content: center;
+}

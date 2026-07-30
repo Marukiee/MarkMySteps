@@ -556,28 +556,83 @@ export class TripsService {
     await this.prisma.trip.delete({ where: { id: tripId } });
   }
 
-  async addMemberByUsername(
+  /**
+   * Puts one or more handles on the trip.
+   *
+   * All or nothing: a list with one unknown name is rejected whole, so what the
+   * picker shows afterwards is never half of what you ticked.
+   */
+  async addMembersByUsername(
     tripId: string,
     userId: string,
-    username: string,
+    usernames: string[],
   ): Promise<TripWithMembers> {
     const trip = await this.getForMember(tripId, userId);
     this.assertOwner(trip, userId);
 
-    const invitee = await this.prisma.user.findUnique({
-      where: { username: username.trim().toLowerCase().replace(/^@/, '') },
-    });
-    if (!invitee) {
-      throw new NotFoundException('No account with that username on this server');
+    const wanted = [
+      ...new Set(usernames.map((u) => u.trim().toLowerCase().replace(/^@/, '')).filter(Boolean)),
+    ];
+    if (wanted.length === 0) {
+      throw new BadRequestException('No username given');
     }
 
-    await this.prisma.tripMember.upsert({
-      where: { tripId_userId: { tripId, userId: invitee.id } },
-      create: { tripId, userId: invitee.id, role: TripRole.MEMBER },
-      update: {},
+    const invitees = await this.prisma.user.findMany({
+      where: { username: { in: wanted } },
+      select: { id: true, username: true },
+    });
+    const missing = wanted.filter((u) => !invitees.some((i) => i.username === u));
+    if (missing.length > 0) {
+      throw new NotFoundException(
+        missing.length === 1
+          ? `Geen account met de naam @${missing[0]} op deze server`
+          : `Geen account gevonden voor: ${missing.map((m) => `@${m}`).join(', ')}`,
+      );
+    }
+
+    // seen: false — being put on someone else's trip is news, and the app says
+    // so once. skipDuplicates keeps a re-add from resetting that for people who
+    // were already on the trip.
+    await this.prisma.tripMember.createMany({
+      data: invitees.map((i) => ({
+        tripId,
+        userId: i.id,
+        role: TripRole.MEMBER,
+        seen: i.id === userId,
+      })),
+      skipDuplicates: true,
     });
 
     return this.getForMember(tripId, userId);
+  }
+
+  /**
+   * Trips somebody else added you to that you have not been told about yet.
+   * Read once at launch; the app announces them and marks them seen.
+   */
+  async listUnseenMemberships(
+    userId: string,
+  ): Promise<{ id: string; title: string; ownerName: string }[]> {
+    const rows = await this.prisma.tripMember.findMany({
+      where: { userId, seen: false },
+      select: {
+        trip: { select: { id: true, title: true, owner: { select: { displayName: true } } } },
+      },
+      orderBy: { joinedAt: 'desc' },
+      take: 20,
+    });
+    return rows.map((r) => ({
+      id: r.trip.id,
+      title: r.trip.title,
+      ownerName: r.trip.owner.displayName,
+    }));
+  }
+
+  async markMembershipsSeen(userId: string): Promise<void> {
+    await this.prisma.tripMember.updateMany({
+      where: { userId, seen: false },
+      data: { seen: true },
+    });
   }
 
   async removeMember(tripId: string, userId: string, memberId: string): Promise<void> {

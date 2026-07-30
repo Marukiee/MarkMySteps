@@ -135,20 +135,6 @@
   background: #fbeae4;
 }
 
-.members-add {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.members-add input {
-  flex: 1;
-  min-width: 0;
-  padding: 0.55rem 0.8rem;
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius-s);
-  background: var(--paper-raised);
-}
-
 .members-hint {
   margin-top: -0.25rem;
   font-size: 0.8rem;

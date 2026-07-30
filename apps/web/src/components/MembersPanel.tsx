@@ -1,27 +1,24 @@
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from './Avatar';
 import { confirmModal } from './confirm';
 import { Icon } from './Icon';
-import { UserPicker } from './UserPicker';
+import { MemberAdd } from './MemberAdd';
 import './members.css';
 
 export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () => void }) {
   const { user } = useAuth();
-  const [username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const isOwner = trip.ownerId === user?.id;
 
-  async function addMember(event: FormEvent) {
-    event.preventDefault();
+  async function addMembers(usernames: string[]) {
     setBusy(true);
     setError(null);
     try {
-      await api(`/trips/${trip.id}/members`, { method: 'POST', body: { username } });
-      setUsername('');
+      await api(`/trips/${trip.id}/members`, { method: 'POST', body: { usernames } });
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Toevoegen mislukt');
@@ -127,17 +124,11 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
       </ul>
 
       {isOwner && (
-        <form className="members-add" onSubmit={addMember}>
-          <UserPicker
-            required
-            value={username}
-            onChange={setUsername}
-            exclude={trip.members.map((m) => m.user.username)}
-          />
-          <button className="btn btn-ghost" disabled={busy}>
-            <Icon name="plus" size={16} /> Toevoegen
-          </button>
-        </form>
+        <MemberAdd
+          busy={busy}
+          exclude={trip.members.map((m) => m.user.username)}
+          onAdd={addMembers}
+        />
       )}
       {error && <p className="error-text">{error}</p>}
     </section>

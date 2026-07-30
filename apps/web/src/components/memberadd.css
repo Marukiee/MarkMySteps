@@ -1,0 +1,179 @@
+/* The "add people" block: a search field, a list you tick, one button. All of
+   it sits in the page, so nothing overlaps the rows above or below it. */
+.member-add {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+}
+
+.member-add-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.6rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+  color: var(--ink-faint);
+  transition: border-color 0.18s var(--ease);
+}
+
+.member-add-search:focus-within {
+  border-color: var(--accent);
+}
+
+.member-add-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+}
+
+.member-add-search input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.member-add-clear {
+  padding: 0.25rem;
+  border-radius: 999px;
+  color: var(--ink-faint);
+}
+
+.member-add-clear:hover {
+  color: var(--ink);
+}
+
+/* Who you have ticked so far. Kept above the list, because a new search
+   replaces the rows underneath and the choice must survive that. */
+.member-add-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.member-add-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem 0.2rem 0.25rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  animation: memberChipIn 0.22s var(--ease);
+}
+
+@keyframes memberChipIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+
+.member-add-chip:active {
+  transform: scale(0.95);
+}
+
+.member-add-list {
+  display: grid;
+  gap: 1px;
+  max-height: 15rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.member-add-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.4rem 0.45rem;
+  border-radius: 9px;
+  text-align: left;
+  color: inherit;
+  transition: background 0.15s var(--ease);
+}
+
+.member-add-row:hover,
+.member-add-row:focus-visible {
+  background: var(--paper-raised);
+}
+
+.member-add-row:active {
+  transform: scale(0.99);
+}
+
+/* Says the row is a choice, not a link — the whole row is the target. */
+.member-add-box {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid var(--line);
+  border-radius: 5px;
+  background: var(--paper-raised);
+  color: #fff;
+  transition: background 0.16s var(--ease), border-color 0.16s var(--ease);
+}
+
+.member-add-row.checked {
+  background: var(--accent-soft);
+}
+
+.member-add-row.checked .member-add-box {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: memberBoxPop 0.24s var(--ease);
+}
+
+@keyframes memberBoxPop {
+  from {
+    transform: scale(0.75);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+}
+
+.member-add-name {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.member-add-name small {
+  color: var(--ink-faint);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.member-add-tag {
+  flex-shrink: 0;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.member-add-empty {
+  padding: 0.5rem 0.45rem;
+  font-size: 0.85rem;
+}
+
+.member-add-submit {
+  justify-self: start;
+}

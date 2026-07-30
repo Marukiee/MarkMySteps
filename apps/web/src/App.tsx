@@ -9,6 +9,7 @@ import {
 } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { BottomNav } from './components/BottomNav';
+import { InvitePopup } from './components/InvitePopup';
 import { TopBar } from './components/TopBar';
 import { TrackingPrompt } from './components/TrackingPrompt';
 import { OfflineBanner } from './components/OfflineBanner';
@@ -53,6 +54,7 @@ function Shell() {
       <Outlet />
       <BottomNav />
       <TrackingPrompt />
+      <InvitePopup />
     </>
   );
 }

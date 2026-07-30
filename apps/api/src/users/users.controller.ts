@@ -76,8 +76,12 @@ export class UsersController {
   suggestions(
     @CurrentUser() user: JwtPayload,
     @Query('q') q?: string,
+    @Query('limit') limit?: string,
   ): Promise<UserSuggestion[]> {
-    return this.users.suggestUsers(user.sub, q ?? '');
+    // The tick-a-list picker shows a page of people, not the handful a
+    // type-ahead needs; clamped so the query stays cheap either way.
+    const take = Math.min(Math.max(Number(limit) || 6, 1), 40);
+    return this.users.suggestUsers(user.sub, q ?? '', take);
   }
 
   @Get(':id/avatar')

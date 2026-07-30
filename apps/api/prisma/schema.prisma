@@ -132,6 +132,9 @@ model TripMember {
   role     TripRole @default(MEMBER)
   /// A reisgenoot may share their own live track; the owner can switch this off.
   canTrack Boolean  @default(true)
+  /// Cleared when somebody else puts you on a trip, so the app can say so once
+  /// and then stop. Your own trips start seen — you were there when it was made.
+  seen     Boolean  @default(true)
   joinedAt DateTime @default(now())
 
   @@id([tripId, userId])

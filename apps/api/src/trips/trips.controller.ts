@@ -35,6 +35,23 @@ export class TripsController {
     return this.trips.listForUser(user.sub);
   }
 
+  /**
+   * Trips you were added to without knowing. Declared above `:id` so the
+   * literal path wins — `:id` would refuse "invites" as a non-UUID.
+   */
+  @Get('invites')
+  invites(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ id: string; title: string; ownerName: string }[]> {
+    return this.trips.listUnseenMemberships(user.sub);
+  }
+
+  @Post('invites/seen')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async markInvitesSeen(@CurrentUser() user: JwtPayload): Promise<void> {
+    await this.trips.markMembershipsSeen(user.sub);
+  }
+
   @Get(':id')
   get(
     @CurrentUser() user: JwtPayload,
@@ -75,7 +92,8 @@ export class TripsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AddMemberDto,
   ): Promise<TripWithMembers> {
-    return this.trips.addMemberByUsername(id, user.sub, dto.username);
+    const names = dto.usernames?.length ? dto.usernames : dto.username ? [dto.username] : [];
+    return this.trips.addMembersByUsername(id, user.sub, names);
   }
 
   @Patch(':id/members/:memberId')

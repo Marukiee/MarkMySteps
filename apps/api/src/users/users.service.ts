@@ -4,6 +4,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { AccountStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { assertStrongPassword } from '../auth/password-strength';
 import { PrismaService } from '../prisma/prisma.service';
@@ -320,6 +321,9 @@ export class UsersService {
     const rows = await this.prisma.user.findMany({
       where: {
         id: { not: id },
+        // An account still waiting for an admin (or refused) cannot be put on a
+        // trip, so offering it would only be a name that fails on Add.
+        status: AccountStatus.APPROVED,
         ...(q
           ? {
               OR: [
