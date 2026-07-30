@@ -1476,3 +1476,38 @@
 .settings-seg button.active {
   color: var(--ink);
 }
+
+/* Small heading over a second choice inside the same card. */
+.settings-seg-label {
+  margin-top: 0.9rem;
+  font-size: 0.85rem;
+}
+
+/* A caveat that folds open with the option it belongs to, rather than sitting
+   there greyed out for the choice nobody made. */
+.settings-warn {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.32s var(--ease), opacity 0.24s var(--ease);
+}
+
+.settings-warn[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.settings-warn > div {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.settings-warn p {
+  margin-top: 0.55rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-s);
+  border-left: 2.5px solid var(--accent);
+  background: var(--paper-sunken);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}

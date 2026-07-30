@@ -160,6 +160,29 @@ export function getGlobeStops(): GlobeStopsMode {
   return localStorage.getItem(GLOBE_STOPS_KEY) === 'always' ? 'always' : 'highlight';
 }
 
+/* ---------- Globe detail ---------- */
+
+const GLOBE_QUALITY_KEY = 'mms.globeQuality';
+
+/**
+ * How sharp the globe's coastlines are.
+ *
+ * 'normal' is a 1:110M outline, which is 55 kB and redraws in nothing. 'high'
+ * is 1:50M — ten times the geometry, re-projected every frame, and only worth
+ * it if the phone can take it. Loaded on demand and only once you have zoomed
+ * in far enough for the difference to exist.
+ */
+export type GlobeQuality = 'normal' | 'high';
+
+export function getGlobeQuality(): GlobeQuality {
+  return localStorage.getItem(GLOBE_QUALITY_KEY) === 'high' ? 'high' : 'normal';
+}
+
+export function setGlobeQuality(quality: GlobeQuality): void {
+  localStorage.setItem(GLOBE_QUALITY_KEY, quality);
+  window.dispatchEvent(new CustomEvent('mms-globe-quality', { detail: quality }));
+}
+
 export function setGlobeStops(mode: GlobeStopsMode): void {
   localStorage.setItem(GLOBE_STOPS_KEY, mode);
   // The globe reads this once per frame from a ref, but it is mounted on
