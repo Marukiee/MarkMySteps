@@ -37,9 +37,11 @@ import { useExit } from '../lib/useExit';
 import {
   MAP_STYLES,
   MapStyleId,
+  GlobeStopsMode,
   ThemeId,
   TripCardSize,
   clearTripCardOverrides,
+  getGlobeStops,
   getMapStyleId,
   getThemeId,
   getShowSelfOnHome,
@@ -48,6 +50,7 @@ import {
   getTrackingIntervalMin,
   getTripCardSize,
   hasTripCardOverrides,
+  setGlobeStops,
   setMapStyleId,
   setShowSelfOnHome,
   setThemeId,
@@ -601,9 +604,51 @@ function PreferencesSection() {
         <p className="muted">Je thuis-vliegvelden, voor het invullen van vluchten.</p>
         <AirportPrefs />
       </section>
+      <GlobeSection />
       {isNative() && <SelfLocationSection />}
       {isNative() && <TrackingSection />}
     </>
+  );
+}
+
+/** How much of a trip the homepage globe draws when it isn't the one on show. */
+function GlobeSection() {
+  const [mode, setMode] = useState<GlobeStopsMode>(getGlobeStops());
+  const pick = (next: GlobeStopsMode) => {
+    setMode(next);
+    setGlobeStops(next);
+  };
+  return (
+    <section className="card settings-card">
+      <h2>
+        Globe
+        <HelpTip>
+          Elke stop uit de routeplanner krijgt een bolletje op de globe. De reis die op dat moment
+          uitgelicht is laat ze sowieso zien: hier kies je of de andere reizen dat ook doen.
+        </HelpTip>
+      </h2>
+      <p className="muted">Tussenstops op de globe van de homepage.</p>
+      <div className="settings-seg" role="tablist" data-on={mode}>
+        {/* One pill that slides, the way the trip's tabs do. */}
+        <span className="settings-seg-thumb" aria-hidden="true" />
+        <button
+          role="tab"
+          aria-selected={mode === 'highlight'}
+          className={mode === 'highlight' ? 'active' : ''}
+          onClick={() => pick('highlight')}
+        >
+          Bij uitlichten
+        </button>
+        <button
+          role="tab"
+          aria-selected={mode === 'always'}
+          className={mode === 'always' ? 'active' : ''}
+          onClick={() => pick('always')}
+        >
+          Altijd
+        </button>
+      </div>
+    </section>
   );
 }
 

@@ -143,6 +143,30 @@ export function setShowSelfOnHome(on: boolean): void {
   else localStorage.removeItem(SELF_ON_HOME_KEY);
 }
 
+/* ---------- Stops on the homepage globe ---------- */
+
+const GLOBE_STOPS_KEY = 'mms.globeStops';
+
+/**
+ * When the dots for the places in between are drawn on the homepage globe.
+ *
+ * The trip being highlighted always shows them; the question is only whether
+ * every other trip does too. All of them at once is the honest map of where
+ * you have been, and it is also a lot of dots, so it is a choice.
+ */
+export type GlobeStopsMode = 'highlight' | 'always';
+
+export function getGlobeStops(): GlobeStopsMode {
+  return localStorage.getItem(GLOBE_STOPS_KEY) === 'always' ? 'always' : 'highlight';
+}
+
+export function setGlobeStops(mode: GlobeStopsMode): void {
+  localStorage.setItem(GLOBE_STOPS_KEY, mode);
+  // The globe reads this once per frame from a ref, but it is mounted on
+  // another page; an event lets it pick the change up without a reload.
+  window.dispatchEvent(new CustomEvent('mms-globe-stops', { detail: mode }));
+}
+
 /* ---------- Default departure airports ---------- */
 
 const AIRPORTS_KEY = 'mms.airports';

@@ -49,6 +49,8 @@ export interface Trip {
   coverMediaId: string | null;
   resolvedCoverId: string | null;
   anchor: [number, number] | null;
+  /** Every planned stop with coordinates, day trips included, in travel order. */
+  stopPoints?: [number, number][];
   /** Custom trip colour (hex) for the globe/map; null = auto-assigned. */
   color?: string | null;
   /** Manual globe-marker position ([lng,lat]); null = auto (route start/end). */

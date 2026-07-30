@@ -6,7 +6,7 @@ import * as topojson from 'topojson-client';
 import land110m from 'world-atlas/land-110m.json';
 import type { Trip } from '../api/types';
 import { airportByCode } from '../lib/airports';
-import { getDefaultAirports } from '../lib/prefs';
+import { getDefaultAirports, getGlobeStops, type GlobeStopsMode } from '../lib/prefs';
 import './globe.css';
 
 // Minimal shape of the TopoJSON we consume (avoids a types-only dep).
@@ -23,6 +23,8 @@ interface GlobeTrip {
   upcoming: boolean;
   /** Resolved RGB colour (custom trip colour, else auto-assigned distinct). */
   color: [number, number, number];
+  /** Every planned stop with coordinates, in travel order. */
+  stops: [number, number][];
   /** Relative importance (km, else days) — drives label priority. */
   size: number;
   /** Manual marker override in effect → draw one dot at the anchor, not ends. */
@@ -99,6 +101,7 @@ export function GlobeBackdrop({
           flights: t.flightPath && t.flightPath.length > 0 ? t.flightPath : null,
           // Only trips that haven't started yet are dashed; ongoing trips are solid.
           upcoming: t.startDate.slice(0, 10) > today,
+          stops: t.stopPoints ?? [],
           color: [90, 110, 225] as [number, number, number],
           size: t.distanceKm && t.distanceKm > 0 ? t.distanceKm : dayCount(t) * 40,
           markerFixed: t.markerLng != null && t.markerLat != null,
@@ -171,6 +174,19 @@ export function GlobeBackdrop({
     let lastFrame = performance.now();
     // Screen rects of the drawn labels, so tapping a name opens its trip.
     let labelRects: { id: string; x: number; y: number; w: number; h: number }[] = [];
+    /**
+     * How far the globe has committed to one trip: 0 = every trip equal, 1 =
+     * one highlighted and the rest receded. Eased, so the others fade back
+     * instead of dimming between two frames.
+     */
+    let focus = 0;
+    /** Per trip: how much of its chain of stop dots is out (0–1). */
+    const stopReveal = new Map<string, number>();
+    let stopsMode = getGlobeStops();
+    const onStopsMode = (e: Event) => {
+      stopsMode = (e as CustomEvent<GlobeStopsMode>).detail;
+    };
+    window.addEventListener('mms-globe-stops', onStopsMode);
 
     // The canvas fills its container completely; the sphere is then drawn
     // centred at the largest radius that fits BOTH dimensions (see draw()).
@@ -324,6 +340,21 @@ export function GlobeBackdrop({
         window.dispatchEvent(new CustomEvent('mms-globe-scale', { detail: scale }));
       }
 
+      // The "active" trip: on the homepage that's the trip you tapped, else the
+      // one the auto-tour is framing. Resolved before anything is drawn, because
+      // every line and dot on the globe is painted relative to it.
+      const activeId = noTourRef.current
+        ? null
+        : selectedId ??
+          (idle && tourPhase === 1 ? trips[Math.min(tourIdx, trips.length - 1)]?.id ?? null : null);
+
+      // Everything that is not the highlighted trip steps back: less opaque and
+      // less coloured, so the one being shown is the one you look at. Eased
+      // frame-rate independently, so it is a movement on any device.
+      focus += ((activeId ? 1 : 0) - focus) * (1 - Math.pow(0.004, dt));
+      /** How much of its own colour a trip keeps this frame. */
+      const standing = (id: string) => (activeId && id !== activeId ? 1 - focus : 1);
+
       // Radius fits the SHORTER side, so the sphere is as big as it can be
       // without ever being clipped left/right or top/bottom.
       const radius = Math.min(w, h) / 2 - 2 * dpr;
@@ -360,7 +391,8 @@ export function GlobeBackdrop({
       // airport dot, unlike the coloured dots reserved for real destinations.
       const airportPoints: [number, number][] = [];
       for (const trip of trips) {
-        const [r, g, b] = legibleColor(trip.color, dark);
+        const stand = standing(trip.id);
+        const [r, g, b] = recede(legibleColor(trip.color, dark), dark, 1 - stand);
         for (const seg of trip.flights ?? []) {
           // A flight is stored as its whole itinerary; bow each hop so a
           // stopover visibly breaks the line at that airport.
@@ -371,7 +403,7 @@ export function GlobeBackdrop({
         }
         if (!trip.path) continue;
 
-        ctx!.globalAlpha = tripAlpha(trip.id, now);
+        ctx!.globalAlpha = tripAlpha(trip.id, now) * (0.34 + 0.66 * stand);
         ctx!.lineJoin = 'round';
         ctx!.lineCap = 'round';
         for (const seg of trip.path) {
@@ -454,14 +486,6 @@ export function GlobeBackdrop({
       const center = projection.invert!([w / 2, h / 2]);
       const frontFacing = trips.filter((t) => !center || distance(center, t.anchor) <= 90);
 
-      // The "active" trip whose name + glow are shown: on the homepage that's the
-      // trip you tapped, else the one the auto-tour is framing. Resolved here (not
-      // just before the labels) because a shared dot has to hold this trip's colour.
-      const activeId = noTourRef.current
-        ? null
-        : selectedId ??
-          (idle && tourPhase === 1 ? trips[Math.min(tourIdx, trips.length - 1)]?.id ?? null : null);
-
       // Small grey dots at every flight endpoint (departure/arrival airports) so
       // the dashed bows visibly start FROM a point, not out of thin air. Smaller
       // than the trip dots, deduped by coarse endpoint.
@@ -487,7 +511,10 @@ export function GlobeBackdrop({
         id: string;
         col: [number, number, number];
         upcoming: boolean;
+        /** Reveal progress: 0 while the trip is still arriving on the globe. */
         alpha: number;
+        /** 1 = full colour, 0 = fully receded behind a highlighted trip. */
+        stand: number;
       };
       type Place = {
         lng: number;
@@ -506,11 +533,12 @@ export function GlobeBackdrop({
       ) => {
         if (center && distance(center, p) > 90) return;
         const alpha = tripAlpha(tripId, now);
+        const stand = standing(tripId);
         const g = places.find((q) => distance([q.lng, q.lat], p) < SAME_PLACE_DEG);
         if (g) {
           if (!g.trips.has(tripId)) {
             g.trips.add(tripId);
-            g.members.push({ id: tripId, col, upcoming, alpha });
+            g.members.push({ id: tripId, col, upcoming, alpha, stand });
           }
           g.city = g.city || city;
         } else {
@@ -519,12 +547,12 @@ export function GlobeBackdrop({
             lat: p[1],
             city,
             trips: new Set([tripId]),
-            members: [{ id: tripId, col, upcoming, alpha }],
+            members: [{ id: tripId, col, upcoming, alpha, stand }],
           });
         }
       };
       for (const trip of frontFacing) {
-        const col = legibleColor(trip.color, dark);
+        const col = recede(legibleColor(trip.color, dark), dark, 1 - standing(trip.id));
         const isCity = tripSpread(trip) < 2.5; // stays around one place
         // A manual marker (interrail loop) is the single dot — snapped onto the
         // nearest route vertex so it always sits ON the line, never on empty land.
@@ -568,7 +596,7 @@ export function GlobeBackdrop({
       // you've been before, mid-route with no dot of its own) joins that place, so
       // its dot cycles between both trips' colours — no new dot is created.
       for (const trip of frontFacing) {
-        const col = legibleColor(trip.color, dark);
+        const col = recede(legibleColor(trip.color, dark), dark, 1 - standing(trip.id));
         for (const seg of trip.path ?? []) {
           for (const p of seg) {
             const g = places.find((q) => distance([q.lng, q.lat], p) < SAME_PLACE_DEG);
@@ -579,6 +607,7 @@ export function GlobeBackdrop({
                 col,
                 upcoming: trip.upcoming,
                 alpha: tripAlpha(trip.id, now),
+                stand: standing(trip.id),
               });
             }
           }
@@ -619,13 +648,65 @@ export function GlobeBackdrop({
         Math.round(a[2] + (b[2] - a[2]) * f),
       ];
 
+      // --- The places in between ---
+      // Every stop the plan names gets its own small dot, so a trip reads as a
+      // string of places instead of a line with two ends. They arrive one after
+      // another in travel order and leave the same way: a whole itinerary
+      // appearing in one frame read as noise rather than as a route.
+      const STEP = 0.06; // progress between one dot starting and the next
+      const WINDOW = 0.45; // how much of the progress axis a single dot takes
+      for (const trip of trips) {
+        if (trip.stops.length === 0) continue;
+        const want = trip.id === activeId || stopsMode === 'always' ? 1 : 0;
+        const cur = stopReveal.get(trip.id) ?? 0;
+        // Quicker to appear than to leave: the dots coming out answer a tap,
+        // while their going is only tidying up after one.
+        const reveal = cur + (want - cur) * (1 - Math.pow(want > cur ? 0.03 : 0.12, dt));
+        stopReveal.set(trip.id, reveal);
+        if (reveal < 0.012) continue;
+
+        const col = recede(legibleColor(trip.color, dark), dark, 1 - standing(trip.id));
+        const stand = standing(trip.id);
+        const axis = (trip.stops.length - 1) * STEP + WINDOW;
+        const head = reveal * axis;
+        const baseAlpha = tripAlpha(trip.id, now) * (0.34 + 0.66 * stand);
+        for (let i = 0; i < trip.stops.length; i++) {
+          const sp = trip.stops[i]!;
+          // A stop that already carries a full-size dot — a route end, or a city
+          // two trips share — would only be drawn underneath it.
+          if (places.some((q) => distance([q.lng, q.lat], sp) < SAME_PLACE_DEG)) continue;
+          if (center && distance(center, sp) > 90) continue;
+          const pr = projection(sp);
+          if (!pr) continue;
+          const local = Math.max(0, Math.min(1, (head - i * STEP) / WINDOW));
+          if (local <= 0) continue;
+          // Ease-out-back: it overshoots a touch and settles, so a dot lands
+          // rather than simply being there.
+          const k = local - 1;
+          const pop = 1 + 2.3 * k * k * k + 1.5 * k * k;
+          const [r, g, b] = col;
+          ctx!.globalAlpha = baseAlpha * Math.min(1, local * 1.6);
+          ctx!.beginPath();
+          ctx!.arc(pr[0], pr[1], 3.1 * dpr * pop, 0, 2 * Math.PI);
+          ctx!.fillStyle = `rgb(${r},${g},${b})`;
+          ctx!.fill();
+          ctx!.lineWidth = 1.1 * dpr;
+          ctx!.strokeStyle = dark ? 'rgba(20,25,32,0.65)' : 'rgba(255,255,255,0.9)';
+          ctx!.stroke();
+        }
+        ctx!.globalAlpha = 1;
+      }
+
       for (const pl of places) {
         const projected = projection([pl.lng, pl.lat]);
         if (!projected) continue;
         const [x, y] = projected;
         const m = pl.members;
-        // A place shared by several trips is as visible as its most-arrived one.
-        ctx!.globalAlpha = Math.max(...m.map((v) => v.alpha), 0);
+        // A place shared by several trips is as visible as its most-arrived one,
+        // and as present as the least receded trip that meets there.
+        ctx!.globalAlpha =
+          Math.max(...m.map((v) => v.alpha), 0) *
+          (0.34 + 0.66 * Math.max(...m.map((v) => v.stand), 0));
         if (m.length <= 1) {
           drawSmallDot(x, y, m[0]?.col ?? [90, 110, 225], m[0]?.upcoming ?? false);
           ctx!.globalAlpha = 1;
@@ -1000,6 +1081,7 @@ export function GlobeBackdrop({
       cancelAnimationFrame(raf);
       ro.disconnect();
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('mms-globe-stops', onStopsMode);
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerup', onUp);
@@ -1118,6 +1200,24 @@ function legibleColor(rgb: [number, number, number], dark: boolean): [number, nu
   const s2 = Math.min(96, Math.max(s, 48));
   const l2 = dark ? Math.min(80, Math.max(l, 50)) : Math.max(26, Math.min(l, 54));
   return hslToRgb(h, s2, l2);
+}
+
+/**
+ * A colour stepping back behind a highlighted trip.
+ *
+ * Only the colour goes: most of the saturation drains and the lightness moves
+ * toward the globe's own surface, so the route is still there and still legible
+ * — it has simply stopped competing. `f` is how far back, 0 to 1.
+ */
+function recede(
+  rgb: [number, number, number],
+  dark: boolean,
+  f: number,
+): [number, number, number] {
+  if (f <= 0.001) return rgb;
+  const [h, s, l] = rgbToHsl(rgb);
+  const target = dark ? 46 : 58;
+  return hslToRgb(h, s * (1 - 0.72 * f), l + (target - l) * 0.6 * f);
 }
 
 function rgbToHsl([r, g, b]: [number, number, number]): [number, number, number] {

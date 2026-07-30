@@ -22,6 +22,12 @@ export type TripWithMembers = Trip & {
   resolvedCoverId: string | null;
   /** [lng, lat] anchor for the globe, if any stop has coordinates. */
   anchor: [number, number] | null;
+  /**
+   * Every planned stop that has coordinates, day trips included, in travel
+   * order. The globe draws a dot per stop; the route line alone only showed
+   * where a trip began and ended.
+   */
+  stopPoints: [number, number][];
   /** Route distance in km (0 when unknown); only populated by listForUser. */
   distanceKm?: number;
   /**
@@ -79,12 +85,18 @@ const MEMBERS_INCLUDE = {
     orderBy: { takenAt: 'asc' },
     select: { id: true },
   },
-  // A geo anchor for the globe overview: the planned stops, in order. Day
-  // trips are excursions off the route, so they must not drag the framing.
+  // Two jobs: a geo anchor for the globe overview, and a dot per place the
+  // plan touches. Day trips come along for the dots but are marked, because
+  // they are excursions off the route and must not drag the framing.
   stops: {
-    where: { latitude: { not: null }, parentStopId: null },
+    where: { latitude: { not: null } },
     orderBy: { orderIndex: 'asc' },
-    select: { name: true, latitude: true, longitude: true },
+    select: {
+      name: true,
+      latitude: true,
+      longitude: true,
+      parentStopId: true,
+    },
   },
 } as const;
 
@@ -95,7 +107,12 @@ export interface TripStats {
   photoCount: number;
 }
 
-type RawStop = { name: string; latitude: number | null; longitude: number | null };
+type RawStop = {
+  name: string;
+  latitude: number | null;
+  longitude: number | null;
+  parentStopId: string | null;
+};
 
 /** Departure/arrival legs: real places, but at home, not on the trip. */
 const ANCHOR_SKIP = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
@@ -114,9 +131,10 @@ function mapMembers(trip: RawTripRow): TripWithMembers {
   // starts at home — a Sweden trip would then be framed on the Netherlands with
   // its route pushed off the top of the view. Skip those legs and take the
   // MIDDLE of the real destinations, which sits inside the route either way.
-  const cities = stops.filter((s) => !ANCHOR_SKIP.has(s.name));
-  const usable = (cities.length > 0 ? cities : stops).filter(
-    (s): s is { name: string; latitude: number; longitude: number } =>
+  const route = stops.filter((s) => s.parentStopId === null);
+  const cities = route.filter((s) => !ANCHOR_SKIP.has(s.name));
+  const usable = (cities.length > 0 ? cities : route).filter(
+    (s): s is RawStop & { latitude: number; longitude: number } =>
       s.latitude != null && s.longitude != null,
   );
   const mid = usable[Math.floor(usable.length / 2)];
@@ -127,10 +145,18 @@ function mapMembers(trip: RawTripRow): TripWithMembers {
       : mid
         ? [mid.longitude, mid.latitude]
         : null;
+  // Every place the plan names, day trips included, in the order they are
+  // travelled. The heen-/terugreis legs carry a coordinate for their distance
+  // but are not places you went, so they get no dot — same rule the trip map
+  // already uses for its pins.
+  const stopPoints = stops
+    .filter((s) => !ANCHOR_SKIP.has(s.name) && s.latitude != null && s.longitude != null)
+    .map((s) => [s.longitude!, s.latitude!] as [number, number]);
   return {
     ...rest,
     resolvedCoverId: trip.coverMediaId ?? mediaRefs[0]?.id ?? null,
     anchor,
+    stopPoints,
     members: members.map((m) => ({
       userId: m.userId,
       role: m.role,

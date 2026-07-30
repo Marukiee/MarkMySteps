@@ -1433,3 +1433,46 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+
+/* Two-way choice in a settings card. Same sliding pill as the trip's tabs, so
+   a switch here reads as the same kind of thing it does there. */
+.settings-seg {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 0.2rem;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+}
+
+.settings-seg-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 999px;
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-s);
+  transition: transform 0.3s var(--ease);
+}
+
+.settings-seg[data-on='always'] .settings-seg-thumb {
+  transform: translateX(100%);
+}
+
+.settings-seg button {
+  position: relative;
+  z-index: 1;
+  padding: 0.45rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+  transition: color 0.25s var(--ease);
+}
+
+.settings-seg button.active {
+  color: var(--ink);
+}
