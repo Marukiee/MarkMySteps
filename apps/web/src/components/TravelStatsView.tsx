@@ -63,7 +63,7 @@ export function StatGrid({ stats }: { stats: TravelStats | null }) {
     <div className="stat-grid">
       <Tile
         wide
-        icon="route"
+        icon="ruler"
         tone="#4a8f3c"
         label="kilometer afgelegd"
         delay={0}
