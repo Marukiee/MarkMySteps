@@ -16,18 +16,38 @@
     var(--paper);
 }
 
+/* Mark above the name, both centred: the two read as one lockup rather than
+   as a logo that happens to sit near a heading. */
 .login-hero {
+  display: grid;
+  justify-items: center;
+  gap: 0.55rem;
   text-align: center;
+  animation: rise 0.5s var(--ease) backwards;
+}
+
+.login-hero svg {
+  animation: loginMarkIn 0.7s var(--ease) backwards;
+}
+
+@keyframes loginMarkIn {
+  from {
+    opacity: 0;
+    transform: scale(0.82) rotate(-25deg);
+  }
 }
 
 .login-hero h1 {
+  font-family: var(--font-brand);
+  font-weight: 620;
+  letter-spacing: -0.02em;
   font-size: 2.6rem;
   color: var(--ink);
 }
 
 .login-hero p {
   color: var(--ink-soft);
-  margin-top: 0.35rem;
+  margin-top: -0.2rem;
 }
 
 .login-card {

@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_SERVER_URL } from '../config';
 import { isNative } from '../tracking/tracker';
 import { LocalModeSheet } from '../components/LocalModeSheet';
+import { LogoMark } from '../components/Logo';
 import { PasswordInput } from '../components/PasswordInput';
 import { PasswordStrength } from '../components/PasswordStrength';
 import './login.css';
@@ -50,6 +51,9 @@ export function LoginPage() {
   return (
     <div className="login-shell">
       <div className="login-hero">
+        {/* The mark the rest of the app carries, at the one screen where the
+            app still has to say what it is. */}
+        <LogoMark size={58} />
         <h1>MarkMySteps</h1>
         <p>Leg vast waar je geweest bent, zonder dat iemand anders meekijkt.</p>
       </div>
