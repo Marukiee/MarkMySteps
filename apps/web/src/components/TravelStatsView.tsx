@@ -175,12 +175,21 @@ function countryName(code: string): string {
  * so narrow that half of them break in two. The count is not repeated here —
  * it is already one of the tiles above.
  */
-export function CountryPanel({ countries }: { countries: string[] }) {
-  if (countries.length === 0) return null;
-  const sorted = [...countries].sort((a, b) => countryName(a).localeCompare(countryName(b), 'nl'));
+export function CountryPanel({ countries }: { countries: string[] | null }) {
+  if (countries !== null && countries.length === 0) return null;
+  const sorted = [...(countries ?? [])].sort((a, b) =>
+    countryName(a).localeCompare(countryName(b), 'nl'),
+  );
   return (
     <section className="country-panel">
-      <CountryGlobe countries={countries} size={190} />
+      {/* The globe's box is there from the first frame, holding its own size,
+          with the sea already in it. The panel used to grow the moment the
+          numbers arrived, which shoved everything under it down the page —
+          and the globe itself popped in on top of that. */}
+      <div className="country-globe-slot">
+        <span className="country-globe-skeleton" data-done={countries !== null} aria-hidden="true" />
+        {countries !== null && <CountryGlobe countries={countries} size={190} />}
+      </div>
       <div className="country-row">
         {sorted.map((code, i) => (
           <span key={code} className="country-chip" style={{ animationDelay: `${i * 35}ms` }}>

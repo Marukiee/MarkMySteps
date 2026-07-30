@@ -75,10 +75,11 @@ export function FriendsPage() {
             )}
           </header>
           <StatGrid stats={mine} />
-          {mine && <CountryPanel countries={mine.countries} />}
-          {mine && <RecentTrips trips={mine.recent} />}
+          <CountryPanel countries={mine?.countries ?? null} />
         </section>
       )}
+
+      {mine && <RecentTrips trips={mine.recent} />}
 
       {!local && (
         <>
