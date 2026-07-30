@@ -35,7 +35,7 @@ export function TripsPage() {
     const onScale = (e: Event) => {
       const scale = (e as CustomEvent<number>).detail;
       if (needleRef.current) {
-        needleRef.current.style.transform = `rotate(${(scale - 1) * 420}deg)`;
+        needleRef.current.style.transform = `rotate(${(scale - 1) * 660}deg)`;
       }
     };
     window.addEventListener('mms-globe-scale', onScale);
