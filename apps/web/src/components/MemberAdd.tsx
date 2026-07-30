@@ -102,12 +102,15 @@ export function MemberAdd({
       )}
 
       <div className="member-add-list">
-        {visible.map((u) => (
+        {visible.map((u, i) => (
           <button
             key={u.id}
             type="button"
             className={`member-add-row ${isPicked(u) ? 'checked' : ''}`}
             aria-pressed={isPicked(u)}
+            // Rows that survive a new search keep their place and do not
+            // re-animate; the ones that just arrived come in one after another.
+            style={{ animationDelay: `${Math.min(i, 7) * 28}ms` }}
             onClick={() => toggle(u)}
           >
             <span className="member-add-box" aria-hidden="true">

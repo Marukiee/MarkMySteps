@@ -100,6 +100,17 @@
   text-align: left;
   color: inherit;
   transition: background 0.15s var(--ease);
+  /* A name that has just come back from a search arrives rather than appears —
+     the old type-ahead did this, and the list it replaced lost it. React keys
+     on the person, so only genuinely new rows run it. */
+  animation: memberRowIn 0.28s var(--ease) both;
+}
+
+@keyframes memberRowIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
 }
 
 .member-add-row:hover,
