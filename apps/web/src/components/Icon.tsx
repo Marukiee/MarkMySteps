@@ -18,6 +18,7 @@ export type IconName =
   | 'walk'
   | 'pencil'
   | 'compass'
+  | 'route'
   | 'globe'
   | 'check'
   | 'dots'
@@ -133,6 +134,15 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="m15.5 8.5-2 5-5 2 2-5Z" />
+    </>
+  ),
+  // Distance covered: a winding way with a pin at each end. A car said one
+  // mode of travel, and the number counts every one of them.
+  route: (
+    <>
+      <circle cx="6" cy="19" r="2.6" />
+      <path d="M8.6 19h8.9a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" />
+      <circle cx="18" cy="5" r="2.6" />
     </>
   ),
   globe: (
