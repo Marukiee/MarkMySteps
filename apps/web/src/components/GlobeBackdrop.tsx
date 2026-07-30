@@ -308,10 +308,21 @@ export function GlobeBackdrop({
         const OVERVIEW_MS = 6000;
         const FOCUS_MS = 6500;
         const dur = tourPhase === 0 ? OVERVIEW_MS : FOCUS_MS;
+        // A trip you tapped is framed and STAYS framed until you tap away. It
+        // used to be highlighted without being framed, so the light ran its
+        // journey while the camera quietly pulled back out to the overview.
+        const tapped = selectedId ? trips.findIndex((t) => t.id === selectedId) : -1;
         // In "no tour" mode (onboarding) it never zooms into a trip — stays a
         // gentle overview.
         if (noTourRef.current) {
           tourPhase = 0;
+        } else if (tapped >= 0) {
+          tourPhase = 1;
+          tourIdx = tapped;
+          lastFocusId = selectedId;
+          // Held open: the timer below is what ends a tour's own focus, and
+          // this one ends when you say so.
+          phaseStart = now;
         } else if (now - phaseStart > dur) {
           if (tourPhase === 0) {
             // Entering a focus: frame the next trip (biggest first). A stale tap
@@ -1005,12 +1016,19 @@ export function GlobeBackdrop({
           let walked = 0;
           for (let i = 0; i < legs.length - 1; i++) {
             walked += legs[i]!.len;
-            if (legs[i + 1]!.len > 0.25) arrivals.push(walked);
+            if (legs[i + 1]!.len <= 0.25) continue;
+            // Changing planes is not arriving somewhere. Keflavík on the way to
+            // New York is an hour in a terminal, not a place you went, so the
+            // light carries straight on through it.
+            if (legs[i]!.kind === 'flight' && legs[i + 1]!.kind === 'flight') continue;
+            arrivals.push(walked);
           }
 
-          // A journey that stops along the way already shows itself as it goes,
-          // so one pass is enough; a straight line from A to B gets its second.
-          glowRunsNeeded = arrivals.length >= 2 ? 1 : glowRunsFor(total);
+          // A journey that shows itself as it goes needs one pass, not two:
+          // anything with a flight in it, or with places to stop at along the
+          // way. A straight line from A to B still gets its second.
+          const hasFlight = legs.some((leg) => leg.kind === 'flight');
+          glowRunsNeeded = hasFlight || arrivals.length >= 2 ? 1 : glowRunsFor(total);
           // Flying on after you looked away: no waiting anywhere, just get to
           // the airport.
           const landing = !activeId;
