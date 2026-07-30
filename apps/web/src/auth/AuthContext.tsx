@@ -36,6 +36,39 @@ function isPendingError(err: unknown): boolean {
   return err instanceof ApiError && err.status === 403;
 }
 
+/**
+ * The one answer that means "sign in again": the server refused the session
+ * itself. The client only raises this after a refresh was actually turned down.
+ */
+function isSessionOver(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 401;
+}
+
+/**
+ * Last known profile, kept so a launch without a reachable server still opens
+ * the app instead of the login screen. The trips themselves already come from
+ * the offline cache; the account was the one thing that did not.
+ */
+const USER_CACHE_KEY = 'mms.user';
+
+function cachedUser(): User | null {
+  try {
+    const raw = localStorage.getItem(USER_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheUser(user: User | null): void {
+  try {
+    if (user) localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    else localStorage.removeItem(USER_CACHE_KEY);
+  } catch {
+    /* storage full — the app still works, it just asks again next time */
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [pending, setPending] = useState(false);
@@ -43,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearTokens();
+    cacheUser(null);
     // Leaving local mode is the way back to the login screen; there is no
     // session to end.
     setLocalMode(false);
@@ -53,7 +87,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** Loads the account, or notes that it is still waiting for approval. */
   const load = useCallback(async () => {
     try {
-      setUser(await api<User>('/users/me'));
+      const me = await api<User>('/users/me');
+      cacheUser(me);
+      setUser(me);
       setPending(false);
     } catch (err) {
       if (isPendingError(err)) {
@@ -61,7 +97,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPending(true);
         return;
       }
+      // Only the server refusing the session ends it. A launch in a tunnel, a
+      // server that is down for a minute, a rate limit — none of those are a
+      // reason to throw away tokens that are good for a month, and doing so is
+      // what signed people out for no reason they could see.
+      if (!isSessionOver(err)) {
+        setUser(cachedUser());
+        setPending(false);
+        return;
+      }
       clearTokens();
+      cacheUser(null);
       setUser(null);
       setPending(false);
     }

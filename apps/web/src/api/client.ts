@@ -94,25 +94,37 @@ function setReachable(ok: boolean): void {
   for (const fn of reachabilityListeners) fn(ok);
 }
 
-let refreshPromise: Promise<boolean> | null = null;
+/**
+ * What came of trying to swap the refresh token for a fresh pair.
+ *
+ * The difference between the last two is the difference between "this session
+ * is over" and "the server could not answer just now", and only the first of
+ * those may sign someone out. Treating them alike is what logged people out on
+ * a bad connection or the moment a rate limit was hit.
+ */
+export type RefreshOutcome = 'ok' | 'invalid' | 'unavailable';
 
-async function tryRefresh(): Promise<boolean> {
+let refreshPromise: Promise<RefreshOutcome> | null = null;
+
+async function tryRefresh(): Promise<RefreshOutcome> {
   // Collapse concurrent 401s into a single refresh call.
   refreshPromise ??= (async () => {
     const refreshToken = localStorage.getItem(REFRESH_KEY);
-    if (!refreshToken) return false;
+    if (!refreshToken) return 'invalid';
     try {
       const res = await fetch(`${getServerBase()}/api/auth/refresh`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
       });
-      if (!res.ok) return false;
+      // 401/403 is the server saying this token is dead. Anything else it says
+      // (429, 500, a gateway in the way) says nothing about the session.
+      if (!res.ok) return res.status === 401 || res.status === 403 ? 'invalid' : 'unavailable';
       const tokens = (await res.json()) as { accessToken: string; refreshToken: string };
       setTokens(tokens.accessToken, tokens.refreshToken);
-      return true;
+      return 'ok';
     } catch {
-      return false;
+      return 'unavailable';
     } finally {
       refreshPromise = null;
     }
@@ -120,10 +132,41 @@ async function tryRefresh(): Promise<boolean> {
   return refreshPromise;
 }
 
+/**
+ * Answers worth waiting a moment for rather than failing on: a rate limit the
+ * server will lift by itself, and a server that is briefly not there.
+ */
+function isTransient(status: number): boolean {
+  return status === 429 || status === 502 || status === 503 || status === 504;
+}
+
+const MAX_TRANSIENT_RETRIES = 2;
+
+/** Seconds the server asked for, if it named one; otherwise a growing pause. */
+function retryDelayMs(res: Response, attempt: number): number {
+  const header = Number(res.headers.get('retry-after'));
+  if (Number.isFinite(header) && header > 0) return Math.min(header * 1000, 10_000);
+  return 800 * 2 ** attempt;
+}
+
+const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+/**
+ * Answers that must never be served from the offline cache. The invite popup
+ * is told once and then marked seen on the server; a cached copy would keep
+ * announcing trips you have already been told about.
+ */
+const NEVER_CACHED = ['/trips/invites'];
+
+function cacheable(path: string): boolean {
+  return !NEVER_CACHED.some((p) => path.startsWith(p));
+}
+
 export async function api<T>(
   path: string,
   options: { method?: string; body?: unknown; formData?: FormData } = {},
   isRetry = false,
+  transientTries = 0,
 ): Promise<T> {
   // Without a server every request is answered on the device, using the same
   // paths and the same shapes — so nothing above this line knows the
@@ -148,7 +191,7 @@ export async function api<T>(
   } catch (netError) {
     setReachable(false);
     // No network: fall back to the offline read cache for GETs.
-    if (isGet) {
+    if (isGet && cacheable(path)) {
       const cached = await cacheGetJson<T>(path);
       if (cached !== null) return cached;
     }
@@ -157,13 +200,29 @@ export async function api<T>(
   // An HTTP answer of any kind means the server is there.
   setReachable(true);
 
+  // Coming back from a day offline, everything asks at once — the queued
+  // writes, the trip, the points of today — and the rate limit trips. Waiting
+  // out the limit is the whole fix; "Too Many Requests" was never a message
+  // for a person to read.
+  if (isTransient(res.status) && transientTries < MAX_TRANSIENT_RETRIES) {
+    await sleep(retryDelayMs(res, transientTries));
+    return api<T>(path, options, isRetry, transientTries + 1);
+  }
+
   if (res.status === 401 && !isRetry && !path.startsWith('/auth/')) {
-    if (await tryRefresh()) {
+    const outcome = await tryRefresh();
+    if (outcome === 'ok') {
       return api<T>(path, options, true);
     }
-    clearTokens();
-    onLogout?.();
-    throw new ApiError(401, 'Sessie verlopen, log opnieuw in');
+    // Only a server that refused the refresh token ends the session. A refresh
+    // that could not be made at all leaves it alone: the connection comes back
+    // long before a 30-day token expires.
+    if (outcome === 'invalid') {
+      clearTokens();
+      onLogout?.();
+      throw new ApiError(401, 'Sessie verlopen, log opnieuw in');
+    }
+    throw new ApiError(503, 'Server even niet bereikbaar');
   }
 
   if (!res.ok) {
@@ -180,7 +239,7 @@ export async function api<T>(
   if (res.status === 204) return undefined as T;
   const data = (await res.json()) as T;
   // Keep a copy of GET responses for offline viewing of opened trips.
-  if (isGet) void cachePutJson(path, data);
+  if (isGet && cacheable(path)) void cachePutJson(path, data);
   return data;
 }
 

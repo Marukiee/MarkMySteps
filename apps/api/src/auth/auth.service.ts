@@ -46,6 +46,14 @@ const REFRESH_TOKEN_BYTES = 48;
  */
 const MAX_PENDING_REQUESTS = 15;
 
+/**
+ * How long after rotating a refresh token the old one is still answered.
+ *
+ * Long enough to cover a lost response and the retry that follows it, short
+ * enough that a stolen token is worth almost nothing.
+ */
+const REFRESH_REPLAY_GRACE_MS = 60_000;
+
 @Injectable()
 export class AuthService {
   private readonly refreshTtlMs: number;
@@ -192,12 +200,23 @@ export class AuthService {
     }
 
     if (stored.revokedAt) {
-      // Token replay detected → revoke every active token for this user.
-      await this.prisma.refreshToken.updateMany({
-        where: { userId: stored.userId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
-      throw new UnauthorizedException('Invalid refresh token');
+      // A token that was rotated moments ago is almost never an attack: it is
+      // the same phone asking again because the answer never arrived — a tunnel,
+      // a killed WebView, a dropped connection. Treating that as replay logged
+      // people out of a perfectly good session. Outside the window the old
+      // behaviour stands: revoke every token this user has.
+      const rotatedRecently = Date.now() - stored.revokedAt.getTime() < REFRESH_REPLAY_GRACE_MS;
+      if (!rotatedRecently) {
+        await this.prisma.refreshToken.updateMany({
+          where: { userId: stored.userId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+      if (stored.user.status === AccountStatus.REJECTED) {
+        throw new ForbiddenException('This account has not been approved');
+      }
+      return this.issueTokens(stored.user.id, stored.user.email, stored.user.status);
     }
 
     await this.prisma.refreshToken.update({

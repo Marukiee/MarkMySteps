@@ -84,8 +84,12 @@ export async function flushPendingWrites(): Promise<void> {
         await api(next.path, { method: next.method, body: next.body });
       } catch (err) {
         // ApiError means the server answered; anything else is the network.
-        const answered = typeof (err as { status?: number }).status === 'number';
-        if (!answered) return;
+        const status = (err as { status?: number }).status;
+        if (typeof status !== 'number') return;
+        // A rate limit or a server having a bad minute is not a verdict on the
+        // edit. Dropping it there lost work that was only ever queued because
+        // there was no connection at the time.
+        if (status === 429 || status === 408 || status >= 500) return;
       }
       queue = read().filter((w) => w.id !== next.id);
       write(queue);
