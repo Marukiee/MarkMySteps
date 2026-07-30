@@ -1477,3 +1477,16 @@
   color: var(--ink);
 }
 
+
+/* Two choices and the button that acts on them, on one line where it fits. */
+.dev-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dev-choices select {
+  flex: 1 1 auto;
+  min-width: 8rem;
+}

@@ -89,16 +89,24 @@
   padding: 0;
   width: 100%;
   display: grid;
-  gap: 1px;
+  /* Real space between them: at 1px two rows read as one block with a seam
+     through it, and with a photo on each that only got worse. */
+  gap: 0.4rem;
   text-align: left;
+}
+
+/* A row with a photo is taller than one without, and a list of both looked
+   ragged. They all take the height of the tallest thing that can be in one. */
+.invite-list li {
+  min-height: 46px;
 }
 
 .invite-list li {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.45rem 0.55rem;
-  border-radius: 9px;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 10px;
   background: var(--paper-sunken);
   color: var(--ink-soft);
   animation: inviteRowIn 0.4s var(--ease) both;
@@ -115,8 +123,15 @@
   }
 }
 
+.invite-list li > svg {
+  flex-shrink: 0;
+  /* Sits where a photo's left edge would, so a mixed list still lines up. */
+  margin: 0 0.5rem 0 0.35rem;
+}
+
 .invite-list li span {
   display: grid;
+  flex: 1;
   min-width: 0;
   font-size: 0.92rem;
   font-weight: 600;
@@ -145,8 +160,8 @@
    no empty frame — a placeholder for a picture that is never coming looks
    worse than no picture. */
 .invite-cover {
-  width: 44px;
-  height: 34px;
+  width: 46px;
+  height: 36px;
   flex-shrink: 0;
   border-radius: 7px;
   object-fit: cover;

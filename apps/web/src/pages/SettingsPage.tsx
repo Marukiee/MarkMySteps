@@ -1454,21 +1454,7 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
           </button>
         </div>
       </div>
-      <div className="field">
-        <label>Toegevoegd aan een reis</label>
-        <div className="dev-buttons">
-          <button type="button" className="btn btn-ghost" onClick={() => previewInvitePopup(1)}>
-            Eén reis
-          </button>
-          <button type="button" className="btn btn-ghost" onClick={() => previewInvitePopup(3)}>
-            Drie reizen
-          </button>
-        </div>
-        <span className="muted">
-          Toont de melding met verzonnen reizen. Er verandert niets aan je account, en sluiten
-          brengt je nergens heen.
-        </span>
-      </div>
+      <InvitePreviewPicker />
       <div className="field">
         <label>Update-melding</label>
         <button
@@ -1489,6 +1475,50 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
         Ontwikkelaarsmodus verbergen
       </button>
     </section>
+  );
+}
+
+/**
+ * Developer options: put the "you were added to a trip" dialog on screen.
+ *
+ * Two questions rather than a row of buttons, because the interesting cases are
+ * a combination of them: one trip with a photo looks nothing like three
+ * without.
+ */
+function InvitePreviewPicker() {
+  const [count, setCount] = useState(1);
+  const [photos, setPhotos] = useState(false);
+  return (
+    <div className="field">
+      <label htmlFor="dev-invite-count">Toegevoegd aan een reis</label>
+      <div className="dev-choices">
+        <select
+          id="dev-invite-count"
+          value={count}
+          onChange={(e) => setCount(Number(e.target.value))}
+        >
+          <option value={1}>1 reis</option>
+          <option value={2}>2 reizen</option>
+          <option value={3}>3 reizen</option>
+          <option value={5}>5 reizen</option>
+        </select>
+        <select value={photos ? 'yes' : 'no'} onChange={(e) => setPhotos(e.target.value === 'yes')}>
+          <option value="no">Zonder foto's</option>
+          <option value="yes">Met foto's</option>
+        </select>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={() => void previewInvitePopup(count, photos)}
+        >
+          Tonen
+        </button>
+      </div>
+      <span className="muted">
+        Met foto&apos;s leent hij de covers van je eigen reizen, want een verzonnen foto bestaat
+        niet. Er verandert niets aan je account, en sluiten brengt je nergens heen.
+      </span>
+    </div>
   );
 }
 
