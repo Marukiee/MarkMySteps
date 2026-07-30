@@ -6,14 +6,7 @@ import * as topojson from 'topojson-client';
 import land110m from 'world-atlas/land-110m.json';
 import type { Trip } from '../api/types';
 import { airportByCode } from '../lib/airports';
-import { api } from '../api/client';
-import {
-  getDefaultAirports,
-  getGlobeQuality,
-  getGlobeStops,
-  type GlobeQuality,
-  type GlobeStopsMode,
-} from '../lib/prefs';
+import { getDefaultAirports, getGlobeStops, type GlobeStopsMode } from '../lib/prefs';
 import './globe.css';
 
 // Minimal shape of the TopoJSON we consume (avoids a types-only dep).
@@ -32,8 +25,6 @@ interface GlobeTrip {
   color: [number, number, number];
   /** Every planned stop with coordinates, in travel order. */
   stops: [number, number][];
-  /** Has recorded GPS, so there is a finer line to ask for when zoomed in. */
-  tracked: boolean;
   /** The legs in travel order, when the server knows them. */
   journey: { flight: boolean; points: [number, number][] }[] | null;
   /** Relative importance (km, else days) — drives label priority. */
@@ -113,7 +104,6 @@ export function GlobeBackdrop({
           // Only trips that haven't started yet are dashed; ongoing trips are solid.
           upcoming: t.startDate.slice(0, 10) > today,
           stops: t.stopPoints ?? [],
-          tracked: !!t.distanceKm && t.distanceKm > 0,
           journey: t.journey && t.journey.length > 0 ? t.journey : null,
           color: [90, 110, 225] as [number, number, number],
           size: t.distanceKm && t.distanceKm > 0 ? t.distanceKm : dayCount(t) * 40,
@@ -214,6 +204,13 @@ export function GlobeBackdrop({
     let holdPoint: [number, number] | null = null;
     /** Falls 1 → 0 twice over a wait, which is what makes the two rings. */
     let holdPulse = 0;
+    /** Whose journey the light is currently running, so a change can restart it. */
+    let glowTripId: string | null = null;
+    /** A trip whose plane is still finishing its leg after you looked away. */
+    let landingId: string | null = null;
+    let landingTarget = 0;
+    /** Where the leg being flown ends, while one is being flown. */
+    let flightEndsAt: number | null = null;
     /** Per dot: how brightly it is still lit after the light went past. */
     const flares = new Map<string, number>();
     /**
@@ -239,68 +236,6 @@ export function GlobeBackdrop({
       stopsMode = (e as CustomEvent<GlobeStopsMode>).detail;
     };
     window.addEventListener('mms-globe-stops', onStopsMode);
-
-    // --- Detail, fetched only once you have zoomed in far enough to see it ---
-    /** Where "zoomed in" begins, for both the coastline and the routes. */
-    const DETAIL_ZOOM = 2.2;
-    let quality = getGlobeQuality();
-    const onQuality = (e: Event) => {
-      quality = (e as CustomEvent<GlobeQuality>).detail;
-    };
-    window.addEventListener('mms-globe-quality', onQuality);
-    /** The 1:50M coastline, once asked for. Half a megabyte, so never on load. */
-    let fineLand: GeoPermissibleObjects | null = null;
-    let landPending = false;
-    /** How much of the sharper outline is faded in (0–1). */
-    let landMix = 0;
-    /** Per trip: its route at full resolution, once it has been worth asking. */
-    const fineRoutes = new Map<string, [number, number][][]>();
-    const routeAsked = new Set<string>();
-
-    const wantFineLand = () => {
-      if (fineLand || landPending) return;
-      landPending = true;
-      import('world-atlas/land-50m.json')
-        .then((mod) => {
-          const topology = (mod.default ?? mod) as unknown as LandTopology;
-          fineLand = topojson.feature(
-            topology,
-            topology.objects.land,
-          ) as unknown as GeoPermissibleObjects;
-        })
-        .catch(() => {
-          // Never mind: the globe keeps the outline it already has.
-          landPending = false;
-        });
-    };
-
-    /**
-     * The trip's own recording, at the resolution it was stored in.
-     *
-     * The home screen asks for every trip at once, so the line it gets is
-     * simplified hard — fine for a globe you are looking at whole, visibly
-     * angular once you are close. This asks for one trip, once, and only when
-     * you are close enough for it to matter. It is used for the DRAWN line
-     * only: the light travels the coarse one, so a route arriving mid-flight
-     * cannot make it jump.
-     */
-    const wantFineRoute = (trip: GlobeTrip) => {
-      if (!trip.tracked || routeAsked.has(trip.id)) return;
-      routeAsked.add(trip.id);
-      api<{ features: { geometry: { coordinates: [number, number][] } }[] }>(
-        `/trips/${trip.id}/route?tolerance=0.004&photos=false`,
-      )
-        .then((collection) => {
-          const lines = collection.features
-            .map((f) => f.geometry.coordinates)
-            .filter((line) => line.length >= 2);
-          if (lines.length > 0) fineRoutes.set(trip.id, lines);
-        })
-        .catch(() => {
-          // Let it be asked again later — this is a nicety, not a dependency.
-          routeAsked.delete(trip.id);
-        });
-    };
 
     // The canvas fills its container completely; the sphere is then drawn
     // centred at the largest radius that fits BOTH dimensions (see draw()).
@@ -509,27 +444,10 @@ export function GlobeBackdrop({
       ctx!.fillStyle = dark ? '#1a2028' : '#eadfce';
       ctx!.fill();
 
-      // The coastline. Sharper once you are close enough for it to show, and
-      // only if the setting says the phone can take it. The two outlines are
-      // crossfaded rather than swapped: at the moment of the switch the second
-      // one has extra bays and headlands, and a hard cut reads as the map
-      // twitching. Both are the same colour, so the fade is only detail
-      // arriving.
-      const closeIn = scale > DETAIL_ZOOM;
-      if (quality === 'high' && closeIn) wantFineLand();
-      landMix += ((quality === 'high' && closeIn && fineLand ? 1 : 0) - landMix) *
-        (1 - Math.pow(0.02, dt));
-      ctx!.fillStyle = dark ? '#2d3742' : '#d8c9ad';
       ctx!.beginPath();
       path(land);
+      ctx!.fillStyle = dark ? '#2d3742' : '#d8c9ad';
       ctx!.fill();
-      if (fineLand && landMix > 0.01) {
-        ctx!.globalAlpha = landMix;
-        ctx!.beginPath();
-        path(fineLand);
-        ctx!.fill();
-        ctx!.globalAlpha = 1;
-      }
 
       // A jump longer than this within a route line is treated as an (unmarked)
       // flight, so photos NL→Rome draw a flight bow, not a straight blue line.
@@ -563,15 +481,10 @@ export function GlobeBackdrop({
         }
         if (!trip.path) continue;
 
-        // Close in on a trip and it is worth asking for its real recording; the
-        // one the home screen was given is simplified for a globe seen whole.
-        if (closeIn && (trip.id === activeId || trips.length === 1)) wantFineRoute(trip);
-        const drawn = (closeIn ? fineRoutes.get(trip.id) : undefined) ?? trip.path;
-
         ctx!.globalAlpha = tripAlpha(trip.id, now) * (0.34 + 0.66 * stand);
         ctx!.lineJoin = 'round';
         ctx!.lineCap = 'round';
-        for (const seg of drawn) {
+        for (const seg of trip.path) {
           // Split the segment wherever a jump is flight-sized.
           let run: [number, number][] = seg.length ? [seg[0]!] : [];
           const flushRun = () => {
@@ -953,8 +866,32 @@ export function GlobeBackdrop({
       // no route at all and fell through to the city-trip halo, which lit one of
       // its three places and ignored the rest.
       headGeo = null;
-      if (activeId) {
-        const act = trips.find((t) => t.id === activeId);
+
+      // Every highlight starts its trip over. Tapping one used to show a light
+      // frozen wherever the last run had left it, because the run counter was
+      // already full; and coming back to a trip picked up mid-flight, halfway
+      // across a sea, which is not where a journey begins.
+      if (activeId !== glowTripId) {
+        if (activeId) {
+          glowDist = 0;
+          glowRuns = 0;
+          holdUntil = 0;
+          holdPoint = null;
+          landingId = null;
+        } else if (flightEndsAt !== null && glowTripId) {
+          // Let go of a trip mid-flight and the plane still lands: it flies on
+          // to the airport it was heading for, and stops there. Stopping dead
+          // over the sea reads as a bug, which is what it looked like.
+          landingId = glowTripId;
+          landingTarget = flightEndsAt;
+        }
+        glowTripId = activeId;
+      }
+
+      const lightId = activeId ?? landingId;
+      flightEndsAt = null;
+      if (lightId) {
+        const act = trips.find((t) => t.id === lightId);
         const legs = act ? journeyLegs(act) : [];
         const total = legs.reduce((sum, leg) => sum + leg.len, 0);
 
@@ -1074,28 +1011,42 @@ export function GlobeBackdrop({
           // A journey that stops along the way already shows itself as it goes,
           // so one pass is enough; a straight line from A to B gets its second.
           glowRunsNeeded = arrivals.length >= 2 ? 1 : glowRunsFor(total);
-          if (glowRuns < glowRunsNeeded && now >= holdUntil) {
+          // Flying on after you looked away: no waiting anywhere, just get to
+          // the airport.
+          const landing = !activeId;
+          if ((landing || glowRuns < glowRunsNeeded) && (landing || now >= holdUntil)) {
             // Away from a stop and up to speed, then off it again at the next:
             // one constant rate for the whole journey read as a cursor being
-            // dragged rather than as something travelling.
+            // dragged rather than as something travelling. Past the end there
+            // is nothing left to arrive at, so the tail catches up at full
+            // speed — easing it too was what left the globe sitting there after
+            // the light had already reached the last stop.
             const legF = at(glowDist)?.f ?? 0.5;
-            const pace = 0.28 + 0.72 * Math.pow(Math.sin(Math.PI * legF), 0.55);
+            const pace =
+              glowDist >= total ? 1.5 : 0.28 + 0.72 * Math.pow(Math.sin(Math.PI * legF), 0.55);
             const before = glowDist;
             glowDist += speed * pace * (dt * 60);
-            // Arriving somewhere is worth two rings' worth of standing still.
-            for (const arrival of arrivals) {
-              if (before < arrival && glowDist >= arrival) {
-                glowDist = arrival;
-                holdUntil = now + DWELL_MS;
-                holdSince = now;
-                holdPoint = at(arrival)?.geo ?? null;
-                break;
+            if (landing) {
+              if (glowDist >= landingTarget) {
+                glowDist = landingTarget;
+                landingId = null;
               }
-            }
-            if (glowDist > total + TRAIL_DEG + PAUSE) {
-              // Straight into the next pass; the dwell above already happened.
-              glowDist = glowRuns + 1 < glowRunsNeeded ? 0 : glowDist;
-              glowRuns += 1;
+            } else {
+              // Arriving somewhere is worth two rings' worth of standing still.
+              for (const arrival of arrivals) {
+                if (before < arrival && glowDist >= arrival) {
+                  glowDist = arrival;
+                  holdUntil = now + DWELL_MS;
+                  holdSince = now;
+                  holdPoint = at(arrival)?.geo ?? null;
+                  break;
+                }
+              }
+              if (glowDist > total + TRAIL_DEG + PAUSE) {
+                // Straight into the next pass; the dwell above already happened.
+                glowDist = glowRuns + 1 < glowRunsNeeded ? 0 : glowDist;
+                glowRuns += 1;
+              }
             }
           }
           // The dot it is waiting at throws a ring, twice, while it waits.
@@ -1107,6 +1058,13 @@ export function GlobeBackdrop({
           // Where the light is now, for the dots to light up as it reaches them.
           const head = glowDist <= total ? at(glowDist) : null;
           if (head && (!center || distance(center, head.geo) <= 90)) headGeo = head.geo;
+          // Remember where this flight ends while one is under way, so letting
+          // go of the trip can hand the plane a runway to reach.
+          if (head?.flying) {
+            let end = 0;
+            for (let i = 0; i <= head.leg; i++) end += legs[i]!.len;
+            flightEndsAt = end;
+          }
 
           // Sample the ribbon head → tail. A sample whose distance is
           // negative (or past the end) is simply dropped, so the ribbon slides
@@ -1431,7 +1389,6 @@ export function GlobeBackdrop({
       ro.disconnect();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('mms-globe-stops', onStopsMode);
-      window.removeEventListener('mms-globe-quality', onQuality);
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerup', onUp);
