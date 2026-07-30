@@ -72,11 +72,15 @@ export function TravellerPage() {
       </header>
 
       {!error && (
-        <section className="card traveller-body">
-          <StatGrid stats={stats} />
-          {stats && <CountryPanel countries={stats.countries} />}
+        <>
+          <section className="card traveller-body">
+            <StatGrid stats={stats} />
+            {stats && <CountryPanel countries={stats.countries} />}
+          </section>
+          {/* Out on the page rather than inside the panel: it is a list of
+              places to go, like the travellers list, not another statistic. */}
           {stats && <RecentTrips trips={stats.recent} />}
-        </section>
+        </>
       )}
     </main>
   );

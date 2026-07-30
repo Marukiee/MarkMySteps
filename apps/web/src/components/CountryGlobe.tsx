@@ -166,6 +166,29 @@ export function CountryGlobe({ countries, size = 200 }: { countries: string[]; s
         ctx!.stroke();
       }
 
+      // Light from the upper left, shadow curving away at the lower right. A
+      // flat disc of colours read as a map cut into a circle; this is what
+      // makes it a ball. Clipped to the sphere so nothing spills past its edge.
+      ctx!.save();
+      ctx!.beginPath();
+      path({ type: 'Sphere' });
+      ctx!.clip();
+      const r = size / 2;
+      const shade = ctx!.createRadialGradient(
+        r - r * 0.42,
+        r - r * 0.46,
+        r * 0.12,
+        r,
+        r,
+        r * 1.22,
+      );
+      shade.addColorStop(0, dark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.34)');
+      shade.addColorStop(0.55, 'rgba(255,255,255,0)');
+      shade.addColorStop(1, dark ? 'rgba(0,0,0,0.42)' : 'rgba(24,32,42,0.26)');
+      ctx!.fillStyle = shade;
+      ctx!.fillRect(0, 0, size, size);
+      ctx!.restore();
+
       // Thin rim, so the sphere ends somewhere instead of dissolving.
       ctx!.beginPath();
       path({ type: 'Sphere' });

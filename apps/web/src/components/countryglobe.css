@@ -1,15 +1,27 @@
 /* The visited-countries globe. Its three neutrals come from CSS so the sphere
    follows the theme; the country fills do not, because their whole job is to
-   be different from each other. */
+   be different from each other.
+
+   The sea used to be paper tinted with ink, which put a grey sphere on a grey
+   panel — you had to look for where the globe ended. It is water now, and the
+   land is warm against it, so the shape reads before any of the colours do. */
 .country-globe {
-  /* Neutral, from the same paper the panel is made of: a tinted ocean read as
-     a different background than the card it sits in. */
-  --cg-water: color-mix(in srgb, var(--ink) 6%, var(--paper-sunken));
-  --cg-land: color-mix(in srgb, var(--ink) 15%, var(--paper-sunken));
-  --cg-edge: var(--paper);
+  --cg-water: #b0cbda;
+  --cg-land: #e0d5c1;
+  --cg-edge: rgb(255 255 255 / 0.5);
   display: block;
   flex-shrink: 0;
+  /* Follows the sphere and not a box, since everything around it on the canvas
+     is transparent. Lifts it off the panel. */
+  filter: drop-shadow(0 7px 16px rgb(24 32 42 / 0.2));
   animation: cgIn 0.6s var(--ease) both;
+}
+
+:root[data-theme='dark'] .country-globe {
+  --cg-water: #1b2a36;
+  --cg-land: #36434f;
+  --cg-edge: rgb(10 16 22 / 0.5);
+  filter: drop-shadow(0 7px 18px rgb(0 0 0 / 0.42));
 }
 
 @keyframes cgIn {
