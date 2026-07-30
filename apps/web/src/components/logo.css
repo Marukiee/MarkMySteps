@@ -48,9 +48,10 @@
 
 /* Points wherever the home globe's zoom puts it. The short transition only
    bridges the gap between two zoom reports; the motion itself comes from the
-   globe's own eased scale. */
+   globe's own eased scale. Kept shorter than the frame gap it covers, so it
+   smooths the seam without the needle trailing behind the globe. */
 .logo-needle {
-  transition: transform 0.1s linear;
+  transition: transform 0.06s linear;
 }
 
 @media (prefers-reduced-motion: reduce) {

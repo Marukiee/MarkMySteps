@@ -313,7 +313,13 @@ export function GlobeBackdrop({
       // rather than called, because the mark is a sibling in another component
       // and the globe has no business holding a ref to it. Only on a real
       // change, so a still globe is silent.
-      if (Math.abs(scale - lastToldScale) > 0.015) {
+      //
+      // The threshold is what the needle's smoothness costs: at 420° per unit
+      // of scale, the old 0.015 meant reports 6° apart, and a spring settling
+      // asymptotically hands those over slower and slower — so the last stretch
+      // ticked over like a seconds hand instead of gliding to a stop. A twelfth
+      // of a degree is below noticing, and a still globe still says nothing.
+      if (Math.abs(scale - lastToldScale) > 0.0002) {
         lastToldScale = scale;
         window.dispatchEvent(new CustomEvent('mms-globe-scale', { detail: scale }));
       }
