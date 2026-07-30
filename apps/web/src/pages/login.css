@@ -61,6 +61,7 @@
 }
 
 .login-tabs {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   background: var(--paper-sunken);
@@ -68,18 +69,36 @@
   padding: 4px;
 }
 
+/* The raised pill behind the active tab: one element that moves, so switching
+   is a movement rather than two repaints. Same as the trip's tabs. */
+.login-tabs-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 999px;
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-s);
+  transition: transform 0.3s var(--ease);
+}
+
+.login-tabs[data-tab='register'] .login-tabs-thumb {
+  transform: translateX(100%);
+}
+
 .login-tabs button {
+  position: relative;
+  z-index: 1;
   padding: 0.5rem;
   border-radius: 999px;
   font-weight: 600;
   color: var(--ink-faint);
-  transition: all 0.2s var(--ease);
+  transition: color 0.25s var(--ease);
 }
 
 .login-tabs button.active {
-  background: var(--paper-raised);
   color: var(--ink);
-  box-shadow: var(--shadow-s);
 }
 
 /* Switching tab used to add and remove two fields in one frame, which made the

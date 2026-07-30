@@ -59,7 +59,9 @@ export function LoginPage() {
       </div>
 
       <form className="card login-card fade-in" onSubmit={submit}>
-        <div className="login-tabs" role="tablist">
+        <div className="login-tabs" role="tablist" data-tab={mode}>
+          {/* One pill that slides between the two, the way the trip's tabs do. */}
+          <span className="login-tabs-thumb" aria-hidden="true" />
           <button
             type="button"
             className={mode === 'login' ? 'active' : ''}
