@@ -545,6 +545,7 @@
 }
 
 .stop-marker {
+  position: relative;
   width: 30px;
   height: 30px;
   border-radius: 50%;
@@ -557,10 +558,18 @@
   border: 2.5px solid #fff;
   box-shadow: var(--shadow-m);
   cursor: pointer;
+  /* Over the airport dots: a place you went outranks the terminal you passed
+     through to get there. */
+  z-index: 3;
 }
 
-/* The flag fills the marker: it IS the marker's face, not a glyph inside it. */
+/* The flag fills the marker: it IS the marker's face, not a glyph inside it.
+   Laid over the marker rather than placed inside it — as a grid item under
+   `place-content: center` the track sized itself to the image, so a flag that
+   is wider than it is tall came out an oval instead of a circle. */
 .stop-marker-flag {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -1548,4 +1557,7 @@
   background: #8a94a3;
   border: 2px solid #fff;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  /* Behind the stops. These are drawn after them, so without this they sat on
+     top of the pin for the city they belong to. */
+  z-index: 1;
 }

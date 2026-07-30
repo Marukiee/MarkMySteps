@@ -16,6 +16,7 @@ const DAY = 86_400_000;
 export function TrackingPrompt() {
   const { user } = useAuth();
   const [trip, setTrip] = useState<Trip | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const [tracker, setTracker] = useState<TrackerState>({
     tripId: null,
     buffered: 0,
@@ -54,20 +55,24 @@ export function TrackingPrompt() {
   if (!trip || tracker.tripId === trip.id) return null;
   if (localStorage.getItem(DISMISS_KEY) === trip.id) return null;
 
+  // It slid up on arrival and then simply ceased to exist on Later. It leaves
+  // the way it came now, which is also what says the tap was registered.
+  const dismiss = () => {
+    localStorage.setItem(DISMISS_KEY, trip.id);
+    setLeaving(true);
+    window.setTimeout(() => {
+      setTrip(null);
+      setLeaving(false);
+    }, 240);
+  };
+
   return (
-    <div className="track-prompt">
+    <div className={`track-prompt ${leaving ? 'leaving' : ''}`}>
       <div>
         <strong>{trip.title}</strong> is bezig. Route bijhouden?
       </div>
       <div className="track-prompt-actions">
-        <button
-          onClick={() => {
-            localStorage.setItem(DISMISS_KEY, trip.id);
-            setTrip(null);
-          }}
-        >
-          Later
-        </button>
+        <button onClick={dismiss}>Later</button>
         <button className="primary" onClick={() => void startTracking(trip.id)}>
           Start tracking
         </button>

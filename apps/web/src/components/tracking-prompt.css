@@ -16,6 +16,19 @@
   animation: slideUp 0.35s var(--ease);
 }
 
+/* Back down the way it came, rather than being switched off mid-thought. */
+.track-prompt.leaving {
+  animation: slideDown 0.24s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes slideDown {
+  to {
+    opacity: 0;
+    transform: translateY(22px) scale(0.98);
+  }
+}
+
 @keyframes slideUp {
   from {
     opacity: 0;
