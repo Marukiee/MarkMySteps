@@ -6,7 +6,14 @@ import * as topojson from 'topojson-client';
 import land110m from 'world-atlas/land-110m.json';
 import type { Trip } from '../api/types';
 import { airportByCode } from '../lib/airports';
-import { getDefaultAirports, getGlobeStops, type GlobeStopsMode } from '../lib/prefs';
+import { api } from '../api/client';
+import {
+  getDefaultAirports,
+  getGlobeQuality,
+  getGlobeStops,
+  type GlobeQuality,
+  type GlobeStopsMode,
+} from '../lib/prefs';
 import './globe.css';
 
 // Minimal shape of the TopoJSON we consume (avoids a types-only dep).
@@ -25,6 +32,8 @@ interface GlobeTrip {
   color: [number, number, number];
   /** Every planned stop with coordinates, in travel order. */
   stops: [number, number][];
+  /** Has recorded GPS, so there is a finer line to ask for when zoomed in. */
+  tracked: boolean;
   /** The legs in travel order, when the server knows them. */
   journey: { flight: boolean; points: [number, number][] }[] | null;
   /** Relative importance (km, else days) — drives label priority. */
@@ -104,6 +113,7 @@ export function GlobeBackdrop({
           // Only trips that haven't started yet are dashed; ongoing trips are solid.
           upcoming: t.startDate.slice(0, 10) > today,
           stops: t.stopPoints ?? [],
+          tracked: !!t.distanceKm && t.distanceKm > 0,
           journey: t.journey && t.journey.length > 0 ? t.journey : null,
           color: [90, 110, 225] as [number, number, number],
           size: t.distanceKm && t.distanceKm > 0 ? t.distanceKm : dayCount(t) * 40,
@@ -229,6 +239,68 @@ export function GlobeBackdrop({
       stopsMode = (e as CustomEvent<GlobeStopsMode>).detail;
     };
     window.addEventListener('mms-globe-stops', onStopsMode);
+
+    // --- Detail, fetched only once you have zoomed in far enough to see it ---
+    /** Where "zoomed in" begins, for both the coastline and the routes. */
+    const DETAIL_ZOOM = 2.2;
+    let quality = getGlobeQuality();
+    const onQuality = (e: Event) => {
+      quality = (e as CustomEvent<GlobeQuality>).detail;
+    };
+    window.addEventListener('mms-globe-quality', onQuality);
+    /** The 1:50M coastline, once asked for. Half a megabyte, so never on load. */
+    let fineLand: GeoPermissibleObjects | null = null;
+    let landPending = false;
+    /** How much of the sharper outline is faded in (0–1). */
+    let landMix = 0;
+    /** Per trip: its route at full resolution, once it has been worth asking. */
+    const fineRoutes = new Map<string, [number, number][][]>();
+    const routeAsked = new Set<string>();
+
+    const wantFineLand = () => {
+      if (fineLand || landPending) return;
+      landPending = true;
+      import('world-atlas/land-50m.json')
+        .then((mod) => {
+          const topology = (mod.default ?? mod) as unknown as LandTopology;
+          fineLand = topojson.feature(
+            topology,
+            topology.objects.land,
+          ) as unknown as GeoPermissibleObjects;
+        })
+        .catch(() => {
+          // Never mind: the globe keeps the outline it already has.
+          landPending = false;
+        });
+    };
+
+    /**
+     * The trip's own recording, at the resolution it was stored in.
+     *
+     * The home screen asks for every trip at once, so the line it gets is
+     * simplified hard — fine for a globe you are looking at whole, visibly
+     * angular once you are close. This asks for one trip, once, and only when
+     * you are close enough for it to matter. It is used for the DRAWN line
+     * only: the light travels the coarse one, so a route arriving mid-flight
+     * cannot make it jump.
+     */
+    const wantFineRoute = (trip: GlobeTrip) => {
+      if (!trip.tracked || routeAsked.has(trip.id)) return;
+      routeAsked.add(trip.id);
+      api<{ features: { geometry: { coordinates: [number, number][] } }[] }>(
+        `/trips/${trip.id}/route?tolerance=0.004&photos=false`,
+      )
+        .then((collection) => {
+          const lines = collection.features
+            .map((f) => f.geometry.coordinates)
+            .filter((line) => line.length >= 2);
+          if (lines.length > 0) fineRoutes.set(trip.id, lines);
+        })
+        .catch(() => {
+          // Let it be asked again later — this is a nicety, not a dependency.
+          routeAsked.delete(trip.id);
+        });
+    };
 
     // The canvas fills its container completely; the sphere is then drawn
     // centred at the largest radius that fits BOTH dimensions (see draw()).
@@ -437,10 +509,27 @@ export function GlobeBackdrop({
       ctx!.fillStyle = dark ? '#1a2028' : '#eadfce';
       ctx!.fill();
 
+      // The coastline. Sharper once you are close enough for it to show, and
+      // only if the setting says the phone can take it. The two outlines are
+      // crossfaded rather than swapped: at the moment of the switch the second
+      // one has extra bays and headlands, and a hard cut reads as the map
+      // twitching. Both are the same colour, so the fade is only detail
+      // arriving.
+      const closeIn = scale > DETAIL_ZOOM;
+      if (quality === 'high' && closeIn) wantFineLand();
+      landMix += ((quality === 'high' && closeIn && fineLand ? 1 : 0) - landMix) *
+        (1 - Math.pow(0.02, dt));
+      ctx!.fillStyle = dark ? '#2d3742' : '#d8c9ad';
       ctx!.beginPath();
       path(land);
-      ctx!.fillStyle = dark ? '#2d3742' : '#d8c9ad';
       ctx!.fill();
+      if (fineLand && landMix > 0.01) {
+        ctx!.globalAlpha = landMix;
+        ctx!.beginPath();
+        path(fineLand);
+        ctx!.fill();
+        ctx!.globalAlpha = 1;
+      }
 
       // A jump longer than this within a route line is treated as an (unmarked)
       // flight, so photos NL→Rome draw a flight bow, not a straight blue line.
@@ -474,10 +563,15 @@ export function GlobeBackdrop({
         }
         if (!trip.path) continue;
 
+        // Close in on a trip and it is worth asking for its real recording; the
+        // one the home screen was given is simplified for a globe seen whole.
+        if (closeIn && (trip.id === activeId || trips.length === 1)) wantFineRoute(trip);
+        const drawn = (closeIn ? fineRoutes.get(trip.id) : undefined) ?? trip.path;
+
         ctx!.globalAlpha = tripAlpha(trip.id, now) * (0.34 + 0.66 * stand);
         ctx!.lineJoin = 'round';
         ctx!.lineCap = 'round';
-        for (const seg of trip.path) {
+        for (const seg of drawn) {
           // Split the segment wherever a jump is flight-sized.
           let run: [number, number][] = seg.length ? [seg[0]!] : [];
           const flushRun = () => {
@@ -1337,6 +1431,7 @@ export function GlobeBackdrop({
       ro.disconnect();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('mms-globe-stops', onStopsMode);
+      window.removeEventListener('mms-globe-quality', onQuality);
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerup', onUp);
