@@ -354,14 +354,15 @@ export class TripsService {
     );
 
     // Simplified tracked route per trip, as GeoJSON, for the globe overview.
-    // The tolerance is in degrees: 0.03 is roughly 3 km, down from 0.08 (~9 km),
-    // which was visibly angular once the globe let you pinch further in. Lower
-    // than this and a month of tracking starts to weigh on the home screen,
-    // which asks for every trip at once.
+    // The tolerance is in degrees: 0.05 is roughly 5 km, between the 0.08 this
+    // used to be and the 0.03 it briefly was. Finer than the coastline it is
+    // drawn over looks stranger than coarser does — a route threading past
+    // headlands the land outline does not have reads as a mistake — and the
+    // home screen asks for every trip at once, so the line has to stay cheap.
     const tripIds = trips.map((t) => t.id);
     const routeRows = await this.prisma.$queryRaw<{ tripId: string; geojson: string | null }[]>`
       SELECT "tripId",
-             ST_AsGeoJSON(ST_Simplify(ST_MakeLine(geom ORDER BY "recordedAt"), 0.03)) AS geojson
+             ST_AsGeoJSON(ST_Simplify(ST_MakeLine(geom ORDER BY "recordedAt"), 0.05)) AS geojson
       FROM location_points
       WHERE "tripId" = ANY(${tripIds}::uuid[])
       GROUP BY "tripId"

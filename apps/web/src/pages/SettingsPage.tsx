@@ -37,12 +37,10 @@ import { useExit } from '../lib/useExit';
 import {
   MAP_STYLES,
   MapStyleId,
-  GlobeQuality,
   GlobeStopsMode,
   ThemeId,
   TripCardSize,
   clearTripCardOverrides,
-  getGlobeQuality,
   getGlobeStops,
   getMapStyleId,
   getThemeId,
@@ -52,7 +50,6 @@ import {
   getTrackingIntervalMin,
   getTripCardSize,
   hasTripCardOverrides,
-  setGlobeQuality,
   setGlobeStops,
   setMapStyleId,
   setShowSelfOnHome,
@@ -651,53 +648,7 @@ function GlobeSection() {
           Altijd
         </button>
       </div>
-
-      <GlobeQualityPicker />
     </section>
-  );
-}
-
-/** Sharper coastlines, at a price worth saying out loud. */
-function GlobeQualityPicker() {
-  const [quality, setQuality] = useState<GlobeQuality>(getGlobeQuality());
-  const pick = (next: GlobeQuality) => {
-    setQuality(next);
-    setGlobeQuality(next);
-  };
-  return (
-    <>
-      <p className="muted settings-seg-label">Detail van de kaart</p>
-      <div className="settings-seg" role="tablist" data-on={quality === 'high' ? 'always' : 'off'}>
-        <span className="settings-seg-thumb" aria-hidden="true" />
-        <button
-          role="tab"
-          aria-selected={quality === 'normal'}
-          className={quality === 'normal' ? 'active' : ''}
-          onClick={() => pick('normal')}
-        >
-          Normaal
-        </button>
-        <button
-          role="tab"
-          aria-selected={quality === 'high'}
-          className={quality === 'high' ? 'active' : ''}
-          onClick={() => pick('high')}
-        >
-          Hoog
-        </button>
-      </div>
-      {/* Folds open rather than appearing, and only when there is something to
-          warn about. */}
-      <div className="settings-warn" data-open={quality === 'high'}>
-        <div>
-          <p className="muted">
-            Scherpere kustlijnen zodra je inzoomt. Dat is tien keer zoveel om te tekenen, elk beeld
-            opnieuw: op een oudere telefoon kan de globe daar schokkerig van worden. De kaart wordt
-            pas ingeladen als je echt inzoomt, dus het opstarten blijft even snel.
-          </p>
-        </div>
-      </div>
-    </>
   );
 }
 
