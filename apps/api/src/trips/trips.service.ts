@@ -221,6 +221,60 @@ function kmLngLat(a: [number, number], b: [number, number]): number {
   return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
+/**
+ * A jump this big inside a recorded route is a flight, not a drive.
+ *
+ * Mirrors the globe's own FLIGHT_DEG (6°), which is what turns such a jump into
+ * a dashed bow instead of a straight coloured line. The two have to agree, or
+ * the light would fly a leg that was drawn as a road.
+ */
+const FLIGHT_GAP_KM = 660;
+
+/** Endpoints within this of a gap's are taken to be the flight that made it. */
+const FLIGHT_MATCH_KM = 120;
+
+/**
+ * A recorded route as an ordered journey.
+ *
+ * The line comes out of PostGIS as ST_MakeLine(geom ORDER BY "recordedAt"), so
+ * it is already the trip in the order it happened — no dates needed. Where the
+ * tracker went quiet for a flight there is a jump; that jump IS the flight, and
+ * everything either side of it is ground. Each gap takes the planned flight
+ * whose endpoints match it, so its layovers still show; a gap with no planned
+ * flight behind it becomes a plain hop between the two points.
+ *
+ * A phone that kept a fix through the flight leaves no gap, and then the light
+ * simply follows the real path it recorded — which is the truth of it anyway.
+ */
+function trackedJourney(line: [number, number][], flights: [number, number][][]): JourneyLeg[] {
+  const journey: JourneyLeg[] = [];
+  let run: [number, number][] = line.length > 0 ? [line[0]!] : [];
+  const closeRun = () => {
+    if (run.length >= 2) journey.push({ flight: false, points: run });
+    run = [];
+  };
+  for (let i = 1; i < line.length; i++) {
+    const from = line[i - 1]!;
+    const to = line[i]!;
+    if (kmLngLat(from, to) <= FLIGHT_GAP_KM) {
+      run.push(to);
+      continue;
+    }
+    closeRun();
+    const planned = flights.find((f) => {
+      const start = f[0]!;
+      const end = f[f.length - 1]!;
+      return (
+        kmLngLat(start, from) < FLIGHT_MATCH_KM && kmLngLat(end, to) < FLIGHT_MATCH_KM
+      );
+    });
+    journey.push({ flight: true, points: planned ?? [from, to] });
+    run = [to];
+  }
+  closeRun();
+  return journey;
+}
+
 /** Drops small leading/trailing photo clusters that sit far from the trip's
  *  main body (a couple of snaps taken at home), so the globe line doesn't run
  *  from home to the first real destination. */
@@ -300,10 +354,14 @@ export class TripsService {
     );
 
     // Simplified tracked route per trip, as GeoJSON, for the globe overview.
+    // The tolerance is in degrees: 0.03 is roughly 3 km, down from 0.08 (~9 km),
+    // which was visibly angular once the globe let you pinch further in. Lower
+    // than this and a month of tracking starts to weigh on the home screen,
+    // which asks for every trip at once.
     const tripIds = trips.map((t) => t.id);
     const routeRows = await this.prisma.$queryRaw<{ tripId: string; geojson: string | null }[]>`
       SELECT "tripId",
-             ST_AsGeoJSON(ST_Simplify(ST_MakeLine(geom ORDER BY "recordedAt"), 0.08)) AS geojson
+             ST_AsGeoJSON(ST_Simplify(ST_MakeLine(geom ORDER BY "recordedAt"), 0.03)) AS geojson
       FROM location_points
       WHERE "tripId" = ANY(${tripIds}::uuid[])
       GROUP BY "tripId"
@@ -453,11 +511,13 @@ export class TripsService {
               : undefined;
       const anchor = base.anchor ?? photoLine?.[0] ?? null;
       const flightPath = flightsByTrip.get(t.id);
-      // Only when the PLAN is what's drawn. Once a trip has a tracked route the
-      // drawn line is that recording, and where the flights fall inside it is
-      // not something the plan can answer.
+      // Whichever line is actually drawn is the one the journey describes: the
+      // recording when there is one (which carries its own order, having been
+      // built in time order), otherwise the plan.
       const journey =
-        tracked && tracked.length >= 2 ? undefined : journeyByTrip.get(t.id);
+        tracked && tracked.length >= 2
+          ? trackedJourney(tracked, flightPath ?? [])
+          : journeyByTrip.get(t.id);
       return {
         ...base,
         anchor,
