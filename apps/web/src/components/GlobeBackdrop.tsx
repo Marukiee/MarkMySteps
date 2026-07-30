@@ -25,6 +25,8 @@ interface GlobeTrip {
   color: [number, number, number];
   /** Every planned stop with coordinates, in travel order. */
   stops: [number, number][];
+  /** The legs in travel order, when the server knows them. */
+  journey: { flight: boolean; points: [number, number][] }[] | null;
   /** Relative importance (km, else days) — drives label priority. */
   size: number;
   /** Manual marker override in effect → draw one dot at the anchor, not ends. */
@@ -102,6 +104,7 @@ export function GlobeBackdrop({
           // Only trips that haven't started yet are dashed; ongoing trips are solid.
           upcoming: t.startDate.slice(0, 10) > today,
           stops: t.stopPoints ?? [],
+          journey: t.journey && t.journey.length > 0 ? t.journey : null,
           color: [90, 110, 225] as [number, number, number],
           size: t.distanceKm && t.distanceKm > 0 ? t.distanceKm : dayCount(t) * 40,
           markerFixed: t.markerLng != null && t.markerLat != null,
@@ -187,6 +190,8 @@ export function GlobeBackdrop({
     const stopReveal = new Map<string, number>();
     /** Where the travelling light is right now, for the dots to react to. */
     let headGeo: [number, number] | null = null;
+    /** The plane's heading, eased so it never twitches. Null while on the ground. */
+    let planeAngle: number | null = null;
     /** Per dot: how brightly it is still lit after the light went past. */
     const flares = new Map<string, number>();
     /**
@@ -381,6 +386,15 @@ export function GlobeBackdrop({
       /** How much of its own colour a trip keeps this frame. */
       const standing = (id: string) => (recedeId && id !== recedeId ? 1 - focus : 1);
 
+      // Trips overlap where you took the same road twice. Painted biggest-first
+      // otherwise, which put the highlighted trip underneath whichever trip
+      // happened to be longer; it goes last so it ends up on top.
+      const painted = activeId
+        ? [...trips].sort(
+            (a, b) => (a.id === activeId ? 1 : 0) - (b.id === activeId ? 1 : 0),
+          )
+        : trips;
+
       // Radius fits the SHORTER side, so the sphere is as big as it can be
       // without ever being clipped left/right or top/bottom.
       const radius = Math.min(w, h) / 2 - 2 * dpr;
@@ -422,7 +436,7 @@ export function GlobeBackdrop({
       // Every point a flight touches, layovers included — they get a grey
       // airport dot, unlike the coloured dots reserved for real destinations.
       const airportPoints: [number, number][] = [];
-      for (const trip of trips) {
+      for (const trip of painted) {
         const stand = standing(trip.id);
         const [r, g, b] = recede(legibleColor(trip.color, dark), dark, 1 - stand);
         for (const seg of trip.flights ?? []) {
@@ -487,7 +501,12 @@ export function GlobeBackdrop({
       }
       ctx!.lineWidth = 1.2 * dpr;
       ctx!.setLineDash([2 * dpr, 5 * dpr]);
-      for (const { a: start, b: end, tripId } of bows.values()) {
+      // Faded ones first, so a highlighted trip's bow lies over the rest where
+      // two flights share a stretch of sky.
+      const orderedBows = [...bows.values()].sort(
+        (a, b) => standing(a.tripId) - standing(b.tripId),
+      );
+      for (const { a: start, b: end, tripId } of orderedBows) {
         if (flightCenter && (distance(flightCenter, start) > 90 || distance(flightCenter, end) > 90))
           continue;
         // Grey either way, but a flight belonging to a trip that has stepped
@@ -708,7 +727,7 @@ export function GlobeBackdrop({
       // appearing in one frame read as noise rather than as a route.
       const STEP = 0.06; // progress between one dot starting and the next
       const WINDOW = 0.45; // how much of the progress axis a single dot takes
-      for (const trip of trips) {
+      for (const trip of painted) {
         if (trip.stops.length === 0) continue;
         const want = trip.id === activeId || stopsMode === 'always' ? 1 : 0;
         const cur = stopReveal.get(trip.id) ?? 0;
@@ -855,6 +874,8 @@ export function GlobeBackdrop({
           screen: [number, number] | null;
           angle: number;
           flying: boolean;
+          /** How far into this leg, 0 at the gate it left, 1 at the one it reaches. */
+          f: number;
         } | null => {
           const want = Math.max(0, Math.min(total, d));
           let acc = 0;
@@ -880,6 +901,7 @@ export function GlobeBackdrop({
                 screen: pr ? [pr[0], pr[1]] : null,
                 angle: 0,
                 flying: false,
+                f,
               };
             }
             // Straight in geographic terms (good enough to know WHERE it is and
@@ -889,7 +911,7 @@ export function GlobeBackdrop({
               leg.a[1] + (leg.b[1] - leg.a[1]) * f,
             ];
             const bow = bowOf(leg.a, leg.b);
-            if (!bow) return { geo, screen: null, angle: 0, flying: true };
+            if (!bow) return { geo, screen: null, angle: 0, flying: true, f };
             const u = 1 - f;
             const screen: [number, number] = [
               u * u * bow.A[0] + 2 * u * f * bow.C[0] + f * f * bow.B[0],
@@ -897,7 +919,7 @@ export function GlobeBackdrop({
             ];
             const tx = 2 * u * (bow.C[0] - bow.A[0]) + 2 * f * (bow.B[0] - bow.C[0]);
             const ty = 2 * u * (bow.C[1] - bow.A[1]) + 2 * f * (bow.B[1] - bow.C[1]);
-            return { geo, screen, angle: Math.atan2(ty, tx), flying: true };
+            return { geo, screen, angle: Math.atan2(ty, tx), flying: true, f };
           }
           return null;
         };
@@ -949,10 +971,14 @@ export function GlobeBackdrop({
 
           ctx!.lineCap = 'round';
           ctx!.lineJoin = 'round';
+          // On the ground the light IS the thing moving, so it carries the
+          // brightness. Behind a plane it is a contrail: still there, but the
+          // plane is what you are meant to be watching.
+          const trail = head?.flying ? 0.4 : 1;
           // Two passes: a wide soft halo, then a thin bright core on top.
           for (const pass of [
-            { width: 9 * dpr, peak: 0.22 },
-            { width: 2.8 * dpr, peak: 0.95 },
+            { width: 9 * dpr, peak: 0.22 * trail },
+            { width: 2.8 * dpr, peak: 0.95 * trail },
           ]) {
             ctx!.lineWidth = pass.width;
             for (let i = 1; i < samples.length; i++) {
@@ -973,7 +999,23 @@ export function GlobeBackdrop({
           // In the air, the head of the light IS a plane, flying the bow it
           // drew. It hands back over to the ribbon the moment it lands.
           if (head?.flying && head.screen && (!center || distance(center, head.geo) <= 90)) {
-            drawPlane(ctx!, head.screen[0], head.screen[1], head.angle, dpr, dark);
+            // The heading is smoothed across frames: taken straight from the
+            // curve's tangent it twitched, because the camera is easing under
+            // the plane at the same time as the plane moves along the bow.
+            const target = head.angle;
+            if (planeAngle === null) planeAngle = target;
+            else {
+              // Shortest way round, so passing ±180° is not most of a turn.
+              const delta = ((target - planeAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+              planeAngle += delta * (1 - Math.pow(0.0001, dt));
+            }
+            // Climbs away and settles onto the runway: small at both gates,
+            // full size in the cruise between them.
+            const ends = Math.min(head.f, 1 - head.f);
+            const lift = 0.62 + 0.38 * Math.min(1, ends / 0.16);
+            drawPlane(ctx!, head.screen[0], head.screen[1], planeAngle, dpr, dark, lift);
+          } else if (!head?.flying) {
+            planeAngle = null;
           }
         } else if (act) {
           // A city trip has no route to run a light along, so the place itself
@@ -1270,6 +1312,39 @@ type Leg =
 const LEG_JOIN_DEG = 0.8;
 
 /**
+ * Closes the gaps between legs, so the light never jumps.
+ *
+ * A flight leaves from an airport and the leg before it ended in a town centre
+ * ten kilometres away — small on a world map, a visible teleport once the globe
+ * has zoomed in on the trip. The gap becomes a short leg of its own, which the
+ * light travels like any other.
+ */
+function stitch(legs: Leg[]): Leg[] {
+  const startOf = (l: Leg) => (l.kind === 'ground' ? l.pts[0]! : l.a);
+  const endOf = (l: Leg) => (l.kind === 'ground' ? l.pts[l.pts.length - 1]! : l.b);
+  const out: Leg[] = [];
+  for (const leg of legs) {
+    const prev = out[out.length - 1];
+    if (prev) {
+      const from = endOf(prev);
+      const to = startOf(leg);
+      if (distance(from, to) > 0.05) out.push(groundLeg([from, to]));
+    }
+    out.push(leg);
+  }
+  return out;
+}
+
+/** A stretch on the ground, with the distance to each vertex measured out. */
+function groundLeg(pts: [number, number][]): Leg {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) {
+    cum.push(cum[i - 1]! + distance(pts[i - 1]!, pts[i]!));
+  }
+  return { kind: 'ground', pts, cum, len: cum[cum.length - 1]! };
+}
+
+/**
  * A trip as one journey, in the order it was travelled.
  *
  * The API hands over the ground route and the flights as two separate lists,
@@ -1281,14 +1356,33 @@ const LEG_JOIN_DEG = 0.8;
  * meet still gets shown, just in its best-guess order.
  */
 function journeyLegs(trip: GlobeTrip): Leg[] {
+  // When the server sent the order, take it: it walked the stops in order and
+  // knows, where matching endpoints only guesses. A flight whose arrival
+  // airport was left blank ends at the city rather than at the airport, and
+  // that is exactly the kind of gap that put the plane on the wrong leg.
+  if (trip.journey) {
+    const ordered: Leg[] = [];
+    for (const leg of trip.journey) {
+      if (leg.flight) {
+        // Each hop on its own: a layover is a place the plane lands, and the
+        // light should touch it rather than fly straight over it.
+        for (let i = 1; i < leg.points.length; i++) {
+          const a = leg.points[i - 1]!;
+          const b = leg.points[i]!;
+          ordered.push({ kind: 'flight', a, b, len: distance(a, b) });
+        }
+        continue;
+      }
+      if (leg.points.length < 2) continue;
+      ordered.push(groundLeg(leg.points));
+    }
+    return stitch(ordered);
+  }
+
   const legs: Leg[] = [];
   for (const seg of trip.path ?? []) {
     if (seg.length < 2) continue;
-    const cum = [0];
-    for (let i = 1; i < seg.length; i++) {
-      cum.push(cum[i - 1]! + distance(seg[i - 1]!, seg[i]!));
-    }
-    legs.push({ kind: 'ground', pts: seg, cum, len: cum[cum.length - 1]! });
+    legs.push(groundLeg(seg));
   }
   for (const itinerary of trip.flights ?? []) {
     // Each hop separately: a layover is a place the plane lands, and the light
@@ -1323,7 +1417,7 @@ function journeyLegs(trip: GlobeTrip): Leg[] {
     }
     chain.push(rest.splice(best, 1)[0]!);
   }
-  return chain;
+  return stitch(chain);
 }
 
 /**
@@ -1342,23 +1436,20 @@ function drawPlane(
   angle: number,
   dpr: number,
   dark: boolean,
+  size = 1,
 ): void {
-  const s = 8 * dpr;
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
-  ctx.shadowColor = 'rgba(10,14,20,0.35)';
-  ctx.shadowBlur = 5 * dpr;
-  ctx.shadowOffsetY = 1.5 * dpr;
-  planeShape(ctx, s);
-  ctx.fillStyle = dark ? '#c9d1da' : '#8d97a3';
+  // Just enough shadow to sit above the map rather than be printed on it. An
+  // outline around it read as a sticker, and the halo it used to carry was
+  // brighter than the plane.
+  ctx.shadowColor = 'rgba(10,14,20,0.3)';
+  ctx.shadowBlur = 3.5 * dpr;
+  ctx.shadowOffsetY = 1.2 * dpr;
+  planeShape(ctx, 8 * dpr * size);
+  ctx.fillStyle = dark ? '#cdd5de' : '#79838f';
   ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
-  ctx.lineWidth = 0.9 * dpr;
-  ctx.strokeStyle = dark ? 'rgba(22,28,36,0.75)' : 'rgba(255,255,255,0.9)';
-  ctx.stroke();
   ctx.restore();
 }
 

@@ -51,6 +51,11 @@ export interface Trip {
   anchor: [number, number] | null;
   /** Every planned stop with coordinates, day trips included, in travel order. */
   stopPoints?: [number, number][];
+  /**
+   * The trip's legs in the order they were travelled. Absent for a trip with a
+   * tracked route, and on older servers.
+   */
+  journey?: { flight: boolean; points: [number, number][] }[];
   /** Custom trip colour (hex) for the globe/map; null = auto-assigned. */
   color?: string | null;
   /** Manual globe-marker position ([lng,lat]); null = auto (route start/end). */

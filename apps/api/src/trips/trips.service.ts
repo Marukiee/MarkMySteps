@@ -10,6 +10,21 @@ import { airportCoord } from '../common/airports';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 
+/**
+ * One leg of a trip, in the order it was travelled.
+ *
+ * routePath and flightPath say WHAT to draw but not in which order the two
+ * interleave, which is all the globe needs to run a light along the journey.
+ * Recovering that order by matching endpoints is guesswork: a flight whose
+ * arrival airport was left blank ends at the city instead, and two airports an
+ * hour apart look like the same place. The order is known here, so it is sent.
+ */
+export type JourneyLeg = {
+  flight: boolean;
+  /** Ground: the line's vertices. Flight: [departure, ...layovers, arrival]. */
+  points: [number, number][];
+};
+
 export type TripMemberView = {
   userId: string;
   role: TripRole;
@@ -42,6 +57,12 @@ export type TripWithMembers = Trip & {
    * each hop while still knowing which points are mere layovers.
    */
   flightPath?: [number, number][][];
+  /**
+   * The same legs in travel order (listForUser, planned routes only). Absent
+   * once a trip has a tracked route: the drawn line is then the recording, and
+   * the plan cannot say where inside it the flights fall.
+   */
+  journey?: JourneyLeg[];
 };
 
 /** Country you live in — excluded from a trip's "countries visited" count. */
@@ -333,13 +354,20 @@ export class TripsService {
     const stopsByTrip = new Map<string, [number, number][][]>();
     // Flight legs kept separately so the globe draws them as thin dashed arcs.
     const flightsByTrip = new Map<string, [number, number][][]>();
+    // The same legs, but kept in the order they are travelled (see JourneyLeg).
+    const journeyByTrip = new Map<string, JourneyLeg[]>();
     for (const [tripId, all] of rawByTrip) {
       // Day trips branch off the route rather than being part of it, so the
       // main line is built from the route stops only.
       const list = all.filter((s) => !s.parentStopId);
-      const segments: [number, number][][] = [];
+      // Built as ONE ordered list and split afterwards, so the ground segments,
+      // the flights and the order can never disagree with each other.
+      const journey: JourneyLeg[] = [];
       let seg: [number, number][] = [];
-      const flights: [number, number][][] = [];
+      const closeGround = () => {
+        if (seg.length >= 2) journey.push({ flight: false, points: seg });
+        seg = [];
+      };
       let prev: [number, number] | null = null;
       for (const s of list) {
         const dep = asLngLat(airportCoord(s.fromAirport));
@@ -360,9 +388,8 @@ export class TripsService {
           // only treats the OUTER ends as places you visited — a layover is an
           // airport you changed planes at, so it gets a grey airport dot, never
           // a coloured trip dot.
-          flights.push([from, ...via, to]);
-          if (seg.length >= 2) segments.push(seg);
-          seg = [];
+          closeGround();
+          journey.push({ flight: true, points: [from, ...via, to] });
           prev = to; // ground resumes from the arrival
           continue;
         }
@@ -370,7 +397,11 @@ export class TripsService {
         seg.push(to);
         prev = to;
       }
-      if (seg.length >= 2) segments.push(seg);
+      closeGround();
+      if (journey.length > 0) journeyByTrip.set(tripId, journey);
+
+      const segments = journey.filter((l) => !l.flight).map((l) => l.points);
+      const flights = journey.filter((l) => l.flight).map((l) => l.points);
 
       // Day trips as a spur: a short line from the stop you slept at out to the
       // place you went for the day. It gets its own coloured dot at the end,
@@ -422,7 +453,19 @@ export class TripsService {
               : undefined;
       const anchor = base.anchor ?? photoLine?.[0] ?? null;
       const flightPath = flightsByTrip.get(t.id);
-      return { ...base, anchor, distanceKm: kmByTrip.get(t.id) ?? 0, routePath, flightPath };
+      // Only when the PLAN is what's drawn. Once a trip has a tracked route the
+      // drawn line is that recording, and where the flights fall inside it is
+      // not something the plan can answer.
+      const journey =
+        tracked && tracked.length >= 2 ? undefined : journeyByTrip.get(t.id);
+      return {
+        ...base,
+        anchor,
+        distanceKm: kmByTrip.get(t.id) ?? 0,
+        routePath,
+        flightPath,
+        journey,
+      };
     });
   }
 
