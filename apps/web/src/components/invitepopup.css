@@ -140,3 +140,23 @@
   flex: 1;
   justify-content: center;
 }
+
+/* A photo from the trip, when there is one. Rows without one keep the pin and
+   no empty frame — a placeholder for a picture that is never coming looks
+   worse than no picture. */
+.invite-cover {
+  width: 44px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  object-fit: cover;
+  background: var(--paper-raised);
+  animation: inviteCoverIn 0.5s var(--ease) both;
+}
+
+@keyframes inviteCoverIn {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}

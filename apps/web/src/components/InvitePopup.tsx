@@ -2,6 +2,7 @@ import { App as CapApp } from '@capacitor/app';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { AuthImage } from './AuthImage';
 import { isLocalMode } from '../lib/localMode';
 import { isNativeApp } from '../lib/native';
 import { Icon } from './Icon';
@@ -12,6 +13,21 @@ interface Invite {
   id: string;
   title: string;
   ownerName: string;
+  /** A photo from the trip, when it has one. No photo, no empty frame. */
+  coverId: string | null;
+}
+
+/** Developer options open the real thing with made-up trips on it. */
+export const INVITE_PREVIEW_EVENT = 'mms-invite-preview';
+
+export function previewInvitePopup(count: number): void {
+  const made: Invite[] = Array.from({ length: count }, (_, i) => ({
+    id: `preview-${i}`,
+    title: ['Interrail door Midden-Europa', 'Weekend Rome', 'Noorwegen met de auto'][i % 3]!,
+    ownerName: ['Mark', 'Sanne', 'Joost'][i % 3]!,
+    coverId: null,
+  }));
+  window.dispatchEvent(new CustomEvent(INVITE_PREVIEW_EVENT, { detail: made }));
 }
 
 /**
@@ -24,7 +40,19 @@ interface Invite {
 export function InvitePopup() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [closing, setClosing] = useState(false);
+  const [preview, setPreview] = useState(false);
   const navigate = useNavigate();
+
+  // Developer options put the real dialog on screen with invented trips, so it
+  // can be looked at without being added to anything.
+  useEffect(() => {
+    const onPreview = (e: Event) => {
+      setPreview(true);
+      setInvites((e as CustomEvent<Invite[]>).detail);
+    };
+    window.addEventListener(INVITE_PREVIEW_EVENT, onPreview);
+    return () => window.removeEventListener(INVITE_PREVIEW_EVENT, onPreview);
+  }, []);
 
   useEffect(() => {
     if (isLocalMode()) return;
@@ -52,11 +80,13 @@ export function InvitePopup() {
 
   const close = (goTo?: string) => {
     setClosing(true);
-    void api('/trips/invites/seen', { method: 'POST' }).catch(() => undefined);
+    // A preview was never news, so it has nothing to mark as read.
+    if (!preview) void api('/trips/invites/seen', { method: 'POST' }).catch(() => undefined);
     window.setTimeout(() => {
       setInvites([]);
       setClosing(false);
-      if (goTo) navigate(goTo);
+      setPreview(false);
+      if (goTo && !preview) navigate(goTo);
     }, 180);
   };
 
@@ -74,7 +104,18 @@ export function InvitePopup() {
         <ul className="invite-list">
           {invites.map((invite) => (
             <li key={invite.id}>
-              <Icon name="pin" size={15} />
+              {/* A photo when the trip has one; a pin when it does not. An
+                  empty frame waiting for a picture that is never coming is
+                  worse than no frame at all. */}
+              {invite.coverId ? (
+                <AuthImage
+                  path={`/media/${invite.coverId}/thumbnail`}
+                  alt=""
+                  className="invite-cover"
+                />
+              ) : (
+                <Icon name="pin" size={15} />
+              )}
               <span>
                 {invite.title}
                 <small>door {invite.ownerName}</small>

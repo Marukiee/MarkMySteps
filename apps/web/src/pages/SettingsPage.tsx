@@ -12,6 +12,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Avatar, bumpAvatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
 import { HelpTip } from '../components/HelpTip';
+import { previewInvitePopup } from '../components/InvitePopup';
 import { Icon } from '../components/Icon';
 import { ServerSteps } from '../components/LocalModeSheet';
 import { LogoMark } from '../components/Logo';
@@ -1452,6 +1453,21 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
             Wachten op goedkeuring
           </button>
         </div>
+      </div>
+      <div className="field">
+        <label>Toegevoegd aan een reis</label>
+        <div className="dev-buttons">
+          <button type="button" className="btn btn-ghost" onClick={() => previewInvitePopup(1)}>
+            Eén reis
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={() => previewInvitePopup(3)}>
+            Drie reizen
+          </button>
+        </div>
+        <span className="muted">
+          Toont de melding met verzonnen reizen. Er verandert niets aan je account, en sluiten
+          brengt je nergens heen.
+        </span>
       </div>
       <div className="field">
         <label>Update-melding</label>

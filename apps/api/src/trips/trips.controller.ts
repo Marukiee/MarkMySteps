@@ -42,7 +42,7 @@ export class TripsController {
   @Get('invites')
   invites(
     @CurrentUser() user: JwtPayload,
-  ): Promise<{ id: string; title: string; ownerName: string }[]> {
+  ): Promise<{ id: string; title: string; ownerName: string; coverId: string | null }[]> {
     return this.trips.listUnseenMemberships(user.sub);
   }
 

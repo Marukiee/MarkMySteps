@@ -742,11 +742,21 @@ export class TripsService {
    */
   async listUnseenMemberships(
     userId: string,
-  ): Promise<{ id: string; title: string; ownerName: string }[]> {
+  ): Promise<{ id: string; title: string; ownerName: string; coverId: string | null }[]> {
     const rows = await this.prisma.tripMember.findMany({
       where: { userId, seen: false },
       select: {
-        trip: { select: { id: true, title: true, owner: { select: { displayName: true } } } },
+        trip: {
+          select: {
+            id: true,
+            title: true,
+            coverMediaId: true,
+            // Something to look at, when there is something: the trip's cover,
+            // or the first photo on it.
+            mediaRefs: { take: 1, orderBy: { takenAt: 'asc' }, select: { id: true } },
+            owner: { select: { displayName: true } },
+          },
+        },
       },
       orderBy: { joinedAt: 'desc' },
       take: 20,
@@ -755,6 +765,7 @@ export class TripsService {
       id: r.trip.id,
       title: r.trip.title,
       ownerName: r.trip.owner.displayName,
+      coverId: r.trip.coverMediaId ?? r.trip.mediaRefs[0]?.id ?? null,
     }));
   }
 
