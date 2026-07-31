@@ -7,7 +7,9 @@ import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
 import {
+  PlanItinerary,
   VisualAirports,
+  VisualNotifs,
   VisualOffline,
   VisualShare,
   VisualStart,
@@ -22,7 +24,7 @@ import {
 import { getLocalName, isLocalMode, setLocalName } from '../lib/localMode';
 import { isNativeApp, markOnboarded } from '../lib/native';
 import { getThemeId, setThemeId, ThemeId } from '../lib/prefs';
-import { PLAN_TRIP, SAMPLE_TRIPS } from './onboardingSamples';
+import { PLAN_ROUTE, PLAN_STOP_NAMES, PLAN_TRIP, SAMPLE_TRIPS } from './onboardingSamples';
 import './onboarding.css';
 import './onboarding2.css';
 
@@ -192,11 +194,13 @@ export function OnboardingV2Page() {
       </p>
     </div>,
     // The route builds itself on the same globe the app uses: Málaga, Madrid,
-    // Barcelona, Turijn, Parijs, each stop lighting up as the light reaches it.
-    <div className="onb-feature onb-globe-slide" key="plan">
-      <div className="onb-globe" aria-hidden="true">
-        <GlobeBackdrop trips={PLAN_TRIP} />
+    // Barcelona, Turijn, Parijs, each name popping up as its stop lands, with
+    // the itinerary writing itself underneath in the planner's own shape.
+    <div className="onb-feature onb-globe-slide onb-plan-slide" key="plan">
+      <div className="onb-globe onb-globe-sm" aria-hidden="true">
+        <GlobeBackdrop trips={PLAN_TRIP} noZoom stopLabels={PLAN_STOP_NAMES} />
       </div>
+      <PlanItinerary stops={PLAN_ROUTE} />
       <h1>Plan je route</h1>
       <p className="muted">
         Bouw je route met stops, nachten en vervoer: auto, trein, boot of vlucht met tussenstops.
@@ -250,8 +254,7 @@ export function OnboardingV2Page() {
       <VisualAirports />
       <h1>Je vaste vliegvelden</h1>
       <p className="muted">
-        Vanaf welke vliegvelden vertrek je meestal? Schiphol staat al klaar; voeg toe wat je wilt.
-        Het eerste wordt automatisch ingevuld bij een nieuwe vlucht. Later aanpasbaar via{' '}
+        Vanaf welke vliegvelden vertrek je meestal? Dit kan je later aanpassen via{' '}
         <strong className="onb-inline-path">
           Instellingen <Icon name="chevron-right" size={13} /> Voorkeuren
         </strong>
@@ -279,7 +282,7 @@ export function OnboardingV2Page() {
           </div>,
           <div className="onb-feature" key="always">
             <span className="onb-visual">
-              <Icon name="shield" size={54} />
+              <Icon name="location-always" size={54} />
             </span>
             <h1>Locatie altijd toestaan</h1>
             <p className="muted">
@@ -337,13 +340,12 @@ export function OnboardingV2Page() {
               ]
             : []),
           <div className="onb-feature" key="notifs">
-            <span className="onb-visual">
-              <Icon name="bell" size={54} />
-            </span>
+            <VisualNotifs />
             <h1>Meldingen</h1>
             <p className="muted">
-              Voor de tracking-status en updates van reisgenoten. Je kunt dit altijd aanpassen in de
-              toestelinstellingen.
+              Alleen wat je moet weten: de status van je tracking en updates van je reisgenoten.
+              Geen reclame, geen tips, geen herinneringen om de app te openen. Je kunt dit altijd
+              aanpassen in de toestelinstellingen.
             </p>
             {permission(perms.notifications, 'Meldingen toestaan', 'Ingesteld', () =>
               void ask('notifications'),
@@ -362,7 +364,7 @@ export function OnboardingV2Page() {
       'start',
       <VisualStart />,
       'Begin je eerste reis',
-      'Maak een reis aan met een naam en je data. De rest — je route, je foto’s, je dagen — vult zichzelf terwijl je onderweg bent.',
+      'Maak een reis aan met een naam en je data. De rest vult zichzelf terwijl je onderweg bent: je route, je foto’s en je dagen.',
     ),
   ];
 

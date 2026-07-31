@@ -53,6 +53,11 @@ function ScrollToTop() {
   useLayoutEffect(() => {
     window.scrollTo({ top: 0 });
     document.scrollingElement?.scrollTo({ top: 0 });
+    // `overflow-x: hidden` on the body computes its overflow-y to `auto`, which
+    // makes the BODY the scroller — not the viewport and not the scrolling
+    // element. Without this, leaving a scrolled page for another one landed you
+    // halfway down the new one.
+    document.body.scrollTo({ top: 0 });
   }, [pathname]);
   return null;
 }

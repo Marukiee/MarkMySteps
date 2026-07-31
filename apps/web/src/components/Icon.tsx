@@ -38,6 +38,7 @@ export type IconName =
   | 'help'
   | 'question'
   | 'search'
+  | 'location-always'
   | 'sun'
   | 'moon'
   | 'monitor'
@@ -246,6 +247,19 @@ const PATHS: Record<IconName, ReactNode> = {
       <circle cx="12" cy="12" r="9" />
       <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7" />
       <path d="M12 17h.01" />
+    </>
+  ),
+  // Location, over and over: a pin with two arrows going round it. "Always
+  // allow" is not a bigger permission than "while using", it is a repeating
+  // one, and that is what the ring says.
+  'location-always': (
+    <>
+      <path d="M12 15.4c2.1-2.5 3.2-4.3 3.2-5.7a3.2 3.2 0 0 0-6.4 0c0 1.4 1.1 3.2 3.2 5.7Z" />
+      <circle cx="12" cy="9.5" r="1.1" />
+      <path d="M5.4 8.2A7.8 7.8 0 0 0 8.9 19.6" />
+      <path d="m5.5 16.6.6 3.4 3.4-.6" />
+      <path d="M18.6 15.8A7.8 7.8 0 0 0 15.1 4.4" />
+      <path d="m18.5 7.4-.6-3.4-3.4.6" />
     </>
   ),
   sun: (

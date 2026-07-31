@@ -2,6 +2,18 @@
    what it adds on top: the mark on the welcome slide arriving, and room for the
    medallions that now have something moving in them. */
 
+/* The planning slide carries a globe AND its itinerary, so the globe gives up
+   some of its height to make room for the list under it. */
+.onb-globe-sm {
+  height: 26vh;
+  max-height: 210px;
+  margin-bottom: 0;
+}
+
+.onb-plan-slide h1 {
+  margin-top: 0.4rem;
+}
+
 /* The needle swings in and settles, the way it does on the invite dialog: the
    first thing the app says about itself is that it points somewhere. */
 .onb2-mark {

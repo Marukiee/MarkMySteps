@@ -12,21 +12,30 @@ const AMS: [number, number] = [4.9, 52.37];
  * frames it straight away and walks its light from stop to stop. Real cities in
  * travel order — the slide is meant to be the app, not a diagram of it.
  */
+const PLAN_STOPS: { name: string; at: [number, number]; nights: number; mode: string }[] = [
+  { name: 'Málaga', at: [-4.42, 36.72], nights: 3, mode: 'plane' },
+  { name: 'Madrid', at: [-3.7, 40.42], nights: 4, mode: 'train' },
+  { name: 'Barcelona', at: [2.17, 41.39], nights: 3, mode: 'train' },
+  { name: 'Turijn', at: [7.69, 45.07], nights: 2, mode: 'train' },
+  { name: 'Parijs', at: [2.35, 48.86], nights: 4, mode: 'train' },
+];
+
+/** The route as the planner lists it, for the slide's own itinerary. */
+export const PLAN_ROUTE = PLAN_STOPS;
+
+/** The names the globe writes beside each stop as it arrives. */
+export const PLAN_STOP_NAMES: Record<string, string[]> = {
+  'p-route': PLAN_STOPS.map((s) => s.name),
+};
+
 export const PLAN_TRIP = [
   {
     id: 'p-route',
     title: 'Zuid-Europa',
-    anchor: [-4.42, 36.72],
-    routePath: [
-      [
-        [-4.42, 36.72], // Málaga
-        [-3.7, 40.42], // Madrid
-        [2.17, 41.39], // Barcelona
-        [7.69, 45.07], // Turijn
-        [2.35, 48.86], // Parijs
-      ],
-    ],
+    anchor: PLAN_STOPS[0]!.at,
+    routePath: [PLAN_STOPS.map((s) => s.at)],
     flightPath: null,
+    stopPoints: PLAN_STOPS.map((s) => s.at),
     distanceKm: 2200,
     startDate: '2025-05-02',
     endDate: '2025-05-20',

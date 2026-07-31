@@ -42,10 +42,17 @@ interface GlobeTrip {
 export function GlobeBackdrop({
   trips,
   noTour,
+  noZoom,
+  stopLabels,
   selfLocation,
 }: {
   trips: Trip[];
   noTour?: boolean;
+  /** Frame the trip being shown, but stay pulled back — the onboarding wants
+   *  the whole route in view rather than a camera moving in on it. */
+  noZoom?: boolean;
+  /** Per trip id, a name for each of its stops, drawn as the stop arrives. */
+  stopLabels?: Record<string, string[]>;
   /** [lng, lat] of your own live position, when you've opted to show it here. */
   selfLocation?: [number, number] | null;
 }) {
@@ -55,6 +62,10 @@ export function GlobeBackdrop({
   tripsRef.current = trips;
   const noTourRef = useRef(noTour);
   noTourRef.current = noTour;
+  const noZoomRef = useRef(noZoom);
+  noZoomRef.current = noZoom;
+  const stopLabelsRef = useRef(stopLabels);
+  stopLabelsRef.current = stopLabels;
   const selfRef = useRef(selfLocation);
   selfRef.current = selfLocation;
 
@@ -226,6 +237,12 @@ export function GlobeBackdrop({
      * them rather than as arriving. Long enough for the dot to throw two rings.
      */
     const DWELL_MS = 1900;
+    /**
+     * Leaving by air. The plane used to pull away while the dot it was leaving
+     * was still throwing its second ring, so the arrival and the departure ran
+     * over each other; this waits for the rings to finish first.
+     */
+    const TAKEOFF_MS = 2900;
     /** A layover: the plane touches down, but nobody gets off. */
     const LAYOVER_MS = 450;
     let holdUntil = 0;
@@ -364,21 +381,36 @@ export function GlobeBackdrop({
         const OVERVIEW_MS = 6000;
         const FOCUS_MS = 6500;
         const dur = tourPhase === 0 ? OVERVIEW_MS : FOCUS_MS;
-        // A trip you tapped is framed and STAYS framed until you tap away. It
-        // used to be highlighted without being framed, so the light ran its
-        // journey while the camera quietly pulled back out to the overview.
+        // A trip you tapped is framed and shown all the way through — and then
+        // let go of. Holding it framed until the next tap left the globe parked
+        // on one trip forever, with nothing left to watch.
         const tapped = selectedId ? trips.findIndex((t) => t.id === selectedId) : -1;
         // In "no tour" mode (onboarding) it never zooms into a trip — stays a
         // gentle overview.
         if (noTourRef.current) {
           tourPhase = 0;
-        } else if (tapped >= 0) {
+        } else if (noZoomRef.current) {
+          // One trip, shown from the first frame: a slide has no time to spend
+          // six seconds on an overview first.
           tourPhase = 1;
-          tourIdx = tapped;
-          lastFocusId = selectedId;
-          // Held open: the timer below is what ends a tour's own focus, and
-          // this one ends when you say so.
-          phaseStart = now;
+          tourIdx = 0;
+        } else if (tapped >= 0) {
+          if (tourPhase !== 1 || lastFocusId !== selectedId) {
+            tourPhase = 1;
+            tourIdx = tapped;
+            lastFocusId = selectedId;
+            glowDist = 0;
+            glowRuns = 0;
+            holdUntil = 0;
+            holdPoint = null;
+            phaseStart = now;
+          } else if (glowRuns >= glowRunsNeeded || now - phaseStart > dur * 5) {
+            // Its journey has been travelled: release the tap and pull back out,
+            // exactly as the tour's own focus ends.
+            selectedId = null;
+            tourPhase = 0;
+            phaseStart = now;
+          }
         } else if (now - phaseStart > dur) {
           if (tourPhase === 0) {
             // Entering a focus: frame the next trip (biggest first). A stale tap
@@ -437,7 +469,12 @@ export function GlobeBackdrop({
           // of the route trailing off one side.
           const trip = trips[Math.min(tourIdx, trips.length - 1)]!;
           const { centre, spread } = tripFraming(trip);
-          const zoom = Math.max(1.5, Math.min(3.4, 46 / (spread + 9)));
+          // Turning to the trip is what says "this one"; moving in on it is a
+          // separate thing, and a slide that is about the whole route does not
+          // want it.
+          const zoom = noZoomRef.current
+            ? 1
+            : Math.max(1.5, Math.min(3.4, 46 / (spread + 9)));
           const shortest = ((-centre[0] - rotation + 540) % 360) - 180;
           [rotation, rotV] = ease(rotation, rotV, rotation + shortest, 2.4);
           // A touch above centre: the fade tail eats the lower third, so the
@@ -910,6 +947,39 @@ export function GlobeBackdrop({
           ctx!.strokeStyle = dark ? 'rgba(20,25,32,0.65)' : 'rgba(255,255,255,0.9)';
           ctx!.stroke();
         }
+
+        // The names of the places, rising into view with the dot they belong
+        // to. A second pass rather than part of the loop above: a stop that
+        // already carries a full-size dot is skipped there, and skipping the
+        // name too would leave the ends of the route anonymous.
+        const names = stopLabelsRef.current?.[trip.id];
+        if (names) {
+          ctx!.font = `600 ${11 * dpr}px 'Inter Variable', sans-serif`;
+          ctx!.textAlign = 'center';
+          ctx!.textBaseline = 'bottom';
+          for (let i = 0; i < trip.stops.length; i++) {
+            const name = names[i];
+            const sp = trip.stops[i]!;
+            if (!name) continue;
+            if (center && distance(center, sp) > 90) continue;
+            const pr = projection(sp);
+            if (!pr) continue;
+            const local = Math.max(0, Math.min(1, (head - i * STEP) / WINDOW));
+            if (local <= 0.12) continue;
+            const rise = Math.min(1, (local - 0.12) / 0.5);
+            ctx!.globalAlpha = baseAlpha * rise;
+            const ty = pr[1] - 9 * dpr * dotScale - (1 - rise) * 7 * dpr;
+            // Outlined first: a name has to stay readable over land, sea and
+            // the route's own line.
+            ctx!.lineWidth = 3 * dpr;
+            ctx!.strokeStyle = dark ? 'rgba(14,18,24,0.85)' : 'rgba(255,255,255,0.92)';
+            ctx!.strokeText(name, pr[0], ty);
+            ctx!.fillStyle = dark ? '#eaf0f8' : '#1d2430';
+            ctx!.fillText(name, pr[0], ty);
+          }
+          ctx!.textAlign = 'start';
+          ctx!.textBaseline = 'alphabetic';
+        }
         ctx!.globalAlpha = 1;
       }
 
@@ -1117,7 +1187,11 @@ export function GlobeBackdrop({
             // a city you stayed in — and it was getting the layover's beat.
             const here = legs[i]!;
             const layover = here.kind === 'flight' && here.layoverAfter;
-            arrivals.push({ at: walked, ms: layover ? LAYOVER_MS : DWELL_MS });
+            const takingOff = legs[i + 1]!.kind === 'flight';
+            arrivals.push({
+              at: walked,
+              ms: layover ? LAYOVER_MS : takingOff ? TAKEOFF_MS : DWELL_MS,
+            });
           }
 
           // A journey that shows itself as it goes needs one pass, not two:
@@ -1125,6 +1199,9 @@ export function GlobeBackdrop({
           // way. A straight line from A to B still gets its second.
           const hasFlight = legs.some((leg) => leg.kind === 'flight');
           glowRunsNeeded = hasFlight || arrivals.length >= 2 ? 1 : glowRunsFor(total);
+          // A slide keeps replaying: it is on screen for as long as you read it,
+          // and a light that ran once and stopped left a still picture.
+          if (noZoomRef.current) glowRunsNeeded = Number.POSITIVE_INFINITY;
           if (glowRuns < glowRunsNeeded && now >= holdUntil) {
             // Away from a stop and up to speed, then off it again at the next:
             // one constant rate for the whole journey read as a cursor being
@@ -1615,6 +1692,8 @@ type Leg =
 
 /** Two points count as the same place when handing one leg over to the next. */
 const LEG_JOIN_DEG = 0.8;
+/** A hole in a journey wider than this was crossed by air, not by road. */
+const FLY_GAP_DEG = 3.5;
 
 /**
  * How far in you can pinch. The auto-tour never goes past ~3.4, so this is
@@ -1640,7 +1719,15 @@ function stitch(legs: Leg[]): Leg[] {
     if (prev) {
       const from = endOf(prev);
       const to = startOf(leg);
-      if (distance(from, to) > 0.05) out.push(groundLeg([from, to]));
+      const gap = distance(from, to);
+      if (gap > FLY_GAP_DEG) {
+        // A hole this wide was flown. A city trip's way home is one such hole
+        // (the last photo in Rome, then home): bridging it on the ground sent a
+        // coloured light gliding back across Europe where a plane belongs.
+        out.push({ kind: 'flight', a: from, b: to, len: gap, layoverAfter: false });
+      } else if (gap > 0.05) {
+        out.push(groundLeg([from, to]));
+      }
     }
     out.push(leg);
   }

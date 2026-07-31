@@ -1,27 +1,16 @@
 /* What the onboarding slides show above their heading.
 
-   Two kinds live here: a medallion (.onb-visual from onboarding.css, filled by
-   .onb-vis) and a small screenshot (.onb-shot) — a crop of a real screen, at a
-   size that still leaves room for the words underneath. */
-
-.onb-vis {
-  position: relative;
-  overflow: hidden;
-}
-
-.onb-vis svg {
-  width: 76px;
-  height: 76px;
-  overflow: visible;
-}
+   Most of them are small screenshots (.onb-shot): a crop of a real screen, at a
+   size that still leaves room for the words underneath. Two are not framed at
+   all — the planner's itinerary and the plane crossing the slide. */
 
 /* ---------- The screenshot frame ---------- */
 
 .onb-shot {
   position: relative;
   display: block;
-  width: 196px;
-  height: 132px;
+  width: 208px;
+  height: 136px;
   margin-bottom: 0.5rem;
   padding: 0.5rem;
   border-radius: 18px;
@@ -34,8 +23,8 @@
 /* The app bar every screen starts with. */
 .shot-top {
   display: block;
-  height: 14px;
-  margin-bottom: 0.45rem;
+  height: 12px;
+  margin-bottom: 0.4rem;
 }
 
 .shot-top-title {
@@ -57,28 +46,23 @@
 }
 
 /* ---------- Je reizen terugkijken ---------- */
-/* Trip cards as the list draws them: a cover in the trip's own colour, its
-   name, and the row of fact chips. */
+/* The trip grid as the home page draws it: covers in each trip's own colour,
+   its name, and the row of fact chips. */
+
+.shot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
 
 .shot-card {
   position: relative;
   display: block;
-  height: 44px;
-  margin-bottom: 0.4rem;
-  padding: 0.4rem 0.45rem;
-  border-radius: 10px;
+  height: 47px;
+  padding: 0.3rem 0.35rem;
+  border-radius: 9px;
   overflow: hidden;
   animation: shotCard 0.5s var(--ease) both;
-}
-
-.shot-card-1 {
-  background: linear-gradient(135deg, #e8613c, #c9422c);
-  animation-delay: 0.15s;
-}
-
-.shot-card-2 {
-  background: linear-gradient(135deg, #2a8f85, #24707a);
-  animation-delay: 0.42s;
 }
 
 @keyframes shotCard {
@@ -90,8 +74,8 @@
 
 .shot-card-name {
   display: block;
-  width: 58%;
-  height: 7px;
+  width: 62%;
+  height: 6px;
   margin-bottom: 7px;
   border-radius: 999px;
   background: rgb(255 255 255 / 0.92);
@@ -99,28 +83,90 @@
 
 .shot-chips {
   display: flex;
-  gap: 4px;
+  gap: 3px;
 }
 
 .shot-chips i {
-  width: 26px;
-  height: 10px;
+  width: 24px;
+  height: 9px;
   border-radius: 999px;
-  background: rgb(255 255 255 / 0.28);
+  background: rgb(255 255 255 / 0.3);
   animation: shotChip 0.32s var(--ease) both;
 }
-
-.shot-card-1 .shot-chips i:nth-child(1) { animation-delay: 0.4s; }
-.shot-card-1 .shot-chips i:nth-child(2) { animation-delay: 0.5s; }
-.shot-card-1 .shot-chips i:nth-child(3) { animation-delay: 0.6s; }
-.shot-card-2 .shot-chips i:nth-child(1) { animation-delay: 0.66s; }
-.shot-card-2 .shot-chips i:nth-child(2) { animation-delay: 0.76s; }
 
 @keyframes shotChip {
   from {
     opacity: 0;
     transform: translateY(4px);
   }
+}
+
+/* ---------- Plan je route ---------- */
+/* The itinerary under the globe, in the planner's own shape: a number, the
+   place, the nights it costs and how you get to the next one. Rows land in
+   travel order, so the list writes itself while the map fills in. */
+
+.onb-plan {
+  width: min(100%, 300px);
+  margin: 0.35rem auto 0;
+  display: grid;
+  gap: 4px;
+  list-style: none;
+}
+
+.onb-plan li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.34rem 0.5rem;
+  border-radius: 10px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  animation: planRow 0.45s var(--ease) both;
+}
+
+@keyframes planRow {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.onb-plan-num {
+  display: grid;
+  place-content: center;
+  flex-shrink: 0;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.onb-plan-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  text-align: left;
+}
+
+.onb-plan-nights {
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+}
+
+.onb-plan-mode {
+  display: grid;
+  place-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
 }
 
 /* ---------- Delen ---------- */
@@ -176,11 +222,142 @@
 }
 
 /* ---------- Zuinig en offline ---------- */
+/* A battery that hardly moves, beside the crossed-out cloud that says none of
+   this needs a signal. */
 
-.vis-offline {
+.onb-shot-power {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.75rem;
+}
+
+.shot-battery {
+  position: relative;
+  width: 104px;
+  height: 44px;
+  padding: 5px;
+  border-radius: 9px;
+  border: 3px solid var(--ink-soft);
+  opacity: 0.9;
+}
+
+.shot-battery-cap {
+  position: absolute;
+  right: -9px;
+  top: 50%;
+  width: 6px;
+  height: 16px;
+  margin-top: -8px;
+  border-radius: 0 3px 3px 0;
+  background: var(--ink-soft);
+  opacity: 0.9;
+}
+
+/* Drains a sliver and fills again: the point is how little it moves. */
+.shot-battery-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: #4a8f3c;
+  transform-origin: left;
+  animation: shotDrain 6s ease-in-out infinite;
+}
+
+@keyframes shotDrain {
+  0% {
+    transform: scaleX(1);
+  }
+  55% {
+    transform: scaleX(0.84);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+.shot-power-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--ink-faint);
+}
+
+.shot-power-label {
+  width: 64px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ink);
+  opacity: 0.22;
+}
+
+/* ---------- Meldingen ---------- */
+/* Notification cards sliding in from the top, one after the other, the way
+   they arrive on the phone. */
+
+.onb-shot-notifs {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.shot-notif {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--paper-sunken);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-s);
+  animation: shotNotif 4.2s var(--ease) infinite;
+}
+
+.shot-notif-1 { animation-delay: 0.2s; }
+.shot-notif-2 { animation-delay: 1s; }
+
+@keyframes shotNotif {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  12%, 76% {
+    opacity: 1;
+    transform: none;
+  }
+  92%, 100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.shot-notif-icon {
   display: grid;
   place-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--accent-soft);
   color: var(--accent-ink);
+}
+
+.shot-notif-lines {
+  flex: 1;
+  display: grid;
+  gap: 5px;
+}
+
+.shot-notif-lines i {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ink);
+  opacity: 0.55;
+}
+
+.shot-notif-lines i.short {
+  width: 58%;
+  opacity: 0.25;
 }
 
 /* ---------- Licht of donker ---------- */
@@ -246,61 +423,114 @@
 .shot-half-dark .shot-mini-card { background: #3f6fa8; }
 .shot-half-dark .shot-mini-line { background: #e7edf5; opacity: 0.24; }
 
-/* ---------- Aan de slag ---------- */
+/* ---------- Begin je eerste reis ---------- */
+/* The home screen with nothing on it yet: the empty-state card, and the tile
+   that fills it. */
 
-.shot-new {
+.onb-shot-start {
   display: grid;
-  place-content: center;
-  height: 56px;
-  border-radius: 12px;
+  align-content: start;
+  gap: 8px;
+}
+
+.shot-empty {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--paper-sunken);
+  border: 1px solid var(--line);
+  animation: shotCard 0.45s var(--ease) 0.15s both;
+}
+
+.shot-empty-line {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ink);
+  opacity: 0.32;
+}
+
+.shot-empty-line.short {
+  width: 60%;
+  opacity: 0.18;
+}
+
+/* The dashed "+ Nieuwe reis" tile, breathing once it lands. */
+.shot-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 42px;
+  border-radius: 11px;
   border: 2px dashed var(--accent);
   color: var(--accent-ink);
   background: var(--accent-soft);
-  animation: shotCard 0.5s var(--ease) 0.15s both;
+  animation: shotCard 0.5s var(--ease) 0.45s both, shotBreathe 2.6s var(--ease) 1s infinite;
 }
 
 .shot-new-label {
-  display: block;
-  width: 76px;
-  height: 8px;
-  margin: 0.5rem auto 0;
+  width: 64px;
+  height: 7px;
   border-radius: 999px;
-  background: var(--ink);
-  opacity: 0.3;
-  transform-origin: center;
-  animation: shotPop 0.4s var(--ease) 0.5s both;
+  background: currentColor;
+  opacity: 0.55;
 }
 
-/* ---------- Vliegvelden ---------- */
-
-.vis-fly-arc {
-  stroke: var(--accent-ink);
-  stroke-width: 3;
-  stroke-linecap: round;
-  opacity: 0.45;
-  stroke-dasharray: 90;
-  stroke-dashoffset: 90;
-  animation: visDraw 1.6s var(--ease) 0.2s forwards;
-}
-
-@keyframes visDraw {
-  to {
-    stroke-dashoffset: 0;
+@keyframes shotBreathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035);
   }
 }
 
-.vis-fly-dot {
+/* ---------- Vliegvelden ---------- */
+/* No frame: the plane simply crosses the slide, laying its track behind it. */
+
+.onb-fly {
+  display: block;
+  width: min(100%, 260px);
+  margin-bottom: 0.4rem;
+}
+
+.fly-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.fly-track {
+  stroke: var(--accent-ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 5 7;
+  opacity: 0.4;
+  animation: flyTrack 3.4s linear infinite;
+}
+
+/* The dashes drift the way the plane is going, so the track reads as a route
+   rather than as a fence. */
+@keyframes flyTrack {
+  to {
+    stroke-dashoffset: -48;
+  }
+}
+
+.fly-dot {
   fill: var(--accent);
   transform-box: fill-box;
   transform-origin: center;
-  animation: visPin 0.45s var(--ease) both;
+  animation: flyPin 0.5s var(--ease) both;
 }
 
-.vis-fly-dot-2 {
-  animation-delay: 1.5s;
+.fly-dot-2 {
+  animation-delay: 1.6s;
 }
 
-@keyframes visPin {
+@keyframes flyPin {
   0% {
     opacity: 0;
     transform: scale(0.2);
@@ -315,55 +545,57 @@
   }
 }
 
-/* Stepped along the curve it is drawn on: each keyframe is that quadratic read
-   off at a quarter of its length, with the angle the curve has at that point.
+/* Stepped along the curve it is drawn on: each keyframe is that cubic read off
+   at a fifth of its length, with the angle the curve has at that point. The
+   keyframe TIMES are spaced by how far apart those points are, or the plane
+   would speed up towards the end where the curve's steps get longer.
    transform-origin at 0 0 keeps the rotation on the plane's own nose-to-tail
    axis rather than around the middle of the drawing. */
-.vis-fly-plane {
+.fly-plane {
   fill: var(--accent-ink);
   transform-box: view-box;
   transform-origin: 0 0;
-  animation: visFly 1.9s linear 0.2s both;
+  animation: flyAcross 3.4s linear infinite;
 }
 
-@keyframes visFly {
+@keyframes flyAcross {
   0% {
     opacity: 0;
-    transform: translate(18px, 72px) rotate(-58.4deg);
+    transform: translate(18px, 42px) rotate(0deg);
   }
-  10% {
+  8% {
     opacity: 1;
   }
-  25% {
-    transform: translate(34px, 50.75px) rotate(-45.9deg);
+  15.8% {
+    transform: translate(53.4px, 39.7px) rotate(-7deg);
   }
-  50% {
-    transform: translate(50px, 39px) rotate(-23.6deg);
+  31.5% {
+    transform: translate(88.5px, 34.3px) rotate(-9.8deg);
   }
-  75% {
-    transform: translate(66px, 36.75px) rotate(8.9deg);
+  49.4% {
+    transform: translate(128.3px, 27.7px) rotate(-8.2deg);
   }
-  90% {
+  71.5% {
+    transform: translate(177.8px, 22.3px) rotate(-4.3deg);
+  }
+  92% {
     opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translate(82px, 44px) rotate(36.9deg);
+    transform: translate(242px, 20px) rotate(0deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .onb-vis *,
-  .onb-shot * {
+  .onb-shot *,
+  .onb-plan li,
+  .onb-fly * {
     animation: none !important;
   }
 
-  .vis-fly-arc {
-    stroke-dashoffset: 0;
-  }
-
-  .vis-fly-plane {
+  .fly-plane {
     opacity: 1;
-    transform: translate(50px, 39px) rotate(-23.6deg);
+    transform: translate(128.3px, 27.7px) rotate(-8.2deg);
   }
 }
