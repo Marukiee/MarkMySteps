@@ -1300,7 +1300,7 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
   const [hint, setHint] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
 
-  if (showLog) return <ChangelogPanel onBack={() => setShowLog(false)} />;
+  if (showLog) return <ChangelogPanel key="log" onBack={() => setShowLog(false)} />;
 
   // Tap the version 7× to reveal the hidden Ontwikkelaar tab (Android-style).
   const tapVersion = () => {
@@ -1316,7 +1316,7 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
   };
 
   return (
-    <section className="card settings-card">
+    <section className="card settings-card settings-swap" key="about">
       {/* The brand row doubles as the seven-tap target for developer options —
           a second "MarkMySteps" underneath was just repeating itself. */}
       <button type="button" className="about-brand" onClick={tapVersion}>
@@ -1348,17 +1348,6 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
           </a>
         </li>
         <li>
-          <a
-            href="https://github.com/Marukiee/MarkMySteps/blob/main/docs/DEPLOY.md"
-            target="_blank"
-            rel="noreferrer"
-            className="ext-link"
-          >
-            Zet gemakkelijk een eigen MarkMySteps server op{' '}
-            <Icon name="chevron-right" size={14} />
-          </a>
-        </li>
-        <li>
           <button type="button" className="ext-link" onClick={() => setShowLog(true)}>
             Wat is er nieuw <Icon name="chevron-right" size={14} />
           </button>
@@ -1382,7 +1371,7 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
  */
 function ChangelogPanel({ onBack }: { onBack: () => void }) {
   return (
-    <section className="card settings-card changelog">
+    <section className="card settings-card changelog settings-swap">
       <button type="button" className="changelog-back" onClick={onBack}>
         <Icon name="chevron-left" size={16} />
         Over

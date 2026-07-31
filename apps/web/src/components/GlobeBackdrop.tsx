@@ -465,9 +465,10 @@ export function GlobeBackdrop({
           // of the route trailing off one side.
           const trip = trips[Math.min(tourIdx, trips.length - 1)]!;
           const { centre, spread } = tripFraming(trip);
-          // A slide shows the globe AS a globe: moving in on it cuts the
-          // sphere off against the box, whichever shape the box is.
-          const zoom = soloRef.current ? 1 : Math.max(1.5, Math.min(3.4, 46 / (spread + 9)));
+          // A slide moves in far enough to read the route, but not so far that
+          // the sphere runs out of its box: past ~1.7 the rim leaves the frame
+          // on every side and it stops looking like a globe.
+          const zoom = soloRef.current ? 1.7 : Math.max(1.5, Math.min(3.4, 46 / (spread + 9)));
           const shortest = ((-centre[0] - rotation + 540) % 360) - 180;
           [rotation, rotV] = ease(rotation, rotV, rotation + shortest, 2.4);
           // A touch above centre: the fade tail eats the lower third, so the

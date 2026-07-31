@@ -1,4 +1,4 @@
-# MarkMySteps — Architectuur & Gefaseerd Plan
+# MarkMySteps: architectuur & Gefaseerd Plan
 
 Self-hosted, open-source Polarsteps-alternatief. Backend + PWA + Android APK.
 Werkt als schil over een externe Immich-server (foto's blijven in Immich).
@@ -54,17 +54,17 @@ Modules NestJS: `auth`, `users`, `trips`, `stops` (planner), `tracking`,
 
 ## 2. Datamodel (kern)
 
-- **User** — account, wachtwoord-hash (argon2), rol.
-- **ImmichConnection** — per user: `serverUrl`, `apiKeyEncrypted` (AES-256-GCM,
+- **User**: account, wachtwoord-hash (argon2), rol.
+- **ImmichConnection**: per user: `serverUrl`, `apiKeyEncrypted` (AES-256-GCM,
   master-key uit `.env`), laatste sync-cursor.
-- **Trip** — titel, start/eind, eigenaar. Many-to-many **TripMember** (samen reizen).
-- **Stop** — trip-stop met `nights`, volgorde-index, locatie (PostGIS `Point`),
+- **Trip**: titel, start/eind, eigenaar. Many-to-many **TripMember** (samen reizen).
+- **Stop**: trip-stop met `nights`, volgorde-index, locatie (PostGIS `Point`),
   afgeleide `arrivalDate`/`departureDate` (herberekend bij verschuiving).
-- **LocationPoint** — `userId`, `tripId`, `geom Point`, `recordedAt`, accuracy,
+- **LocationPoint**: `userId`, `tripId`, `geom Point`, `recordedAt`, accuracy,
   `batchId` (offline-sync). Geïndexeerd op tijd + GIST op geom.
-- **MediaRef** — `immichAssetId`, `userId`, `tripId`, `takenAt`, `geom` (EXIF-GPS).
+- **MediaRef**: `immichAssetId`, `userId`, `tripId`, `takenAt`, `geom` (EXIF-GPS).
   **Nooit** fysieke media; enkel metadata.
-- **ShareLink** — `slugHash`, optionele `passwordHash`, read-only scope.
+- **ShareLink**: `slugHash`, optionele `passwordHash`, read-only scope.
 
 Belangrijk: alle "who"-filtering op de kaart draait op `userId` in
 `LocationPoint`/`MediaRef` → frontend-toggle stuurt user-filter naar API.
@@ -95,7 +95,7 @@ LocationManager, geen GMS). Later evt. dunne eigen native laag voor
 - Cron/interval-job: per actieve trip Immich `/search` op datumrange bevragen.
 - Sla enkel `assetId`, `takenAt`, EXIF-GPS op als `MediaRef`.
 - Thumbnails: proxy-endpoint dat live via Immich API streamt met de (ontsleutelde,
-  in-memory) key — niets cachen op disk. Rate-limited.
+  in-memory) key, niets cachen op disk. Rate-limited.
 
 ---
 
@@ -112,25 +112,25 @@ LocationManager, geen GMS). Later evt. dunne eigen native laag voor
 
 ## 6. Milestones
 
-**M1 — Fundament**
+**M1: Fundament**
 Monorepo, docker-compose (postgres+postgis, api, web), NestJS skeleton, Prisma
 schema + migraties, auth (register/login/JWT), gebruikers. Health checks.
 
-**M2 — Immich + media-metadata**
+**M2: Immich + media-metadata**
 ImmichConnection CRUD + AES-encryptie, sync-job, MediaRef, thumbnail-proxy.
 
-**M3 — Tracking**
+**M3: Tracking**
 LocationPoint API (batch-ingest, idempotent), PostGIS-simplificatie-endpoint,
 Capacitor Android-app met background-geolocation + offline SQLite-buffer.
 
-**M4 — Kaart & tijdlijn**
+**M4: Kaart & tijdlijn**
 MapLibre + PMTiles, gecombineerde routes/foto's, per-persoon toggle-filter,
 premium tijdlijn-UI (hero-images, animaties).
 
-**M5 — Routeplanner**
+**M5: Routeplanner**
 Drag-and-drop stops, "X nachten" → auto-datums, cascade-verschuiving.
 
-**M6 — Deellinks & hardening**
+**M6: Deellinks & hardening**
 Publieke read-only shares (hash+wachtwoord), security-headers audit,
 resource-limits, Cloudflare Tunnel-config, release-APK build.
 

@@ -522,6 +522,9 @@
 }
 
 .ext-link {
+  /* A <button> brings its own padding, which set the changelog link a few
+     pixels in from the anchors above it. */
+  padding: 0;
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
@@ -1791,5 +1794,18 @@
   .changelog-list > li,
   .changelog-items li {
     animation: none;
+  }
+}
+
+/* Swapping between Over and the changelog: each arrives the way a settings
+   page does, in both directions. */
+.settings-swap {
+  animation: settingsSwap 0.28s var(--ease) both;
+}
+
+@keyframes settingsSwap {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }

@@ -9,27 +9,27 @@ Je foto's blijven waar ze staan: in de galerij van je telefoon, of op je eigen
 
 ## Wat het doet
 
-- 🗺️ **Kaart en globe** (MapLibre + OpenFreeMap) — geen API-sleutels, geen
+- 🗺️ **Kaart en globe** (MapLibre + OpenFreeMap), geen API-sleutels, geen
   Google. Een route per reiziger, foto's als markers met clustering, en per
   persoon aan of uit te zetten
-- 🧭 **Routeplanner** — stops met "X nachten"; verander er één en alle datums
+- 🧭 **Routeplanner**: stops met "X nachten"; verander er één en alle datums
   erna schuiven vanzelf mee. Vervoer per stuk (auto, trein, bus, boot, vlucht
   met tussenlandingen), en dagtrips die vanuit een stop vertrekken zonder je
   planning te verzetten
-- 🔋 **Zuinige tracking** — Android-app op de AOSP-locatievoorziening, dus geen
+- 🔋 **Zuinige tracking**: Android-app op de AOSP-locatievoorziening, dus geen
   Google Play Services. Werkt op LineageOS en GrapheneOS. Eén meting per
   interval, dichter op elkaar zodra je echt onderweg bent, en offline gebufferd
   tot er weer verbinding is
-- 📸 **Foto's** — uit de galerij van je toestel, of van je eigen Immich-server.
+- 📸 **Foto's**: uit de galerij van je toestel, of van je eigen Immich-server.
   In beide gevallen worden ze op datum aan een reis gekoppeld en met hun
   EXIF-locatie op de kaart gezet
-- 📴 **Werkt zonder server** — alles kan volledig op je telefoon. Een server
+- 📴 **Werkt zonder server**: alles kan volledig op je telefoon. Een server
   koppelen kan later alsnog, zonder iets opnieuw in te voeren
-- 🧳 **Polarsteps-import** — upload je "Download my data"-zip: reizen, volledige
+- 🧳 **Polarsteps-import**: upload je "Download my data"-zip: reizen, volledige
   GPS-sporen en stops komen mee
-- 👥 **Samen reizen** — gedeelde reizen, gecombineerde routes en foto's, en een
+- 👥 **Samen reizen**: gedeelde reizen, gecombineerde routes en foto's, en een
   privélink voor het thuisfront zonder dat die een account nodig heeft
-- 🔒 **Van jou** — de database heeft geen poorten naar buiten, er is één
+- 🔒 **Van jou**: de database heeft geen poorten naar buiten, er is één
   web-poort die alleen op localhost luistert (bedoeld achter een Cloudflare
   Tunnel), en Immich-sleutels staan versleuteld opgeslagen (AES-256-GCM)
 
