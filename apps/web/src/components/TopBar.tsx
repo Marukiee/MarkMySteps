@@ -24,9 +24,17 @@ export function TopBar() {
   const menuRef = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
 
-  // Which tab the sliding thumb sits under. Inside a trip none of them is on,
-  // and the thumb steps aside rather than parking under an unrelated tab.
-  const navIndex = pathname === '/' ? 0 : pathname.startsWith('/friends') ? 1 : pathname.startsWith('/settings') ? 2 : -1;
+  // Which tab the sliding thumb sits under. A trip, its planner and its
+  // settings all live under Reizen — that is where you came in from, and the
+  // tab you would press to go back.
+  const tripsActive = pathname === '/' || pathname.startsWith('/trips');
+  const navIndex = tripsActive
+    ? 0
+    : pathname.startsWith('/friends')
+      ? 1
+      : pathname.startsWith('/settings')
+        ? 2
+        : -1;
   const themeIndex = THEMES.findIndex((t) => t.id === theme);
 
   /** Shrinks back into the avatar before it goes, rather than blinking out. */
@@ -58,7 +66,7 @@ export function TopBar() {
         className={`topbar-nav pill-switch ${navIndex < 0 ? 'pill-switch-off' : ''}`}
         style={{ '--n': 3, '--i': Math.max(0, navIndex) } as CSSProperties}
       >
-        <NavLink to="/" end>
+        <NavLink to="/" end className={tripsActive ? 'active' : ''}>
           <Icon name="compass" size={16} />
           Reizen
         </NavLink>
