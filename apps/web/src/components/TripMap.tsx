@@ -15,6 +15,46 @@ import { paintMarker } from './Flag';
 /** A single-hop jump longer than this in a route line is treated as a flight. */
 const FLIGHT_KM = 400;
 
+/**
+ * Does real travel data (tracked GPS, or a geotagged photo) lie BETWEEN these
+ * two places?
+ *
+ * A planned leg is a guess at how you got from A to B. Once something recorded
+ * the way itself, the guess is noise drawn on top of the real line — but only
+ * for that leg: a trip can be tracked from Monday and dark on Thursday, and
+ * Thursday still deserves its dashed line.
+ *
+ * Only points genuinely along the way count. Photos taken at A and at B say
+ * nothing about the road between them, so the middle stretch of the leg is what
+ * is examined, with a corridor that widens with the leg's length.
+ */
+function legHasRealData(
+  from: [number, number],
+  to: [number, number],
+  points: [number, number][],
+): boolean {
+  // Flat approximation in kilometres — legs are short enough for this, and it
+  // keeps the check to plain arithmetic per point.
+  const kx = 111.32 * Math.cos((((from[1] + to[1]) / 2) * Math.PI) / 180);
+  const ky = 110.57;
+  const ax = from[0] * kx;
+  const ay = from[1] * ky;
+  const dx = to[0] * kx - ax;
+  const dy = to[1] * ky - ay;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return false;
+  const corridorKm = Math.max(8, Math.sqrt(len2) * 0.2);
+  for (const point of points) {
+    const px = point[0] * kx;
+    const py = point[1] * ky;
+    // Where along the leg the point falls: 0 at A, 1 at B.
+    const t = ((px - ax) * dx + (py - ay) * dy) / len2;
+    if (t < 0.15 || t > 0.85) continue;
+    if (Math.hypot(px - (ax + t * dx), py - (ay + t * dy)) <= corridorKm) return true;
+  }
+  return false;
+}
+
 export interface Waypoint {
   id: string;
   latitude: number;
@@ -43,9 +83,6 @@ interface TripMapProps {
   liveFixes?: LiveFix[];
   /** The current user's id (their own live dot is the pulsing "me" marker). */
   selfUserId?: string;
-  /** True once the trip has started (ongoing or finished): the planned dashed
-   *  ground route is then hidden — the real (photo/GPS) route tells the story. */
-  tripStarted?: boolean;
   /** Exposes an imperative focus API once the map is ready. */
   onReady?: (api: TripMapApi) => void;
   /** Tapping your own live dot (opens today's recorded points). */
@@ -81,7 +118,6 @@ export function TripMap({
   hidePhotos,
   liveFixes,
   selfUserId,
-  tripStarted,
   onReady,
   onSelfClick,
 }: TripMapProps) {
@@ -105,6 +141,9 @@ export function TripMap({
   const waypointDeleteRef = useRef(onWaypointDelete);
   waypointDeleteRef.current = onWaypointDelete;
   const loadedRef = useRef(false);
+  /** Pixels of canvas hidden behind the bottom sheet — every camera move has to
+   *  compensate, including the automatic "frame the whole trip" below. */
+  const hiddenBottomRef = useRef(0);
   // Bumped after a live theme swap re-loads the style, so the layer-adding
   // effects re-run and re-add their sources (setStyle wipes them).
   const [themeVersion, setThemeVersion] = useState(0);
@@ -116,15 +155,6 @@ export function TripMap({
   photoOpenRef.current = onPhotoOpen;
   const photoFocusRef = useRef(onPhotoFocus);
   photoFocusRef.current = onPhotoFocus;
-  // Once a trip has real tracked GPS, the planned dashed legs are noise — show
-  // only the tracked line (the stop markers still stand).
-  const hasTracked = !!routes?.features.some((f) => f.geometry.coordinates.length >= 2);
-  const hasTrackedRef = useRef(hasTracked);
-  hasTrackedRef.current = hasTracked;
-  // Once a trip is underway (or over), the planned dashed ground route is no
-  // longer "the plan" — hide it so only the real route (photos/GPS) shows.
-  const tripStartedRef = useRef(tripStarted);
-  tripStartedRef.current = tripStarted;
 
   // Init once.
   useEffect(() => {
@@ -181,10 +211,9 @@ export function TripMap({
     // The mobile panel clips the bottom of a fixed-height canvas, so the
     // canvas centre is NOT the centre of what's on screen. Everything that
     // moves the camera compensates with this.
-    let hiddenBottom = 0;
     const camPadding = () => ({
       top: 50,
-      bottom: 50 + hiddenBottom,
+      bottom: 50 + hiddenBottomRef.current,
       left: 50,
       right: 50,
     });
@@ -200,11 +229,11 @@ export function TripMap({
         map.easeTo({
           center: [lng, lat],
           zoom,
-          padding: { top: 0, bottom: hiddenBottom, left: 0, right: 0 },
+          padding: { top: 0, bottom: hiddenBottomRef.current, left: 0, right: 0 },
           duration: 700,
         }),
       setHiddenBottom: (px) => {
-        hiddenBottom = Math.max(0, Math.round(px));
+        hiddenBottomRef.current = Math.max(0, Math.round(px));
       },
       resetView: () => {
         const bounds = wholeTripRef.current;
@@ -265,7 +294,7 @@ export function TripMap({
   // Draw routes whenever data or filters change.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !routes) return;
+    if (!map) return;
 
     // Flight legs (from the planned stops) — used to cut the tracked/photo line
     // exactly where a flight happens, so a flight is never a straight coloured
@@ -297,7 +326,7 @@ export function TripMap({
           (f) => (near(a, f.from) && near(b, f.to)) || (near(a, f.to) && near(b, f.from)),
         );
 
-      for (const feature of routes.features) {
+      for (const feature of routes?.features ?? []) {
         const { userId } = feature.properties;
         if (!visibleUsers.has(userId)) continue;
         const id = `route-${userId}`;
@@ -370,11 +399,26 @@ export function TripMap({
         }
       }
 
+      // A trip that hasn't happened yet has no track and no photos, only the
+      // places it is going to. Without these it framed nothing and the map sat
+      // on its default world view.
+      for (const stop of stops ?? []) {
+        if (stop.latitude === null || stop.longitude === null) continue;
+        bounds.extend([stop.longitude, stop.latitude]);
+        hasPoints = true;
+      }
+
       if (hasPoints) {
         // Remembered so the camera can be sent back here — scrolling the
         // timeline walks it away from the trip as a whole.
         wholeTripRef.current = bounds;
-        map.fitBounds(bounds, { padding: 80, maxZoom: 13, duration: 900 });
+        map.fitBounds(bounds, {
+          // The sheet covers the bottom of the canvas, so padding that ignores
+          // it centres the trip behind the sheet instead of in view.
+          padding: { top: 60, bottom: 60 + hiddenBottomRef.current, left: 60, right: 60 },
+          maxZoom: 13,
+          duration: 900,
+        });
       }
     };
 
@@ -492,6 +536,49 @@ export function TripMap({
         map.removeSource(sourceId);
       }
 
+      // Everything that actually happened, in one list: the tracked fixes and
+      // the places photos were taken. A planned leg is measured against it.
+      const realPoints: [number, number][] = [];
+      for (const feature of routes?.features ?? []) {
+        if (!visibleUsers.has(feature.properties.userId)) continue;
+        for (const c of feature.geometry.coordinates as [number, number][]) realPoints.push(c);
+      }
+      for (const item of media) {
+        if (item.latitude === null || item.longitude === null) continue;
+        if (!visibleUsers.has(item.userId)) continue;
+        realPoints.push([item.longitude, item.latitude]);
+      }
+
+      /**
+       * A planned ground leg: a dark casing under a light dashed line. Beige on
+       * its own vanished into satellite imagery; the casing is what keeps it
+       * readable over both an aerial photo and a pale street map.
+       */
+      const addPlannedGround = (id: string, width: number, dash: [number, number]) => {
+        const casing = width + 2.4;
+        // A dash is measured in line widths, so the wider casing needs the
+        // pattern scaled down or its dashes run past the ones they sit under.
+        const scale = width / casing;
+        map.addLayer({
+          id: `${id}-casing`,
+          type: 'line',
+          source: id,
+          paint: {
+            'line-color': 'rgba(20, 22, 28, 0.45)',
+            'line-width': casing,
+            'line-dasharray': [dash[0] * scale, dash[1] * scale],
+          },
+          layout: { 'line-cap': 'round' },
+        });
+        map.addLayer({
+          id,
+          type: 'line',
+          source: id,
+          paint: { 'line-color': '#ffc46b', 'line-width': width, 'line-dasharray': dash },
+          layout: { 'line-cap': 'round' },
+        });
+      };
+
       // Markers only for real places (cities); a standalone heen-/terugreis leg
       // may carry an origin/destination coordinate (for its km) but is NOT a
       // place, so it gets no pin.
@@ -532,52 +619,45 @@ export function TripMap({
         }
       }
 
-      // Day trips as a spur off the stop you slept at. Hidden once real GPS
-      // exists, exactly like the planned ground legs — the track already
-      // contains the drive.
-      if (!hasTrackedRef.current && !tripStartedRef.current) {
-        const byId = new Map((stops ?? []).map((s) => [s.id, s]));
-        for (const stop of stops ?? []) {
-          if (!stop.parentStopId || stop.latitude === null || stop.longitude === null) continue;
-          const parent = byId.get(stop.parentStopId);
-          if (!parent || parent.latitude === null || parent.longitude === null) continue;
-          const id = `leg-day-${stop.id}`;
-          map.addSource(id, {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'LineString',
-                coordinates: [
-                  [parent.longitude, parent.latitude],
-                  [stop.longitude, stop.latitude],
-                ],
-              },
-            },
-          });
-          map.addLayer({
-            id,
-            type: 'line',
-            source: id,
-            paint: { 'line-color': '#a9846a', 'line-width': 1.6, 'line-dasharray': [1, 2.4] },
-            layout: { 'line-cap': 'round' },
-          });
-        }
+      // Day trips as a spur off the stop you slept at — dropped as soon as the
+      // real data covers that drive, exactly like the planned ground legs.
+      const byId = new Map((stops ?? []).map((s) => [s.id, s]));
+      for (const stop of stops ?? []) {
+        if (!stop.parentStopId || stop.latitude === null || stop.longitude === null) continue;
+        const parent = byId.get(stop.parentStopId);
+        if (!parent || parent.latitude === null || parent.longitude === null) continue;
+        const from: [number, number] = [parent.longitude, parent.latitude];
+        const to: [number, number] = [stop.longitude, stop.latitude];
+        if (legHasRealData(from, to, realPoints)) continue;
+        const id = `leg-day-${stop.id}`;
+        map.addSource(id, {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: [from, to] },
+          },
+        });
+        addPlannedGround(id, 1.6, [1, 2.4]);
       }
 
-      // Legs. Flight arcs always show (they bridge gaps the tracked line leaves
-      // open). Ground legs are hidden once real tracked GPS tells the story.
-      // Flights are deduped by coarse endpoints so a there-and-back on the same
+      // Legs. Flights are deduped by coarse endpoints so a there-and-back on the same
       // route (or two nearby airports) draws one dashed line, not two overlapping
       // ones that fill each other's gaps and read as solid.
       const seenFlights = new Set<string>();
       const roundPt = (c: number) => Math.round(c / 0.8);
       for (const leg of buildLegs(stops ?? [])) {
-        // Hide only the planned GROUND legs once a route is tracked (they'd
-        // double up the real line). Flight arcs always show — they're never in
-        // the tracked ground line.
-        if (!leg.isFlight && (hasTrackedRef.current || tripStartedRef.current)) continue;
+        const legCoords = (leg.feature.geometry as GeoJSON.LineString)
+          .coordinates as [number, number][];
+        // A planned ground leg only survives where nothing recorded the way for
+        // real. Flight arcs always show — they're never in the tracked ground
+        // line, and they bridge the gap it leaves open.
+        if (
+          !leg.isFlight &&
+          legHasRealData(legCoords[0]!, legCoords[legCoords.length - 1]!, realPoints)
+        ) {
+          continue;
+        }
         if (leg.isFlight) {
           const c = (leg.feature.geometry as GeoJSON.LineString).coordinates as [number, number][];
           const a = c[0]!;
@@ -590,23 +670,26 @@ export function TripMap({
         }
         const id = `leg-${leg.id}`;
         map.addSource(id, { type: 'geojson', data: leg.feature });
-        map.addLayer({
-          id,
-          type: 'line',
-          source: id,
-          paint: {
-            'line-color': leg.isFlight ? '#8a94a3' : '#a9846a',
-            'line-width': leg.isFlight ? 2 : 2,
-            'line-dasharray': leg.isFlight ? [1.4, 2.6] : [2, 2],
-          },
-          layout: { 'line-cap': 'round' },
-        });
+        if (leg.isFlight) {
+          map.addLayer({
+            id,
+            type: 'line',
+            source: id,
+            paint: { 'line-color': '#8a94a3', 'line-width': 2, 'line-dasharray': [1.4, 2.6] },
+            layout: { 'line-cap': 'round' },
+          });
+        } else {
+          addPlannedGround(id, 2, [2, 2]);
+        }
       }
     };
 
-    if (map.isStyleLoaded()) apply();
+    // isStyleLoaded() goes false again while a style is busy, and by then the
+    // map's own 'load' has long fired — waiting on it left the previous legs
+    // standing forever. loadedRef is the same signal the route layer uses.
+    if (loadedRef.current) apply();
     else map.once('load', apply);
-  }, [stops, hasTracked, tripStarted, themeVersion]);
+  }, [stops, routes, media, visibleUsers, themeVersion]);
 
   // Live "you are here" dot.
   useEffect(() => {

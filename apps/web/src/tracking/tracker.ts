@@ -1,5 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { api } from '../api/client';
+import { ApiError, api } from '../api/client';
+import { notify } from '../lib/notify';
 import { getTrackingIntervalMin } from '../lib/prefs';
 import { BufferedPoint, bufferPoint, bufferedCount, peekPoints, removePoints } from './buffer';
 
@@ -358,8 +359,14 @@ async function refreshTripDeadline(tripId: string): Promise<void> {
     const trip = await api<{ endDate: string }>(`/trips/${tripId}`);
     const until = new Date(trip.endDate.slice(0, 10)).getTime() + DAY_MS;
     if (Number.isFinite(until)) localStorage.setItem(ACTIVE_UNTIL_KEY, String(until));
-  } catch {
-    // Offline, or the trip is gone. Whatever was known stays known.
+  } catch (err) {
+    // The trip was deleted while it was being tracked: there is nothing left to
+    // record onto, so treat it as finished right now.
+    if (err instanceof ApiError && (err.status === 404 || err.status === 403)) {
+      localStorage.setItem(ACTIVE_UNTIL_KEY, '1');
+      return;
+    }
+    // Offline. Whatever was known stays known.
   }
 }
 
@@ -373,11 +380,20 @@ async function refreshTripDeadline(tripId: string): Promise<void> {
  * last day of the trip in a pocket.
  */
 async function stopIfTripIsOver(): Promise<boolean> {
-  if (!localStorage.getItem(ACTIVE_TRIP_KEY)) return false;
+  const tripId = localStorage.getItem(ACTIVE_TRIP_KEY);
+  if (!tripId) return false;
+  // The deadline is learned over the network, and starting a trip with no
+  // signal leaves it unknown. Unknown must not mean "record forever", so keep
+  // asking until it is answered.
+  if (!localStorage.getItem(ACTIVE_UNTIL_KEY)) await refreshTripDeadline(tripId);
   const until = Number(localStorage.getItem(ACTIVE_UNTIL_KEY));
   if (!Number.isFinite(until) || until <= 0 || Date.now() <= until) return false;
   await stopTracking();
-  emit({ lastStatus: 'De reis is afgelopen; tracking is automatisch gestopt.' });
+  const message = 'Tracking is automatisch gestopt.';
+  emit({ lastStatus: message });
+  // Said out loud too: the app is usually not the thing you are looking at when
+  // a trip ends, and a tracker that stops silently looks like one that broke.
+  notify('Tracking gestopt', message);
   return true;
 }
 
@@ -392,7 +408,9 @@ export async function startTracking(tripId: string): Promise<void> {
   // Not awaited: starting must not wait on the network, and a trip whose dates
   // cannot be looked up right now is simply tracked until they can be.
   localStorage.removeItem(ACTIVE_UNTIL_KEY);
-  void refreshTripDeadline(tripId);
+  // Starting on a trip that is already over is caught as soon as its dates are
+  // known, rather than a minute later on the first flush tick.
+  void refreshTripDeadline(tripId).then(() => stopIfTripIsOver());
   // A fresh watcher starts a fresh stay, so the first fix always lands.
   stay = null;
   lastWebCheckAt = 0;

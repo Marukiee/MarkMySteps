@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
-import type { SyncResult, Trip } from '../api/types';
+import type { ConnectionStatus, SyncResult, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
 import { confirmModal } from '../components/confirm';
@@ -245,9 +245,23 @@ export function TripSettingsPage() {
     }
   }
 
-  // Only when there is a phone to read them off, and only for a trip that lives
-  // on a server: without one, every photo is already coming from the gallery.
-  const devicePhotos = deviceMediaSupported() && !isLocalMode();
+  // Whether this account has an Immich server behind it. null = not asked yet,
+  // which is not the same as "no" — the section stays away until we know.
+  const [immichLinked, setImmichLinked] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (isLocalMode() || !deviceMediaSupported()) return;
+    api<ConnectionStatus>('/immich/connection')
+      .then(() => setImmichLinked(true))
+      // A 404 is the normal answer for "never configured". Any other failure is
+      // a server we could not ask, and the gallery is the useful fallback then.
+      .catch(() => setImmichLinked(false));
+  }, []);
+
+  // Only when there is a phone to read them off, only for a trip that lives on
+  // a server, and only without Immich: with a library attached, the photos come
+  // from there and a second, device-only source is just a way to lose them.
+  const devicePhotos = deviceMediaSupported() && !isLocalMode() && immichLinked === false;
 
   useEffect(() => {
     if (!tripId || !devicePhotos) return;
@@ -413,7 +427,7 @@ export function TripSettingsPage() {
       {devicePhotos && (
         <>
           {deviceMsg && <p className="muted ts-sync-msg">{deviceMsg}</p>}
-          <section className="ts-sync">
+          <section className="ts-sync ts-sync-stacked">
             <div>
               <strong>
                 Foto&apos;s van dit toestel

@@ -532,7 +532,6 @@ export function TripDetailPage() {
           currentLocation={liveTracking || tripActive ? currentLoc : null}
           liveFixes={liveFixes}
           selfUserId={user?.id}
-          tripStarted={!!trip && trip.startDate.slice(0, 10) <= new Date().toISOString().slice(0, 10)}
           onReady={(api) => (mapApiRef.current = api)}
         />
 

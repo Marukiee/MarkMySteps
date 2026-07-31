@@ -15,10 +15,18 @@
     transform 0.15s var(--ease);
 }
 
-.help-tip-btn:hover,
 .help-tip-btn.on {
   color: var(--accent-ink);
   background: var(--accent-soft);
+}
+
+/* Touch only reports a "hover" that never leaves: after a tap the button kept
+   the accent colour even once its bubble had closed. Only real pointers get it. */
+@media (hover: hover) {
+  .help-tip-btn:hover {
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+  }
 }
 
 .help-tip-btn.on {
