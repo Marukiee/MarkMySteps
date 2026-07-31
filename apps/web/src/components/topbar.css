@@ -26,9 +26,9 @@
   font-size: 1.22rem;
   letter-spacing: -0.02em;
   color: var(--ink);
-  /* Long enough to read as a change of colour rather than a swap: at 0.2s the
-     ink was simply a different ink by the time you noticed it. */
-  transition: color 0.45s cubic-bezier(0.33, 1, 0.68, 1);
+  /* Long enough to read as a change of colour rather than a swap, short enough
+     that it is not still finishing after the pointer has settled. */
+  transition: color 0.3s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 @media (hover: hover) {
