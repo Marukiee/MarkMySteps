@@ -14,11 +14,30 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
   const [busy, setBusy] = useState(false);
   const isOwner = trip.ownerId === user?.id;
 
-  async function addMembers(usernames: string[]) {
+  async function addMembers(usernames: string[], role: 'MEMBER' | 'GUEST') {
     setBusy(true);
     setError(null);
     try {
-      await api(`/trips/${trip.id}/members`, { method: 'POST', body: { usernames } });
+      const updated = await api<Trip>(`/trips/${trip.id}/members`, {
+        method: 'POST',
+        body: { usernames },
+      });
+      // Everyone arrives as a reisgenoot; a guest is that same membership with
+      // its role turned down straight afterwards. Done here rather than in the
+      // request so an older server still accepts the call.
+      if (role === 'GUEST') {
+        const wanted = new Set(usernames.map((u) => u.toLowerCase().replace(/^@/, '')));
+        await Promise.all(
+          updated.members
+            .filter((m) => wanted.has(m.user.username.toLowerCase()))
+            .map((m) =>
+              api(`/trips/${trip.id}/members/${m.userId}`, {
+                method: 'PATCH',
+                body: { role: 'GUEST' },
+              }),
+            ),
+        );
+      }
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Toevoegen mislukt');

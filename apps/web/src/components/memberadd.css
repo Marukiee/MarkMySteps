@@ -136,8 +136,11 @@
   transition: background 0.16s var(--ease), border-color 0.16s var(--ease);
 }
 
+/* Raised and outlined, not tinted: the accent wash sat on a beige panel and
+   the row barely read as picked at all. The tick keeps the accent. */
 .member-add-row.checked {
-  background: var(--accent-soft);
+  background: var(--paper-raised);
+  box-shadow: 0 0 0 1.5px var(--accent), var(--shadow-s);
 }
 
 .member-add-row.checked .member-add-box {
@@ -187,4 +190,29 @@
 
 .member-add-submit {
   justify-self: start;
+}
+
+/* Which role the ticked people get. Two buttons rather than one, because the
+   role is the question you answer WHILE you pick them, not afterwards in the
+   list. */
+.member-add-as {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.member-add-as-label {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--ink-faint);
+}
+
+.member-add-as-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.member-add-as-row .btn {
+  justify-content: center;
 }

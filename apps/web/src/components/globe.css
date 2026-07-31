@@ -48,6 +48,17 @@
   mask-image: linear-gradient(to bottom, transparent, #000 70%);
 }
 
+/* On a phone the browser's own chrome sits right above the hero, so a zoomed
+   sphere met the top edge as a straight cut. It dissolves there too, small
+   enough that an unzoomed globe never notices. The app is untouched: there the
+   globe runs under the status bar on purpose. */
+@media (max-width: 720px) {
+  html:not(.native-app) .globe-backdrop canvas {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 9%);
+    mask-image: linear-gradient(to bottom, transparent, #000 9%);
+  }
+}
+
 /* Soft fade at the bottom so the globe melts into the page instead of a hard
    edge above the trips. */
 .globe-backdrop::after {

@@ -187,7 +187,9 @@ function DisplaySection() {
     { id: 'dark', label: 'Donker' },
   ];
   const cardSizes: { id: TripCardSize; label: string }[] = [
-    { id: 'auto', label: 'Automatisch' },
+    // "Automatisch" needs more room than a third of the switch, and wrapped to
+    // two lines inside its own pill. The ⋯ menu on a card says "Auto" too.
+    { id: 'auto', label: 'Auto' },
     { id: 'large', label: 'Groot' },
     { id: 'compact', label: 'Klein' },
   ];
@@ -1362,6 +1364,13 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
   );
 }
 
+/** The three questions a release note answers, in the order you ask them. */
+const CHANGE_GROUPS: { key: 'new' | 'better' | 'fixed'; label: string; tone: string }[] = [
+  { key: 'new', label: 'Nieuw', tone: 'is-new' },
+  { key: 'better', label: 'Verbeteringen', tone: 'is-better' },
+  { key: 'fixed', label: 'Opgelost', tone: 'is-fixed' },
+];
+
 /**
  * What changed, most recent first.
  *
@@ -1392,13 +1401,22 @@ function ChangelogPanel({ onBack }: { onBack: () => void }) {
                 })}
               </span>
             </div>
-            <ul className="changelog-items">
-              {entry.items.map((item, j) => (
-                <li key={item} style={{ animationDelay: `${i * 90 + 120 + j * 45}ms` }}>
-                  {item}
-                </li>
-              ))}
-            </ul>
+            {CHANGE_GROUPS.map(({ key, label, tone }) => {
+              const lines = entry[key];
+              if (!lines?.length) return null;
+              return (
+                <div className="changelog-group" key={key}>
+                  <span className={`changelog-group-label ${tone}`}>{label}</span>
+                  <ul className="changelog-items">
+                    {lines.map((item, j) => (
+                      <li key={item} style={{ animationDelay: `${i * 90 + 120 + j * 45}ms` }}>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
           </li>
         ))}
       </ol>
@@ -1472,12 +1490,29 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
           <HelpTip>
             Dit zijn de echte schermen, niet een kopie: wat je hier ziet is wat een nieuwe
             gebruiker ziet. De tweede knop toont de versie zonder server, met de vragen over je
-            naam en je fotobibliotheek erbij; je naam wordt dan niet bewaard. In het inlogscherm
-            doet &ldquo;Zonder server beginnen&rdquo; niets, zodat je je eigen server niet
-            kwijtraakt.
+            naam en je fotobibliotheek erbij; je naam wordt dan niet bewaard. Een preview zet de
+            rondleiding nooit op &ldquo;gezien&rdquo;, dus je kunt hem zo vaak openen als je wilt.
+            In het inlogscherm doet &ldquo;Zonder server beginnen&rdquo; niets, zodat je je eigen
+            server niet kwijtraakt.
           </HelpTip>
         </label>
         <div className="dev-buttons">
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => navigate('/onboarding?preview=1')}
+          >
+            Onboarding
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => navigate('/onboarding?preview=1&local=1')}
+          >
+            Onboarding zonder server
+          </button>
+          {/* The real thing, from the top: marks itself done at the end, the
+              way it does for somebody opening the app for the first time. */}
           <button
             type="button"
             className="btn btn-ghost"
@@ -1486,33 +1521,7 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
               navigate('/onboarding');
             }}
           >
-            Onboarding
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => {
-              resetOnboarding();
-              navigate('/onboarding?local=1');
-            }}
-          >
-            Onboarding zonder server
-          </button>
-          {/* The next tour, not yet the one a new user gets. A preview never
-              marks the tour as done, so this can be opened as often as needed. */}
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => navigate('/onboarding-v2?preview=1')}
-          >
-            Onboarding v2
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => navigate('/onboarding-v2?preview=1&local=1')}
-          >
-            Onboarding v2 zonder server
+            Onboarding echt opnieuw
           </button>
           <button
             type="button"

@@ -122,7 +122,7 @@
   top: 0.9rem;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 6;
+  z-index: 45;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -190,7 +190,7 @@
   left: 0.9rem;
   /* Same gutter left and bottom — the MapLibre attribution may sit under it. */
   bottom: 0.9rem;
-  z-index: 5;
+  z-index: 45;
 }
 
 .person-select-btn {
@@ -436,7 +436,7 @@
   bottom: 1rem;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 6;
+  z-index: 45;
   padding: 1rem 1.15rem;
   display: grid;
   gap: 0.6rem;
@@ -659,11 +659,13 @@
 }
 
 /* Floating action buttons, top-right of the page over the map. */
+/* Above the map's own markers: a photo marker or a stop flag drifting over the
+   back, people and settings buttons made them unreadable and unpressable. */
 .trip-fabs {
   position: absolute;
   top: 1.25rem;
   right: 1.25rem;
-  z-index: 6;
+  z-index: 45;
   display: flex;
   gap: 0.5rem;
 }
@@ -722,7 +724,7 @@
   position: absolute;
   top: 1.25rem;
   left: 1.25rem;
-  z-index: 6;
+  z-index: 45;
 }
 
 @media (max-width: 900px) {

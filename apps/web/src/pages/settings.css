@@ -835,6 +835,7 @@
 
 .theme-opt {
   padding: 0.4rem 0.9rem;
+  white-space: nowrap;
   border-radius: 999px;
   font-weight: 600;
   font-size: 0.88rem;
@@ -1751,6 +1752,43 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* Nieuw / Verbeteringen / Opgelost, each with its own small heading so the
+   list is scannable rather than one long run of sentences. */
+.changelog-group {
+  margin-top: 0.6rem;
+}
+
+.changelog-group-label {
+  display: inline-block;
+  margin-bottom: 0.3rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.changelog-group-label.is-new {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.changelog-group-label.is-better {
+  background: rgb(42 143 133 / 0.14);
+  color: #1f7a71;
+}
+
+.changelog-group-label.is-fixed {
+  background: var(--paper-sunken);
+  color: var(--ink-faint);
+}
+
+.changelog-group .changelog-items li::before {
+  background: currentColor;
+  opacity: 0.35;
 }
 
 .changelog-items {

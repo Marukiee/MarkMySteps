@@ -260,6 +260,12 @@ export class UsersService {
     `;
     const photoCount = await this.prisma.mediaRef.count({ where: { userId: targetId } });
 
+    const today = new Date().toISOString().slice(0, 10);
+    // A trip you have not left for yet is a plan, not a place you have been.
+    // It keeps its dot on the globe and its card on the homepage; it just does
+    // not get to claim countries, days or flights before it happens.
+    const travelled = trips.filter((t) => t.startDate.toISOString().slice(0, 10) <= today);
+
     const countries = new Set<string>();
     // Places are counted across trips, not per trip: going back to Stockholm
     // three times is one place you have been.
@@ -267,8 +273,7 @@ export class UsersService {
     let flights = 0;
     let days = 0;
     let ongoing = 0;
-    const today = new Date().toISOString().slice(0, 10);
-    for (const trip of trips) {
+    for (const trip of travelled) {
       for (const stop of trip.stops) {
         const code = stop.countryCode?.toUpperCase();
         if (code && code !== HOME_COUNTRY) countries.add(code);
@@ -290,7 +295,7 @@ export class UsersService {
         hasAvatar: target.avatarMime !== null,
       },
       sharedTrips,
-      trips: trips.length,
+      trips: travelled.length,
       ongoing,
       days,
       countries: [...countries].sort(),
@@ -298,7 +303,7 @@ export class UsersService {
       flights,
       distanceKm: Math.round((distanceRow?.meters ?? 0) / 1000),
       photoCount,
-      recent: trips.slice(0, 5).map((t) => ({
+      recent: travelled.slice(0, 5).map((t) => ({
         id: t.id,
         title: t.title,
         startDate: t.startDate.toISOString().slice(0, 10),

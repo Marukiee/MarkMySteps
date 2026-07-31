@@ -27,7 +27,7 @@ export function MemberAdd({
   /** Usernames already on the trip: offering them again is noise. */
   exclude: string[];
   busy: boolean;
-  onAdd: (usernames: string[]) => Promise<void>;
+  onAdd: (usernames: string[], role: 'MEMBER' | 'GUEST') => Promise<void>;
 }) {
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<UserSuggestion[]>([]);
@@ -63,9 +63,9 @@ export function MemberAdd({
   // below don't need one: their row already says it.
   const offscreen = picked.filter((p) => !visible.some((v) => v.id === p.id));
 
-  async function submit() {
+  async function submit(role: 'MEMBER' | 'GUEST') {
     if (picked.length === 0) return;
-    await onAdd(picked.map((p) => p.username));
+    await onAdd(picked.map((p) => p.username), role);
     setPicked([]);
     setQuery('');
   }
@@ -141,15 +141,34 @@ export function MemberAdd({
         )}
       </div>
 
-      <button
-        type="button"
-        className="btn btn-ghost member-add-submit"
-        disabled={busy || picked.length === 0}
-        onClick={() => void submit()}
-      >
-        <Icon name="plus" size={16} />
-        {picked.length > 1 ? `${picked.length} mensen toevoegen` : 'Toevoegen'}
-      </button>
+      {/* The role is part of adding somebody, not a correction you make in the
+          list afterwards, so it is the button you press rather than a switch
+          above it. */}
+      <div className="member-add-as">
+        <span className="member-add-as-label">
+          {picked.length > 1 ? `${picked.length} mensen toevoegen als` : 'Toevoegen als'}
+        </span>
+        <div className="member-add-as-row">
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={busy || picked.length === 0}
+            onClick={() => void submit('MEMBER')}
+          >
+            <Icon name="plus" size={16} />
+            Reisgenoot
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={busy || picked.length === 0}
+            onClick={() => void submit('GUEST')}
+          >
+            <Icon name="plus" size={16} />
+            Gast
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
