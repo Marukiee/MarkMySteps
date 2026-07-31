@@ -109,11 +109,10 @@ export function VisualShare() {
 }
 
 /**
- * Zuinig en offline: a battery against a clock.
+ * Zuinig en offline: a battery that hardly moves, and no signal to need.
  *
- * A charge that creeps down a sliver says nothing on its own — it needs
- * something to say how long that took. The hand goes round while the battery
- * barely moves, which is the whole claim of the slide in one picture.
+ * A clock beside it was one reading too many; the crossed-out cloud says the
+ * other half of the slide in a shape everybody already knows.
  */
 export function VisualOffline() {
   return (
@@ -125,10 +124,8 @@ export function VisualOffline() {
           <Icon name="bolt" size={16} />
         </span>
       </span>
-      <span className="shot-clock">
-        <span className="shot-clock-hand shot-clock-hour" />
-        <span className="shot-clock-hand shot-clock-minute" />
-        <span className="shot-clock-pin" />
+      <span className="shot-nosignal">
+        <Icon name="cloud-off" size={34} />
       </span>
     </span>
   );

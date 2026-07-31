@@ -408,53 +408,25 @@
   }
 }
 
-.shot-clock {
-  position: relative;
+/* No signal needed for any of it. */
+.shot-nosignal {
+  display: grid;
+  place-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 50%;
-  border: 3px solid var(--ink-soft);
+  color: var(--ink-soft);
   opacity: 0.9;
+  animation: shotNoSignal 4s var(--ease) infinite;
 }
 
-.shot-clock-hand {
-  position: absolute;
-  left: 50%;
-  bottom: 50%;
-  border-radius: 999px;
-  background: var(--ink-soft);
-  transform-origin: 50% 100%;
-}
-
-/* Twelve turns of the minute hand to one of the hour hand, as a clock does. */
-.shot-clock-minute {
-  width: 2.5px;
-  height: 15px;
-  margin-left: -1.25px;
-  animation: shotTick 1.5s linear infinite;
-}
-
-.shot-clock-hour {
-  width: 3.5px;
-  height: 10px;
-  margin-left: -1.75px;
-  animation: shotTick 18s linear infinite;
-}
-
-.shot-clock-pin {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 5px;
-  height: 5px;
-  margin: -2.5px;
-  border-radius: 50%;
-  background: var(--ink-soft);
-}
-
-@keyframes shotTick {
-  to {
-    transform: rotate(360deg);
+@keyframes shotNoSignal {
+  0%, 70%, 100% {
+    opacity: 0.9;
+    transform: none;
+  }
+  80% {
+    opacity: 0.45;
+    transform: scale(0.94);
   }
 }
 
@@ -657,7 +629,7 @@
   /* The BOX grows, so the caret beside it travels with the text. Clipping the
      drawn text left the cursor parked at the end of a word that had not been
      typed yet. */
-  width: 9.2ch;
+  width: 3.75em;
   animation: shotTypeName 1.15s steps(9, end) 0.35s both;
 }
 
