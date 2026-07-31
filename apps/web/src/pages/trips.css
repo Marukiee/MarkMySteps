@@ -562,7 +562,9 @@
 .trip-menu button {
   text-align: left;
   padding: 0.5rem 0.7rem;
-  border-radius: 7px;
+  /* Reads as a smaller version of the menu's own corner, not as a rectangle
+     with the edges shaved off. */
+  border-radius: 10px;
   font-weight: 550;
   font-size: 0.9rem;
   color: var(--ink); /* overlay sets #fff; force readable text on the white menu */
@@ -571,32 +573,27 @@
     transform 0.15s var(--ease);
 }
 
-/* Leans towards the pointer and warms up, rather than a grey block appearing
-   under it. */
-.trip-menu button:hover {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  transform: translateX(3px);
+/* The highlight is the item's own box and nothing else: nudging it sideways
+   left it hanging over one edge and short of the other. Pointer only — on a
+   phone there is no hover, only a finger that leaves one behind. */
+@media (hover: hover) {
+  .trip-menu button:hover {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+
+  .trip-menu button.trip-menu-danger:hover {
+    background: rgb(179 64 42 / 0.1);
+    color: #b3402a;
+  }
 }
 
 .trip-menu button:active {
-  transform: translateX(3px) scale(0.98);
+  transform: scale(0.98);
 }
 
 .trip-menu button.trip-menu-danger {
   color: #b3402a;
-}
-
-.trip-menu button.trip-menu-danger:hover {
-  background: rgb(179 64 42 / 0.12);
-  color: #b3402a;
-}
-
-/* The segment inside the menu is a switch, not a list item: it keeps its own
-   centred, untranslated behaviour. */
-.trip-menu .trip-menu-seg button:hover {
-  background: var(--accent-soft);
-  transform: none;
 }
 
 .trip-menu.closing {

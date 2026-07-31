@@ -65,16 +65,22 @@
   opacity: 0.75;
 }
 
-/* Warms up and lifts a hair under the pointer; the tab that is ON is the one
-   the thumb has slid under, so hover never has to pretend to be it. */
-.topbar-nav a:not(.active):hover {
-  color: var(--accent-ink);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
+/* Only the ink changes. A tinted pill under the pointer competed with the
+   thumb that marks the tab you are actually on, and the text inside it was
+   the harder of the two to read. */
+@media (hover: hover) {
+  .topbar-nav a:not(.active):hover {
+    color: var(--accent-ink);
+  }
+
+  .topbar-nav a:not(.active):hover svg {
+    opacity: 1;
+    color: var(--accent);
+  }
 }
 
 .topbar-nav a:not(.active):active {
-  transform: translateY(0) scale(0.97);
+  transform: scale(0.97);
 }
 
 .topbar-nav a.active {
@@ -115,14 +121,14 @@
   transition: all 0.18s var(--ease);
 }
 
-.topbar-theme button:not(.active):hover {
-  color: var(--accent-ink);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .topbar-theme button:not(.active):hover {
+    color: var(--accent-ink);
+  }
 }
 
 .topbar-theme button:not(.active):active {
-  transform: translateY(0) scale(0.94);
+  transform: scale(0.94);
 }
 
 .topbar-theme button.active {
@@ -196,31 +202,34 @@
 .topbar-menu button {
   text-align: left;
   padding: 0.55rem 0.7rem;
-  border-radius: 8px;
+  /* Reads as a smaller version of the menu's own corner, not as a rectangle
+     with the edges shaved off. */
+  border-radius: 11px;
   font-weight: 550;
   font-size: 0.92rem;
   transition: background 0.15s var(--ease), color 0.15s var(--ease),
     transform 0.15s var(--ease);
 }
 
-/* Leans towards the pointer and warms up, rather than a grey block appearing
-   under it. */
-.topbar-menu button:hover {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  transform: translateX(3px);
+/* The highlight is the item's own box and nothing else: nudging it sideways
+   left it hanging over one edge and short of the other. */
+@media (hover: hover) {
+  .topbar-menu button:hover {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+
+  .topbar-menu button.topbar-menu-danger:hover {
+    background: rgb(179 64 42 / 0.1);
+    color: #b3402a;
+  }
 }
 
 .topbar-menu button:active {
-  transform: translateX(3px) scale(0.98);
+  transform: scale(0.98);
 }
 
 .topbar-menu-danger {
-  color: #b3402a;
-}
-
-.topbar-menu button.topbar-menu-danger:hover {
-  background: rgb(179 64 42 / 0.12);
   color: #b3402a;
 }
 

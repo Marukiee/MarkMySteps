@@ -679,9 +679,13 @@ export function GlobeBackdrop({
           : `rgba(105,115,128,${0.85 * (0.3 + 0.7 * stand)})`;
         const arc = greatCircle(start, end);
         const arcDeg = distance(start, end);
+        // Drawn from the airport it leaves towards the one it lands at, rather
+        // than being there in one frame: the dots arrive with the trip and the
+        // bows between them used to simply exist.
+        const drawn = Math.max(2, Math.round(arc.length * tripAlpha(tripId, now)));
         ctx!.beginPath();
         let pen = false;
-        for (let i = 0; i < arc.length; i++) {
+        for (let i = 0; i < drawn; i++) {
           const sp = flightPoint(arc[i]!, i / (arc.length - 1), arcDeg);
           if (!sp) {
             // Round the back of the globe: pick the line up again on the far side.

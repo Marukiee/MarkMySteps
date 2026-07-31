@@ -823,14 +823,14 @@
     transform 0.15s var(--ease);
 }
 
-.theme-opt:not(.active):hover {
-  color: var(--accent-ink);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .theme-opt:not(.active):hover {
+    color: var(--accent-ink);
+  }
 }
 
 .theme-opt:not(.active):active {
-  transform: translateY(0) scale(0.97);
+  transform: scale(0.97);
 }
 
 .theme-opt.active {

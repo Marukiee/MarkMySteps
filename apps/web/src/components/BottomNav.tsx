@@ -3,10 +3,19 @@ import './bottomnav.css';
 import { travellersTabLabel } from '../lib/localMode';
 
 const ICONS = {
+  // The same compass the site's nav and the wordmark use: a pin said "a place",
+  // and the tab is about journeys.
   trips: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M12 21s-7-5.1-7-11a7 7 0 0 1 14 0c0 5.9-7 11-7 11Z" />
-      <circle cx="12" cy="10" r="2.6" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="m15.5 8.5-2 5-5 2 2-5Z" />
     </svg>
   ),
   friends: (
