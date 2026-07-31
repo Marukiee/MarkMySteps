@@ -1616,3 +1616,11 @@
   justify-content: center;
   margin-top: 0.2rem;
 }
+
+/* Same as the trip's tabs: the thumb marks what is on, hover only warms the
+   label it is under. Pointer only — a finger leaves its hover behind. */
+@media (hover: hover) {
+  .settings-seg button:not(.active):hover {
+    color: var(--accent-ink);
+  }
+}

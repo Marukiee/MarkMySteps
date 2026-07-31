@@ -1053,3 +1053,11 @@
     right: 2.5rem;
   }
 }
+
+/* Pointer only: the tab you are on is marked by the pill that slides under it,
+   so hovering another one only warms its label. */
+@media (hover: hover) {
+  .side-tabs button:not(.active):hover {
+    color: var(--accent-ink);
+  }
+}

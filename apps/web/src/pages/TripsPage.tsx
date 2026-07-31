@@ -1,4 +1,4 @@
-import { FormEvent, MouseEvent, useEffect, useRef, useState } from 'react';
+import { CSSProperties, FormEvent, MouseEvent, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -146,7 +146,7 @@ export function TripsPage() {
               const c = isTripCompact(trip.id, false);
               return (
                 <TripCard
-                  key={`${trip.id}-${c ? 'c' : 'l'}`}
+                  key={trip.id}
                   trip={trip}
                   index={i}
                   onChanged={load}
@@ -170,7 +170,7 @@ export function TripsPage() {
               const c = isTripCompact(trip.id, true);
               return (
                 <TripCard
-                  key={`${trip.id}-${c ? 'c' : 'l'}`}
+                  key={trip.id}
                   trip={trip}
                   index={i}
                   onChanged={load}
@@ -306,8 +306,8 @@ function TripCard({
   }
 
   function setSize(v: 'large' | 'compact' | null) {
-    // Animate the menu away first; picking an option used to blink it out.
-    closeMenu();
+    // The menu stays open: you are looking at three sizes and you may well want
+    // to see the other two. It closes when you click away, like any menu.
     onResize(trip.id, v);
   }
 
@@ -387,7 +387,16 @@ function TripCard({
           }
           onClick={stop}
         >
-          <div className="trip-menu-seg" onClick={stop}>
+          <div
+            className="trip-menu-seg pill-switch"
+            onClick={stop}
+            style={
+              {
+                '--n': 3,
+                '--i': ['auto', 'large', 'compact'].indexOf(getTripCardOverride(trip.id) ?? 'auto'),
+              } as CSSProperties
+            }
+          >
             {(['auto', 'large', 'compact'] as const).map((opt) => {
               const cur = getTripCardOverride(trip.id) ?? 'auto';
               return (

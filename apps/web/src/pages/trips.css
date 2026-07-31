@@ -529,6 +529,13 @@
   margin-bottom: 0.2rem;
   border-radius: 10px;
   background: var(--paper-sunken);
+  --pill-gap: 2px;
+  --pill-pad: 3px;
+}
+
+/* Square-ish corners here, not the switch's default round ones. */
+.trip-menu-seg.pill-switch::before {
+  border-radius: 7px;
 }
 
 .trip-menu-seg button {
@@ -545,9 +552,7 @@
 }
 
 .trip-menu-seg button.active {
-  background: var(--paper-raised);
   color: var(--ink);
-  box-shadow: var(--shadow-s);
 }
 
 /* The segmented control is centred; only the menu ITEMS below it are ranged
@@ -579,6 +584,13 @@
 @media (hover: hover) {
   .trip-menu button:hover {
     background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+
+  /* The segment sits on its own sunken strip, where a tinted box barely shows
+     and only muddles the thumb. There, only the label changes colour. */
+  .trip-menu .trip-menu-seg button:hover {
+    background: none;
     color: var(--accent-ink);
   }
 

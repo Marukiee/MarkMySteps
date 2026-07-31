@@ -26,11 +26,15 @@
   font-size: 1.22rem;
   letter-spacing: -0.02em;
   color: var(--ink);
-  transition: color 0.2s var(--ease);
+  /* Long enough to read as a change of colour rather than a swap: at 0.2s the
+     ink was simply a different ink by the time you noticed it. */
+  transition: color 0.45s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-.topbar-brand:hover {
-  color: var(--accent);
+@media (hover: hover) {
+  .topbar-brand:hover {
+    color: var(--accent);
+  }
 }
 
 /* Nav pills, centered group. Equal columns so the thumb that slides between

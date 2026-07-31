@@ -1339,11 +1339,14 @@
 }
 
 /* Desktop only: there is no swipe with a mouse, and the card's drag gesture is
-   already reordering the route, so a small cross appears on hover instead. */
+   already reordering the route, so a small cross appears on hover instead.
+   Top CENTRE on a stop: the top right corner is where the nights stepper
+   lives, and the cross was landing on top of it. */
 .swipe-x {
   position: absolute;
   top: 6px;
-  right: 6px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 2;
   display: none;
   align-items: center;
@@ -1369,6 +1372,24 @@
   .swipe-x:hover {
     color: #b3402a;
     background: #fbeae4;
+  }
+
+  /* A heen-/terugreis is one short bar with nothing above its middle, so the
+     cross goes where it belongs — the right-hand end, vertically centred. The
+     mode pill that sits there slides out of its way. */
+  .swipe-row:has(.flight-leg) .swipe-x {
+    top: 50%;
+    left: auto;
+    right: 8px;
+    transform: translateY(-50%);
+  }
+
+  .swipe-row:has(.flight-leg) .flight-leg-head .mode-menu {
+    transition: transform 0.18s var(--ease);
+  }
+
+  .swipe-row:has(.flight-leg):hover .flight-leg-head .mode-menu {
+    transform: translateX(-30px);
   }
 }
 
