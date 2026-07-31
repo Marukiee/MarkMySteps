@@ -7,6 +7,8 @@ import type { ConnectionStatus, MediaItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_IMMICH_PUBLIC_URL } from '../config';
 import { formatDay } from '../lib/colors';
+import { deviceMediaUri, isDeviceMediaId } from '../lib/deviceMedia';
+import { mediaSrc } from '../lib/gallery';
 import { reversePlaceName } from '../lib/geocode';
 import { isNativeApp, openExternal } from '../lib/native';
 import { AuthImage } from './AuthImage';
@@ -57,6 +59,12 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   useEffect(() => {
     setVideoUrl(null);
     if (item?.assetType !== 'VIDEO') return;
+    // A video that never left the phone plays from the phone; there is no
+    // playback URL to ask the server for, and asking would only 404.
+    if (isDeviceMediaId(item.id)) {
+      setVideoUrl(mediaSrc(deviceMediaUri(item.id)));
+      return;
+    }
     let cancelled = false;
     api<{ url: string }>(`/media/${item.id}/video-url`)
       .then((res) => {
@@ -128,6 +136,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
 
   if (!item) return null;
   const isOwn = item.userId === user?.id;
+  const onDevice = isDeviceMediaId(item.id);
 
   // Swipe left/right to page through photos on touch devices.
   const onTouchStart = (e: ReactTouchEvent) => {
@@ -217,7 +226,9 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
           <span className="lightbox-count">
             {index + 1} / {items.length}
           </span>
-          {coverTripId && (
+          {/* A photo the server has never seen cannot be its cover, and there
+              is nothing in Immich to open. */}
+          {coverTripId && !onDevice && (
             <button className="btn btn-ghost lightbox-cover" onClick={() => void setAsCover()}>
               {coverSaved ? (
                 <>
@@ -228,7 +239,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
               )}
             </button>
           )}
-          {isOwn && immichUrl && (
+          {isOwn && immichUrl && !onDevice && (
             <button
               className="btn btn-primary lightbox-immich"
               onClick={() => openExternal(`${immichUrl}/photos/${item.immichAssetId}`)}

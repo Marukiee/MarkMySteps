@@ -266,8 +266,15 @@ function releaseBlobSlot(): void {
 /** Authorized binary fetch → object URL (for Immich thumbnail proxying). */
 /** `/media/<encoded content:// uri>/thumbnail` — how local media is addressed. */
 const LOCAL_MEDIA = /^\/media\/(.+)\/thumbnail$/;
+/** `/media/device:<encoded content:// uri>/thumbnail` — a file on this phone. */
+const DEVICE_MEDIA = /^\/media\/device:(.+)\/thumbnail$/;
 
 export async function fetchBlobUrl(path: string): Promise<string> {
+  // A photo the server has never been given: signed in or not, it is on this
+  // phone, so it is read from this phone. Checked before anything else — the
+  // server has no idea this id exists and would answer 404.
+  const device = DEVICE_MEDIA.exec(path);
+  if (device) return mediaSrc(decodeURIComponent(device[1]!));
   // A local photo is not fetched at all: its id IS its content URI, and the
   // WebView can stream that straight into an <img> through Capacitor's file
   // bridge. Pulling hundreds of full images across the bridge as blobs would

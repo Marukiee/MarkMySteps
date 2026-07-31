@@ -222,6 +222,26 @@
   margin-top: -0.75rem;
 }
 
+/* Two buttons where the sync row has one; they wrap under each other rather
+   than squeezing the text out of the row on a narrow phone. */
+.ts-device-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.ts-device-clear {
+  color: var(--danger, #c0533f);
+}
+
+/* The help toggle sits on the same line as the heading it explains. */
+.ts-sync strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .ts-actions-bottom {
   margin-top: 0.5rem;
   padding-top: 1.1rem;

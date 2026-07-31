@@ -9,6 +9,12 @@ import { DateField } from '../components/DatePicker';
 import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
 import { TripFacts } from '../components/TripFacts';
+import {
+  clearDeviceMedia,
+  deviceMediaSupported,
+  importDeviceMedia,
+  listDeviceMedia,
+} from '../lib/deviceMedia';
 import { isLocalMode } from '../lib/localMode';
 import { getTripFacts, setTripFacts } from '../lib/prefs';
 import {
@@ -57,6 +63,10 @@ export function TripSettingsPage() {
   const [clearDay, setClearDay] = useState('');
   const [wiping, setWiping] = useState(false);
   const [clearMsg, setClearMsg] = useState<string | null>(null);
+  // Photos kept on this phone instead of on the server (see lib/deviceMedia).
+  const [deviceCount, setDeviceCount] = useState<number | null>(null);
+  const [deviceBusy, setDeviceBusy] = useState(false);
+  const [deviceMsg, setDeviceMsg] = useState<string | null>(null);
 
   function load() {
     if (!tripId) return;
@@ -231,6 +241,51 @@ export function TripSettingsPage() {
     }
   }
 
+  // Only when there is a phone to read them off, and only for a trip that lives
+  // on a server: without one, every photo is already coming from the gallery.
+  const devicePhotos = deviceMediaSupported() && !isLocalMode();
+
+  useEffect(() => {
+    if (!tripId || !devicePhotos) return;
+    void listDeviceMedia(tripId)
+      .then((rows) => setDeviceCount(rows.length))
+      .catch(() => setDeviceCount(0));
+  }, [tripId, devicePhotos]);
+
+  async function importFromDevice() {
+    if (!tripId || !trip || !user) return;
+    setDeviceBusy(true);
+    setDeviceMsg(null);
+    try {
+      const result = await importDeviceMedia(tripId, trip.startDate, trip.endDate, user.id);
+      setDeviceCount((c) => (c ?? 0) + result.added);
+      const found = `${result.added} nieuwe foto's (${result.found} gevonden)`;
+      setDeviceMsg(
+        result.hasLocation
+          ? found
+          : `${found}. Let op: zonder toegang tot de locatie in foto's komen ze niet op de kaart.`,
+      );
+    } catch (err) {
+      setDeviceMsg(err instanceof Error ? err.message : 'Zoeken mislukt');
+    } finally {
+      setDeviceBusy(false);
+    }
+  }
+
+  async function forgetDevicePhotos() {
+    if (!tripId) return;
+    const ok = await confirmModal({
+      title: "Foto's van dit toestel loskoppelen?",
+      body: 'De foto\'s zelf blijven gewoon in je galerij staan. Ze verdwijnen alleen uit deze reis.',
+      confirmLabel: 'Loskoppelen',
+      danger: true,
+    });
+    if (!ok) return;
+    const removed = await clearDeviceMedia(tripId);
+    setDeviceCount(0);
+    setDeviceMsg(`${removed} foto's losgekoppeld.`);
+  }
+
   async function runSync() {
     if (!tripId) return;
     setSyncing(true);
@@ -348,6 +403,42 @@ export function TripSettingsPage() {
           {syncing ? 'Bezig…' : isLocalMode() ? 'Zoeken' : "Foto's syncen"}
         </button>
       </section>
+
+      {/* Photos you would rather not hand over. They are matched to the trip the
+          same way Immich's are, but the files stay on the phone. */}
+      {devicePhotos && (
+        <>
+          {deviceMsg && <p className="muted ts-sync-msg">{deviceMsg}</p>}
+          <section className="ts-sync">
+            <div>
+              <strong>
+                Foto&apos;s van dit toestel
+                <HelpTip>
+                  Zoekt in je galerij naar foto&apos;s van deze reisdagen en zet ze in je tijdlijn
+                  en op de kaart, zonder ze te uploaden. Ze staan dan alleen op dit toestel: je
+                  reisgenoten zien ze niet, ze gaan niet mee in een deel-link, en op een nieuwe
+                  telefoon zijn ze er niet. De foto&apos;s zelf blijven gewoon in je galerij.
+                </HelpTip>
+              </strong>
+              <span className="muted">
+                {deviceCount
+                  ? `${deviceCount} foto${deviceCount === 1 ? '' : "'s"} van dit toestel in deze reis.`
+                  : 'Uit je galerij, zonder ze naar de server te sturen.'}
+              </span>
+            </div>
+            <div className="ts-device-actions">
+              {deviceCount ? (
+                <button className="btn btn-ghost ts-device-clear" onClick={forgetDevicePhotos}>
+                  Loskoppelen
+                </button>
+              ) : null}
+              <button className="btn btn-ghost" onClick={importFromDevice} disabled={deviceBusy}>
+                {deviceBusy ? 'Bezig…' : 'Zoeken'}
+              </button>
+            </div>
+          </section>
+        </>
+      )}
 
       {isOwner && (
         <section className="ts-marker">
