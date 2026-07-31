@@ -18,7 +18,8 @@ import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
 import { countStopPlaces, type PlannedStop } from '../lib/arc';
 import { useExit } from '../lib/useExit';
-import { colorForUser, formatDate } from '../lib/colors';
+import { colorForUser, formatDate, tripCoverBg } from '../lib/colors';
+import { listDeviceMedia } from '../lib/deviceMedia';
 import { lastSeenLabel, useNow } from '../lib/lastSeen';
 import { stableViewportHeight } from '../lib/native';
 import { getMapStyle, getTripFacts } from '../lib/prefs';
@@ -211,7 +212,21 @@ export function TripDetailPage() {
       })
       .catch((err: Error) => setError(err.message));
     api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
-    api<MediaItem[]>(`/trips/${tripId}/media`).then(setMedia).catch(() => undefined);
+    // The server's photos, plus any that were left on this phone. They are the
+    // same thing to everything downstream — timeline, map, lightbox — so they
+    // arrive as one list, sorted by when they were taken like the server's own.
+    Promise.all([
+      api<MediaItem[]>(`/trips/${tripId}/media`).catch(() => [] as MediaItem[]),
+      listDeviceMedia(tripId).catch(() => [] as MediaItem[]),
+    ])
+      .then(([remote, local]) =>
+        setMedia(
+          local.length === 0
+            ? remote
+            : [...remote, ...local].sort((a, b) => a.takenAt.localeCompare(b.takenAt)),
+        ),
+      )
+      .catch(() => undefined);
     api<PlannedStop[]>(`/trips/${tripId}/stops`).then(setStops).catch(() => undefined);
     api<TripStats>(`/trips/${tripId}/stats`).then(setStats).catch(() => undefined);
     api<TripNote[]>(`/trips/${tripId}/notes`).then(setNotes).catch(() => undefined);
@@ -657,13 +672,26 @@ export function TripDetailPage() {
         )}
         {/* One header block: cover photo, title, dates and the trip's numbers —
             rather than a photo followed by a row of separate stat boxes. */}
-        <div className={`trip-headcard ${trip?.resolvedCoverId ? 'has-cover' : ''}`}>
+        {/* A trip without a photo gets what its card on the home page gets: its
+            own colour and the compass. A blank panel with the numbers floating
+            on it looked like a cover that had failed to load. */}
+        <div
+          className={`trip-headcard ${trip ? 'has-cover' : ''} ${
+            trip && !trip.resolvedCoverId ? 'no-photo' : ''
+          }`}
+          style={trip && !trip.resolvedCoverId ? { background: tripCoverBg(trip) } : undefined}
+        >
           {trip?.resolvedCoverId && (
             <AuthImage
               path={`/media/${trip.resolvedCoverId}/thumbnail`}
               alt=""
               className="trip-hero-img"
             />
+          )}
+          {trip && !trip.resolvedCoverId && (
+            <span className="trip-headcard-glyph" aria-hidden="true">
+              <Icon name="compass" size={130} />
+            </span>
           )}
           <div className="trip-headcard-body">
             <h1>{trip?.title ?? '…'}</h1>

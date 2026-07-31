@@ -141,6 +141,25 @@
 }
 
 /* The button's label crossfades with the tab instead of swapping outright. */
+/* The label above the first field says something different per tab. It slides
+   over rather than being replaced, so switching tabs reads as one movement. */
+.login-label-swap {
+  display: block;
+  overflow: hidden;
+}
+
+.login-label-swap span {
+  display: inline-block;
+  animation: loginLabel 0.3s var(--ease);
+}
+
+@keyframes loginLabel {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
 .login-submit-face {
   display: inline-block;
   animation: loginFace 0.28s var(--ease);

@@ -11,7 +11,7 @@ import { DateField } from '../components/DatePicker';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { LogoMark } from '../components/Logo';
 import { Icon } from '../components/Icon';
-import { formatDate } from '../lib/colors';
+import { coverGradient, formatDate, tripCoverBg } from '../lib/colors';
 import {
   getShowSelfOnHome,
   getTripCardOverride,
@@ -534,7 +534,7 @@ function TripCard({
       className={`trip-card ${noImg ? 'trip-card-noimg' : ''}`}
       style={{
         animationDelay: `${index * 40}ms`,
-        background: noImg ? tripCardBg(trip) : coverGradient(trip.id),
+        background: noImg ? tripCoverBg(trip) : coverGradient(trip.id),
         zIndex: menuOpen || menuClosing ? 30 : undefined,
       }}
       role="link"
@@ -691,18 +691,3 @@ function TripCardMembers({
   );
 }
 
-/** Background for a photo-less card: the trip's custom colour as a soft duotone,
- *  else the deterministic warm gradient. */
-function tripCardBg(trip: Trip): string {
-  if (trip.color) return `linear-gradient(145deg, ${trip.color}, ${trip.color}b0)`;
-  return coverGradient(trip.id);
-}
-
-/** Deterministic warm gradient per trip — placeholder until hero photos land. */
-function coverGradient(id: string): string {
-  let hash = 0;
-  for (const char of id) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
-  const hue1 = hash % 360;
-  const hue2 = (hue1 + 40) % 360;
-  return `linear-gradient(135deg, hsl(${hue1} 45% 72%), hsl(${hue2} 50% 58%))`;
-}

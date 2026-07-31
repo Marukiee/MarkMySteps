@@ -517,6 +517,22 @@
   justify-items: center;
 }
 
+/* No photo yet: the trip's own colour and the compass, exactly as its card on
+   the home page looks, so it is recognisably the same trip. */
+.trip-headcard-glyph {
+  position: absolute;
+  right: -16px;
+  top: -12px;
+  color: rgb(255 255 255 / 0.22);
+  transform: rotate(-8deg);
+  pointer-events: none;
+  animation: coverIn 0.55s var(--ease);
+}
+
+.trip-headcard.no-photo {
+  color: #fff;
+}
+
 /* With a cover the block gets taller and the text sits over a scrim. */
 .trip-headcard.has-cover {
   border: none;

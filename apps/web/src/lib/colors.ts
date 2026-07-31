@@ -53,3 +53,24 @@ export function flagEmoji(countryCode?: string | null): string {
   const code = countryCode.toUpperCase();
   return String.fromCodePoint(base + code.charCodeAt(0), base + code.charCodeAt(1));
 }
+
+/** Deterministic warm gradient per trip — what a trip looks like before it has
+ *  a photo on it. */
+export function coverGradient(id: string): string {
+  let hash = 0;
+  for (const char of id) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
+  const hue1 = hash % 360;
+  const hue2 = (hue1 + 40) % 360;
+  return `linear-gradient(135deg, hsl(${hue1} 45% 72%), hsl(${hue2} 50% 58%))`;
+}
+
+/**
+ * Backdrop for a trip that has no photo yet: its own colour as a soft duotone,
+ * else the gradient above. Shared by the cards on the home page and the header
+ * on the trip itself, so a trip looks like the same trip in both places — the
+ * header used to fall back to a blank panel.
+ */
+export function tripCoverBg(trip: { id: string; color?: string | null }): string {
+  if (trip.color) return `linear-gradient(145deg, ${trip.color}, ${trip.color}b0)`;
+  return coverGradient(trip.id);
+}

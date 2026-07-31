@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useLayoutEffect } from 'react';
 import {
   BrowserRouter,
   Link,
@@ -6,6 +6,7 @@ import {
   Outlet,
   Route,
   Routes,
+  useLocation,
 } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { BottomNav } from './components/BottomNav';
@@ -39,10 +40,28 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Every page starts at the top.
+ *
+ * Leaving a long page for a short one, the browser keeps the scroll offset and
+ * clamps it to whatever the new page is worth at that instant — which, for a
+ * page that fills itself in from the server a moment later, is somewhere near
+ * the bottom of it. Set before paint, so nobody sees the wrong place first.
+ */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0 });
+    document.scrollingElement?.scrollTo({ top: 0 });
+  }, [pathname]);
+  return null;
+}
+
 function Shell() {
   const { user } = useAuth();
   return (
     <>
+      <ScrollToTop />
       <UpdateBanner />
       <OfflineBanner />
       <TopBar />

@@ -55,7 +55,7 @@ export function LoginPage() {
             app still has to say what it is. */}
         <LogoMark size={58} />
         <h1>MarkMySteps</h1>
-        <p>Leg vast waar je geweest bent, zonder dat iemand anders meekijkt.</p>
+        <p>Leg vast waar je geweest bent, over de hele wereld.</p>
       </div>
 
       <form className="card login-card fade-in" onSubmit={submit}>
@@ -93,7 +93,12 @@ export function LoginPage() {
         )}
 
         <div className="field">
-          <label htmlFor="email">{mode === 'login' ? 'E-mail of gebruikersnaam' : 'E-mail'}</label>
+          {/* Logging in takes either; making an account takes the address and
+              asks for the name separately. The label changed in one frame,
+              which read as a glitch — the two swap over instead. */}
+          <label htmlFor="email" className="login-label-swap">
+            <span key={mode}>{mode === 'login' ? 'E-mail of gebruikersnaam' : 'E-mail'}</span>
+          </label>
           <input
             id="email"
             type={mode === 'login' ? 'text' : 'email'}
