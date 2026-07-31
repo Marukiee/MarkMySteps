@@ -70,6 +70,30 @@ Wil je er ook Cloudflare Access voor zetten, dan kan dat, maar houd er rekening
 mee dat de Android-app dan niet meer bij de API kan: die stuurt geen
 browser-login mee.
 
+#### Waar je tegenaan loopt
+
+Een tunnel is gratis en ongelimiteerd in verkeer, maar er zitten grenzen aan
+wat er doorheen mag. Deze gelden voor het gratis plan; Cloudflare verandert ze
+af en toe, dus check ze in hun docs als iets niet werkt.
+
+| Grens | Waarde | Wat je merkt |
+| --- | --- | --- |
+| Grootte van één upload | 100 MB | Een grotere Polarsteps-zip wordt geweigerd met een 413 |
+| Tijd tot je server begint te antwoorden | 100 seconden | Duurt een import langer, dan krijg je foutcode 524 |
+| Aantal tunnels per account | 1000 | Ruim voldoende |
+| Hostnames per tunnel | onbeperkt | Immich en MarkMySteps kunnen door dezelfde tunnel |
+
+De zip-import zit met zijn eigen 100 MB precies op die eerste grens. Zit je
+export daarboven, dan zijn er twee uitwegen: importeren terwijl je thuis op
+`http://<server-ip>:18790` zit (de tunnel wordt dan niet gebruikt), of de zip
+splitsen.
+
+Let ook op de gebruiksvoorwaarden: video's in bulk door het gratis netwerk
+pompen is volgens Cloudflare niet de bedoeling. MarkMySteps streamt video's uit
+je Immich-server door de tunnel heen, dus als je daar veel filmpjes in hebt
+staan en je kijkt ze veel van buitenaf terug, kies dan liever de reverse proxy
+hieronder of een VPN.
+
 ### 2. Reverse proxy met eigen certificaat
 
 Draai je al Caddy, Nginx Proxy Manager of Traefik, dan wijs je die naar
