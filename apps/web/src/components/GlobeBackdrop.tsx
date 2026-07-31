@@ -1146,6 +1146,16 @@ export function GlobeBackdrop({
                 break;
               }
             }
+            // Arriving at the LAST stop is an arrival too. It was not in the
+            // list (that one only holds the hand-overs between legs), so the
+            // light sailed straight past the end in a single frame and the
+            // final dot was never standing where the light was — it got no
+            // ring at all, while every dot before it did.
+            if (before < total && glowDist > total) {
+              glowDist = total;
+              holdUntil = now + DWELL_MS;
+              holdPoint = at(total)?.geo ?? null;
+            }
             if (glowDist > total + TRAIL_DEG + PAUSE) {
               // Straight into the next pass; the dwell above already happened.
               if (glowRuns + 1 < glowRunsNeeded) {

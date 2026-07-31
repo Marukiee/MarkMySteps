@@ -422,8 +422,19 @@
   border: 1px solid var(--line);
 }
 
-.ts-facts-preview.has-cover {
+.ts-facts-preview.has-cover,
+.ts-facts-preview.no-photo {
   border: none;
+}
+
+/* Same corner glyph the trip's card and its header get. */
+.ts-facts-preview-glyph {
+  position: absolute;
+  right: -14px;
+  top: -10px;
+  color: rgb(255 255 255 / 0.22);
+  transform: rotate(-8deg);
+  pointer-events: none;
 }
 
 .ts-facts-preview-img {
@@ -445,13 +456,15 @@
 }
 
 /* Reuse the header chip styling inside the preview. */
-.ts-facts-preview.has-cover .tstat {
+.ts-facts-preview.has-cover .tstat,
+.ts-facts-preview.no-photo .tstat {
   background: rgb(255 255 255 / 0.16);
   color: rgb(255 255 255 / 0.9);
   backdrop-filter: blur(6px);
 }
 
-.ts-facts-preview.has-cover .tstat strong {
+.ts-facts-preview.has-cover .tstat strong,
+.ts-facts-preview.no-photo .tstat strong {
   color: #fff;
 }
 

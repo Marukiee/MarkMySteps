@@ -1,6 +1,8 @@
-/* What happens inside an onboarding medallion. The medallion itself is
-   .onb-visual from onboarding.css — this only fills it, so the tour keeps the
-   shape it already had. */
+/* What the onboarding slides show above their heading.
+
+   Two kinds live here: a medallion (.onb-visual from onboarding.css, filled by
+   .onb-vis) and a small screenshot (.onb-shot) — a crop of a real screen, at a
+   size that still leaves room for the words underneath. */
 
 .onb-vis {
   position: relative;
@@ -13,18 +15,272 @@
   overflow: visible;
 }
 
-/* ---------- Plan je route ---------- */
-/* The pins the map uses, arriving in travel order with the line drawn between
-   them, which is what building a route actually looks like. */
+/* ---------- The screenshot frame ---------- */
 
-.vis-route-line {
+.onb-shot {
+  position: relative;
+  display: block;
+  width: 196px;
+  height: 132px;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 18px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-m);
+  overflow: hidden;
+}
+
+/* The app bar every screen starts with. */
+.shot-top {
+  display: block;
+  height: 14px;
+  margin-bottom: 0.45rem;
+}
+
+.shot-top-title {
+  display: block;
+  width: 62px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  opacity: 0.75;
+  transform-origin: left;
+  animation: shotWipe 0.4s var(--ease) both;
+}
+
+@keyframes shotWipe {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+}
+
+/* ---------- Je reizen terugkijken ---------- */
+/* Trip cards as the list draws them: a cover in the trip's own colour, its
+   name, and the row of fact chips. */
+
+.shot-card {
+  position: relative;
+  display: block;
+  height: 44px;
+  margin-bottom: 0.4rem;
+  padding: 0.4rem 0.45rem;
+  border-radius: 10px;
+  overflow: hidden;
+  animation: shotCard 0.5s var(--ease) both;
+}
+
+.shot-card-1 {
+  background: linear-gradient(135deg, #e8613c, #c9422c);
+  animation-delay: 0.15s;
+}
+
+.shot-card-2 {
+  background: linear-gradient(135deg, #2a8f85, #24707a);
+  animation-delay: 0.42s;
+}
+
+@keyframes shotCard {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+
+.shot-card-name {
+  display: block;
+  width: 58%;
+  height: 7px;
+  margin-bottom: 7px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.92);
+}
+
+.shot-chips {
+  display: flex;
+  gap: 4px;
+}
+
+.shot-chips i {
+  width: 26px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.28);
+  animation: shotChip 0.32s var(--ease) both;
+}
+
+.shot-card-1 .shot-chips i:nth-child(1) { animation-delay: 0.4s; }
+.shot-card-1 .shot-chips i:nth-child(2) { animation-delay: 0.5s; }
+.shot-card-1 .shot-chips i:nth-child(3) { animation-delay: 0.6s; }
+.shot-card-2 .shot-chips i:nth-child(1) { animation-delay: 0.66s; }
+.shot-card-2 .shot-chips i:nth-child(2) { animation-delay: 0.76s; }
+
+@keyframes shotChip {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* ---------- Delen ---------- */
+
+.shot-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  border: 1px solid var(--line);
+  color: var(--ink-faint);
+  animation: shotCard 0.45s var(--ease) 0.15s both;
+}
+
+.shot-link-url {
+  flex: 1;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  opacity: 0.75;
+  transform-origin: left;
+  animation: shotWipe 0.7s var(--ease) 0.45s both;
+}
+
+/* The people who only get to read it. */
+.shot-readers {
+  display: flex;
+  gap: 6px;
+  margin-top: 0.7rem;
+  padding-left: 2px;
+}
+
+.shot-readers i {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--paper-raised);
+  background: var(--accent-soft);
+  animation: shotPop 0.36s var(--ease) both;
+}
+
+.shot-readers i:nth-child(1) { animation-delay: 0.9s; }
+.shot-readers i:nth-child(2) { animation-delay: 1.02s; background: var(--paper-sunken); }
+.shot-readers i:nth-child(3) { animation-delay: 1.14s; }
+
+@keyframes shotPop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+/* ---------- Zuinig en offline ---------- */
+
+.vis-offline {
+  display: grid;
+  place-content: center;
+  color: var(--accent-ink);
+}
+
+/* ---------- Licht of donker ---------- */
+/* The same screen twice, side by side, so the choice is the thing you see
+   rather than a sun and a moon standing for it. */
+
+.onb-shot-theme {
+  display: flex;
+  gap: 0;
+  padding: 0;
+}
+
+.shot-half {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  padding: 0.55rem;
+  animation: shotHalf 0.5s var(--ease) both;
+}
+
+.shot-half-light {
+  background: #f6f1e7;
+}
+
+.shot-half-dark {
+  background: #1d232c;
+  animation-delay: 0.12s;
+}
+
+@keyframes shotHalf {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.shot-mini-bar {
+  height: 8px;
+  width: 60%;
+  border-radius: 999px;
+}
+
+.shot-mini-card {
+  height: 34px;
+  border-radius: 8px;
+}
+
+.shot-mini-line {
+  height: 6px;
+  border-radius: 999px;
+}
+
+.shot-mini-line.short {
+  width: 55%;
+}
+
+.shot-half-light .shot-mini-bar { background: #2c2a26; opacity: 0.75; }
+.shot-half-light .shot-mini-card { background: #e8613c; }
+.shot-half-light .shot-mini-line { background: #2c2a26; opacity: 0.28; }
+
+.shot-half-dark .shot-mini-bar { background: #e7edf5; opacity: 0.8; }
+.shot-half-dark .shot-mini-card { background: #3f6fa8; }
+.shot-half-dark .shot-mini-line { background: #e7edf5; opacity: 0.24; }
+
+/* ---------- Aan de slag ---------- */
+
+.shot-new {
+  display: grid;
+  place-content: center;
+  height: 56px;
+  border-radius: 12px;
+  border: 2px dashed var(--accent);
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  animation: shotCard 0.5s var(--ease) 0.15s both;
+}
+
+.shot-new-label {
+  display: block;
+  width: 76px;
+  height: 8px;
+  margin: 0.5rem auto 0;
+  border-radius: 999px;
+  background: var(--ink);
+  opacity: 0.3;
+  transform-origin: center;
+  animation: shotPop 0.4s var(--ease) 0.5s both;
+}
+
+/* ---------- Vliegvelden ---------- */
+
+.vis-fly-arc {
   stroke: var(--accent-ink);
-  stroke-width: 3.5;
+  stroke-width: 3;
   stroke-linecap: round;
-  opacity: 0.55;
-  stroke-dasharray: 120;
-  stroke-dashoffset: 120;
-  animation: visDraw 1.5s var(--ease) 0.15s forwards;
+  opacity: 0.45;
+  stroke-dasharray: 90;
+  stroke-dashoffset: 90;
+  animation: visDraw 1.6s var(--ease) 0.2s forwards;
 }
 
 @keyframes visDraw {
@@ -33,20 +289,17 @@
   }
 }
 
-.vis-pin {
+.vis-fly-dot {
   fill: var(--accent);
-  stroke: var(--paper-raised);
-  stroke-width: 3;
   transform-box: fill-box;
   transform-origin: center;
-  animation: visPin 0.5s var(--ease) both;
+  animation: visPin 0.45s var(--ease) both;
 }
 
-.vis-pin-1 { animation-delay: 0.15s; }
-.vis-pin-2 { animation-delay: 0.75s; }
-.vis-pin-3 { animation-delay: 1.35s; }
+.vis-fly-dot-2 {
+  animation-delay: 1.5s;
+}
 
-/* Lands with the same small overshoot the map's markers have. */
 @keyframes visPin {
   0% {
     opacity: 0;
@@ -62,226 +315,55 @@
   }
 }
 
-/* ---------- Je dagen ---------- */
-
-.vis-days {
-  display: grid;
-  grid-template-columns: repeat(2, 26px);
-  gap: 5px;
-  justify-content: center;
-}
-
-.vis-tile {
-  height: 26px;
-  border-radius: 6px;
-  background: var(--accent);
-  opacity: 0.85;
-  animation: visTile 0.5s var(--ease) both;
-}
-
-.vis-tile-1 { animation-delay: 0.1s; }
-.vis-tile-2 { opacity: 0.6; animation-delay: 0.22s; }
-.vis-tile-3 { opacity: 0.7; animation-delay: 0.34s; }
-.vis-tile-4 { opacity: 0.5; animation-delay: 0.46s; }
-
-@keyframes visTile {
-  from {
-    opacity: 0;
-    transform: scale(0.7);
-  }
-}
-
-/* The note that goes under a day, typing itself out. */
-.vis-note {
-  grid-column: 1 / -1;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--accent-ink);
-  opacity: 0.35;
-  transform-origin: left;
-  animation: visNote 0.8s var(--ease) 0.6s both;
-}
-
-@keyframes visNote {
-  from {
-    transform: scaleX(0);
-  }
-}
-
-/* ---------- Delen ---------- */
-
-.vis-share {
-  position: relative;
-  display: grid;
-  place-content: center;
-  color: var(--accent-ink);
-}
-
-.vis-ripple {
-  position: absolute;
-  inset: 50%;
-  width: 54px;
-  height: 54px;
-  margin: -27px;
-  border-radius: 50%;
-  border: 2px solid var(--accent);
-  animation: visRipple 2.4s var(--ease) infinite;
-}
-
-.vis-ripple-2 {
-  animation-delay: 1.2s;
-}
-
-@keyframes visRipple {
-  from {
-    opacity: 0.6;
-    transform: scale(0.55);
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.7);
-  }
-}
-
-/* ---------- Zuinig en offline ---------- */
-
-.vis-offline {
-  display: grid;
-  justify-items: center;
-  gap: 0.55rem;
-  color: var(--accent-ink);
-}
-
-/* Points collecting on the phone while there is nothing to send them to. */
-.vis-buffer {
-  display: flex;
-  gap: 6px;
-}
-
-.vis-buffer span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: visBuffer 2.1s var(--ease) infinite;
-}
-
-.vis-buffer span:nth-child(2) { animation-delay: 0.25s; }
-.vis-buffer span:nth-child(3) { animation-delay: 0.5s; }
-
-@keyframes visBuffer {
-  0% {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  25%, 70% {
-    opacity: 1;
-    transform: none;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-
-/* ---------- Licht of donker ---------- */
-
-.vis-theme {
-  position: relative;
-  display: flex;
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  overflow: hidden;
-  box-shadow: var(--shadow-s);
-}
-
-.vis-theme-light,
-.vis-theme-dark {
-  flex: 1;
-  display: grid;
-  place-content: center;
-  animation: visHalf 0.55s var(--ease) both;
-}
-
-.vis-theme-light {
-  background: #f6f1e7;
-  color: #b4802f;
-}
-
-.vis-theme-dark {
-  background: #232a33;
-  color: #c9d6e6;
-  animation-delay: 0.12s;
-}
-
-@keyframes visHalf {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-}
-
-/* ---------- Vliegvelden ---------- */
-
-.vis-fly-arc {
-  stroke: var(--accent-ink);
-  stroke-width: 3;
-  stroke-linecap: round;
-  opacity: 0.45;
-  stroke-dasharray: 90;
-  stroke-dashoffset: 90;
-  animation: visDraw 1.6s var(--ease) 0.2s forwards;
-}
-
-.vis-fly-dot {
-  fill: var(--accent);
-  animation: visPin 0.45s var(--ease) both;
-}
-
-.vis-fly-dot-2 {
-  animation-delay: 1.5s;
-}
-
-/* Flies the bow the arc is drawn along, the way the globe's plane does. The
-   waypoints are the same curve read off at its ends and its top, in the pixels
-   the 100-unit viewBox lands on at this size. */
+/* Stepped along the curve it is drawn on: each keyframe is that quadratic read
+   off at a quarter of its length, with the angle the curve has at that point.
+   transform-origin at 0 0 keeps the rotation on the plane's own nose-to-tail
+   axis rather than around the middle of the drawing. */
 .vis-fly-plane {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  margin: -11px;
-  color: var(--accent-ink);
-  animation: visFly 1.8s var(--ease) 0.2s both;
+  fill: var(--accent-ink);
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: visFly 1.9s linear 0.2s both;
 }
 
 @keyframes visFly {
   0% {
     opacity: 0;
-    transform: translate(-24px, 17px) rotate(-38deg);
+    transform: translate(18px, 72px) rotate(-58.4deg);
   }
-  12% {
+  10% {
     opacity: 1;
   }
-  50% {
-    transform: translate(0, -8px) rotate(4deg);
+  25% {
+    transform: translate(34px, 50.75px) rotate(-45.9deg);
   }
-  88% {
+  50% {
+    transform: translate(50px, 39px) rotate(-23.6deg);
+  }
+  75% {
+    transform: translate(66px, 36.75px) rotate(8.9deg);
+  }
+  90% {
     opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translate(24px, -5px) rotate(34deg);
+    transform: translate(82px, 44px) rotate(36.9deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .onb-vis * {
+  .onb-vis *,
+  .onb-shot * {
     animation: none !important;
   }
 
-  .vis-route-line,
   .vis-fly-arc {
     stroke-dashoffset: 0;
+  }
+
+  .vis-fly-plane {
+    opacity: 1;
+    transform: translate(50px, 39px) rotate(-23.6deg);
   }
 }

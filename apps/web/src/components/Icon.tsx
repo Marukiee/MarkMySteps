@@ -139,11 +139,15 @@ const PATHS: Record<IconName, ReactNode> = {
   // Distance covered. A car said one mode of travel and a ruler said a straight
   // line on a desk; what the number measures is the way from where you set off
   // to where you ended up. Two points and the road between them, nothing else.
+  // A measure between two ends, the way a ruler reads — the two dots and a
+  // dashed curve between them were a lot of shapes for "how far".
   distance: (
     <>
-      <circle cx="5" cy="18" r="2.6" />
-      <circle cx="19" cy="6" r="2.6" />
-      <path d="M7.4 16.2c4.6-1 6.6-3.4 9.2-8" strokeDasharray="2.4 2.6" />
+      <path d="M4 6v12" />
+      <path d="M20 6v12" />
+      <path d="M4 12h16" />
+      <path d="m8 9-3 3 3 3" />
+      <path d="m16 9 3 3-3 3" />
     </>
   ),
   globe: (

@@ -555,7 +555,10 @@ export function TripMap({
        * readable over both an aerial photo and a pale street map.
        */
       const addPlannedGround = (id: string, width: number, dash: [number, number]) => {
-        const casing = width + 2.4;
+        // Wide and blurred, so it reads as the line's own shadow rather than as
+        // a black outline drawn around it — a tight, hard casing looked like a
+        // border somebody had put there on purpose.
+        const casing = width + 5;
         // A dash is measured in line widths, so the wider casing needs the
         // pattern scaled down or its dashes run past the ones they sit under.
         const scale = width / casing;
@@ -564,8 +567,9 @@ export function TripMap({
           type: 'line',
           source: id,
           paint: {
-            'line-color': 'rgba(20, 22, 28, 0.45)',
+            'line-color': 'rgba(16, 18, 24, 0.34)',
             'line-width': casing,
+            'line-blur': 3.5,
             'line-dasharray': [dash[0] * scale, dash[1] * scale],
           },
           layout: { 'line-cap': 'round' },

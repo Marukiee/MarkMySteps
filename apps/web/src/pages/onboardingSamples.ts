@@ -7,6 +7,33 @@ import type { Trip } from '../api/types';
 // Home airport used for the demo outbound/return flight bows.
 const AMS: [number, number] = [4.9, 52.37];
 
+/**
+ * The route the "Plan je route" slide builds up: one trip, so the globe's tour
+ * frames it straight away and walks its light from stop to stop. Real cities in
+ * travel order — the slide is meant to be the app, not a diagram of it.
+ */
+export const PLAN_TRIP = [
+  {
+    id: 'p-route',
+    title: 'Zuid-Europa',
+    anchor: [-4.42, 36.72],
+    routePath: [
+      [
+        [-4.42, 36.72], // Málaga
+        [-3.7, 40.42], // Madrid
+        [2.17, 41.39], // Barcelona
+        [7.69, 45.07], // Turijn
+        [2.35, 48.86], // Parijs
+      ],
+    ],
+    flightPath: null,
+    distanceKm: 2200,
+    startDate: '2025-05-02',
+    endDate: '2025-05-20',
+    color: '#e8613c',
+  },
+] as unknown as Trip[];
+
 export const SAMPLE_TRIPS = [
   {
     id: 's-scan',

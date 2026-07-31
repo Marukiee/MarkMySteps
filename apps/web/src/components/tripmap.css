@@ -41,6 +41,19 @@
   z-index: 10;
 }
 
+/* A photo is the thing you came to look at, so it sits over the itinerary's
+   pins. Markers are plain DOM in source order, and the stops are added after
+   the photos — which put a ring of flags on top of the pictures on a trip that
+   is over. MapLibre puts its class ON the element it was handed, so these are
+   one element, not a wrapper around one. */
+.maplibregl-marker.photo-marker {
+  z-index: 20;
+}
+
+.maplibregl-marker.stop-marker {
+  z-index: 10;
+}
+
 .photo-marker-error {
   background: var(--paper-sunken);
 }
@@ -83,7 +96,7 @@
 
 /* Live location (Google-Maps-style blue dot with a pulse). Forced above the
    photo markers — it was being buried under them and impossible to spot. */
-.maplibregl-marker:has(.me-marker) {
+.maplibregl-marker.me-marker {
   z-index: 40 !important;
 }
 

@@ -2,105 +2,127 @@ import { Icon } from './Icon';
 import './onboardingshots.css';
 
 /**
- * The medallions on the onboarding slides, with something happening in them.
+ * The pictures on the onboarding slides.
  *
- * Same shape and size as the icon that used to sit there, so the tour keeps the
- * layout it had. What is inside is built out of the app's own parts — the
- * numbered pins from the map, the photo grid from a day, the accent — and it
- * plays once as the slide arrives. A slide is remounted per step, so each one
- * starts from the beginning every time it is reached.
+ * They are small screenshots rather than icons: the same trip cards, the same
+ * chips, the same share link you meet a minute later, drawn in CSS at a size
+ * that fits above a heading. Each one plays once as its slide arrives — a slide
+ * is remounted per step, so it starts from the beginning every time.
+ *
+ * An icon in a rounded square named a feature. This shows it.
  */
 
-/** Plan je route: pins landing one after another with the line drawn between. */
-export function VisualRoute() {
+/** Je reizen terugkijken: the trip list, cards arriving with their facts. */
+export function VisualTrips() {
   return (
-    <span className="onb-visual onb-vis">
-      <svg viewBox="0 0 100 100" className="vis-route" aria-hidden="true">
-        <path
-          className="vis-route-line"
-          d="M22 76 C 36 68, 40 50, 52 46 S 74 38, 80 24"
-          fill="none"
-        />
-        <circle className="vis-pin vis-pin-1" cx="22" cy="76" r="8" />
-        <circle className="vis-pin vis-pin-2" cx="52" cy="46" r="7" />
-        <circle className="vis-pin vis-pin-3" cx="80" cy="24" r="8" />
-      </svg>
-    </span>
-  );
-}
-
-/** Je dagen: the photo grid of a day filling in, with the note under it. */
-export function VisualDays() {
-  return (
-    <span className="onb-visual onb-vis">
-      <span className="vis-days" aria-hidden="true">
-        <span className="vis-tile vis-tile-1" />
-        <span className="vis-tile vis-tile-2" />
-        <span className="vis-tile vis-tile-3" />
-        <span className="vis-tile vis-tile-4" />
-        <span className="vis-note" />
+    <span className="onb-shot" aria-hidden="true">
+      <span className="shot-top">
+        <span className="shot-top-title" />
+      </span>
+      <span className="shot-card shot-card-1">
+        <span className="shot-card-name" />
+        <span className="shot-chips">
+          <i />
+          <i />
+          <i />
+        </span>
+      </span>
+      <span className="shot-card shot-card-2">
+        <span className="shot-card-name" />
+        <span className="shot-chips">
+          <i />
+          <i />
+        </span>
       </span>
     </span>
   );
 }
 
-/** Delen: one link, going out to the people who stayed at home. */
+/** Delen: the private link, and the people it goes out to. */
 export function VisualShare() {
   return (
-    <span className="onb-visual onb-vis">
-      <span className="vis-share" aria-hidden="true">
-        <span className="vis-ripple" />
-        <span className="vis-ripple vis-ripple-2" />
-        <Icon name="share" size={44} />
+    <span className="onb-shot" aria-hidden="true">
+      <span className="shot-top">
+        <span className="shot-top-title" />
+      </span>
+      <span className="shot-link">
+        <Icon name="lock" size={12} />
+        <span className="shot-link-url" />
+      </span>
+      <span className="shot-readers">
+        <i />
+        <i />
+        <i />
       </span>
     </span>
   );
 }
 
-/** Zuinig en offline: points piling up while there is no signal, then away. */
+/** Zuinig en offline: no signal, and the app carrying on regardless. */
 export function VisualOffline() {
   return (
-    <span className="onb-visual onb-vis">
-      <span className="vis-offline" aria-hidden="true">
-        <Icon name="cloud-off" size={38} />
-        <span className="vis-buffer">
-          <span />
-          <span />
-          <span />
-        </span>
+    <span className="onb-visual onb-vis" aria-hidden="true">
+      <span className="vis-offline">
+        <Icon name="cloud-off" size={44} />
       </span>
     </span>
   );
 }
 
-/** Licht of donker: one disc, both halves of it. */
+/** Licht of donker: the same screen, both ways round. */
 export function VisualTheme() {
   return (
-    <span className="onb-visual onb-vis">
-      <span className="vis-theme" aria-hidden="true">
-        <span className="vis-theme-light">
-          <Icon name="sun" size={26} />
-        </span>
-        <span className="vis-theme-dark">
-          <Icon name="moon" size={26} />
-        </span>
+    <span className="onb-shot onb-shot-theme" aria-hidden="true">
+      <span className="shot-half shot-half-light">
+        <span className="shot-mini-bar" />
+        <span className="shot-mini-card" />
+        <span className="shot-mini-line" />
+        <span className="shot-mini-line short" />
+      </span>
+      <span className="shot-half shot-half-dark">
+        <span className="shot-mini-bar" />
+        <span className="shot-mini-card" />
+        <span className="shot-mini-line" />
+        <span className="shot-mini-line short" />
       </span>
     </span>
   );
 }
 
-/** Je vaste vliegvelden: a plane taking the bow the globe draws. */
+/**
+ * Je vaste vliegvelden: a plane taking the bow the globe draws.
+ *
+ * The plane used to be an HTML span next to the drawing, flown by hand-written
+ * pixel offsets that had nothing to do with the curve — it cut the corner and
+ * landed beside the second airport. It is inside the drawing now, stepping
+ * along the very curve that is stroked, at the angle the curve has there.
+ */
 export function VisualAirports() {
   return (
-    <span className="onb-visual onb-vis">
-      <svg viewBox="0 0 100 100" className="vis-fly" aria-hidden="true">
+    <span className="onb-visual onb-vis" aria-hidden="true">
+      <svg viewBox="0 0 100 100" className="vis-fly">
         <path className="vis-fly-arc" d="M18 72 Q 50 20, 82 44" fill="none" />
         <circle className="vis-fly-dot" cx="18" cy="72" r="5" />
         <circle className="vis-fly-dot vis-fly-dot-2" cx="82" cy="44" r="5" />
+        {/* Drawn around its own origin, nose along +x, so a translate puts it
+            on the curve and a rotate turns it into the curve's direction. */}
+        <path className="vis-fly-plane" d="M9 0 L-6 -5.5 L-3 0 L-6 5.5 Z" />
       </svg>
-      <span className="vis-fly-plane">
-        <Icon name="plane" size={22} />
+    </span>
+  );
+}
+
+/** Aan de slag: the empty list, with the button that fills it. */
+export function VisualStart() {
+  return (
+    <span className="onb-shot" aria-hidden="true">
+      <span className="shot-top">
+        <span className="shot-top-title" />
       </span>
+      <span className="shot-new">
+        <Icon name="plus" size={18} />
+      </span>
+      <span className="shot-new-label" />
     </span>
   );
 }

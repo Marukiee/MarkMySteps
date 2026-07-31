@@ -8,11 +8,11 @@ import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
 import {
   VisualAirports,
-  VisualDays,
   VisualOffline,
-  VisualRoute,
   VisualShare,
+  VisualStart,
   VisualTheme,
+  VisualTrips,
 } from '../components/OnboardingShots';
 import {
   GalleryPermissions,
@@ -22,7 +22,7 @@ import {
 import { getLocalName, isLocalMode, setLocalName } from '../lib/localMode';
 import { isNativeApp, markOnboarded } from '../lib/native';
 import { getThemeId, setThemeId, ThemeId } from '../lib/prefs';
-import { SAMPLE_TRIPS } from './onboardingSamples';
+import { PLAN_TRIP, SAMPLE_TRIPS } from './onboardingSamples';
 import './onboarding.css';
 import './onboarding2.css';
 
@@ -191,24 +191,35 @@ export function OnboardingV2Page() {
         reis om ‘m te openen met je tijdlijn en foto’s.
       </p>
     </div>,
+    // The route builds itself on the same globe the app uses: Málaga, Madrid,
+    // Barcelona, Turijn, Parijs, each stop lighting up as the light reaches it.
+    <div className="onb-feature onb-globe-slide" key="plan">
+      <div className="onb-globe" aria-hidden="true">
+        <GlobeBackdrop trips={PLAN_TRIP} />
+      </div>
+      <h1>Plan je route</h1>
+      <p className="muted">
+        Bouw je route met stops, nachten en vervoer: auto, trein, boot of vlucht met tussenstops.
+        Alles rekent automatisch mee.
+      </p>
+    </div>,
     feature(
-      'plan',
-      <VisualRoute />,
-      'Plan je route',
-      'Bouw je route met stops, nachten en vervoer: auto, trein, boot of vlucht met tussenstops. Alles rekent automatisch mee.',
+      'trips',
+      <VisualTrips />,
+      'Je reizen terugkijken',
+      'Elke reis blijft staan met haar kaart, haar dagen en haar cijfers. Je foto’s komen vanzelf op de juiste dag en de juiste plek te staan.',
     ),
-    feature(
-      'days',
-      <VisualDays />,
-      'Je dagen terugkijken',
-      'Je foto’s komen vanzelf op de juiste dag en de juiste plek te staan. Een notitie erbij en de dag is af.',
-    ),
-    feature(
-      'share',
-      <VisualShare />,
-      'Deel met thuisblijvers',
-      'Eén privélink met je kaart, je dagen en je foto’s. Alleen lezen, en niemand hoeft een account te maken.',
-    ),
+    // Nothing to share without a server to share it from.
+    ...(localOnly
+      ? []
+      : [
+          feature(
+            'share',
+            <VisualShare />,
+            'Deel met thuisblijvers',
+            'Eén privélink met je kaart, je dagen en je foto’s. Alleen lezen, en niemand hoeft een account te maken.',
+          ),
+        ]),
     feature(
       'offline',
       <VisualOffline />,
@@ -270,7 +281,7 @@ export function OnboardingV2Page() {
             <span className="onb-visual">
               <Icon name="shield" size={54} />
             </span>
-            <h1>“Altijd toestaan”</h1>
+            <h1>Locatie altijd toestaan</h1>
             <p className="muted">
               Tracking met het scherm uit kan alleen als locatie op “Altijd toestaan” staat. Vraag
               het hier aan; stuurt Android je door naar de instellingen, volg dan dit pad:
@@ -285,7 +296,7 @@ export function OnboardingV2Page() {
             </div>
             {permission(
               perms.background,
-              'Altijd toestaan vragen',
+              'Locatie altijd toestaan',
               'Altijd toegestaan',
               () => void ask('background'),
               !perms.location,
@@ -345,6 +356,14 @@ export function OnboardingV2Page() {
           </div>,
         ]
       : []),
+    // The tour ended on whatever permission happened to come last, which read
+    // as "and now what". This says what the next tap is for.
+    feature(
+      'start',
+      <VisualStart />,
+      'Begin je eerste reis',
+      'Maak een reis aan met een naam en je data. De rest — je route, je foto’s, je dagen — vult zichzelf terwijl je onderweg bent.',
+    ),
   ];
 
   const last = step === slides.length - 1;

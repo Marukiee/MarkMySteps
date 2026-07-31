@@ -15,6 +15,7 @@ import {
   importDeviceMedia,
   listDeviceMedia,
 } from '../lib/deviceMedia';
+import { tripCoverBg } from '../lib/colors';
 import { isLocalMode } from '../lib/localMode';
 import { getTripFacts, setTripFacts } from '../lib/prefs';
 import {
@@ -677,13 +678,24 @@ function FactPicker({ tripId, trip }: { tripId: string; trip: Trip | null }) {
         </HelpTip>
       </h2>
 
-      <div className={`ts-facts-preview ${trip?.resolvedCoverId ? 'has-cover' : ''}`}>
+      {/* No photo yet (an upcoming trip) → the trip's own colour and the
+          compass, which is what its cover will actually look like until a
+          photo lands. An empty grey panel read as a preview that had failed. */}
+      <div
+        className={`ts-facts-preview ${trip?.resolvedCoverId ? 'has-cover' : 'no-photo'}`}
+        style={trip && !trip.resolvedCoverId ? { background: tripCoverBg(trip) } : undefined}
+      >
         {trip?.resolvedCoverId && (
           <AuthImage
             path={`/media/${trip.resolvedCoverId}/thumbnail`}
             alt=""
             className="ts-facts-preview-img"
           />
+        )}
+        {trip && !trip.resolvedCoverId && (
+          <span className="ts-facts-preview-glyph" aria-hidden="true">
+            <Icon name="compass" size={96} />
+          </span>
         )}
         <div className="ts-facts-preview-body">
           <TripFacts facts={resolveFacts(source, chosen)} />
