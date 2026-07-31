@@ -1,32 +1,16 @@
 /* In the app the status bar overlays the WebView and is transparent, so
    setBackgroundColor does nothing: the banner has to run up UNDER the bar
    itself, otherwise the strip above it keeps showing the dark page. */
-/* The wrapper animates its row from 0fr to 1fr, so the page glides down as the
-   banner arrives instead of being shoved by something that appears at full
-   height in one frame. The banner itself slides in on top of that. */
+/* It lies OVER the page rather than pushing it: shoving the whole screen —
+   globe and all — down and back up for a strip that is dismissed in a second
+   was more movement than the news is worth. Covering part of the logo is fine;
+   the banner is the thing being read while it is there. */
 .update-banner-wrap {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 50;
-  display: grid;
-  grid-template-rows: 1fr;
-  animation: updateWrapIn 0.42s var(--ease);
-}
-
-.update-banner-wrap.closing {
-  animation: updateWrapOut 0.28s var(--ease) forwards;
-}
-
-@keyframes updateWrapIn {
-  from {
-    grid-template-rows: 0fr;
-  }
-}
-
-@keyframes updateWrapOut {
-  to {
-    grid-template-rows: 0fr;
-  }
 }
 
 .update-banner-wrap.closing .update-banner {

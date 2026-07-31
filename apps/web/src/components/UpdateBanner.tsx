@@ -1,5 +1,5 @@
 import { App } from '@capacitor/app';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { isNativeApp, openExternal, setStatusBarTint } from '../lib/native';
 import { Icon } from './Icon';
@@ -70,6 +70,7 @@ export function UpdateBanner() {
   const [info, setInfo] = useState<LatestApp | null>(null);
   const [simulated, setSimulated] = useState(isUpdateBannerSimulated());
   const [closing, setClosing] = useState(false);
+  const barRef = useRef<HTMLDivElement | null>(null);
 
   // The simulator works on the web build too, so the banner can be checked
   // without an install — hence it's read outside the native-only check below.
@@ -113,6 +114,27 @@ export function UpdateBanner() {
     return () => setStatusBarTint(null);
   }, [shown]);
 
+  // The banner floats over the page, so nothing below it knows it is there.
+  // Only the offline banner needs to: it is the one thing that would end up
+  // underneath. Its height is published, and that banner keeps clear of it.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!shown || closing) {
+      root.style.removeProperty('--update-banner-h');
+      return;
+    }
+    const bar = barRef.current;
+    if (!bar) return;
+    const publish = () => root.style.setProperty('--update-banner-h', `${bar.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty('--update-banner-h');
+    };
+  }, [shown, closing]);
+
   if (!shown) return null;
 
   // Roll the banner away first, then drop it — vanishing mid-scroll is jarring.
@@ -131,7 +153,7 @@ export function UpdateBanner() {
 
   return (
     <div className={`update-banner-wrap ${closing ? 'closing' : ''}`}>
-      <div className="update-banner">
+      <div className="update-banner" ref={barRef}>
         {/* Two lines, not one with a dot between: the build number wraps on a
             phone either way, and the separator was then left stranded at the
             end of the first line with nothing after it. */}

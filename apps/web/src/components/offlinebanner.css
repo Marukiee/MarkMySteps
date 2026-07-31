@@ -15,10 +15,14 @@
   animation: offlineBannerIn 0.4s var(--ease);
 }
 
-/* Only the topmost banner needs to clear the status bar; when the update
-   banner is already there this one sits below it in normal flow. */
+/* The update banner floats over the page, so this one has to get out from
+   under it by itself. Its height is published while it is up; without it the
+   fallback is nothing, which is the case where there is no banner. */
 .update-banner-wrap + .offline-banner {
-  padding-top: 0.6rem;
+  /* The published height already contains the status bar the banner runs
+     under, so this must not add it a second time. */
+  padding-top: calc(0.6rem + var(--update-banner-h, 0px));
+  transition: padding-top 0.3s var(--ease);
 }
 
 .offline-banner svg {

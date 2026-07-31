@@ -544,8 +544,12 @@
   inset: 0;
 }
 
+/* No `position` of its own: MapLibre gives the marker element
+   `position: absolute` and then places it with a transform, and a `relative`
+   here (same specificity, later sheet) won that fight — the pins drifted off
+   their coordinates and slid around on every zoom. z-index needs no help; the
+   element is already positioned. */
 .stop-marker {
-  position: relative;
   width: 30px;
   height: 30px;
   border-radius: 50%;

@@ -12,8 +12,10 @@
   animation: inviteFade 0.24s var(--ease);
 }
 
+/* Slower than it arrived, and the card leaves before the backdrop does: gone in
+   under two tenths read as the dialog being deleted rather than dismissed. */
 .invite-backdrop.closing {
-  animation: inviteFadeOut 0.18s var(--ease) forwards;
+  animation: inviteFadeOut 0.34s var(--ease) 0.06s forwards;
 }
 
 @keyframes inviteFade {
@@ -40,7 +42,7 @@
 }
 
 .invite-backdrop.closing .invite-card {
-  animation: invitePopOut 0.18s var(--ease) forwards;
+  animation: invitePopOut 0.3s cubic-bezier(0.4, 0, 0.7, 0.35) forwards;
 }
 
 @keyframes invitePop {
@@ -51,9 +53,13 @@
 }
 
 @keyframes invitePopOut {
+  40% {
+    opacity: 0.8;
+    transform: translateY(-4px) scale(1.01);
+  }
   to {
     opacity: 0;
-    transform: translateY(8px) scale(0.97);
+    transform: translateY(18px) scale(0.94);
   }
 }
 

@@ -108,7 +108,7 @@ export function InvitePopup() {
       setClosing(false);
       setPreview(false);
       if (goTo && !preview) navigate(goTo);
-    }, 180);
+    }, 380);
   };
 
   const single = invites.length === 1;
