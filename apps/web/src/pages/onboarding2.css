@@ -1,0 +1,395 @@
+/* Onboarding, second attempt. Three bands: a progress line, the slide (a mock
+   screen over its copy), and the buttons — so every slide has the same shape
+   and only the content moves. */
+
+.onb2-shell {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.5rem;
+  padding: calc(0.9rem + env(safe-area-inset-top)) 1.25rem
+    calc(1.1rem + env(safe-area-inset-bottom));
+  overflow: hidden;
+  background: var(--paper);
+  transition: background 0.3s var(--ease);
+}
+
+.onb2-shell.onb2-leaving {
+  animation: onb2Leave 0.32s var(--ease) forwards;
+}
+
+@keyframes onb2Leave {
+  to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+/* The wash the mock screen sits in. Kept behind everything and off to one side
+   so it reads as light in the room rather than as a shape on the page. */
+.onb2-wash {
+  position: absolute;
+  top: -12%;
+  left: 50%;
+  width: 150vw;
+  max-width: 700px;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, var(--accent-soft), transparent 62%);
+  opacity: 0.9;
+}
+
+/* ---------- Progress ---------- */
+
+.onb2-top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 30px;
+}
+
+.onb2-progress {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.onb2-progress span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 0.42s var(--ease);
+}
+
+.onb2-skip {
+  flex-shrink: 0;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.onb2-skip:hover {
+  background: var(--paper-sunken);
+}
+
+/* ---------- Slide ---------- */
+
+.onb2-stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  justify-items: center;
+  gap: 1.2rem;
+  min-height: 0;
+  animation: onb2In 0.36s var(--ease);
+}
+
+.onb2-stage[data-dir='-1'] {
+  animation: onb2Back 0.36s var(--ease);
+}
+
+@keyframes onb2In {
+  from {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+}
+
+@keyframes onb2Back {
+  from {
+    opacity: 0;
+    transform: translateX(-26px);
+  }
+}
+
+.onb2-visual {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  /* The mock is decoration: on a short screen it gives up its space before the
+     words do. */
+  overflow: hidden;
+}
+
+.onb2-copy {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  max-width: 360px;
+  text-align: center;
+}
+
+.onb2-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+
+.onb2-copy h1 {
+  font-size: 1.65rem;
+  line-height: 1.15;
+}
+
+.onb2-copy p {
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.onb2-action {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+/* ---------- Slide-specific visuals ---------- */
+
+/* Logo and bare-icon slides: the same medallion, so a tour of mock screens does
+   not lose its shape on the slides that have nothing to show. */
+.onb2-hero {
+  display: grid;
+  place-content: center;
+  width: 150px;
+  height: 150px;
+  border-radius: 44px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-m);
+  animation: onb2Hero 0.55s var(--ease) both;
+}
+
+.onb2-hero-icon {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
+@keyframes onb2Hero {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.92);
+  }
+}
+
+.onb2-globe {
+  width: min(72vw, 300px);
+  height: min(42vh, 320px);
+  position: relative;
+  pointer-events: none;
+  overflow: hidden;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 58%, transparent 82%);
+  mask-image: radial-gradient(circle at 50% 50%, #000 58%, transparent 82%);
+}
+
+.onb2-globe .globe-backdrop {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  display: grid;
+  place-items: center;
+}
+
+.onb2-globe .globe-backdrop::after,
+.onb2-globe .globe-backdrop::before {
+  display: none;
+}
+
+/* Two halves of the same screen, so the choice is shown rather than described. */
+.onb2-themes {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.onb2-theme-swatch {
+  width: 74px;
+  height: 130px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-m);
+  animation: onb2Hero 0.55s var(--ease) both;
+}
+
+.onb2-theme-swatch.light {
+  background: linear-gradient(160deg, #f6f1e7 55%, #e6dccc);
+}
+
+.onb2-theme-swatch.dark {
+  background: linear-gradient(160deg, #232a33 55%, #161b22);
+  animation-delay: 0.08s;
+}
+
+.onb2-theme-choice {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+}
+
+/* Mock screen contents that belong to this tour rather than to the app. */
+.onb2-namecard,
+.onb2-airportcard {
+  grid-row: 1 / -1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  color: var(--accent-ink);
+}
+
+.onb2-namecard-line {
+  width: 110px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+}
+
+.onb2-namecard-line.short {
+  width: 64px;
+}
+
+.onb2-airportcard {
+  grid-auto-flow: row;
+}
+
+.onb2-airportcard span {
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.onb2-name {
+  width: 100%;
+  max-width: 260px;
+}
+
+.onb2-name input {
+  text-align: center;
+  font-size: 1.05rem;
+}
+
+.onb2-inline-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.onb2-inline-path svg {
+  color: var(--ink-faint);
+}
+
+.onb2-path {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem 0.15rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.onb2-path-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.onb2-path-step svg {
+  color: var(--ink-faint);
+}
+
+/* ---------- Permission button: ask ⇄ granted ---------- */
+
+.onb2-perm {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+}
+
+.onb2-ask,
+.onb2-perm .onb2-ok {
+  grid-area: 1 / 1;
+  transition: opacity 0.28s var(--ease), transform 0.28s var(--ease);
+}
+
+.onb2-perm .onb2-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: var(--teal);
+  opacity: 0;
+  transform: scale(0.9);
+  pointer-events: none;
+}
+
+.onb2-perm.granted .onb2-ask {
+  opacity: 0;
+  transform: scale(0.9);
+  pointer-events: none;
+}
+
+.onb2-perm.granted .onb2-ok {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- Footer ---------- */
+
+.onb2-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-top: 0.4rem;
+}
+
+.onb2-back {
+  padding-left: 0.8rem;
+  color: var(--ink-faint);
+}
+
+.onb2-back:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.onb2-next {
+  flex: 1;
+  justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onb2-stage,
+  .onb2-hero,
+  .onb2-theme-swatch {
+    animation: none;
+  }
+}

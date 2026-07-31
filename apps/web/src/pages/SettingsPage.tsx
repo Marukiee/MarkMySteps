@@ -1402,6 +1402,7 @@ function UpdateCheck() {
 function DeveloperSection({ onLock }: { onLock: () => void }) {
   const navigate = useNavigate();
   const [simulating, setSimulating] = useState(isUpdateBannerSimulated());
+  const [invitePreview, setInvitePreview] = useState(false);
   return (
     <section className="card settings-card">
       <h2>Ontwikkelaar</h2>
@@ -1438,6 +1439,22 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
           >
             Onboarding zonder server
           </button>
+          {/* The next tour, not yet the one a new user gets. A preview never
+              marks the tour as done, so this can be opened as often as needed. */}
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => navigate('/onboarding-v2?preview=1')}
+          >
+            Onboarding v2
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => navigate('/onboarding-v2?preview=1&local=1')}
+          >
+            Onboarding v2 zonder server
+          </button>
           <button
             type="button"
             className="btn btn-ghost"
@@ -1454,7 +1471,20 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
           </button>
         </div>
       </div>
-      <InvitePreviewPicker />
+      <div className="field">
+        <label>Meldingen bekijken</label>
+        <button
+          type="button"
+          className="btn btn-ghost settings-reset-sizes"
+          onClick={() => setInvitePreview(true)}
+        >
+          Toegevoegd aan een reis
+        </button>
+        <span className="muted">
+          Opent een klein menu om te kiezen hoeveel reizen erin staan en of ze een foto hebben.
+        </span>
+      </div>
+      {invitePreview && <InvitePreviewSheet onClose={() => setInvitePreview(false)} />}
       <div className="field">
         <label>Update-melding</label>
         <button
@@ -1479,46 +1509,82 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
 }
 
 /**
- * Developer options: put the "you were added to a trip" dialog on screen.
+ * Developer options: set up the "you were added to a trip" dialog and show it.
  *
- * Two questions rather than a row of buttons, because the interesting cases are
- * a combination of them: one trip with a photo looks nothing like three
- * without.
+ * Its own sheet rather than two dropdowns in the settings list: a page of
+ * settings is a page of things that stay set, and these two are the opposite —
+ * they are the question being asked right before the answer is thrown away.
  */
-function InvitePreviewPicker() {
+function InvitePreviewSheet({ onClose }: { onClose: () => void }) {
   const [count, setCount] = useState(1);
   const [photos, setPhotos] = useState(false);
-  return (
-    <div className="field">
-      <label htmlFor="dev-invite-count">Toegevoegd aan een reis</label>
-      <div className="dev-choices">
-        <select
-          id="dev-invite-count"
-          value={count}
-          onChange={(e) => setCount(Number(e.target.value))}
-        >
-          <option value={1}>1 reis</option>
-          <option value={2}>2 reizen</option>
-          <option value={3}>3 reizen</option>
-          <option value={5}>5 reizen</option>
-        </select>
-        <select value={photos ? 'yes' : 'no'} onChange={(e) => setPhotos(e.target.value === 'yes')}>
-          <option value="no">Zonder foto's</option>
-          <option value="yes">Met foto's</option>
-        </select>
+  const [closing, setClosing] = useState(false);
+
+  const close = (then?: () => void) => {
+    setClosing(true);
+    window.setTimeout(() => {
+      then?.();
+      onClose();
+    }, 220);
+  };
+
+  return createPortal(
+    <div
+      className={`dev-sheet-backdrop ${closing ? 'closing' : ''}`}
+      role="dialog"
+      aria-modal="true"
+      onClick={() => close()}
+    >
+      <div className="dev-sheet card" onClick={(e) => e.stopPropagation()}>
+        <div className="dev-sheet-head">
+          <h3>Toegevoegd aan een reis</h3>
+          <button className="dev-sheet-close" aria-label="Sluiten" onClick={() => close()}>
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+        <p className="muted">
+          Toont de echte melding. Er verandert niets aan je account, en sluiten brengt je nergens
+          heen.
+        </p>
+        <label className="dev-pick">
+          <span>Aantal reizen</span>
+          <span className="dev-pick-control">
+            <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
+              <option value={1}>1 reis</option>
+              <option value={2}>2 reizen</option>
+              <option value={3}>3 reizen</option>
+              <option value={5}>5 reizen</option>
+            </select>
+            <Icon name="chevron-down" size={16} />
+          </span>
+        </label>
+        <label className="dev-pick">
+          <span>Afbeeldingen</span>
+          <span className="dev-pick-control">
+            <select
+              value={photos ? 'yes' : 'no'}
+              onChange={(e) => setPhotos(e.target.value === 'yes')}
+            >
+              <option value="no">Zonder foto&apos;s</option>
+              <option value="yes">Met foto&apos;s</option>
+            </select>
+            <Icon name="chevron-down" size={16} />
+          </span>
+        </label>
+        <span className="muted dev-sheet-note">
+          Met foto&apos;s leent hij de covers van je eigen reizen: een verzonnen foto bestaat niet
+          en zou alleen als kapot kadertje verschijnen.
+        </span>
         <button
           type="button"
-          className="btn btn-ghost"
-          onClick={() => void previewInvitePopup(count, photos)}
+          className="btn btn-primary dev-sheet-go"
+          onClick={() => close(() => void previewInvitePopup(count, photos))}
         >
-          Tonen
+          Melding tonen
         </button>
       </div>
-      <span className="muted">
-        Met foto&apos;s leent hij de covers van je eigen reizen, want een verzonnen foto bestaat
-        niet. Er verandert niets aan je account, en sluiten brengt je nergens heen.
-      </span>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

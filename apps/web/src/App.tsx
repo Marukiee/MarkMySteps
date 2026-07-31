@@ -18,6 +18,7 @@ import { isNativeApp, isOnboarded } from './lib/native';
 import { FriendsPage } from './pages/FriendsPage';
 import { LoginPage } from './pages/LoginPage';
 import { OnboardingPage } from './pages/OnboardingPage';
+import { OnboardingV2Page } from './pages/OnboardingV2Page';
 import { PendingPage } from './pages/PendingPage';
 import { PlanPage } from './pages/PlanPage';
 import { TripSettingsPage } from './pages/TripSettingsPage';
@@ -65,6 +66,9 @@ export function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
+        {/* The next onboarding, still only reachable from developer options.
+            It does not replace the real one until it has been looked at. */}
+        <Route path="/onboarding-v2" element={<OnboardingV2Page />} />
         {/* Developer options open this to check the waiting room without
             having to make an account and get it refused. */}
         <Route path="/preview/pending" element={<PendingPage />} />

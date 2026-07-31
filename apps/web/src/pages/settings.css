@@ -1478,15 +1478,140 @@
 }
 
 
-/* Two choices and the button that acts on them, on one line where it fits. */
-.dev-choices {
+/* ---------- Developer sheet ---------- */
+/* A small dialog for the questions that are asked right before the answer is
+   used and thrown away, instead of parking them in the settings list as if
+   they were preferences. */
+
+.dev-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgb(16 21 27 / 0.5);
+  backdrop-filter: blur(4px);
+  animation: devSheetFade 0.22s var(--ease);
+}
+
+.dev-sheet-backdrop.closing {
+  animation: devSheetFadeOut 0.24s var(--ease) forwards;
+}
+
+@keyframes devSheetFade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes devSheetFadeOut {
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+.dev-sheet {
+  width: min(380px, 100%);
+  padding: 1.1rem 1.15rem 1.15rem;
+  display: grid;
+  gap: 0.65rem;
+  text-align: left;
+  animation: devSheetIn 0.3s var(--ease);
+}
+
+.dev-sheet-backdrop.closing .dev-sheet {
+  animation: devSheetOut 0.24s var(--ease) forwards;
+}
+
+@keyframes devSheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.95);
+  }
+}
+
+@keyframes devSheetOut {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+
+.dev-sheet-head {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
 
-.dev-choices select {
-  flex: 1 1 auto;
-  min-width: 8rem;
+.dev-sheet-head h3 {
+  flex: 1;
+  font-size: 1.05rem;
+}
+
+.dev-sheet-close {
+  display: grid;
+  place-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--ink-faint);
+}
+
+.dev-sheet-close:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+/* Label on the left, choice on the right. The chevron is ours and sits against
+   the text it belongs to; the native one was pinned to the far right of a wide
+   box with the value stranded at the other end. */
+.dev-pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-s);
+  background: var(--paper-sunken);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.dev-pick-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--ink);
+}
+
+.dev-pick-control select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0.35rem 0.15rem 0.35rem 0.5rem;
+  border: none;
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  text-align: right;
+  /* Chrome only honours text-align on the closed select with this. */
+  text-align-last: right;
+}
+
+.dev-pick-control svg {
+  pointer-events: none;
+  color: var(--ink-faint);
+}
+
+.dev-sheet-note {
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.dev-sheet-go {
+  justify-content: center;
+  margin-top: 0.2rem;
 }

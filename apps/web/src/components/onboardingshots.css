@@ -1,0 +1,369 @@
+/* Miniature app screens for the onboarding tour. Everything here is drawn from
+   the same tokens as the real app, so it follows the theme and the accent
+   instead of being a picture taken of one of them. */
+
+.shot-phone {
+  position: relative;
+  width: 226px;
+  height: 300px;
+  padding: 7px;
+  border-radius: 30px;
+  background: var(--paper-sunken);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-l, 0 18px 40px rgb(16 21 27 / 0.18));
+  /* Tilted a hair so it reads as an object being held up, not a diagram. */
+  transform: perspective(900px) rotateX(6deg) rotateY(-7deg);
+  animation: shotIn 0.6s var(--ease) both;
+}
+
+@keyframes shotIn {
+  from {
+    opacity: 0;
+    transform: perspective(900px) rotateX(14deg) rotateY(-14deg) translateY(16px) scale(0.94);
+  }
+}
+
+.shot-phone-screen {
+  height: 100%;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  border-radius: 24px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+}
+
+/* The top bar of the mock screen. */
+.shot-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.shot-bar > svg {
+  color: var(--ink-faint);
+}
+
+.shot-bar span {
+  flex: 1;
+}
+
+.shot-body {
+  padding: 0.6rem;
+  display: grid;
+  align-content: start;
+  gap: 0.4rem;
+  min-height: 0;
+}
+
+/* ---------- Planner ---------- */
+
+.shot-plan {
+  gap: 0.5rem;
+}
+
+.shot-stop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 10px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  animation: shotRow 0.45s var(--ease) both;
+}
+
+@keyframes shotRow {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
+
+.shot-stop-pin {
+  display: grid;
+  place-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.shot-stop-text {
+  display: grid;
+  min-width: 0;
+}
+
+.shot-stop-text strong {
+  font-size: 0.7rem;
+}
+
+.shot-stop-text small {
+  font-size: 0.58rem;
+  color: var(--ink-faint);
+}
+
+/* The way from this stop to the next: a badge sitting on the gap between two
+   rows, which is where that journey actually happens. */
+.shot-hop {
+  position: absolute;
+  left: 12px;
+  bottom: -13px;
+  z-index: 1;
+  display: grid;
+  place-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--paper-sunken);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+
+.shot-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  justify-self: start;
+  margin-top: 0.15rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+/* ---------- Timeline ---------- */
+
+.shot-day {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.shot-day-num {
+  display: grid;
+  place-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.55rem;
+}
+
+.shot-photos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+}
+
+.shot-photos-wide {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* Stand-ins for photos: a picture of a place, without claiming to be one. */
+.shot-photo {
+  height: 42px;
+  border-radius: 6px;
+  background: linear-gradient(150deg, var(--accent-soft), var(--paper-sunken));
+  animation: shotPhoto 0.5s var(--ease) both;
+}
+
+.shot-photo-0 { background: linear-gradient(150deg, #7fa8c9, #c9d8e4); }
+.shot-photo-1 { background: linear-gradient(150deg, #d9a06a, #f0d9bf); animation-delay: 0.08s; }
+.shot-photo-2 { background: linear-gradient(150deg, #7fae86, #cfe0cd); animation-delay: 0.16s; }
+.shot-photo-3 { background: linear-gradient(150deg, #a58ac2, #ded1ea); animation-delay: 0.24s; }
+.shot-photo-4 { background: linear-gradient(150deg, #c98a8a, #ecd2d2); animation-delay: 0.32s; }
+
+@keyframes shotPhoto {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+.shot-note {
+  padding: 0.35rem 0.45rem;
+  border-left: 2px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  background: var(--paper-sunken);
+  font-size: 0.6rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+/* ---------- Share ---------- */
+
+.shot-map {
+  height: 88px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--paper-sunken);
+  border: 1px solid var(--line);
+}
+
+.shot-map svg {
+  width: 100%;
+  height: 100%;
+}
+
+.shot-map-route {
+  stroke: var(--accent);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  /* Draws itself once, the way the route on the real map arrives. */
+  stroke-dasharray: 200;
+  animation: shotDraw 1.4s var(--ease) 0.2s both;
+}
+
+@keyframes shotDraw {
+  from {
+    stroke-dashoffset: 200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.shot-map-pin {
+  fill: var(--accent);
+  stroke: var(--paper);
+  stroke-width: 1.5;
+}
+
+.shot-map-pin-end {
+  fill: var(--ink);
+}
+
+.shot-link {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  border: 1px dashed var(--line);
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.shot-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.shot-chips span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.57rem;
+  font-weight: 700;
+}
+
+/* ---------- Tracking ---------- */
+
+.shot-live {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.shot-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: shotBeat 1.6s var(--ease) infinite;
+}
+
+@keyframes shotBeat {
+  0%, 70%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  35% {
+    transform: scale(1.5);
+    opacity: 0.55;
+  }
+}
+
+.shot-rows {
+  display: grid;
+  gap: 1px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.shot-rows span {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.32rem 0.5rem;
+  background: var(--paper-raised);
+  font-size: 0.62rem;
+  color: var(--ink-faint);
+}
+
+.shot-rows strong {
+  color: var(--ink);
+}
+
+.shot-off {
+  color: var(--ink-soft);
+}
+
+.shot-ok {
+  color: var(--teal);
+}
+
+.shot-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.3rem;
+  font-size: 0.58rem;
+  line-height: 1.35;
+  color: var(--ink-faint);
+}
+
+.shot-hint svg {
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shot-phone,
+  .shot-stop,
+  .shot-photo,
+  .shot-map-route,
+  .shot-live-dot {
+    animation: none;
+  }
+}
