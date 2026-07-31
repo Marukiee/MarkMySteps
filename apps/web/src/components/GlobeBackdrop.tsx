@@ -229,12 +229,7 @@ export function GlobeBackdrop({
     /** A layover: the plane touches down, but nobody gets off. */
     const LAYOVER_MS = 450;
     let holdUntil = 0;
-    /** How long the wait in progress lasts, so the rings fit inside it. */
-    let holdMs = DWELL_MS;
-    let holdSince = 0;
     let holdPoint: [number, number] | null = null;
-    /** Falls 1 → 0 twice over a wait, which is what makes the two rings. */
-    let holdPulse = 0;
     /** Whose journey the light is currently running, so a change can restart it. */
     let glowTripId: string | null = null;
     /**
@@ -256,26 +251,41 @@ export function GlobeBackdrop({
     let landing: Landing | null = null;
     /** The flight under way this frame, ready to be handed over as a landing. */
     let inFlight: Landing | null = null;
-    /** Per dot: how brightly it is still lit after the light went past. */
-    const flares = new Map<string, number>();
     /**
-     * How lit a dot is, given where the light is. Rises the moment the light
-     * arrives and decays on its own, so a dot flares and dims behind it rather
-     * than pulsing symmetrically as it passes.
+     * A dot's reaction to the light reaching it: a ripple leaving it, and the
+     * swell of the dot itself while that ripple is on its way.
      */
-    const flareAt = (key: string, p: [number, number], dt: number): number => {
-      // A dot the light is waiting at pulses instead of sitting lit: the head
-      // is not moving, so proximity alone would hold it at one brightness.
-      if (holdPoint && distance(holdPoint, p) < 0.6) {
-        flares.set(key, holdPulse);
-        return holdPulse;
+    type Flare = { swell: number; ring: number };
+    const NO_FLARE: Flare = { swell: 0, ring: -1 };
+    /** Per dot: how far into its ripple it is, or -1 once it has had one. */
+    const flares = new Map<string, number>();
+    /** How long one ripple lasts. Two of them fit inside a DWELL. */
+    const RING_S = 0.95;
+    /**
+     * A ripple is born at the dot's own edge at full strength and dies
+     * invisible further out, so one following another has nothing to jump
+     * between, and the dot swells and settles once per ripple.
+     *
+     * The ring used to CONTRACT as the light approached and then restart from a
+     * sawtooth that fell 1 → 0 and snapped back — an arrival that flashed a few
+     * times instead of throwing rings.
+     */
+    const flareAt = (key: string, p: [number, number], dt: number): Flare => {
+      let ring = flares.get(key);
+      if (ring === undefined) {
+        // Reached, asked along the journey rather than across the map: a place
+        // a flight merely passes over is not a place the light has got to.
+        const mark = headGeo ? journeyDistOf(p) : null;
+        if (mark === null || glowDist < mark) return NO_FLARE;
+        ring = 0;
       }
-      const mark = headGeo ? journeyDistOf(p) : null;
-      const near = mark === null ? 0 : Math.max(0, 1 - Math.abs(glowDist - mark) / 2.2);
-      const lit = Math.max((flares.get(key) ?? 0) * Math.pow(0.05, dt), near * near);
-      if (lit < 0.004) flares.delete(key);
-      else flares.set(key, lit);
-      return lit;
+      if (ring < 0) return NO_FLARE;
+      ring += dt / RING_S;
+      // Standing at a dot keeps the ripples coming; once the light moves on the
+      // one under way finishes, and that is the last of them.
+      if (ring >= 1) ring = holdPoint && distance(holdPoint, p) < 0.6 ? ring - 1 : -1;
+      flares.set(key, ring);
+      return ring < 0 ? NO_FLARE : { swell: Math.sin(Math.PI * ring), ring };
     };
     let stopsMode = getGlobeStops();
     const onStopsMode = (e: Event) => {
@@ -504,6 +514,13 @@ export function GlobeBackdrop({
         .rotate([rotation, -(CENTER_LAT + tilt), 0]);
 
       ctx!.clearRect(0, 0, w, h);
+
+      // Dots are sized in screen pixels, so zooming in already makes them
+      // smaller next to the earth. What they were not was small enough on the
+      // whole world, where every trip's stops are on screen at once and they
+      // crowded into each other. They grow a little with the zoom, far slower
+      // than the globe does, so close up they still shrink relative to it.
+      const dotScale = Math.min(1.12, 0.75 * Math.pow(scale, 0.21));
 
       const dark = document.documentElement.dataset.theme === 'dark';
 
@@ -797,16 +814,16 @@ export function GlobeBackdrop({
         y: number,
         col: [number, number, number],
         upcoming: boolean,
-        lit = 0,
+        flare: Flare = NO_FLARE,
       ) => {
         const [r, g, b] = col;
-        const radius = 4.5 * dpr * (1 + 0.45 * lit);
-        // A ring thrown off as the light arrives, widening as it fades.
-        if (lit > 0.01) {
+        const radius = 4.5 * dpr * dotScale * (1 + 0.4 * flare.swell);
+        // The ripple: it leaves the dot's edge and fades on its way out.
+        if (flare.ring >= 0) {
           ctx!.beginPath();
-          ctx!.arc(x, y, radius + (2 + 9 * (1 - lit)) * dpr, 0, 2 * Math.PI);
-          ctx!.lineWidth = 2 * dpr * lit;
-          ctx!.strokeStyle = `rgba(${r},${g},${b},${0.55 * lit})`;
+          ctx!.arc(x, y, radius + (1.5 + 10 * flare.ring) * dpr, 0, 2 * Math.PI);
+          ctx!.lineWidth = 2 * dpr * (1 - flare.ring);
+          ctx!.strokeStyle = `rgba(${r},${g},${b},${0.6 * Math.pow(1 - flare.ring, 1.4)})`;
           ctx!.stroke();
         }
         ctx!.beginPath();
@@ -862,7 +879,7 @@ export function GlobeBackdrop({
           // Lights up as the travelling light reaches it, then dims behind it.
           // Read before anything can skip the dot, so one that turned out of
           // sight while lit is not still lit when it comes back round.
-          const lit = flareAt(`${trip.id}:${i}`, sp, dt);
+          const flare = flareAt(`${trip.id}:${i}`, sp, dt);
           // A stop that already carries a full-size dot — a route end, or a city
           // two trips share — would only be drawn underneath it.
           if (places.some((q) => distance([q.lng, q.lat], sp) < SAME_PLACE_DEG)) continue;
@@ -876,13 +893,13 @@ export function GlobeBackdrop({
           const k = local - 1;
           const pop = 1 + 2.3 * k * k * k + 1.5 * k * k;
           const [r, g, b] = col;
-          const radius = 3.1 * dpr * pop * (1 + 0.55 * lit);
+          const radius = 3.1 * dpr * dotScale * pop * (1 + 0.5 * flare.swell);
           ctx!.globalAlpha = baseAlpha * Math.min(1, local * 1.6);
-          if (lit > 0.01) {
+          if (flare.ring >= 0) {
             ctx!.beginPath();
-            ctx!.arc(pr[0], pr[1], radius + (2 + 7 * (1 - lit)) * dpr, 0, 2 * Math.PI);
-            ctx!.lineWidth = 1.8 * dpr * lit;
-            ctx!.strokeStyle = `rgba(${r},${g},${b},${0.55 * lit})`;
+            ctx!.arc(pr[0], pr[1], radius + (1.2 + 8 * flare.ring) * dpr, 0, 2 * Math.PI);
+            ctx!.lineWidth = 1.8 * dpr * (1 - flare.ring);
+            ctx!.strokeStyle = `rgba(${r},${g},${b},${0.6 * Math.pow(1 - flare.ring, 1.4)})`;
             ctx!.stroke();
           }
           ctx!.beginPath();
@@ -907,9 +924,13 @@ export function GlobeBackdrop({
         ctx!.globalAlpha = Math.max(...m.map((v) => v.alpha), 0);
         // Keyed on where it is in the world, not on the screen: the globe turns,
         // and a key that turned with it would forget the flare every frame.
-        const lit = flareAt(`place:${pl.lng.toFixed(2)}:${pl.lat.toFixed(2)}`, [pl.lng, pl.lat], dt);
+        const flare = flareAt(
+          `place:${pl.lng.toFixed(2)}:${pl.lat.toFixed(2)}`,
+          [pl.lng, pl.lat],
+          dt,
+        );
         if (m.length <= 1) {
-          drawSmallDot(x, y, m[0]?.col ?? [90, 110, 225], m[0]?.upcoming ?? false, lit);
+          drawSmallDot(x, y, m[0]?.col ?? [90, 110, 225], m[0]?.upcoming ?? false, flare);
           ctx!.globalAlpha = 1;
           continue;
         }
@@ -918,7 +939,7 @@ export function GlobeBackdrop({
         // looking at. Cycling resumes once nothing is highlighted.
         const held = activeId ? m.find((v) => v.id === activeId) : undefined;
         if (held) {
-          drawSmallDot(x, y, held.col, held.upcoming, lit);
+          drawSmallDot(x, y, held.col, held.upcoming, flare);
           ctx!.globalAlpha = 1;
           continue;
         }
@@ -931,7 +952,7 @@ export function GlobeBackdrop({
         const f = t - Math.floor(t);
         const blend = f > 0.82 ? (f - 0.82) / 0.18 : 0; // crossfade the last bit
         const col = mix(m[idx]!.col, m[nextIdx]!.col, blend);
-        drawSmallDot(x, y, col, m[idx]!.upcoming && m[nextIdx]!.upcoming, lit);
+        drawSmallDot(x, y, col, m[idx]!.upcoming && m[nextIdx]!.upcoming, flare);
         ctx!.globalAlpha = 1;
       }
 
@@ -961,6 +982,9 @@ export function GlobeBackdrop({
         glowRuns = 0;
         holdUntil = 0;
         holdPoint = null;
+        // Every dot gets to react again: they remember having been reached, and
+        // a journey starting over has reached none of them yet.
+        flares.clear();
         glowTripId = activeId;
       }
 
@@ -1118,20 +1142,19 @@ export function GlobeBackdrop({
               if (before < arrival.at && glowDist >= arrival.at) {
                 glowDist = arrival.at;
                 holdUntil = now + arrival.ms;
-                holdSince = now;
-                holdMs = arrival.ms;
                 holdPoint = at(arrival.at)?.geo ?? null;
                 break;
               }
             }
             if (glowDist > total + TRAIL_DEG + PAUSE) {
               // Straight into the next pass; the dwell above already happened.
-              glowDist = glowRuns + 1 < glowRunsNeeded ? 0 : glowDist;
+              if (glowRuns + 1 < glowRunsNeeded) {
+                glowDist = 0;
+                flares.clear();
+              }
               glowRuns += 1;
             }
           }
-          // The dot it is waiting at throws a ring, twice, while it waits.
-          holdPulse = now < holdUntil ? 1 - (((now - holdSince) / holdMs) * 2) % 1 : 0;
           if (now >= holdUntil) holdPoint = null;
           const [gr, gg, gb] = legibleColor(act.color, dark);
 
