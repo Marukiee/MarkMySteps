@@ -527,6 +527,23 @@
   gap: 0.2rem;
   color: var(--accent-ink);
   font-weight: 600;
+  /* Also worn by a <button> (the changelog), which brings its own font. */
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  background: none;
+  transition: transform 0.15s var(--ease);
+}
+
+/* The chevron leans out as you go for it. */
+@media (hover: hover) {
+  .ext-link:hover svg {
+    transform: translateX(2px);
+  }
+}
+
+.ext-link svg {
+  transition: transform 0.15s var(--ease);
 }
 
 .btn-icon-sm {
@@ -1622,5 +1639,157 @@
 @media (hover: hover) {
   .settings-seg button:not(.active):hover {
     color: var(--accent-ink);
+  }
+}
+
+/* ---------- Wat is er nieuw ---------- */
+/* A release note is a list of moments, so it is drawn as one: a line down the
+   side with a dot per entry, and everything arriving in order. */
+
+.changelog-back {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-bottom: 0.2rem;
+  padding: 0.3rem 0.7rem 0.3rem 0.4rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+
+@media (hover: hover) {
+  .changelog-back:hover {
+    color: var(--accent-ink);
+  }
+}
+
+.changelog-back:active {
+  transform: scale(0.96);
+}
+
+.changelog-list {
+  position: relative;
+  display: grid;
+  gap: 1.4rem;
+  margin: 0.4rem 0 0;
+  padding: 0 0 0 1.15rem;
+  list-style: none;
+}
+
+/* The line the dots hang on, drawn down its own length as the page opens. */
+.changelog-list::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--line);
+  transform-origin: top;
+  animation: changelogLine 0.6s var(--ease) 0.1s both;
+}
+
+@keyframes changelogLine {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.changelog-list > li {
+  position: relative;
+  animation: changelogEntry 0.45s var(--ease) both;
+}
+
+@keyframes changelogEntry {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.changelog-dot {
+  position: absolute;
+  left: -1.15rem;
+  top: 0.35rem;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--paper-raised);
+}
+
+.changelog-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.changelog-head strong {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+}
+
+.changelog-date {
+  font-size: 0.78rem;
+}
+
+.changelog-new {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.changelog-items {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.changelog-items li {
+  position: relative;
+  padding-left: 0.9rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  animation: changelogItem 0.4s var(--ease) both;
+}
+
+/* A small dash rather than a bullet: these are sentences, not options. */
+.changelog-items li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.66em;
+  width: 6px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+@keyframes changelogItem {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .changelog-list::before,
+  .changelog-list > li,
+  .changelog-items li {
+    animation: none;
   }
 }

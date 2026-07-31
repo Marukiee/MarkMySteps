@@ -203,11 +203,18 @@ export function CountryPanel({ countries }: { countries: string[] | null }) {
 }
 
 /** The last few trips, as links. */
-export function RecentTrips({ trips }: { trips: TravelStats['recent'] }) {
+export function RecentTrips({
+  trips,
+  who,
+}: {
+  trips: TravelStats['recent'];
+  /** Whose trips these are. Left out on your own page: "Je laatste reizen". */
+  who?: string;
+}) {
   if (trips.length === 0) return null;
   return (
     <section className="recent-trips">
-      <h3>Laatste reizen</h3>
+      <h3>{who ? `Laatste reizen van ${who}` : 'Je laatste reizen'}</h3>
       <ul>
         {trips.map((trip, i) => (
           <li key={trip.id} style={{ animationDelay: `${i * 55}ms` }}>

@@ -649,20 +649,19 @@
 }
 
 .shot-typed {
+  display: inline-block;
   overflow: hidden;
   white-space: nowrap;
-  /* Revealed by clipping the drawn text, one ninth at a time. Animating a
-     width in `ch` stepped unevenly: a `ch` is the width of a zero, and no
-     letter in a proportional face is that wide. */
+  /* The BOX grows, so the caret beside it travels with the text. Clipping the
+     drawn text left the cursor parked at the end of a word that had not been
+     typed yet. */
+  width: 9.2ch;
   animation: shotTypeName 1.15s steps(9, end) 0.35s both;
 }
 
 @keyframes shotTypeName {
   from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
+    width: 0;
   }
 }
 
@@ -813,29 +812,29 @@
 @keyframes flyAcross {
   0% {
     opacity: 0;
-    transform: translate(18px, 52px) rotate(0deg);
+    transform: translate(18px, 62px) rotate(0deg);
   }
   8% {
     opacity: 1;
   }
-  18.1% {
-    transform: translate(59.2px, 47.8px) rotate(-11.1deg);
+  19.3% {
+    transform: translate(62.4px, 56.4px) rotate(-13.8deg);
   }
-  35.9% {
-    transform: translate(98.6px, 37.7px) rotate(-16.7deg);
+  38.2% {
+    transform: translate(104.1px, 42.9px) rotate(-20.9deg);
   }
-  54.7% {
-    transform: translate(139.8px, 25.2px) rotate(-16deg);
+  57.5% {
+    transform: translate(145.9px, 26.6px) rotate(-20.4deg);
   }
-  75.6% {
-    transform: translate(186.5px, 14.1px) rotate(-10.3deg);
+  77.8% {
+    transform: translate(190.9px, 12.6px) rotate(-13.2deg);
   }
   92% {
     opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translate(242px, 8px) rotate(-2.2deg);
+    transform: translate(242px, 6px) rotate(-1.2deg);
   }
 }
 
@@ -848,6 +847,6 @@
 
   .fly-plane {
     opacity: 1;
-    transform: translate(139.8px, 25.2px) rotate(-16deg);
+    transform: translate(145.9px, 26.6px) rotate(-20.4deg);
   }
 }

@@ -167,19 +167,19 @@ export function VisualTheme() {
 export function VisualAirports() {
   return (
     <span className="onb-fly" aria-hidden="true">
-      <svg viewBox="0 0 260 64" className="fly-svg">
-        <path className="fly-track" d="M18 52 C 90 52, 140 12, 242 8" fill="none" />
+      <svg viewBox="0 0 260 72" className="fly-svg">
+        {/* It leaves the ground, climbs, and comes down onto the far one —
+            the shape the globe's own plane flies. */}
+        <path className="fly-track" d="M18 62 C 96 62, 150 8, 242 6" fill="none" />
         {/* Both airports stand there from the start: you have them before you
             fly, and one appearing halfway read as the plane creating it. */}
-        <circle className="fly-dot" cx="18" cy="52" r="5" />
-        <circle className="fly-dot" cx="242" cy="8" r="5" />
-        {/* A plane seen from above, drawn symmetrically about its own spine —
-            the app's banking silhouette leans, which reads as a mistake once
-            it is being turned into the angle of a curve. Nose up in its own
-            coordinates, turned a quarter so it runs along +x. */}
+        <circle className="fly-dot" cx="18" cy="62" r="5" />
+        <circle className="fly-dot" cx="242" cy="6" r="5" />
+        {/* The app's plane, nose up in its own coordinates, turned a quarter so
+            it runs along +x — which is what the track's angles assume. */}
         <g className="fly-plane">
           <g transform="rotate(90) translate(-12 -12)">
-            <path d="M12 1.6c1.05 0 1.7 1.5 1.7 3.4v3.6l8.6 5v2.4l-8.6-2.8v4.4l3.1 2.1v2l-4.8-1.5-4.8 1.5v-2l3.1-2.1v-4.4l-8.6 2.8v-2.4l8.6-5V5c0-1.9.65-3.4 1.7-3.4Z" />
+            <path d="M12 2c1.1 0 1.8 1.5 1.8 3.4v3.3l7.7 4.5v2.2l-7.7-2.4v4.2l2.8 1.9v1.9L12 19.9l-4.6 1.1v-1.9l2.8-1.9v-4.2L2.5 15.4v-2.2l7.7-4.5V5.4C10.2 3.5 10.9 2 12 2Z" />
           </g>
         </g>
       </svg>

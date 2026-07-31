@@ -9,7 +9,7 @@
   background: var(--glass);
   backdrop-filter: blur(16px);
   border-top: 1px solid var(--glass-border);
-  padding: 0.35rem 0 calc(0.35rem + env(safe-area-inset-bottom));
+  padding: 0.35rem 0;
   transition: transform 0.2s ease;
 }
 
@@ -57,8 +57,12 @@ body:has(
   }
 }
 
+/* Only the APK sits under Android's gesture bar. On the mobile web the browser
+   handles its own chrome, and reserving that space here made the bar too tall
+   and put the bottom of every page out of reach. */
 .native-app .bottomnav {
   display: grid;
+  padding-bottom: calc(0.35rem + env(safe-area-inset-bottom));
 }
 
 .native-app body,
@@ -78,9 +82,14 @@ body.native-app {
   padding-bottom: calc(88px + env(safe-area-inset-bottom));
 }
 
-/* Phones (browser + app) also need to clear the tab bar. */
+/* Phones (browser + app) also need to clear the tab bar. The gesture-bar inset
+   belongs to the APK; on the mobile web it left a dead strip under the page. */
 @media (max-width: 720px) {
   .page {
+    padding-bottom: 88px;
+  }
+
+  .native-app .page {
     padding-bottom: calc(88px + env(safe-area-inset-bottom));
   }
 }

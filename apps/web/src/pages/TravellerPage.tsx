@@ -48,7 +48,10 @@ export function TravellerPage() {
       {error && <p className="error-text">{error}</p>}
 
       <header className="traveller-head">
-        <div className="traveller-avatar">
+        {/* The box is there before the photo is: an <img> carries a baseline
+            where the initial-letter stand-in does not, so the header grew by a
+            few pixels the moment the picture landed and shoved the page down. */}
+        <div className={`traveller-avatar ${stats ? 'ready' : ''}`}>
           <Avatar
             userId={userId ?? ''}
             displayName={stats?.user.displayName ?? '?'}
@@ -57,18 +60,22 @@ export function TravellerPage() {
           />
         </div>
         <h1>{stats?.user.displayName ?? ' '}</h1>
-        {stats && <span className="muted">@{stats.user.username}</span>}
-        {!!stats?.sharedTrips && (
-          <span className="traveller-shared">
-            {plural(stats.sharedTrips, 'reis samen', 'reizen samen')}
-          </span>
-        )}
-        {!!stats?.ongoing && (
-          <span className="stats-ongoing">
-            <span className="stats-ongoing-dot" />
-            {stats.ongoing === 1 ? 'onderweg' : `${stats.ongoing}× onderweg`}
-          </span>
-        )}
+        <span className="muted traveller-handle">{stats ? `@${stats.user.username}` : ' '}</span>
+        {/* Holds its line whether or not there is a chip to put in it, so the
+            page below does not jump when the numbers land. */}
+        <div className="traveller-chips">
+          {!!stats?.sharedTrips && (
+            <span className="traveller-shared">
+              {plural(stats.sharedTrips, 'reis samen', 'reizen samen')}
+            </span>
+          )}
+          {!!stats?.ongoing && (
+            <span className="stats-ongoing">
+              <span className="stats-ongoing-dot" />
+              {stats.ongoing === 1 ? 'onderweg' : `${stats.ongoing}× onderweg`}
+            </span>
+          )}
+        </div>
       </header>
 
       {!error && (
@@ -79,7 +86,7 @@ export function TravellerPage() {
           </section>
           {/* Out on the page rather than inside the panel: it is a list of
               places to go, like the travellers list, not another statistic. */}
-          {stats && <RecentTrips trips={stats.recent} />}
+          {stats && <RecentTrips trips={stats.recent} who={stats.user.displayName} />}
         </>
       )}
     </main>

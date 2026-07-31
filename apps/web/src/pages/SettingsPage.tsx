@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { isNativeApp, openExternal, resetOnboarding } from '../lib/native';
 import { api, ApiError, fetchBlobUrl } from '../api/client';
+import { CHANGELOG } from '../lib/changelog';
 import { AirportPrefs } from '../components/AirportPrefs';
 import { AvatarCrop } from '../components/AvatarCrop';
 import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
@@ -1297,6 +1298,9 @@ function Collapsible({
 function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
   const tapsRef = useRef(0);
   const [hint, setHint] = useState<string | null>(null);
+  const [showLog, setShowLog] = useState(false);
+
+  if (showLog) return <ChangelogPanel onBack={() => setShowLog(false)} />;
 
   // Tap the version 7× to reveal the hidden Ontwikkelaar tab (Android-style).
   const tapVersion = () => {
@@ -1343,12 +1347,72 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
             Android-app (APK) downloaden <Icon name="chevron-right" size={14} />
           </a>
         </li>
+        <li>
+          <a
+            href="https://github.com/Marukiee/MarkMySteps/blob/main/docs/DEPLOY.md"
+            target="_blank"
+            rel="noreferrer"
+            className="ext-link"
+          >
+            Zet gemakkelijk een eigen MarkMySteps server op{' '}
+            <Icon name="chevron-right" size={14} />
+          </a>
+        </li>
+        <li>
+          <button type="button" className="ext-link" onClick={() => setShowLog(true)}>
+            Wat is er nieuw <Icon name="chevron-right" size={14} />
+          </button>
+        </li>
       </ul>
       {/* Without a server, this is also the answer to "how do I get back?" —
           so it lives where you would go looking for it. */}
       {isLocalMode() && <ServerSteps />}
       {isNativeApp() && <UpdateCheck />}
       {hint && <span className="muted">{hint}</span>}
+    </section>
+  );
+}
+
+/**
+ * What changed, most recent first.
+ *
+ * A release note is a list of moments, so it is drawn as one: a line down the
+ * side, a dot per entry, and the entries arriving one after another rather than
+ * all at once.
+ */
+function ChangelogPanel({ onBack }: { onBack: () => void }) {
+  return (
+    <section className="card settings-card changelog">
+      <button type="button" className="changelog-back" onClick={onBack}>
+        <Icon name="chevron-left" size={16} />
+        Over
+      </button>
+      <h2>Wat is er nieuw</h2>
+      <ol className="changelog-list">
+        {CHANGELOG.map((entry, i) => (
+          <li key={entry.date + entry.title} style={{ animationDelay: `${i * 90}ms` }}>
+            <span className="changelog-dot" aria-hidden="true" />
+            <div className="changelog-head">
+              <strong>{entry.title}</strong>
+              {entry.highlight && <span className="changelog-new">nieuw</span>}
+              <span className="muted changelog-date">
+                {new Date(entry.date).toLocaleDateString('nl-NL', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </span>
+            </div>
+            <ul className="changelog-items">
+              {entry.items.map((item, j) => (
+                <li key={item} style={{ animationDelay: `${i * 90 + 120 + j * 45}ms` }}>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

@@ -1389,7 +1389,7 @@
   }
 
   .swipe-row:has(.flight-leg):hover .flight-leg-head .mode-menu {
-    transform: translateX(-16px);
+    transform: translateX(-10px);
   }
 }
 

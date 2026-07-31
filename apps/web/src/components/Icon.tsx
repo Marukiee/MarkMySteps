@@ -86,8 +86,11 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
     </>
   ),
+  // Seen from above and symmetrical about its own spine. The banking
+  // silhouette it replaces leaned to one side, which reads as a mistake the
+  // moment it sits in a row of other icons — or gets turned to follow a curve.
   plane: (
-    <path d="M17.8 19.2 16 11l3.5-3.5c.9-.9.9-2.4 0-3.3-.9-.9-2.4-.9-3.3 0L12.7 7.7 4.5 5.9c-.4-.1-.8 0-1 .3l-.4.4c-.4.4-.3 1 .1 1.3L9 12l-2.5 2.5H4l-1 1 3 1.5L7.5 21l1-1v-2.5L11 15l3.9 5.8c.3.4.9.5 1.3.1l.4-.4c.3-.3.4-.6.2-1Z" />
+    <path d="M12 2c1.1 0 1.8 1.5 1.8 3.4v3.3l7.7 4.5v2.2l-7.7-2.4v4.2l2.8 1.9v1.9L12 19.9l-4.6 1.1v-1.9l2.8-1.9v-4.2L2.5 15.4v-2.2l7.7-4.5V5.4C10.2 3.5 10.9 2 12 2Z" />
   ),
   car: (
     <>
@@ -138,11 +141,8 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="m15.5 8.5-2 5-5 2 2-5Z" />
     </>
   ),
-  // Distance covered. A car said one mode of travel and a ruler said a straight
-  // line on a desk; what the number measures is the way from where you set off
-  // to where you ended up. Two points and the road between them, nothing else.
-  // A measure between two ends, the way a ruler reads — the two dots and a
-  // dashed curve between them were a lot of shapes for "how far".
+  // A measure between two ends, the way a ruler reads — two dots joined by a
+  // dashed curve were a lot of shapes for "how far".
   distance: (
     <>
       <path d="M4 6v12" />
@@ -250,21 +250,16 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M12 17h.01" />
     </>
   ),
-  // Location, over and over: a pin with two arrows going round it. "Always
-  // allow" is not a bigger permission than "while using", it is a repeating
-  // one, and that is what the ring says.
   bolt: <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5Z" />,
-  // The pin from `pin`, drawn small rather than scaled: scaling an inner group
-  // scales its stroke with it, and the pin came out a hairline inside arrows
-  // twice its weight.
+  // Location, again and again: the pin you already know, with the small
+  // repeat badge beside it. A ring drawn AROUND the pin kept colliding with it
+  // at this size — the badge sits clear of it and says the same thing.
   'location-always': (
     <>
-      <path d="M15.4 10.9c0 3.4-3.4 6.4-3.4 6.4s-3.4-3-3.4-6.4a3.4 3.4 0 0 1 6.8 0Z" />
-      <circle cx="12" cy="10.7" r="1.2" />
-      <path d="M16.7 3.9A9.4 9.4 0 0 1 16.7 20.1" />
-      <path d="m17.3 16.6-.6 3.5-3.5-.6" />
-      <path d="M7.3 20.1A9.4 9.4 0 0 1 7.3 3.9" />
-      <path d="m6.7 7.4.6-3.5 3.5.6" />
+      <path d="M16.6 9.6c0 4.3-5.3 8.6-5.3 8.6S6 13.9 6 9.6a5.3 5.3 0 0 1 10.6 0Z" />
+      <circle cx="11.3" cy="9.5" r="2" />
+      <path d="M20.4 15.8A3.4 3.4 0 1 1 16.7 15.4" />
+      <path d="m17.9 15.9 2.5-.1.1 2.5" />
     </>
   ),
   sun: (

@@ -8,8 +8,8 @@
    soft rim mask is a circle, so a wide, short box cut the zoomed globe off
    straight across the top and the bottom. */
 .onb-globe-sm {
-  width: min(58vw, 210px);
-  height: min(58vw, 210px);
+  width: min(70vw, 260px);
+  height: min(70vw, 260px);
   max-height: none;
   margin-bottom: 0;
 }
