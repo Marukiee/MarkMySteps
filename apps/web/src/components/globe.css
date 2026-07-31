@@ -62,6 +62,27 @@
   z-index: 2;
 }
 
+/* On the site the hero runs right up under the nav bar, so the map reads as
+   something the page is standing on rather than a panel with a gap above it.
+   The app is untouched: there the globe already meets the status bar. */
+html:not(.native-app) .globe-backdrop {
+  margin-top: -1.5rem;
+}
+
+/* Zoomed in, the sphere is wider than the hero and was being cut off dead
+   straight down both sides. It dissolves instead, the way the bottom already
+   does. Only the sides: the top edge now sits against the bar. */
+html:not(.native-app) .globe-backdrop canvas {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 14%,
+    #000 86%,
+    transparent
+  );
+  mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+}
+
 /* The canvas fills the hero; the sphere is drawn centred inside it and
    everything around it stays transparent, so no mask is needed to hide a
    rectangle (an old mask cut the sphere itself on wide screens). */

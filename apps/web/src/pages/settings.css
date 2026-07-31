@@ -806,18 +806,41 @@
   align-self: flex-start;
 }
 
+/* Equal columns, so the one thumb that slides between them fits all three. */
+.theme-choice.pill-switch {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+}
+
 .theme-opt {
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
   font-weight: 600;
   font-size: 0.88rem;
   color: var(--ink-faint);
-  transition: all 0.15s var(--ease);
+  transition: color 0.15s var(--ease), background 0.15s var(--ease),
+    transform 0.15s var(--ease);
+}
+
+.theme-opt:not(.active):hover {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.theme-opt:not(.active):active {
+  transform: translateY(0) scale(0.97);
 }
 
 .theme-opt.active {
-  background: var(--paper-raised);
   color: var(--ink);
+}
+
+/* The wrapping variants have no room for a moving thumb, so there the pill
+   itself still lights up. */
+.theme-choice-wrap .theme-opt.active {
+  background: var(--paper-raised);
   box-shadow: var(--shadow-s);
 }
 

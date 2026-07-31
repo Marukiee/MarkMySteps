@@ -3,10 +3,14 @@
    medallions that now have something moving in them. */
 
 /* The planning slide carries a globe AND its itinerary, so the globe gives up
-   some of its height to make room for the list under it. */
+   some of its height to make room for the list under it.
+   Square on purpose: the canvas draws the sphere to the SMALLER side and the
+   soft rim mask is a circle, so a wide, short box cut the zoomed globe off
+   straight across the top and the bottom. */
 .onb-globe-sm {
-  height: 26vh;
-  max-height: 210px;
+  width: min(58vw, 210px);
+  height: min(58vw, 210px);
+  max-height: none;
   margin-bottom: 0;
 }
 

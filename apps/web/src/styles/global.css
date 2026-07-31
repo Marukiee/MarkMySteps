@@ -58,6 +58,43 @@ select {
     border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
 
+/* A switch made of pills: ONE raised thumb that moves between the options,
+   the way the login tabs do, instead of a background appearing under whichever
+   option happens to be on. The container sets --n (how many options) and --i
+   (which one is on); everything else follows from that. */
+.pill-switch {
+  position: relative;
+  --pill-gap: 4px;
+  --pill-pad: 4px;
+}
+
+.pill-switch::before {
+  content: '';
+  position: absolute;
+  top: var(--pill-pad);
+  bottom: var(--pill-pad);
+  left: var(--pill-pad);
+  width: calc(
+    (100% - 2 * var(--pill-pad) - (var(--n) - 1) * var(--pill-gap)) / var(--n)
+  );
+  border-radius: 999px;
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-s);
+  transition: transform 0.32s var(--ease), opacity 0.2s var(--ease);
+  transform: translateX(calc(var(--i) * (100% + var(--pill-gap))));
+}
+
+/* Nothing is on (e.g. you are inside a trip, which is none of the tabs), so
+   there is nothing for the thumb to sit under. */
+.pill-switch.pill-switch-off::before {
+  opacity: 0;
+}
+
+.pill-switch > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* Every input eases into its accent focus glow (not just .field inputs), so the
    border never snaps to orange in one frame. */
 input:focus-visible,

@@ -23,11 +23,6 @@ const PLAN_STOPS: { name: string; at: [number, number]; nights: number; mode: st
 /** The route as the planner lists it, for the slide's own itinerary. */
 export const PLAN_ROUTE = PLAN_STOPS;
 
-/** The names the globe writes beside each stop as it arrives. */
-export const PLAN_STOP_NAMES: Record<string, string[]> = {
-  'p-route': PLAN_STOPS.map((s) => s.name),
-};
-
 export const PLAN_TRIP = [
   {
     id: 'p-route',

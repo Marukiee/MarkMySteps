@@ -22,10 +22,19 @@ export function PlanItinerary({
 }: {
   stops: { name: string; nights: number; mode: string }[];
 }) {
+  // The last two swap places once the list has landed: dragging a stop into a
+  // different order is half of what planning a route is, and a list that only
+  // appeared did not say that.
+  const swapA = stops.length - 2;
+  const swapB = stops.length - 1;
   return (
     <ul className="onb-plan" aria-hidden="true">
       {stops.map((stop, i) => (
-        <li key={stop.name} style={{ animationDelay: `${0.12 + i * 0.13}s` }}>
+        <li
+          key={stop.name}
+          className={i === swapA ? 'onb-plan-down' : i === swapB ? 'onb-plan-up' : ''}
+          style={{ animationDelay: `${0.12 + i * 0.13}s` }}
+        >
           <span className="onb-plan-num">{i + 1}</span>
           <span className="onb-plan-name">{stop.name}</span>
           <span className="onb-plan-nights">{stop.nights} nachten</span>
@@ -112,31 +121,39 @@ export function VisualOffline() {
       <span className="shot-battery">
         <span className="shot-battery-fill" />
         <span className="shot-battery-cap" />
+        <span className="shot-battery-bolt">
+          <Icon name="bolt" size={16} />
+        </span>
       </span>
       <span className="shot-clock">
-        <span className="shot-clock-hand" />
+        <span className="shot-clock-hand shot-clock-hour" />
+        <span className="shot-clock-hand shot-clock-minute" />
         <span className="shot-clock-pin" />
       </span>
     </span>
   );
 }
 
-/** Licht of donker: the same screen, both ways round. */
+/**
+ * Licht of donker: one screen, with the dark one sweeping across it.
+ *
+ * Two halves standing side by side showed the two themes but never the
+ * switch. The dark screen lies exactly over the light one and is revealed from
+ * the left: all light, half and half, all dark, and back again.
+ */
 export function VisualTheme() {
+  const screen = (
+    <>
+      <span className="shot-mini-bar" />
+      <span className="shot-mini-card" />
+      <span className="shot-mini-line" />
+      <span className="shot-mini-line short" />
+    </>
+  );
   return (
     <span className="onb-shot onb-shot-theme" aria-hidden="true">
-      <span className="shot-half shot-half-light">
-        <span className="shot-mini-bar" />
-        <span className="shot-mini-card" />
-        <span className="shot-mini-line" />
-        <span className="shot-mini-line short" />
-      </span>
-      <span className="shot-half shot-half-dark">
-        <span className="shot-mini-bar" />
-        <span className="shot-mini-card" />
-        <span className="shot-mini-line" />
-        <span className="shot-mini-line short" />
-      </span>
+      <span className="shot-screen shot-screen-light">{screen}</span>
+      <span className="shot-screen shot-screen-dark">{screen}</span>
     </span>
   );
 }
@@ -150,17 +167,19 @@ export function VisualTheme() {
 export function VisualAirports() {
   return (
     <span className="onb-fly" aria-hidden="true">
-      <svg viewBox="0 0 260 56" className="fly-svg">
-        <path className="fly-track" d="M18 44 C 80 44, 130 16, 242 14" fill="none" />
+      <svg viewBox="0 0 260 64" className="fly-svg">
+        <path className="fly-track" d="M18 52 C 90 52, 140 12, 242 8" fill="none" />
         {/* Both airports stand there from the start: you have them before you
             fly, and one appearing halfway read as the plane creating it. */}
-        <circle className="fly-dot" cx="18" cy="44" r="5" />
-        <circle className="fly-dot" cx="242" cy="14" r="5" />
-        {/* The app's own plane glyph. Centred on the origin and turned so its
-            nose runs along +x, which is what the track's angles assume. */}
+        <circle className="fly-dot" cx="18" cy="52" r="5" />
+        <circle className="fly-dot" cx="242" cy="8" r="5" />
+        {/* A plane seen from above, drawn symmetrically about its own spine —
+            the app's banking silhouette leans, which reads as a mistake once
+            it is being turned into the angle of a curve. Nose up in its own
+            coordinates, turned a quarter so it runs along +x. */}
         <g className="fly-plane">
-          <g transform="rotate(45) scale(0.85) translate(-12 -12)">
-            <path d="M17.8 19.2 16 11l3.5-3.5c.9-.9.9-2.4 0-3.3-.9-.9-2.4-.9-3.3 0L12.7 7.7 4.5 5.9c-.4-.1-.8 0-1 .3l-.4.4c-.4.4-.3 1 .1 1.3L9 12l-2.5 2.5H4l-1 1 3 1.5L7.5 21l1-1v-2.5L11 15l3.9 5.8c.3.4.9.5 1.3.1l.4-.4c.3-.3.4-.6.2-1Z" />
+          <g transform="rotate(90) translate(-12 -12)">
+            <path d="M12 1.6c1.05 0 1.7 1.5 1.7 3.4v3.6l8.6 5v2.4l-8.6-2.8v4.4l3.1 2.1v2l-4.8-1.5-4.8 1.5v-2l3.1-2.1v-4.4l-8.6 2.8v-2.4l8.6-5V5c0-1.9.65-3.4 1.7-3.4Z" />
           </g>
         </g>
       </svg>
@@ -208,7 +227,7 @@ export function VisualStart() {
   return (
     <span className="onb-shot onb-shot-start" aria-hidden="true">
       <span className="shot-field">
-        <span className="shot-field-label">Titel</span>
+        <span className="shot-field-label">Naam</span>
         <span className="shot-field-box">
           <span className="shot-typed">Interrail</span>
           <span className="shot-caret" />

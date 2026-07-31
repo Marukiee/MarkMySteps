@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { CSSProperties, useEffect, useRef, useState } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { Icon, IconName } from './Icon';
 import { LogoMark } from './Logo';
@@ -19,17 +19,33 @@ export function TopBar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuClosing, setMenuClosing] = useState(false);
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
   const menuRef = useRef<HTMLDivElement>(null);
+  const { pathname } = useLocation();
+
+  // Which tab the sliding thumb sits under. Inside a trip none of them is on,
+  // and the thumb steps aside rather than parking under an unrelated tab.
+  const navIndex = pathname === '/' ? 0 : pathname.startsWith('/friends') ? 1 : pathname.startsWith('/settings') ? 2 : -1;
+  const themeIndex = THEMES.findIndex((t) => t.id === theme);
+
+  /** Shrinks back into the avatar before it goes, rather than blinking out. */
+  const closeMenu = () => {
+    setMenuClosing(true);
+    window.setTimeout(() => {
+      setMenuOpen(false);
+      setMenuClosing(false);
+    }, 140);
+  };
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen || menuClosing) return;
     const close = (e: Event) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+      if (!menuRef.current?.contains(e.target as Node)) closeMenu();
     };
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
-  }, [menuOpen]);
+  }, [menuOpen, menuClosing]);
 
   return (
     <header className="topbar">
@@ -38,7 +54,10 @@ export function TopBar() {
         <span>MarkMySteps</span>
       </Link>
 
-      <nav className="topbar-nav">
+      <nav
+        className={`topbar-nav pill-switch ${navIndex < 0 ? 'pill-switch-off' : ''}`}
+        style={{ '--n': 3, '--i': Math.max(0, navIndex) } as CSSProperties}
+      >
         <NavLink to="/" end>
           <Icon name="compass" size={16} />
           Reizen
@@ -55,7 +74,12 @@ export function TopBar() {
 
       <div className="topbar-right">
         {/* Light / system / dark, right where you'd reach for it. */}
-        <div className="topbar-theme" role="group" aria-label="Thema">
+        <div
+          className="topbar-theme pill-switch"
+          role="group"
+          aria-label="Thema"
+          style={{ '--n': 3, '--i': Math.max(0, themeIndex) } as CSSProperties}
+        >
           {THEMES.map((t) => (
             <button
               key={t.id}
@@ -77,7 +101,7 @@ export function TopBar() {
         <div className="topbar-user" ref={menuRef}>
           <button
             className="topbar-avatar-btn"
-            onClick={() => setMenuOpen((v) => !v)}
+            onClick={() => (menuOpen && !menuClosing ? closeMenu() : setMenuOpen(true))}
             aria-label="Accountmenu"
           >
             {user && (
@@ -91,14 +115,14 @@ export function TopBar() {
           </button>
 
           {menuOpen && (
-            <div className="topbar-menu card fade-in">
+            <div className={`topbar-menu card ${menuClosing ? 'closing' : ''}`}>
               <div className="topbar-menu-head">
                 <strong>{user?.displayName}</strong>
                 <span className="muted">@{user?.username}</span>
               </div>
               <button
                 onClick={() => {
-                  setMenuOpen(false);
+                  closeMenu();
                   navigate('/settings');
                 }}
               >

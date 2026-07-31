@@ -567,14 +567,36 @@
   font-size: 0.9rem;
   color: var(--ink); /* overlay sets #fff; force readable text on the white menu */
   text-shadow: none;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease),
+    transform 0.15s var(--ease);
 }
 
+/* Leans towards the pointer and warms up, rather than a grey block appearing
+   under it. */
 .trip-menu button:hover {
-  background: var(--paper-sunken);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  transform: translateX(3px);
+}
+
+.trip-menu button:active {
+  transform: translateX(3px) scale(0.98);
 }
 
 .trip-menu button.trip-menu-danger {
   color: #b3402a;
+}
+
+.trip-menu button.trip-menu-danger:hover {
+  background: rgb(179 64 42 / 0.12);
+  color: #b3402a;
+}
+
+/* The segment inside the menu is a switch, not a list item: it keeps its own
+   centred, untranslated behaviour. */
+.trip-menu .trip-menu-seg button:hover {
+  background: var(--accent-soft);
+  transform: none;
 }
 
 .trip-menu.closing {

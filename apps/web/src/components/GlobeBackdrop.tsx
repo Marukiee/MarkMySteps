@@ -43,7 +43,6 @@ export function GlobeBackdrop({
   trips,
   noTour,
   solo,
-  stopLabels,
   selfLocation,
 }: {
   trips: Trip[];
@@ -52,8 +51,6 @@ export function GlobeBackdrop({
    *  slide is on screen. The onboarding has no six seconds to spend on an
    *  overview of a globe with a single route on it. */
   solo?: boolean;
-  /** Per trip id, a name for each of its stops, drawn as the stop arrives. */
-  stopLabels?: Record<string, string[]>;
   /** [lng, lat] of your own live position, when you've opted to show it here. */
   selfLocation?: [number, number] | null;
 }) {
@@ -65,8 +62,6 @@ export function GlobeBackdrop({
   noTourRef.current = noTour;
   const soloRef = useRef(solo);
   soloRef.current = solo;
-  const stopLabelsRef = useRef(stopLabels);
-  stopLabelsRef.current = stopLabels;
   const selfRef = useRef(selfLocation);
   selfRef.current = selfLocation;
 
@@ -944,38 +939,6 @@ export function GlobeBackdrop({
           ctx!.stroke();
         }
 
-        // The names of the places, rising into view with the dot they belong
-        // to. A second pass rather than part of the loop above: a stop that
-        // already carries a full-size dot is skipped there, and skipping the
-        // name too would leave the ends of the route anonymous.
-        const names = stopLabelsRef.current?.[trip.id];
-        if (names) {
-          ctx!.font = `600 ${11 * dpr}px 'Inter Variable', sans-serif`;
-          ctx!.textAlign = 'center';
-          ctx!.textBaseline = 'bottom';
-          for (let i = 0; i < trip.stops.length; i++) {
-            const name = names[i];
-            const sp = trip.stops[i]!;
-            if (!name) continue;
-            if (center && distance(center, sp) > 90) continue;
-            const pr = projection(sp);
-            if (!pr) continue;
-            const local = Math.max(0, Math.min(1, (head - i * STEP) / WINDOW));
-            if (local <= 0.12) continue;
-            const rise = Math.min(1, (local - 0.12) / 0.5);
-            ctx!.globalAlpha = baseAlpha * rise;
-            const ty = pr[1] - 9 * dpr * dotScale - (1 - rise) * 7 * dpr;
-            // Outlined first: a name has to stay readable over land, sea and
-            // the route's own line.
-            ctx!.lineWidth = 3 * dpr;
-            ctx!.strokeStyle = dark ? 'rgba(14,18,24,0.85)' : 'rgba(255,255,255,0.92)';
-            ctx!.strokeText(name, pr[0], ty);
-            ctx!.fillStyle = dark ? '#eaf0f8' : '#1d2430';
-            ctx!.fillText(name, pr[0], ty);
-          }
-          ctx!.textAlign = 'start';
-          ctx!.textBaseline = 'alphabetic';
-        }
         ctx!.globalAlpha = 1;
       }
 
@@ -1459,9 +1422,13 @@ export function GlobeBackdrop({
       // Onboarding: a few names float over the routes. Homepage: only the active
       // trip's name shows (tap a dot to reveal it, tap the card to open it).
       const maxLabels = Math.max(2, Math.round(2 + (scale - 1) * 3));
-      const showIds = noTourRef.current
-        ? new Set(frontFacing.slice(0, maxLabels).map((t) => t.id))
-        : new Set(activeId ? [activeId] : []);
+      const showIds = soloRef.current
+        ? // A slide about the route has no use for a card naming the sample
+          // trip: it lands on top of the very line it is naming.
+          new Set<string>()
+        : noTourRef.current
+          ? new Set(frontFacing.slice(0, maxLabels).map((t) => t.id))
+          : new Set(activeId ? [activeId] : []);
       labelRects = [];
       // Rects already drawn this frame — bigger trips (drawn first) win; a name
       // that would overlap one is suppressed so labels never pile up unreadably.

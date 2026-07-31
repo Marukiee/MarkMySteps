@@ -38,6 +38,7 @@ export type IconName =
   | 'help'
   | 'question'
   | 'search'
+  | 'bolt'
   | 'location-always'
   | 'sun'
   | 'moon'
@@ -252,18 +253,18 @@ const PATHS: Record<IconName, ReactNode> = {
   // Location, over and over: a pin with two arrows going round it. "Always
   // allow" is not a bigger permission than "while using", it is a repeating
   // one, and that is what the ring says.
+  bolt: <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5Z" />,
+  // The pin from `pin`, drawn small rather than scaled: scaling an inner group
+  // scales its stroke with it, and the pin came out a hairline inside arrows
+  // twice its weight.
   'location-always': (
     <>
-      {/* The pin from `pin`, at half size so the ring has room. Drawn small
-          rather than redrawn: it has to read as the same permission. */}
-      <g transform="translate(12 12) scale(0.5) translate(-12 -12)">
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-        <circle cx="12" cy="10" r="3" />
-      </g>
-      <path d="M16.75 3.77A9.5 9.5 0 0 1 16.75 20.23" />
-      <path d="m17.35 16.63-.6 3.6-3.6-.6" />
-      <path d="M7.25 20.23A9.5 9.5 0 0 1 7.25 3.77" />
-      <path d="m6.65 7.37.6-3.6 3.6.6" />
+      <path d="M15.4 10.9c0 3.4-3.4 6.4-3.4 6.4s-3.4-3-3.4-6.4a3.4 3.4 0 0 1 6.8 0Z" />
+      <circle cx="12" cy="10.7" r="1.2" />
+      <path d="M16.7 3.9A9.4 9.4 0 0 1 16.7 20.1" />
+      <path d="m17.3 16.6-.6 3.5-3.5-.6" />
+      <path d="M7.3 20.1A9.4 9.4 0 0 1 7.3 3.9" />
+      <path d="m6.7 7.4.6-3.5 3.5.6" />
     </>
   ),
   sun: (

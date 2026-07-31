@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
+import { CSSProperties, FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -196,7 +196,10 @@ function DisplaySection() {
       <h2>Weergave</h2>
       <div className="field">
         <label>Thema</label>
-        <div className="theme-choice">
+        <div
+          className="theme-choice pill-switch"
+          style={{ '--n': themes.length, '--i': Math.max(0, themes.findIndex((t) => t.id === theme)) } as CSSProperties}
+        >
           {themes.map((t) => (
             <button
               key={t.id}
@@ -215,7 +218,10 @@ function DisplaySection() {
       </div>
       <div className="field">
         <label>Reiskaarten op de homepage</label>
-        <div className="theme-choice">
+        <div
+          className="theme-choice pill-switch"
+          style={{ '--n': cardSizes.length, '--i': Math.max(0, cardSizes.findIndex((c) => c.id === cardSize)) } as CSSProperties}
+        >
           {cardSizes.map((c) => (
             <button
               key={c.id}

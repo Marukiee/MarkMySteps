@@ -33,10 +33,14 @@
   color: var(--accent);
 }
 
-/* Nav pills, centered group. */
+/* Nav pills, centered group. Equal columns so the thumb that slides between
+   them is one width rather than three. */
 .topbar-nav {
-  display: flex;
-  gap: 0.2rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  --pill-gap: 3px;
+  --pill-pad: 3px;
   background: var(--paper-sunken);
   padding: 3px;
   border-radius: 999px;
@@ -45,27 +49,36 @@
 .topbar-nav a {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
   padding: 0.4rem 1rem;
   border-radius: 999px;
   font-weight: 600;
   font-size: 0.9rem;
+  white-space: nowrap;
   color: var(--ink-faint);
-  transition: all 0.18s var(--ease);
+  transition: color 0.18s var(--ease), background 0.18s var(--ease),
+    transform 0.18s var(--ease);
 }
 
 .topbar-nav a svg {
   opacity: 0.75;
 }
 
-.topbar-nav a:hover {
-  color: var(--ink);
+/* Warms up and lifts a hair under the pointer; the tab that is ON is the one
+   the thumb has slid under, so hover never has to pretend to be it. */
+.topbar-nav a:not(.active):hover {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.topbar-nav a:not(.active):active {
+  transform: translateY(0) scale(0.97);
 }
 
 .topbar-nav a.active {
-  background: var(--paper-raised);
   color: var(--ink);
-  box-shadow: var(--shadow-s);
 }
 
 .topbar-nav a.active svg {
@@ -82,8 +95,11 @@
 
 /* Light / system / dark segmented control. */
 .topbar-theme {
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: repeat(3, 30px);
   gap: 2px;
+  --pill-gap: 2px;
+  --pill-pad: 3px;
   padding: 3px;
   border-radius: 999px;
   background: var(--paper-sunken);
@@ -99,14 +115,18 @@
   transition: all 0.18s var(--ease);
 }
 
-.topbar-theme button:hover {
-  color: var(--ink);
+.topbar-theme button:not(.active):hover {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.topbar-theme button:not(.active):active {
+  transform: translateY(0) scale(0.94);
 }
 
 .topbar-theme button.active {
-  background: var(--paper-raised);
   color: var(--accent-ink);
-  box-shadow: var(--shadow-s);
 }
 
 .topbar-user {
@@ -138,6 +158,28 @@
   display: grid;
   border-radius: var(--radius-m);
   box-shadow: var(--shadow-m);
+  /* Grows out of the avatar it belongs to, and shrinks back into it. It used
+     to arrive with a fade and then simply cease to exist. */
+  transform-origin: top right;
+  animation: topbarMenuIn 0.16s var(--ease);
+}
+
+.topbar-menu.closing {
+  animation: topbarMenuOut 0.14s var(--ease) forwards;
+}
+
+@keyframes topbarMenuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.82) translateY(-4px);
+  }
+}
+
+@keyframes topbarMenuOut {
+  to {
+    opacity: 0;
+    transform: scale(0.82) translateY(-4px);
+  }
 }
 
 .topbar-menu-head {
@@ -157,13 +199,28 @@
   border-radius: 8px;
   font-weight: 550;
   font-size: 0.92rem;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease),
+    transform 0.15s var(--ease);
 }
 
+/* Leans towards the pointer and warms up, rather than a grey block appearing
+   under it. */
 .topbar-menu button:hover {
-  background: var(--paper-sunken);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  transform: translateX(3px);
+}
+
+.topbar-menu button:active {
+  transform: translateX(3px) scale(0.98);
 }
 
 .topbar-menu-danger {
+  color: #b3402a;
+}
+
+.topbar-menu button.topbar-menu-danger:hover {
+  background: rgb(179 64 42 / 0.12);
   color: #b3402a;
 }
 

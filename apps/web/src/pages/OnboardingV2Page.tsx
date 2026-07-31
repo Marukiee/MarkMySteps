@@ -1,5 +1,11 @@
 import { registerPlugin } from '@capacitor/core';
-import { ReactNode, TouchEvent as ReactTouchEvent, useEffect, useState } from 'react';
+import {
+  CSSProperties,
+  ReactNode,
+  TouchEvent as ReactTouchEvent,
+  useEffect,
+  useState,
+} from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { AirportPrefs } from '../components/AirportPrefs';
@@ -24,7 +30,7 @@ import {
 import { getLocalName, isLocalMode, setLocalName } from '../lib/localMode';
 import { isNativeApp, markOnboarded } from '../lib/native';
 import { getThemeId, setThemeId, ThemeId } from '../lib/prefs';
-import { PLAN_ROUTE, PLAN_STOP_NAMES, PLAN_TRIP, SAMPLE_TRIPS } from './onboardingSamples';
+import { PLAN_ROUTE, PLAN_TRIP, SAMPLE_TRIPS } from './onboardingSamples';
 import './onboarding.css';
 import './onboarding2.css';
 
@@ -193,12 +199,13 @@ export function OnboardingV2Page() {
         reis om ‘m te openen met je tijdlijn en foto’s.
       </p>
     </div>,
-    // The route builds itself on the same globe the app uses: Málaga, Madrid,
-    // Barcelona, Turijn, Parijs, each name popping up as its stop lands, with
-    // the itinerary writing itself underneath in the planner's own shape.
+    // The route builds itself on the same globe the app uses, with the
+    // itinerary writing itself underneath in the planner's own shape — and a
+    // stop being dragged into a different place in it, because that is the
+    // other half of planning.
     <div className="onb-feature onb-globe-slide onb-plan-slide" key="plan">
       <div className="onb-globe onb-globe-sm" aria-hidden="true">
-        <GlobeBackdrop trips={PLAN_TRIP} solo stopLabels={PLAN_STOP_NAMES} />
+        <GlobeBackdrop trips={PLAN_TRIP} solo />
       </div>
       <PlanItinerary stops={PLAN_ROUTE} />
       <h1>Plan je route</h1>
@@ -234,7 +241,12 @@ export function OnboardingV2Page() {
       <VisualTheme />
       <h1>Licht of donker?</h1>
       <p className="muted">Kies je thema. Je kunt dit later altijd wijzigen in Instellingen.</p>
-      <div className="theme-choice onb-theme-choice">
+      <div
+        className="theme-choice onb-theme-choice pill-switch"
+        style={
+          { '--n': 3, '--i': ['system', 'light', 'dark'].indexOf(theme) } as CSSProperties
+        }
+      >
         {(['system', 'light', 'dark'] as ThemeId[]).map((t) => (
           <button
             key={t}
