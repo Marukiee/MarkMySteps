@@ -1,159 +1,106 @@
-import { ReactNode } from 'react';
-import { Icon, IconName } from './Icon';
+import { Icon } from './Icon';
 import './onboardingshots.css';
 
 /**
- * Miniature app screens for the onboarding tour.
+ * The medallions on the onboarding slides, with something happening in them.
  *
- * Built out of the app's own tokens rather than pasted-in screenshots: a
- * screenshot is out of date the moment a colour or a radius changes, is wrong
- * in whichever theme it was not taken in, and has to ship as an asset per
- * screen size. These are the real surfaces at a smaller scale, so they follow
- * light/dark, the accent, and every later change to the design by themselves.
+ * Same shape and size as the icon that used to sit there, so the tour keeps the
+ * layout it had. What is inside is built out of the app's own parts — the
+ * numbered pins from the map, the photo grid from a day, the accent — and it
+ * plays once as the slide arrives. A slide is remounted per step, so each one
+ * starts from the beginning every time it is reached.
  */
-export function Phone({ children }: { children: ReactNode }) {
+
+/** Plan je route: pins landing one after another with the line drawn between. */
+export function VisualRoute() {
   return (
-    <div className="shot-phone" aria-hidden="true">
-      <div className="shot-phone-screen">{children}</div>
-    </div>
+    <span className="onb-visual onb-vis">
+      <svg viewBox="0 0 100 100" className="vis-route" aria-hidden="true">
+        <path
+          className="vis-route-line"
+          d="M22 76 C 36 68, 40 50, 52 46 S 74 38, 80 24"
+          fill="none"
+        />
+        <circle className="vis-pin vis-pin-1" cx="22" cy="76" r="8" />
+        <circle className="vis-pin vis-pin-2" cx="52" cy="46" r="7" />
+        <circle className="vis-pin vis-pin-3" cx="80" cy="24" r="8" />
+      </svg>
+    </span>
   );
 }
 
-/** Head of a mock screen: the app's top bar, with a title and a back chevron. */
-function ShotBar({ title, action }: { title: string; action?: IconName }) {
+/** Je dagen: the photo grid of a day filling in, with the note under it. */
+export function VisualDays() {
   return (
-    <div className="shot-bar">
-      <Icon name="chevron-left" size={13} />
-      <span>{title}</span>
-      {action && <Icon name={action} size={13} />}
-    </div>
+    <span className="onb-visual onb-vis">
+      <span className="vis-days" aria-hidden="true">
+        <span className="vis-tile vis-tile-1" />
+        <span className="vis-tile vis-tile-2" />
+        <span className="vis-tile vis-tile-3" />
+        <span className="vis-tile vis-tile-4" />
+        <span className="vis-note" />
+      </span>
+    </span>
   );
 }
 
-const PLAN_STOPS: { name: string; nights: string; to: IconName | null }[] = [
-  { name: 'Amsterdam', nights: '2 nachten', to: 'train' },
-  { name: 'Berlijn', nights: '3 nachten', to: 'train' },
-  { name: 'Praag', nights: '2 nachten', to: 'plane' },
-  { name: 'Wenen', nights: '4 nachten', to: null },
-];
-
-/** The route planner: stops, nights, and how you get from one to the next. */
-export function ShotPlanner() {
+/** Delen: one link, going out to the people who stayed at home. */
+export function VisualShare() {
   return (
-    <Phone>
-      <ShotBar title="Interrail" action="plus" />
-      <div className="shot-body shot-plan">
-        {PLAN_STOPS.map((stop, i) => (
-          <div className="shot-stop" key={stop.name} style={{ animationDelay: `${i * 0.11}s` }}>
-            <span className="shot-stop-pin">{i + 1}</span>
-            <span className="shot-stop-text">
-              <strong>{stop.name}</strong>
-              <small>{stop.nights}</small>
-            </span>
-            {stop.to && (
-              <span className="shot-hop">
-                <Icon name={stop.to} size={11} />
-              </span>
-            )}
-          </div>
-        ))}
-        <div className="shot-total">
-          <Icon name="distance" size={12} /> 1.842 km
-        </div>
-      </div>
-    </Phone>
+    <span className="onb-visual onb-vis">
+      <span className="vis-share" aria-hidden="true">
+        <span className="vis-ripple" />
+        <span className="vis-ripple vis-ripple-2" />
+        <Icon name="share" size={44} />
+      </span>
+    </span>
   );
 }
 
-/** The trip as you look back at it: days, photos, a note you typed. */
-export function ShotTimeline() {
+/** Zuinig en offline: points piling up while there is no signal, then away. */
+export function VisualOffline() {
   return (
-    <Phone>
-      <ShotBar title="Praag" action="camera" />
-      <div className="shot-body shot-timeline">
-        <div className="shot-day">
-          <span className="shot-day-num">4</span> Karelsbrug
-        </div>
-        <div className="shot-photos">
-          {[0, 1, 2].map((i) => (
-            <span key={i} className={`shot-photo shot-photo-${i}`} />
-          ))}
-        </div>
-        <p className="shot-note">Om zes uur op de brug. Helemaal leeg, alleen mist.</p>
-        <div className="shot-day">
-          <span className="shot-day-num">5</span> Naar Wenen
-        </div>
-        <div className="shot-photos shot-photos-wide">
-          {[3, 4].map((i) => (
-            <span key={i} className={`shot-photo shot-photo-${i}`} />
-          ))}
-        </div>
-      </div>
-    </Phone>
+    <span className="onb-visual onb-vis">
+      <span className="vis-offline" aria-hidden="true">
+        <Icon name="cloud-off" size={38} />
+        <span className="vis-buffer">
+          <span />
+          <span />
+          <span />
+        </span>
+      </span>
+    </span>
   );
 }
 
-/** A read-only link for people at home: map, photos, no account needed. */
-export function ShotShare() {
+/** Licht of donker: one disc, both halves of it. */
+export function VisualTheme() {
   return (
-    <Phone>
-      <ShotBar title="Delen" />
-      <div className="shot-body shot-share">
-        <div className="shot-map">
-          <svg viewBox="0 0 140 74" preserveAspectRatio="none">
-            <path
-              className="shot-map-route"
-              d="M14 58 C 40 52, 46 26, 70 24 S 108 30, 126 16"
-              fill="none"
-            />
-            <circle className="shot-map-pin" cx="14" cy="58" r="4" />
-            <circle className="shot-map-pin" cx="70" cy="24" r="3.2" />
-            <circle className="shot-map-pin shot-map-pin-end" cx="126" cy="16" r="4" />
-          </svg>
-        </div>
-        <div className="shot-link">
-          <Icon name="share" size={12} />
-          <span>markmysteps/s/wenen-24</span>
-        </div>
-        <div className="shot-chips">
-          <span>
-            <Icon name="lock" size={10} /> Alleen lezen
-          </span>
-          <span>Geen account</span>
-        </div>
-      </div>
-    </Phone>
+    <span className="onb-visual onb-vis">
+      <span className="vis-theme" aria-hidden="true">
+        <span className="vis-theme-light">
+          <Icon name="sun" size={26} />
+        </span>
+        <span className="vis-theme-dark">
+          <Icon name="moon" size={26} />
+        </span>
+      </span>
+    </span>
   );
 }
 
-/** Tracking while it runs: a point now and then, buffered when there is no signal. */
-export function ShotTracking() {
+/** Je vaste vliegvelden: a plane taking the bow the globe draws. */
+export function VisualAirports() {
   return (
-    <Phone>
-      <ShotBar title="Onderweg" />
-      <div className="shot-body shot-track">
-        <div className="shot-live">
-          <span className="shot-live-dot" />
-          Route bijhouden
-        </div>
-        <div className="shot-rows">
-          <span>
-            Punten vandaag <strong>128</strong>
-          </span>
-          <span>
-            Verbinding <strong className="shot-off">geen</strong>
-          </span>
-          <span>
-            Gebufferd <strong>41</strong>
-          </span>
-          <span>
-            Accu <strong className="shot-ok">zuinig</strong>
-          </span>
-        </div>
-        <div className="shot-hint">
-          <Icon name="cloud-off" size={12} /> Gaat vanzelf omhoog zodra je weer bereik hebt.
-        </div>
-      </div>
-    </Phone>
+    <span className="onb-visual onb-vis">
+      <svg viewBox="0 0 100 100" className="vis-fly" aria-hidden="true">
+        <path className="vis-fly-arc" d="M18 72 Q 50 20, 82 44" fill="none" />
+        <circle className="vis-fly-dot" cx="18" cy="72" r="5" />
+        <circle className="vis-fly-dot vis-fly-dot-2" cx="82" cy="44" r="5" />
+      </svg>
+      <span className="vis-fly-plane">
+        <Icon name="plane" size={22} />
+      </span>
+    </span>
   );
 }

@@ -1564,46 +1564,24 @@
   color: var(--ink);
 }
 
-/* Label on the left, choice on the right. The chevron is ours and sits against
-   the text it belongs to; the native one was pinned to the far right of a wide
-   box with the value stranded at the other end. */
+/* Label above, the app's own chooser below. A native <select> put Android's
+   own grey list on top of the dialog, which belongs to a different app. */
 .dev-pick {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem 0.7rem;
-  border-radius: var(--radius-s);
-  background: var(--paper-sunken);
-  font-size: 0.9rem;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.86rem;
   font-weight: 600;
   color: var(--ink-soft);
 }
 
-.dev-pick-control {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
+.option-picker .trip-picker-btn {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.option-picker .trip-picker-btn > span:first-child {
   color: var(--ink);
-}
-
-.dev-pick-control select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding: 0.35rem 0.15rem 0.35rem 0.5rem;
-  border: none;
-  background: none;
-  color: inherit;
-  font-weight: 700;
-  text-align: right;
-  /* Chrome only honours text-align on the closed select with this. */
-  text-align-last: right;
-}
-
-.dev-pick-control svg {
-  pointer-events: none;
-  color: var(--ink-faint);
 }
 
 .dev-sheet-note {

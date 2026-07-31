@@ -1,18 +1,18 @@
 import { registerPlugin } from '@capacitor/core';
 import { ReactNode, TouchEvent as ReactTouchEvent, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AirportPrefs } from '../components/AirportPrefs';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
 import {
-  Phone,
-  ShotPlanner,
-  ShotShare,
-  ShotTimeline,
-  ShotTracking,
+  VisualAirports,
+  VisualDays,
+  VisualOffline,
+  VisualRoute,
+  VisualShare,
+  VisualTheme,
 } from '../components/OnboardingShots';
 import {
   GalleryPermissions,
@@ -23,6 +23,7 @@ import { getLocalName, isLocalMode, setLocalName } from '../lib/localMode';
 import { isNativeApp, markOnboarded } from '../lib/native';
 import { getThemeId, setThemeId, ThemeId } from '../lib/prefs';
 import { SAMPLE_TRIPS } from './onboardingSamples';
+import './onboarding.css';
 import './onboarding2.css';
 
 /** Our own AOSP location plugin (see MmsLocationPlugin.java). */
@@ -42,26 +43,15 @@ interface MmsLocationPlugin {
 
 const MmsLocation = registerPlugin<MmsLocationPlugin>('MmsLocation');
 
-/** A slide: what it shows, what it says, and anything you can do on it. */
-interface Slide {
-  key: string;
-  /** The picture half. A mock screen, the globe, or the logo. */
-  visual: ReactNode;
-  eyebrow?: string;
-  title: string;
-  body: ReactNode;
-  /** Anything to type, choose or grant. Sits under the copy. */
-  action?: ReactNode;
-}
-
 /**
  * Onboarding, second attempt.
  *
- * The first one explained the app with an icon in a rounded square per slide,
- * which said what the feature was called and nothing about what it looks like.
- * This one shows the screen you are being told about — miniature, live, built
- * from the app's own tokens (see OnboardingShots) rather than screenshots that
- * would be wrong in the other theme and stale by the next release.
+ * The tour it replaces is the shape this one keeps: a medallion, a heading, a
+ * line of copy, dots and a button. What changes is that the medallion does
+ * something, and what it does is drawn from the app — the map's numbered pins
+ * arriving in travel order, the photo grid of a day filling in, a plane taking
+ * the bow the globe draws. An icon in a rounded square named the feature; this
+ * shows the shape you will meet a minute later.
  *
  * Reachable from developer options only, until it replaces the real one.
  */
@@ -69,8 +59,8 @@ export function OnboardingV2Page() {
   const navigate = useNavigate();
   const { refresh } = useAuth();
   const [params] = useSearchParams();
-  // Being able to look at it is the whole point for now: a preview never marks
-  // the tour as done and never keeps the name that gets typed on it.
+  // Being able to look at it is the point for now: a preview never marks the
+  // tour as done and never keeps the name typed on it.
   const preview = params.get('preview') === '1';
   const previewLocal = params.get('local') === '1';
   const isApp = isNativeApp();
@@ -126,10 +116,19 @@ export function OnboardingV2Page() {
       markOnboarded();
       void refresh();
       navigate('/', { replace: true });
-    }, 320);
+    }, 300);
   }
 
-  /** Ask ⇄ granted, the same crossfade the first tour used. */
+  /** A slide that only tells you something: a moving medallion and the words. */
+  const feature = (key: string, visual: ReactNode, title: string, body: string): ReactNode => (
+    <div className="onb-feature" key={key}>
+      {visual}
+      <h1>{title}</h1>
+      <p className="muted">{body}</p>
+    </div>
+  );
+
+  /** Ask ⇄ granted, as the first tour has it. */
   const permission = (
     granted: boolean,
     label: string,
@@ -137,278 +136,217 @@ export function OnboardingV2Page() {
     onAsk: () => void,
     disabled = false,
   ): ReactNode => (
-    <div className={`onb2-perm ${granted ? 'granted' : ''}`}>
-      <button className="btn btn-primary onb2-ask" disabled={disabled} onClick={onAsk}>
+    <div className={`onb-perm ${granted ? 'granted' : ''}`}>
+      <button className="btn btn-primary onb-ask" disabled={disabled} onClick={onAsk}>
         {label}
       </button>
-      <p className="onb2-ok">
+      <p className="onb-ok">
         <Icon name="check" size={18} /> {okLabel}
       </p>
     </div>
   );
 
-  const slides: Slide[] = [
-    {
-      key: 'welcome',
-      visual: (
-        <div className="onb2-hero">
-          <LogoMark size={96} />
-        </div>
-      ),
-      eyebrow: 'Welkom',
-      title: 'MarkMySteps',
-      body: (
-        <>
-          Je route, je stops en je foto&apos;s op één plek. Op je eigen server, dus alles blijft van
-          jou.
-        </>
-      ),
-    },
+  const slides: ReactNode[] = [
+    <div className="onb-feature onb-welcome" key="welcome">
+      <span className="onb2-mark">
+        <LogoMark size={78} />
+      </span>
+      <h1>Welkom bij MarkMySteps</h1>
+      <p className="muted">
+        Volg je route, plan je reis en kijk 'm later terug. Alles blijft van jou.
+      </p>
+    </div>,
     ...(localOnly
       ? [
-          {
-            key: 'name',
-            visual: (
-              <Phone>
-                <div className="onb2-namecard">
-                  <Icon name="person" size={30} />
-                  <span className="onb2-namecard-line" />
-                  <span className="onb2-namecard-line short" />
-                </div>
-              </Phone>
-            ),
-            eyebrow: 'Zonder server',
-            title: 'Hoe heet je?',
-            body: 'Geen account, geen wachtwoord. Je naam staat alleen op je eigen reizen en blijft op dit toestel.',
-            action: (
-              <div className="field onb2-name">
-                <input
-                  autoComplete="name"
-                  placeholder="Je naam"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (!previewLocal && !preview) setLocalName(e.target.value);
-                  }}
-                />
-              </div>
-            ),
-          } satisfies Slide,
+          <div className="onb-feature" key="name">
+            <span className="onb-visual">
+              <Icon name="person" size={54} />
+            </span>
+            <h1>Hoe heet je?</h1>
+            <p className="muted">
+              Zonder server is er geen account en geen wachtwoord. Je naam staat alleen op je eigen
+              reizen, en blijft op dit toestel.
+            </p>
+            <div className="field onb-name">
+              <input
+                autoComplete="name"
+                placeholder="Je naam"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (!previewLocal && !preview) setLocalName(e.target.value);
+                }}
+              />
+            </div>
+          </div>,
         ]
       : []),
-    {
-      key: 'globe',
-      visual: (
-        <div className="onb2-globe" aria-hidden="true">
-          <GlobeBackdrop trips={SAMPLE_TRIPS} noTour />
-        </div>
-      ),
-      eyebrow: 'Je startscherm',
-      title: 'Al je reizen op één globe',
-      body: 'Elke reis een eigen kleur, elke stop een bolletje. Tik een reis aan en de globe draait ernaartoe en speelt de route af.',
-    },
-    {
-      key: 'plan',
-      visual: <ShotPlanner />,
-      eyebrow: 'Vooraf',
-      title: 'Plan je route',
-      body: 'Stops, nachten en vervoer: auto, trein, boot of een vlucht met tussenstops. De kilometers rekenen zichzelf uit.',
-    },
-    {
-      key: 'timeline',
-      visual: <ShotTimeline />,
-      eyebrow: 'Onderweg en erna',
-      title: 'Je dagen terugkijken',
-      body: 'Foto’s uit je eigen Immich komen vanzelf op de juiste dag en de juiste plek te staan. Een notitie erbij en de dag is af.',
-    },
-    {
-      key: 'share',
-      visual: <ShotShare />,
-      eyebrow: 'Thuisfront',
-      title: 'Deel zonder account',
-      body: 'Eén privélink met je kaart, je dagen en je foto’s. Alleen lezen, en zo weer ingetrokken.',
-    },
-    {
-      key: 'tracking',
-      visual: <ShotTracking />,
-      eyebrow: 'Automatisch',
-      title: 'Zuinig en offline',
-      body: 'De app bewaart alleen een punt als je echt beweegt. Geen bereik? Dan wacht alles op je toestel tot je weer online bent.',
-    },
-    {
-      key: 'theme',
-      visual: (
-        <div className="onb2-themes" aria-hidden="true">
-          <span className="onb2-theme-swatch light" />
-          <span className="onb2-theme-swatch dark" />
-        </div>
-      ),
-      eyebrow: 'Weergave',
-      title: 'Licht of donker?',
-      body: 'Kies wat je fijn vindt. Later aanpassen kan altijd in Instellingen.',
-      action: (
-        <div className="theme-choice onb2-theme-choice">
-          {(['system', 'light', 'dark'] as ThemeId[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              className={`theme-opt ${theme === t ? 'active' : ''}`}
-              onClick={() => {
-                setTheme(t);
-                setThemeId(t);
-              }}
-            >
-              {t === 'system' ? 'Automatisch' : t === 'light' ? 'Licht' : 'Donker'}
-            </button>
-          ))}
-        </div>
-      ),
-    },
-    {
-      key: 'airports',
-      visual: (
-        <Phone>
-          <div className="onb2-airportcard">
-            <Icon name="plane" size={26} />
-            <span>AMS</span>
-            <span>EIN</span>
-            <span>RTM</span>
-          </div>
-        </Phone>
-      ),
-      eyebrow: 'Voorkeuren',
-      title: 'Je vaste vliegvelden',
-      body: (
-        <>
-          Het eerste vliegveld wordt vast ingevuld bij een nieuwe vlucht. Later aanpasbaar via{' '}
-          <strong className="onb2-inline-path">
-            Instellingen <Icon name="chevron-right" size={13} /> Voorkeuren
-          </strong>
-          .
-        </>
-      ),
-      action: <AirportPrefs />,
-    },
+    <div className="onb-feature onb-globe-slide" key="globe">
+      <div className="onb-globe" aria-hidden="true">
+        <GlobeBackdrop trips={SAMPLE_TRIPS} noTour />
+      </div>
+      <h1>Je reizen in kaart</h1>
+      <p className="muted">
+        Al je reizen als kleurrijke routes op een 3D-globe, met een bolletje voor elke stop. Tik een
+        reis om ‘m te openen met je tijdlijn en foto’s.
+      </p>
+    </div>,
+    feature(
+      'plan',
+      <VisualRoute />,
+      'Plan je route',
+      'Bouw je route met stops, nachten en vervoer: auto, trein, boot of vlucht met tussenstops. Alles rekent automatisch mee.',
+    ),
+    feature(
+      'days',
+      <VisualDays />,
+      'Je dagen terugkijken',
+      'Je foto’s komen vanzelf op de juiste dag en de juiste plek te staan. Een notitie erbij en de dag is af.',
+    ),
+    feature(
+      'share',
+      <VisualShare />,
+      'Deel met thuisblijvers',
+      'Eén privélink met je kaart, je dagen en je foto’s. Alleen lezen, en niemand hoeft een account te maken.',
+    ),
+    feature(
+      'offline',
+      <VisualOffline />,
+      'Zuinig & offline',
+      'Tracking is zuinig met je accu en werkt zonder internet: alles wordt gebufferd en later geüpload.',
+    ),
+    <div className="onb-feature" key="theme">
+      <VisualTheme />
+      <h1>Licht of donker?</h1>
+      <p className="muted">Kies je thema. Je kunt dit later altijd wijzigen in Instellingen.</p>
+      <div className="theme-choice onb-theme-choice">
+        {(['system', 'light', 'dark'] as ThemeId[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            className={`theme-opt ${theme === t ? 'active' : ''}`}
+            onClick={() => {
+              setTheme(t);
+              setThemeId(t);
+            }}
+          >
+            {t === 'system' ? 'Automatisch' : t === 'light' ? 'Licht' : 'Donker'}
+          </button>
+        ))}
+      </div>
+    </div>,
+    <div className="onb-feature onb-airports-slide" key="airports">
+      <VisualAirports />
+      <h1>Je vaste vliegvelden</h1>
+      <p className="muted">
+        Vanaf welke vliegvelden vertrek je meestal? Schiphol staat al klaar; voeg toe wat je wilt.
+        Het eerste wordt automatisch ingevuld bij een nieuwe vlucht. Later aanpasbaar via{' '}
+        <strong className="onb-inline-path">
+          Instellingen <Icon name="chevron-right" size={13} /> Voorkeuren
+        </strong>
+        .
+      </p>
+      <AirportPrefs />
+    </div>,
     ...(isApp
       ? [
-          {
-            key: 'location',
-            visual: (
-              <div className="onb2-hero onb2-hero-icon">
-                <Icon name="pin" size={54} />
-              </div>
-            ),
-            eyebrow: 'Toestemming',
-            title: 'Locatie',
-            body: 'Voor het bijhouden van je route. Er wordt alleen een GPS-punt bewaard als je verplaatst, dat spaart je accu.',
-            action: (
-              <>
-                {permission(perms.location, 'Toestemming vragen', 'Toestemming gegeven', () =>
-                  void ask('location'),
-                )}
-                {denied.location && !perms.location && (
-                  <p className="error-text">
-                    Geweigerd. Je kunt dit later aanzetten via Instellingen.
-                  </p>
-                )}
-              </>
-            ),
-          } satisfies Slide,
-          {
-            key: 'always',
-            visual: (
-              <div className="onb2-hero onb2-hero-icon">
-                <Icon name="shield" size={54} />
-              </div>
-            ),
-            eyebrow: 'Toestemming',
-            title: '“Altijd toestaan”',
-            body: 'Met het scherm uit doortracken kan alleen op “Altijd toestaan”. Stuurt Android je door, volg dan dit pad:',
-            action: (
-              <>
-                <div className="onb2-path">
-                  {['Apps', 'MarkMySteps', 'Rechten', 'Locatie', 'Altijd toestaan'].map((p, i) => (
-                    <span key={p} className="onb2-path-step">
-                      {i > 0 && <Icon name="chevron-right" size={13} />}
-                      <span>{p}</span>
-                    </span>
-                  ))}
-                </div>
-                {permission(
-                  perms.background,
-                  'Altijd toestaan vragen',
-                  'Altijd toegestaan',
-                  () => void ask('background'),
-                  !perms.location,
-                )}
-                {!perms.background && (
-                  <button className="btn btn-ghost" onClick={() => void MmsLocation.openSettings()}>
-                    Open systeeminstellingen
-                  </button>
-                )}
-              </>
-            ),
-          } satisfies Slide,
+          <div className="onb-feature" key="location">
+            <span className="onb-visual">
+              <Icon name="pin" size={54} />
+            </span>
+            <h1>Locatietoestemming</h1>
+            <p className="muted">
+              Voor route-tracking vraagt de app om je locatie. Er wordt alléén een GPS-punt bewaard
+              als je verplaatst, dat spaart je accu.
+            </p>
+            {permission(perms.location, 'Toestemming vragen', 'Toestemming gegeven', () =>
+              void ask('location'),
+            )}
+            {denied.location && !perms.location && (
+              <p className="error-text">Geweigerd. Je kunt dit later aanzetten via Instellingen.</p>
+            )}
+          </div>,
+          <div className="onb-feature" key="always">
+            <span className="onb-visual">
+              <Icon name="shield" size={54} />
+            </span>
+            <h1>“Altijd toestaan”</h1>
+            <p className="muted">
+              Tracking met het scherm uit kan alleen als locatie op “Altijd toestaan” staat. Vraag
+              het hier aan; stuurt Android je door naar de instellingen, volg dan dit pad:
+            </p>
+            <div className="onb-path">
+              {['Apps', 'MarkMySteps', 'Rechten', 'Locatie', 'Altijd toestaan'].map((p, i) => (
+                <span key={p} className="onb-path-step">
+                  {i > 0 && <Icon name="chevron-right" size={13} />}
+                  <span>{p}</span>
+                </span>
+              ))}
+            </div>
+            {permission(
+              perms.background,
+              'Altijd toestaan vragen',
+              'Altijd toegestaan',
+              () => void ask('background'),
+              !perms.location,
+            )}
+            {!perms.background && (
+              <button className="btn btn-ghost" onClick={() => void MmsLocation.openSettings()}>
+                Open systeeminstellingen
+              </button>
+            )}
+          </div>,
           ...(localOnly
             ? [
-                {
-                  key: 'gallery',
-                  visual: (
-                    <div className="onb2-hero onb2-hero-icon">
-                      <Icon name="camera" size={54} />
-                    </div>
-                  ),
-                  eyebrow: 'Toestemming',
-                  title: "Je foto's",
-                  body: "Zonder server komen je foto's uit de galerij van dit toestel. Ze blijven waar ze staan; de app leest ze alleen. De locatie in een foto vraagt Android apart, en zonder die tweede vraag komen ze niet op de kaart.",
-                  action: (
-                    <>
-                      {permission(gallery.library, "Toegang tot foto's", 'Toegang gegeven', () =>
-                        void askGallery(),
-                      )}
-                      {gallery.library && !gallery.location && (
-                        <p className="error-text">
-                          Locatie in foto&apos;s geweigerd. Ze komen dan niet op de kaart.
-                        </p>
-                      )}
-                      {galleryAsked && !gallery.library && (
-                        <p className="error-text">
-                          Geweigerd. Je kunt dit later aanzetten via Instellingen.
-                        </p>
-                      )}
-                    </>
-                  ),
-                } satisfies Slide,
+                <div className="onb-feature" key="gallery">
+                  <span className="onb-visual">
+                    <Icon name="camera" size={54} />
+                  </span>
+                  <h1>Je foto's</h1>
+                  <p className="muted">
+                    Zonder server komen je foto's uit de galerij van je toestel. Ze blijven waar ze
+                    staan: de app leest ze alleen, en er gaat niets naar buiten. Android geeft de
+                    locatie in een foto pas vrij met een aparte toestemming; zonder die tweede vraag
+                    komen ze niet op de kaart.
+                  </p>
+                  {permission(gallery.library, "Toegang tot foto's", 'Toegang gegeven', () =>
+                    void askGallery(),
+                  )}
+                  {gallery.library && !gallery.location && (
+                    <p className="error-text">
+                      Locatie in foto&apos;s geweigerd. Ze komen dan niet op de kaart te staan.
+                    </p>
+                  )}
+                  {galleryAsked && !gallery.library && (
+                    <p className="error-text">
+                      Geweigerd. Je kunt dit later aanzetten via Instellingen.
+                    </p>
+                  )}
+                </div>,
               ]
             : []),
-          {
-            key: 'notifs',
-            visual: (
-              <div className="onb2-hero onb2-hero-icon">
-                <Icon name="bell" size={54} />
-              </div>
-            ),
-            eyebrow: 'Toestemming',
-            title: 'Meldingen',
-            body: 'Voor de tracking-status en updates van reisgenoten. Altijd aan te passen in de toestelinstellingen.',
-            action: (
-              <>
-                {permission(perms.notifications, 'Meldingen toestaan', 'Ingesteld', () =>
-                  void ask('notifications'),
-                )}
-                {denied.notifications && !perms.notifications && (
-                  <p className="error-text">
-                    Geweigerd. Zonder melding kan de tracking niet op de achtergrond draaien.
-                  </p>
-                )}
-              </>
-            ),
-          } satisfies Slide,
+          <div className="onb-feature" key="notifs">
+            <span className="onb-visual">
+              <Icon name="bell" size={54} />
+            </span>
+            <h1>Meldingen</h1>
+            <p className="muted">
+              Voor de tracking-status en updates van reisgenoten. Je kunt dit altijd aanpassen in de
+              toestelinstellingen.
+            </p>
+            {permission(perms.notifications, 'Meldingen toestaan', 'Ingesteld', () =>
+              void ask('notifications'),
+            )}
+            {denied.notifications && !perms.notifications && (
+              <p className="error-text">
+                Geweigerd. Zonder melding kan de tracking niet op de achtergrond draaien.
+              </p>
+            )}
+          </div>,
         ]
       : []),
   ];
 
-  const current = slides[Math.min(step, slides.length - 1)]!;
   const last = step === slides.length - 1;
   const go = (next: number) => {
     setDir(next > step ? 1 : -1);
@@ -426,46 +364,28 @@ export function OnboardingV2Page() {
 
   return (
     <main
-      className={`onb2-shell ${leaving ? 'onb2-leaving' : ''}`}
+      className={`onb-shell ${leaving ? 'onb-leaving' : ''}`}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      {/* A wash behind the mock, so the screen being shown sits in something
-          rather than floating on a flat page. */}
-      <div className="onb2-wash" aria-hidden="true" />
-
-      <div className="onb2-top">
-        <div className="onb2-progress" aria-hidden="true">
-          <span style={{ transform: `scaleX(${(step + 1) / slides.length})` }} />
-        </div>
-        {!last && (
-          <button className="onb2-skip" onClick={finish}>
-            Overslaan
-          </button>
-        )}
-      </div>
-
-      <div className="onb2-stage" key={current.key} data-dir={dir}>
-        <div className="onb2-visual">{current.visual}</div>
-        <div className="onb2-copy">
-          {current.eyebrow && <span className="onb2-eyebrow">{current.eyebrow}</span>}
-          <h1>{current.title}</h1>
-          <p className="muted">{current.body}</p>
-          {current.action && <div className="onb2-action">{current.action}</div>}
-        </div>
-      </div>
-
-      <div className="onb2-footer">
-        <button
-          className="btn btn-ghost onb2-back"
-          disabled={step === 0}
-          onClick={() => go(step - 1)}
-        >
-          <Icon name="chevron-left" size={16} /> Terug
+      {!last && (
+        <button className="onb-skip" onClick={finish}>
+          Overslaan
         </button>
-        <button className="btn btn-primary onb2-next" onClick={() => (last ? finish() : go(step + 1))}>
+      )}
+
+      <div className="onb-stage" key={step} data-dir={dir}>
+        {slides[step]}
+      </div>
+
+      <div className="onb-footer">
+        <div className="onb-dots">
+          {slides.map((_, i) => (
+            <span key={i} className={`onb-dot ${i === step ? 'active' : ''}`} />
+          ))}
+        </div>
+        <button className="btn btn-primary onb-next" onClick={() => (last ? finish() : go(step + 1))}>
           {last ? 'Aan de slag' : 'Volgende'}
-          {!last && <Icon name="chevron-right" size={16} />}
         </button>
       </div>
     </main>

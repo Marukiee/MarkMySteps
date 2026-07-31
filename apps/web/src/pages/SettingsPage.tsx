@@ -1509,6 +1509,85 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
 }
 
 /**
+ * A short list of choices, in the app's own hand.
+ *
+ * A native <select> opens the system's list, which on Android is a grey slab
+ * from a different decade with the app's dialog behind it. The trip chooser in
+ * the tracking section already had to solve this; this is the same popover
+ * without the trip-shaped contents.
+ */
+function OptionPicker<T extends string | number | boolean>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const chosen = options.find((o) => o.value === value);
+
+  const close = () => {
+    setClosing(true);
+    window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+    }, 150);
+  };
+
+  useEffect(() => {
+    if (!open || closing) return;
+    const onDown = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) close();
+    };
+    window.addEventListener('pointerdown', onDown);
+    return () => window.removeEventListener('pointerdown', onDown);
+  }, [open, closing]);
+
+  return (
+    <div className="trip-picker option-picker" ref={wrapRef}>
+      <button
+        type="button"
+        className="trip-picker-btn"
+        aria-expanded={open}
+        onClick={() => (open && !closing ? close() : setOpen(true))}
+      >
+        <span>{chosen?.label ?? '—'}</span>
+        <Icon
+          name="chevron-down"
+          size={16}
+          className={`trip-picker-caret ${open && !closing ? 'open' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className={`trip-picker-menu card ${closing ? 'closing' : ''}`}>
+          {options.map((o, i) => (
+            <button
+              key={String(o.value)}
+              type="button"
+              className={o.value === value ? 'active' : ''}
+              style={{ animationDelay: `${Math.min(i, 6) * 28}ms` }}
+              onClick={() => {
+                onChange(o.value);
+                close();
+              }}
+            >
+              <span className="trip-picker-name">{o.label}</span>
+              <span className={`person-check ${o.value === value ? 'on' : ''}`}>
+                <Icon name="check" size={15} />
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Developer options: set up the "you were added to a trip" dialog and show it.
  *
  * Its own sheet rather than two dropdowns in the settings list: a page of
@@ -1546,31 +1625,30 @@ function InvitePreviewSheet({ onClose }: { onClose: () => void }) {
           Toont de echte melding. Er verandert niets aan je account, en sluiten brengt je nergens
           heen.
         </p>
-        <label className="dev-pick">
+        <div className="dev-pick">
           <span>Aantal reizen</span>
-          <span className="dev-pick-control">
-            <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
-              <option value={1}>1 reis</option>
-              <option value={2}>2 reizen</option>
-              <option value={3}>3 reizen</option>
-              <option value={5}>5 reizen</option>
-            </select>
-            <Icon name="chevron-down" size={16} />
-          </span>
-        </label>
-        <label className="dev-pick">
+          <OptionPicker
+            value={count}
+            onChange={setCount}
+            options={[
+              { value: 1, label: '1 reis' },
+              { value: 2, label: '2 reizen' },
+              { value: 3, label: '3 reizen' },
+              { value: 5, label: '5 reizen' },
+            ]}
+          />
+        </div>
+        <div className="dev-pick">
           <span>Afbeeldingen</span>
-          <span className="dev-pick-control">
-            <select
-              value={photos ? 'yes' : 'no'}
-              onChange={(e) => setPhotos(e.target.value === 'yes')}
-            >
-              <option value="no">Zonder foto&apos;s</option>
-              <option value="yes">Met foto&apos;s</option>
-            </select>
-            <Icon name="chevron-down" size={16} />
-          </span>
-        </label>
+          <OptionPicker
+            value={photos}
+            onChange={setPhotos}
+            options={[
+              { value: false, label: "Zonder foto's" },
+              { value: true, label: "Met foto's" },
+            ]}
+          />
+        </div>
         <span className="muted dev-sheet-note">
           Met foto&apos;s leent hij de covers van je eigen reizen: een verzonnen foto bestaat niet
           en zou alleen als kapot kadertje verschijnen.
