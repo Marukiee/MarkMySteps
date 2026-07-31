@@ -42,15 +42,16 @@ interface GlobeTrip {
 export function GlobeBackdrop({
   trips,
   noTour,
-  noZoom,
+  solo,
   stopLabels,
   selfLocation,
 }: {
   trips: Trip[];
   noTour?: boolean;
-  /** Frame the trip being shown, but stay pulled back — the onboarding wants
-   *  the whole route in view rather than a camera moving in on it. */
-  noZoom?: boolean;
+  /** One trip, framed from the first frame and replayed for as long as the
+   *  slide is on screen. The onboarding has no six seconds to spend on an
+   *  overview of a globe with a single route on it. */
+  solo?: boolean;
   /** Per trip id, a name for each of its stops, drawn as the stop arrives. */
   stopLabels?: Record<string, string[]>;
   /** [lng, lat] of your own live position, when you've opted to show it here. */
@@ -62,8 +63,8 @@ export function GlobeBackdrop({
   tripsRef.current = trips;
   const noTourRef = useRef(noTour);
   noTourRef.current = noTour;
-  const noZoomRef = useRef(noZoom);
-  noZoomRef.current = noZoom;
+  const soloRef = useRef(solo);
+  soloRef.current = solo;
   const stopLabelsRef = useRef(stopLabels);
   stopLabelsRef.current = stopLabels;
   const selfRef = useRef(selfLocation);
@@ -389,7 +390,7 @@ export function GlobeBackdrop({
         // gentle overview.
         if (noTourRef.current) {
           tourPhase = 0;
-        } else if (noZoomRef.current) {
+        } else if (soloRef.current) {
           // One trip, shown from the first frame: a slide has no time to spend
           // six seconds on an overview first.
           tourPhase = 1;
@@ -469,12 +470,7 @@ export function GlobeBackdrop({
           // of the route trailing off one side.
           const trip = trips[Math.min(tourIdx, trips.length - 1)]!;
           const { centre, spread } = tripFraming(trip);
-          // Turning to the trip is what says "this one"; moving in on it is a
-          // separate thing, and a slide that is about the whole route does not
-          // want it.
-          const zoom = noZoomRef.current
-            ? 1
-            : Math.max(1.5, Math.min(3.4, 46 / (spread + 9)));
+          const zoom = Math.max(1.5, Math.min(3.4, 46 / (spread + 9)));
           const shortest = ((-centre[0] - rotation + 540) % 360) - 180;
           [rotation, rotV] = ease(rotation, rotV, rotation + shortest, 2.4);
           // A touch above centre: the fade tail eats the lower third, so the
@@ -1201,7 +1197,7 @@ export function GlobeBackdrop({
           glowRunsNeeded = hasFlight || arrivals.length >= 2 ? 1 : glowRunsFor(total);
           // A slide keeps replaying: it is on screen for as long as you read it,
           // and a light that ran once and stopped left a still picture.
-          if (noZoomRef.current) glowRunsNeeded = Number.POSITIVE_INFINITY;
+          if (soloRef.current) glowRunsNeeded = Number.POSITIVE_INFINITY;
           if (glowRuns < glowRunsNeeded && now >= holdUntil) {
             // Away from a stop and up to speed, then off it again at the next:
             // one constant rate for the whole journey read as a cursor being

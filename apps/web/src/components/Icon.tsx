@@ -254,12 +254,16 @@ const PATHS: Record<IconName, ReactNode> = {
   // one, and that is what the ring says.
   'location-always': (
     <>
-      <path d="M12 15.4c2.1-2.5 3.2-4.3 3.2-5.7a3.2 3.2 0 0 0-6.4 0c0 1.4 1.1 3.2 3.2 5.7Z" />
-      <circle cx="12" cy="9.5" r="1.1" />
-      <path d="M5.4 8.2A7.8 7.8 0 0 0 8.9 19.6" />
-      <path d="m5.5 16.6.6 3.4 3.4-.6" />
-      <path d="M18.6 15.8A7.8 7.8 0 0 0 15.1 4.4" />
-      <path d="m18.5 7.4-.6-3.4-3.4.6" />
+      {/* The pin from `pin`, at half size so the ring has room. Drawn small
+          rather than redrawn: it has to read as the same permission. */}
+      <g transform="translate(12 12) scale(0.5) translate(-12 -12)">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+        <circle cx="12" cy="10" r="3" />
+      </g>
+      <path d="M16.75 3.77A9.5 9.5 0 0 1 16.75 20.23" />
+      <path d="m17.35 16.63-.6 3.6-3.6-.6" />
+      <path d="M7.25 20.23A9.5 9.5 0 0 1 7.25 3.77" />
+      <path d="m6.65 7.37.6-3.6 3.6.6" />
     </>
   ),
   sun: (

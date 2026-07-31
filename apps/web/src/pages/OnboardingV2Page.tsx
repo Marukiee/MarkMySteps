@@ -198,13 +198,13 @@ export function OnboardingV2Page() {
     // the itinerary writing itself underneath in the planner's own shape.
     <div className="onb-feature onb-globe-slide onb-plan-slide" key="plan">
       <div className="onb-globe onb-globe-sm" aria-hidden="true">
-        <GlobeBackdrop trips={PLAN_TRIP} noZoom stopLabels={PLAN_STOP_NAMES} />
+        <GlobeBackdrop trips={PLAN_TRIP} solo stopLabels={PLAN_STOP_NAMES} />
       </div>
       <PlanItinerary stops={PLAN_ROUTE} />
       <h1>Plan je route</h1>
       <p className="muted">
         Bouw je route met stops, nachten en vervoer: auto, trein, boot of vlucht met tussenstops.
-        Alles rekent automatisch mee.
+        De afstanden en je dagen tellen zichzelf op.
       </p>
     </div>,
     feature(
@@ -364,7 +364,7 @@ export function OnboardingV2Page() {
       'start',
       <VisualStart />,
       'Begin je eerste reis',
-      'Maak een reis aan met een naam en je data. De rest vult zichzelf terwijl je onderweg bent: je route, je foto’s en je dagen.',
+      'Vul een naam en je data in, en zet je stops erbij. De rest vult zichzelf terwijl je onderweg bent: je route, je foto’s en je dagen.',
     ),
   ];
 

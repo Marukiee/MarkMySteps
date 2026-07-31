@@ -109,6 +109,7 @@
 .onb-plan {
   width: min(100%, 300px);
   margin: 0.35rem auto 0;
+  padding: 0; /* a <ul> keeps its 40px indent, which shoved the list right */
   display: grid;
   gap: 4px;
   list-style: none;
@@ -170,49 +171,101 @@
 }
 
 /* ---------- Delen ---------- */
+/* A link being made: the button, the address typing itself out, and the
+   password you can put in front of it. */
 
-.shot-link {
+.onb-shot-share {
+  display: grid;
+  align-content: center;
+  gap: 9px;
+}
+
+.shot-make {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 9px;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px;
   border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  animation: shotPop 0.4s var(--ease) both;
+}
+
+.shot-make-label {
+  width: 74px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.75;
+}
+
+.shot-url {
+  display: flex;
+  align-items: center;
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: var(--paper-sunken);
+  border: 1px solid var(--line);
+  font-size: 0.62rem;
+  font-family: var(--font-body);
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  animation: shotPop 0.4s var(--ease) 0.35s both;
+}
+
+/* The random part arrives a character at a time, the way the server's answer
+   lands in the field. */
+.shot-url-slug {
+  color: var(--accent-ink);
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+  animation: shotType 1s steps(8) 0.7s both;
+}
+
+@keyframes shotType {
+  from {
+    max-width: 0;
+  }
+  to {
+    max-width: 8ch;
+  }
+}
+
+.shot-pass {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 10px;
   background: var(--paper-sunken);
   border: 1px solid var(--line);
   color: var(--ink-faint);
-  animation: shotCard 0.45s var(--ease) 0.15s both;
+  animation: shotPop 0.4s var(--ease) 1.7s both;
 }
 
-.shot-link-url {
-  flex: 1;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--accent);
-  opacity: 0.75;
-  transform-origin: left;
-  animation: shotWipe 0.7s var(--ease) 0.45s both;
-}
-
-/* The people who only get to read it. */
-.shot-readers {
+.shot-pass-dots {
   display: flex;
-  gap: 6px;
-  margin-top: 0.7rem;
-  padding-left: 2px;
+  gap: 5px;
 }
 
-.shot-readers i {
-  width: 22px;
-  height: 22px;
+.shot-pass-dots i {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  border: 2px solid var(--paper-raised);
-  background: var(--accent-soft);
-  animation: shotPop 0.36s var(--ease) both;
+  background: var(--ink);
+  opacity: 0.45;
+  animation: shotPop 0.24s var(--ease) both;
 }
 
-.shot-readers i:nth-child(1) { animation-delay: 0.9s; }
-.shot-readers i:nth-child(2) { animation-delay: 1.02s; background: var(--paper-sunken); }
-.shot-readers i:nth-child(3) { animation-delay: 1.14s; }
+.shot-pass-dots i:nth-child(1) { animation-delay: 1.95s; }
+.shot-pass-dots i:nth-child(2) { animation-delay: 2.05s; }
+.shot-pass-dots i:nth-child(3) { animation-delay: 2.15s; }
+.shot-pass-dots i:nth-child(4) { animation-delay: 2.25s; }
+.shot-pass-dots i:nth-child(5) { animation-delay: 2.35s; }
+.shot-pass-dots i:nth-child(6) { animation-delay: 2.45s; }
 
 @keyframes shotPop {
   from {
@@ -222,20 +275,20 @@
 }
 
 /* ---------- Zuinig en offline ---------- */
-/* A battery that hardly moves, beside the crossed-out cloud that says none of
-   this needs a signal. */
+/* A battery against a clock: the hand goes all the way round while the charge
+   gives up a sliver. Neither says much alone. */
 
 .onb-shot-power {
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
 }
 
 .shot-battery {
   position: relative;
-  width: 104px;
-  height: 44px;
+  width: 84px;
+  height: 42px;
   padding: 5px;
   border-radius: 9px;
   border: 3px solid var(--ink-soft);
@@ -261,39 +314,64 @@
   border-radius: 4px;
   background: #4a8f3c;
   transform-origin: left;
-  animation: shotDrain 6s ease-in-out infinite;
+  animation: shotDrain 8s ease-in-out infinite;
 }
 
 @keyframes shotDrain {
   0% {
     transform: scaleX(1);
   }
-  55% {
-    transform: scaleX(0.84);
+  50% {
+    transform: scaleX(0.86);
   }
   100% {
     transform: scaleX(1);
   }
 }
 
-.shot-power-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--ink-faint);
+.shot-clock {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid var(--ink-soft);
+  opacity: 0.9;
 }
 
-.shot-power-label {
-  width: 64px;
-  height: 7px;
+/* One full turn per drained sliver: hours pass, the battery does not care. */
+.shot-clock-hand {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  width: 3px;
+  height: 14px;
+  margin-left: -1.5px;
   border-radius: 999px;
-  background: var(--ink);
-  opacity: 0.22;
+  background: var(--ink-soft);
+  transform-origin: 50% 100%;
+  animation: shotTick 4s linear infinite;
+}
+
+.shot-clock-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px;
+  border-radius: 50%;
+  background: var(--ink-soft);
+}
+
+@keyframes shotTick {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ---------- Meldingen ---------- */
-/* Notification cards sliding in from the top, one after the other, the way
-   they arrive on the phone. */
+/* Cards dropping in from above the frame, one after the other, staying long
+   enough to be read and then making room for the next round. */
 
 .onb-shot-notifs {
   display: grid;
@@ -310,24 +388,30 @@
   background: var(--paper-sunken);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-s);
-  animation: shotNotif 4.2s var(--ease) infinite;
+  animation: shotNotif 5s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
 }
 
-.shot-notif-1 { animation-delay: 0.2s; }
-.shot-notif-2 { animation-delay: 1s; }
+.shot-notif-1 { animation-delay: 0.3s; }
+.shot-notif-2 { animation-delay: 1.4s; }
 
+/* Comes in from clear of the frame, so it reads as arriving rather than as
+   fading up in place. */
 @keyframes shotNotif {
   0% {
     opacity: 0;
-    transform: translateY(-16px);
+    transform: translateY(-72px) scale(0.94);
   }
-  12%, 76% {
+  14% {
     opacity: 1;
-    transform: none;
+    transform: translateY(0) scale(1);
   }
-  92%, 100% {
+  82% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  94%, 100% {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-16px) scale(0.97);
   }
 }
 
@@ -362,12 +446,15 @@
 
 /* ---------- Licht of donker ---------- */
 /* The same screen twice, side by side, so the choice is the thing you see
-   rather than a sun and a moon standing for it. */
+   rather than a sun and a moon standing for it. The frame itself carries the
+   light half's colour: sliding both halves up off a white panel left a bright
+   band across the bottom that belonged to neither theme. */
 
 .onb-shot-theme {
   display: flex;
   gap: 0;
   padding: 0;
+  background: #f6f1e7;
 }
 
 .shot-half {
@@ -376,22 +463,32 @@
   align-content: start;
   gap: 7px;
   padding: 0.55rem;
-  animation: shotHalf 0.5s var(--ease) both;
 }
 
 .shot-half-light {
   background: #f6f1e7;
+  animation: shotFade 0.45s var(--ease) both;
 }
 
+/* Wipes in over the light one, the way flipping the theme feels. */
 .shot-half-dark {
   background: #1d232c;
-  animation-delay: 0.12s;
+  transform-origin: right;
+  animation: shotWipeIn 0.55s var(--ease) 0.35s both;
 }
 
-@keyframes shotHalf {
+@keyframes shotFade {
   from {
     opacity: 0;
-    transform: translateY(14px);
+  }
+}
+
+@keyframes shotWipeIn {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
   }
 }
 
@@ -424,57 +521,104 @@
 .shot-half-dark .shot-mini-line { background: #e7edf5; opacity: 0.24; }
 
 /* ---------- Begin je eerste reis ---------- */
-/* The home screen with nothing on it yet: the empty-state card, and the tile
-   that fills it. */
+/* The "Nieuwe reis" form as the home page opens it: a title being typed, the
+   two dates filling in, and the button that makes it real. */
 
 .onb-shot-start {
   display: grid;
-  align-content: start;
+  align-content: center;
   gap: 8px;
 }
 
-.shot-empty {
+.shot-field {
   display: grid;
-  gap: 6px;
-  padding: 10px;
-  border-radius: 10px;
-  background: var(--paper-sunken);
-  border: 1px solid var(--line);
-  animation: shotCard 0.45s var(--ease) 0.15s both;
+  gap: 3px;
+  min-width: 0;
 }
 
-.shot-empty-line {
-  height: 7px;
-  border-radius: 999px;
-  background: var(--ink);
-  opacity: 0.32;
+.shot-field-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+  text-align: left;
 }
 
-.shot-empty-line.short {
-  width: 60%;
-  opacity: 0.18;
-}
-
-/* The dashed "+ Nieuwe reis" tile, breathing once it lands. */
-.shot-new {
+.shot-field-box {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
-  height: 42px;
-  border-radius: 11px;
-  border: 2px dashed var(--accent);
-  color: var(--accent-ink);
-  background: var(--accent-soft);
-  animation: shotCard 0.5s var(--ease) 0.45s both, shotBreathe 2.6s var(--ease) 1s infinite;
+  gap: 2px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 7px;
+  background: var(--paper-sunken);
+  border: 1.5px solid var(--line);
+  font-size: 0.68rem;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-.shot-new-label {
-  width: 64px;
-  height: 7px;
+.shot-typed {
+  overflow: hidden;
+  animation: shotTypeName 0.9s steps(9) 0.3s both;
+}
+
+@keyframes shotTypeName {
+  from {
+    max-width: 0;
+  }
+  to {
+    max-width: 9ch;
+  }
+}
+
+/* The cursor blinks while the name is going in, then stops. */
+.shot-caret {
+  width: 1.5px;
+  height: 11px;
+  background: var(--accent);
+  animation: shotCaret 0.7s steps(2) 1.4s 3 both;
+}
+
+@keyframes shotCaret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.shot-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+/* A date lands as a filled field rather than as letters: the picker puts it
+   there in one go. */
+.shot-field-fill::after {
+  content: '';
+  width: 70%;
+  height: 6px;
   border-radius: 999px;
-  background: currentColor;
-  opacity: 0.55;
+  background: var(--ink);
+  opacity: 0.35;
+  transform-origin: left;
+  animation: shotWipe 0.3s var(--ease) both;
+}
+
+.shot-fill-1::after { animation-delay: 1.5s; }
+.shot-fill-2::after { animation-delay: 1.75s; }
+
+.shot-submit {
+  display: grid;
+  place-content: center;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  animation: shotPop 0.4s var(--ease) 2.1s both, shotBreathe 2.4s var(--ease) 2.6s infinite;
 }
 
 @keyframes shotBreathe {
@@ -482,7 +626,7 @@
     transform: scale(1);
   }
   50% {
-    transform: scale(1.035);
+    transform: scale(1.04);
   }
 }
 
@@ -526,10 +670,6 @@
   animation: flyPin 0.5s var(--ease) both;
 }
 
-.fly-dot-2 {
-  animation-delay: 1.6s;
-}
-
 @keyframes flyPin {
   0% {
     opacity: 0;
@@ -561,29 +701,29 @@
 @keyframes flyAcross {
   0% {
     opacity: 0;
-    transform: translate(18px, 42px) rotate(0deg);
+    transform: translate(18px, 44px) rotate(0deg);
   }
   8% {
     opacity: 1;
   }
-  15.8% {
-    transform: translate(53.4px, 39.7px) rotate(-7deg);
+  16.1% {
+    transform: translate(54.4px, 41.1px) rotate(-8.5deg);
   }
-  31.5% {
-    transform: translate(88.5px, 34.3px) rotate(-9.8deg);
+  32.8% {
+    transform: translate(91.4px, 34px) rotate(-12.1deg);
   }
-  49.4% {
-    transform: translate(128.3px, 27.7px) rotate(-8.2deg);
+  51.4% {
+    transform: translate(132.6px, 25.4px) rotate(-10.8deg);
   }
-  71.5% {
-    transform: translate(177.8px, 22.3px) rotate(-4.3deg);
+  73.3% {
+    transform: translate(181.7px, 17.9px) rotate(-6.5deg);
   }
   92% {
     opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translate(242px, 20px) rotate(0deg);
+    transform: translate(242px, 14px) rotate(-1deg);
   }
 }
 
@@ -596,6 +736,6 @@
 
   .fly-plane {
     opacity: 1;
-    transform: translate(128.3px, 27.7px) rotate(-8.2deg);
+    transform: translate(132.6px, 25.4px) rotate(-10.8deg);
   }
 }

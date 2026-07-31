@@ -25,7 +25,7 @@ export function PlanItinerary({
   return (
     <ul className="onb-plan" aria-hidden="true">
       {stops.map((stop, i) => (
-        <li key={stop.name} style={{ animationDelay: `${0.25 + i * 0.4}s` }}>
+        <li key={stop.name} style={{ animationDelay: `${0.12 + i * 0.13}s` }}>
           <span className="onb-plan-num">{i + 1}</span>
           <span className="onb-plan-name">{stop.name}</span>
           <span className="onb-plan-nights">{stop.nights} nachten</span>
@@ -67,32 +67,44 @@ export function VisualTrips() {
   );
 }
 
-/** Delen: the private link, and the people it goes out to. */
+/**
+ * Delen: a link being made, and the password you can put on it.
+ *
+ * The address types itself out the way the panel fills it in after the tap,
+ * and then the lock closes over it — the two halves of what sharing is here.
+ */
 export function VisualShare() {
   return (
-    <span className="onb-shot" aria-hidden="true">
-      <span className="shot-top">
-        <span className="shot-top-title" />
+    <span className="onb-shot onb-shot-share" aria-hidden="true">
+      <span className="shot-make">
+        <Icon name="share" size={13} />
+        <span className="shot-make-label" />
       </span>
-      <span className="shot-link">
+      <span className="shot-url">
+        <span className="shot-url-text">markmysteps.nl/s/</span>
+        <span className="shot-url-slug">7fQ2xd91</span>
+      </span>
+      <span className="shot-pass">
         <Icon name="lock" size={12} />
-        <span className="shot-link-url" />
-      </span>
-      <span className="shot-readers">
-        <i />
-        <i />
-        <i />
+        <span className="shot-pass-dots">
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+        </span>
       </span>
     </span>
   );
 }
 
 /**
- * Zuinig en offline: a battery that hardly moves.
+ * Zuinig en offline: a battery against a clock.
  *
- * The charge creeps down a sliver, over and over, next to the crossed-out
- * cloud that says none of this needs a signal. Both claims the slide makes,
- * shown rather than lettered.
+ * A charge that creeps down a sliver says nothing on its own — it needs
+ * something to say how long that took. The hand goes round while the battery
+ * barely moves, which is the whole claim of the slide in one picture.
  */
 export function VisualOffline() {
   return (
@@ -101,9 +113,9 @@ export function VisualOffline() {
         <span className="shot-battery-fill" />
         <span className="shot-battery-cap" />
       </span>
-      <span className="shot-power-row">
-        <Icon name="cloud-off" size={16} />
-        <span className="shot-power-label" />
+      <span className="shot-clock">
+        <span className="shot-clock-hand" />
+        <span className="shot-clock-pin" />
       </span>
     </span>
   );
@@ -138,13 +150,19 @@ export function VisualTheme() {
 export function VisualAirports() {
   return (
     <span className="onb-fly" aria-hidden="true">
-      <svg viewBox="0 0 260 60" className="fly-svg">
-        <path className="fly-track" d="M18 42 C 80 42, 120 20, 242 20" fill="none" />
-        <circle className="fly-dot" cx="18" cy="42" r="5" />
-        <circle className="fly-dot fly-dot-2" cx="242" cy="20" r="5" />
-        {/* Drawn around its own origin, nose along +x, so a translate puts it
-            on the track and a rotate turns it into the track's direction. */}
-        <path className="fly-plane" d="M11 0 L-7 -6.5 L-3.5 0 L-7 6.5 Z" />
+      <svg viewBox="0 0 260 56" className="fly-svg">
+        <path className="fly-track" d="M18 44 C 80 44, 130 16, 242 14" fill="none" />
+        {/* Both airports stand there from the start: you have them before you
+            fly, and one appearing halfway read as the plane creating it. */}
+        <circle className="fly-dot" cx="18" cy="44" r="5" />
+        <circle className="fly-dot" cx="242" cy="14" r="5" />
+        {/* The app's own plane glyph. Centred on the origin and turned so its
+            nose runs along +x, which is what the track's angles assume. */}
+        <g className="fly-plane">
+          <g transform="rotate(45) scale(0.85) translate(-12 -12)">
+            <path d="M17.8 19.2 16 11l3.5-3.5c.9-.9.9-2.4 0-3.3-.9-.9-2.4-.9-3.3 0L12.7 7.7 4.5 5.9c-.4-.1-.8 0-1 .3l-.4.4c-.4.4-.3 1 .1 1.3L9 12l-2.5 2.5H4l-1 1 3 1.5L7.5 21l1-1v-2.5L11 15l3.9 5.8c.3.4.9.5 1.3.1l.4-.4c.3-.3.4-.6.2-1Z" />
+          </g>
+        </g>
       </svg>
     </span>
   );
@@ -182,24 +200,31 @@ export function VisualNotifs() {
 }
 
 /**
- * Begin je eerste reis: the home screen as it looks with nothing on it yet —
- * the empty-state card and the "+ Nieuwe reis" tile that follows it, which is
- * exactly the tap the tour is handing over to.
+ * Begin je eerste reis: the "Nieuwe reis" form, exactly as it stands on the
+ * home page — a title, a from and a to, and the button that makes it real.
+ * The title types itself in, the dates fill, the button lights up.
  */
 export function VisualStart() {
   return (
     <span className="onb-shot onb-shot-start" aria-hidden="true">
-      <span className="shot-top">
-        <span className="shot-top-title" />
+      <span className="shot-field">
+        <span className="shot-field-label">Titel</span>
+        <span className="shot-field-box">
+          <span className="shot-typed">Interrail</span>
+          <span className="shot-caret" />
+        </span>
       </span>
-      <span className="shot-empty">
-        <span className="shot-empty-line" />
-        <span className="shot-empty-line short" />
+      <span className="shot-dates">
+        <span className="shot-field">
+          <span className="shot-field-label">Van</span>
+          <span className="shot-field-box shot-field-fill shot-fill-1" />
+        </span>
+        <span className="shot-field">
+          <span className="shot-field-label">Tot</span>
+          <span className="shot-field-box shot-field-fill shot-fill-2" />
+        </span>
       </span>
-      <span className="shot-new">
-        <Icon name="plus" size={14} />
-        <span className="shot-new-label" />
-      </span>
+      <span className="shot-submit">Aanmaken</span>
     </span>
   );
 }
