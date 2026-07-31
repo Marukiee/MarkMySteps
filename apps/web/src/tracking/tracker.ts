@@ -66,6 +66,9 @@ const MAX_ACCURACY_M = 120;
 const STAY_RADIUS_M = 75;
 
 const ACTIVE_TRIP_KEY = 'mms.tracking.trip';
+/** When the tracked trip stops being under way, as epoch ms. */
+const ACTIVE_UNTIL_KEY = 'mms.tracking.until';
+const DAY_MS = 86_400_000;
 const LOG_KEY = 'mms.tracking.log';
 
 export interface FixLogEntry {
@@ -343,6 +346,41 @@ export async function flush(): Promise<void> {
   emit({ buffered: await bufferedCount() });
 }
 
+/**
+ * Learns when the tracked trip is over. Kept on the device, so the check below
+ * still works with no signal — which is the situation it exists for.
+ *
+ * The end date is a day, and a day you are still on: a trip that ends today is
+ * under way until tonight.
+ */
+async function refreshTripDeadline(tripId: string): Promise<void> {
+  try {
+    const trip = await api<{ endDate: string }>(`/trips/${tripId}`);
+    const until = new Date(trip.endDate.slice(0, 10)).getTime() + DAY_MS;
+    if (Number.isFinite(until)) localStorage.setItem(ACTIVE_UNTIL_KEY, String(until));
+  } catch {
+    // Offline, or the trip is gone. Whatever was known stays known.
+  }
+}
+
+/**
+ * Switches tracking off once the trip it belongs to has finished.
+ *
+ * A tracker left running past the last day records the drive home and then
+ * every commute after it, onto a trip that is supposed to be finished — and
+ * keeps the GNSS engine waking up for it. Checked on the flush tick and on
+ * every return to the foreground, so it also fires for a phone that spent the
+ * last day of the trip in a pocket.
+ */
+async function stopIfTripIsOver(): Promise<boolean> {
+  if (!localStorage.getItem(ACTIVE_TRIP_KEY)) return false;
+  const until = Number(localStorage.getItem(ACTIVE_UNTIL_KEY));
+  if (!Number.isFinite(until) || until <= 0 || Date.now() <= until) return false;
+  await stopTracking();
+  emit({ lastStatus: 'De reis is afgelopen; tracking is automatisch gestopt.' });
+  return true;
+}
+
 export async function startTracking(tripId: string): Promise<void> {
   // Everything the service queued while the app was away has to be collected
   // BEFORE the listeners are torn down and the service is reconfigured.
@@ -351,6 +389,10 @@ export async function startTracking(tripId: string): Promise<void> {
   }
   await stopTracking(false);
   localStorage.setItem(ACTIVE_TRIP_KEY, tripId);
+  // Not awaited: starting must not wait on the network, and a trip whose dates
+  // cannot be looked up right now is simply tracked until they can be.
+  localStorage.removeItem(ACTIVE_UNTIL_KEY);
+  void refreshTripDeadline(tripId);
   // A fresh watcher starts a fresh stay, so the first fix always lands.
   stay = null;
   lastWebCheckAt = 0;
@@ -390,6 +432,9 @@ export async function startTracking(tripId: string): Promise<void> {
     // to the foreground is the other moment the backlog has to be collected.
     resumeDrain = () => {
       void drainNative(tripId).then(() => flush());
+      // Coming back to the app is also the moment to notice the trip ended
+      // while it was away, and to pick up a changed end date.
+      void refreshTripDeadline(tripId).then(() => stopIfTripIsOver());
     };
     document.addEventListener('resume', resumeDrain);
     document.addEventListener('visibilitychange', onVisible);
@@ -418,7 +463,9 @@ export async function startTracking(tripId: string): Promise<void> {
     );
   }
 
-  flushTimer = window.setInterval(() => void flush(), FLUSH_INTERVAL_MS);
+  flushTimer = window.setInterval(() => {
+    void stopIfTripIsOver().then((over) => (over ? undefined : flush()));
+  }, FLUSH_INTERVAL_MS);
   window.addEventListener('online', onOnline);
   emit({ tripId, buffered: await bufferedCount(), lastError: null });
 }
@@ -451,6 +498,7 @@ export async function stopTracking(clearTrip = true): Promise<void> {
   }
   if (clearTrip) {
     localStorage.removeItem(ACTIVE_TRIP_KEY);
+    localStorage.removeItem(ACTIVE_UNTIL_KEY);
     await flush(); // final attempt to push what's left
     emit({ tripId: null });
   }
@@ -474,7 +522,11 @@ export async function refreshTrackingInterval(): Promise<void> {
 /** Resumes tracking after an app restart if a trip was being tracked. */
 export function resumeIfTracking(): void {
   const tripId = localStorage.getItem(ACTIVE_TRIP_KEY);
-  if (tripId) void startTracking(tripId);
+  if (!tripId) return;
+  // A trip that finished while the app was shut is not picked up again.
+  void stopIfTripIsOver().then((over) => {
+    if (!over) void startTracking(tripId);
+  });
 }
 
 /**

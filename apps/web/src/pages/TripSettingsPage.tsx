@@ -28,7 +28,7 @@ import {
 import { MembersPanel } from '../components/MembersPanel';
 import { TripMarkerPicker } from '../components/TripMarkerPicker';
 import { TrackButton } from '../components/TrackButton';
-import { isNative, startTracking } from '../tracking/tracker';
+import { isNative, onTrackerChange, startTracking } from '../tracking/tracker';
 import './tripsettings.css';
 
 // Curated, legible swatches for the trip colour picker.
@@ -67,6 +67,10 @@ export function TripSettingsPage() {
   const [deviceCount, setDeviceCount] = useState<number | null>(null);
   const [deviceBusy, setDeviceBusy] = useState(false);
   const [deviceMsg, setDeviceMsg] = useState<string | null>(null);
+  /** Whether the tracker is on THIS trip right now — see the tracking section. */
+  const [trackingHere, setTrackingHere] = useState(false);
+
+  useEffect(() => onTrackerChange((s) => setTrackingHere(!!tripId && s.tripId === tripId)), [tripId]);
 
   function load() {
     if (!tripId) return;
@@ -484,16 +488,23 @@ export function TripSettingsPage() {
       <section className="ts-tracking">
         <h2 className="ts-section-title">Tracking</h2>
 
-        {isNative() && tripId && canTrack && (
+        {/* Still running counts as reason enough to show the button: a trip that
+            has ended cannot be started, but it can certainly still be stopped,
+            and hiding the control left it recording with no way to say no. */}
+        {isNative() && tripId && (canTrack || trackingHere) && (
           <div className="ts-track-box">
             <div>
               <strong>Route nu bijhouden</strong>
-              <span className="muted">Start of stop het volgen van je route voor deze reis.</span>
+              <span className="muted">
+                {canTrack
+                  ? 'Start of stop het volgen van je route voor deze reis.'
+                  : 'Deze reis is afgelopen. Tracking loopt nog en stopt vanzelf, of nu.'}
+              </span>
             </div>
             <TrackButton tripId={tripId} />
           </div>
         )}
-        {isNative() && tripId && !canTrack && (
+        {isNative() && tripId && !canTrack && !trackingHere && (
           <p className="muted">
             {ended
               ? 'Deze reis is afgelopen, tracken kan niet meer.'
