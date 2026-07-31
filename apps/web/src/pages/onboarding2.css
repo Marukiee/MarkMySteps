@@ -8,14 +8,14 @@
    soft rim mask is a circle, so a wide, short box cut the zoomed globe off
    straight across the top and the bottom. */
 .onb-globe-sm {
-  width: min(84vw, 320px);
-  height: min(84vw, 320px);
+  width: min(96vw, 380px);
+  height: min(96vw, 380px);
   max-height: none;
-  margin-bottom: -0.4rem;
-  /* Softer than the homepage's rim mask: zoomed in there is land all the way
-     to the edge, and a tight mask read as a cut-out rather than a globe. */
-  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 62%, transparent 96%);
-  mask-image: radial-gradient(circle at 50% 50%, #000 62%, transparent 96%);
+  margin: -0.6rem auto;
+  /* Gone well before the box ends. Zoomed in there is land all the way out, so
+     a mask that only softened the corners still left three straight edges. */
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 38%, transparent 72%);
+  mask-image: radial-gradient(circle at 50% 50%, #000 38%, transparent 72%);
 }
 
 .onb-plan-slide h1 {

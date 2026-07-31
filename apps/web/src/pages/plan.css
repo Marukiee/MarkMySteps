@@ -780,8 +780,12 @@
   text-align: center;
 }
 
+/* Always at the right-hand end, whether or not there is a distance in the
+   middle to push it there. Without a metric it drifted back to the middle of
+   the row and read as though something was missing beside it. */
 .flight-leg-head > .mode-menu {
   flex: 0 0 auto;
+  margin-left: auto;
 }
 
 /* Incoming-leg block on a normal stop: mode dropdown + optional flight editor.

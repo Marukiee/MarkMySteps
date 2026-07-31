@@ -294,7 +294,7 @@ export function OnboardingV2Page() {
           </div>,
           <div className="onb-feature" key="always">
             <span className="onb-visual">
-              <Icon name="location-always" size={54} />
+              <Icon name="pin" size={54} />
             </span>
             <h1>Locatie altijd toestaan</h1>
             <p className="muted">

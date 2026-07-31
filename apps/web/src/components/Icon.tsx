@@ -39,7 +39,6 @@ export type IconName =
   | 'question'
   | 'search'
   | 'bolt'
-  | 'location-always'
   | 'sun'
   | 'moon'
   | 'monitor'
@@ -251,17 +250,6 @@ const PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   bolt: <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5Z" />,
-  // Location, again and again: the pin you already know, with the small
-  // repeat badge beside it. A ring drawn AROUND the pin kept colliding with it
-  // at this size — the badge sits clear of it and says the same thing.
-  'location-always': (
-    <>
-      <path d="M16.6 9.6c0 4.3-5.3 8.6-5.3 8.6S6 13.9 6 9.6a5.3 5.3 0 0 1 10.6 0Z" />
-      <circle cx="11.3" cy="9.5" r="2" />
-      <path d="M20.4 15.8A3.4 3.4 0 1 1 16.7 15.4" />
-      <path d="m17.9 15.9 2.5-.1.1 2.5" />
-    </>
-  ),
   sun: (
     <>
       <circle cx="12" cy="12" r="4" />

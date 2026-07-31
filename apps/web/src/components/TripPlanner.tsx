@@ -23,6 +23,7 @@ import {
   TRAVEL_MODES,
   TravelMode,
 } from '../lib/arc';
+import { airportByCode } from '../lib/airports';
 import { formatDate, formatDateRange } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { haptic } from '../lib/haptics';
@@ -583,12 +584,20 @@ export function TripPlanner({
                 ? ([stop.longitude, stop.latitude] as [number, number])
                 : null;
             const otherPt = outbound ? firstCity : lastCity;
-            // Driven distance of this leg (origin↔nearest city) — only for a
-            // non-flight leg with a set location.
+            // How far this leg goes. On the ground that is origin to the
+            // nearest city; in the air it is airport to airport, which the
+            // flight pill knows but never said — the row simply had a hole
+            // where its distance belonged.
+            const legFrom = airportByCode(stop.fromAirport);
+            const legTo = airportByCode(stop.toAirport);
             const legLegKm =
-              stop.travelMode !== 'FLIGHT' && legPt && otherPt
-                ? haversineKm(legPt, otherPt)
-                : null;
+              stop.travelMode === 'FLIGHT'
+                ? legFrom && legTo
+                  ? haversineKm([legFrom.lon, legFrom.lat], [legTo.lon, legTo.lat])
+                  : null
+                : legPt && otherPt
+                  ? haversineKm(legPt, otherPt)
+                  : null;
             return (
               <li
                 key={stop.id}

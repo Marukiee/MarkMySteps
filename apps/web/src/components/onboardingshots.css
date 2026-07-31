@@ -635,6 +635,7 @@
 
 .shot-field-box {
   display: flex;
+  text-align: left;
   align-items: center;
   gap: 2px;
   height: 22px;
@@ -650,6 +651,7 @@
 
 .shot-typed {
   display: inline-block;
+  text-align: left;
   overflow: hidden;
   white-space: nowrap;
   /* The BOX grows, so the caret beside it travels with the text. Clipping the
