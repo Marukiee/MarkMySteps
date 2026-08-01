@@ -1,9 +1,11 @@
 import maplibregl, { LngLatBounds, Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DragEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
+import { canEditTrip } from '../lib/perm';
 import { CityThumb } from '../components/CityThumb';
 import { FlightEditor } from '../components/FlightEditor';
 import { Icon, MODE_ICON } from '../components/Icon';
@@ -42,6 +44,7 @@ interface PlannedStop {
 
 export function PlanPage() {
   const { tripId } = useParams<{ tripId: string }>();
+  const { user } = useAuth();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [stops, setStops] = useState<PlannedStop[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -321,6 +324,13 @@ export function PlanPage() {
         body: { stopIds: stops.map((s) => s.id) },
       }),
     );
+  }
+
+  // Nothing links here any more, but the address still works — and this page is
+  // an editor from top to bottom. A guest reads the same route on the trip
+  // page, where the planner knows to keep its hands off.
+  if (trip && !canEditTrip(trip, user?.id)) {
+    return <Navigate to={`/trips/${tripId}`} replace />;
   }
 
   return (

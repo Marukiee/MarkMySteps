@@ -55,6 +55,8 @@ interface TripPlannerProps {
   onPickConsumed: () => void;
   /** Ease the shared map to a searched place. */
   onFlyTo: (lng: number, lat: number) => void;
+  /** Guest view: the same itinerary, with nothing to press. */
+  readOnly?: boolean;
 }
 
 /**
@@ -70,6 +72,7 @@ export function TripPlanner({
   pickedCoords,
   onPickConsumed,
   onFlyTo,
+  readOnly = false,
 }: TripPlannerProps) {
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
@@ -564,14 +567,16 @@ export function TripPlanner({
             <Icon name="compass" size={30} />
           </span>
           <p className="muted">
-            Nog geen stops. Zoek hieronder een stad en bouw je route op. Versleep om te herordenen.
-            Tik het vervoer-pilletje bij een stop om te wisselen tussen auto, trein, bus, boot of
-            vlucht.
+            {readOnly
+              ? 'Er is nog geen route gepland voor deze reis.'
+              : `Nog geen stops. Zoek hieronder een stad en bouw je route op. Versleep om te
+                 herordenen. Tik het vervoer-pilletje bij een stop om te wisselen tussen auto,
+                 trein, bus, boot of vlucht.`}
           </p>
         </div>
       )}
 
-      {!hasOutbound && (
+      {!hasOutbound && !readOnly && (
         <ModeMenu label="Heenreis" onPick={(m) => void addOutboundLeg(m)} />
       )}
 
@@ -612,6 +617,7 @@ export function TripPlanner({
               >
                 <div className="stop-row-inner">
                 <SwipeToDelete
+                  disabled={readOnly}
                   onDelete={() => removeStop(stop)}
                   label="Reis verwijderen"
                   dragging={touchDrag?.id === stop.id}
@@ -638,6 +644,7 @@ export function TripPlanner({
                         toCity={outbound ? firstCity : null}
                         fromCity={outbound ? null : lastCity}
                         onSave={(data) => void saveFlight(stop, data)}
+                        readOnly={readOnly}
                       />
                     ) : (
                       <LegLocation
@@ -646,6 +653,7 @@ export function TripPlanner({
                         savedLabel={stop.notes}
                         onSave={(data) => void saveLegLocation(stop, data)}
                         onFlyTo={onFlyTo}
+                        readOnly={readOnly}
                       />
                     )}
                     {legLegKm !== null && (
@@ -656,6 +664,7 @@ export function TripPlanner({
                       compact
                       align="right"
                       onPick={(m) => void setStopMode(stop, m)}
+                      readOnly={readOnly}
                     />
                   </div>
                 </div>
@@ -702,6 +711,7 @@ export function TripPlanner({
                       current={stop.travelMode}
                       compact
                       onPick={(m) => void setStopMode(stop, m)}
+                      readOnly={readOnly}
                     />
                     {isFlight && (
                       <FlightEditor
@@ -712,6 +722,7 @@ export function TripPlanner({
                         fromCity={prev ? cityCoord(prev) : null}
                         toCity={cityCoord(stop)}
                         onSave={(data) => void saveFlight(stop, data)}
+                        readOnly={readOnly}
                       />
                     )}
                     {legKm !== null && <AltMetric km={legKm} mode={stop.travelMode} />}
@@ -719,6 +730,7 @@ export function TripPlanner({
                 </div>
               )}
               <SwipeToDelete
+                disabled={readOnly}
                 onDelete={() => removeStop(stop)}
                 label="Stop verwijderen"
                 dragging={touchDrag?.id === stop.id}
@@ -734,7 +746,7 @@ export function TripPlanner({
                       : 'drop-before'
                     : ''
                 }`}
-                draggable
+                draggable={!readOnly}
                 onDragStart={(e) => {
                   // The whole card is the drag handle, but the day-trip panel
                   // inside it holds a text field — dragging there must type, not
@@ -745,9 +757,9 @@ export function TripPlanner({
                   }
                   setDragIndex(index);
                 }}
-                onDragOver={(e) => onDragOver(e, index)}
-                onDragEnd={onDrop}
-                onDrop={onDrop}
+                onDragOver={readOnly ? undefined : (e) => onDragOver(e, index)}
+                onDragEnd={readOnly ? undefined : onDrop}
+                onDrop={readOnly ? undefined : onDrop}
               >
                 <div className="stop-main">
                   <CityThumb name={stop.name} index={index} countryCode={stop.countryCode} />
@@ -771,34 +783,43 @@ export function TripPlanner({
                     </span>
                   </div>
                   <div className="stop-nights">
+                    {/* A guest gets the number without the two buttons that
+                        change it — the row keeps its shape, it just stops
+                        being a control. */}
                     <div className="nights-buttons">
-                      <button
-                        className="nights-btn"
-                        onClick={() => changeNights(stop, -1)}
-                        aria-label="Minder nachten"
-                      >
-                        <Icon name="minus" size={16} />
-                      </button>
+                      {!readOnly && (
+                        <button
+                          className="nights-btn"
+                          onClick={() => changeNights(stop, -1)}
+                          aria-label="Minder nachten"
+                        >
+                          <Icon name="minus" size={16} />
+                        </button>
+                      )}
                       <span className="nights-count">
                         {stop.nights}
                         <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
                       </span>
-                      <button
-                        className="nights-btn"
-                        onClick={() => changeNights(stop, 1)}
-                        aria-label="Meer nachten"
-                      >
-                        <Icon name="plus" size={16} />
-                      </button>
+                      {!readOnly && (
+                        <button
+                          className="nights-btn"
+                          onClick={() => changeNights(stop, 1)}
+                          aria-label="Meer nachten"
+                        >
+                          <Icon name="plus" size={16} />
+                        </button>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      className={`daytrip-btn ${dayTripFor === stop.id ? 'open' : ''}`}
-                      onClick={() => setDayTripFor(dayTripFor === stop.id ? null : stop.id)}
-                    >
-                      <Icon name="plus" size={13} />
-                      Dagtrip
-                    </button>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        className={`daytrip-btn ${dayTripFor === stop.id ? 'open' : ''}`}
+                        onClick={() => setDayTripFor(dayTripFor === stop.id ? null : stop.id)}
+                      >
+                        <Icon name="plus" size={13} />
+                        Dagtrip
+                      </button>
+                    )}
                   </div>
                 </div>
                 <DayTrips
@@ -811,6 +832,7 @@ export function TripPlanner({
                   onDate={(trip, date) => setDayTripDate(trip, date)}
                   onRemove={removeStop}
                   onFlyTo={onFlyTo}
+                  readOnly={readOnly}
                 />
               </div>
               </SwipeToDelete>
@@ -820,8 +842,11 @@ export function TripPlanner({
         })}
       </ol>
 
-      {!hasReturn && <ModeMenu label="Terugreis" onPick={(m) => void addReturnLeg(m)} />}
+      {!hasReturn && !readOnly && (
+        <ModeMenu label="Terugreis" onPick={(m) => void addReturnLeg(m)} />
+      )}
 
+      {!readOnly && (
       <form className="card stop-add" onSubmit={addStop}>
         <div className="field stop-search">
           <label htmlFor="st-name">Nieuwe stop</label>
@@ -867,6 +892,7 @@ export function TripPlanner({
         </span>
         <button className="btn btn-primary">Stop toevoegen</button>
       </form>
+      )}
 
       {/* Deleting is one gesture, so there has to be a way back. Sits above the
           tab bar and fades out after a few seconds. */}
@@ -915,6 +941,7 @@ function SwipeToDelete({
   onDragMove,
   onDragEnd,
   dragging,
+  disabled,
   children,
 }: {
   onDelete: () => void;
@@ -924,6 +951,8 @@ function SwipeToDelete({
   onDragMove?: (dy: number) => void;
   onDragEnd?: () => void;
   dragging?: boolean;
+  /** Read-only row: hand the card straight through, no gesture on it. */
+  disabled?: boolean;
   children: ReactNode;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
@@ -1186,6 +1215,9 @@ function SwipeToDelete({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Nothing to swipe away and nothing to reorder: the card is the whole row.
+  if (disabled) return <>{children}</>;
+
   return (
     <div className="swipe-row" ref={boxRef} data-dragging={dragging} data-armed="false">
       {/* Grows out of the edge you are uncovering; the icon hugs that edge and
@@ -1227,6 +1259,7 @@ function DayTrips({
   onDate,
   onRemove,
   onFlyTo,
+  readOnly,
 }: {
   parent: PlannedStop;
   dayTrips: PlannedStop[];
@@ -1237,6 +1270,7 @@ function DayTrips({
   onDate: (dayTrip: PlannedStop, day: string) => void;
   onRemove: (stop: PlannedStop) => void;
   onFlyTo: (lng: number, lat: number) => void;
+  readOnly?: boolean;
 }) {
   const [query, setQuery] = useState('');
   const [sugg, setSugg] = useState<PlaceSuggestion[]>([]);
@@ -1300,11 +1334,15 @@ function DayTrips({
                   <div className="daytrip-info">
                     <strong>{trip.name}</strong>
                     <span className="muted daytrip-meta">
-                      <DateField
-                        value={trip.arrivalDate.slice(0, 10)}
-                        nearDate={parent.arrivalDate.slice(0, 10)}
-                        onChange={(value) => value && onDate(trip, value)}
-                      />
+                      {readOnly ? (
+                        formatDate(trip.arrivalDate)
+                      ) : (
+                        <DateField
+                          value={trip.arrivalDate.slice(0, 10)}
+                          nearDate={parent.arrivalDate.slice(0, 10)}
+                          onChange={(value) => value && onDate(trip, value)}
+                        />
+                      )}
                       {trip.latitude !== null && trip.longitude !== null && (
                         <WeatherBadge
                           lat={trip.latitude}
@@ -1317,14 +1355,16 @@ function DayTrips({
                   </div>
                   {/* A day trip keeps its cross: the rows are small, and a swipe
                       on something this size is fiddly. */}
-                  <button
-                    type="button"
-                    className="daytrip-delete"
-                    onClick={() => onRemove(trip)}
-                    aria-label="Dagtrip verwijderen"
-                  >
-                    <Icon name="close" size={14} />
-                  </button>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      className="daytrip-delete"
+                      onClick={() => onRemove(trip)}
+                      aria-label="Dagtrip verwijderen"
+                    >
+                      <Icon name="close" size={14} />
+                    </button>
+                  )}
                 </div>
             </li>
           ))}
@@ -1333,6 +1373,7 @@ function DayTrips({
 
       {/* 0fr → 1fr expander: the card itself grows, so the panel unfolds out of
           the stop instead of appearing on top of it. */}
+      {!readOnly && (
       <div className="daytrip-panel" data-open={open}>
         <div className="daytrip-panel-inner">
           <div className="daytrip-form">
@@ -1384,6 +1425,7 @@ function DayTrips({
           </div>
         </div>
       </div>
+      )}
     </>
   );
 }
@@ -1397,9 +1439,11 @@ function LegLocation({
   savedLabel,
   onSave,
   onFlyTo,
+  readOnly,
 }: {
   outbound: boolean;
   hasLocation: boolean;
+  readOnly?: boolean;
   savedLabel?: string | null;
   onSave: (data: {
     latitude: number;
@@ -1429,11 +1473,16 @@ function LegLocation({
   const text = name ?? (hasLocation ? 'Ingesteld' : outbound ? 'Beginpunt' : 'Eindpunt');
   const isSet = hasLocation || !!label;
 
+  // Nothing set and nothing to set: an empty "Beginpunt" prompt is an
+  // invitation, and a guest has no way to accept it.
+  if (readOnly && !isSet) return null;
+
   return (
     <>
       <button
         type="button"
         className={`leg-loc-pill ${isSet ? 'set' : ''}`}
+        disabled={readOnly}
         onClick={() => setOpen(true)}
       >
         <Icon name="pin" size={13} />
@@ -1602,12 +1651,14 @@ function ModeMenu({
   compact,
   align = 'left',
   onPick,
+  readOnly,
 }: {
   label?: string;
   current?: TravelMode;
   compact?: boolean;
   align?: 'left' | 'right';
   onPick: (mode: TravelMode) => void;
+  readOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -1634,10 +1685,16 @@ function ModeMenu({
   const text = label ?? MODE_LABEL[current!];
 
   return (
-    <div className={`mode-menu ${compact ? 'mode-menu-compact' : ''}`} ref={ref}>
+    <div
+      className={`mode-menu ${compact ? 'mode-menu-compact' : ''} ${
+        readOnly ? 'mode-menu-static' : ''
+      }`}
+      ref={ref}
+    >
       <button
         type="button"
         className="mode-menu-pill"
+        disabled={readOnly}
         onClick={() => (open ? close() : setOpen(true))}
       >
         {/* Keyed on the mode so picking another one cross-fades icon + label
@@ -1646,7 +1703,8 @@ function ModeMenu({
           <Icon name={icon} size={compact ? 14 : 16} />
           <span>{text}</span>
         </span>
-        <Icon name="chevron-down" size={13} className="mode-menu-caret" />
+        {/* No caret when there is no menu behind it: the pill is a label. */}
+        {!readOnly && <Icon name="chevron-down" size={13} className="mode-menu-caret" />}
       </button>
       {open && (
         <div className={`mode-menu-drop card mode-menu-${align} ${closing ? 'closing' : ''}`}>

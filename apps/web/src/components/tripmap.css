@@ -228,3 +228,149 @@
   animation: livePulse 1.8s ease-out infinite;
 }
 
+
+/* ---- Stop label ---------------------------------------------------------
+   MapLibre's own popup is a white box with a system close button, which is
+   what a map library ships, not what this app looks like. Same anchoring,
+   everything else replaced: a card in the app's paper and ink, and an entrance
+   that grows out of the pin it belongs to (and shrinks back into it) rather
+   than fading in from nowhere. */
+.stop-popup .maplibregl-popup-content {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.stop-popup .maplibregl-popup-tip {
+  border-top-color: var(--paper-raised);
+  border-bottom-color: var(--paper-raised);
+  filter: drop-shadow(0 1px 1px rgb(8 12 18 / 0.16));
+}
+
+.stop-popup-body {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 0.7rem;
+  padding: 0.5rem 0.55rem 0.5rem 0.8rem;
+  border-radius: var(--radius-m);
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-m);
+  border: 1px solid var(--line);
+}
+
+.stop-popup-name {
+  grid-column: 1;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.stop-popup-meta {
+  grid-column: 1;
+  color: var(--ink-faint);
+  font-size: 0.73rem;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.stop-popup-close {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  display: grid;
+  place-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--ink-faint);
+  background: transparent;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.stop-popup-close:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+/* Out of the pin: the card starts small and low, right on top of the marker,
+   and settles into place. The animation sits on the CONTENT, never on the
+   popup itself — maplibre positions that element with an inline transform, and
+   a keyframe on the same property would fling the label off its pin. The
+   origin follows the anchor maplibre picked, so a label that had to flip below
+   the marker still grows out of it. */
+.stop-popup .maplibregl-popup-content {
+  animation: stopPopIn 0.24s var(--ease) both;
+  transform-origin: 50% 100%;
+}
+
+.stop-popup .maplibregl-popup-tip {
+  animation: stopTipIn 0.24s var(--ease) both;
+}
+
+.stop-popup.maplibregl-popup-anchor-top .maplibregl-popup-content,
+.stop-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-content,
+.stop-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-content {
+  transform-origin: 50% 0%;
+}
+
+.stop-popup.maplibregl-popup-anchor-left .maplibregl-popup-content {
+  transform-origin: 0% 50%;
+}
+
+.stop-popup.maplibregl-popup-anchor-right .maplibregl-popup-content {
+  transform-origin: 100% 50%;
+}
+
+/* Back into it. Shorter than the entrance — leaving should feel like a
+   dismissal, not a performance. */
+.stop-popup.closing {
+  pointer-events: none;
+}
+
+.stop-popup.closing .maplibregl-popup-content {
+  animation: stopPopOut 0.18s cubic-bezier(0.4, 0, 0.7, 0.35) both;
+}
+
+.stop-popup.closing .maplibregl-popup-tip {
+  animation: stopTipOut 0.18s cubic-bezier(0.4, 0, 0.7, 0.35) both;
+}
+
+@keyframes stopPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.55) translateY(6px);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes stopPopOut {
+  to {
+    opacity: 0;
+    transform: scale(0.6) translateY(4px);
+  }
+}
+
+/* The tip only fades: it is a triangle drawn in borders, and scaling it from
+   the wrong corner reads as a wobble. */
+@keyframes stopTipIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes stopTipOut {
+  to {
+    opacity: 0;
+  }
+}

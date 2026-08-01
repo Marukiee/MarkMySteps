@@ -834,6 +834,13 @@ export class TripsService {
         ...(dto.canTrack !== undefined ? { canTrack: dto.canTrack } : {}),
       },
     });
+    // Turned down to guest: their photos leave the trip with them. The Immich
+    // sync stops adding new ones, but what earlier runs put there has to go
+    // now — the demotion is meant to take effect on the page, not in a
+    // quarter of an hour, and only for a trip that is still syncing.
+    if (dto.role === TripRole.GUEST) {
+      await this.prisma.mediaRef.deleteMany({ where: { tripId, userId: memberId } });
+    }
     return this.getForMember(tripId, ownerId);
   }
 }

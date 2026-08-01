@@ -691,6 +691,21 @@
   color: var(--ink-faint);
 }
 
+/* Guest view: the pills still say how the leg is travelled and which flight it
+   is, but nothing about them invites a press — no hover, no pointer, and full
+   opacity, because they are labels rather than disabled controls. */
+.mode-menu-static .mode-menu-pill,
+.flight-summary:disabled,
+.leg-loc-pill:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.mode-menu-static .mode-menu-pill:hover {
+  background: var(--paper-sunken);
+  border-color: var(--line);
+}
+
 .mode-menu-compact .mode-menu-pill {
   padding: 0.28rem 0.6rem;
   border: 1px solid var(--line);

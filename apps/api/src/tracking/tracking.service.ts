@@ -154,6 +154,7 @@ export class TrackingService {
     latitude: number,
     longitude: number,
   ): Promise<void> {
+    await this.trips.getForEditor(tripId, userId);
     const { count } = await this.prisma.locationPoint.updateMany({
       where: { id: pointId, tripId, userId },
       data: { latitude, longitude },
@@ -182,6 +183,7 @@ export class TrackingService {
 
   /** Users may only delete their own points. */
   async removePoint(tripId: string, userId: string, pointId: string): Promise<void> {
+    await this.trips.getForEditor(tripId, userId);
     const { count } = await this.prisma.locationPoint.deleteMany({
       where: { id: pointId, tripId, userId },
     });
@@ -200,7 +202,7 @@ export class TrackingService {
     userId: string,
     day?: string,
   ): Promise<{ deleted: number }> {
-    await this.trips.getForMember(tripId, userId);
+    await this.trips.getForEditor(tripId, userId);
     const where: Prisma.LocationPointWhereInput = {
       tripId,
       userId,

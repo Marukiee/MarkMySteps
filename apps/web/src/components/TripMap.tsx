@@ -7,7 +7,7 @@ import { getMapStyle, getMapStyleId } from '../lib/prefs';
 import { setDarkBackdrop } from '../lib/native';
 import type { MediaItem, RouteCollection } from '../api/types';
 import { buildLegs, flightArc, haversineKm, StopPoint, trimOutlierEnds } from '../lib/arc';
-import { colorForUser } from '../lib/colors';
+import { colorForUser, formatDate, formatDateRange } from '../lib/colors';
 import { useNow } from '../lib/lastSeen';
 import './tripmap.css';
 import { paintMarker } from './Flag';
@@ -128,6 +128,9 @@ export function TripMap({
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const stopMarkersRef = useRef<maplibregl.Marker[]>([]);
+  /** The one open stop label, and the timer that is taking it away again. */
+  const stopPopupRef = useRef<maplibregl.Popup | null>(null);
+  const stopPopupTimersRef = useRef<number[]>([]);
   const waypointMarkersRef = useRef<maplibregl.Marker[]>([]);
   const meMarkerRef = useRef<maplibregl.Marker | null>(null);
   /** The bounds that framed the whole trip, for resetView. */
@@ -140,6 +143,81 @@ export function TripMap({
   const liveTick = useNow(5_000);
   const waypointDeleteRef = useRef(onWaypointDelete);
   waypointDeleteRef.current = onWaypointDelete;
+
+  /**
+   * Takes the open stop label away.
+   *
+   * MapLibre's own popup drops out of the DOM the instant it is closed, which
+   * is why the label used to vanish rather than leave. So the element gets a
+   * class, plays its exit, and is only then removed — each removal on its own
+   * timer, so closing one while opening the next can't strand either of them.
+   */
+  const closeStopPopup = (immediate = false): void => {
+    const popup = stopPopupRef.current;
+    stopPopupRef.current = null;
+    if (!popup) return;
+    const el = popup.getElement();
+    if (immediate || !el) {
+      popup.remove();
+      return;
+    }
+    el.classList.add('closing');
+    const timer = window.setTimeout(() => {
+      popup.remove();
+      stopPopupTimersRef.current = stopPopupTimersRef.current.filter((t) => t !== timer);
+    }, 200);
+    stopPopupTimersRef.current.push(timer);
+  };
+
+  /** The label above a stop: its name, when you were there, and a way out. */
+  const openStopPopup = (map: MapLibreMap, stop: StopPoint): void => {
+    closeStopPopup();
+    const body = document.createElement('div');
+    body.className = 'stop-popup-body';
+
+    const name = document.createElement('strong');
+    name.className = 'stop-popup-name';
+    name.textContent = stop.name;
+    body.appendChild(name);
+
+    const day = stop.dayTripDate ?? stop.arrivalDate;
+    const when = stop.parentStopId
+      ? `Dagtrip · ${formatDate(day)}`
+      : stop.arrivalDate.slice(0, 10) === stop.departureDate.slice(0, 10)
+        ? formatDate(stop.arrivalDate)
+        : formatDateRange(stop.arrivalDate, stop.departureDate);
+    if (when) {
+      const meta = document.createElement('span');
+      meta.className = 'stop-popup-meta';
+      meta.textContent = when;
+      body.appendChild(meta);
+    }
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'stop-popup-close';
+    close.setAttribute('aria-label', 'Sluiten');
+    close.innerHTML =
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" ' +
+      'stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    close.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeStopPopup();
+    });
+    body.appendChild(close);
+
+    stopPopupRef.current = new maplibregl.Popup({
+      offset: 20,
+      closeButton: false,
+      closeOnClick: false,
+      focusAfterOpen: false,
+      className: 'stop-popup',
+      maxWidth: '230px',
+    })
+      .setLngLat([stop.longitude!, stop.latitude!])
+      .setDOMContent(body)
+      .addTo(map);
+  };
   const loadedRef = useRef(false);
   /** Pixels of canvas hidden behind the bottom sheet — every camera move has to
    *  compensate, including the automatic "frame the whole trip" below. */
@@ -177,7 +255,10 @@ export function TripMap({
       // re-runs when props change, and reads loadedRef.
       map.resize();
     });
-    map.on('click', (e) => clickHandlerRef.current?.(e.lngLat));
+    map.on('click', (e) => {
+      closeStopPopup();
+      clickHandlerRef.current?.(e.lngLat);
+    });
     // Right-click (desktop) + long-press (touch) → onLongPress at that point.
     map.on('contextmenu', (e) => longPressRef.current?.(e.lngLat));
     const container = containerRef.current;
@@ -254,6 +335,9 @@ export function TripMap({
       container.removeEventListener('touchmove', onTouchMove);
       container.removeEventListener('touchend', cancelLp);
       container.removeEventListener('touchcancel', cancelLp);
+      for (const timer of stopPopupTimersRef.current) window.clearTimeout(timer);
+      stopPopupTimersRef.current = [];
+      stopPopupRef.current = null;
       map.remove();
       mapRef.current = null;
       loadedRef.current = false;
@@ -381,7 +465,9 @@ export function TripMap({
             id: `${fid}-line`,
             type: 'line',
             source: fid,
-            paint: { 'line-color': '#8a94a3', 'line-width': 2, 'line-dasharray': [1.4, 2.6] },
+            // Solid: this arc is inferred from photos that were already taken,
+            // so the flight has been flown. Dashes are for what's still ahead.
+            paint: { 'line-color': '#8a94a3', 'line-width': 2 },
             layout: { 'line-cap': 'round' },
           });
         }
@@ -523,6 +609,9 @@ export function TripMap({
     // if the style isn't ready this tick.
     for (const marker of stopMarkersRef.current) marker.remove();
     stopMarkersRef.current = [];
+    // The label belongs to a marker that is about to be replaced; leaving it
+    // hanging over the map would point at nothing.
+    closeStopPopup(true);
 
     const apply = () => {
       for (const marker of stopMarkersRef.current) marker.remove();
@@ -554,7 +643,7 @@ export function TripMap({
        * its own vanished into satellite imagery; the casing is what keeps it
        * readable over both an aerial photo and a pale street map.
        */
-      const addPlannedGround = (id: string, width: number, dash: [number, number]) => {
+      const addPlannedGround = (id: string, width: number, dash: [number, number] | null) => {
         // Wide and blurred, so it reads as the line's own shadow rather than as
         // a black outline drawn around it — a tight, hard casing looked like a
         // border somebody had put there on purpose.
@@ -570,7 +659,7 @@ export function TripMap({
             'line-color': 'rgba(16, 18, 24, 0.34)',
             'line-width': casing,
             'line-blur': 3.5,
-            'line-dasharray': [dash[0] * scale, dash[1] * scale],
+            ...(dash ? { 'line-dasharray': [dash[0] * scale, dash[1] * scale] } : {}),
           },
           layout: { 'line-cap': 'round' },
         });
@@ -578,10 +667,26 @@ export function TripMap({
           id,
           type: 'line',
           source: id,
-          paint: { 'line-color': '#ffc46b', 'line-width': width, 'line-dasharray': dash },
+          paint: {
+            'line-color': '#ffc46b',
+            'line-width': width,
+            ...(dash ? { 'line-dasharray': dash } : {}),
+          },
           layout: { 'line-cap': 'round' },
         });
       };
+
+      /**
+       * A dash means "still to come".
+       *
+       * The planned line is a guess either way, but a leg whose day has been
+       * and gone was actually travelled — drawing it as a plan made a finished
+       * trip look like it never happened. Legs from today onwards keep the
+       * dashes; everything behind us is a solid line.
+       */
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const isFuture = (day?: string | null): boolean => !!day && day.slice(0, 10) > todayKey;
+      const stopById = new Map((stops ?? []).map((s) => [s.id, s]));
 
       // Markers only for real places (cities); a standalone heen-/terugreis leg
       // may carry an origin/destination coordinate (for its km) but is NOT a
@@ -595,10 +700,15 @@ export function TripMap({
         // smaller marker keeps the itinerary readable.
         el.className = stop.parentStopId ? 'stop-marker stop-marker-day' : 'stop-marker';
         paintMarker(el, stop.countryCode, stop.orderIndex + 1);
+        // Our own label rather than MapLibre's: it has to look like the app,
+        // and it has to be able to leave rather than disappear.
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openStopPopup(map, stop);
+        });
         stopMarkersRef.current.push(
           new maplibregl.Marker({ element: el })
             .setLngLat([stop.longitude, stop.latitude])
-            .setPopup(new maplibregl.Popup({ offset: 18 }).setText(stop.name))
             .addTo(map),
         );
       }
@@ -642,7 +752,7 @@ export function TripMap({
             geometry: { type: 'LineString', coordinates: [from, to] },
           },
         });
-        addPlannedGround(id, 1.6, [1, 2.4]);
+        addPlannedGround(id, 1.6, isFuture(stop.dayTripDate ?? stop.arrivalDate) ? [1, 2.4] : null);
       }
 
       // Legs. Flights are deduped by coarse endpoints so a there-and-back on the same
@@ -673,17 +783,24 @@ export function TripMap({
           seenFlights.add(key);
         }
         const id = `leg-${leg.id}`;
+        // A leg is the arrival at its stop, so that stop's date is the day it
+        // was travelled.
+        const future = isFuture(stopById.get(leg.id)?.arrivalDate);
         map.addSource(id, { type: 'geojson', data: leg.feature });
         if (leg.isFlight) {
           map.addLayer({
             id,
             type: 'line',
             source: id,
-            paint: { 'line-color': '#8a94a3', 'line-width': 2, 'line-dasharray': [1.4, 2.6] },
+            paint: {
+              'line-color': '#8a94a3',
+              'line-width': 2,
+              ...(future ? { 'line-dasharray': [1.4, 2.6] as [number, number] } : {}),
+            },
             layout: { 'line-cap': 'round' },
           });
         } else {
-          addPlannedGround(id, 2, [2, 2]);
+          addPlannedGround(id, 2, future ? [2, 2] : null);
         }
       }
     };

@@ -54,6 +54,7 @@ export class NotesService {
   }
 
   async remove(tripId: string, userId: string, noteId: string): Promise<void> {
+    await this.trips.getForEditor(tripId, userId);
     // Authors delete their own notes only.
     const { count } = await this.prisma.tripNote.deleteMany({
       where: { id: noteId, tripId, authorId: userId },

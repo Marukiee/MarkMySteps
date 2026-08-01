@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { TripRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImmichClientService } from './immich-client.service';
 import { ImmichConnectionService } from './immich-connection.service';
@@ -60,8 +61,19 @@ export class ImmichSyncService {
   async syncTrip(tripId: string): Promise<SyncResult> {
     const trip = await this.prisma.trip.findUniqueOrThrow({
       where: { id: tripId },
-      include: { members: { select: { userId: true } } },
+      include: { members: { select: { userId: true, role: true } } },
     });
+
+    // Guests look, they don't contribute. Pulling their Immich library into
+    // somebody else's trip would put their private photos in a timeline they
+    // were only invited to read — and give them a route on its map.
+    const travellers = trip.members.filter((m) => m.role !== TripRole.GUEST);
+    const guestIds = trip.members.filter((m) => m.role === TripRole.GUEST).map((m) => m.userId);
+    if (guestIds.length > 0) {
+      // Somebody turned down to guest keeps whatever earlier syncs added, so
+      // the demotion has to take it out again.
+      await this.prisma.mediaRef.deleteMany({ where: { tripId, userId: { in: guestIds } } });
+    }
 
     // Trip dates are DATE columns: extend `to` to the end of that day.
     const from = trip.startDate;
@@ -75,7 +87,7 @@ export class ImmichSyncService {
       assetsRemoved: 0,
     };
 
-    for (const { userId } of trip.members) {
+    for (const { userId } of travellers) {
       const credentials = await this.connections.getCredentials(userId);
       if (!credentials) continue;
 

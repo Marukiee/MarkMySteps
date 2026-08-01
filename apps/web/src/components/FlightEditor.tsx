@@ -21,6 +21,8 @@ interface FlightEditorProps {
     toAirport?: string;
     viaAirports?: string[];
   }) => void;
+  /** Guest view: the pill still names the flight, but opens nothing. */
+  readOnly?: boolean;
 }
 
 /**
@@ -37,17 +39,22 @@ export function FlightEditor({
   fromCity,
   toCity,
   onSave,
+  readOnly,
 }: FlightEditorProps) {
   const [open, setOpen] = useState(false);
 
   const hasRoute = fromAirport && toAirport;
   const summaryStops = [fromAirport, ...(viaAirports ?? []), toAirport].filter(Boolean);
 
+  // An empty pill only says "Toevoegen", which a guest cannot do.
+  if (readOnly && !hasRoute && !flightNumber) return null;
+
   return (
     <>
       <button
         type="button"
         className={`flight-summary ${hasRoute || flightNumber ? 'set' : ''}`}
+        disabled={readOnly}
         onClick={() => setOpen(true)}
       >
         <Icon name="plane" size={14} />

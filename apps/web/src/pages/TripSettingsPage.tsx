@@ -17,6 +17,7 @@ import {
 } from '../lib/deviceMedia';
 import { tripCoverBg } from '../lib/colors';
 import { isLocalMode } from '../lib/localMode';
+import { canEditTrip, canTrackTrip } from '../lib/perm';
 import { getTripFacts, setTripFacts } from '../lib/prefs';
 import {
   FACT_NAMES,
@@ -91,8 +92,10 @@ export function TripSettingsPage() {
   const isOwner = trip?.ownerId === user?.id;
   const me = trip?.members.find((m) => m.userId === user?.id);
   const ended = !!trip && new Date(trip.endDate).getTime() + 86_400_000 < Date.now();
-  const canTrack =
-    !ended && !!me && (me.role === 'OWNER' || (me.role === 'MEMBER' && me.canTrack));
+  // A guest contributes nothing to the trip — no photos of their own, from
+  // Immich or from their gallery, and no track.
+  const canEdit = canEditTrip(trip, user?.id);
+  const canTrack = !ended && canTrackTrip(trip, user?.id);
 
   /**
    * Saves on its own, shortly after you stop typing.
@@ -403,12 +406,17 @@ export function TripSettingsPage() {
           {error && <p className="error-text">{error}</p>}
         </form>
       ) : (
-        <p className="muted">Alleen de organisator kan de reisinstellingen wijzigen.</p>
+        <p className="muted">
+          {canEdit
+            ? 'Alleen de organisator kan de reisinstellingen wijzigen.'
+            : 'Je bent gast op deze reis: je kunt hem bekijken, niet aanpassen.'}
+        </p>
       )}
 
       {isOwner && tripId && <FactPicker tripId={tripId} trip={trip} />}
 
       {syncMessage && <p className="muted ts-sync-msg">{syncMessage}</p>}
+      {canEdit && (
       <section className="ts-sync">
         <div>
           <strong>{isLocalMode() ? "Foto's koppelen" : "Foto's syncen"}</strong>
@@ -422,10 +430,11 @@ export function TripSettingsPage() {
           {syncing ? 'Bezig…' : isLocalMode() ? 'Zoeken' : "Foto's syncen"}
         </button>
       </section>
+      )}
 
       {/* Photos you would rather not hand over. They are matched to the trip the
           same way Immich's are, but the files stay on the phone. */}
-      {devicePhotos && (
+      {devicePhotos && canEdit && (
         <>
           {deviceMsg && <p className="muted ts-sync-msg">{deviceMsg}</p>}
           <section className="ts-sync ts-sync-stacked">
@@ -559,6 +568,7 @@ export function TripSettingsPage() {
           </p>
         </div>
 
+        {canEdit && (
         <div className="ts-track-box ts-track-danger">
           <div>
             <strong>Getrackte data wissen</strong>
@@ -585,7 +595,9 @@ export function TripSettingsPage() {
             Alles wissen
           </button>
         </div>
+        )}
 
+        {canEdit && (
         <div className="ts-track-box">
           <div>
             <strong>Automatisch getekende routes wissen</strong>
@@ -601,6 +613,7 @@ export function TripSettingsPage() {
             Wissen
           </button>
         </div>
+        )}
         {clearMsg && <p className="muted">{clearMsg}</p>}
       </section>
 

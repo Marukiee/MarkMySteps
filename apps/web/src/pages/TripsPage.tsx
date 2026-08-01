@@ -18,10 +18,12 @@ import {
   isTripCompact,
   setTripCardOverride,
 } from '../lib/prefs';
+import { canEditTrip } from '../lib/perm';
 import { onTrackerChange } from '../tracking/tracker';
 import './trips.css';
 
 export function TripsPage() {
+  const { user } = useAuth();
   const [trips, setTrips] = useState<Trip[] | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [newClosing, setNewClosing] = useState(false);
@@ -89,6 +91,11 @@ export function TripsPage() {
     return a.startDate.localeCompare(b.startDate);
   });
   const past = trips?.filter((t) => t.endDate.slice(0, 10) < today) ?? [];
+  // The globe is where YOU have been. A trip somebody shared with you as a
+  // guest is theirs — it stays in the list, so you can open it, but it doesn't
+  // draw a route across your own world. (The server leaves guest trips out of
+  // your travel stats for the same reason.)
+  const myGlobeTrips = (trips ?? []).filter((t) => canEditTrip(t, user?.id));
 
   return (
     <main className="page fade-in trips-page">
@@ -98,7 +105,7 @@ export function TripsPage() {
           bar already carries the brand, so this only shows where that bar is
           gone (phone, and the app). */}
       <div className="trips-globe">
-        <GlobeBackdrop trips={trips ?? []} selfLocation={self} />
+        <GlobeBackdrop trips={myGlobeTrips} selfLocation={self} />
         <span className="trips-brand" aria-label="MarkMySteps">
           <LogoMark size={40} needleRef={needleRef} />
           <span>MarkMySteps</span>

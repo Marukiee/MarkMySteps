@@ -1486,20 +1486,22 @@ export function GlobeBackdrop({
         const next = cur + (target - cur) * (target > cur ? 0.055 : 0.13);
         labelOpacity.set(trip.id, next);
         if (next < 0.03) continue;
-        // Rises the last few pixels into place as it fades in, then sits still.
-        const py = Math.max(
-          margin,
-          Math.min(projected[1] - 8 * dpr + (1 - next) * 7 * dpr, h - ph - margin),
-        );
+        // The card sits still; the growth below is what carries it into place.
+        const py = Math.max(margin, Math.min(projected[1] - 8 * dpr, h - ph - margin));
         if (next > 0.5) placed.push({ x: px, y: py, w: pw, h: ph });
         if (next > 0.6) labelRects.push({ id: trip.id, x: px, y: py, w: pw, h: ph });
-        // Scales up from 88% around its left edge, so it grows out of the dot.
-        const grow = 0.88 + 0.12 * next;
+        // Out of the dot itself: the whole card is scaled about the trip's own
+        // point on the globe, so it unfolds from there and folds back into it
+        // when you tap it away. Rising into place from below made it look like
+        // it came from somewhere else entirely.
+        const grow = 0.18 + 0.82 * next;
         ctx!.save();
-        ctx!.globalAlpha = Math.min(1, next);
-        ctx!.translate(px, py + ph / 2);
+        // Solid a little sooner than it is full size, or the name is still
+        // half-transparent by the time it has finished growing.
+        ctx!.globalAlpha = Math.min(1, next * 1.5);
+        ctx!.translate(projected[0], projected[1]);
         ctx!.scale(grow, grow);
-        ctx!.translate(-px, -(py + ph / 2));
+        ctx!.translate(-projected[0], -projected[1]);
         ctx!.fillStyle = 'rgba(255,255,255,0.94)';
         roundRect(ctx!, px, py, pw, ph, 9 * dpr);
         ctx!.fill();

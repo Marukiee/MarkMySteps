@@ -21,6 +21,7 @@ import { useExit } from '../lib/useExit';
 import { colorForUser, formatDate, tripCoverBg } from '../lib/colors';
 import { listDeviceMedia } from '../lib/deviceMedia';
 import { lastSeenLabel, useNow } from '../lib/lastSeen';
+import { canEditTrip } from '../lib/perm';
 import { stableViewportHeight } from '../lib/native';
 import { getMapStyle, getTripFacts } from '../lib/prefs';
 import { FactId, resolveFacts } from '../lib/tripFacts';
@@ -57,6 +58,9 @@ export function TripDetailPage() {
   const shownExtraRef = useRef(extraCount);
   if (extraCount > 0) shownExtraRef.current = extraCount;
   const shownExtra = shownExtraRef.current;
+  // A guest is here to look at the trip, not to change it: no notes, no
+  // waypoints, no drawing over the route, and a routeplanner that only reads.
+  const canEdit = canEditTrip(trip, user?.id);
   const [personMenuOpen, setPersonMenuOpen] = useState(false);
   const [personMenuClosing, setPersonMenuClosing] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
@@ -305,7 +309,7 @@ export function TripDetailPage() {
   // Long-press a straight stretch → snap it to real roads (keyless OSM routing).
   const handleLongPress = useCallback(
     async (lngLat: { lng: number; lat: number }) => {
-      if (!tripId || tab === 'plan') return;
+      if (!tripId || tab === 'plan' || !canEdit) return;
       // Long-pressing an already-drawn stretch takes it back; anywhere else it
       // draws a new one. Same gesture, and the wording says which one it is.
       const onDrawn = await api<{ near: boolean }>(
@@ -348,7 +352,7 @@ export function TripDetailPage() {
         setError(err instanceof Error ? err.message : 'Route tekenen mislukt');
       }
     },
-    [tripId, tab],
+    [tripId, tab, canEdit],
   );
 
   async function savePoint() {
@@ -517,12 +521,12 @@ export function TripDetailPage() {
           // Hand-placed points are editing scaffolding: they belong in the
           // points editor, where you can drag them, not scattered over the
           // trip's own map.
-          waypoints={addPointMode ? waypoints : undefined}
-          onWaypointDelete={addPointMode ? deleteWaypoint : undefined}
+          waypoints={addPointMode && canEdit ? waypoints : undefined}
+          onWaypointDelete={addPointMode && canEdit ? deleteWaypoint : undefined}
           visibleUsers={visibleUsers}
           onMapClick={handleMapClick}
           onLongPress={handleLongPress}
-          onSelfClick={() => setPointsOpen(true)}
+          onSelfClick={canEdit ? () => setPointsOpen(true) : undefined}
           onPhotoOpen={openPhoto}
           onPhotoFocus={scrollTimelineTo}
           clickMode={addPointMode}
@@ -747,7 +751,7 @@ export function TripDetailPage() {
             showOwner={(trip?.members.length ?? 0) > 1}
             onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
             notes={notes}
-            canEditNotes={!!user && trip?.members.some((m) => m.userId === user.id)}
+            canEditNotes={canEdit}
             ownUserId={user?.id}
             onSaveNote={saveNote}
             onDeleteNote={deleteNote}
@@ -770,6 +774,7 @@ export function TripDetailPage() {
             pickedCoords={planPick}
             onPickConsumed={() => setPlanPick(null)}
             onFlyTo={(lng, lat) => mapApiRef.current?.flyTo(lng, lat)}
+            readOnly={!canEdit}
           />
         )}
       </aside>

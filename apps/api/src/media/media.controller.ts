@@ -73,14 +73,14 @@ export class MediaController {
     return this.media.listForTrip(tripId, user.sub, userIds);
   }
 
-  /** Manually trigger an Immich sync for a trip (any member may). */
+  /** Manually trigger an Immich sync for a trip (any traveller, not guests). */
   @Post('trips/:tripId/sync')
   @Throttle({ default: { ttl: 60_000, limit: 6 } })
   async triggerSync(
     @CurrentUser() user: JwtPayload,
     @Param('tripId', ParseUUIDPipe) tripId: string,
   ): Promise<SyncResult> {
-    await this.trips.getForMember(tripId, user.sub); // membership check
+    await this.trips.getForEditor(tripId, user.sub);
     return this.sync.syncTrip(tripId);
   }
 
