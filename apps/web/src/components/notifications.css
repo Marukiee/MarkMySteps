@@ -225,11 +225,9 @@
   border-top: 1px solid var(--line);
 }
 
-/* Not looked at yet: a soft wash and a mark in the margin. */
-.notif-item.unread {
-  background: var(--accent-soft);
-}
-
+/* Not looked at yet: a dot in the margin, and nothing else. A tinted row was
+   two thirds of the list in orange, and the first one fought with the sheet's
+   rounded top corner. */
 .notif-item.unread::before {
   content: '';
   position: absolute;
@@ -364,9 +362,40 @@
   }
 }
 
+/* The answer, in the place the buttons were. */
+.notif-outcome {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  animation: notifOutcome 0.3s var(--ease) both;
+}
+
+.notif-outcome.yes {
+  color: #1f8f4d;
+}
+
+.notif-outcome.no {
+  color: #b3402a;
+}
+
+:root[data-theme='dark'] .notif-outcome.no {
+  color: #f0a08c;
+}
+
+@keyframes notifOutcome {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .notif-bell.has-news svg,
   .notif-item,
+  .notif-outcome,
   .notif-sheet,
   .notif-backdrop {
     animation: none;

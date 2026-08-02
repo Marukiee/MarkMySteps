@@ -3,19 +3,18 @@
    failed to fill in. */
 
 .trip-access {
-  position: relative;
-  min-height: calc(100vh - 5rem);
+  min-height: calc(100vh - 9rem);
   display: grid;
-  align-content: center;
+  /* Back on its own row at the top, the column centred in what is left. No
+     absolute positioning: the button is simply the first thing on the page. */
+  grid-template-rows: auto 1fr;
   justify-items: center;
-  padding-top: 4.5rem;
 }
 
 /* Top-left, where back always is. */
 .ta-back {
-  position: absolute;
-  top: 1.1rem;
-  left: 0;
+  justify-self: start;
+  align-self: start;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -34,6 +33,7 @@
 
 .ta-body {
   width: min(400px, 100%);
+  align-self: center;
   display: grid;
   justify-items: center;
   gap: 0.55rem;

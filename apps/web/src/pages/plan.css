@@ -524,7 +524,14 @@
 }
 
 /* And with the "Dagtrip" button gone, the nights pill is the only thing left
-   in its column — it lines up with the card's edge instead of floating. */
+   in its column — it lines up with the card's edge instead of floating.
+   The row inside the card has to grow first: without this it is only as wide
+   as its text, so every pill sat wherever that stop's name happened to end. */
+.trip-planner-read .stop-item > .stop-main {
+  flex: 1;
+  min-width: 0;
+}
+
 .trip-planner-read .stop-nights {
   margin-left: auto;
   justify-content: flex-end;

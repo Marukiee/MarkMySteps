@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { NotificationItem } from '../api/types';
+import { DEMO_NOTIFICATIONS } from '../lib/demoNotifications';
 import { useExit } from '../lib/useExit';
 import { Avatar } from './Avatar';
 import { Icon } from './Icon';
@@ -16,22 +17,26 @@ import './notifications.css';
  * onto a trip of yours, and that line stays, unread or not, until you answer
  * it. Answering sends the answer back to them as a line of their own.
  */
-export function NotificationBell() {
-  const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<NotificationItem[] | null>(null);
-  const [count, setCount] = useState({ unread: 0, pending: 0 });
+export function NotificationBell({ demo = false }: { demo?: boolean }) {
+  const [open, setOpen] = useState(demo);
+  const [items, setItems] = useState<NotificationItem[] | null>(demo ? DEMO_NOTIFICATIONS : null);
+  const [count, setCount] = useState(() =>
+    demo ? { unread: 2, pending: 1 } : { unread: 0, pending: 0 },
+  );
 
   const loadCount = useCallback(() => {
+    if (demo) return;
     api<{ unread: number; pending: number }>('/notifications/count')
       .then(setCount)
       .catch(() => undefined);
-  }, []);
+  }, [demo]);
 
   const loadItems = useCallback(() => {
+    if (demo) return;
     api<NotificationItem[]>('/notifications')
       .then(setItems)
       .catch(() => setItems([]));
-  }, []);
+  }, [demo]);
 
   useEffect(() => {
     loadCount();
@@ -49,6 +54,7 @@ export function NotificationBell() {
   /** Opening the list is reading it — except for questions still unanswered. */
   async function openSheet() {
     setOpen(true);
+    if (demo) return;
     try {
       await api('/notifications/read', { method: 'POST' });
       loadCount();
@@ -57,10 +63,18 @@ export function NotificationBell() {
     }
   }
 
-  async function answer(requestId: string, approve: boolean, role: 'MEMBER' | 'GUEST') {
+  async function answer(requestId: string, approve: boolean) {
+    if (demo) {
+      // The row says what happened; nothing leaves the phone.
+      setCount((c) => ({ ...c, pending: Math.max(0, c.pending - 1) }));
+      return;
+    }
+    // Always as a guest: this is somebody asking to look at a trip, not asking
+    // to have travelled on it. Making them a reisgenoot is a separate decision,
+    // and it lives where the rest of the roles do — mensen & delen.
     await api(`/access-requests/${requestId}/${approve ? 'approve' : 'deny'}`, {
       method: 'POST',
-      body: approve ? { role } : undefined,
+      body: approve ? { role: 'GUEST' } : undefined,
     });
     loadItems();
     loadCount();
@@ -68,6 +82,7 @@ export function NotificationBell() {
 
   async function dismiss(id: string) {
     setItems((cur) => cur?.filter((n) => n.id !== id) ?? cur);
+    if (demo) return;
     await api(`/notifications/${id}`, { method: 'DELETE' }).catch(() => undefined);
     loadCount();
   }
@@ -117,20 +132,30 @@ export function NotificationSheet({
   /** null while loading. */
   items: NotificationItem[] | null;
   onClose: () => void;
-  onAnswer: (requestId: string, approve: boolean, role: 'MEMBER' | 'GUEST') => Promise<void>;
+  onAnswer: (requestId: string, approve: boolean) => Promise<void>;
   onDismiss: (id: string) => void;
 }) {
   const navigate = useNavigate();
   const [shown, closing] = useExit(open, 260);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Requests answered in this sheet, so the row can say so straight away. */
+  const [answered, setAnswered] = useState<Record<string, 'in' | 'out'>>({});
 
-  async function answer(requestId: string, approve: boolean, role: 'MEMBER' | 'GUEST') {
+  async function answer(requestId: string, approve: boolean) {
     setBusy(requestId);
     setError(null);
     try {
-      await onAnswer(requestId, approve, role);
+      // Shows the outcome on the row before the list is fetched again, so the
+      // buttons are replaced by an answer rather than by a flicker.
+      setAnswered((cur) => ({ ...cur, [requestId]: approve ? 'in' : 'out' }));
+      await onAnswer(requestId, approve);
     } catch (err) {
+      setAnswered((cur) => {
+        const next = { ...cur };
+        delete next[requestId];
+        return next;
+      });
       setError(err instanceof Error ? err.message : 'Dat lukte niet');
     } finally {
       setBusy(null);
@@ -163,8 +188,11 @@ export function NotificationSheet({
         ) : (
           <ul className="notif-list">
             {items.map((item, i) => {
+              const justAnswered = item.request ? answered[item.request.id] : undefined;
               const pending =
-                item.kind === 'ACCESS_REQUESTED' && item.request?.status === 'PENDING';
+                item.kind === 'ACCESS_REQUESTED' &&
+                item.request?.status === 'PENDING' &&
+                !justAnswered;
               return (
                 <li
                   key={item.id}
@@ -200,27 +228,28 @@ export function NotificationSheet({
                           type="button"
                           className="btn btn-primary notif-act"
                           disabled={busy === item.request!.id}
-                          onClick={() => void answer(item.request!.id, true, 'GUEST')}
+                          onClick={() => void answer(item.request!.id, true)}
                         >
-                          Als gast
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost notif-act"
-                          disabled={busy === item.request!.id}
-                          onClick={() => void answer(item.request!.id, true, 'MEMBER')}
-                        >
-                          Als reisgenoot
+                          Toelaten
                         </button>
                         <button
                           type="button"
                           className="btn btn-ghost notif-act notif-deny"
                           disabled={busy === item.request!.id}
-                          onClick={() => void answer(item.request!.id, false, 'GUEST')}
+                          onClick={() => void answer(item.request!.id, false)}
                         >
                           Afwijzen
                         </button>
                       </div>
+                    )}
+
+                    {justAnswered && (
+                      <p className={`notif-outcome ${justAnswered === 'in' ? 'yes' : 'no'}`}>
+                        <Icon name={justAnswered === 'in' ? 'check' : 'close'} size={13} />
+                        {justAnswered === 'in'
+                          ? `${item.actor?.displayName ?? 'Toegelaten'} kijkt nu mee als gast.`
+                          : 'Afgewezen.'}
+                      </p>
                     )}
 
                     {item.trip && item.kind !== 'ACCESS_DENIED' && !pending && (

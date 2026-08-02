@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
@@ -31,6 +31,10 @@ export interface Friend {
  */
 export function FriendsPage() {
   const { user } = useAuth();
+  // Developer options open this page with the bell already up and filled with
+  // examples — on the real page, so what you judge is the real screen.
+  const [params] = useSearchParams();
+  const demoBell = params.get('demo') === 'meldingen';
   const [friends, setFriends] = useState<Friend[] | null>(null);
   const [mine, setMine] = useState<TravelStats | null>(null);
   const local = isLocalMode();
@@ -55,7 +59,7 @@ export function FriendsPage() {
           invitations both land here, where the people are. */}
       <div className="friends-head">
         <h1>{travellersTabLabel()}</h1>
-        {!local && <NotificationBell />}
+        {!local && <NotificationBell key={demoBell ? 'demo' : 'live'} demo={demoBell} />}
       </div>
 
       {user && (

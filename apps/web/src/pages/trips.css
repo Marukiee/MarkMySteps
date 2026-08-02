@@ -810,6 +810,11 @@
 .trips-switch {
   overflow: hidden;
   transition: height 0.38s var(--ease);
+  /* Clip at the window's edge, not at the cards': the page's own padding is
+     borrowed back so a card's shadow (and its rounded corner) has somewhere to
+     be while the track slides past. */
+  margin-inline: -1.25rem;
+  padding-inline: 1.25rem;
 }
 
 .trips-track {

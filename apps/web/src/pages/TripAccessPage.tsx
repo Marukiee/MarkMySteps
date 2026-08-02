@@ -114,7 +114,7 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
             size={34}
           />
           <span>
-            Van <strong>{preview.owner.displayName}</strong>
+            van <strong>{preview.owner.displayName}</strong>
           </span>
         </div>
 
