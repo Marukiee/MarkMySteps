@@ -741,6 +741,7 @@
    buttons that light up. */
 .trips-tabs {
   position: relative;
+  animation: tripsTabsIn 0.42s var(--ease) both;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px;
@@ -802,28 +803,36 @@
   color: var(--accent-ink);
 }
 
-/* Remounted per tab (React key), so this plays on every switch. It comes in
-   from the side you moved towards: the panel follows the pill. */
-.trips-panel {
-  animation: tripsPanelIn 0.3s var(--ease) both;
+/* One track carrying both lists. Nothing unmounts when you switch: the track
+   slides, the panes stay built, and the covers already on screen keep their
+   decoded photos (rebuilding them is what made the top card flash a dark
+   square while its image came back). */
+.trips-switch {
+  overflow: hidden;
+  transition: height 0.38s var(--ease);
 }
 
-.trips-panel[data-dir='-1'] {
-  animation-name: tripsPanelInLeft;
+.trips-track {
+  display: grid;
+  grid-template-columns: repeat(2, 100%);
+  gap: 0;
+  transition: transform 0.38s var(--ease);
 }
 
-@keyframes tripsPanelIn {
-  from {
-    opacity: 0;
-    transform: translateX(26px);
-  }
+.trips-track[data-tab='friends'] {
+  transform: translateX(-100%);
 }
 
-@keyframes tripsPanelInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-26px);
-  }
+.trips-pane {
+  min-width: 0;
+  align-self: start;
+  transition: opacity 0.28s var(--ease);
+}
+
+/* The pane you are not looking at must not be clickable or focusable. */
+.trips-pane[aria-hidden='true'] {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .trips-tab-empty {
@@ -831,8 +840,18 @@
   text-align: center;
 }
 
+@keyframes tripsTabsIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .trips-panel,
+  .trips-tabs,
+  .trips-track,
+  .trips-switch,
+  .trips-pane,
   .trips-tabs-thumb {
     animation: none;
     transition: none;

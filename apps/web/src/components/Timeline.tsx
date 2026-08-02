@@ -25,6 +25,8 @@ interface TimelineProps {
   showOwner?: boolean;
   notes?: TripNote[];
   canEditNotes?: boolean;
+  /** Whose trip this is when it isn't yours — changes what "empty" means. */
+  emptyOwnerName?: string | null;
   ownUserId?: string;
   onSaveNote?: (day: string, body: string) => Promise<void>;
   onDeleteNote?: (noteId: string) => Promise<void>;
@@ -38,6 +40,7 @@ export function Timeline({
   showOwner = false,
   notes = [],
   canEditNotes = false,
+  emptyOwnerName,
   ownUserId,
   onSaveNote,
   onDeleteNote,
@@ -100,7 +103,11 @@ export function Timeline({
   if (days.length === 0) {
     return (
       <p className="muted timeline-empty">
-        Nog geen foto's. Koppel Immich in Instellingen en druk op Sync.
+        {emptyOwnerName
+          ? // Not your trip: connecting your own Immich would not fill it, and
+            // telling a guest to do so was an instruction they cannot follow.
+            `${emptyOwnerName} heeft nog geen foto's toegevoegd aan deze reis.`
+          : "Nog geen foto's. Koppel Immich in Instellingen en druk op Sync."}
       </p>
     );
   }

@@ -1063,3 +1063,32 @@
     color: var(--accent-ink);
   }
 }
+
+/* Leaving a trip is the last line of "mensen & delen", and it is a link, not a
+   button: a red pill down there looked like the sheet's main action. */
+.people-leave {
+  display: block;
+  width: 100%;
+  margin: 0.4rem 0 0.2rem;
+  padding: 0.7rem 0;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #b3402a;
+  background: none;
+  transition: color 0.15s var(--ease);
+}
+
+.people-leave:hover {
+  color: #8f3222;
+}
+
+:root[data-theme='dark'] .people-leave {
+  color: #f0a08c;
+}
+
+/* Held while the trip loads: keeps the page's own background rather than
+   flashing a map for a trip that may turn out to be closed to you. */
+.trip-detail-wait {
+  min-height: 60vh;
+}

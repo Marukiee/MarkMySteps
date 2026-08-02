@@ -17,13 +17,9 @@ import './notifications.css';
  * it. Answering sends the answer back to them as a line of their own.
  */
 export function NotificationBell() {
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [shown, closing] = useExit(open, 240);
   const [items, setItems] = useState<NotificationItem[] | null>(null);
   const [count, setCount] = useState({ unread: 0, pending: 0 });
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const loadCount = useCallback(() => {
     api<{ unread: number; pending: number }>('/notifications/count')
@@ -62,20 +58,12 @@ export function NotificationBell() {
   }
 
   async function answer(requestId: string, approve: boolean, role: 'MEMBER' | 'GUEST') {
-    setBusy(requestId);
-    setError(null);
-    try {
-      await api(`/access-requests/${requestId}/${approve ? 'approve' : 'deny'}`, {
-        method: 'POST',
-        body: approve ? { role } : undefined,
-      });
-      loadItems();
-      loadCount();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dat lukte niet');
-    } finally {
-      setBusy(null);
-    }
+    await api(`/access-requests/${requestId}/${approve ? 'approve' : 'deny'}`, {
+      method: 'POST',
+      body: approve ? { role } : undefined,
+    });
+    loadItems();
+    loadCount();
   }
 
   async function dismiss(id: string) {
@@ -101,137 +89,173 @@ export function NotificationBell() {
         </span>
       </button>
 
-      {shown &&
-        createPortal(
-          <div
-            className={`notif-backdrop ${closing ? 'closing' : ''}`}
-            onClick={() => setOpen(false)}
-          >
-            <div className="notif-sheet card" onClick={(e) => e.stopPropagation()}>
-              <div className="notif-head">
-                <h2>Meldingen</h2>
-                <button
-                  type="button"
-                  className="notif-close"
-                  aria-label="Sluiten"
-                  onClick={() => setOpen(false)}
+      <NotificationSheet
+        open={open}
+        items={items}
+        onClose={() => setOpen(false)}
+        onAnswer={answer}
+        onDismiss={dismiss}
+      />
+    </>
+  );
+}
+
+/**
+ * The list itself, with no idea where its lines came from.
+ *
+ * Split out so developer options can open it filled with examples: the design
+ * is otherwise only visible when somebody happens to ask for access.
+ */
+export function NotificationSheet({
+  open,
+  items,
+  onClose,
+  onAnswer,
+  onDismiss,
+}: {
+  open: boolean;
+  /** null while loading. */
+  items: NotificationItem[] | null;
+  onClose: () => void;
+  onAnswer: (requestId: string, approve: boolean, role: 'MEMBER' | 'GUEST') => Promise<void>;
+  onDismiss: (id: string) => void;
+}) {
+  const navigate = useNavigate();
+  const [shown, closing] = useExit(open, 260);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function answer(requestId: string, approve: boolean, role: 'MEMBER' | 'GUEST') {
+    setBusy(requestId);
+    setError(null);
+    try {
+      await onAnswer(requestId, approve, role);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Dat lukte niet');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (!shown) return null;
+
+  return createPortal(
+    <div className={`notif-backdrop ${closing ? 'closing' : ''}`} onClick={onClose}>
+      <div className="notif-sheet card" onClick={(e) => e.stopPropagation()}>
+        <div className="notif-head">
+          <h2>Meldingen</h2>
+          <button type="button" className="notif-close" aria-label="Sluiten" onClick={onClose}>
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+
+        {error && <p className="error-text notif-error">{error}</p>}
+
+        {items === null ? (
+          <p className="muted notif-empty">Laden…</p>
+        ) : items.length === 0 ? (
+          <div className="notif-empty">
+            <span className="notif-empty-icon" aria-hidden="true">
+              <Icon name="bell" size={26} />
+            </span>
+            <p className="muted">Niets nieuws. Hier komen verzoeken en uitnodigingen.</p>
+          </div>
+        ) : (
+          <ul className="notif-list">
+            {items.map((item, i) => {
+              const pending =
+                item.kind === 'ACCESS_REQUESTED' && item.request?.status === 'PENDING';
+              return (
+                <li
+                  key={item.id}
+                  className={`notif-item ${item.read ? '' : 'unread'}`}
+                  style={{ animationDelay: `${Math.min(i, 8) * 0.035}s` }}
                 >
-                  <Icon name="close" size={18} />
-                </button>
-              </div>
-
-              {error && <p className="error-text notif-error">{error}</p>}
-
-              {items === null ? (
-                <p className="muted notif-empty">Laden…</p>
-              ) : items.length === 0 ? (
-                <div className="notif-empty">
-                  <span className="notif-empty-icon" aria-hidden="true">
-                    <Icon name="bell" size={26} />
-                  </span>
-                  <p className="muted">Niets nieuws. Hier komen verzoeken en uitnodigingen.</p>
-                </div>
-              ) : (
-                <ul className="notif-list">
-                  {items.map((item, i) => (
-                    <li
-                      key={item.id}
-                      className={`notif-item ${item.read ? '' : 'unread'}`}
-                      style={{ animationDelay: `${Math.min(i, 8) * 0.035}s` }}
-                    >
-                      <span className="notif-avatar">
-                        {item.actor ? (
-                          <Avatar
-                            userId={item.actor.id}
-                            displayName={item.actor.displayName}
-                            hasAvatar={item.actor.hasAvatar}
-                            size={38}
-                          />
-                        ) : (
-                          <span className="notif-avatar-fallback">
-                            <Icon name="bell" size={17} />
-                          </span>
-                        )}
-                        <span className={`notif-kind kind-${item.kind}`} aria-hidden="true">
-                          <Icon name={kindIcon(item.kind)} size={11} />
-                        </span>
+                  <span className="notif-avatar">
+                    {item.actor ? (
+                      <Avatar
+                        userId={item.actor.id}
+                        displayName={item.actor.displayName}
+                        hasAvatar={item.actor.hasAvatar}
+                        size={38}
+                      />
+                    ) : (
+                      <span className="notif-avatar-fallback">
+                        <Icon name="bell" size={17} />
                       </span>
+                    )}
+                    <span className={`notif-kind kind-${item.kind}`} aria-hidden="true">
+                      <Icon name={kindIcon(item.kind)} size={11} />
+                    </span>
+                  </span>
 
-                      <div className="notif-body">
-                        <p className="notif-text">{describe(item)}</p>
-                        {item.request?.message && (
-                          <p className="notif-quote">“{item.request.message}”</p>
-                        )}
-                        <span className="notif-when">{ago(item.createdAt)}</span>
+                  <div className="notif-body">
+                    <p className="notif-text">{describe(item)}</p>
+                    {item.request?.message && <p className="notif-quote">“{item.request.message}”</p>}
+                    <span className="notif-when">{ago(item.createdAt)}</span>
 
-                        {item.kind === 'ACCESS_REQUESTED' &&
-                          item.request?.status === 'PENDING' && (
-                            <div className="notif-actions">
-                              <button
-                                type="button"
-                                className="btn btn-primary notif-act"
-                                disabled={busy === item.request.id}
-                                onClick={() => void answer(item.request!.id, true, 'GUEST')}
-                              >
-                                Als gast
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost notif-act"
-                                disabled={busy === item.request.id}
-                                onClick={() => void answer(item.request!.id, true, 'MEMBER')}
-                              >
-                                Als reisgenoot
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost notif-act notif-deny"
-                                disabled={busy === item.request.id}
-                                onClick={() => void answer(item.request!.id, false, 'GUEST')}
-                              >
-                                Afwijzen
-                              </button>
-                            </div>
-                          )}
-
-                        {item.trip && item.kind !== 'ACCESS_DENIED' && (
-                          <button
-                            type="button"
-                            className="notif-open"
-                            onClick={() => {
-                              setOpen(false);
-                              navigate(`/trips/${item.trip!.id}`);
-                            }}
-                          >
-                            Reis openen <Icon name="chevron-right" size={12} />
-                          </button>
-                        )}
+                    {pending && (
+                      <div className="notif-actions">
+                        <button
+                          type="button"
+                          className="btn btn-primary notif-act"
+                          disabled={busy === item.request!.id}
+                          onClick={() => void answer(item.request!.id, true, 'GUEST')}
+                        >
+                          Als gast
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost notif-act"
+                          disabled={busy === item.request!.id}
+                          onClick={() => void answer(item.request!.id, true, 'MEMBER')}
+                        >
+                          Als reisgenoot
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost notif-act notif-deny"
+                          disabled={busy === item.request!.id}
+                          onClick={() => void answer(item.request!.id, false, 'GUEST')}
+                        >
+                          Afwijzen
+                        </button>
                       </div>
+                    )}
 
-                      {/* Ignoring is an answer too: the line goes, the request
-                          itself stays open, so nothing is decided behind the
-                          asker's back. */}
+                    {item.trip && item.kind !== 'ACCESS_DENIED' && !pending && (
                       <button
                         type="button"
-                        className="notif-dismiss"
-                        aria-label={
-                          item.kind === 'ACCESS_REQUESTED' && item.request?.status === 'PENDING'
-                            ? 'Verzoek negeren'
-                            : 'Melding weghalen'
-                        }
-                        onClick={() => void dismiss(item.id)}
+                        className="notif-open"
+                        onClick={() => {
+                          onClose();
+                          navigate(`/trips/${item.trip!.id}`);
+                        }}
                       >
-                        <Icon name="close" size={14} />
+                        Reis openen <Icon name="chevron-right" size={12} />
                       </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>,
-          document.body,
+                    )}
+                  </div>
+
+                  {/* Ignoring is an answer too: the line goes, the request
+                      itself stays open, so nothing is decided behind the
+                      asker's back. */}
+                  <button
+                    type="button"
+                    className="notif-dismiss"
+                    aria-label={pending ? 'Verzoek negeren' : 'Melding weghalen'}
+                    onClick={() => onDismiss(item.id)}
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         )}
-    </>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

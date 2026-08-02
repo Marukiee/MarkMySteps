@@ -99,12 +99,21 @@
   animation: notifFade 0.22s var(--ease);
 }
 
+/* Its own keyframes, not `notifFade reverse`: changing only the direction of
+   an animation that has already finished does not replay it, so the backdrop
+   used to disappear in one frame while the sheet slid away underneath it. */
 .notif-backdrop.closing {
-  animation: notifFade 0.22s var(--ease) reverse forwards;
+  animation: notifFadeOut 0.24s var(--ease) forwards;
 }
 
 @keyframes notifFade {
   from {
+    opacity: 0;
+  }
+}
+
+@keyframes notifFadeOut {
+  to {
     opacity: 0;
   }
 }

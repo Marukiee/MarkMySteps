@@ -169,5 +169,27 @@
 }
 
 .timeline-empty {
-  padding: 1rem 0;
+  padding: 1.4rem 0.2rem;
+  text-align: center;
+  /* Arriving from the routeplanner tab, this line is the whole panel — it
+     appeared instantly while the planner faded, which read as a glitch. */
+  animation: timelineIn 0.32s var(--ease) both;
+}
+
+.timeline {
+  animation: timelineIn 0.32s var(--ease) both;
+}
+
+@keyframes timelineIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline,
+  .timeline-empty {
+    animation: none;
+  }
 }

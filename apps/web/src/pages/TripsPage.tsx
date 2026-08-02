@@ -1,4 +1,12 @@
-import { CSSProperties, FormEvent, MouseEvent, useEffect, useRef, useState } from 'react';
+import {
+  CSSProperties,
+  FormEvent,
+  MouseEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -55,15 +63,11 @@ export function TripsPage() {
   };
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'past' | 'friends'>('past');
-  /** Which side the incoming panel slides in from: 1 = from the right. */
-  const [tabDir, setTabDir] = useState(1);
-  const switchTab = (next: 'past' | 'friends') => {
-    if (next === tab) return;
-    setTabDir(next === 'friends' ? 1 : -1);
-    setTab(next);
-  };
+  const pastPaneRef = useRef<HTMLDivElement>(null);
+  const friendPaneRef = useRef<HTMLDivElement>(null);
+  const switchTab = (next: 'past' | 'friends') => setTab(next);
   // Bumped when a card switches size; the layout is read back from localStorage.
-  const [, setSizeTick] = useState(0);
+  const [sizeTick, setSizeTick] = useState(0);
   // Own position on the globe — opt-in, and only ever from the tracker (the page
   // never asks the browser for a location).
   const [self, setSelf] = useState<[number, number] | null>(null);
@@ -117,12 +121,65 @@ export function TripsPage() {
   // Which of the two lower tabs is open, and which way it came in. Opens on the
   // friends' tab when you have nothing finished of your own but they do, so the
   // section is never an empty panel under a pill you have to find first.
-  const tabTrips = tab === 'past' ? past : friendTrips;
   const hasPast = past.length > 0;
   const hasFriends = friendTrips.length > 0;
   useEffect(() => {
     if (!hasPast && hasFriends) setTab('friends');
   }, [hasPast, hasFriends]);
+
+  /**
+   * The height of the pane that is open.
+   *
+   * The two lists are rarely the same length, and a track that is as tall as
+   * its tallest child would leave a hole under the short one. Measured and
+   * animated instead, so the page grows or shrinks with the slide rather than
+   * snapping — and so the scroll position is never yanked upwards in one frame
+   * when you switch to a list with a single trip in it.
+   */
+  const [paneHeight, setPaneHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const pane = (tab === 'past' ? pastPaneRef : friendPaneRef).current;
+    if (!pane) return;
+    const measure = () => setPaneHeight(pane.offsetHeight);
+    measure();
+    // Covers a cover photo arriving, a card switching size, and the window
+    // being resized — all of which change how tall the open list is.
+    const ro = new ResizeObserver(measure);
+    ro.observe(pane);
+    return () => ro.disconnect();
+  }, [tab, past.length, friendTrips.length, sizeTick]);
+
+  const renderPane = (which: 'past' | 'friends') => {
+    const list = which === 'past' ? past : friendTrips;
+    if (list.length === 0) {
+      return (
+        <p className="muted trips-tab-empty">
+          {which === 'past'
+            ? 'Nog geen afgelopen reizen.'
+            : 'Nog niemand heeft een reis met je gedeeld.'}
+        </p>
+      );
+    }
+    return (
+      <div className="trips-grid">
+        {list.map((trip, i) => (
+          <TripCard
+            key={trip.id}
+            trip={trip}
+            index={i}
+            onChanged={load}
+            onResize={applySize}
+            compact={isTripCompact(trip.id, true)}
+          />
+        ))}
+        {which === 'past' && upcoming.length === 0 && (
+          <button className="trip-ghost" onClick={() => setShowNew(true)} aria-label="Nieuwe reis">
+            <span>+ Nieuwe reis</span>
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <main className="page fade-in trips-page">
@@ -224,36 +281,19 @@ export function TripsPage() {
             </button>
           </div>
 
-          <div className="trips-panel" key={tab} data-dir={tabDir}>
-            {tabTrips.length === 0 ? (
-              <p className="muted trips-tab-empty">
-                {tab === 'past'
-                  ? 'Nog geen afgelopen reizen.'
-                  : 'Nog niemand heeft een reis met je gedeeld.'}
-              </p>
-            ) : (
-              <div className="trips-grid">
-                {tabTrips.map((trip, i) => (
-                  <TripCard
-                    key={trip.id}
-                    trip={trip}
-                    index={i}
-                    onChanged={load}
-                    onResize={applySize}
-                    compact={isTripCompact(trip.id, true)}
-                  />
-                ))}
-                {tab === 'past' && upcoming.length === 0 && (
-                  <button
-                    className="trip-ghost"
-                    onClick={() => setShowNew(true)}
-                    aria-label="Nieuwe reis"
-                  >
-                    <span>+ Nieuwe reis</span>
-                  </button>
-                )}
+          {/* Both lists stay mounted and ride on one track that slides sideways.
+              Swapping the contents of a single panel meant every card was built
+              again on every switch — which is what made the top cover flash a
+              dark, square block while its photo decoded a second time. */}
+          <div className="trips-switch" style={paneHeight ? { height: paneHeight } : undefined}>
+            <div className="trips-track" data-tab={tab}>
+              <div className="trips-pane" ref={pastPaneRef} aria-hidden={tab !== 'past'}>
+                {renderPane('past')}
               </div>
-            )}
+              <div className="trips-pane" ref={friendPaneRef} aria-hidden={tab !== 'friends'}>
+                {renderPane('friends')}
+              </div>
+            </div>
           </div>
         </>
       )}

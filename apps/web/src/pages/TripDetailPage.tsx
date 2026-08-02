@@ -391,9 +391,7 @@ export function TripDetailPage() {
     if (!trip || !user) return;
     const ok = await confirmModal({
       title: 'Reis verlaten?',
-      body: `Je verlaat "${trip.title}". De reis zelf blijft van ${
-        trip.members.find((m) => m.userId === trip.ownerId)?.user.displayName ?? 'de organisator'
-      }.`,
+      body: `Je verlaat "${trip.title}". Je kunt er altijd opnieuw op gezet worden.`,
       confirmLabel: 'Verlaten',
       danger: true,
     });
@@ -516,6 +514,11 @@ export function TripDetailPage() {
   }, [lightboxIndex, visibleMedia, scrollTimelineTo]);
 
   if (noAccess && tripId) return <TripAccessPage tripId={tripId} />;
+
+  // Nothing until the trip itself has answered. Painting the map first meant a
+  // trip you have no access to flashed its (empty) map for a moment before the
+  // door closed in front of it.
+  if (!trip && !error) return <main className="page trip-detail-wait" />;
 
   if (error) {
     return (
@@ -782,7 +785,7 @@ export function TripDetailPage() {
             aria-selected={tab === 'plan'}
             onClick={() => setTab('plan')}
           >
-            Routeplanner
+            {canEdit ? 'Routeplanner' : 'Route'}
           </button>
         </div>
 
@@ -794,6 +797,11 @@ export function TripDetailPage() {
             onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
             notes={notes}
             canEditNotes={canEdit}
+            emptyOwnerName={
+              canEdit
+                ? null
+                : trip?.members.find((m) => m.userId === trip.ownerId)?.user.displayName ?? null
+            }
             ownUserId={user?.id}
             onSaveNote={saveNote}
             onDeleteNote={deleteNote}
@@ -842,8 +850,8 @@ export function TripDetailPage() {
             {/* Somebody put you on this trip; the way back off it belongs here,
                 where the rest of "who is on this trip" lives. */}
             {trip.ownerId !== user?.id && (
-              <button type="button" className="btn btn-danger people-leave" onClick={leaveTrip}>
-                <Icon name="arrow-left" size={16} /> Reis verlaten
+              <button type="button" className="people-leave" onClick={leaveTrip}>
+                Reis verlaten
               </button>
             )}
           </div>

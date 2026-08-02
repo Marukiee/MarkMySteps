@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { TripAccessPreview } from '../api/types';
 import { Avatar } from '../components/Avatar';
@@ -15,6 +15,9 @@ import './tripaccess.css';
  * can change it — with a line of your own, if you want. The server only tells
  * this page anything when the trip belongs to somebody you already travel with;
  * anything else really is a 404, and lands on the not-found half below.
+ *
+ * No card: the page is one column of text in the middle of the screen. A white
+ * panel floating near the top made it look like something had failed to load.
  */
 export function TripAccessPage({ tripId }: { tripId: string }) {
   const navigate = useNavigate();
@@ -44,6 +47,8 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
     setAsking(true);
     setError(null);
     try {
+      // Only what you actually typed goes with it — the greyed-out line in the
+      // box is an example, not a default.
       await api(`/trips/${tripId}/access`, {
         method: 'POST',
         body: message.trim() ? { message: message.trim() } : {},
@@ -57,33 +62,43 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
     }
   }
 
+  /** Back goes where you came from: the traveller whose trip this is. */
+  const back = (
+    <button type="button" className="ta-back" onClick={() => navigate('/friends')}>
+      <Icon name="arrow-left" size={17} /> Terug
+    </button>
+  );
+
   if (gone) {
     return (
       <main className="page fade-in trip-access">
-        <div className="card ta-card">
+        {back}
+        <div className="ta-body">
           <span className="ta-glyph ta-glyph-lost" aria-hidden="true">
             <Icon name="compass" size={38} />
           </span>
           <h1>Deze reis bestaat niet</h1>
-          <p className="muted">
+          <p className="ta-note">
             De link klopt niet meer, of de reis is verwijderd door de organisator.
           </p>
-          <Link to="/" className="btn btn-primary ta-back">
+          <button type="button" className="btn btn-primary ta-ask" onClick={() => navigate('/')}>
             Naar mijn reizen
-          </Link>
+          </button>
         </div>
       </main>
     );
   }
 
-  if (!preview) return <main className="page" />;
+  if (!preview) return <main className="page trip-access">{back}</main>;
 
   const waiting = preview.status === 'PENDING';
   const denied = preview.status === 'DENIED' && !sent;
 
   return (
     <main className="page fade-in trip-access">
-      <div className="card ta-card">
+      {back}
+
+      <div className="ta-body">
         <span className="ta-glyph" aria-hidden="true">
           <Icon name="lock" size={34} />
         </span>
@@ -103,8 +118,8 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
           </span>
         </div>
 
-        {/* Three states, one panel: not asked, waiting, refused. Each one
-            replaces the last in place, so the card never jumps. */}
+        {/* Three states, one column: not asked, waiting, refused. Each one
+            replaces the last in place, so nothing above it moves. */}
         <div className="ta-state" key={waiting ? 'waiting' : denied ? 'denied' : 'ask'}>
           {waiting ? (
             <>
@@ -112,7 +127,7 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
                 <Icon name="hourglass" size={15} />
                 Je verzoek staat klaar bij {preview.owner.displayName}.
               </p>
-              <p className="muted ta-note">
+              <p className="ta-note">
                 Zodra het beantwoord is krijg je een melding bij Reizigers.
               </p>
             </>
@@ -124,7 +139,7 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
                   Je eerdere verzoek is afgewezen. Je mag het opnieuw vragen.
                 </p>
               )}
-              <p className="muted ta-note">
+              <p className="ta-note">
                 Je bent geen reisgenoot of gast op deze reis, dus je ziet de route en de foto&apos;s
                 niet. Vraag {preview.owner.displayName} om je toe te laten.
               </p>
@@ -150,10 +165,6 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
             </>
           )}
         </div>
-
-        <Link to="/" className="ta-back-link">
-          <Icon name="arrow-left" size={15} /> Terug naar mijn reizen
-        </Link>
       </div>
     </main>
   );
