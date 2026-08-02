@@ -16,38 +16,86 @@ export function greatCircleArc(
 }
 
 /**
- * A deliberately bowed flight arc between two points — a quadratic curve that
- * bulges perpendicular to the chord, so on a flat map it clearly reads as a
- * flight (a plain geodesic looks almost straight for short hops).
+ * A flight, drawn the way it looks from above.
+ *
+ * Two things make an arc read as a flight rather than as a bent line. The path
+ * itself is a great circle — the route a plane actually takes, which on a flat
+ * map bends towards the pole — and on top of that it is bowed away from the
+ * ground, highest in the middle, the way the globe lifts its arcs off the
+ * sphere. The bow is applied in Mercator space, so it is the same height on
+ * screen wherever the flight is, and it grows with the distance: a hop across
+ * the Alps barely leaves the ground, Amsterdam to Tokyo climbs.
  */
 export function flightArc(
   from: [number, number],
   to: [number, number],
   steps = 48,
 ): [number, number][] {
-  const dx = to[0] - from[0];
-  const dy = to[1] - from[1];
-  const len = Math.hypot(dx, dy) || 1;
-  // Perpendicular unit vector; always bow to the same (upper) side.
-  let px = -dy / len;
-  let py = dx / len;
-  if (py < 0) {
-    px = -px;
-    py = -py;
-  }
-  const bow = Math.min(len * 0.28, 22); // degrees, capped
-  const cx = (from[0] + to[0]) / 2 + px * bow;
-  const cy = (from[1] + to[1]) / 2 + py * bow;
-  const coords: [number, number][] = [];
+  const RAD = Math.PI / 180;
+  const DEG = 180 / Math.PI;
+  const lon1 = from[0] * RAD;
+  const lat1 = from[1] * RAD;
+  const lon2 = to[0] * RAD;
+  const lat2 = to[1] * RAD;
+
+  // Angular distance between the two ends, along the sphere.
+  const d =
+    2 *
+    Math.asin(
+      Math.min(
+        1,
+        Math.sqrt(
+          Math.sin((lat2 - lat1) / 2) ** 2 +
+            Math.cos(lat1) * Math.cos(lat2) * Math.sin((lon2 - lon1) / 2) ** 2,
+        ),
+      ),
+    );
+  if (d < 1e-9) return [from, to];
+
+  // The great circle itself, as a slerp between the two points on the sphere.
+  const base: [number, number][] = [];
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
-    const mt = 1 - t;
-    coords.push([
-      mt * mt * from[0] + 2 * mt * t * cx + t * t * to[0],
-      mt * mt * from[1] + 2 * mt * t * cy + t * t * to[1],
-    ]);
+    const a = Math.sin((1 - t) * d) / Math.sin(d);
+    const b = Math.sin(t * d) / Math.sin(d);
+    const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2);
+    const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2);
+    const z = a * Math.sin(lat1) + b * Math.sin(lat2);
+    base.push([Math.atan2(y, x) * DEG, Math.atan2(z, Math.hypot(x, y)) * DEG]);
   }
-  return coords;
+  // Unwrapped, or a flight over the Pacific is drawn back across the whole map.
+  for (let i = 1; i < base.length; i++) {
+    while (base[i]![0] - base[i - 1]![0] > 180) base[i]![0] -= 360;
+    while (base[i]![0] - base[i - 1]![0] < -180) base[i]![0] += 360;
+  }
+
+  // Mercator, so the bow is a constant height on screen rather than shrinking
+  // towards the equator.
+  const mercY = (lat: number) =>
+    Math.log(Math.tan(Math.PI / 4 + (Math.max(-85, Math.min(85, lat)) * RAD) / 2)) * DEG;
+  const unmercY = (y: number) => (2 * Math.atan(Math.exp(y * RAD)) - Math.PI / 2) * DEG;
+
+  const ax = base[0]![0];
+  const ay = mercY(base[0]![1]);
+  const bx = base[steps]![0];
+  const by = mercY(base[steps]![1]);
+  const chord = Math.hypot(bx - ax, by - ay) || 1;
+  // Perpendicular to the chord, always the northward one so two flights along
+  // the same corridor never bow into each other.
+  let nx = -(by - ay) / chord;
+  let ny = (bx - ax) / chord;
+  if (ny < 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  // The same shape the globe uses: a little for a short hop, more for a long
+  // one, and never so much that the arc becomes a balloon.
+  const bow = chord * (0.05 + 0.13 * Math.min(1, (d * DEG) / 70));
+
+  return base.map(([lng, lat], i) => {
+    const k = bow * Math.sin((Math.PI * i) / steps);
+    return [lng + nx * k, unmercY(mercY(lat) + ny * k)] as [number, number];
+  });
 }
 
 /** Chained bowed flight arcs through waypoints (a flight with layovers). */

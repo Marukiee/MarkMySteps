@@ -128,7 +128,9 @@ export function TripMap({
   onSelfClickRef.current = onSelfClick;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
+  /** Photo markers by cluster cell, so a redraw can keep what has not moved. */
+  const photoMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const photoTimersRef = useRef<number[]>([]);
   const stopMarkersRef = useRef<maplibregl.Marker[]>([]);
   /** The one open stop label, and the timer that is taking it away again. */
   const stopPopupRef = useRef<maplibregl.Popup | null>(null);
@@ -522,19 +524,34 @@ export function TripMap({
     const map = mapRef.current;
     if (!map) return;
 
+    /**
+     * Rebuilds only what changed.
+     *
+     * Every marker used to be torn down and built again on each pass, so the
+     * whole layer blinked: thumbnails were re-attached, entry animations
+     * replayed, and clusters appeared to merge and split even where nothing
+     * about them had moved. Markers are keyed by their cluster cell now, so a
+     * pass keeps the ones that still exist, adds the new ones and fades out
+     * only the ones that really went.
+     */
     const draw = () => {
-      for (const marker of markersRef.current) marker.remove();
-      markersRef.current = [];
-      if (hidePhotos) return; // "tracked only" mode
+      const live = photoMarkersRef.current;
+      if (hidePhotos) {
+        for (const [, marker] of live) marker.remove();
+        live.clear();
+        return;
+      }
 
       const withGps = media.filter(
         (m) => m.latitude !== null && m.longitude !== null && visibleUsers.has(m.userId),
       );
 
-      // Grid-cluster: cell size shrinks as you zoom in. Small enough that
-      // photo spots along the route stay individually visible.
-      const zoom = map.getZoom();
-      const cell = 40 / 2 ** zoom; // degrees per cluster cell
+      // Grid-cluster: cell size shrinks as you zoom in. The LEVEL is rounded,
+      // so the grid only changes on a real step of zoom — a two-finger pan
+      // wobbles the zoom by a hundredth, and that used to regroup every photo
+      // on the map halfway through the gesture.
+      const level = Math.round(map.getZoom());
+      const cell = 40 / 2 ** level;
       const clusters = new Map<string, MediaItem[]>();
       for (const item of withGps) {
         const key = `${Math.round(item.latitude! / cell)}:${Math.round(item.longitude! / cell)}`;
@@ -543,7 +560,20 @@ export function TripMap({
         clusters.set(key, list);
       }
 
-      for (const items of clusters.values()) {
+      // Gone: fade out where it stood, then take it off the map.
+      for (const [key, marker] of live) {
+        if (clusters.has(key)) continue;
+        live.delete(key);
+        marker.getElement().classList.add('leaving');
+        const timer = window.setTimeout(() => {
+          marker.remove();
+          photoTimersRef.current = photoTimersRef.current.filter((t) => t !== timer);
+        }, 200);
+        photoTimersRef.current.push(timer);
+      }
+
+      for (const [key, items] of clusters) {
+        if (live.has(key)) continue;
         const representative = items[0]!;
         const el = document.createElement('div');
         el.className = 'photo-marker';
@@ -575,7 +605,7 @@ export function TripMap({
           if (items.length > 1) {
             map.easeTo({
               center: [representative.longitude!, representative.latitude!],
-              zoom: Math.min(zoom + 2.5, 16),
+              zoom: Math.min(map.getZoom() + 2.5, 16),
             });
             photoFocusRef.current?.(representative.id);
           } else {
@@ -585,7 +615,8 @@ export function TripMap({
 
         // Anchor on the representative photo's own location (a real point on
         // the route) — averaging pulls markers off the travelled line.
-        markersRef.current.push(
+        live.set(
+          key,
           new maplibregl.Marker({ element: el })
             .setLngLat([representative.longitude!, representative.latitude!])
             .addTo(map),
@@ -594,9 +625,19 @@ export function TripMap({
     };
 
     draw();
-    map.on('zoomend', draw);
+    // Only when the rounded zoom actually changes: zoomend fires for the
+    // hundredth of a level a pinch-pan leaves behind, and regrouping there is
+    // both pointless and visible.
+    let lastLevel = Math.round(map.getZoom());
+    const onZoom = () => {
+      const level = Math.round(map.getZoom());
+      if (level === lastLevel) return;
+      lastLevel = level;
+      draw();
+    };
+    map.on('zoomend', onZoom);
     return () => {
-      map.off('zoomend', draw);
+      map.off('zoomend', onZoom);
     };
   }, [media, visibleUsers, hidePhotos]);
 
@@ -615,6 +656,18 @@ export function TripMap({
     closeStopPopup(true);
 
     const apply = () => {
+      try {
+        applyLayers();
+      } catch (err) {
+        // MapLibre throws if the style is mid-swap when a source is added, and
+        // a throw here used to take the whole page down with it — adding a day
+        // trip, of all things, could leave you looking at a blank screen. A
+        // missing line until the next change is the better failure.
+        console.warn('Kon de routelagen niet tekenen', err);
+      }
+    };
+
+    const applyLayers = () => {
       for (const marker of stopMarkersRef.current) marker.remove();
       stopMarkersRef.current = [];
       for (const layerId of map.getLayersOrder().filter((l) => l.startsWith('leg-'))) {

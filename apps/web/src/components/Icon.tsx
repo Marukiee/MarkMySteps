@@ -108,15 +108,15 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       {/* A carriage on rails: a rounded body with one wide window, the doors
           under it, and the track it stands on. The old one was a box with two
-          dots that read as a washing machine at small sizes. Round wheels
-          under it rather than two diagonal strokes, which read as a train
-          leaning over. */}
+          dots that read as a washing machine at small sizes. */}
       <path d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5V14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z" />
       <path d="M5.5 10.5h13" />
       <path d="M12 3v7.5" />
       <path d="M8.6 13.2h.01M15.4 13.2h.01" />
-      <circle cx="8.6" cy="18.2" r="1.6" />
-      <circle cx="15.4" cy="18.2" r="1.6" />
+      {/* Seen head on, standing in front of it: the wheels are two short
+          uprights coming straight down out of the body, not circles you would
+          only see from the side. */}
+      <path d="M8.6 16v3.4M15.4 16v3.4" />
     </>
   ),
   bus: (

@@ -36,6 +36,19 @@
   }
 }
 
+/* Merging away: it fades where it stood rather than blinking out, and stops
+   answering to a tap on the way. */
+.photo-marker.leaving {
+  animation: markerGone 0.2s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes markerGone {
+  to {
+    opacity: 0;
+  }
+}
+
 .photo-marker:hover {
   transform: scale(1.35);
   z-index: 10;

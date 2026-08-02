@@ -238,9 +238,18 @@ export function GlobeBackdrop({
      * was still throwing its second ring, so the arrival and the departure ran
      * over each other; this waits for the rings to finish first.
      */
-    const TAKEOFF_MS = 2900;
+    const TAKEOFF_MS = 3400;
     /** A layover: the plane touches down, but nobody gets off. */
     const LAYOVER_MS = 450;
+    /**
+     * A beat between wheels-down and the dot's first ring.
+     *
+     * They used to happen in the same frame, so the ring read as part of the
+     * landing rather than as the place greeting it.
+     */
+    const FLARE_DELAY_MS = 420;
+    /** Per dot: when its first ripple may start. */
+    const flareWait = new Map<string, number>();
     let holdUntil = 0;
     let holdPoint: [number, number] | null = null;
     /** Whose journey the light is currently running, so a change can restart it. */
@@ -290,6 +299,13 @@ export function GlobeBackdrop({
         // a flight merely passes over is not a place the light has got to.
         const mark = headGeo ? journeyDistOf(p) : null;
         if (mark === null || glowDist < mark) return NO_FLARE;
+        // Landed, but not greeted yet: hold the ring back for a beat.
+        const readyAt = flareWait.get(key);
+        if (readyAt === undefined) {
+          flareWait.set(key, performance.now() + FLARE_DELAY_MS);
+          return NO_FLARE;
+        }
+        if (performance.now() < readyAt) return NO_FLARE;
         ring = 0;
       }
       if (ring < 0) return NO_FLARE;
@@ -1021,6 +1037,7 @@ export function GlobeBackdrop({
         // Every dot gets to react again: they remember having been reached, and
         // a journey starting over has reached none of them yet.
         flares.clear();
+        flareWait.clear();
         glowTripId = activeId;
       }
 
@@ -1126,10 +1143,13 @@ export function GlobeBackdrop({
           // A run is over once the TAIL has arrived too, not just the head —
           // otherwise the globe zooms out through the light's own trail. Then a
           // short dwell before the next pass; looping instantly feels frantic.
-          const TRAIL_DEG = Math.min(11, total * 0.4);
+          // The tail used to be long enough that the globe sat waiting for it
+          // well after the plane had landed — the run is about the head, and a
+          // shorter trail behind it says the same thing in less time.
+          const TRAIL_DEG = Math.min(6, total * 0.22);
           // Just enough of a beat to read as two passes rather than one long
           // one; any more and the globe sits there doing nothing.
-          const PAUSE = 2.5; // degrees' worth of dwell time past the end
+          const PAUSE = 1.2; // degrees' worth of dwell time past the end
           // Base pace, with a ceiling as well as a floor. Without the ceiling a
           // long-haul flight is dragged across the globe: the rate was set from
           // the journey's own length so that a long one would not take forever,
@@ -1204,6 +1224,7 @@ export function GlobeBackdrop({
               if (glowRuns + 1 < glowRunsNeeded) {
                 glowDist = 0;
                 flares.clear();
+                flareWait.clear();
               }
               glowRuns += 1;
             }
