@@ -59,9 +59,12 @@ function legHasRealData(
     if (Math.hypot(px - (ax + t * dx), py - (ay + t * dy)) > corridorKm) continue;
     covered[Math.min(BUCKETS - 1, Math.floor(((t - 0.1) / 0.8) * BUCKETS))] = true;
   }
-  // One empty bucket is forgiven: a tracker drops fixes in a tunnel or a dead
-  // spot, and that is not a reason to draw the plan over a real route.
-  return covered.filter(Boolean).length >= BUCKETS - 1;
+  // Three empty buckets are forgiven. A tracker loses a tunnel, a border, an
+  // evening with the phone in a bag — a finished trip that really was recorded
+  // should not keep its planned line on top of the real one over that. Two
+  // clusters at one end (Trieste → Cologne passing over Munich) never reach
+  // this, so a leg nobody travelled still shows.
+  return covered.filter(Boolean).length >= BUCKETS - 3;
 }
 
 export interface Waypoint {
@@ -474,9 +477,8 @@ export function TripMap({
             id: `${fid}-line`,
             type: 'line',
             source: fid,
-            // Solid: this arc is inferred from photos that were already taken,
-            // so the flight has been flown. Dashes are for what's still ahead.
-            paint: { 'line-color': '#8a94a3', 'line-width': 2 },
+            // Dashed like every other flight: the arc is drawn, not recorded.
+            paint: { 'line-color': '#8a94a3', 'line-width': 2, 'line-dasharray': [1.4, 2.6] },
             layout: { 'line-cap': 'round' },
           });
         }
@@ -652,6 +654,20 @@ export function TripMap({
        * its own vanished into satellite imagery; the casing is what keeps it
        * readable over both an aerial photo and a pale street map.
        */
+      /**
+       * The colour a planned ground leg is drawn in.
+       *
+       * Beige on a trip nobody recorded — it is a plan, and it should look
+       * like one. But once there IS a recorded line, the planned bits are the
+       * gaps in it (tracking switched on a day late, a battery that died), and
+       * drawing those in a different colour broke one journey into two. They
+       * take the traveller's own colour instead, so the whole thing reads as
+       * one line that happens to be dashed where nobody was recording.
+       */
+      const firstVisible = [...visibleUsers][0];
+      const gapColour =
+        realPoints.length > 0 && firstVisible ? colorForUser(firstVisible) : '#ffc46b';
+
       const addPlannedGround = (id: string, width: number, dash: [number, number] | null) => {
         // Wide and blurred, so it reads as the line's own shadow rather than as
         // a black outline drawn around it — a tight, hard casing looked like a
@@ -677,7 +693,7 @@ export function TripMap({
           type: 'line',
           source: id,
           paint: {
-            'line-color': '#ffc46b',
+            'line-color': gapColour,
             'line-width': width,
             ...(dash ? { 'line-dasharray': dash } : {}),
           },
@@ -797,6 +813,9 @@ export function TripMap({
         const future = isFuture(stopById.get(leg.id)?.arrivalDate);
         map.addSource(id, { type: 'geojson', data: leg.feature });
         if (leg.isFlight) {
+          // A flight arc is always dashed. It is a drawn great circle, not a
+          // route anybody recorded, and past or future changes nothing about
+          // that — the solid/dashed distinction is about the ground.
           map.addLayer({
             id,
             type: 'line',
@@ -804,7 +823,7 @@ export function TripMap({
             paint: {
               'line-color': '#8a94a3',
               'line-width': 2,
-              ...(future ? { 'line-dasharray': [1.4, 2.6] as [number, number] } : {}),
+              'line-dasharray': [1.4, 2.6],
             },
             layout: { 'line-cap': 'round' },
           });

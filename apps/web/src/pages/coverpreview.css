@@ -1,0 +1,90 @@
+/* Developer options: every coverless-trip design on one page. */
+
+.cover-preview {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 900px;
+}
+
+.cp-back {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem 0.45rem 0.45rem;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.cp-back:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.cover-preview h1 {
+  margin: 0;
+  font-size: 1.7rem;
+}
+
+.cp-intro {
+  margin: 0;
+  max-width: 46ch;
+  line-height: 1.5;
+}
+
+.cp-try {
+  max-width: 22rem;
+}
+
+.cp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.4rem;
+}
+
+.cp-cover {
+  position: relative;
+  display: grid;
+  align-content: end;
+  aspect-ratio: 16 / 10;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  color: #fff;
+  box-shadow: var(--shadow-s);
+  animation: cpIn 0.32s var(--ease) both;
+}
+
+@keyframes cpIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.cp-cover-glyph {
+  position: absolute;
+  right: -0.7rem;
+  top: 50%;
+  transform: translateY(-50%) rotate(-8deg);
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.cp-cover-name {
+  position: relative;
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.15;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-cover {
+    animation: none;
+  }
+}

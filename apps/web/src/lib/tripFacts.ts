@@ -51,7 +51,10 @@ function build(id: FactId, src: FactSource): Fact | null {
         ? { id, value: String(src.days), label: 'dagen', shortLabel: 'dgn' }
         : null;
     case 'stops':
-      return src.stops > 0
+      // A citytrip is one place, and "1 stops" is not a fact about it — it is
+      // the trip. Two or more is a route, and worth a chip; the fourth slot
+      // goes to whatever comes next in the order.
+      return src.stops > 1
         ? { id, value: String(src.stops), label: 'stops', shortLabel: 'stops' }
         : null;
     case 'photos':

@@ -163,10 +163,33 @@
 
 .notif-empty {
   display: grid;
+  align-content: center;
   justify-items: center;
   gap: 0.6rem;
-  padding: 2.4rem 1.5rem;
+  padding: 1.5rem;
   text-align: center;
+  /* The same height three placeholder rows have, so the sheet does not grow
+     when the answer turns out to be "nothing". */
+  min-height: 15rem;
+  animation: notifEmptyIn 0.32s var(--ease) both;
+}
+
+@keyframes notifEmptyIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.notif-empty-icon {
+  animation: notifEmptyIcon 0.42s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+
+@keyframes notifEmptyIcon {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
 }
 
 .notif-empty-icon {
@@ -182,7 +205,9 @@
 .notif-list {
   list-style: none;
   margin: 0;
-  padding: 0.35rem 0 0.6rem;
+  /* No padding above the first row: the head already has a rule under it, and
+     a gap between the two read as the list hanging loose. */
+  padding: 0 0 0.4rem;
   overflow-y: auto;
 }
 
@@ -369,6 +394,7 @@
 .notif-skeleton {
   animation: none;
   pointer-events: none;
+  min-height: 5rem;
 }
 
 .notif-skeleton-avatar,
@@ -433,6 +459,8 @@
 @media (prefers-reduced-motion: reduce) {
   .notif-bell.has-news svg,
   .notif-item,
+  .notif-empty,
+  .notif-empty-icon,
   .notif-outcome,
   .notif-sheet,
   .notif-backdrop {

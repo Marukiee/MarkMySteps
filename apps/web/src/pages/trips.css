@@ -158,6 +158,11 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* The card clips these, except when it sits inside a composited ancestor —
+     the sliding tab track — where the browser stops clipping against a
+     rounded corner and the dark overlay pokes out at the bottom. Rounding the
+     layers themselves costs nothing and does not depend on that. */
+  border-radius: inherit;
 }
 
 /* Photo-less card (e.g. an upcoming trip): an intentional design, not a bare
@@ -183,6 +188,7 @@
   position: absolute;
   inset: 0;
   z-index: 1;
+  border-radius: inherit;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;

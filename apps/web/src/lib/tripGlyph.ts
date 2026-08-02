@@ -10,7 +10,9 @@ import type { IconName } from '../components/Icon';
  * "kroatie" and "ROADTRIP 2026".
  *
  * Order matters: the first rule that matches wins, so the specific ones
- * (interrail) come before the general ones (trein).
+ * (interrail) come before the general ones (trein). Deliberately few: a rule
+ * that fires on a word people use loosely ("Busreis" for a trip that is mostly
+ * flying) puts the wrong picture on the card, and the compass is never wrong.
  */
 const RULES: { icon: IconName; words: string[] }[] = [
   { icon: 'train', words: ['interrail', 'eurail', 'trein', 'train', 'rail', 'spoor', 'nightjet'] },
@@ -18,13 +20,7 @@ const RULES: { icon: IconName; words: string[] }[] = [
     icon: 'car',
     words: ['roadtrip', 'road', 'auto', 'camper', 'caravan', 'rijden', 'busje', 'van'],
   },
-  { icon: 'plane', words: ['vlucht', 'vliegen', 'vliegreis', 'fly', 'flight', 'lucht'] },
-  {
-    icon: 'boat',
-    words: ['boot', 'boat', 'cruise', 'zeilen', 'zeiltocht', 'ferry', 'veerboot', 'kajak'],
-  },
   { icon: 'walk', words: ['wandel', 'wandelen', 'hike', 'hiking', 'trektocht', 'camino', 'lopen'] },
-  { icon: 'bus', words: ['bus', 'flixbus', 'touringcar'] },
 ];
 
 /** Lowercase, without accents, punctuation turned into spaces. */
@@ -58,3 +54,14 @@ export function tripGlyph(title: string | null | undefined): IconName {
 
 /** Every rule, for the developer-options preview of the covers. */
 export const TRIP_GLYPH_RULES = RULES;
+
+/**
+ * How big that glyph should be drawn on a cover.
+ *
+ * The compass fills its own circle; the vehicles are a shape with air around
+ * them and read a size smaller at the same number. A quarter more brings them
+ * back to the same visual weight.
+ */
+export function tripGlyphSize(title: string | null | undefined, base: number): number {
+  return tripGlyph(title) === 'compass' ? base : Math.round(base * 1.3);
+}

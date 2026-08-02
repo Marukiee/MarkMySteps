@@ -21,6 +21,7 @@ import { resumeBackgroundNotify, takeNotificationPath } from './lib/notify';
 import { FriendsPage } from './pages/FriendsPage';
 import { LoginPage } from './pages/LoginPage';
 import { OnboardingV2Page } from './pages/OnboardingV2Page';
+import { CoverPreviewPage } from './pages/CoverPreviewPage';
 import { PendingPage } from './pages/PendingPage';
 import { PlanPage } from './pages/PlanPage';
 import { TripSettingsPage } from './pages/TripSettingsPage';
@@ -140,6 +141,8 @@ export function App() {
           <Route path="/friends" element={<FriendsPage />} />
           <Route path="/friends/:userId" element={<TravellerPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          {/* Developer options: every coverless-trip design on one page. */}
+          <Route path="/preview/covers" element={<CoverPreviewPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

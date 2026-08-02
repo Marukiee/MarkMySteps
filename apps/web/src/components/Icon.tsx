@@ -93,17 +93,28 @@ const PATHS: Record<IconName, ReactNode> = {
   ),
   car: (
     <>
-      <path d="M5 13h14l-1.5-4.5A2 2 0 0 0 15.6 7H8.4a2 2 0 0 0-1.9 1.5L5 13Z" />
-      <path d="M5 13h14v4a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H8v1a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-4Z" />
-      <path d="M7.5 16h.01M16.5 16h.01" />
+      {/* One outline for the whole body — cabin, bonnet and boot in a single
+          path — with the wheels under it. Drawn as three overlapping shapes it
+          showed every seam once it was blown up to cover size. */}
+      <path d="M3.2 16.4v-3.1c0-.5.2-1 .5-1.4l2.9-3.4c.5-.6 1.2-.9 2-.9h6.8c.8 0 1.5.3 2 .9l2.9 3.4c.3.4.5.9.5 1.4v3.1" />
+      <path d="M3.2 16.4h17.6" />
+      <path d="M6.6 8.1 7.8 12h8.4l1.2-3.9" />
+      <path d="M12 8v4" />
+      <circle cx="7.4" cy="16.6" r="1.9" />
+      <circle cx="16.6" cy="16.6" r="1.9" />
     </>
   ),
   train: (
     <>
-      <rect x="6" y="4" width="12" height="12" rx="2.5" />
-      <path d="M6 11h12" />
-      <path d="M9 8h.01M15 8h.01" />
-      <path d="m8 20 1.5-2M16 20l-1.5-2" />
+      {/* A carriage on rails: a rounded body with one wide window, the doors
+          under it, and the track it stands on. The old one was a box with two
+          dots that read as a washing machine at small sizes. */}
+      <path d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5V15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z" />
+      <path d="M5.5 10.5h13" />
+      <path d="M12 3v7.5" />
+      <path d="M8.5 14h.01M15.5 14h.01" />
+      <path d="m8.5 17-2 4M15.5 17l2 4" />
+      <path d="M4 21h16" />
     </>
   ),
   bus: (
@@ -123,9 +134,14 @@ const PATHS: Record<IconName, ReactNode> = {
   ),
   walk: (
     <>
-      <circle cx="13" cy="4" r="1.5" />
-      <path d="M11 21l2-6-2-2 1-4 3 2 2 1" />
-      <path d="m11 13-2 2-2 4" />
+      {/* Mid-stride, leaning into it, with a pack on the back and a pole — a
+          walker rather than the stick figure it was. */}
+      <circle cx="13.5" cy="3.8" r="1.8" />
+      <path d="M13 7.4 10 9.6l-1 4" />
+      <path d="M13 7.4h1.2l2.3 3.4 2 1.2" />
+      <path d="m13 11.4-.6 4 2.6 5.3" />
+      <path d="m12.4 15.4-3.2 1.5-1 4.3" />
+      <path d="M18.4 8.6 20 21" />
     </>
   ),
   pencil: (

@@ -22,7 +22,7 @@ import { colorForUser, formatDate, tripCoverBg } from '../lib/colors';
 import { listDeviceMedia } from '../lib/deviceMedia';
 import { lastSeenLabel, useNow } from '../lib/lastSeen';
 import { canEditTrip } from '../lib/perm';
-import { tripGlyph } from '../lib/tripGlyph';
+import { tripGlyph, tripGlyphSize } from '../lib/tripGlyph';
 import { stableViewportHeight } from '../lib/native';
 import { getMapStyle, getTripFacts } from '../lib/prefs';
 import { FactId, resolveFacts } from '../lib/tripFacts';
@@ -739,7 +739,7 @@ export function TripDetailPage() {
           )}
           {trip && !trip.resolvedCoverId && (
             <span className="trip-headcard-glyph" aria-hidden="true">
-              <Icon name={tripGlyph(trip.title)} size={130} />
+              <Icon name={tripGlyph(trip.title)} size={tripGlyphSize(trip.title, 130)} />
             </span>
           )}
           <div className="trip-headcard-body">

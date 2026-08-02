@@ -31,11 +31,10 @@ import {
   restoreBackup,
   saveBackup,
 } from '../lib/backup';
-import { formatDate, tripCoverBg } from '../lib/colors';
+import { formatDate } from '../lib/colors';
 import { reversePlaceName } from '../lib/geocode';
 import { clearThumbCache, enforceThumbBudget, thumbCacheUsage } from '../lib/offlineCache';
 import { isLocalMode } from '../lib/localMode';
-import { tripGlyph } from '../lib/tripGlyph';
 import {
   backgroundNotifyOn,
   disableBackgroundNotify,
@@ -1549,17 +1548,6 @@ function UpdateCheck() {
   );
 }
 
-/** One name per rule in lib/tripGlyph, plus one that matches nothing. */
-const COVER_SAMPLES = [
-  'Interrail 2026',
-  'Roadtrip Noorwegen',
-  'Vliegreis Tokio',
-  'Zeiltocht Kroatië',
-  'Wandeltocht Camino',
-  'Busreis Praag',
-  'Valencia',
-];
-
 /** Hidden tab (unlocked from About) for testing-only tools. */
 function DeveloperSection({ onLock }: { onLock: () => void }) {
   const navigate = useNavigate();
@@ -1628,24 +1616,17 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
       {invitePreview && <InvitePreviewSheet onClose={() => setInvitePreview(false)} />}
       <div className="field">
         <label>Covers zonder foto</label>
+        <button
+          type="button"
+          className="btn btn-ghost settings-reset-sizes"
+          onClick={() => navigate('/preview/covers')}
+        >
+          Bekijken
+        </button>
         <span className="muted">
-          Een reis zonder foto&apos;s krijgt zijn eigen kleur en een icoontje dat uit de naam
-          volgt. Alles wat niet herkend wordt houdt het kompas.
+          Elke reis zonder foto&apos;s krijgt zijn eigen kleur en een icoontje dat uit de naam
+          volgt.
         </span>
-        <div className="dev-covers">
-          {COVER_SAMPLES.map((name) => (
-            <span
-              key={name}
-              className="dev-cover"
-              style={{ background: tripCoverBg({ id: name }) }}
-            >
-              <span className="dev-cover-glyph" aria-hidden="true">
-                <Icon name={tripGlyph(name)} size={54} />
-              </span>
-              <span className="dev-cover-name">{name}</span>
-            </span>
-          ))}
-        </div>
       </div>
       <div className="field">
         <label>Meldingenlijst</label>
