@@ -555,14 +555,11 @@ export function TripMap({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    // Light grey with a soft dark halo under it. Plain grey disappeared into a
-    // satellite map and white shouted over it; the halo carries the contrast
-    // wherever the ground happens to be pale, so the line itself can stay
-    // quiet.
+    // A light grey dashed line, and nothing else: the halo under it was
+    // meant to hold the line together over a pale satellite map and mostly
+    // made it look smudged.
     ctx.lineCap = 'round';
     ctx.setLineDash([3, 5]);
-    ctx.shadowColor = 'rgba(10, 14, 20, 0.5)';
-    ctx.shadowBlur = 3;
     ctx.lineWidth = 2;
     ctx.strokeStyle = 'rgba(206, 214, 224, 0.92)';
 
@@ -572,7 +569,7 @@ export function TripMap({
       const a = pts[0]!;
       const b = pts[pts.length - 1]!;
       const chord = Math.hypot(b.x - a.x, b.y - a.y);
-      if (chord < 4) continue;
+      if (!Number.isFinite(chord) || chord < 4) continue;
       // Perpendicular to the chord, always the one pointing up the screen.
       let nx = -(b.y - a.y) / chord;
       let ny = (b.x - a.x) / chord;
@@ -589,6 +586,10 @@ export function TripMap({
         const k = climb * Math.sin((Math.PI * i) / (pts.length - 1));
         return { x: p.x + nx * k, y: p.y + ny * k };
       });
+      // A point the projection cannot place comes back as NaN, and one NaN in
+      // a path takes the whole path with it — which is why an arc would
+      // sometimes vanish outright on the way in.
+      const ok = lifted.map((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
       // Round the back of a turned globe a point projects to the far side of
       // the canvas, and a line across it looks like a fold. Caught by comparing
       // each step with the typical one rather than with the canvas: zoomed in,
@@ -598,13 +599,18 @@ export function TripMap({
       for (let i = 1; i < lifted.length; i++) {
         steps.push(Math.hypot(lifted[i]!.x - lifted[i - 1]!.x, lifted[i]!.y - lifted[i - 1]!.y));
       }
-      const typical = [...steps].sort((p, q) => p - q)[Math.floor(steps.length / 2)] ?? 0;
+      const finite = steps.filter((v) => Number.isFinite(v)).sort((p, q) => p - q);
+      const typical = finite[Math.floor(finite.length / 2)] ?? 0;
       const breakAt = Math.max(typical * 8, 60);
 
       ctx.beginPath();
       let pen = false;
       for (let i = 0; i < lifted.length; i++) {
-        if (i > 0 && steps[i - 1]! > breakAt) pen = false;
+        if (!ok[i]) {
+          pen = false;
+          continue;
+        }
+        if (i > 0 && (!ok[i - 1] || steps[i - 1]! > breakAt)) pen = false;
         if (pen) ctx.lineTo(lifted[i]!.x, lifted[i]!.y);
         else ctx.moveTo(lifted[i]!.x, lifted[i]!.y);
         pen = true;

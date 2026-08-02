@@ -814,6 +814,31 @@ export function GlobeBackdrop({
           });
         }
       };
+      /**
+       * An airport is not a place you went; the city it serves is.
+       *
+       * A route ends at the airport it flew out of, and photos taken while
+       * waiting for the gate put a point there too — so the globe grew a dot
+       * beside the city that already had one. A point within about fifty-five
+       * kilometres of one of this trip's own stops is that stop.
+       */
+      const AIRPORT_OF_CITY_DEG = 0.5;
+      const snapToStop = (
+        trip: (typeof frontFacing)[number],
+        p: [number, number],
+      ): [number, number] => {
+        let best: [number, number] | null = null;
+        let bestD = AIRPORT_OF_CITY_DEG;
+        for (const sp of trip.stops) {
+          const d = distance(sp, p);
+          if (d < bestD) {
+            bestD = d;
+            best = sp;
+          }
+        }
+        return best ?? p;
+      };
+
       for (const trip of frontFacing) {
         const col = recede(legibleColor(trip.color, dark), dark, 1 - standing(trip.id));
         const isCity = tripSpread(trip) < 2.5; // stays around one place
@@ -852,7 +877,7 @@ export function GlobeBackdrop({
         }
 
         for (const pt of tripPoints) {
-          addEndpoint(pt, col, trip.upcoming, isCity, trip.id);
+          addEndpoint(snapToStop(trip, pt), col, trip.upcoming, isCity, trip.id);
         }
       }
       // Second pass: a trip whose route PASSES THROUGH an existing place (a city
@@ -990,7 +1015,6 @@ export function GlobeBackdrop({
       // city itself already has a dot. Budapest's airport is sixteen kilometres
       // out of town, which was enough for the city and the plane to each get
       // their own, on one trip with one stop there.
-      const AIRPORT_OF_CITY_DEG = 0.5; // ~55 km: an airport belongs to its city
       // Every place that carries a dot of its own: the route's endpoints and
       // shared cities (`places`), AND the stops in between, which are drawn
       // from the trips themselves and were not in that list — which is why
