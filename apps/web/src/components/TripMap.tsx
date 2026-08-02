@@ -555,11 +555,15 @@ export function TripMap({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    const dark = document.documentElement.dataset.theme === 'dark';
-    ctx.lineWidth = 2;
+    // Near-white with a soft dark halo under it. Grey held its own over a
+    // street map and disappeared into a satellite one; this reads on both,
+    // because the halo supplies the contrast wherever the ground is pale.
     ctx.lineCap = 'round';
     ctx.setLineDash([3, 5]);
-    ctx.strokeStyle = dark ? 'rgba(170,180,192,0.95)' : 'rgba(110,120,133,0.9)';
+    ctx.shadowColor = 'rgba(10, 14, 20, 0.55)';
+    ctx.shadowBlur = 3;
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = 'rgba(246, 249, 252, 0.95)';
 
     for (const track of flightTracksRef.current) {
       if (track.length < 2) continue;
@@ -893,8 +897,17 @@ export function TripMap({
       }
 
       // Airports a flight touches get the same small grey dot the globe uses,
-      // so an arc visibly starts and ends somewhere instead of out of nowhere.
+      // so an arc visibly starts and ends somewhere instead of out of nowhere —
+      // but only where the city itself has not already put a pin there. An
+      // airport belongs to the place it serves, and a dot beside every flag was
+      // one marker too many on nearly every flight.
       const airportSeen = new Set<string>();
+      const pinned = (stops ?? []).filter(
+        (s): s is StopPoint & { latitude: number; longitude: number } =>
+          s.latitude !== null && s.longitude !== null,
+      );
+      /** Roughly 55 km — Schiphol to Amsterdam, Budapest to Ferihegy. */
+      const AIRPORT_OF_CITY_KM = 55;
       for (const leg of buildLegs(stops ?? [])) {
         if (!leg.isFlight) continue;
         const coords = (leg.feature.geometry as GeoJSON.LineString)
@@ -904,6 +917,13 @@ export function TripMap({
           const key = `${point[0].toFixed(2)},${point[1].toFixed(2)}`;
           if (airportSeen.has(key)) continue;
           airportSeen.add(key);
+          if (
+            pinned.some(
+              (s) => haversineKm([s.longitude, s.latitude], point) <= AIRPORT_OF_CITY_KM,
+            )
+          ) {
+            continue;
+          }
           const el = document.createElement('div');
           el.className = 'airport-marker';
           stopMarkersRef.current.push(
@@ -981,9 +1001,11 @@ export function TripMap({
               type: 'line',
               source: shadowId,
               paint: {
-                'line-color': '#8a94a3',
+                // Lighter than the arc above it and half as present: the track
+                // is a hint of where the flight passes, not a route.
+                'line-color': '#f2f6fa',
                 'line-width': 1,
-                'line-opacity': 0.24,
+                'line-opacity': 0.3,
                 'line-dasharray': [1, 3],
               },
               layout: { 'line-cap': 'round' },

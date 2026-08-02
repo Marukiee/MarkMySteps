@@ -67,6 +67,12 @@
   z-index: 10;
 }
 
+/* Above the flight overlay (z-index 5), or the arc is drawn straight over the
+   airport it leaves from. */
+.maplibregl-marker.airport-marker {
+  z-index: 6;
+}
+
 .photo-marker-error {
   background: var(--paper-sunken);
 }
