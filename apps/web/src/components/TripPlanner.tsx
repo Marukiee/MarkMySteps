@@ -543,7 +543,7 @@ export function TripPlanner({
   }
 
   return (
-    <div className="trip-planner">
+    <div className={`trip-planner ${readOnly ? 'trip-planner-read' : ''}`}>
       {trip && (
         <div className="nights-planned">
           <span className="nights-ring" data-full={plannedNights >= tripNights}>
@@ -783,11 +783,16 @@ export function TripPlanner({
                     </span>
                   </div>
                   <div className="stop-nights">
-                    {/* A guest gets the number without the two buttons that
-                        change it — the row keeps its shape, it just stops
-                        being a control. */}
-                    <div className="nights-buttons">
-                      {!readOnly && (
+                    {/* Read-only, the stepper is the wrong shape: a wide tray
+                        built to hold two buttons, with one number rattling
+                        around in it. A guest gets a plain pill instead. */}
+                    {readOnly ? (
+                      <span className="nights-static">
+                        {stop.nights}
+                        <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
+                      </span>
+                    ) : (
+                      <div className="nights-buttons">
                         <button
                           className="nights-btn"
                           onClick={() => changeNights(stop, -1)}
@@ -795,12 +800,10 @@ export function TripPlanner({
                         >
                           <Icon name="minus" size={16} />
                         </button>
-                      )}
-                      <span className="nights-count">
-                        {stop.nights}
-                        <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
-                      </span>
-                      {!readOnly && (
+                        <span className="nights-count">
+                          {stop.nights}
+                          <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
+                        </span>
                         <button
                           className="nights-btn"
                           onClick={() => changeNights(stop, 1)}
@@ -808,8 +811,8 @@ export function TripPlanner({
                         >
                           <Icon name="plus" size={16} />
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     {!readOnly && (
                       <button
                         type="button"

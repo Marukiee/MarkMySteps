@@ -733,3 +733,108 @@
 .trip-rename-ok:active {
   transform: scale(0.9);
 }
+
+/* ---- The lower half: your finished trips, or your friends' ---------------
+   This used to be a heading that said "Afgelopen reizen". It is now a choice,
+   because there are two lists and only one of them is yours. Same segmented
+   control as the trip page's tabs: one pill that moves, rather than two
+   buttons that light up. */
+.trips-tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 4px;
+  margin: 1.6rem 0 1rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+}
+
+.trips-tabs-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 999px;
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-s);
+  transition: transform 0.32s var(--ease);
+}
+
+.trips-tabs[data-tab='friends'] .trips-tabs-thumb {
+  transform: translateX(100%);
+}
+
+.trips-tabs button {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.4rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--ink-faint);
+  transition: color 0.25s var(--ease);
+}
+
+.trips-tabs button.active {
+  color: var(--ink);
+}
+
+/* The count rides along, and only carries weight on the open tab. */
+.trips-tabs button small {
+  min-width: 1.35em;
+  padding: 0.05rem 0.34rem;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-faint);
+  font-size: 0.72rem;
+  font-weight: 700;
+  transition: background 0.25s var(--ease), color 0.25s var(--ease);
+}
+
+.trips-tabs button.active small {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* Remounted per tab (React key), so this plays on every switch. It comes in
+   from the side you moved towards: the panel follows the pill. */
+.trips-panel {
+  animation: tripsPanelIn 0.3s var(--ease) both;
+}
+
+.trips-panel[data-dir='-1'] {
+  animation-name: tripsPanelInLeft;
+}
+
+@keyframes tripsPanelIn {
+  from {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+}
+
+@keyframes tripsPanelInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-26px);
+  }
+}
+
+.trips-tab-empty {
+  padding: 1.4rem 0.2rem 0.6rem;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trips-panel,
+  .trips-tabs-thumb {
+    animation: none;
+    transition: none;
+  }
+}

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Trip, TripRole } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { airportCoord } from '../common/airports';
 import { CreateTripDto } from './dto/create-trip.dto';
@@ -315,7 +316,10 @@ type RawMember = {
 
 @Injectable()
 export class TripsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async create(ownerId: string, dto: CreateTripDto): Promise<TripWithMembers> {
     const { startDate, endDate } = parseDates(dto.startDate, dto.endDate);
@@ -732,6 +736,12 @@ export class TripsService {
       })),
       skipDuplicates: true,
     });
+    // The popup at launch says it once; the bell keeps it until it is read.
+    await this.notifications.tripAdded(
+      invitees.map((i) => i.id),
+      tripId,
+      userId,
+    );
 
     return this.getForMember(tripId, userId);
   }

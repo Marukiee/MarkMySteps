@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/Icon';
+import { NotificationBell } from '../components/NotificationBell';
 import {
   CountryPanel,
   RecentTrips,
@@ -50,7 +51,12 @@ export function FriendsPage() {
 
   return (
     <main className="page fade-in friends-page">
-      <h1>{travellersTabLabel()}</h1>
+      {/* The heading shares its line with the bell: requests to join a trip and
+          invitations both land here, where the people are. */}
+      <div className="friends-head">
+        <h1>{travellersTabLabel()}</h1>
+        {!local && <NotificationBell />}
+      </div>
 
       {user && (
         <section className="card stats-hero">

@@ -63,6 +63,10 @@ model User {
   mediaRefs        MediaRef[]
   locationPoints   LocationPoint[]
   notes            TripNote[]
+  notifications    Notification[]   @relation("NotificationRecipient")
+  actedNotifications Notification[] @relation("NotificationActor")
+  accessRequests   TripAccessRequest[] @relation("AccessRequester")
+  accessDecisions  TripAccessRequest[] @relation("AccessDecider")
 
   @@map("users")
 }
@@ -114,8 +118,77 @@ model Trip {
   stops          Stop[]
   shareLinks     ShareLink[]
   notes          TripNote[]
+  accessRequests TripAccessRequest[]
+  notifications  Notification[]
 
   @@map("trips")
+}
+
+/// Somebody asked the owner to let them onto a trip they can see the name of
+/// (a friend's recent trips are listed on their traveller page) but not the
+/// contents of. One row per person per trip: asking twice is the same ask.
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+model TripAccessRequest {
+  id         String              @id @default(uuid()) @db.Uuid
+  tripId     String              @db.Uuid
+  trip       Trip                @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  /// Who is asking.
+  userId     String              @db.Uuid
+  user       User                @relation("AccessRequester", fields: [userId], references: [id], onDelete: Cascade)
+  status     AccessRequestStatus @default(PENDING)
+  /// What they were let in as, once approved.
+  grantedRole TripRole?
+  /// A line they may add to say who they are / why.
+  message    String?
+  createdAt  DateTime            @default(now())
+  decidedAt  DateTime?
+  decidedById String?            @db.Uuid
+  decidedBy  User?               @relation("AccessDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  notifications Notification[]
+
+  @@unique([tripId, userId])
+  @@index([userId])
+  @@map("trip_access_requests")
+}
+
+/// What the app shows under the bell. A notification stays until its owner
+/// deals with it — reads it away, or answers the request it carries.
+enum NotificationKind {
+  /// You were added to somebody's trip.
+  TRIP_ADDED
+  /// Somebody wants onto your trip (carries the request; owner-only).
+  ACCESS_REQUESTED
+  /// Your request was granted.
+  ACCESS_APPROVED
+  /// Your request was turned down.
+  ACCESS_DENIED
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  /// Who sees it.
+  userId    String           @db.Uuid
+  user      User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  kind      NotificationKind
+  /// Who caused it (the person who added you, or who is asking).
+  actorId   String?          @db.Uuid
+  actor     User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  tripId    String?          @db.Uuid
+  trip      Trip?            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  /// Set on the ones you can answer from the list.
+  requestId String?          @db.Uuid
+  request   TripAccessRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
 
 enum TripRole {

@@ -8,6 +8,18 @@
   font-size: 2rem;
 }
 
+/* Title left, bell right, both on the baseline of the same row. */
+.friends-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.friends-head h1 {
+  margin: 0;
+}
+
 .friends-heading {
   margin-top: 0.6rem;
   font-size: 1.25rem;

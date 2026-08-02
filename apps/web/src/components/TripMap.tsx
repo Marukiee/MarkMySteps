@@ -24,9 +24,11 @@ const FLIGHT_KM = 400;
  * for that leg: a trip can be tracked from Monday and dark on Thursday, and
  * Thursday still deserves its dashed line.
  *
- * Only points genuinely along the way count. Photos taken at A and at B say
- * nothing about the road between them, so the middle stretch of the leg is what
- * is examined, with a corridor that widens with the leg's length.
+ * Only points genuinely along the way count, and they have to cover the whole
+ * leg rather than turn up once somewhere in the middle. The stretch between A
+ * and B is cut into buckets and each one has to find real data near it: a
+ * 774 km leg Trieste → Cologne passes right over Munich, and a single day of
+ * tracking there used to erase the entire line to Cologne.
  */
 function legHasRealData(
   from: [number, number],
@@ -43,16 +45,23 @@ function legHasRealData(
   const dy = to[1] * ky - ay;
   const len2 = dx * dx + dy * dy;
   if (len2 === 0) return false;
-  const corridorKm = Math.max(8, Math.sqrt(len2) * 0.2);
+  // Capped: a fifth of a 774 km leg is a 155 km-wide corridor, which catches
+  // half of Europe either side of the line.
+  const corridorKm = Math.min(60, Math.max(8, Math.sqrt(len2) * 0.2));
+  const BUCKETS = 8;
+  const covered = new Array<boolean>(BUCKETS).fill(false);
   for (const point of points) {
     const px = point[0] * kx;
     const py = point[1] * ky;
     // Where along the leg the point falls: 0 at A, 1 at B.
     const t = ((px - ax) * dx + (py - ay) * dy) / len2;
-    if (t < 0.15 || t > 0.85) continue;
-    if (Math.hypot(px - (ax + t * dx), py - (ay + t * dy)) <= corridorKm) return true;
+    if (t < 0.1 || t > 0.9) continue;
+    if (Math.hypot(px - (ax + t * dx), py - (ay + t * dy)) > corridorKm) continue;
+    covered[Math.min(BUCKETS - 1, Math.floor(((t - 0.1) / 0.8) * BUCKETS))] = true;
   }
-  return false;
+  // One empty bucket is forgiven: a tracker drops fixes in a tunnel or a dead
+  // spot, and that is not a reason to draw the plan over a real route.
+  return covered.filter(Boolean).length >= BUCKETS - 1;
 }
 
 export interface Waypoint {

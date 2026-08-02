@@ -115,3 +115,33 @@ export interface ImportedTripSummary {
   endDate: string;
   pointsImported: number;
 }
+
+/** What the bell carries. Kinds the app does not know are simply not drawn. */
+export type NotificationKind =
+  | 'TRIP_ADDED'
+  | 'ACCESS_REQUESTED'
+  | 'ACCESS_APPROVED'
+  | 'ACCESS_DENIED';
+
+export type AccessRequestStatus = 'PENDING' | 'APPROVED' | 'DENIED';
+
+export interface NotificationItem {
+  id: string;
+  kind: NotificationKind;
+  createdAt: string;
+  read: boolean;
+  actor: { id: string; displayName: string; username: string; hasAvatar: boolean } | null;
+  trip: { id: string; title: string } | null;
+  /** Present on ACCESS_REQUESTED — the question you can answer from the list. */
+  request: { id: string; status: AccessRequestStatus; message: string | null } | null;
+}
+
+/** All a trip you cannot open will say about itself. */
+export interface TripAccessPreview {
+  tripId: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  owner: { id: string; displayName: string; username: string; hasAvatar: boolean };
+  status: 'NONE' | 'PENDING' | 'APPROVED' | 'DENIED' | 'MEMBER';
+}

@@ -54,6 +54,14 @@ export function TripsPage() {
     }, 260);
   };
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'past' | 'friends'>('past');
+  /** Which side the incoming panel slides in from: 1 = from the right. */
+  const [tabDir, setTabDir] = useState(1);
+  const switchTab = (next: 'past' | 'friends') => {
+    if (next === tab) return;
+    setTabDir(next === 'friends' ? 1 : -1);
+    setTab(next);
+  };
   // Bumped when a card switches size; the layout is read back from localStorage.
   const [, setSizeTick] = useState(0);
   // Own position on the globe — opt-in, and only ever from the tracker (the page
@@ -82,20 +90,39 @@ export function TripsPage() {
   useEffect(load, []);
 
   const today = new Date().toISOString().slice(0, 10);
-  // Ongoing trips (already started, not finished) are the most relevant → they
-  // sort above trips that haven't begun yet.
-  const upcoming = (trips?.filter((t) => t.endDate.slice(0, 10) >= today) ?? []).sort((a, b) => {
+  // Yours = the ones you travelled, as organiser or reisgenoot. A trip you were
+  // invited to look at is somebody else's, and gets its own tab.
+  const mine = (trips ?? []).filter((t) => canEditTrip(t, user?.id));
+  const friends = (trips ?? []).filter((t) => !canEditTrip(t, user?.id));
+  const startedFirst = (a: Trip, b: Trip) => {
     const aStarted = a.startDate.slice(0, 10) <= today ? 0 : 1;
     const bStarted = b.startDate.slice(0, 10) <= today ? 0 : 1;
     if (aStarted !== bStarted) return aStarted - bStarted;
     return a.startDate.localeCompare(b.startDate);
+  };
+  // Ongoing trips (already started, not finished) are the most relevant → they
+  // sort above trips that haven't begun yet.
+  const upcoming = mine.filter((t) => t.endDate.slice(0, 10) >= today).sort(startedFirst);
+  const past = mine.filter((t) => t.endDate.slice(0, 10) < today);
+  // Somebody who is away right now is the reason you opened this tab.
+  const friendTrips = [...friends].sort((a, b) => {
+    const aOver = a.endDate.slice(0, 10) < today ? 1 : 0;
+    const bOver = b.endDate.slice(0, 10) < today ? 1 : 0;
+    if (aOver !== bOver) return aOver - bOver;
+    return aOver ? b.startDate.localeCompare(a.startDate) : startedFirst(a, b);
   });
-  const past = trips?.filter((t) => t.endDate.slice(0, 10) < today) ?? [];
-  // The globe is where YOU have been. A trip somebody shared with you as a
-  // guest is theirs — it stays in the list, so you can open it, but it doesn't
-  // draw a route across your own world. (The server leaves guest trips out of
-  // your travel stats for the same reason.)
-  const myGlobeTrips = (trips ?? []).filter((t) => canEditTrip(t, user?.id));
+  // The globe is where YOU have been — guests' trips draw no route on it.
+  const myGlobeTrips = mine;
+
+  // Which of the two lower tabs is open, and which way it came in. Opens on the
+  // friends' tab when you have nothing finished of your own but they do, so the
+  // section is never an empty panel under a pill you have to find first.
+  const tabTrips = tab === 'past' ? past : friendTrips;
+  const hasPast = past.length > 0;
+  const hasFriends = friendTrips.length > 0;
+  useEffect(() => {
+    if (!hasPast && hasFriends) setTab('friends');
+  }, [hasPast, hasFriends]);
 
   return (
     <main className="page fade-in trips-page">
@@ -169,31 +196,63 @@ export function TripsPage() {
         </>
       )}
 
-      {past.length > 0 && (
+      {(past.length > 0 || friendTrips.length > 0) && (
         <>
-          <h2 className="trips-section-title">Afgelopen reizen</h2>
-          <div className="trips-grid">
-            {past.map((trip, i) => {
-              const c = isTripCompact(trip.id, true);
-              return (
-                <TripCard
-                  key={trip.id}
-                  trip={trip}
-                  index={i}
-                  onChanged={load}
-                  onResize={applySize}
-                  compact={c}
-                />
-              );
-            })}
-            {upcoming.length === 0 && (
-              <button
-                className="trip-ghost"
-                onClick={() => setShowNew(true)}
-                aria-label="Nieuwe reis"
-              >
-                <span>+ Nieuwe reis</span>
-              </button>
+          {/* The heading was a heading; now it is the choice between your own
+              finished trips and the ones you were invited to watch. One pill
+              slides between the two, and the grid under it slides the way you
+              moved — left tab from the left, right tab from the right. */}
+          <div className="trips-tabs" role="tablist" data-tab={tab}>
+            <span className="trips-tabs-thumb" aria-hidden="true" />
+            <button
+              role="tab"
+              aria-selected={tab === 'past'}
+              className={tab === 'past' ? 'active' : ''}
+              onClick={() => switchTab('past')}
+            >
+              Afgelopen reizen
+              {past.length > 0 && <small>{past.length}</small>}
+            </button>
+            <button
+              role="tab"
+              aria-selected={tab === 'friends'}
+              className={tab === 'friends' ? 'active' : ''}
+              onClick={() => switchTab('friends')}
+            >
+              Van vrienden
+              {friendTrips.length > 0 && <small>{friendTrips.length}</small>}
+            </button>
+          </div>
+
+          <div className="trips-panel" key={tab} data-dir={tabDir}>
+            {tabTrips.length === 0 ? (
+              <p className="muted trips-tab-empty">
+                {tab === 'past'
+                  ? 'Nog geen afgelopen reizen.'
+                  : 'Nog niemand heeft een reis met je gedeeld.'}
+              </p>
+            ) : (
+              <div className="trips-grid">
+                {tabTrips.map((trip, i) => (
+                  <TripCard
+                    key={trip.id}
+                    trip={trip}
+                    index={i}
+                    onChanged={load}
+                    onResize={applySize}
+                    compact={isTripCompact(trip.id, true)}
+                  />
+                ))}
+                {tab === 'past' && upcoming.length === 0 && (
+                  <button
+                    className="trip-ghost"
+                    onClick={() => setShowNew(true)}
+                    aria-label="Nieuwe reis"
+                  >
+                    <span>+ Nieuwe reis</span>
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </>
@@ -341,10 +400,16 @@ function TripCard({
   const todayStr = new Date().toISOString().slice(0, 10);
   const ongoing =
     trip.startDate.slice(0, 10) <= todayStr && trip.endDate.slice(0, 10) >= todayStr;
+  // On somebody else's trip the pill says who is away — "onderweg" on a card
+  // you are only watching read as though you were the one travelling.
+  // A reisgenoot is away too, so this is about guests only.
+  const travellerName = canEditTrip(trip, user?.id)
+    ? null
+    : trip.members.find((m) => m.userId === trip.ownerId)?.user.displayName ?? null;
   const statusEl = ongoing ? (
     <span className="trip-countdown trip-ongoing">
       <span className="trip-ongoing-dot" />
-      onderweg
+      {travellerName ? `${travellerName} is onderweg` : 'onderweg'}
     </span>
   ) : (
     countdown && (

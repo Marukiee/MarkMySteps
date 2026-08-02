@@ -1,0 +1,365 @@
+/* The bell on the travellers page, and the sheet it opens. Built out of the
+   same pieces as the "mensen & delen" sheet, so it reads as the same app. */
+
+.notif-bell {
+  position: relative;
+  display: grid;
+  place-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-s);
+  transition: color 0.18s var(--ease), transform 0.18s var(--ease);
+}
+
+.notif-bell:hover {
+  color: var(--ink);
+}
+
+.notif-bell:active {
+  transform: scale(0.94);
+}
+
+/* Something waiting: the bell leans over once, and the count grows in. */
+.notif-bell.has-news {
+  color: var(--accent-ink);
+}
+
+.notif-bell.has-news svg {
+  animation: bellNudge 2.6s var(--ease) 0.4s 2;
+  transform-origin: 50% 15%;
+}
+
+@keyframes bellNudge {
+  0%,
+  86%,
+  100% {
+    transform: rotate(0deg);
+  }
+  89% {
+    transform: rotate(11deg);
+  }
+  93% {
+    transform: rotate(-8deg);
+  }
+  97% {
+    transform: rotate(3deg);
+  }
+}
+
+.notif-badge {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: grid;
+  place-content: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  border: 2px solid var(--paper-raised);
+  transform: scale(0);
+  transition: transform 0.26s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+
+.notif-badge.on {
+  transform: scale(1);
+}
+
+/* Keyed on the number, so counting up replays this rather than snapping. */
+.notif-badge span {
+  animation: badgeTick 0.24s var(--ease);
+}
+
+@keyframes badgeTick {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* ---- Sheet -------------------------------------------------------------- */
+
+.notif-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(12 16 22 / 0.42);
+  backdrop-filter: blur(3px);
+  animation: notifFade 0.22s var(--ease);
+}
+
+.notif-backdrop.closing {
+  animation: notifFade 0.22s var(--ease) reverse forwards;
+}
+
+@keyframes notifFade {
+  from {
+    opacity: 0;
+  }
+}
+
+.notif-sheet {
+  width: min(520px, 100%);
+  max-height: min(78vh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  animation: notifRise 0.28s var(--ease);
+}
+
+.notif-backdrop.closing .notif-sheet {
+  animation: notifSink 0.22s cubic-bezier(0.4, 0, 0.7, 0.35) forwards;
+}
+
+@keyframes notifRise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+}
+
+@keyframes notifSink {
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+
+.notif-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.9rem 0.7rem 0.7rem 1.1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.notif-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.notif-close {
+  display: grid;
+  place-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--ink-faint);
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.notif-close:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.notif-error {
+  margin: 0.7rem 1.1rem 0;
+}
+
+.notif-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 2.4rem 1.5rem;
+  text-align: center;
+}
+
+.notif-empty-icon {
+  display: grid;
+  place-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--paper-sunken);
+  color: var(--ink-faint);
+}
+
+.notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem 0 0.6rem;
+  overflow-y: auto;
+}
+
+.notif-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 0.75rem;
+  padding: 0.75rem 0.7rem 0.75rem 1.1rem;
+  animation: notifItemIn 0.3s var(--ease) both;
+}
+
+@keyframes notifItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.notif-item + .notif-item {
+  border-top: 1px solid var(--line);
+}
+
+/* Not looked at yet: a soft wash and a mark in the margin. */
+.notif-item.unread {
+  background: var(--accent-soft);
+}
+
+.notif-item.unread::before {
+  content: '';
+  position: absolute;
+  left: 0.42rem;
+  top: 1.35rem;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.notif-avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.notif-avatar-fallback {
+  display: grid;
+  place-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--paper-sunken);
+  color: var(--ink-faint);
+}
+
+/* Small badge on the avatar saying what kind of news this is. */
+.notif-kind {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-content: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  border: 2px solid var(--paper-raised);
+  background: var(--ink-soft);
+  color: var(--paper-raised);
+}
+
+.notif-kind.kind-ACCESS_APPROVED {
+  background: #1f8f4d;
+}
+
+.notif-kind.kind-ACCESS_DENIED {
+  background: #b3402a;
+}
+
+.notif-kind.kind-ACCESS_REQUESTED {
+  background: var(--accent);
+}
+
+.notif-body {
+  min-width: 0;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.notif-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.notif-quote {
+  margin: 0;
+  font-size: 0.84rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.notif-when {
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+}
+
+.notif-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.notif-act {
+  padding: 0.34rem 0.7rem;
+  font-size: 0.8rem;
+  border-radius: 999px;
+}
+
+.notif-deny {
+  color: #b3402a;
+}
+
+.notif-open {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
+.notif-dismiss {
+  display: grid;
+  place-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--ink-faint);
+  opacity: 0;
+  transition: opacity 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.notif-item:hover .notif-dismiss,
+.notif-dismiss:focus-visible {
+  opacity: 1;
+}
+
+.notif-dismiss:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+/* No hover on a phone, so the cross is simply there. */
+@media (hover: none) {
+  .notif-dismiss {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-bell.has-news svg,
+  .notif-item,
+  .notif-sheet,
+  .notif-backdrop {
+    animation: none;
+  }
+}

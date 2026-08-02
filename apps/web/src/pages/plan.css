@@ -359,6 +359,27 @@
   color: var(--ink-faint);
 }
 
+/* The same fact without the stepper around it: one line, pill-shaped, the size
+   of the mode pills it now sits beside. */
+.nights-static {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.32rem 0.72rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.nights-static small {
+  font-weight: 500;
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+}
+
 .weather-badge {
   font-weight: 600;
   color: var(--ink-soft);
@@ -490,6 +511,12 @@
   align-items: center;
   gap: 0.7rem;
   padding: 0.55rem 2.4rem 0.55rem 0.85rem;
+}
+
+/* That right-hand inset is room for the delete cross. Read-only there is no
+   cross, so it was just a gap between the vehicle pill and the card's edge. */
+.trip-planner-read .flight-leg {
+  padding-right: 0.85rem;
 }
 
 .flight-leg-icon {

@@ -14,6 +14,7 @@ import { ImmichModule } from './immich/immich.module';
 import { ImportModule } from './import/import.module';
 import { MediaModule } from './media/media.module';
 import { NotesModule } from './notes/notes.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { TrackingModule } from './tracking/tracking.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ShareModule } from './share/share.module';
@@ -48,6 +49,7 @@ import { UsersModule } from './users/users.module';
     ShareModule,
     AdminModule,
     NotesModule,
+    NotificationsModule,
     AppInfoModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: SessionThrottlerGuard }],

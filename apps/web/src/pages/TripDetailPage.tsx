@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useParams } from 'react-router-dom';
-import { api } from '../api/client';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { api, ApiError } from '../api/client';
 import type { LiveFix, MediaItem, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
@@ -26,6 +26,7 @@ import { stableViewportHeight } from '../lib/native';
 import { getMapStyle, getTripFacts } from '../lib/prefs';
 import { FactId, resolveFacts } from '../lib/tripFacts';
 import { onTrackerChange } from '../tracking/tracker';
+import { TripAccessPage } from './TripAccessPage';
 import './tripdetail.css';
 
 interface TripStats {
@@ -37,12 +38,15 @@ interface TripStats {
 
 export function TripDetailPage() {
   const { tripId } = useParams<{ tripId: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [routes, setRoutes] = useState<RouteCollection | null>(null);
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [visibleUsers, setVisibleUsers] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  /** The trip refused to open: you are not on it (or it is gone). */
+  const [noAccess, setNoAccess] = useState(false);
   const [addPointMode, setAddPointMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [peopleOpen, setPeopleOpen] = useState(false);
@@ -210,11 +214,20 @@ export function TripDetailPage() {
         setTrip(t);
         // Default to the owner's + your own track, so multiple travellers'
         // routes don't cross by default — toggle the rest on via the chips.
+        // As a guest you are not on this trip: putting your own id in here
+        // counted you as a traveller whose route was being shown.
+        const mine = canEditTrip(t, user?.id) ? user?.id : undefined;
         setVisibleUsers((cur) =>
-          cur.size > 0 ? cur : new Set([t.ownerId, user?.id].filter((x): x is string => !!x)),
+          cur.size > 0 ? cur : new Set([t.ownerId, mine].filter((x): x is string => !!x)),
         );
       })
-      .catch((err: Error) => setError(err.message));
+      .catch((err: Error) => {
+        // The server answers 404 for a trip you are not on, whether or not it
+        // exists — so this is the door, not a dead end. The access screen asks
+        // the server what it may say and offers to knock.
+        if (err instanceof ApiError && err.status === 404) setNoAccess(true);
+        else setError(err.message);
+      });
     api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
     // The server's photos, plus any that were left on this phone. They are the
     // same thing to everything downstream — timeline, map, lightbox — so they
@@ -374,6 +387,21 @@ export function TripDetailPage() {
     }
   }
 
+  async function leaveTrip() {
+    if (!trip || !user) return;
+    const ok = await confirmModal({
+      title: 'Reis verlaten?',
+      body: `Je verlaat "${trip.title}". De reis zelf blijft van ${
+        trip.members.find((m) => m.userId === trip.ownerId)?.user.displayName ?? 'de organisator'
+      }.`,
+      confirmLabel: 'Verlaten',
+      danger: true,
+    });
+    if (!ok) return;
+    await api(`/trips/${trip.id}/members/${user.id}`, { method: 'DELETE' });
+    navigate('/');
+  }
+
   // Animate the sheet out before unmounting so the blur/backdrop don't snap.
   const closePeople = useCallback(() => {
     setPeopleClosing(true);
@@ -427,6 +455,16 @@ export function TripDetailPage() {
     return trip.members.filter((m) => contributed.has(m.userId));
   }, [trip, routes, media, liveFixes]);
 
+  /**
+   * Whose name the filter pill carries.
+   *
+   * Yours, when you are one of the travellers. On somebody else's trip you are
+   * not: the pill said "Mark" beside a map with none of Mark on it, and offered
+   * to switch him on. It now names the person whose route you came to look at.
+   */
+  const primaryMember =
+    shownMembers.find((m) => m.userId === user?.id) ?? shownMembers[0] ?? null;
+
   const visibleMedia = useMemo(
     () => media.filter((m) => visibleUsers.has(m.userId)),
     [media, visibleUsers],
@@ -476,6 +514,8 @@ export function TripDetailPage() {
     if (!item) return;
     scrollTimelineTo(item.id);
   }, [lightboxIndex, visibleMedia, scrollTimelineTo]);
+
+  if (noAccess && tripId) return <TripAccessPage tripId={tripId} />;
 
   if (error) {
     return (
@@ -533,7 +573,9 @@ export function TripDetailPage() {
           styleUrl={getMapStyle()}
           // Shown whenever this trip is the one being tracked, so you can see
           // yourself move on its map.
-          currentLocation={liveTracking || tripActive ? currentLoc : null}
+          // Not on a trip you are only watching: your own blue dot at home,
+          // hundreds of kilometres off somebody else's route, is noise.
+          currentLocation={canEdit && (liveTracking || tripActive) ? currentLoc : null}
           liveFixes={liveFixes}
           selfUserId={user?.id}
           onReady={(api) => (mapApiRef.current = api)}
@@ -557,7 +599,9 @@ export function TripDetailPage() {
           </button>
         )}
 
-        {trip && shownMembers.length > 1 && (
+        {/* Also shown for a single traveller who isn't you — that is exactly the
+            case (a friend's trip) where the pill has something to say. */}
+        {trip && primaryMember && (shownMembers.length > 1 || primaryMember.userId !== user?.id) && (
           <div className="person-select">
             {personMenuOpen && (
               <div className={`person-select-menu card ${personMenuClosing ? 'closing' : ''}`}>
@@ -600,11 +644,9 @@ export function TripDetailPage() {
             >
               <span
                 className="person-chip-dot"
-                style={{ background: colorForUser(user?.id ?? '') }}
+                style={{ background: colorForUser(primaryMember.userId) }}
               />
-              <span className="person-select-name">
-                {trip.members.find((m) => m.userId === user?.id)?.user.displayName ?? 'Ik'}
-              </span>
+              <span className="person-select-name">{primaryMember.user.displayName}</span>
               {/* Stays mounted at zero width so the pill can GROW into the extra
                   count instead of snapping wider the moment you tick someone.
                   It keeps showing the last real number while collapsing — the
@@ -797,6 +839,13 @@ export function TripDetailPage() {
             </div>
             <MembersPanel trip={trip} onChanged={loadData} />
             {trip.ownerId === user?.id && tripId && <SharePanel tripId={tripId} />}
+            {/* Somebody put you on this trip; the way back off it belongs here,
+                where the rest of "who is on this trip" lives. */}
+            {trip.ownerId !== user?.id && (
+              <button type="button" className="btn btn-danger people-leave" onClick={leaveTrip}>
+                <Icon name="arrow-left" size={16} /> Reis verlaten
+              </button>
+            )}
           </div>
         </div>
       )}

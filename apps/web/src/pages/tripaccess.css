@@ -1,0 +1,136 @@
+/* The wall in front of somebody else's trip. One card, centred, saying what
+   the trip is and who to ask — not an error message. */
+
+.trip-access {
+  display: grid;
+  place-items: center;
+  min-height: 70vh;
+}
+
+.ta-card {
+  width: min(440px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 0.55rem;
+  padding: 2rem 1.5rem 1.5rem;
+  text-align: center;
+  animation: taIn 0.34s var(--ease);
+}
+
+@keyframes taIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+}
+
+.ta-glyph {
+  display: grid;
+  place-content: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  margin-bottom: 0.3rem;
+}
+
+.ta-glyph-lost {
+  background: var(--paper-sunken);
+  color: var(--ink-faint);
+}
+
+.ta-card h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.ta-dates {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 0.9rem;
+}
+
+.ta-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.8rem 0.35rem 0.35rem;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+/* Remounted per state (React key), so switching from "ask" to "waiting"
+   crossfades instead of swapping. */
+.ta-state {
+  width: 100%;
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  animation: taState 0.3s var(--ease);
+}
+
+@keyframes taState {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.ta-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius-s);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.ta-status-wait {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.ta-status-no {
+  background: #fbeae4;
+  color: #b3402a;
+}
+
+:root[data-theme='dark'] .ta-status-no {
+  background: rgb(179 64 42 / 0.18);
+  color: #f0a08c;
+}
+
+.ta-note {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.ta-field {
+  text-align: left;
+}
+
+.ta-ask,
+.ta-back {
+  width: 100%;
+}
+
+.ta-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+}
+
+.ta-back-link:hover {
+  color: var(--ink);
+}
