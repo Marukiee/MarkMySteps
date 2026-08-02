@@ -30,6 +30,8 @@ export function flightArc(
   from: [number, number],
   to: [number, number],
   steps = 48,
+  /** 1 = the arc itself, 0 = the track it flies over (its shadow). */
+  lift = 1,
 ): [number, number][] {
   const RAD = Math.PI / 180;
   const DEG = 180 / Math.PI;
@@ -90,7 +92,7 @@ export function flightArc(
   }
   // The same shape the globe uses: a little for a short hop, more for a long
   // one, and never so much that the arc becomes a balloon.
-  const bow = chord * (0.05 + 0.13 * Math.min(1, (d * DEG) / 70));
+  const bow = lift * chord * (0.06 + 0.16 * Math.min(1, (d * DEG) / 70));
 
   return base.map(([lng, lat], i) => {
     const k = bow * Math.sin((Math.PI * i) / steps);
@@ -99,10 +101,13 @@ export function flightArc(
 }
 
 /** Chained bowed flight arcs through waypoints (a flight with layovers). */
-export function multiArc(points: [number, number][]): GeoJSON.Feature<GeoJSON.LineString> {
+export function multiArc(
+  points: [number, number][],
+  lift = 1,
+): GeoJSON.Feature<GeoJSON.LineString> {
   const coordinates: [number, number][] = [];
   for (let i = 1; i < points.length; i++) {
-    const seg = flightArc(points[i - 1]!, points[i]!, 36);
+    const seg = flightArc(points[i - 1]!, points[i]!, 36, lift);
     coordinates.push(...(i === 1 ? seg : seg.slice(1)));
   }
   return { type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: {} };
@@ -219,6 +224,14 @@ export interface LegStop {
 export interface Leg {
   id: string;
   isFlight: boolean;
+  /**
+   * The ground the flight passes over: the same great circle, with no bow.
+   *
+   * Drawn faintly under the arc, it is what makes the arc read as being IN
+   * THE AIR on a flat map — height with nothing to compare it against is just
+   * a bent line.
+   */
+  shadow?: GeoJSON.Feature<GeoJSON.LineString>;
   feature: GeoJSON.Feature<GeoJSON.LineString>;
 }
 
@@ -249,6 +262,7 @@ export function buildLegs(all: LegStop[]): Leg[] {
         .map((c) => airportByCode(c))
         .filter((a): a is NonNullable<typeof a> => !!a)
         .map((a) => [a.lon, a.lat] as [number, number]);
+      const shadow = isFlight ? multiArc([from, ...via, to], 0) : undefined;
       const feature = isFlight
         ? multiArc([from, ...via, to])
         : ({
@@ -257,7 +271,7 @@ export function buildLegs(all: LegStop[]): Leg[] {
             properties: {},
           } as GeoJSON.Feature<GeoJSON.LineString>);
       feature.properties = { flight: isFlight };
-      legs.push({ id: s.id, isFlight, feature });
+      legs.push({ id: s.id, isFlight, feature, shadow });
     }
     prev = to ?? city ?? prev;
   }

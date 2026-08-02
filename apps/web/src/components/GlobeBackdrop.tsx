@@ -386,7 +386,12 @@ export function GlobeBackdrop({
       // Phase 0: wide overview, pendulum-sweep across all trips.
       // Phase 1: ease in on the busiest region (centroid of the trips) so more
       // names pop up up close. Interaction resets to overview.
-      if (!idle) {
+      // A tap counts as watching, not as interrupting: without the second
+      // condition the tour was held in its overview while the light was
+      // already running the tapped trip, and the moment idling resumed a few
+      // seconds later the branch below saw phase 0 and started the whole
+      // journey again — the plane visibly jumped back to its airport.
+      if (!idle && !selectedId) {
         phaseStart = now;
         tourPhase = 0;
       } else if (trips.length > 0) {
@@ -612,6 +617,10 @@ export function GlobeBackdrop({
         up: boolean;
         /** Whose flight it is, so it can step back with the rest of its trip. */
         tripId: string;
+        /** Which hop of its flight this is, and how many there are — a flight
+         *  with a stopover is drawn one hop after the other, not both at once. */
+        hop: number;
+        hops: number;
       }[] = [];
       // Every point a flight touches, layovers included — they get a grey
       // airport dot, unlike the coloured dots reserved for real destinations.
@@ -623,7 +632,14 @@ export function GlobeBackdrop({
           // A flight is stored as its whole itinerary; bow each hop so a
           // stopover visibly breaks the line at that airport.
           for (let k = 1; k < seg.length; k++) {
-            flightPairs.push({ a: seg[k - 1]!, b: seg[k]!, up: trip.upcoming, tripId: trip.id });
+            flightPairs.push({
+              a: seg[k - 1]!,
+              b: seg[k]!,
+              up: trip.upcoming,
+              tripId: trip.id,
+              hop: k - 1,
+              hops: seg.length - 1,
+            });
           }
           for (const p of seg) airportPoints.push(p);
         }
@@ -653,7 +669,16 @@ export function GlobeBackdrop({
           for (let i = 1; i < seg.length; i++) {
             if (distance(seg[i - 1]!, seg[i]!) > FLIGHT_DEG) {
               flushRun();
-              flightPairs.push({ a: seg[i - 1]!, b: seg[i]!, up: trip.upcoming, tripId: trip.id });
+              // Inferred from a gap in the route rather than planned, so it has
+              // no stopovers of its own: one hop, drawn with the trip.
+              flightPairs.push({
+                a: seg[i - 1]!,
+                b: seg[i]!,
+                up: trip.upcoming,
+                tripId: trip.id,
+                hop: 0,
+                hops: 1,
+              });
               airportPoints.push(seg[i - 1]!, seg[i]!);
               run = [seg[i]!];
             } else {
@@ -686,9 +711,16 @@ export function GlobeBackdrop({
       const orderedBows = [...bows.values()].sort(
         (a, b) => standing(a.tripId) - standing(b.tripId),
       );
-      for (const { a: start, b: end, tripId } of orderedBows) {
+      for (const { a: start, b: end, tripId, hop, hops } of orderedBows) {
         if (flightCenter && (distance(flightCenter, start) > 90 || distance(flightCenter, end) > 90))
           continue;
+        // Amsterdam → Keflavík → New York is drawn in that order: the trip's
+        // reveal is split across its hops, so the second one only starts once
+        // the first has reached its airport. Both used to grow at once, from
+        // two places at the same time, which is not how you get there.
+        const span = 1 / hops;
+        const local = Math.max(0, Math.min(1, (tripAlpha(tripId, now) - hop * span) / span));
+        if (local <= 0) continue;
         // Grey either way, but a flight belonging to a trip that has stepped
         // back fades with it — the bows used to stay as dark as they ever were,
         // which made them the loudest thing left on the globe.
@@ -701,7 +733,7 @@ export function GlobeBackdrop({
         // Drawn from the airport it leaves towards the one it lands at, rather
         // than being there in one frame: the dots arrive with the trip and the
         // bows between them used to simply exist.
-        const drawn = Math.max(2, Math.round(arc.length * tripAlpha(tripId, now)));
+        const drawn = Math.max(2, Math.round(arc.length * local));
         ctx!.beginPath();
         let pen = false;
         for (let i = 0; i < drawn; i++) {
@@ -750,7 +782,12 @@ export function GlobeBackdrop({
 
       // Group endpoints by real-world proximity (~40 km), counting DISTINCT trips
       // so a single loop trip counts once, two separate visits count two.
-      const SAME_PLACE_DEG = 0.4;
+      // ~13 km. It was three times that, which is the distance between
+      // Mulhouse and Belfort — two cities, two trips, and one dot on the globe
+      // flickering between their colours because it thought they were the same
+      // place. Still wide enough that one city searched twice, or a station a
+      // few kilometres out of town, counts as one.
+      const SAME_PLACE_DEG = 0.12;
       type Member = {
         id: string;
         col: [number, number, number];

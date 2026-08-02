@@ -856,6 +856,25 @@ export function TripMap({
         const future = isFuture(stopById.get(leg.id)?.arrivalDate);
         map.addSource(id, { type: 'geojson', data: leg.feature });
         if (leg.isFlight) {
+          // The ground it flies over, drawn first and barely there: an arc with
+          // nothing under it is a bent line, and with its own track under it it
+          // is a flight. Same great circle, no bow.
+          if (leg.shadow) {
+            const shadowId = `${id}-ground`;
+            map.addSource(shadowId, { type: 'geojson', data: leg.shadow });
+            map.addLayer({
+              id: shadowId,
+              type: 'line',
+              source: shadowId,
+              paint: {
+                'line-color': '#8a94a3',
+                'line-width': 1,
+                'line-opacity': 0.28,
+                'line-dasharray': [1, 3],
+              },
+              layout: { 'line-cap': 'round' },
+            });
+          }
           // A flight arc is always dashed. It is a drawn great circle, not a
           // route anybody recorded, and past or future changes nothing about
           // that — the solid/dashed distinction is about the ground.
