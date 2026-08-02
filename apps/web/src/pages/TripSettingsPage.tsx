@@ -373,7 +373,7 @@ export function TripSettingsPage() {
               />
             </>
           ) : (
-            <span className="ts-cover-glyph" aria-hidden="true">
+            <span className="ts-cover-glyph" data-glyph={tripGlyph(trip.title)} aria-hidden="true">
               <Icon name={tripGlyph(trip.title)} size={tripGlyphSize(trip.title, 92)} />
             </span>
           )}

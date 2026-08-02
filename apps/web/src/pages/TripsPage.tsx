@@ -676,7 +676,7 @@ function TripCard({
         />
       )}
       {noImg && (
-        <span className="trip-card-glyph" aria-hidden="true">
+        <span className="trip-card-glyph" data-glyph={tripGlyph(trip.title)} aria-hidden="true">
           <Icon name={tripGlyph(trip.title)} size={tripGlyphSize(trip.title, 120)} />
         </span>
       )}

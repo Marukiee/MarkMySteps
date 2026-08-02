@@ -47,7 +47,7 @@ function legHasRealData(
   if (len2 === 0) return false;
   // Capped: a fifth of a 774 km leg is a 155 km-wide corridor, which catches
   // half of Europe either side of the line.
-  const corridorKm = Math.min(60, Math.max(8, Math.sqrt(len2) * 0.2));
+  const corridorKm = Math.min(80, Math.max(8, Math.sqrt(len2) * 0.2));
   const BUCKETS = 8;
   const covered = new Array<boolean>(BUCKETS).fill(false);
   for (const point of points) {
@@ -59,12 +59,13 @@ function legHasRealData(
     if (Math.hypot(px - (ax + t * dx), py - (ay + t * dy)) > corridorKm) continue;
     covered[Math.min(BUCKETS - 1, Math.floor(((t - 0.1) / 0.8) * BUCKETS))] = true;
   }
-  // Three empty buckets are forgiven. A tracker loses a tunnel, a border, an
-  // evening with the phone in a bag — a finished trip that really was recorded
-  // should not keep its planned line on top of the real one over that. Two
-  // clusters at one end (Trieste → Cologne passing over Munich) never reach
-  // this, so a leg nobody travelled still shows.
-  return covered.filter(Boolean).length >= BUCKETS - 3;
+  // Half the leg is enough. A recorded route rarely follows the straight line
+  // between two stops — it goes round a mountain, takes the ferry, sits in a
+  // tunnel — so demanding the whole corridor kept the plan drawn on top of
+  // trips that were tracked from beginning to end. Two clusters at one end
+  // (Trieste → Cologne passing over Munich) still never reach half, so a leg
+  // nobody travelled keeps its line.
+  return covered.filter(Boolean).length >= BUCKETS / 2;
 }
 
 export interface Waypoint {

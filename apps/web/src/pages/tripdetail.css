@@ -523,10 +523,22 @@
   position: absolute;
   right: -16px;
   top: -12px;
-  color: rgb(255 255 255 / 0.22);
+  /* See .trip-card-glyph: opacity belongs on the element, or every join in
+     the icon shows as a darker line. */
+  color: #fff;
+  opacity: 0.22;
   transform: rotate(-8deg);
   pointer-events: none;
   animation: coverIn 0.55s var(--ease);
+}
+
+.trip-headcard-glyph[data-glyph='car'] {
+  transform: rotate(7deg) translateY(-19%);
+}
+
+.trip-headcard-glyph[data-glyph='train'],
+.trip-headcard-glyph[data-glyph='walk'] {
+  transform: rotate(-8deg) translateY(-3%);
 }
 
 .trip-headcard.no-photo {

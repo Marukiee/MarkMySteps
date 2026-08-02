@@ -58,7 +58,7 @@ export function CoverPreviewPage() {
 function CoverCard({ name }: { name: string }) {
   return (
     <span className="cp-cover" style={{ background: tripCoverBg({ id: name }) }}>
-      <span className="cp-cover-glyph" aria-hidden="true">
+      <span className="cp-cover-glyph" data-glyph={tripGlyph(name)} aria-hidden="true">
         <Icon name={tripGlyph(name)} size={tripGlyphSize(name, 86)} />
       </span>
       <span className="cp-cover-name">{name}</span>

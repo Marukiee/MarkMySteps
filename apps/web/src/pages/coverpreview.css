@@ -75,6 +75,10 @@
   pointer-events: none;
 }
 
+.cp-cover-glyph[data-glyph='car'] {
+  transform: translateY(-50%) rotate(7deg);
+}
+
 .cp-cover-name {
   position: relative;
   font-weight: 700;

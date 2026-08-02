@@ -265,15 +265,24 @@ export class TrackingService {
       ) x
       ORDER BY t
     `;
-    if (rows.length < 2) {
+
+    // The planned stops count as anchors too. A straight line between two
+    // stops that were never tracked is exactly the stretch somebody wants to
+    // fill in, and without this the gesture answered "there is no route yet"
+    // on precisely the trips that needed it. Their times come from the trip
+    // start plus the nights before them — the same arithmetic the planner
+    // shows — so they slot into the sequence where they belong.
+    const planned = await this.plannedAnchors(tripId);
+    const merged = [...rows, ...planned].sort((a, b) => a.t.getTime() - b.t.getTime());
+    if (merged.length < 2) {
       throw new BadRequestException('Er is nog geen route om aan te vullen.');
     }
 
     // Nearest consecutive pair whose segment is a real gap (> 1.5 km).
-    let best: { a: (typeof rows)[number]; b: (typeof rows)[number]; d: number } | null = null;
-    for (let i = 1; i < rows.length; i++) {
-      const a = rows[i - 1]!;
-      const b = rows[i]!;
+    let best: { a: (typeof merged)[number]; b: (typeof merged)[number]; d: number } | null = null;
+    for (let i = 1; i < merged.length; i++) {
+      const a = merged[i - 1]!;
+      const b = merged[i]!;
       if (segLenKm(a, b) < 1.5) continue;
       const d = pointToSegKm({ lat, lng }, a, b);
       if (!best || d < best.d) best = { a, b, d };
@@ -305,6 +314,39 @@ export class TrackingService {
     }));
     await this.prisma.locationPoint.createMany({ data, skipDuplicates: true });
     return { added: data.length };
+  }
+
+  /**
+   * The trip's planned stops as timed points.
+   *
+   * Dates are never stored on a stop — they follow from the trip's start plus
+   * the nights of everything before it — so they are worked out here. Day
+   * trips are excursions, not legs, and are left out.
+   */
+  private async plannedAnchors(
+    tripId: string,
+  ): Promise<{ t: Date; lat: number; lng: number }[]> {
+    const trip = await this.prisma.trip.findUnique({
+      where: { id: tripId },
+      select: {
+        startDate: true,
+        stops: {
+          where: { parentStopId: null },
+          orderBy: { orderIndex: 'asc' },
+          select: { latitude: true, longitude: true, nights: true },
+        },
+      },
+    });
+    if (!trip) return [];
+    const out: { t: Date; lat: number; lng: number }[] = [];
+    let cursor = trip.startDate.getTime();
+    for (const stop of trip.stops) {
+      if (stop.latitude != null && stop.longitude != null) {
+        out.push({ t: new Date(cursor), lat: stop.latitude, lng: stop.longitude });
+      }
+      cursor += stop.nights * 86_400_000;
+    }
+    return out;
   }
 
   /** Is there an auto-drawn stretch near this point? */

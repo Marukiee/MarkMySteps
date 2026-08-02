@@ -179,9 +179,26 @@
   position: absolute;
   right: -14px;
   top: -10px;
-  color: rgb(255 255 255 / 0.22);
+  /* Opacity on the element, not on the stroke colour: a translucent stroke
+     doubles up wherever two lines of the same icon meet, and the glyph shows
+     its own construction. */
+  color: #fff;
+  opacity: 0.22;
   transform: rotate(-8deg);
   pointer-events: none;
+}
+
+/* The compass fills its box, so it reaches the corner on its own. A vehicle
+   is wide and short and would float in the middle of that box; it is pushed up
+   until its roof sits where the compass's edge does. The car leans the other
+   way, or it reads as driving uphill. */
+.trip-card-glyph[data-glyph='car'] {
+  transform: rotate(7deg) translateY(-19%);
+}
+
+.trip-card-glyph[data-glyph='train'],
+.trip-card-glyph[data-glyph='walk'] {
+  transform: rotate(-8deg) translateY(-3%);
 }
 
 .trip-card-overlay {

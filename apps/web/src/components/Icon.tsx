@@ -93,28 +93,30 @@ const PATHS: Record<IconName, ReactNode> = {
   ),
   car: (
     <>
-      {/* One outline for the whole body — cabin, bonnet and boot in a single
-          path — with the wheels under it. Drawn as three overlapping shapes it
-          showed every seam once it was blown up to cover size. */}
-      <path d="M3.2 16.4v-3.1c0-.5.2-1 .5-1.4l2.9-3.4c.5-.6 1.2-.9 2-.9h6.8c.8 0 1.5.3 2 .9l2.9 3.4c.3.4.5.9.5 1.4v3.1" />
-      <path d="M3.2 16.4h17.6" />
-      <path d="M6.6 8.1 7.8 12h8.4l1.2-3.9" />
-      <path d="M12 8v4" />
-      <circle cx="7.4" cy="16.6" r="1.9" />
-      <circle cx="16.6" cy="16.6" r="1.9" />
+      {/* Side view, one outline for the whole body, and the sill drawn only
+          where the wheels are not — nothing crosses anything, so a translucent
+          copy of this shows no seams. */}
+      <path d="M2.5 16.4V13.7c0-.6.36-1.14.92-1.36L6 11.2l2.2-2.9c.4-.53 1.03-.85 1.7-.85h4.2c.67 0 1.3.32 1.7.85l2.2 2.9 2.58 1.14c.56.22.92.76.92 1.36v2.7" />
+      <path d="M6 11.2h12" />
+      <path d="M12 7.45v3.75" />
+      <path d="M2.5 16.4h2.6M9.1 16.4h5.8M18.9 16.4h2.6" />
+      <circle cx="7.1" cy="16.5" r="2" />
+      <circle cx="16.9" cy="16.5" r="2" />
     </>
   ),
   train: (
     <>
       {/* A carriage on rails: a rounded body with one wide window, the doors
           under it, and the track it stands on. The old one was a box with two
-          dots that read as a washing machine at small sizes. */}
-      <path d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5V15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z" />
+          dots that read as a washing machine at small sizes. Round wheels
+          under it rather than two diagonal strokes, which read as a train
+          leaning over. */}
+      <path d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5V14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z" />
       <path d="M5.5 10.5h13" />
       <path d="M12 3v7.5" />
-      <path d="M8.5 14h.01M15.5 14h.01" />
-      <path d="m8.5 17-2 4M15.5 17l2 4" />
-      <path d="M4 21h16" />
+      <path d="M8.6 13.2h.01M15.4 13.2h.01" />
+      <circle cx="8.6" cy="18.2" r="1.6" />
+      <circle cx="15.4" cy="18.2" r="1.6" />
     </>
   ),
   bus: (

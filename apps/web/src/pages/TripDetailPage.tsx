@@ -738,7 +738,7 @@ export function TripDetailPage() {
             />
           )}
           {trip && !trip.resolvedCoverId && (
-            <span className="trip-headcard-glyph" aria-hidden="true">
+            <span className="trip-headcard-glyph" data-glyph={tripGlyph(trip.title)} aria-hidden="true">
               <Icon name={tripGlyph(trip.title)} size={tripGlyphSize(trip.title, 130)} />
             </span>
           )}

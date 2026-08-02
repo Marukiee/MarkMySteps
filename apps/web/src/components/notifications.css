@@ -102,6 +102,10 @@
 
 .notif-sheet {
   width: min(520px, 100%);
+  /* Never smaller than the empty state, so waving the last line away leaves
+     the panel where it is and the "niets nieuws" simply appears in it —
+     rather than the sheet collapsing and then growing back. */
+  min-height: 19rem;
   max-height: min(78vh, 720px);
   display: flex;
   flex-direction: column;
