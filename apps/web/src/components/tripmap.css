@@ -387,3 +387,15 @@
     opacity: 0;
   }
 }
+
+/* Flights are painted here rather than on the map: MapLibre drapes a line
+   over the surface, and a flight is in the air. Above the globe, under the
+   markers, and never in the way of a tap. */
+.trip-map-arcs {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}

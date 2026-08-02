@@ -1,6 +1,6 @@
 import maplibregl, { LngLatBounds, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchBlobUrl } from '../api/client';
 import type { LiveFix } from '../api/types';
 import { getMapStyle, getMapStyleId } from '../lib/prefs';
@@ -128,6 +128,17 @@ export function TripMap({
   onSelfClickRef.current = onSelfClick;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const arcCanvasRef = useRef<HTMLCanvasElement>(null);
+  /**
+   * The ground track of every flight on show, in geographic coordinates.
+   *
+   * The arc itself is not a line on the map. MapLibre drapes a line layer over
+   * the surface, so on a globe a "bowed" flight is a line that curves ALONG
+   * the ground — which is what it looked like. A flight is in the air, so it
+   * is drawn over the map instead: the track is projected to the screen each
+   * frame and lifted off it, exactly the way the home globe does it.
+   */
+  const flightTracksRef = useRef<[number, number][][]>([]);
   /** Photo markers by cluster cell, so a redraw can keep what has not moved. */
   const photoMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const photoTimersRef = useRef<number[]>([]);
@@ -518,6 +529,106 @@ export function TripMap({
     }
   }, [routes, media, visibleUsers, stops, themeVersion]);
 
+  /**
+   * Paints the flight arcs over the map.
+   *
+   * Each track is projected point by point, then every point is pushed away
+   * from the straight line between the two airports by sin(pi·t) — highest in
+   * the middle, nothing at the ends — in SCREEN pixels, so the arc keeps its
+   * shape however the globe is turned. Longer flights climb higher, the way
+   * they do.
+   */
+  const drawArcs = useCallback(() => {
+    const map = mapRef.current;
+    const canvas = arcCanvasRef.current;
+    if (!map || !canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    if (w === 0 || h === 0) return;
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const dark = document.documentElement.dataset.theme === 'dark';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.setLineDash([3, 5]);
+    ctx.strokeStyle = dark ? 'rgba(170,180,192,0.95)' : 'rgba(110,120,133,0.9)';
+
+    for (const track of flightTracksRef.current) {
+      if (track.length < 2) continue;
+      const pts = track.map((p) => map.project(p));
+      const a = pts[0]!;
+      const b = pts[pts.length - 1]!;
+      const chord = Math.hypot(b.x - a.x, b.y - a.y);
+      if (chord < 4) continue;
+      // Perpendicular to the chord, always the one pointing up the screen.
+      let nx = -(b.y - a.y) / chord;
+      let ny = (b.x - a.x) / chord;
+      if (ny > 0) {
+        nx = -nx;
+        ny = -ny;
+      }
+      // How far apart they are on the ground decides how high it climbs; the
+      // cap keeps a long-haul arc from leaving the top of the screen.
+      const spanKm = haversineKm(track[0]!, track[track.length - 1]!);
+      const climb = Math.min(chord * (0.1 + 0.22 * Math.min(1, spanKm / 8000)), h * 0.42);
+
+      ctx.beginPath();
+      let pen = false;
+      let last: { x: number; y: number } | null = null;
+      for (let i = 0; i < pts.length; i++) {
+        const t = i / (pts.length - 1);
+        const k = climb * Math.sin(Math.PI * t);
+        const x = pts[i]!.x + nx * k;
+        const y = pts[i]!.y + ny * k;
+        // Round the back of a turned globe a point can project to the far side
+        // of the canvas; picking the pen up there beats a line across it.
+        if (last && Math.hypot(x - last.x, y - last.y) > w * 0.5) pen = false;
+        if (pen) ctx.lineTo(x, y);
+        else ctx.moveTo(x, y);
+        pen = true;
+        last = { x, y };
+      }
+      ctx.stroke();
+    }
+  }, []);
+
+  /**
+   * Repainted with the map: `render` fires for every frame of a pan, a zoom
+   * and the globe's own easing, which is exactly when the arcs have moved.
+   *
+   * The canvas is a child of the map's own container rather than a sibling —
+   * the trip page positions `.trip-map` by hand, and a wrapper around it would
+   * have changed what that positioning is measured against.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    const container = containerRef.current;
+    if (!map || !container) return;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'trip-map-arcs';
+    canvas.setAttribute('aria-hidden', 'true');
+    container.appendChild(canvas);
+    arcCanvasRef.current = canvas;
+    drawArcs();
+    map.on('render', drawArcs);
+    const ro = new ResizeObserver(drawArcs);
+    ro.observe(container);
+    return () => {
+      map.off('render', drawArcs);
+      ro.disconnect();
+      canvas.remove();
+      arcCanvasRef.current = null;
+    };
+  }, [drawArcs]);
+
   // Photo markers — clustered per zoom level so hundreds of photos never
   // become hundreds of DOM nodes (each with its own thumbnail fetch).
   useEffect(() => {
@@ -827,6 +938,8 @@ export function TripMap({
       // route (or two nearby airports) draws one dashed line, not two overlapping
       // ones that fill each other's gaps and read as solid.
       const seenFlights = new Set<string>();
+      // Collected as we go and handed to the canvas overlay at the end.
+      const tracks: [number, number][][] = [];
       const roundPt = (c: number) => Math.round(c / 0.8);
       for (const leg of buildLegs(stops ?? [])) {
         const legCoords = (leg.feature.geometry as GeoJSON.LineString)
@@ -854,11 +967,12 @@ export function TripMap({
         // A leg is the arrival at its stop, so that stop's date is the day it
         // was travelled.
         const future = isFuture(stopById.get(leg.id)?.arrivalDate);
-        map.addSource(id, { type: 'geojson', data: leg.feature });
         if (leg.isFlight) {
-          // The ground it flies over, drawn first and barely there: an arc with
-          // nothing under it is a bent line, and with its own track under it it
-          // is a flight. Same great circle, no bow.
+          // A flight is not drawn on the map at all: the arc goes on the canvas
+          // over it (drawArcs), because a line layer is draped over the surface
+          // and would follow the ground. What DOES belong on the surface is the
+          // track it flies over — the same great circle, no bow, barely there,
+          // so the arc has something to be above.
           if (leg.shadow) {
             const shadowId = `${id}-ground`;
             map.addSource(shadowId, { type: 'geojson', data: leg.shadow });
@@ -869,30 +983,24 @@ export function TripMap({
               paint: {
                 'line-color': '#8a94a3',
                 'line-width': 1,
-                'line-opacity': 0.28,
+                'line-opacity': 0.24,
                 'line-dasharray': [1, 3],
               },
               layout: { 'line-cap': 'round' },
             });
+            tracks.push(
+              (leg.shadow.geometry as GeoJSON.LineString).coordinates as [number, number][],
+            );
           }
-          // A flight arc is always dashed. It is a drawn great circle, not a
-          // route anybody recorded, and past or future changes nothing about
-          // that — the solid/dashed distinction is about the ground.
-          map.addLayer({
-            id,
-            type: 'line',
-            source: id,
-            paint: {
-              'line-color': '#8a94a3',
-              'line-width': 2,
-              'line-dasharray': [1.4, 2.6],
-            },
-            layout: { 'line-cap': 'round' },
-          });
         } else {
+          map.addSource(id, { type: 'geojson', data: leg.feature });
           addPlannedGround(id, 2, future ? [2, 2] : null);
         }
       }
+
+      // Whatever is in the air now, for the overlay to paint every frame.
+      flightTracksRef.current = tracks;
+      drawArcs();
     };
 
     // isStyleLoaded() goes false again while a style is busy, and by then the
@@ -900,7 +1008,7 @@ export function TripMap({
     // standing forever. loadedRef is the same signal the route layer uses.
     if (loadedRef.current) apply();
     else map.once('load', apply);
-  }, [stops, routes, media, visibleUsers, themeVersion]);
+  }, [stops, routes, media, visibleUsers, themeVersion, drawArcs]);
 
   // Live "you are here" dot.
   useEffect(() => {

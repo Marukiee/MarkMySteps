@@ -762,24 +762,6 @@ export function GlobeBackdrop({
       const center = projection.invert!([w / 2, h / 2]);
       const frontFacing = trips.filter((t) => !center || distance(center, t.anchor) <= 90);
 
-      // Small grey dots at every flight endpoint (departure/arrival airports) so
-      // the dashed bows visibly start FROM a point, not out of thin air. Smaller
-      // than the trip dots, deduped by coarse endpoint.
-      const airportSeen = new Set<string>();
-      ctx!.setLineDash([]);
-      for (const ap of airportPoints) {
-        const kk = key(ap);
-        if (airportSeen.has(kk)) continue;
-        airportSeen.add(kk);
-        if (center && distance(center, ap) > 90) continue;
-        const pr = projection(ap);
-        if (!pr) continue;
-        ctx!.beginPath();
-        ctx!.arc(pr[0], pr[1], 2.6 * dpr, 0, 2 * Math.PI);
-        ctx!.fillStyle = dark ? 'rgba(150,160,172,0.9)' : 'rgba(120,128,140,0.85)';
-        ctx!.fill();
-      }
-
       // Group endpoints by real-world proximity (~40 km), counting DISTINCT trips
       // so a single loop trip counts once, two separate visits count two.
       // ~13 km. It was three times that, which is the distance between
@@ -1000,6 +982,29 @@ export function GlobeBackdrop({
         }
 
         ctx!.globalAlpha = 1;
+      }
+
+      // Small grey dots at every flight endpoint (departure/arrival airports) so
+      // the dashed bows visibly start FROM a point, not out of thin air. Smaller
+      // than the trip dots, deduped by coarse endpoint — and skipped where the
+      // city itself already has a dot. Budapest's airport is sixteen kilometres
+      // out of town, which was enough for the city and the plane to each get
+      // their own, on one trip with one stop there.
+      const AIRPORT_OF_CITY_DEG = 0.5; // ~55 km: an airport belongs to its city
+      const airportSeen = new Set<string>();
+      ctx!.setLineDash([]);
+      for (const ap of airportPoints) {
+        const kk = key(ap);
+        if (airportSeen.has(kk)) continue;
+        airportSeen.add(kk);
+        if (center && distance(center, ap) > 90) continue;
+        if (places.some((q) => distance([q.lng, q.lat], ap) < AIRPORT_OF_CITY_DEG)) continue;
+        const pr = projection(ap);
+        if (!pr) continue;
+        ctx!.beginPath();
+        ctx!.arc(pr[0], pr[1], 2.6 * dpr, 0, 2 * Math.PI);
+        ctx!.fillStyle = dark ? 'rgba(150,160,172,0.9)' : 'rgba(120,128,140,0.85)';
+        ctx!.fill();
       }
 
       for (const pl of places) {
