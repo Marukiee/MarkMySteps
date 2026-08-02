@@ -90,3 +90,61 @@
     transform: translateY(-5px);
   }
 }
+
+/* A dialog with several ways out: each choice is a full-width row rather than
+   a button in a line, so a long label and its explanation both fit. */
+.choice-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.4rem;
+}
+
+.choice-btn {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--line);
+  background: var(--paper-raised);
+  text-align: left;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease),
+    transform 0.15s var(--ease);
+}
+
+.choice-btn:hover {
+  background: var(--paper-sunken);
+  border-color: var(--line-strong, var(--line));
+}
+
+.choice-btn:active {
+  transform: scale(0.99);
+}
+
+.choice-btn.primary {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.choice-btn.danger .choice-label {
+  color: #b3402a;
+}
+
+:root[data-theme='dark'] .choice-btn.danger .choice-label {
+  color: #f0a08c;
+}
+
+.choice-label {
+  font-weight: 650;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.choice-btn.primary .choice-label {
+  color: var(--accent-ink);
+}
+
+.choice-hint {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--ink-faint);
+}

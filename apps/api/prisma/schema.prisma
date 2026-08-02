@@ -288,6 +288,10 @@ model Stop {
   /// The single day a day trip took place. Null on a normal stop, whose dates
   /// are derived from the trip start plus the nights before it.
   dayTripDate DateTime? @db.Date
+  /// Draw no line to this stop from the one before it. For a leg that is real
+  /// but has nothing to draw — a stretch nobody tracked and nobody wants a
+  /// straight line across either. The stop keeps its place in the route.
+  hideLeg     Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

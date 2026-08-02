@@ -102,3 +102,105 @@ function ConfirmDialog({ options, onDone }: { options: ConfirmOptions; onDone: (
     </div>
   );
 }
+
+
+/** One thing you can do from a choice dialog. */
+export interface ChoiceOption {
+  /** Returned by `chooseModal` when this one is picked. */
+  id: string;
+  label: string;
+  /** A line under the label, when the label alone does not say enough. */
+  hint?: string;
+  danger?: boolean;
+  /** The one drawn as the primary button. */
+  primary?: boolean;
+}
+
+/**
+ * The same dialog, but with more than one way out.
+ *
+ * A long press on a straight stretch of route can mean two different things —
+ * draw it over the roads, or take the line away — and a yes/no box can only
+ * ask one of them. Resolves with the chosen id, or null when it is dismissed.
+ */
+export function chooseModal(options: {
+  title: string;
+  body?: string;
+  choices: ChoiceOption[];
+  cancelLabel?: string;
+}): Promise<string | null> {
+  return new Promise((resolve) => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    const done = (result: string | null) => {
+      root.unmount();
+      host.remove();
+      resolve(result);
+    };
+    root.render(<ChoiceDialog options={options} onDone={done} />);
+  });
+}
+
+function ChoiceDialog({
+  options,
+  onDone,
+}: {
+  options: {
+    title: string;
+    body?: string;
+    choices: ChoiceOption[];
+    cancelLabel?: string;
+  };
+  onDone: (r: string | null) => void;
+}) {
+  const [closing, setClosing] = useState(false);
+
+  const close = (result: string | null) => {
+    setClosing(true);
+    window.setTimeout(() => onDone(result), 180);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      className={`confirm-backdrop ${closing ? 'closing' : ''}`}
+      onClick={() => close(null)}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="confirm-card card" onClick={(e) => e.stopPropagation()}>
+        <h3>{options.title}</h3>
+        {options.body && <p className="muted">{options.body}</p>}
+        <div className="choice-list">
+          {options.choices.map((choice) => (
+            <button
+              key={choice.id}
+              type="button"
+              className={`choice-btn ${choice.primary ? 'primary' : ''} ${
+                choice.danger ? 'danger' : ''
+              }`}
+              onClick={() => close(choice.id)}
+            >
+              <span className="choice-label">{choice.label}</span>
+              {choice.hint && <span className="choice-hint">{choice.hint}</span>}
+            </button>
+          ))}
+        </div>
+        <div className="confirm-actions">
+          <button className="btn btn-ghost" onClick={() => close(null)}>
+            {options.cancelLabel ?? 'Annuleren'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

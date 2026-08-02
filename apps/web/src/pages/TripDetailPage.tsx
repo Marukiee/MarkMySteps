@@ -5,7 +5,7 @@ import { api, ApiError } from '../api/client';
 import type { LiveFix, MediaItem, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
-import { confirmModal } from '../components/confirm';
+import { ChoiceOption, chooseModal, confirmModal } from '../components/confirm';
 import { Icon } from '../components/Icon';
 import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
@@ -320,53 +320,88 @@ export function TripDetailPage() {
     [addPointMode, trip, tab],
   );
 
-  // Long-press a straight stretch → snap it to real roads (keyless OSM routing).
+  /**
+   * Long-press on the map: what to do with the line you pressed.
+   *
+   * Three answers, and which of them are on offer depends on what is actually
+   * there: an automatically drawn stretch can be taken back, a planned leg can
+   * be hidden (or shown again), and anything with a straight gap can be routed
+   * over real roads. A yes/no box could only ever ask one of them.
+   */
   const handleLongPress = useCallback(
     async (lngLat: { lng: number; lat: number }) => {
       if (!tripId || tab === 'plan' || !canEdit) return;
-      // Long-pressing an already-drawn stretch takes it back; anywhere else it
-      // draws a new one. Same gesture, and the wording says which one it is.
       const onDrawn = await api<{ near: boolean }>(
         `/trips/${tripId}/route-fill/near?lng=${lngLat.lng}&lat=${lngLat.lat}`,
       ).catch(() => ({ near: false }));
+      const leg = nearestLeg(stops, lngLat);
 
+      const choices: ChoiceOption[] = [];
+      if (!onDrawn.near) {
+        choices.push({
+          id: 'draw',
+          label: 'Route via wegen tekenen',
+          hint: 'Vult het dichtstbijzijnde rechte stuk aan via de snelste weg.',
+          primary: true,
+        });
+      }
       if (onDrawn.near) {
-        const ok = await confirmModal({
-          title: 'Getekende route wissen?',
-          body: 'Alleen dit automatisch getekende stuk verdwijnt. Je eigen getrackte GPS blijft staan.',
-          confirmLabel: 'Wissen',
+        choices.push({
+          id: 'undraw',
+          label: 'Getekende route wissen',
+          hint: 'Alleen dit automatisch getekende stuk. Je eigen GPS blijft staan.',
           danger: true,
         });
-        if (!ok) return;
-        try {
-          await api(
-            `/trips/${tripId}/route-fill?lng=${lngLat.lng}&lat=${lngLat.lat}`,
-            { method: 'DELETE' },
-          );
-          api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Wissen mislukt');
-        }
-        return;
       }
+      if (leg) {
+        choices.push(
+          leg.hideLeg
+            ? {
+                id: 'show',
+                label: `Lijn naar ${leg.name} terugzetten`,
+                hint: 'De rechte lijn tussen deze twee stops komt terug.',
+              }
+            : {
+                id: 'hide',
+                label: `Lijn naar ${leg.name} verwijderen`,
+                hint: 'De stop blijft staan; alleen de lijn ernaartoe verdwijnt.',
+                danger: true,
+              },
+        );
+      }
+      if (choices.length === 0) return;
 
-      const ok = await confirmModal({
-        title: 'Route via wegen tekenen?',
-        body: 'Het dichtstbijzijnde rechte stuk zonder tracking wordt automatisch aangevuld via de snelste weg. Houd de getekende route later ingedrukt om ‘m weer te wissen.',
-        confirmLabel: 'Tekenen',
+      const picked = await chooseModal({
+        title: 'Deze lijn',
+        body: 'Wat wil je met het stuk route dat je ingedrukt hield?',
+        choices,
       });
-      if (!ok) return;
+      if (!picked) return;
+
       try {
-        await api(`/trips/${tripId}/route-fill`, {
-          method: 'POST',
-          body: { lat: lngLat.lat, lng: lngLat.lng },
-        });
+        if (picked === 'draw') {
+          await api(`/trips/${tripId}/route-fill`, {
+            method: 'POST',
+            body: { lat: lngLat.lat, lng: lngLat.lng },
+          });
+        } else if (picked === 'undraw') {
+          await api(`/trips/${tripId}/route-fill?lng=${lngLat.lng}&lat=${lngLat.lat}`, {
+            method: 'DELETE',
+          });
+        } else if (leg) {
+          const next = picked === 'hide';
+          setStops((cur) => cur.map((s) => (s.id === leg.id ? { ...s, hideLeg: next } : s)));
+          await api(`/trips/${tripId}/stops/${leg.id}`, {
+            method: 'PATCH',
+            body: { hideLeg: next },
+          });
+        }
         api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Route tekenen mislukt');
+        setError(err instanceof Error ? err.message : 'Dat lukte niet');
       }
     },
-    [tripId, tab, canEdit],
+    [tripId, tab, canEdit, stops],
   );
 
   async function savePoint() {
@@ -886,6 +921,57 @@ export function TripDetailPage() {
       )}
     </main>
   );
+}
+
+/**
+ * Which planned leg the press landed on.
+ *
+ * A leg belongs to the stop it arrives at, so this returns that stop: the line
+ * runs from the stop before it. Only route stops count (a day trip is a spur,
+ * not a leg), and only within a sensible distance of the line itself, so a
+ * press in the middle of the sea offers nothing.
+ */
+function nearestLeg(
+  stops: PlannedStop[],
+  at: { lng: number; lat: number },
+): PlannedStop | null {
+  const route = stops.filter((s) => !s.parentStopId);
+  let best: { stop: PlannedStop; d: number } | null = null;
+  for (let i = 1; i < route.length; i++) {
+    const from = route[i - 1]!;
+    const to = route[i]!;
+    if (from.latitude === null || from.longitude === null) continue;
+    if (to.latitude === null || to.longitude === null) continue;
+    const d = pointToSegmentKm(
+      [at.lng, at.lat],
+      [from.longitude, from.latitude],
+      [to.longitude, to.latitude],
+    );
+    if (!best || d < best.d) best = { stop: to, d };
+  }
+  // Generous, because a press lands wherever your thumb is, but not so wide
+  // that any press on the map claims the nearest leg on the other side of it.
+  return best && best.d <= 80 ? best.stop : null;
+}
+
+/** Distance from a point to a segment, in kilometres (flat approximation). */
+function pointToSegmentKm(
+  p: [number, number],
+  a: [number, number],
+  b: [number, number],
+): number {
+  const ky = 110.57;
+  const kx = 111.32 * Math.cos(((a[1] + b[1]) / 2) * (Math.PI / 180));
+  const px = p[0] * kx;
+  const py = p[1] * ky;
+  const ax = a[0] * kx;
+  const ay = a[1] * ky;
+  const dx = b[0] * kx - ax;
+  const dy = b[1] * ky - ay;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(px - ax, py - ay);
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
 /** Default manual-point time: midday on the trip's first day, or now. */

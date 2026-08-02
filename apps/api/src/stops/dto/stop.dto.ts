@@ -1,6 +1,7 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -166,6 +167,11 @@ export class UpdateStopDto {
   @IsOptional()
   @IsDateString()
   dayTripDate?: string;
+
+  /** Draw no line from the previous stop to this one. */
+  @IsOptional()
+  @IsBoolean()
+  hideLeg?: boolean;
 }
 
 export class ReorderStopsDto {

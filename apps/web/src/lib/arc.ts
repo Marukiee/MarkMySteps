@@ -164,6 +164,8 @@ export interface LegStop {
   viaAirports: string[];
   /** Day trips hang off a stop; they are never a leg of the route. */
   parentStopId?: string | null;
+  /** Draw no line from the previous stop to this one. */
+  hideLeg?: boolean;
 }
 
 export interface Leg {
@@ -192,7 +194,9 @@ export function buildLegs(all: LegStop[]): Leg[] {
     const from: [number, number] | null = dep ? [dep.lon, dep.lat] : prev;
     const to: [number, number] | null = arr ? [arr.lon, arr.lat] : city;
     const isFlight = s.travelMode === 'FLIGHT';
-    if (from && to) {
+    // Hidden by hand: the stop stays on the route (prev moves on with it), the
+    // line to it is simply never built.
+    if (from && to && !s.hideLeg) {
       const via = (s.viaAirports ?? [])
         .map((c) => airportByCode(c))
         .filter((a): a is NonNullable<typeof a> => !!a)
@@ -231,6 +235,8 @@ export interface StopPoint {
   parentStopId?: string | null;
   /** The single day a day trip took place (yyyy-mm-dd). */
   dayTripDate?: string | null;
+  /** Draw no line from the previous stop to this one. */
+  hideLeg?: boolean;
 }
 
 /** A stop with the extra planner fields (nights, notes). */

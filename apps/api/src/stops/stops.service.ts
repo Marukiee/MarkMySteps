@@ -133,6 +133,7 @@ export class StopsService {
         toAirport: clearFlight ? null : dto.toAirport?.trim().toUpperCase(),
         viaAirports: clearFlight ? [] : dto.viaAirports?.map((a) => a.trim().toUpperCase()),
         notes: dto.notes?.trim(),
+        hideLeg: dto.hideLeg,
       },
     });
     if (count === 0) throw new NotFoundException('Stop not found');

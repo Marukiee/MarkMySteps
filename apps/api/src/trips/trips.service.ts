@@ -403,6 +403,7 @@ export class TripsService {
         fromAirport: true,
         toAirport: true,
         viaAirports: true,
+        hideLeg: true,
       },
     });
     const asLngLat = (c: [number, number] | null): [number, number] | null =>
@@ -454,6 +455,14 @@ export class TripsService {
           closeGround();
           journey.push({ flight: true, points: [from, ...via, to] });
           prev = to; // ground resumes from the arrival
+          continue;
+        }
+        // A leg somebody hid draws nothing, but the stop after it is still on
+        // the route: break the line here and pick it up from this stop.
+        if (s.hideLeg) {
+          closeGround();
+          seg.push(to);
+          prev = to;
           continue;
         }
         if (seg.length === 0 && from) seg.push(from);
