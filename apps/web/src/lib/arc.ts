@@ -225,13 +225,14 @@ export interface Leg {
   id: string;
   isFlight: boolean;
   /**
-   * The ground the flight passes over: the same great circle, with no bow.
+   * The ground each hop of a flight passes over: the great circle with no bow,
+   * one entry per hop.
    *
-   * Drawn faintly under the arc, it is what makes the arc read as being IN
-   * THE AIR on a flat map — height with nothing to compare it against is just
-   * a bent line.
+   * Per hop, not per flight: Amsterdam → Keflavík → New York bows twice, once
+   * over each leg, and a single arc across the whole itinerary sails past the
+   * airport it is supposed to touch down at.
    */
-  shadow?: GeoJSON.Feature<GeoJSON.LineString>;
+  hops?: [number, number][][];
   feature: GeoJSON.Feature<GeoJSON.LineString>;
 }
 
@@ -262,7 +263,12 @@ export function buildLegs(all: LegStop[]): Leg[] {
         .map((c) => airportByCode(c))
         .filter((a): a is NonNullable<typeof a> => !!a)
         .map((a) => [a.lon, a.lat] as [number, number]);
-      const shadow = isFlight ? multiArc([from, ...via, to], 0) : undefined;
+      const hops = isFlight
+        ? [from, ...via, to].slice(1).map((end, i) => {
+            const start = [from, ...via, to][i]!;
+            return flightArc(start, end, 36, 0);
+          })
+        : undefined;
       const feature = isFlight
         ? multiArc([from, ...via, to])
         : ({
@@ -271,7 +277,7 @@ export function buildLegs(all: LegStop[]): Leg[] {
             properties: {},
           } as GeoJSON.Feature<GeoJSON.LineString>);
       feature.properties = { flight: isFlight };
-      legs.push({ id: s.id, isFlight, feature, shadow });
+      legs.push({ id: s.id, isFlight, feature, hops });
     }
     prev = to ?? city ?? prev;
   }

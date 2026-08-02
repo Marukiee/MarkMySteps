@@ -555,15 +555,16 @@ export function TripMap({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    // Near-white with a soft dark halo under it. Grey held its own over a
-    // street map and disappeared into a satellite one; this reads on both,
-    // because the halo supplies the contrast wherever the ground is pale.
+    // Light grey with a soft dark halo under it. Plain grey disappeared into a
+    // satellite map and white shouted over it; the halo carries the contrast
+    // wherever the ground happens to be pale, so the line itself can stay
+    // quiet.
     ctx.lineCap = 'round';
     ctx.setLineDash([3, 5]);
-    ctx.shadowColor = 'rgba(10, 14, 20, 0.55)';
+    ctx.shadowColor = 'rgba(10, 14, 20, 0.5)';
     ctx.shadowBlur = 3;
-    ctx.lineWidth = 2.2;
-    ctx.strokeStyle = 'rgba(246, 249, 252, 0.95)';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(206, 214, 224, 0.92)';
 
     for (const track of flightTracksRef.current) {
       if (track.length < 2) continue;
@@ -584,21 +585,29 @@ export function TripMap({
       const spanKm = haversineKm(track[0]!, track[track.length - 1]!);
       const climb = Math.min(chord * (0.1 + 0.22 * Math.min(1, spanKm / 8000)), h * 0.42);
 
+      const lifted = pts.map((p, i) => {
+        const k = climb * Math.sin((Math.PI * i) / (pts.length - 1));
+        return { x: p.x + nx * k, y: p.y + ny * k };
+      });
+      // Round the back of a turned globe a point projects to the far side of
+      // the canvas, and a line across it looks like a fold. Caught by comparing
+      // each step with the typical one rather than with the canvas: zoomed in,
+      // every step is hundreds of pixels, and a fixed threshold took the whole
+      // arc away.
+      const steps: number[] = [];
+      for (let i = 1; i < lifted.length; i++) {
+        steps.push(Math.hypot(lifted[i]!.x - lifted[i - 1]!.x, lifted[i]!.y - lifted[i - 1]!.y));
+      }
+      const typical = [...steps].sort((p, q) => p - q)[Math.floor(steps.length / 2)] ?? 0;
+      const breakAt = Math.max(typical * 8, 60);
+
       ctx.beginPath();
       let pen = false;
-      let last: { x: number; y: number } | null = null;
-      for (let i = 0; i < pts.length; i++) {
-        const t = i / (pts.length - 1);
-        const k = climb * Math.sin(Math.PI * t);
-        const x = pts[i]!.x + nx * k;
-        const y = pts[i]!.y + ny * k;
-        // Round the back of a turned globe a point can project to the far side
-        // of the canvas; picking the pen up there beats a line across it.
-        if (last && Math.hypot(x - last.x, y - last.y) > w * 0.5) pen = false;
-        if (pen) ctx.lineTo(x, y);
-        else ctx.moveTo(x, y);
+      for (let i = 0; i < lifted.length; i++) {
+        if (i > 0 && steps[i - 1]! > breakAt) pen = false;
+        if (pen) ctx.lineTo(lifted[i]!.x, lifted[i]!.y);
+        else ctx.moveTo(lifted[i]!.x, lifted[i]!.y);
         pen = true;
-        last = { x, y };
       }
       ctx.stroke();
     }
@@ -988,32 +997,10 @@ export function TripMap({
         // was travelled.
         const future = isFuture(stopById.get(leg.id)?.arrivalDate);
         if (leg.isFlight) {
-          // A flight is not drawn on the map at all: the arc goes on the canvas
-          // over it (drawArcs), because a line layer is draped over the surface
-          // and would follow the ground. What DOES belong on the surface is the
-          // track it flies over — the same great circle, no bow, barely there,
-          // so the arc has something to be above.
-          if (leg.shadow) {
-            const shadowId = `${id}-ground`;
-            map.addSource(shadowId, { type: 'geojson', data: leg.shadow });
-            map.addLayer({
-              id: shadowId,
-              type: 'line',
-              source: shadowId,
-              paint: {
-                // Lighter than the arc above it and half as present: the track
-                // is a hint of where the flight passes, not a route.
-                'line-color': '#f2f6fa',
-                'line-width': 1,
-                'line-opacity': 0.3,
-                'line-dasharray': [1, 3],
-              },
-              layout: { 'line-cap': 'round' },
-            });
-            tracks.push(
-              (leg.shadow.geometry as GeoJSON.LineString).coordinates as [number, number][],
-            );
-          }
+          // Nothing on the map itself: a line layer is draped over the surface,
+          // and a flight is in the air. Its hops go to the canvas overlay, one
+          // arc each, so a stopover touches down where it should.
+          if (leg.hops) tracks.push(...leg.hops);
         } else {
           map.addSource(id, { type: 'geojson', data: leg.feature });
           addPlannedGround(id, 2, future ? [2, 2] : null);

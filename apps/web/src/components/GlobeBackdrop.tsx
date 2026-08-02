@@ -991,6 +991,12 @@ export function GlobeBackdrop({
       // out of town, which was enough for the city and the plane to each get
       // their own, on one trip with one stop there.
       const AIRPORT_OF_CITY_DEG = 0.5; // ~55 km: an airport belongs to its city
+      // Every place that carries a dot of its own: the route's endpoints and
+      // shared cities (`places`), AND the stops in between, which are drawn
+      // from the trips themselves and were not in that list — which is why
+      // checking `places` alone still left a grey dot beside half of them.
+      const dotted: [number, number][] = places.map((q) => [q.lng, q.lat]);
+      for (const trip of frontFacing) for (const sp of trip.stops) dotted.push(sp);
       const airportSeen = new Set<string>();
       ctx!.setLineDash([]);
       for (const ap of airportPoints) {
@@ -998,7 +1004,7 @@ export function GlobeBackdrop({
         if (airportSeen.has(kk)) continue;
         airportSeen.add(kk);
         if (center && distance(center, ap) > 90) continue;
-        if (places.some((q) => distance([q.lng, q.lat], ap) < AIRPORT_OF_CITY_DEG)) continue;
+        if (dotted.some((q) => distance(q, ap) < AIRPORT_OF_CITY_DEG)) continue;
         const pr = projection(ap);
         if (!pr) continue;
         ctx!.beginPath();
