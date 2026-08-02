@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { tripCoverBg } from '../lib/colors';
-import { TRIP_GLYPH_RULES, tripGlyph, tripGlyphSize } from '../lib/tripGlyph';
+import {
+  TRIP_GLYPH_RULES,
+  tripGlyph,
+  tripGlyphSize,
+  tripGlyphStroke,
+} from '../lib/tripGlyph';
 import './coverpreview.css';
 
 /**
@@ -59,7 +64,11 @@ function CoverCard({ name }: { name: string }) {
   return (
     <span className="cp-cover" style={{ background: tripCoverBg({ id: name }) }}>
       <span className="cp-cover-glyph" data-glyph={tripGlyph(name)} aria-hidden="true">
-        <Icon name={tripGlyph(name)} size={tripGlyphSize(name, 86)} />
+        <Icon
+          name={tripGlyph(name)}
+          size={tripGlyphSize(name, 86)}
+          strokeWidth={tripGlyphStroke(name)}
+        />
       </span>
       <span className="cp-cover-name">{name}</span>
     </span>

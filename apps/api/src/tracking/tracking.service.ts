@@ -56,16 +56,30 @@ export class TrackingService {
     private readonly trips: TripsService,
   ) {}
 
-  /** Idempotent batch ingest: duplicates (same clientId) are skipped. */
+  /**
+   * Idempotent batch ingest: duplicates (same clientId) are skipped.
+   *
+   * Nothing may be added to a trip that is over. A queue held on a phone with
+   * no signal still lands — those fixes were recorded while the trip ran — but
+   * anything stamped after the last day is dropped, from the owner and from
+   * fellow travellers alike. A finished trip is finished.
+   */
   async ingestBatch(
     tripId: string,
     userId: string,
     points: TrackPointDto[],
   ): Promise<BatchResult> {
     await this.trips.assertCanTrack(tripId, userId);
+    const window = await this.tripWindow(tripId);
+
+    const inTrip = points.filter((p) => {
+      const at = new Date(p.recordedAt).getTime();
+      return Number.isFinite(at) && at >= window.from && at <= window.to;
+    });
+    if (inTrip.length === 0) return { received: points.length, added: 0 };
 
     const { count } = await this.prisma.locationPoint.createMany({
-      data: points.map((p) => ({
+      data: inTrip.map((p) => ({
         tripId,
         userId,
         clientId: p.clientId,
@@ -80,6 +94,22 @@ export class TrackingService {
     });
 
     return { received: points.length, added: count };
+  }
+
+  /**
+   * The days a trip's own points may fall on: its start, through the end of
+   * its last day.
+   */
+  private async tripWindow(tripId: string): Promise<{ from: number; to: number }> {
+    const trip = await this.prisma.trip.findUniqueOrThrow({
+      where: { id: tripId },
+      select: { startDate: true, endDate: true },
+    });
+    return {
+      from: trip.startDate.getTime(),
+      // Dates are DATE columns, so the end date is midnight on the last day.
+      to: trip.endDate.getTime() + 86_400_000,
+    };
   }
 
   /** Manual/imported waypoints for shaping the route, oldest first. */
@@ -169,11 +199,16 @@ export class TrackingService {
     dto: ManualPointDto,
   ): Promise<LocationPoint> {
     await this.trips.getForEditor(tripId, userId);
+    const window = await this.tripWindow(tripId);
+    const at = dto.recordedAt ? new Date(dto.recordedAt).getTime() : Date.now();
+    if (!Number.isFinite(at) || at < window.from || at > window.to) {
+      throw new BadRequestException('Dat moment valt buiten deze reis.');
+    }
     return this.prisma.locationPoint.create({
       data: {
         tripId,
         userId,
-        recordedAt: dto.recordedAt ? new Date(dto.recordedAt) : new Date(),
+        recordedAt: new Date(at),
         latitude: dto.latitude,
         longitude: dto.longitude,
         source: PointSource.MANUAL,

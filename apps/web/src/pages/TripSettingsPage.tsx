@@ -18,7 +18,7 @@ import {
 import { tripCoverBg } from '../lib/colors';
 import { isLocalMode } from '../lib/localMode';
 import { canEditTrip, canTrackTrip } from '../lib/perm';
-import { tripGlyph, tripGlyphSize } from '../lib/tripGlyph';
+import { tripGlyph, tripGlyphSize, tripGlyphStroke } from '../lib/tripGlyph';
 import { getTripFacts, setTripFacts } from '../lib/prefs';
 import {
   FACT_NAMES,
@@ -374,7 +374,11 @@ export function TripSettingsPage() {
             </>
           ) : (
             <span className="ts-cover-glyph" data-glyph={tripGlyph(trip.title)} aria-hidden="true">
-              <Icon name={tripGlyph(trip.title)} size={tripGlyphSize(trip.title, 92)} />
+              <Icon
+                name={tripGlyph(trip.title)}
+                size={tripGlyphSize(trip.title, 92)}
+                strokeWidth={tripGlyphStroke(trip.title)}
+              />
             </span>
           )}
           <span className="ts-cover-hint">

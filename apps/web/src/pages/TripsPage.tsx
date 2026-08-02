@@ -27,7 +27,7 @@ import {
   setTripCardOverride,
 } from '../lib/prefs';
 import { canEditTrip } from '../lib/perm';
-import { tripGlyph, tripGlyphSize } from '../lib/tripGlyph';
+import { tripGlyph, tripGlyphSize, tripGlyphStroke } from '../lib/tripGlyph';
 import { onTrackerChange } from '../tracking/tracker';
 import './trips.css';
 
@@ -677,7 +677,11 @@ function TripCard({
       )}
       {noImg && (
         <span className="trip-card-glyph" data-glyph={tripGlyph(trip.title)} aria-hidden="true">
-          <Icon name={tripGlyph(trip.title)} size={tripGlyphSize(trip.title, 120)} />
+          <Icon
+                name={tripGlyph(trip.title)}
+                size={tripGlyphSize(trip.title, 120)}
+                strokeWidth={tripGlyphStroke(trip.title)}
+              />
         </span>
       )}
       {statusEl}

@@ -65,3 +65,15 @@ export const TRIP_GLYPH_RULES = RULES;
 export function tripGlyphSize(title: string | null | undefined, base: number): number {
   return tripGlyph(title) === 'compass' ? base : Math.round(base * 1.3);
 }
+
+/**
+ * How thick that glyph's lines should be.
+ *
+ * The icons are drawn on a 24-unit grid with a 2-unit stroke, so rendering one
+ * a third bigger also makes its lines a third thicker — beside the compass,
+ * which is not scaled, that reads as a different set of icons. Dividing it
+ * back out keeps every glyph the same weight.
+ */
+export function tripGlyphStroke(title: string | null | undefined): number {
+  return tripGlyph(title) === 'compass' ? 2 : 2 / 1.3;
+}

@@ -16,56 +16,45 @@ import { paintMarker } from './Flag';
 const FLIGHT_KM = 400;
 
 /**
- * Does real travel data (tracked GPS, or a geotagged photo) lie BETWEEN these
- * two places?
+ * Was this leg part of a journey that was actually recorded?
  *
- * A planned leg is a guess at how you got from A to B. Once something recorded
- * the way itself, the guess is noise drawn on top of the real line — but only
- * for that leg: a trip can be tracked from Monday and dark on Thursday, and
- * Thursday still deserves its dashed line.
+ * The question used to be asked of the corridor between A and B, which was
+ * wrong twice over. A recorded route rarely follows the straight line — it
+ * goes round the mountain, takes the ferry, sits on a train through Denmark —
+ * so a leg that really was travelled kept its planned line drawn over the top.
+ * And where a real gap DID exist, that same test could still call it covered.
  *
- * Only points genuinely along the way count, and they have to cover the whole
- * leg rather than turn up once somewhere in the middle. The stretch between A
- * and B is cut into buckets and each one has to find real data near it: a
- * 774 km leg Trieste → Cologne passes right over Munich, and a single day of
- * tracking there used to erase the entire line to Cologne.
+ * What matters is the ends. If there are real fixes at both stops, the drawn
+ * route already runs from one to the other (a straight hop where the tracker
+ * was off, the real shape where it was on), and a second line over it says
+ * nothing. If one end has nothing — tracking switched on a day after leaving
+ * home — the route never reaches it, and the planned line is the only thing
+ * that shows where you came from.
  */
-function legHasRealData(
+function legIsRecorded(
   from: [number, number],
   to: [number, number],
   points: [number, number][],
 ): boolean {
   // Flat approximation in kilometres — legs are short enough for this, and it
   // keeps the check to plain arithmetic per point.
-  const kx = 111.32 * Math.cos((((from[1] + to[1]) / 2) * Math.PI) / 180);
   const ky = 110.57;
-  const ax = from[0] * kx;
-  const ay = from[1] * ky;
-  const dx = to[0] * kx - ax;
-  const dy = to[1] * ky - ay;
-  const len2 = dx * dx + dy * dy;
-  if (len2 === 0) return false;
-  // Capped: a fifth of a 774 km leg is a 155 km-wide corridor, which catches
-  // half of Europe either side of the line.
-  const corridorKm = Math.min(80, Math.max(8, Math.sqrt(len2) * 0.2));
-  const BUCKETS = 8;
-  const covered = new Array<boolean>(BUCKETS).fill(false);
+  const kx = 111.32 * Math.cos((((from[1] + to[1]) / 2) * Math.PI) / 180);
+  const distKm = (a: [number, number], b: [number, number]) =>
+    Math.hypot((a[0] - b[0]) * kx, (a[1] - b[1]) * ky);
+  // City-sized: a fix anywhere in or around the place counts as "you were
+  // here", and on a long leg a little more slack, because a stop's coordinate
+  // is the city centre and the station may be well outside it.
+  const reachKm = Math.min(35, Math.max(12, distKm(from, to) * 0.12));
+
+  let atFrom = false;
+  let atTo = false;
   for (const point of points) {
-    const px = point[0] * kx;
-    const py = point[1] * ky;
-    // Where along the leg the point falls: 0 at A, 1 at B.
-    const t = ((px - ax) * dx + (py - ay) * dy) / len2;
-    if (t < 0.1 || t > 0.9) continue;
-    if (Math.hypot(px - (ax + t * dx), py - (ay + t * dy)) > corridorKm) continue;
-    covered[Math.min(BUCKETS - 1, Math.floor(((t - 0.1) / 0.8) * BUCKETS))] = true;
+    if (!atFrom && distKm(point, from) <= reachKm) atFrom = true;
+    if (!atTo && distKm(point, to) <= reachKm) atTo = true;
+    if (atFrom && atTo) return true;
   }
-  // Half the leg is enough. A recorded route rarely follows the straight line
-  // between two stops — it goes round a mountain, takes the ferry, sits in a
-  // tunnel — so demanding the whole corridor kept the plan drawn on top of
-  // trips that were tracked from beginning to end. Two clusters at one end
-  // (Trieste → Cologne passing over Munich) still never reach half, so a leg
-  // nobody travelled keeps its line.
-  return covered.filter(Boolean).length >= BUCKETS / 2;
+  return false;
 }
 
 export interface Waypoint {
@@ -768,7 +757,7 @@ export function TripMap({
         if (!parent || parent.latitude === null || parent.longitude === null) continue;
         const from: [number, number] = [parent.longitude, parent.latitude];
         const to: [number, number] = [stop.longitude, stop.latitude];
-        if (legHasRealData(from, to, realPoints)) continue;
+        if (legIsRecorded(from, to, realPoints)) continue;
         const id = `leg-day-${stop.id}`;
         map.addSource(id, {
           type: 'geojson',
@@ -794,7 +783,7 @@ export function TripMap({
         // line, and they bridge the gap it leaves open.
         if (
           !leg.isFlight &&
-          legHasRealData(legCoords[0]!, legCoords[legCoords.length - 1]!, realPoints)
+          legIsRecorded(legCoords[0]!, legCoords[legCoords.length - 1]!, realPoints)
         ) {
           continue;
         }
