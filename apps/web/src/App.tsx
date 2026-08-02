@@ -1,4 +1,4 @@
-import { ReactNode, useLayoutEffect } from 'react';
+import { ReactNode, useEffect, useLayoutEffect } from 'react';
 import {
   BrowserRouter,
   Link,
@@ -7,6 +7,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useNavigate,
 } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { BottomNav } from './components/BottomNav';
@@ -16,6 +17,7 @@ import { TrackingPrompt } from './components/TrackingPrompt';
 import { OfflineBanner } from './components/OfflineBanner';
 import { UpdateBanner } from './components/UpdateBanner';
 import { isNativeApp, isOnboarded } from './lib/native';
+import { resumeBackgroundNotify, takeNotificationPath } from './lib/notify';
 import { FriendsPage } from './pages/FriendsPage';
 import { LoginPage } from './pages/LoginPage';
 import { OnboardingV2Page } from './pages/OnboardingV2Page';
@@ -61,11 +63,39 @@ function ScrollToTop() {
   return null;
 }
 
+/**
+ * A tapped notification lands on the trip it was about.
+ *
+ * The activity is started before the web app exists, so Android holds the
+ * route it wants and this asks for it — at launch, and again whenever the app
+ * comes back to the front with a fresh tap behind it.
+ */
+function NotificationRoute() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const check = () => {
+      void takeNotificationPath().then((path) => {
+        if (path) navigate(path);
+      });
+    };
+    check();
+    // Re-arms the quarter-hourly check; cheap when nothing has changed.
+    void resumeBackgroundNotify();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [navigate]);
+  return null;
+}
+
 function Shell() {
   const { user } = useAuth();
   return (
     <>
       <ScrollToTop />
+      <NotificationRoute />
       <UpdateBanner />
       <OfflineBanner />
       <TopBar />

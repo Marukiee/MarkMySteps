@@ -18,6 +18,7 @@ import {
 import { tripCoverBg } from '../lib/colors';
 import { isLocalMode } from '../lib/localMode';
 import { canEditTrip, canTrackTrip } from '../lib/perm';
+import { tripGlyph } from '../lib/tripGlyph';
 import { getTripFacts, setTripFacts } from '../lib/prefs';
 import {
   FACT_NAMES,
@@ -351,13 +352,36 @@ export function TripSettingsPage() {
         </span>
       </div>
 
-      {trip?.resolvedCoverId && (
-        <div className="ts-cover">
-          {/* Holds the frame's space until the photo has decoded. */}
-          <span className="ts-cover-skeleton" aria-hidden="true" />
-          <AuthImage path={`/media/${trip.resolvedCoverId}/thumbnail`} alt="" className="ts-cover-img" />
+      {/* Always the same frame, whether or not there is a photo in it. It used
+          to appear only once a cover existed, so a trip that has not happened
+          yet showed the loading sweep for an instant and then dropped the
+          whole block — which read as the page glitching. No photo now means
+          the trip's own colour and its glyph, exactly like its card. */}
+      {trip && (
+        <div
+          className={`ts-cover ${trip.resolvedCoverId ? '' : 'no-photo'}`}
+          style={trip.resolvedCoverId ? undefined : { background: tripCoverBg(trip) }}
+        >
+          {trip.resolvedCoverId ? (
+            <>
+              {/* Holds the frame's space until the photo has decoded. */}
+              <span className="ts-cover-skeleton" aria-hidden="true" />
+              <AuthImage
+                path={`/media/${trip.resolvedCoverId}/thumbnail`}
+                alt=""
+                className="ts-cover-img"
+              />
+            </>
+          ) : (
+            <span className="ts-cover-glyph" aria-hidden="true">
+              <Icon name={tripGlyph(trip.title)} size={92} />
+            </span>
+          )}
           <span className="ts-cover-hint">
-            Kies een coverfoto: tik een foto <Icon name="chevron-right" size={12} /> “Als cover”
+            {trip.resolvedCoverId
+              ? 'Kies een coverfoto: tik een foto '
+              : "Nog geen foto's. Tik er straks één aan "}
+            <Icon name="chevron-right" size={12} /> “Als cover”
           </span>
         </div>
       )}

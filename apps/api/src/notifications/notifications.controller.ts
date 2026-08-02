@@ -5,9 +5,11 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -17,6 +19,7 @@ import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
+  DevicePoll,
   NotificationsService,
   NotificationView,
   TripAccessPreview,
@@ -27,6 +30,13 @@ class AccessRequestDto {
   @IsString()
   @MaxLength(300)
   message?: string;
+}
+
+class DeviceTokenDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  token?: string;
 }
 
 class DecideDto {
@@ -64,6 +74,29 @@ export class NotificationsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     return this.notifications.markRead(user.sub, id);
+  }
+
+  /**
+   * A token for this phone's background poller.
+   *
+   * The worker that uses it runs outside the WebView and cannot reach the
+   * session, so it gets something of its own that can do nothing but ask
+   * whether there is news.
+   */
+  @Post('notifications/device')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 3_600_000, limit: 20 } })
+  registerDevice(@CurrentUser() user: JwtPayload): Promise<{ token: string }> {
+    return this.notifications.registerDevice(user.sub);
+  }
+
+  @Delete('notifications/device')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  unregisterDevice(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: DeviceTokenDto,
+  ): Promise<void> {
+    return this.notifications.unregisterDevice(user.sub, dto.token);
   }
 
   @Delete('notifications/:id')
@@ -113,5 +146,27 @@ export class NotificationsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<{ status: AccessRequestStatus }> {
     return this.notifications.decide(id, user.sub, false);
+  }
+}
+
+/**
+ * The one route a phone may call without a session.
+ *
+ * Its own controller because the rest of this file is behind the JWT guard,
+ * and this is answered on the strength of the device token alone. It is
+ * read-only, it is rate limited, and all it can ever return is a count and one
+ * sentence.
+ */
+@Controller('notifications')
+export class NotificationsDeviceController {
+  constructor(private readonly notifications: NotificationsService) {}
+
+  @Get('poll')
+  @Throttle({ default: { ttl: 3_600_000, limit: 120 } })
+  poll(@Query('token') token?: string): Promise<DevicePoll> {
+    if (!token || token.length < 20 || token.length > 200) {
+      throw new NotFoundException('Unknown device');
+    }
+    return this.notifications.pollDevice(token);
   }
 }

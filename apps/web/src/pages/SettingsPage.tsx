@@ -31,10 +31,16 @@ import {
   restoreBackup,
   saveBackup,
 } from '../lib/backup';
-import { formatDate } from '../lib/colors';
+import { formatDate, tripCoverBg } from '../lib/colors';
 import { reversePlaceName } from '../lib/geocode';
 import { clearThumbCache, enforceThumbBudget, thumbCacheUsage } from '../lib/offlineCache';
 import { isLocalMode } from '../lib/localMode';
+import { tripGlyph } from '../lib/tripGlyph';
+import {
+  backgroundNotifyOn,
+  disableBackgroundNotify,
+  enableBackgroundNotify,
+} from '../lib/notify';
 import { useExit } from '../lib/useExit';
 import {
   MAP_STYLES,
@@ -616,8 +622,76 @@ function PreferencesSection() {
       </section>
       <GlobeSection />
       {isNative() && <SelfLocationSection />}
+      {isNative() && <NotifySection />}
       {isNative() && <TrackingSection />}
     </>
+  );
+}
+
+/**
+ * Meldingen op de telefoon zelf.
+ *
+ * There is no push service on these phones, so the app cannot be told
+ * anything — it has to look. Every quarter of an hour it asks the server
+ * whether something is waiting and posts the notification itself, which is
+ * why this is a switch rather than something that is simply on.
+ */
+function NotifySection() {
+  const [on, setOn] = useState(backgroundNotifyOn());
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function toggle(next: boolean) {
+    setBusy(true);
+    setMessage(null);
+    if (next) {
+      const result = await enableBackgroundNotify();
+      if (result.ok) {
+        setOn(true);
+        setMessage('Aan. Je hoort het binnen een kwartier na een nieuw bericht.');
+      } else {
+        setMessage(
+          result.reason === 'denied'
+            ? 'Android laat meldingen niet toe voor deze app. Zet ze aan bij de app-instellingen van je toestel.'
+            : 'Aanzetten lukte niet. Probeer het zo nog eens.',
+        );
+      }
+    } else {
+      await disableBackgroundNotify();
+      setOn(false);
+      setMessage(null);
+    }
+    setBusy(false);
+  }
+
+  return (
+    <section className="card settings-card">
+      <h2>
+        Meldingen op je telefoon
+        <HelpTip>
+          Je toestel heeft geen Google-pushdienst, dus de app kan niets tóégestuurd krijgen. In
+          plaats daarvan kijkt hij zelf elk kwartier of er iets nieuws is en zet die melding dan
+          zelf klaar. Daardoor kan een bericht tot een kwartier oud zijn. Het kost nauwelijks
+          batterij: vier kleine verzoekjes per uur.
+        </HelpTip>
+      </h2>
+      <label className="ts-toggle settings-toggle">
+        <div>
+          <strong>Zelf laten kijken</strong>
+          <span className="muted">
+            Verzoeken om toegang en uitnodigingen komen als melding binnen, ook als de app dicht
+            is.
+          </span>
+        </div>
+        <input
+          type="checkbox"
+          checked={on}
+          disabled={busy}
+          onChange={(e) => void toggle(e.target.checked)}
+        />
+      </label>
+      {message && <p className="muted">{message}</p>}
+    </section>
   );
 }
 
@@ -1475,6 +1549,17 @@ function UpdateCheck() {
   );
 }
 
+/** One name per rule in lib/tripGlyph, plus one that matches nothing. */
+const COVER_SAMPLES = [
+  'Interrail 2026',
+  'Roadtrip Noorwegen',
+  'Vliegreis Tokio',
+  'Zeiltocht Kroatië',
+  'Wandeltocht Camino',
+  'Busreis Praag',
+  'Valencia',
+];
+
 /** Hidden tab (unlocked from About) for testing-only tools. */
 function DeveloperSection({ onLock }: { onLock: () => void }) {
   const navigate = useNavigate();
@@ -1541,6 +1626,27 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
         </span>
       </div>
       {invitePreview && <InvitePreviewSheet onClose={() => setInvitePreview(false)} />}
+      <div className="field">
+        <label>Covers zonder foto</label>
+        <span className="muted">
+          Een reis zonder foto&apos;s krijgt zijn eigen kleur en een icoontje dat uit de naam
+          volgt. Alles wat niet herkend wordt houdt het kompas.
+        </span>
+        <div className="dev-covers">
+          {COVER_SAMPLES.map((name) => (
+            <span
+              key={name}
+              className="dev-cover"
+              style={{ background: tripCoverBg({ id: name }) }}
+            >
+              <span className="dev-cover-glyph" aria-hidden="true">
+                <Icon name={tripGlyph(name)} size={54} />
+              </span>
+              <span className="dev-cover-name">{name}</span>
+            </span>
+          ))}
+        </div>
+      </div>
       <div className="field">
         <label>Meldingenlijst</label>
         <button

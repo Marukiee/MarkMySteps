@@ -98,10 +98,10 @@ export function NotificationBell({ demo = false }: { demo?: boolean }) {
         onClick={() => void openSheet()}
       >
         <Icon name="bell" size={20} />
-        {/* Stays mounted so the dot can grow in rather than appear. */}
-        <span className={`notif-badge ${badge > 0 ? 'on' : ''}`}>
-          <span key={badge}>{badge > 9 ? '9+' : badge}</span>
-        </span>
+        {/* A dot, not a counter: whether there is something is the whole
+            message, and the number is one line down anyway. Stays mounted so
+            it can grow in rather than appear. */}
+        <span className={`notif-badge ${badge > 0 ? 'on' : ''}`} />
       </button>
 
       <NotificationSheet
@@ -141,6 +141,17 @@ export function NotificationSheet({
   const [error, setError] = useState<string | null>(null);
   /** Requests answered in this sheet, so the row can say so straight away. */
   const [answered, setAnswered] = useState<Record<string, 'in' | 'out'>>({});
+  /** Rows on their way out: collapsed first, handed on when they are gone. */
+  const [leaving, setLeaving] = useState<string[]>([]);
+
+  /** Waves a line away, letting it fold up before the list closes the gap. */
+  function dismiss(id: string) {
+    setLeaving((cur) => (cur.includes(id) ? cur : [...cur, id]));
+    window.setTimeout(() => {
+      onDismiss(id);
+      setLeaving((cur) => cur.filter((x) => x !== id));
+    }, 280);
+  }
 
   async function answer(requestId: string, approve: boolean) {
     setBusy(requestId);
@@ -177,7 +188,19 @@ export function NotificationSheet({
         {error && <p className="error-text notif-error">{error}</p>}
 
         {items === null ? (
-          <p className="muted notif-empty">Laden…</p>
+          // Three grey rows at the height real ones have, so the sheet opens
+          // at its full size instead of growing once the list arrives.
+          <ul className="notif-list" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <li key={i} className="notif-item notif-skeleton">
+                <span className="notif-skeleton-avatar" />
+                <div className="notif-body">
+                  <span className="notif-skeleton-line" />
+                  <span className="notif-skeleton-line short" />
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : items.length === 0 ? (
           <div className="notif-empty">
             <span className="notif-empty-icon" aria-hidden="true">
@@ -196,7 +219,9 @@ export function NotificationSheet({
               return (
                 <li
                   key={item.id}
-                  className={`notif-item ${item.read ? '' : 'unread'}`}
+                  className={`notif-item ${item.read ? '' : 'unread'} ${
+                    leaving.includes(item.id) ? 'leaving' : ''
+                  }`}
                   style={{ animationDelay: `${Math.min(i, 8) * 0.035}s` }}
                 >
                   <span className="notif-avatar">
@@ -273,7 +298,7 @@ export function NotificationSheet({
                     type="button"
                     className="notif-dismiss"
                     aria-label={pending ? 'Verzoek negeren' : 'Melding weghalen'}
-                    onClick={() => onDismiss(item.id)}
+                    onClick={() => dismiss(item.id)}
                   >
                     <Icon name="close" size={14} />
                   </button>

@@ -64,6 +64,7 @@ model User {
   locationPoints   LocationPoint[]
   notes            TripNote[]
   notifications    Notification[]   @relation("NotificationRecipient")
+  notifyDevices    NotificationDevice[]
   actedNotifications Notification[] @relation("NotificationActor")
   accessRequests   TripAccessRequest[] @relation("AccessRequester")
   accessDecisions  TripAccessRequest[] @relation("AccessDecider")
@@ -168,6 +169,32 @@ enum NotificationKind {
   ACCESS_APPROVED
   /// Your request was turned down.
   ACCESS_DENIED
+}
+
+/**
+ * A phone that may ask "is there anything new?" on its own.
+ *
+ * The target phones have no Play Services, so there is no push service to
+ * deliver anything to them. Instead the app wakes itself every quarter of an
+ * hour and asks — from a background worker that lives outside the WebView and
+ * therefore cannot reach the session. This token is what it uses instead: it
+ * is bound to one user, it answers exactly one question (how many notifications
+ * are waiting, and what the newest one says), and it can do nothing else. Only
+ * its SHA-256 is stored.
+ */
+model NotificationDevice {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String   @unique
+  /// The last notification this phone was told about, so it never says the
+  /// same thing twice.
+  lastSeenId   String?  @db.Uuid
+  lastPolledAt DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@map("notification_devices")
 }
 
 model Notification {

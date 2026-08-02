@@ -56,6 +56,9 @@ dependencies {
     implementation project(':capacitor-android')
     // Reading the GPS out of a photo's own EXIF (MmsGalleryPlugin).
     implementation "androidx.exifinterface:exifinterface:1.3.7"
+    // The quarter-hourly "anything new?" check (MmsNotifyPlugin). These phones
+    // have no push service, so the app wakes itself instead.
+    implementation "androidx.work:work-runtime:2.9.1"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

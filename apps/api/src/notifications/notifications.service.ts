@@ -10,6 +10,7 @@ import {
   Prisma,
   TripRole,
 } from '@prisma/client';
+import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** One line under the bell, with everything the app needs to draw it. */
@@ -33,6 +34,14 @@ export interface TripAccessPreview {
   owner: { id: string; displayName: string; username: string; hasAvatar: boolean };
   /** Where you stand: not asked, waiting, refused, or already on the trip. */
   status: 'NONE' | 'PENDING' | 'APPROVED' | 'DENIED' | 'MEMBER';
+}
+
+/** What a polling phone is told. Deliberately small. */
+export interface DevicePoll {
+  unread: number;
+  pending: number;
+  /** The newest thing this phone has not been told about yet. */
+  latest: { id: string; title: string; body: string; tripId: string | null } | null;
 }
 
 const NOTIFICATION_INCLUDE = {
@@ -115,6 +124,87 @@ export class NotificationsService {
         tripId,
       })),
     });
+  }
+
+  // ---- Phones that ask for themselves --------------------------------------
+
+  /**
+   * Hands a phone a token of its own.
+   *
+   * One per registration; registering again replaces whatever that phone had,
+   * so a reinstall does not leave a live token behind. The raw value is
+   * returned exactly once and never stored.
+   */
+  async registerDevice(userId: string): Promise<{ token: string }> {
+    const token = randomBytes(32).toString('base64url');
+    await this.prisma.notificationDevice.create({
+      data: { userId, tokenHash: hashToken(token) },
+    });
+    // Two per account is already a phone and a tablet; more than that is a
+    // string of reinstalls, and the old ones are dead weight that can still be
+    // used. Keep the newest few.
+    const stale = await this.prisma.notificationDevice.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      skip: 4,
+      select: { id: true },
+    });
+    if (stale.length > 0) {
+      await this.prisma.notificationDevice.deleteMany({
+        where: { id: { in: stale.map((d) => d.id) } },
+      });
+    }
+    return { token };
+  }
+
+  async unregisterDevice(userId: string, token?: string): Promise<void> {
+    await this.prisma.notificationDevice.deleteMany({
+      where: { userId, ...(token ? { tokenHash: hashToken(token) } : {}) },
+    });
+  }
+
+  /**
+   * "Anything new?", asked by a background worker with no session.
+   *
+   * Answers with the counts and one line of text, and remembers what it said,
+   * so the phone is never told the same thing twice. An unknown token is a
+   * plain 404 — it says nothing about whether it was ever valid.
+   */
+  async pollDevice(token: string): Promise<DevicePoll> {
+    const device = await this.prisma.notificationDevice.findUnique({
+      where: { tokenHash: hashToken(token) },
+      select: { id: true, userId: true, lastSeenId: true },
+    });
+    if (!device) throw new NotFoundException('Unknown device');
+
+    const [{ unread, pending }, newest] = await Promise.all([
+      this.unreadCount(device.userId),
+      this.prisma.notification.findFirst({
+        where: { userId: device.userId },
+        orderBy: { createdAt: 'desc' },
+        include: NOTIFICATION_INCLUDE,
+      }),
+    ]);
+
+    await this.prisma.notificationDevice.update({
+      where: { id: device.id },
+      data: { lastPolledAt: new Date(), lastSeenId: newest?.id ?? device.lastSeenId },
+    });
+
+    // Already told about it, or nothing there at all.
+    const fresh = newest && newest.id !== device.lastSeenId && newest.readAt === null;
+    return {
+      unread,
+      pending,
+      latest: fresh
+        ? {
+            id: newest.id,
+            title: titleFor(newest),
+            body: bodyFor(newest),
+            tripId: newest.tripId,
+          }
+        : null,
+    };
   }
 
   // ---- Asking to be let in ------------------------------------------------
@@ -310,6 +400,40 @@ export class NotificationsService {
       },
     });
     if (shared === 0) throw new NotFoundException('Trip not found');
+  }
+}
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+/** The heading on the phone's own notification. */
+function titleFor(row: NotificationRow): string {
+  switch (row.kind) {
+    case NotificationKind.ACCESS_REQUESTED:
+      return 'Verzoek om toegang';
+    case NotificationKind.ACCESS_APPROVED:
+      return 'Je mag meekijken';
+    case NotificationKind.ACCESS_DENIED:
+      return 'Verzoek afgewezen';
+    default:
+      return 'Toegevoegd aan een reis';
+  }
+}
+
+/** The same sentence the bell shows, composed here so the phone needs no logic. */
+function bodyFor(row: NotificationRow): string {
+  const who = row.actor?.displayName ?? 'Iemand';
+  const trip = row.trip?.title ?? 'een reis';
+  switch (row.kind) {
+    case NotificationKind.ACCESS_REQUESTED:
+      return `${who} vraagt toegang tot ${trip}.`;
+    case NotificationKind.ACCESS_APPROVED:
+      return `${who} heeft je toegelaten tot ${trip}.`;
+    case NotificationKind.ACCESS_DENIED:
+      return `${who} heeft je verzoek voor ${trip} afgewezen.`;
+    default:
+      return `${who} heeft je toegevoegd aan ${trip}.`;
   }
 }
 

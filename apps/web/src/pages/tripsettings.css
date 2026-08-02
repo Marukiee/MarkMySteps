@@ -52,6 +52,19 @@
   aspect-ratio: 16 / 9;
 }
 
+/* No photo: the trip's own colour with its glyph, the same treatment its card
+   on the home page gets. */
+.ts-cover.no-photo {
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+
+.ts-cover-glyph {
+  opacity: 0.32;
+  transform: rotate(-8deg);
+}
+
 .ts-cover-img {
   position: absolute;
   inset: 0;

@@ -27,6 +27,7 @@ import {
   setTripCardOverride,
 } from '../lib/prefs';
 import { canEditTrip } from '../lib/perm';
+import { tripGlyph } from '../lib/tripGlyph';
 import { onTrackerChange } from '../tracking/tracker';
 import './trips.css';
 
@@ -676,7 +677,7 @@ function TripCard({
       )}
       {noImg && (
         <span className="trip-card-glyph" aria-hidden="true">
-          <Icon name="compass" size={120} />
+          <Icon name={tripGlyph(trip.title)} size={120} />
         </span>
       )}
       {statusEl}

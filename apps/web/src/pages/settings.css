@@ -1847,3 +1847,40 @@
     transform: translateY(8px);
   }
 }
+
+/* Developer options: what a trip without a photo looks like, one card per rule
+   in lib/tripGlyph. Small enough that all of them fit on a phone at once. */
+.dev-covers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.dev-cover {
+  position: relative;
+  display: grid;
+  align-content: end;
+  aspect-ratio: 16 / 10;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  color: #fff;
+}
+
+.dev-cover-glyph {
+  position: absolute;
+  right: -0.6rem;
+  top: 50%;
+  transform: translateY(-50%) rotate(-8deg);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.dev-cover-name {
+  position: relative;
+  font-weight: 700;
+  font-size: 0.85rem;
+  line-height: 1.15;
+  text-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
