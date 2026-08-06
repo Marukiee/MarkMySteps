@@ -77,6 +77,31 @@ export function setThemeId(id: ThemeId): void {
   applyTheme(id);
 }
 
+/* ---------- Skin (visual language) ---------- */
+
+/**
+ * Which look the app wears. `classic` is the original warm-paper design;
+ * `m3` is the Material 3 Expressive skin, which recolours from the phone's
+ * wallpaper. Both are always compiled in — the skin only swaps design tokens,
+ * so switching is instant and nothing is lost either way.
+ */
+export type SkinId = 'classic' | 'm3';
+const SKIN_KEY = 'mms.skin';
+
+export function getSkinId(): SkinId {
+  return (localStorage.getItem(SKIN_KEY) as SkinId | null) ?? 'classic';
+}
+
+export function applySkin(id: SkinId = getSkinId()): void {
+  document.documentElement.dataset.skin = id;
+  window.dispatchEvent(new CustomEvent('mms-skin', { detail: id }));
+}
+
+export function setSkinId(id: SkinId): void {
+  localStorage.setItem(SKIN_KEY, id);
+  applySkin(id);
+}
+
 /* ---------- Tracking cadence ---------- */
 
 const TRACK_INTERVAL_KEY = 'mms.track.interval';

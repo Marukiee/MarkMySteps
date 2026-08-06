@@ -45,11 +45,13 @@ import {
   MAP_STYLES,
   MapStyleId,
   GlobeStopsMode,
+  SkinId,
   ThemeId,
   TripCardSize,
   clearTripCardOverrides,
   getGlobeStops,
   getMapStyleId,
+  getSkinId,
   getThemeId,
   getShowSelfOnHome,
   getMapStyle,
@@ -60,6 +62,7 @@ import {
   setGlobeStops,
   setMapStyleId,
   setShowSelfOnHome,
+  setSkinId,
   setThemeId,
   setThumbCacheLimitMb,
   setTrackingIntervalMin,
@@ -183,6 +186,7 @@ export function SettingsPage() {
 function DisplaySection() {
   const [style, setStyle] = useState<MapStyleId>(getMapStyleId());
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
+  const [skin, setSkin] = useState<SkinId>(getSkinId());
   const [cardSize, setCardSize] = useState<TripCardSize>(getTripCardSize());
   const [hasOverrides, setHasOverrides] = useState(hasTripCardOverrides());
 
@@ -190,6 +194,10 @@ function DisplaySection() {
     { id: 'system', label: 'Systeem' },
     { id: 'light', label: 'Licht' },
     { id: 'dark', label: 'Donker' },
+  ];
+  const skins: { id: SkinId; label: string }[] = [
+    { id: 'classic', label: 'Origineel' },
+    { id: 'm3', label: 'Material' },
   ];
   const cardSizes: { id: TripCardSize; label: string }[] = [
     // "Automatisch" needs more room than a third of the switch, and wrapped to
@@ -223,6 +231,31 @@ function DisplaySection() {
           ))}
         </div>
         <span className="muted">“Systeem” volgt de licht/donker-stand van je toestel.</span>
+      </div>
+      <div className="field">
+        <label>Vormgeving</label>
+        <div
+          className="theme-choice pill-switch"
+          style={{ '--n': skins.length, '--i': Math.max(0, skins.findIndex((s) => s.id === skin)) } as CSSProperties}
+        >
+          {skins.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`theme-opt ${skin === s.id ? 'active' : ''}`}
+              onClick={() => {
+                setSkin(s.id);
+                setSkinId(s.id);
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <span className="muted">
+          “Material” geeft de app het Material 3-uiterlijk en neemt op Android 12 en nieuwer de
+          kleuren van je achtergrond over. Alles blijft verder hetzelfde — je kunt zo terug.
+        </span>
       </div>
       <div className="field">
         <label>Reiskaarten op de homepage</label>

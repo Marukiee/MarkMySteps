@@ -1,0 +1,604 @@
+/* ==========================================================
+   Material 3 Expressive skin
+   ==========================================================
+
+   A second skin, not a replacement. Everything here is scoped to
+   `:root[data-skin='m3']`, so the original warm-paper design is still the
+   file it always was and switching back is one attribute (see applySkin in
+   lib/prefs.ts). Nothing below changes layout, structure or behaviour —
+   only colour, shape, elevation and easing.
+
+   How it works: global.css already routes ~700 declarations through a small
+   set of design tokens (--paper, --ink, --accent, --radius-*, --shadow-*,
+   --ease). This file re-points those tokens at Material 3 colour roles, so
+   the whole app moves at once instead of being restyled component by
+   component. The M3 roles themselves come from lib/dynamicColor.ts — the
+   phone's wallpaper palette on Android 12+, a seed-derived palette
+   everywhere else.
+
+   The blocks after the token remap are for the places where M3 has a shape
+   classic simply doesn't: the navigation bar's pill indicator, tonal
+   buttons, filled text fields, sheet handles, state layers.
+   ========================================================== */
+
+/* ----------------------------------------------------------
+   1. Fallback colour roles
+
+   lib/dynamicColor.ts writes these as inline styles on <html>, which wins
+   over anything here. These static values — generated from the app's coral
+   seed — are what paints the very first frame, before that async call
+   returns, and what the page falls back to if the plugin is missing.
+   ---------------------------------------------------------- */
+
+:root {
+  --m3-primary: #ab3513;
+  --m3-on-primary: #ffffff;
+  --m3-primary-container: #ffdbd1;
+  --m3-on-primary-container: #3b0800;
+  --m3-inverse-primary: #ffb5a1;
+  --m3-secondary: #77574e;
+  --m3-on-secondary: #ffffff;
+  --m3-secondary-container: #ffdbd1;
+  --m3-on-secondary-container: #2c150f;
+  --m3-tertiary: #6c5d2e;
+  --m3-on-tertiary: #ffffff;
+  --m3-tertiary-container: #f6e1a6;
+  --m3-on-tertiary-container: #231b00;
+  --m3-surface: #fff8f6;
+  --m3-on-surface: #201a19;
+  --m3-surface-dim: #e4d7d4;
+  --m3-surface-bright: #fff8f6;
+  --m3-surface-container-lowest: #ffffff;
+  --m3-surface-container-low: #fef1ee;
+  --m3-surface-container: #f8ebe8;
+  --m3-surface-container-high: #f3e5e2;
+  --m3-surface-container-highest: #ede0dd;
+  --m3-inverse-surface: #362f2d;
+  --m3-inverse-on-surface: #fbeeeb;
+  --m3-surface-variant: #f5ded8;
+  --m3-on-surface-variant: #53433f;
+  --m3-outline: #85736e;
+  --m3-outline-variant: #d8c2bc;
+  --m3-error: #ba1a1a;
+  --m3-on-error: #ffffff;
+  --m3-error-container: #ffdad6;
+  --m3-on-error-container: #410002;
+  --m3-scrim: #000000;
+}
+
+:root[data-theme='dark'] {
+  --m3-primary: #ffb5a1;
+  --m3-on-primary: #601400;
+  --m3-primary-container: #881f00;
+  --m3-on-primary-container: #ffdbd1;
+  --m3-inverse-primary: #ab3513;
+  --m3-secondary: #e7bdb2;
+  --m3-on-secondary: #442a23;
+  --m3-secondary-container: #5d4038;
+  --m3-on-secondary-container: #ffdbd1;
+  --m3-tertiary: #d9c58d;
+  --m3-on-tertiary: #3b2f05;
+  --m3-tertiary-container: #534619;
+  --m3-on-tertiary-container: #f6e1a6;
+  --m3-surface: #181211;
+  --m3-on-surface: #ede0dd;
+  --m3-surface-dim: #181211;
+  --m3-surface-bright: #3f3736;
+  --m3-surface-container-lowest: #120d0b;
+  --m3-surface-container-low: #201a19;
+  --m3-surface-container: #251e1c;
+  --m3-surface-container-high: #2f2827;
+  --m3-surface-container-highest: #3b3331;
+  --m3-inverse-surface: #ede0dd;
+  --m3-inverse-on-surface: #362f2d;
+  --m3-surface-variant: #53433f;
+  --m3-on-surface-variant: #d8c2bc;
+  --m3-outline: #a08c88;
+  --m3-outline-variant: #53433f;
+  --m3-error: #ffb4ab;
+  --m3-on-error: #690005;
+  --m3-error-container: #93000a;
+  --m3-on-error-container: #ffdad6;
+  --m3-scrim: #000000;
+}
+
+/* ----------------------------------------------------------
+   2. Token remap — the part that does most of the work
+   ---------------------------------------------------------- */
+
+:root[data-skin='m3'] {
+  /* Surfaces. M3 gets its depth from a ladder of tinted container colours
+     rather than from shadows, so "raised" and "sunken" become rungs on that
+     ladder instead of lighter/darker versions of one paper colour. */
+  --paper: var(--m3-surface);
+  --paper-raised: var(--m3-surface-container-low);
+  --paper-sunken: var(--m3-surface-container-high);
+
+  --ink: var(--m3-on-surface);
+  --ink-soft: var(--m3-on-surface-variant);
+  --ink-faint: var(--m3-outline);
+  --line: var(--m3-outline-variant);
+  --line-strong: var(--m3-outline);
+
+  --accent: var(--m3-primary);
+  --accent-soft: var(--m3-primary-container);
+  /* Classic uses --accent-ink for two things: text on an accent-soft
+     background, and a darker accent on hover. The container's "on" colour is
+     the correct answer for the first and a readable one for the second. */
+  --accent-ink: var(--m3-on-primary-container);
+  --teal: var(--m3-tertiary);
+  --danger: var(--m3-error);
+
+  /* Shape scale. Expressive is noticeably rounder than baseline M3 —
+     extra-large corners on cards and sheets are the single biggest reason
+     the skin reads as Material at a glance. */
+  --radius-s: 12px;
+  --radius-m: 16px;
+  --radius-l: 28px;
+
+  /* Elevation. Kept, but pulled right back: with tonal containers doing the
+     layering, classic's shadows read as grime on top of the tint. */
+  --shadow-s: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px 1px rgb(0 0 0 / 0.09);
+  --shadow-m: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.11);
+  --shadow-l: 0 4px 4px rgb(0 0 0 / 0.3), 0 8px 12px 6px rgb(0 0 0 / 0.11);
+
+  /* Motion. The animations themselves are untouched — this only changes the
+     curve they run on. M3's "emphasized" easing accelerates lazily and
+     settles hard, which is what gives Material its weight. 425 transitions
+     pick this up from one line. */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  /* Expressive's spatial spring, for the handful of moves that should
+     overshoot: the nav indicator, segmented thumbs, the FAB, a tick landing.
+     Applied deliberately below rather than globally, because an overshoot on
+     a colour or opacity transition just looks like a glitch. */
+  --m3-spring: linear(
+    0, 0.0058, 0.0227 3.1%, 0.0891 6.4%, 0.4109 15.2%, 0.5259 18.7%, 0.6265,
+    0.7134 25.8%, 0.7876, 0.8503 32.9%, 0.9014, 0.9432 40%, 0.9755 44%,
+    1.0007 48.5%, 1.0186 53.5%, 1.0289 59.5%, 1.0327 68.4%, 1.0256 78.4%,
+    1.0117 90.4%, 1
+  );
+
+  --glass: color-mix(in srgb, var(--m3-surface-container) 88%, transparent);
+  --glass-border: transparent;
+
+  /* Typography. Material's own fonts are not bundled, and swapping the body
+     face would change every line-length in the app — out of scope for a
+     look-only skin. Headings drop the serif, which is the one place the
+     travel-journal voice fights Material hardest. */
+  --font-display: var(--font-body);
+}
+
+:root[data-skin='m3'][data-theme='dark'] {
+  /* Dark M3 leans on tint, not on drop shadows — they are close to invisible
+     on a dark surface anyway, and only muddy the container ladder. */
+  --shadow-s: 0 1px 3px rgb(0 0 0 / 0.5);
+  --shadow-m: 0 2px 8px rgb(0 0 0 / 0.55);
+  --shadow-l: 0 8px 20px rgb(0 0 0 / 0.6);
+}
+
+/* Headings: Material's display styles are heavier and tighter than the
+   journal serif they replace. */
+:root[data-skin='m3'] h1,
+:root[data-skin='m3'] h2,
+:root[data-skin='m3'] h3 {
+  font-weight: 660;
+  letter-spacing: -0.01em;
+}
+
+/* ----------------------------------------------------------
+   3. State layers
+
+   M3 signals hover and press with a translucent wash of the foreground
+   colour over the component, not by changing its fill. Classic mostly moves
+   the background instead, so these are the few spots worth converting —
+   they are the ones a thumb actually touches.
+   ---------------------------------------------------------- */
+
+:root[data-skin='m3'] .btn {
+  /* Material's own button height, and the label weight that goes with it. */
+  padding: 0.66rem 1.5rem;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  transition:
+    transform 0.2s var(--m3-spring),
+    box-shadow 0.2s var(--ease),
+    background 0.2s var(--ease),
+    opacity 0.2s;
+}
+
+:root[data-skin='m3'] .btn:active {
+  /* Expressive presses squash a little further than classic's 0.97, and the
+     spring means they bounce back rather than glide. */
+  transform: scale(0.94);
+}
+
+:root[data-skin='m3'] .btn-primary {
+  background: var(--m3-primary);
+  color: var(--m3-on-primary);
+  /* A filled button is elevation 0 in M3; the colour carries it. */
+  box-shadow: none;
+}
+
+:root[data-skin='m3'] .btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--m3-on-primary) 8%, var(--m3-primary));
+  box-shadow: var(--shadow-s);
+}
+
+/* Classic's "ghost" is an outlined button, which M3 also has — but its
+   outline is the variant tone and its label takes the accent. */
+:root[data-skin='m3'] .btn-ghost {
+  border: 1px solid var(--m3-outline-variant);
+  color: var(--m3-primary);
+}
+
+:root[data-skin='m3'] .btn-ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--m3-primary) 8%, transparent);
+  color: var(--m3-primary);
+}
+
+/* The danger button is hardcoded to a classic red in global.css, which sits
+   badly next to a wallpaper-derived palette. M3 ships an error role for
+   exactly this. */
+:root[data-skin='m3'] .btn-danger {
+  color: var(--m3-error);
+  border-color: color-mix(in srgb, var(--m3-error) 40%, transparent);
+}
+
+:root[data-skin='m3'] .btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--m3-error) 8%, transparent);
+}
+
+:root[data-skin='m3'] .error-text,
+:root[data-skin='m3'] .te-error,
+:root[data-skin='m3'] .notif-error {
+  color: var(--m3-error);
+}
+
+/* ----------------------------------------------------------
+   4. Navigation bar
+
+   The one component where M3 has a shape classic has no equivalent for: the
+   active tab sits inside a filled pill, and the pill is what animates. The
+   markup is a three-column grid of links, so the indicator is drawn as a
+   pseudo-element behind the icon — no structural change.
+   ---------------------------------------------------------- */
+
+:root[data-skin='m3'] .bottomnav {
+  background: var(--m3-surface-container);
+  border-top: none;
+  /* Material's navigation bar is 80dp and sits flat on the surface. */
+  padding: 0.6rem 0 0.7rem;
+  backdrop-filter: none;
+}
+
+:root[data-skin='m3'].native-app .bottomnav,
+:root[data-skin='m3'] .native-app .bottomnav {
+  padding-bottom: calc(0.7rem + env(safe-area-inset-bottom));
+}
+
+:root[data-skin='m3'] .bottomnav a {
+  position: relative;
+  gap: 4px;
+  color: var(--m3-on-surface-variant);
+  font-weight: 550;
+  transition: color 0.2s var(--ease);
+}
+
+:root[data-skin='m3'] .bottomnav a svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* The pill. Scales up from the icon's centre when the tab becomes active,
+   on the spring — this is the signature Material motion. */
+:root[data-skin='m3'] .bottomnav a::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 64px;
+  height: 32px;
+  margin-left: -32px;
+  border-radius: 999px;
+  background: var(--m3-secondary-container);
+  transform: scaleX(0.4) scaleY(0.7);
+  opacity: 0;
+  transition:
+    transform 0.35s var(--m3-spring),
+    opacity 0.15s var(--ease);
+}
+
+:root[data-skin='m3'] .bottomnav a.active::before {
+  transform: none;
+  opacity: 1;
+}
+
+:root[data-skin='m3'] .bottomnav a.active {
+  color: var(--m3-on-secondary-container);
+}
+
+/* ----------------------------------------------------------
+   5. Cards, sheets and surfaces
+   ---------------------------------------------------------- */
+
+:root[data-skin='m3'] .card,
+:root[data-skin='m3'] .settings-card,
+:root[data-skin='m3'] .login-card,
+:root[data-skin='m3'] .pending-card,
+:root[data-skin='m3'] .local-card,
+:root[data-skin='m3'] .friend-card,
+:root[data-skin='m3'] .confirm-card,
+:root[data-skin='m3'] .invite-card,
+:root[data-skin='m3'] .share-gate-card {
+  /* A filled card in M3 is a container tone with no border and no shadow.
+     Dropping the hairline is what stops the skin looking like classic with
+     different colours. */
+  background: var(--m3-surface-container-low);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+:root[data-skin='m3'] .confirm-card,
+:root[data-skin='m3'] .invite-card {
+  /* Dialogs are the one card that keeps elevation, and they use the highest
+     container tone. */
+  background: var(--m3-surface-container-high);
+  border-radius: 28px;
+  box-shadow: var(--shadow-l);
+}
+
+/* Bottom sheets: extra-large corners on the top edge only, and the grab
+   handle becomes Material's 32×4 bar. */
+:root[data-skin='m3'] .fe-sheet,
+:root[data-skin='m3'] .lm-sheet,
+:root[data-skin='m3'] .notif-sheet,
+:root[data-skin='m3'] .dp-sheet,
+:root[data-skin='m3'] .people-sheet,
+:root[data-skin='m3'] .dev-sheet {
+  background: var(--m3-surface-container-low);
+  border-radius: 28px 28px 0 0;
+  border-color: transparent;
+}
+
+/* Only the real drag bars — `.avatar-handle` and `.traveller-handle` are
+   @usernames, despite the name. */
+:root[data-skin='m3'] .sheet-grab,
+:root[data-skin='m3'] .fe-grab,
+:root[data-skin='m3'] .lm-grab {
+  background: color-mix(in srgb, var(--m3-on-surface-variant) 40%, transparent);
+  border-radius: 999px;
+}
+
+/* Scrims are a flat 32% of the scrim role in M3, not a soft grey wash. */
+:root[data-skin='m3'] .confirm-backdrop,
+:root[data-skin='m3'] .notif-backdrop,
+:root[data-skin='m3'] .dp-backdrop,
+:root[data-skin='m3'] .invite-backdrop,
+:root[data-skin='m3'] .fe-scrim,
+:root[data-skin='m3'] .lm-scrim,
+:root[data-skin='m3'] .people-sheet-backdrop,
+:root[data-skin='m3'] .dev-sheet-backdrop,
+:root[data-skin='m3'] .avatar-crop-backdrop,
+:root[data-skin='m3'] .avatar-view-backdrop {
+  background: color-mix(in srgb, var(--m3-scrim) 32%, transparent);
+}
+
+/* ----------------------------------------------------------
+   6. Floating action buttons
+
+   M3 large FABs are squircle-ish rounded rectangles, not circles, and they
+   take the primary container tone rather than the accent.
+   ---------------------------------------------------------- */
+
+:root[data-skin='m3'] .trip-fab,
+:root[data-skin='m3'] .stop-add,
+:root[data-skin='m3'] .te-add,
+:root[data-skin='m3'] .day-note-add {
+  background: var(--m3-primary-container);
+  color: var(--m3-on-primary-container);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-m);
+  transition:
+    transform 0.25s var(--m3-spring),
+    box-shadow 0.2s var(--ease),
+    background 0.2s var(--ease);
+}
+
+:root[data-skin='m3'] .trip-fab:active,
+:root[data-skin='m3'] .stop-add:active,
+:root[data-skin='m3'] .te-add:active,
+:root[data-skin='m3'] .day-note-add:active {
+  transform: scale(0.92);
+}
+
+/* ----------------------------------------------------------
+   7. Text fields
+
+   Material's filled field: a tinted box, square-ish top corners, and a
+   thicker underline that takes the accent on focus. Classic's outlined box
+   with an accent glow is replaced rather than tinted, because the glow is
+   the most un-Material thing in the app.
+   ---------------------------------------------------------- */
+
+:root[data-skin='m3'] .field input,
+:root[data-skin='m3'] .field select,
+:root[data-skin='m3'] .field textarea {
+  background: var(--m3-surface-container-highest);
+  border: none;
+  border-bottom: 1px solid var(--m3-on-surface-variant);
+  border-radius: 8px 8px 0 0;
+  padding: 0.8rem 0.9rem 0.7rem;
+  transition:
+    border-color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease),
+    background 0.2s var(--ease);
+}
+
+:root[data-skin='m3'] .field input:focus,
+:root[data-skin='m3'] .field select:focus,
+:root[data-skin='m3'] .field textarea:focus,
+:root[data-skin='m3'] input:focus-visible,
+:root[data-skin='m3'] textarea:focus-visible,
+:root[data-skin='m3'] select:focus-visible {
+  outline: none;
+  /* The focus indicator is the underline thickening to 2dp — drawn as an
+     inset shadow so the field does not shift by a pixel when it lands. */
+  border-bottom-color: var(--m3-primary);
+  box-shadow: inset 0 -1px 0 0 var(--m3-primary);
+}
+
+:root[data-skin='m3'] .field label {
+  color: var(--m3-on-surface-variant);
+  font-weight: 550;
+}
+
+:root[data-skin='m3'] .searchbox:focus-within {
+  border-color: var(--m3-primary);
+  box-shadow: 0 0 0 1px var(--m3-primary);
+}
+
+:root[data-skin='m3'] ::selection {
+  background: color-mix(in srgb, var(--m3-primary) 30%, transparent);
+}
+
+/* ----------------------------------------------------------
+   8. Selection controls
+   ---------------------------------------------------------- */
+
+:root[data-skin='m3'] input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  border: 2px solid var(--m3-on-surface-variant);
+  background: transparent;
+  transition:
+    background-color 0.15s var(--ease),
+    border-color 0.15s var(--ease),
+    transform 0.2s var(--m3-spring);
+}
+
+:root[data-skin='m3'] input[type='checkbox']:checked {
+  background: var(--m3-primary);
+  border-color: var(--m3-primary);
+}
+
+/* Segmented buttons and pill switches: the moving thumb is the accent
+   container, and it rides the spring like the nav indicator. */
+:root[data-skin='m3'] .pill-switch::before,
+:root[data-skin='m3'] .settings-seg-thumb,
+:root[data-skin='m3'] .trips-tabs-thumb,
+:root[data-skin='m3'] .side-tabs-thumb,
+:root[data-skin='m3'] .login-tabs-thumb,
+:root[data-skin='m3'] .member-role-thumb {
+  background: var(--m3-secondary-container);
+  box-shadow: none;
+  transition:
+    transform 0.4s var(--m3-spring),
+    opacity 0.2s var(--ease);
+}
+
+/* The track those thumbs slide in. */
+:root[data-skin='m3'] .settings-seg,
+:root[data-skin='m3'] .trips-tabs,
+:root[data-skin='m3'] .side-tabs,
+:root[data-skin='m3'] .login-tabs,
+:root[data-skin='m3'] .member-role-seg,
+:root[data-skin='m3'] .trip-menu-seg,
+:root[data-skin='m3'] .leg-toggle {
+  background: var(--m3-surface-container);
+  border-radius: 999px;
+}
+
+/* ----------------------------------------------------------
+   9. Chips
+
+   Assist/filter chips are 8dp-cornered outlined boxes in M3 — not the
+   fully-round pills classic uses. This is a small change that does a lot of
+   the "reads as Material" work in dense screens.
+   ---------------------------------------------------------- */
+
+:root[data-skin='m3'] .airport-chip,
+:root[data-skin='m3'] .country-chip,
+:root[data-skin='m3'] .person-chip,
+:root[data-skin='m3'] .member-add-chip,
+:root[data-skin='m3'] .fe-via-chip,
+:root[data-skin='m3'] .traveller-chips > * {
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--m3-outline-variant);
+  color: var(--m3-on-surface-variant);
+}
+
+/* The settings section switcher is a row of filter chips. Classic marks the
+   active one by inverting it to solid ink, which in M3 reads as a stray black
+   box among tonal surfaces — the selected state is a secondary container. */
+:root[data-skin='m3'] .settings-nav button {
+  border-radius: 8px;
+  border: 1px solid var(--m3-outline-variant);
+}
+
+:root[data-skin='m3'] .settings-nav button:hover {
+  background: color-mix(in srgb, var(--m3-on-surface) 8%, transparent);
+}
+
+:root[data-skin='m3'] .settings-nav button.active {
+  background: var(--m3-secondary-container);
+  color: var(--m3-on-secondary-container);
+  border-color: transparent;
+}
+
+/* ----------------------------------------------------------
+   10. Top bar and banners
+   ---------------------------------------------------------- */
+
+:root[data-skin='m3'] .topbar {
+  background: var(--m3-surface);
+  border-bottom-color: transparent;
+  backdrop-filter: none;
+}
+
+:root[data-skin='m3'] .topbar-menu,
+:root[data-skin='m3'] .trip-menu,
+:root[data-skin='m3'] .avatar-menu,
+:root[data-skin='m3'] .mode-menu-drop,
+:root[data-skin='m3'] .person-select-menu,
+:root[data-skin='m3'] .trip-picker-menu {
+  /* Menus are a container tone with medium corners and real elevation —
+     they are the one place M3 still wants a shadow. */
+  background: var(--m3-surface-container);
+  border-color: transparent;
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-m);
+}
+
+:root[data-skin='m3'] .pw-banner {
+  background: var(--m3-tertiary-container);
+  color: var(--m3-on-tertiary-container);
+  border-bottom: none;
+}
+
+:root[data-skin='m3'] .offline-banner,
+:root[data-skin='m3'] .update-banner {
+  background: var(--m3-inverse-surface);
+  color: var(--m3-inverse-on-surface);
+  border-radius: var(--radius-s);
+}
+
+/* ----------------------------------------------------------
+   11. Notification badge and live indicators
+
+   These carry meaning through colour, so they move to the error and
+   tertiary roles rather than keeping their hardcoded reds and greens.
+   ---------------------------------------------------------- */
+
+:root[data-skin='m3'] .notif-badge {
+  background: var(--m3-error);
+  color: var(--m3-on-error);
+}
+
+:root[data-skin='m3'] .live-badge,
+:root[data-skin='m3'] .trip-ongoing,
+:root[data-skin='m3'] .stats-ongoing {
+  background: var(--m3-tertiary-container);
+  color: var(--m3-on-tertiary-container);
+}
