@@ -16,21 +16,18 @@ import {
   initStatusBar,
   isNativeApp,
 } from './lib/native';
-import { initDynamicColor } from './lib/dynamicColor';
-import { applySkin, applyTheme, getThemeId } from './lib/prefs';
+import { initDynamicAccent } from './lib/dynamicColor';
+import { applyTheme, getThemeId } from './lib/prefs';
 import { enforceThumbBudget } from './lib/offlineCache';
 import { initPendingWrites } from './lib/pendingWrites';
 import { captureCurrentLocation, resumeIfTracking } from './tracking/tracker';
 import './styles/global.css';
-import './styles/m3.css';
 
-// Theme and skin before first paint; keep following the OS when set to "system".
+// Theme before first paint; keep following the OS when set to "system".
 applyTheme();
-applySkin();
-// Publishes the Material 3 colour roles (wallpaper-derived on Android 12+).
-// Fire-and-forget: the classic skin never reads them, and the M3 skin ships
-// seed-derived fallbacks in CSS so there is no unstyled frame while this lands.
-void initDynamicColor();
+// Optional: borrow the accent from the wallpaper. Fire-and-forget, because the
+// designed accent is already painted and this only ever replaces it.
+void initDynamicAccent();
 window
   .matchMedia('(prefers-color-scheme: dark)')
   .addEventListener('change', () => getThemeId() === 'system' && applyTheme());

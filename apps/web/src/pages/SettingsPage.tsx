@@ -3,13 +3,14 @@ import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { isNativeApp, openExternal } from '../lib/native';
-import { api, ApiError, fetchBlobUrl } from '../api/client';
+import { api, ApiError, fetchBlobUrl, getServerBase, setServerBase } from '../api/client';
 import { CHANGELOG } from '../lib/changelog';
 import { AirportPrefs } from '../components/AirportPrefs';
 import { AvatarCrop } from '../components/AvatarCrop';
 import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { DEFAULT_SERVER_URL } from '../config';
 import { Avatar, bumpAvatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
 import { HelpTip } from '../components/HelpTip';
@@ -40,18 +41,18 @@ import {
   disableBackgroundNotify,
   enableBackgroundNotify,
 } from '../lib/notify';
+import { applyDynamicAccent, dynamicAccentAvailable } from '../lib/dynamicColor';
 import { useExit } from '../lib/useExit';
 import {
   MAP_STYLES,
   MapStyleId,
   GlobeStopsMode,
-  SkinId,
   ThemeId,
   TripCardSize,
   clearTripCardOverrides,
   getGlobeStops,
   getMapStyleId,
-  getSkinId,
+  isDynamicAccent,
   getThemeId,
   getShowSelfOnHome,
   getMapStyle,
@@ -62,7 +63,7 @@ import {
   setGlobeStops,
   setMapStyleId,
   setShowSelfOnHome,
-  setSkinId,
+  setDynamicAccent,
   setThemeId,
   setThumbCacheLimitMb,
   setTrackingIntervalMin,
@@ -148,6 +149,7 @@ export function SettingsPage() {
                   opens looking for one. It also sits under Profiel, because
                   that is where the account it replaces lives. */}
               <LocalModeCard />
+              {!isLocalMode() && <ServerSection />}
               <ImmichSection />
             </>
           )}
@@ -186,7 +188,7 @@ export function SettingsPage() {
 function DisplaySection() {
   const [style, setStyle] = useState<MapStyleId>(getMapStyleId());
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
-  const [skin, setSkin] = useState<SkinId>(getSkinId());
+  const [wallpaperAccent, setWallpaperAccent] = useState(isDynamicAccent());
   const [cardSize, setCardSize] = useState<TripCardSize>(getTripCardSize());
   const [hasOverrides, setHasOverrides] = useState(hasTripCardOverrides());
 
@@ -194,10 +196,6 @@ function DisplaySection() {
     { id: 'system', label: 'Systeem' },
     { id: 'light', label: 'Licht' },
     { id: 'dark', label: 'Donker' },
-  ];
-  const skins: { id: SkinId; label: string }[] = [
-    { id: 'classic', label: 'Origineel' },
-    { id: 'm3', label: 'Material' },
   ];
   const cardSizes: { id: TripCardSize; label: string }[] = [
     // "Automatisch" needs more room than a third of the switch, and wrapped to
@@ -208,10 +206,9 @@ function DisplaySection() {
   ];
 
   return (
-    <section className="card settings-card">
-      <h2>Weergave</h2>
-      <div className="field">
-        <label>Thema</label>
+    <>
+      <section className="card settings-card">
+        <h2>Thema</h2>
         <div
           className="theme-choice pill-switch"
           style={{ '--n': themes.length, '--i': Math.max(0, themes.findIndex((t) => t.id === theme)) } as CSSProperties}
@@ -231,34 +228,29 @@ function DisplaySection() {
           ))}
         </div>
         <span className="muted">“Systeem” volgt de licht/donker-stand van je toestel.</span>
-      </div>
-      <div className="field">
-        <label>Vormgeving</label>
-        <div
-          className="theme-choice pill-switch"
-          style={{ '--n': skins.length, '--i': Math.max(0, skins.findIndex((s) => s.id === skin)) } as CSSProperties}
-        >
-          {skins.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={`theme-opt ${skin === s.id ? 'active' : ''}`}
-              onClick={() => {
-                setSkin(s.id);
-                setSkinId(s.id);
+        {isNative() && dynamicAccentAvailable() && (
+          <label className="settings-toggle">
+            <div>
+              <strong>Accentkleur van je achtergrond</strong>
+              <span className="muted">
+                Neemt de accentkleur over die Android uit je achtergrond haalt. De rest van de
+                app blijft zoals hij is.
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={wallpaperAccent}
+              onChange={(e) => {
+                setWallpaperAccent(e.target.checked);
+                setDynamicAccent(e.target.checked);
+                applyDynamicAccent();
               }}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-        <span className="muted">
-          “Material” geeft de app het Material 3-uiterlijk en neemt op Android 12 en nieuwer de
-          kleuren van je achtergrond over. Alles blijft verder hetzelfde — je kunt zo terug.
-        </span>
-      </div>
-      <div className="field">
-        <label>Reiskaarten op de homepage</label>
+            />
+          </label>
+        )}
+      </section>
+      <section className="card settings-card">
+        <h2>Reiskaarten op de homepage</h2>
         <div
           className="theme-choice pill-switch"
           style={{ '--n': cardSizes.length, '--i': Math.max(0, cardSizes.findIndex((c) => c.id === cardSize)) } as CSSProperties}
@@ -294,9 +286,9 @@ function DisplaySection() {
             Handmatige keuzes wissen
           </button>
         )}
-      </div>
-      <div className="field">
-        <label>Kaartstijl</label>
+      </section>
+      <section className="card settings-card">
+        <h2>Kaartstijl</h2>
         <div className="map-style-grid">
           {MAP_STYLES.map((s) => (
             <button
@@ -314,8 +306,8 @@ function DisplaySection() {
           ))}
         </div>
         <span className="muted">Geldt voor alle kaarten op dit apparaat.</span>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
 
@@ -1587,11 +1579,9 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
   const [simulating, setSimulating] = useState(isUpdateBannerSimulated());
   const [invitePreview, setInvitePreview] = useState(false);
   return (
-    <section className="card settings-card">
-      <h2>Ontwikkelaar</h2>
-      <p className="muted">Verborgen opties om dingen te testen.</p>
-      <div className="field">
-        <label>
+    <>
+      <section className="card settings-card">
+        <h2>
           Schermen bekijken
           <HelpTip>
             Dit zijn de echte schermen, niet een kopie: wat je hier ziet is wat een nieuwe
@@ -1601,7 +1591,8 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
             In het inlogscherm doet &ldquo;Zonder server beginnen&rdquo; niets, zodat je je eigen
             server niet kwijtraakt.
           </HelpTip>
-        </label>
+        </h2>
+        <p className="muted">Verborgen opties om dingen te testen.</p>
         <div className="dev-buttons">
           <button
             type="button"
@@ -1632,9 +1623,13 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
             Wachten op goedkeuring
           </button>
         </div>
-      </div>
-      <div className="field">
-        <label>Meldingen bekijken</label>
+      </section>
+
+      <section className="card settings-card">
+        <h2>Meldingen bekijken</h2>
+        <p className="muted">
+          Opent een klein menu om te kiezen hoeveel reizen erin staan en of ze een foto hebben.
+        </p>
         <button
           type="button"
           className="btn btn-ghost settings-reset-sizes"
@@ -1642,13 +1637,15 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
         >
           Toegevoegd aan een reis
         </button>
-        <span className="muted">
-          Opent een klein menu om te kiezen hoeveel reizen erin staan en of ze een foto hebben.
-        </span>
-      </div>
-      {invitePreview && <InvitePreviewSheet onClose={() => setInvitePreview(false)} />}
-      <div className="field">
-        <label>Covers zonder foto</label>
+        {invitePreview && <InvitePreviewSheet onClose={() => setInvitePreview(false)} />}
+      </section>
+
+      <section className="card settings-card">
+        <h2>Covers zonder foto</h2>
+        <p className="muted">
+          Elke reis zonder foto&apos;s krijgt zijn eigen kleur en een icoontje dat uit de naam
+          volgt.
+        </p>
         <button
           type="button"
           className="btn btn-ghost settings-reset-sizes"
@@ -1656,13 +1653,14 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
         >
           Bekijken
         </button>
-        <span className="muted">
-          Elke reis zonder foto&apos;s krijgt zijn eigen kleur en een icoontje dat uit de naam
-          volgt.
-        </span>
-      </div>
-      <div className="field">
-        <label>Meldingenlijst</label>
+      </section>
+
+      <section className="card settings-card">
+        <h2>Meldingenlijst</h2>
+        <p className="muted">
+          Opent de bel op de reizigerspagina met een verzoek, een uitnodiging, een toelating en
+          een afwijzing erin. Antwoorden gaat nergens heen.
+        </p>
         <button
           type="button"
           className="btn btn-ghost settings-reset-sizes"
@@ -1670,13 +1668,13 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
         >
           Voorbeeld openen
         </button>
-        <span className="muted">
-          Opent de bel op de reizigerspagina met een verzoek, een uitnodiging, een toelating en
-          een afwijzing erin. Antwoorden gaat nergens heen.
-        </span>
-      </div>
-      <div className="field">
-        <label>Update-melding</label>
+      </section>
+
+      <section className="card settings-card">
+        <h2>Update-melding</h2>
+        <p className="muted">
+          Toont de balk alsof er een nieuwe versie klaarstaat. Downloaden doet niets.
+        </p>
         <button
           type="button"
           className="btn btn-ghost settings-reset-sizes"
@@ -1687,14 +1685,18 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
         >
           {simulating ? 'Nepbanner uitzetten' : 'Nepbanner tonen'}
         </button>
-        <span className="muted">
-          Toont de balk alsof er een nieuwe versie klaarstaat. Downloaden doet niets.
-        </span>
-      </div>
-      <button type="button" className="btn btn-ghost settings-reset-sizes" onClick={onLock}>
-        Ontwikkelaarsmodus verbergen
-      </button>
-    </section>
+      </section>
+
+      <section className="card settings-card">
+        <h2>Ontwikkelaarsmodus</h2>
+        <p className="muted">
+          Verbergt dit tabblad weer. Je krijgt het terug via de versie onderaan &ldquo;Over&rdquo;.
+        </p>
+        <button type="button" className="btn btn-ghost settings-reset-sizes" onClick={onLock}>
+          Ontwikkelaarsmodus verbergen
+        </button>
+      </section>
+    </>
   );
 }
 
@@ -1745,7 +1747,7 @@ function OptionPicker<T extends string | number | boolean>({
         aria-expanded={open}
         onClick={() => (open && !closing ? close() : setOpen(true))}
       >
-        <span>{chosen?.label ?? '—'}</span>
+        <span>{chosen?.label ?? '–'}</span>
         <Icon
           name="chevron-down"
           size={16}
@@ -1950,176 +1952,280 @@ function ProfileSection() {
   }
 
   return (
-    <section className="card settings-card">
-      <h2>Profiel</h2>
-
-      <div className="avatar-row">
-        <button
-          type="button"
-          className="avatar-edit"
-          title="Profielfoto"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (photoMenu) closePhotoMenu();
-            else setPhotoMenu(true);
-          }}
-        >
-          {user && (
-            <Avatar
-              userId={user.id}
-              displayName={user.displayName}
-              hasAvatar={user.hasAvatar}
-              size={72}
-            />
-          )}
-          <span className="avatar-edit-badge">
-            <Icon name="camera" size={15} />
-          </span>
-          {photoMenu && (
-            <div
-              className={`avatar-menu card ${photoMenuClosing ? 'closing' : ''}`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {user?.hasAvatar && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    closePhotoMenu();
-                    setViewSrc(await currentAvatarUrl());
-                  }}
-                >
-                  Foto bekijken
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  closePhotoMenu();
-                  fileRef.current?.click();
-                }}
+    <>
+      <section className="card settings-card">
+        <h2>Profielfoto</h2>
+        <div className="avatar-row">
+          <button
+            type="button"
+            className="avatar-edit"
+            title="Profielfoto"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (photoMenu) closePhotoMenu();
+              else setPhotoMenu(true);
+            }}
+          >
+            {user && (
+              <Avatar
+                userId={user.id}
+                displayName={user.displayName}
+                hasAvatar={user.hasAvatar}
+                size={72}
+              />
+            )}
+            <span className="avatar-edit-badge">
+              <Icon name="camera" size={15} />
+            </span>
+            {photoMenu && (
+              <div
+                className={`avatar-menu card ${photoMenuClosing ? 'closing' : ''}`}
+                onClick={(e) => e.stopPropagation()}
               >
-                Andere foto kiezen
-              </button>
-              {user?.hasAvatar && (
+                {user?.hasAvatar && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      closePhotoMenu();
+                      setViewSrc(await currentAvatarUrl());
+                    }}
+                  >
+                    Foto bekijken
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={async () => {
-                    closePhotoMenu();
-                    const url = await currentAvatarUrl();
-                    if (url) setCropSrc(url);
-                  }}
-                >
-                  Foto bijsnijden
-                </button>
-              )}
-              {user?.hasAvatar && (
-                <button
-                  type="button"
-                  className="avatar-menu-danger"
                   onClick={() => {
                     closePhotoMenu();
-                    void removeAvatar();
+                    fileRef.current?.click();
                   }}
                 >
-                  Foto verwijderen
+                  Andere foto kiezen
                 </button>
-              )}
-            </div>
-          )}
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) setCropSrc(URL.createObjectURL(file));
-            e.target.value = '';
-          }}
-        />
-        <div className="avatar-meta">
-          <strong>{user?.displayName}</strong>
-          {user?.username && <span className="avatar-handle">@{user.username}</span>}
-        </div>
-      </div>
-
-      {cropSrc && (
-        <AvatarCrop
-          source={cropSrc}
-          onCancel={() => setCropSrc(null)}
-          onCropped={(blob) => {
-            setCropSrc(null);
-            void uploadBlob(blob);
-          }}
-        />
-      )}
-      {viewSrc && (
-        <div className="avatar-view-backdrop" onClick={() => setViewSrc(null)}>
-          <img src={viewSrc} alt="Profielfoto" />
-        </div>
-      )}
-
-      <form onSubmit={saveName} className="settings-form">
-        <div className="field">
-          <label htmlFor="pr-name">Naam</label>
+                {user?.hasAvatar && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      closePhotoMenu();
+                      const url = await currentAvatarUrl();
+                      if (url) setCropSrc(url);
+                    }}
+                  >
+                    Foto bijsnijden
+                  </button>
+                )}
+                {user?.hasAvatar && (
+                  <button
+                    type="button"
+                    className="avatar-menu-danger"
+                    onClick={() => {
+                      closePhotoMenu();
+                      void removeAvatar();
+                    }}
+                  >
+                    Foto verwijderen
+                  </button>
+                )}
+              </div>
+            )}
+          </button>
           <input
-            id="pr-name"
-            required
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) setCropSrc(URL.createObjectURL(file));
+              e.target.value = '';
+            }}
           />
+          <div className="avatar-meta">
+            <strong>{user?.displayName}</strong>
+            {user?.username && <span className="avatar-handle">@{user.username}</span>}
+          </div>
         </div>
-        <div className="field">
-          <label htmlFor="pr-user">Gebruikersnaam</label>
-          <input
-            id="pr-user"
-            required
-            pattern="[a-zA-Z0-9._\-]{3,30}"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <span className="muted">Hiermee voegen vrienden je toe aan reizen</span>
-        </div>
-        <div className="settings-actions">
-          <button className="btn btn-ghost">Profiel opslaan</button>
-        </div>
-      </form>
 
-      <form onSubmit={savePassword} className="settings-form">
-        <div className="field">
-          <label htmlFor="pr-cur">Huidig wachtwoord</label>
-          <input
-            id="pr-cur"
-            type="password"
-            required
-            autoComplete="current-password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
+        {cropSrc && (
+          <AvatarCrop
+            source={cropSrc}
+            onCancel={() => setCropSrc(null)}
+            onCropped={(blob) => {
+              setCropSrc(null);
+              void uploadBlob(blob);
+            }}
           />
-        </div>
-        <div className="field">
-          <label htmlFor="pr-new">Nieuw wachtwoord</label>
-          <input
-            id="pr-new"
-            type="password"
-            required
-            minLength={10}
-            autoComplete="new-password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-          <PasswordStrength
-            password={newPassword}
-            personal={[user?.username ?? '', user?.displayName ?? '', user?.email.split('@')[0] ?? '']}
-          />
-        </div>
-        <div className="settings-actions">
-          <button className="btn btn-primary">Wachtwoord wijzigen</button>
-        </div>
-      </form>
+        )}
+        {viewSrc && (
+          <div className="avatar-view-backdrop" onClick={() => setViewSrc(null)}>
+            <img src={viewSrc} alt="Profielfoto" />
+          </div>
+        )}
+      </section>
 
+      <section className="card settings-card">
+        <h2>Naam en gebruikersnaam</h2>
+        <form onSubmit={saveName} className="settings-form">
+          <div className="field">
+            <label htmlFor="pr-name">Naam</label>
+            <input
+              id="pr-name"
+              required
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="pr-user">Gebruikersnaam</label>
+            <input
+              id="pr-user"
+              required
+              pattern="[a-zA-Z0-9._\-]{3,30}"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <span className="muted">Hiermee voegen vrienden je toe aan reizen</span>
+          </div>
+          <div className="settings-actions">
+            <button className="btn btn-ghost">Profiel opslaan</button>
+          </div>
+        </form>
+      </section>
+
+      <section className="card settings-card">
+        <h2>Wachtwoord</h2>
+        <form onSubmit={savePassword} className="settings-form">
+          <div className="field">
+            <label htmlFor="pr-cur">Huidig wachtwoord</label>
+            <input
+              id="pr-cur"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="pr-new">Nieuw wachtwoord</label>
+            <input
+              id="pr-new"
+              type="password"
+              required
+              minLength={10}
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+            <PasswordStrength
+              password={newPassword}
+              personal={[user?.username ?? '', user?.displayName ?? '', user?.email.split('@')[0] ?? '']}
+            />
+          </div>
+          <div className="settings-actions">
+            <button className="btn btn-primary">Wachtwoord wijzigen</button>
+          </div>
+        </form>
+      </section>
+
+      {/* One feedback line for the three panels: whichever form you just
+          submitted, its answer belongs at the end of the page rather than
+          repeated under each. */}
       {message && <p className="settings-ok">{message}</p>}
+      {error && <p className="error-text">{error}</p>}
+    </>
+  );
+}
+
+/**
+ * Which server this app talks to.
+ *
+ * Only in the app: in the browser the API is whatever origin served the page,
+ * so there is nothing to choose. The value is normally set once at login and
+ * then never thought about again, which is exactly why it is worth being able
+ * to see and correct without reinstalling.
+ */
+function ServerSection() {
+  const { logout } = useAuth();
+  const current = getServerBase() || DEFAULT_SERVER_URL;
+  const [url, setUrl] = useState(current);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isNative()) return null;
+
+  const trimmed = url.trim().replace(/\/+$/, '');
+  const changed = trimmed !== current.replace(/\/+$/, '');
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    let parsed: URL;
+    try {
+      parsed = new URL(trimmed);
+    } catch {
+      setError('Dat is geen geldig adres. Begin met https:// en vul een domein in.');
+      return;
+    }
+    if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost') {
+      setError('Gebruik https, anders reist je wachtwoord onversleuteld mee.');
+      return;
+    }
+    // Tokens belong to the server that issued them, so pointing the app
+    // somewhere else always ends the session. Better to say so than to have
+    // every request quietly start failing.
+    const ok = await confirmModal({
+      title: 'Andere server gebruiken?',
+      body: `De app praat daarna met ${parsed.origin}. Je wordt uitgelogd en moet daar opnieuw inloggen. Reizen die alleen op de oude server staan blijven daar.`,
+      confirmLabel: 'Wisselen',
+      danger: true,
+    });
+    if (!ok) return;
+    setServerBase(trimmed);
+    logout();
+  }
+
+  return (
+    <section className="card settings-card">
+      <h2>
+        Server
+        <HelpTip>
+          Het adres waarop jouw MarkMySteps draait. Dit is wat de app nu gebruikt; als je hem
+          verandert log je uit en log je op de nieuwe server opnieuw in.
+        </HelpTip>
+      </h2>
+      <p className="muted">De server waarmee deze sessie praat.</p>
+      <form onSubmit={save} className="settings-form">
+        <div className="field">
+          <label htmlFor="sv-url">Adres</label>
+          <input
+            id="sv-url"
+            type="url"
+            inputMode="url"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+        </div>
+        <div className="settings-actions">
+          <button className="btn btn-ghost" disabled={!changed || !trimmed}>
+            Server wijzigen
+          </button>
+          {changed && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                setUrl(current);
+                setError(null);
+              }}
+            >
+              Herstellen
+            </button>
+          )}
+        </div>
+      </form>
       {error && <p className="error-text">{error}</p>}
     </section>
   );
@@ -2483,102 +2589,110 @@ function AccountsSection() {
       <PendingRequests rows={requests} onDecide={decideRequest} />
 
       <section className="card settings-card">
-      <h2>
-        Accounts (beheer)
-        <HelpTip>
-          Wie zich aanmeldt komt eerst in de wachtrij: pas als jij die aanvraag toelaat kan diegene
-          iets. Maak je hier zelf een account aan, dan is dat meteen goedgekeurd. Bij de eerste
-          login kiezen ze een eigen wachtwoord; overslaan kan, dan blijven ze een herinnering zien.
-        </HelpTip>
-      </h2>
-      <p className="muted">Maak accounts voor vrienden met een tijdelijk wachtwoord.</p>
+        <h2>
+          Accounts
+          <HelpTip>
+            Wie zich aanmeldt komt eerst in de wachtrij: pas als jij die aanvraag toelaat kan
+            diegene iets. Maak je hier zelf een account aan, dan is dat meteen goedgekeurd. Bij de
+            eerste login kiezen ze een eigen wachtwoord; overslaan kan, dan blijven ze een
+            herinnering zien.
+          </HelpTip>
+        </h2>
+        <p className="muted">Iedereen die op deze server een account heeft.</p>
 
-      {/* Hold the list's space while it loads, so the card doesn't jump. */}
-      {!loaded && (
-        <ul className="admin-users" aria-hidden="true">
-          {[0, 1, 2].map((i) => (
-            <li key={i} className="admin-user-skeleton" />
+        {/* Hold the list's space while it loads, so the card doesn't jump. */}
+        {!loaded && (
+          <ul className="admin-users" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <li key={i} className="admin-user-skeleton" />
+            ))}
+          </ul>
+        )}
+        <ul className="admin-users">
+          {settled.map((row) => (
+            <li key={row.id}>
+              <div className="admin-user-info">
+                <strong>
+                  {row.displayName} <small className="muted">@{row.username}</small>
+                </strong>
+                <span className="muted">
+                  {row.email} · {row.tripCount} {row.tripCount === 1 ? 'reis' : 'reizen'}
+                  {row.role === 'ADMIN' && ' · admin'}
+                  {row.status === 'REJECTED' && ' · afgewezen'}
+                  {row.mustChangePassword && ' · tijdelijk wachtwoord'}
+                </span>
+              </div>
+              {row.id !== me?.id && (
+                <div className="admin-user-actions">
+                  <button className="btn btn-ghost" onClick={() => void resetPassword(row)}>
+                    Reset
+                  </button>
+                  <button className="btn btn-ghost" onClick={() => void toggleRole(row)}>
+                    {row.role === 'ADMIN' ? 'Demoveer' : 'Maak admin'}
+                  </button>
+                  <button
+                    className="btn btn-danger btn-icon-sm"
+                    aria-label="Account verwijderen"
+                    onClick={() => void removeAccount(row)}
+                  >
+                    <Icon name="trash" size={16} />
+                  </button>
+                </div>
+              )}
+            </li>
           ))}
         </ul>
-      )}
-      <ul className="admin-users">
-        {settled.map((row) => (
-          <li key={row.id}>
-            <div className="admin-user-info">
-              <strong>
-                {row.displayName} <small className="muted">@{row.username}</small>
-              </strong>
-              <span className="muted">
-                {row.email} · {row.tripCount} {row.tripCount === 1 ? 'reis' : 'reizen'}
-                {row.role === 'ADMIN' && ' · admin'}
-                {row.status === 'REJECTED' && ' · afgewezen'}
-                {row.mustChangePassword && ' · tijdelijk wachtwoord'}
-              </span>
+      </section>
+
+      <section className="card settings-card">
+        <h2>Account aanmaken</h2>
+        <p className="muted">
+          Maak een account voor een reisgenoot met een tijdelijk wachtwoord. Bij de eerste login
+          kiezen ze zelf iets anders.
+        </p>
+        <form onSubmit={createAccount} className="settings-form">
+          <div className="admin-create-grid">
+            <div className="field">
+              <label htmlFor="ac-name">Naam</label>
+              <input id="ac-name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
             </div>
-            {row.id !== me?.id && (
-              <div className="admin-user-actions">
-                <button className="btn btn-ghost" onClick={() => void resetPassword(row)}>
-                  Reset
-                </button>
-                <button className="btn btn-ghost" onClick={() => void toggleRole(row)}>
-                  {row.role === 'ADMIN' ? 'Demoveer' : 'Maak admin'}
-                </button>
-                <button
-                  className="btn btn-danger btn-icon-sm"
-                  aria-label="Account verwijderen"
-                  onClick={() => void removeAccount(row)}
-                >
-                  <Icon name="trash" size={16} />
+            <div className="field">
+              <label htmlFor="ac-user">Gebruikersnaam</label>
+              <input
+                id="ac-user"
+                required
+                pattern="[a-zA-Z0-9._\-]{3,30}"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="ac-mail">E-mail</label>
+              <input id="ac-mail" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="ac-pass">Tijdelijk wachtwoord</label>
+              <div className="admin-pass-row">
+                <input
+                  id="ac-pass"
+                  required
+                  minLength={10}
+                  value={tempPassword}
+                  onChange={(e) => setTempPassword(e.target.value)}
+                />
+                <button type="button" className="btn btn-ghost" onClick={generatePassword}>
+                  Genereer
                 </button>
               </div>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      <form onSubmit={createAccount} className="settings-form">
-        <div className="admin-create-grid">
-          <div className="field">
-            <label htmlFor="ac-name">Naam</label>
-            <input id="ac-name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-          </div>
-          <div className="field">
-            <label htmlFor="ac-user">Gebruikersnaam</label>
-            <input
-              id="ac-user"
-              required
-              pattern="[a-zA-Z0-9._\-]{3,30}"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="ac-mail">E-mail</label>
-            <input id="ac-mail" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div className="field">
-            <label htmlFor="ac-pass">Tijdelijk wachtwoord</label>
-            <div className="admin-pass-row">
-              <input
-                id="ac-pass"
-                required
-                minLength={10}
-                value={tempPassword}
-                onChange={(e) => setTempPassword(e.target.value)}
-              />
-              <button type="button" className="btn btn-ghost" onClick={generatePassword}>
-                Genereer
-              </button>
             </div>
           </div>
-        </div>
-        <div className="settings-actions">
-          <button className="btn btn-primary">Account aanmaken</button>
-        </div>
-      </form>
+          <div className="settings-actions">
+            <button className="btn btn-primary">Account aanmaken</button>
+          </div>
+        </form>
 
-      {message && <p className="settings-ok">{message}</p>}
-      {error && <p className="error-text">{error}</p>}
+        {message && <p className="settings-ok">{message}</p>}
+        {error && <p className="error-text">{error}</p>}
       </section>
     </>
   );

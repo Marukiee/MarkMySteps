@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import type { LiveFix, MediaItem, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -50,8 +50,18 @@ export function TripDetailPage() {
   const [noAccess, setNoAccess] = useState(false);
   const [addPointMode, setAddPointMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [peopleOpen, setPeopleOpen] = useState(false);
+  // Arriving from a trip card's avatars means "let me manage who is on this",
+  // so the sheet is already open when the page paints. The flag is consumed
+  // straight away, or closing it and reloading would just open it again.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [peopleOpen, setPeopleOpen] = useState(searchParams.get('people') === '1');
   const [peopleClosing, setPeopleClosing] = useState(false);
+  useEffect(() => {
+    if (!searchParams.has('people')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('people');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [currentLoc, setCurrentLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [liveTracking, setLiveTracking] = useState(false);
   const [liveFixes, setLiveFixes] = useState<LiveFix[]>([]);

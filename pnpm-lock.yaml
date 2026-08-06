@@ -128,9 +128,6 @@ importers:
       '@fontsource/darker-grotesque':
         specifier: ^5.3.0
         version: 5.3.0
-      '@material/material-color-utilities':
-        specifier: ^0.4.0
-        version: 0.4.0
       d3-geo:
         specifier: ^3.1.1
         version: 3.1.1
@@ -156,9 +153,6 @@ importers:
       '@capacitor/cli':
         specifier: ^8.4.2
         version: 8.4.2(supports-color@8.1.1)
-      '@material-symbols/svg-400':
-        specifier: ^0.45.10
-        version: 0.45.10
       '@types/d3-geo':
         specifier: ^3.1.0
         version: 3.1.0
@@ -910,12 +904,6 @@ packages:
 
   '@maplibre/vt-pbf@4.3.2':
     resolution: {integrity: sha512-j6p0AdjvAR19Z3XaCysle7A4ZSo08tYOzxD0Y9NQylwPAkwJJeYub5b2eVucdeDh7erhv69DahoLOevDRERRUw==}
-
-  '@material-symbols/svg-400@0.45.10':
-    resolution: {integrity: sha512-tHxhd8cAquFQYpTdtxJbGFF023WW1RuScL9Lig5SZVrvP3RkogrVf26RC3pmFtNWiFOvooFWVBgMReeRcOG8Tg==}
-
-  '@material/material-color-utilities@0.4.0':
-    resolution: {integrity: sha512-dlq6VExJReb8dhjj3a/yTigr3ncNwoFmL5Iy2ENtbDX03EmNeOEdZ+vsaGrj7RTuO+mB7L58II4LCsl4NpM8uw==}
 
   '@nestjs/cli@11.0.24':
     resolution: {integrity: sha512-aIHxQLSYtXShifA3zwWIeznEsZnNa3Iz2QRykFj+sl9IcbERBHr5nH87FRgywM+He3NxoF5WazHfR8FsmVeWxw==}
@@ -4420,10 +4408,6 @@ snapshots:
       '@mapbox/point-geometry': 1.1.0
       '@types/geojson': 7946.0.16
       pbf: 5.1.2
-
-  '@material-symbols/svg-400@0.45.10': {}
-
-  '@material/material-color-utilities@0.4.0': {}
 
   '@nestjs/cli@11.0.24(@types/node@22.20.1)(esbuild@0.25.12)(postcss@8.5.21)(uglify-js@3.19.3)':
     dependencies:

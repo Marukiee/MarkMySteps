@@ -723,7 +723,7 @@ function TripCard({
               </strong>
             </div>
           )}
-          <TripCardMembers members={trip.members} ownerId={trip.ownerId} />
+          <TripCardMembers members={trip.members} ownerId={trip.ownerId} tripId={trip.id} />
         </div>
 
         {menuEl}
@@ -785,14 +785,23 @@ function daysUntil(startDate: string): number | null {
   return diff < 0 ? null : diff;
 }
 
-/** At most two avatars, stacked tight; any extras collapse to a +N chip. */
+/**
+ * At most two avatars, stacked tight; any extras collapse to a +N chip.
+ *
+ * Tapping the faces is a shortcut into the trip's "Mensen & delen" sheet:
+ * seeing who is on a trip is usually the moment you want to change it, and
+ * the long way round is the trip page, the aside and then the sheet.
+ */
 function TripCardMembers({
   members,
   ownerId,
+  tripId,
 }: {
   members: Trip['members'];
   ownerId: string;
+  tripId: string;
 }) {
+  const navigate = useNavigate();
   const sorted = [...members].sort((a, b) =>
     a.userId === ownerId ? -1 : b.userId === ownerId ? 1 : 0,
   );
@@ -800,7 +809,17 @@ function TripCardMembers({
   const extra = sorted.length - visible.length;
 
   return (
-    <div className="trip-card-members">
+    <button
+      type="button"
+      className="trip-card-members"
+      aria-label="Mensen en delen"
+      onClick={(e) => {
+        // The whole card is already a link to the trip; without this the card
+        // wins and the sheet never opens.
+        e.stopPropagation();
+        navigate(`/trips/${tripId}?people=1`);
+      }}
+    >
       {visible.map((m, i) => (
         <Avatar
           key={m.userId}
@@ -813,7 +832,7 @@ function TripCardMembers({
         />
       ))}
       {extra > 0 && <span className="member-more">+{extra}</span>}
-    </div>
+    </button>
   );
 }
 

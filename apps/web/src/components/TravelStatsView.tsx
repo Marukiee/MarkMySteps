@@ -126,7 +126,16 @@ function Tile({
           <CountUp value={value} format={format} />
         )}
       </strong>
-      <Icon name={icon} size={wide ? 30 : 26} className="stat-tile-icon" />
+      {/* The wide tile carries a bigger icon, and stroke width scales with it —
+          which made the ruler on "kilometer afgelegd" visibly heavier than the
+          icons in the row below. Thinning the stroke in proportion lands it on
+          the same rendered weight as its neighbours. */}
+      <Icon
+        name={icon}
+        size={wide ? 30 : 26}
+        strokeWidth={wide ? (2 * 26) / 30 : 2}
+        className="stat-tile-icon"
+      />
       <small>{label}</small>
     </div>
   );

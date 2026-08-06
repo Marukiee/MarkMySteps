@@ -680,10 +680,22 @@
   font-size: 1.25rem;
 }
 
+/* A button (it opens the trip's people sheet), but it must still read as the
+   row of faces it always was, so it keeps no surface of its own. The padding
+   is thumb room, pulled back out with the negative margin so the avatars sit
+   exactly where they did. */
 .trip-card-members {
   display: flex;
   align-items: center;
   margin-top: 0.3rem;
+  padding: 0.25rem;
+  margin-left: -0.25rem;
+  border-radius: 999px;
+  transition: background 0.15s var(--ease), transform 0.15s var(--ease);
+}
+
+.trip-card-members:active {
+  transform: scale(0.94);
 }
 
 .trip-card-members > * + * {

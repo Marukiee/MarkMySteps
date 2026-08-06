@@ -58,13 +58,18 @@
   gap: 0.35rem;
 }
 
+/* Raised and outlined rather than filled with the accent wash: this panel is
+   beige, and --accent-soft on it is so close in tone that the pill shape
+   disappears and only the text reads. The accent stays in the border and the
+   label, where it still says "picked". */
 .member-add-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   padding: 0.2rem 0.5rem 0.2rem 0.25rem;
   border-radius: 999px;
-  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  background: var(--paper-raised);
   color: var(--accent-ink);
   font-size: 0.8rem;
   font-weight: 600;
@@ -88,6 +93,10 @@
   max-height: 15rem;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* A scroll container clips on both axes, and the picked row's drop shadow
+     was being cut off against those edges. Two pixels of breathing room is
+     all it needs. */
+  padding: 2px;
 }
 
 .member-add-row {
@@ -137,10 +146,13 @@
 }
 
 /* Raised and outlined, not tinted: the accent wash sat on a beige panel and
-   the row barely read as picked at all. The tick keeps the accent. */
+   the row barely read as picked at all. The tick keeps the accent.
+
+   The ring is inset: drawn outside the row it was clipped left and right by
+   the scrolling list, which left the outline open at both ends. */
 .member-add-row.checked {
   background: var(--paper-raised);
-  box-shadow: 0 0 0 1.5px var(--accent), var(--shadow-s);
+  box-shadow: inset 0 0 0 1.5px var(--accent), var(--shadow-s);
 }
 
 .member-add-row.checked .member-add-box {
@@ -173,12 +185,17 @@
   font-weight: 500;
 }
 
+/* How many trips you already share. That is a fact about the person, not a
+   call to action, so it reads as quiet metadata instead of borrowing the
+   accent — which on this beige panel was an orange pill you could barely
+   make out anyway. */
 .member-add-tag {
   flex-shrink: 0;
   padding: 0.1rem 0.45rem;
   border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  border: 1px solid var(--line);
+  background: var(--paper-raised);
+  color: var(--ink-soft);
   font-size: 0.68rem;
   font-weight: 700;
 }
@@ -215,4 +232,18 @@
 
 .member-add-as-row .btn {
   justify-content: center;
+}
+
+/* "Gast" is the other half of a pair, not a lesser option. A transparent
+   ghost button on this beige panel came out as an outline you had to look
+   for, so it gets a surface of its own and full-strength label text. */
+.member-add-as-row .btn-ghost {
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.member-add-as-row .btn-ghost:hover:not(:disabled) {
+  background: var(--paper-raised);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }

@@ -77,29 +77,24 @@ export function setThemeId(id: ThemeId): void {
   applyTheme(id);
 }
 
-/* ---------- Skin (visual language) ---------- */
+/* ---------- Wallpaper accent ---------- */
 
 /**
- * Which look the app wears. `classic` is the original warm-paper design;
- * `m3` is the Material 3 Expressive skin, which recolours from the phone's
- * wallpaper. Both are always compiled in — the skin only swaps design tokens,
- * so switching is instant and nothing is lost either way.
+ * Whether the accent colour follows the phone's wallpaper.
+ *
+ * Only the accent: the paper tones, ink and shadows are the design and stay
+ * put. Android-only, and off unless asked for, so the app looks the same on
+ * every device until someone decides otherwise.
  */
-export type SkinId = 'classic' | 'm3';
-const SKIN_KEY = 'mms.skin';
+const DYNAMIC_ACCENT_KEY = 'mms.dynamicAccent';
 
-export function getSkinId(): SkinId {
-  return (localStorage.getItem(SKIN_KEY) as SkinId | null) ?? 'classic';
+export function isDynamicAccent(): boolean {
+  return localStorage.getItem(DYNAMIC_ACCENT_KEY) === '1';
 }
 
-export function applySkin(id: SkinId = getSkinId()): void {
-  document.documentElement.dataset.skin = id;
-  window.dispatchEvent(new CustomEvent('mms-skin', { detail: id }));
-}
-
-export function setSkinId(id: SkinId): void {
-  localStorage.setItem(SKIN_KEY, id);
-  applySkin(id);
+export function setDynamicAccent(on: boolean): void {
+  if (on) localStorage.setItem(DYNAMIC_ACCENT_KEY, '1');
+  else localStorage.removeItem(DYNAMIC_ACCENT_KEY);
 }
 
 /* ---------- Tracking cadence ---------- */
