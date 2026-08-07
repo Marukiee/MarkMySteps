@@ -73,12 +73,40 @@
   color: var(--accent-ink);
   font-size: 0.8rem;
   font-weight: 600;
+  /* max-width is animated alongside the fade so the chips after this one
+     slide over instead of teleporting when one is added or taken away. The
+     cap is well past any display name; it only has to be a finite number for
+     the animation to have somewhere to go. */
+  max-width: 20rem;
+  overflow: hidden;
+  white-space: nowrap;
   animation: memberChipIn 0.22s var(--ease);
 }
 
 @keyframes memberChipIn {
   from {
     opacity: 0;
+    max-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    transform: scale(0.85);
+  }
+}
+
+.member-add-chip.leaving {
+  pointer-events: none;
+  animation: memberChipOut 0.22s var(--ease) forwards;
+}
+
+@keyframes memberChipOut {
+  to {
+    opacity: 0;
+    max-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    border-width: 0;
+    /* Cancels the flex gap the chip was holding open. */
+    margin-right: -0.35rem;
     transform: scale(0.85);
   }
 }
@@ -122,7 +150,19 @@
   }
 }
 
-.member-add-row:hover,
+/* Guarded, because on a touchscreen :hover sticks to whatever you last
+   tapped. Unpicking a row dropped its ring but left the white background
+   behind, which read as still selected. */
+@media (hover: hover) {
+  .member-add-row:hover {
+    background: var(--paper-raised);
+  }
+
+  .member-add-row:hover .member-add-tag {
+    background: var(--paper-sunken);
+  }
+}
+
 .member-add-row:focus-visible {
   background: var(--paper-raised);
 }
@@ -187,8 +227,12 @@
 
 /* How many trips you already share. That is a fact about the person, not a
    call to action, so it reads as quiet metadata instead of borrowing the
-   accent — which on this beige panel was an orange pill you could barely
-   make out anyway. */
+   accent, which on this beige panel was an orange pill you could barely make
+   out anyway.
+
+   It has to stand off two different surfaces: the beige panel while the row
+   is idle, and the white row once it is picked. So it takes whichever of the
+   two the row is not currently using. */
 .member-add-tag {
   flex-shrink: 0;
   padding: 0.1rem 0.45rem;
@@ -198,6 +242,11 @@
   color: var(--ink-soft);
   font-size: 0.68rem;
   font-weight: 700;
+  transition: background 0.16s var(--ease);
+}
+
+.member-add-row.checked .member-add-tag {
+  background: var(--paper-sunken);
 }
 
 .member-add-empty {

@@ -33,6 +33,10 @@ export function MemberAdd({
   const [items, setItems] = useState<UserSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState<UserSuggestion[]>([]);
+  // Someone you just unpicked stays in the list for the length of its exit
+  // animation, so the chip shrinks away and the ones after it slide across
+  // rather than snapping into the hole.
+  const [leaving, setLeaving] = useState<string[]>([]);
 
   // Debounced, so typing doesn't fire a request per keystroke.
   useEffect(() => {
@@ -51,22 +55,32 @@ export function MemberAdd({
     return () => window.clearTimeout(t);
   }, [query]);
 
-  const isPicked = (u: UserSuggestion) => picked.some((p) => p.id === u.id);
+  // Everyone who is on their way out is already unpicked as far as the rest of
+  // the component is concerned: the row's ring drops immediately, only the
+  // chip lingers.
+  const active = picked.filter((p) => !leaving.includes(p.id));
+  const isPicked = (u: UserSuggestion) => active.some((p) => p.id === u.id);
+
+  const unpick = (id: string) => {
+    setLeaving((list) => [...list, id]);
+    window.setTimeout(() => {
+      setPicked((list) => list.filter((p) => p.id !== id));
+      setLeaving((list) => list.filter((x) => x !== id));
+    }, 220);
+  };
 
   const toggle = (u: UserSuggestion) => {
-    setPicked((list) => (list.some((p) => p.id === u.id) ? list.filter((p) => p.id !== u.id) : [...list, u]));
+    if (isPicked(u)) unpick(u.id);
+    else setPicked((list) => (list.some((p) => p.id === u.id) ? list : [...list, u]));
   };
 
   const visible = items.filter((u) => !exclude.includes(u.username));
-  // Someone you ticked and then searched past keeps a chip, so a new search
-  // never quietly loses a choice you already made. People still in the list
-  // below don't need one: their row already says it.
-  const offscreen = picked.filter((p) => !visible.some((v) => v.id === p.id));
 
   async function submit(role: 'MEMBER' | 'GUEST') {
-    if (picked.length === 0) return;
-    await onAdd(picked.map((p) => p.username), role);
+    if (active.length === 0) return;
+    await onAdd(active.map((p) => p.username), role);
     setPicked([]);
+    setLeaving([]);
     setQuery('');
   }
 
@@ -89,10 +103,19 @@ export function MemberAdd({
         )}
       </div>
 
-      {offscreen.length > 0 && (
+      {/* Everyone you have ticked, whether or not their row is still on screen.
+          A running total under the search box is the only place that survives
+          a new search, and it is where you go to take somebody back off. */}
+      {picked.length > 0 && (
         <div className="member-add-chips">
-          {offscreen.map((u) => (
-            <button key={u.id} type="button" className="member-add-chip" onClick={() => toggle(u)}>
+          {picked.map((u) => (
+            <button
+              key={u.id}
+              type="button"
+              className={`member-add-chip ${leaving.includes(u.id) ? 'leaving' : ''}`}
+              aria-label={`${u.displayName} niet toevoegen`}
+              onClick={() => unpick(u.id)}
+            >
               <Avatar userId={u.id} displayName={u.displayName} hasAvatar={u.hasAvatar} size={20} />
               {u.displayName}
               <Icon name="close" size={12} />
@@ -134,7 +157,7 @@ export function MemberAdd({
               ? 'Zoeken…'
               : query
                 ? 'Niemand gevonden met die naam.'
-                : picked.length > 0
+                : active.length > 0
                   ? 'Zoek op naam om er meer toe te voegen.'
                   : 'Zoek op naam of @gebruikersnaam om iemand toe te voegen.'}
           </p>
@@ -146,13 +169,13 @@ export function MemberAdd({
           above it. */}
       <div className="member-add-as">
         <span className="member-add-as-label">
-          {picked.length > 1 ? `${picked.length} mensen toevoegen als` : 'Toevoegen als'}
+          {active.length > 1 ? `${active.length} mensen toevoegen als` : 'Toevoegen als'}
         </span>
         <div className="member-add-as-row">
           <button
             type="button"
             className="btn btn-primary"
-            disabled={busy || picked.length === 0}
+            disabled={busy || active.length === 0}
             onClick={() => void submit('MEMBER')}
           >
             <Icon name="plus" size={16} />
@@ -161,7 +184,7 @@ export function MemberAdd({
           <button
             type="button"
             className="btn btn-ghost"
-            disabled={busy || picked.length === 0}
+            disabled={busy || active.length === 0}
             onClick={() => void submit('GUEST')}
           >
             <Icon name="plus" size={16} />

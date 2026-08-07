@@ -11,12 +11,34 @@
 }
 
 .share-link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   min-width: 0;
   animation: shareLinkIn 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Revoking collapses the row rather than deleting it mid-blink, so the rows
+   under it slide up instead of jumping. */
+.share-link.leaving {
+  animation: shareLinkOut 0.26s var(--ease) forwards;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+@keyframes shareLinkOut {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+    height: 0;
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: -0.55rem;
+    border-width: 0;
+  }
 }
 
 @keyframes shareLinkIn {
@@ -34,15 +56,41 @@
   flex-shrink: 0;
 }
 
+/* Written as a link, because it is one. As grey monospace it read like a
+   disabled field, and the row's only piece of content looked switched off. */
 .share-url {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.83rem;
+  font-size: 0.84rem;
+  font-weight: 550;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+
+.share-url:hover {
+  text-decoration-color: var(--accent);
+}
+
+.share-url:active {
+  color: var(--accent);
+}
+
+/* Sits with the URL, not with the buttons: it is a fact about the link. */
+.share-lock {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
   color: var(--ink-soft);
-  font-family: ui-monospace, monospace;
 }
 
 .share-btn {
@@ -50,15 +98,133 @@
   font-size: 0.82rem;
 }
 
-.share-delete {
-  color: var(--ink-faint);
-  padding: 0.25rem 0.4rem;
-  border-radius: 6px;
+/* Everything that is not "copy this" lives behind the cog. The bin used to
+   sit a thumb-width from the copy button, which is a bad place for the one
+   action nobody can undo. */
+.share-cog {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  transition: background 0.18s var(--ease), color 0.18s var(--ease);
 }
 
-.share-delete:hover {
-  color: #b3402a;
-  background: #fbeae4;
+.share-cog svg {
+  transition: transform 0.28s var(--ease);
+}
+
+.share-cog.open {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.share-cog.open svg {
+  transform: rotate(60deg);
+}
+
+.share-cog:active svg {
+  transform: scale(0.88);
+}
+
+.share-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0.5rem;
+  z-index: 20;
+  min-width: 232px;
+  padding: 0.3rem;
+  display: grid;
+  gap: 1px;
+  text-align: left;
+  transform-origin: top right;
+  animation: shareMenuIn 0.16s var(--ease);
+}
+
+.share-menu.closing {
+  animation: shareMenuOut 0.14s var(--ease) forwards;
+}
+
+@keyframes shareMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+}
+
+@keyframes shareMenuOut {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+.share-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 550;
+  color: var(--ink);
+  text-align: left;
+  transition: background 0.15s var(--ease);
+}
+
+.share-menu > button svg {
+  flex-shrink: 0;
+  color: var(--ink-faint);
+}
+
+.share-menu > button:hover {
+  background: var(--paper-sunken);
+}
+
+.share-menu > button.share-menu-danger,
+.share-menu > button.share-menu-danger svg {
+  color: var(--accent-ink);
+}
+
+.share-menu > button.share-menu-danger:hover {
+  background: var(--accent-soft);
+}
+
+/* Setting a password happens inside the same popover: it is a detail of the
+   link, not a screen of its own. */
+.share-menu-form {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.35rem;
+  animation: shareMenuIn 0.16s var(--ease);
+}
+
+.share-menu-form label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.share-menu-form input {
+  padding: 0.5rem 0.7rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.share-menu-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.share-menu-actions .btn {
+  justify-content: center;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
 }
 
 .share-create {

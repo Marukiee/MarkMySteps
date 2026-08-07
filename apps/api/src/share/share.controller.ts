@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Patch,
   Headers,
   HttpCode,
   HttpStatus,
@@ -17,7 +18,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response as ExpressResponse } from 'express';
-import { IsOptional, IsString, Length, MaxLength } from 'class-validator';
+import { IsOptional, IsString, Length, MaxLength, ValidateIf } from 'class-validator';
 import { Readable } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { JwtPayload } from '../auth/auth.service';
@@ -36,6 +37,19 @@ class CreateShareDto {
   @IsString()
   @Length(4, 128)
   password?: string;
+}
+
+/**
+ * `password: null` clears it, a string sets it. Absent means "leave it
+ * alone", which is why null has to be spelled out rather than inferred from
+ * an empty body.
+ */
+class UpdateShareDto {
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @Length(4, 128)
+  password?: string | null;
 }
 
 class UnlockShareDto {
@@ -67,6 +81,16 @@ export class ShareManagementController {
     @Param('tripId', ParseUUIDPipe) tripId: string,
   ): Promise<ShareLinkInfo[]> {
     return this.share.list(tripId, user.sub);
+  }
+
+  @Patch(':linkId')
+  setPassword(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Param('linkId', ParseUUIDPipe) linkId: string,
+    @Body() dto: UpdateShareDto,
+  ): Promise<ShareLinkInfo> {
+    return this.share.setPassword(tripId, user.sub, linkId, dto.password ?? null);
   }
 
   @Delete(':linkId')

@@ -64,6 +64,36 @@ export class ShareService {
     return links.map(toInfo);
   }
 
+  /**
+   * Sets or clears a link's password without changing its slug.
+   *
+   * Rotating the link is the destructive option: everyone who already has it
+   * loses access. Deciding afterwards that the link should be protected (or no
+   * longer needs to be) is the common case, and it should not cost the URL you
+   * already sent round.
+   */
+  async setPassword(
+    tripId: string,
+    userId: string,
+    linkId: string,
+    password: string | null,
+  ): Promise<ShareLinkInfo> {
+    const trip = await this.trips.getForMember(tripId, userId);
+    if (trip.ownerId !== userId) {
+      throw new ForbiddenException('Only the trip owner can change share links');
+    }
+    const link = await this.prisma.shareLink.findFirst({ where: { id: linkId, tripId } });
+    if (!link) throw new NotFoundException('Share link not found');
+
+    const updated = await this.prisma.shareLink.update({
+      where: { id: link.id },
+      data: {
+        passwordHash: password ? await argon2.hash(password, { type: argon2.argon2id }) : null,
+      },
+    });
+    return toInfo(updated);
+  }
+
   async remove(tripId: string, userId: string, linkId: string): Promise<void> {
     const trip = await this.trips.getForMember(tripId, userId);
     if (trip.ownerId !== userId) {

@@ -1884,3 +1884,46 @@
   line-height: 1.15;
   text-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
 }
+
+/* Filter for the accounts list. Its own rule rather than borrowing the one in
+   the members panel, so the two cannot drift into each other. */
+.admin-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.6rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+  color: var(--ink-faint);
+  transition: border-color 0.18s var(--ease);
+}
+
+.admin-search:focus-within {
+  border-color: var(--accent);
+}
+
+.admin-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+}
+
+.admin-search input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.admin-search-clear {
+  padding: 0.25rem;
+  border-radius: 999px;
+  color: var(--ink-faint);
+  transition: color 0.15s var(--ease);
+}
+
+.admin-search-clear:hover {
+  color: var(--ink);
+}

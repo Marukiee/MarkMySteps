@@ -745,7 +745,11 @@ export function TripDetailPage() {
         {/* Portalled out of the side column on purpose: that column sets its
             own z-index, which makes it a stacking context, and no z-index
             inside it can beat the map panel above. */}
+        {/* Not while the people sheet is up: it is fixed to the viewport, so it
+            floated over the sheet's scrim instead of with the page it belongs
+            to. */}
         {backTopShown &&
+          !peopleOpen &&
           createPortal(
           <button
             type="button"

@@ -693,15 +693,13 @@ function NotifySection() {
       <h2>
         Meldingen op je telefoon
         <HelpTip>
-          Je toestel heeft geen Google-pushdienst, dus de app kan niets tóégestuurd krijgen. In
-          plaats daarvan kijkt hij zelf elk kwartier of er iets nieuws is en zet die melding dan
-          zelf klaar. Daardoor kan een bericht tot een kwartier oud zijn. Het kost nauwelijks
-          batterij: vier kleine verzoekjes per uur.
+          Zonder Google-pushdienst kan de app niets toegestuurd krijgen, dus kijkt hij zelf. Vier
+          verzoekjes per uur, en een bericht kan een kwartier oud zijn.
         </HelpTip>
       </h2>
       <label className="ts-toggle settings-toggle">
         <div>
-          <strong>Zelf laten kijken</strong>
+          <strong>Scan op nieuwe meldingen</strong>
           <span className="muted">
             Verzoeken om toegang en uitnodigingen komen als melding binnen, ook als de app dicht
             is.
@@ -1955,6 +1953,7 @@ function ProfileSection() {
     <>
       <section className="card settings-card">
         <h2>Profielfoto</h2>
+        <p className="muted">Wat reisgenoten van je zien op kaarten en in tijdlijnen.</p>
         <div className="avatar-row">
           <button
             type="button"
@@ -2094,6 +2093,7 @@ function ProfileSection() {
 
       <section className="card settings-card">
         <h2>Wachtwoord</h2>
+        <p className="muted">Minimaal tien tekens. Je blijft op je andere toestellen ingelogd.</p>
         <form onSubmit={savePassword} className="settings-form">
           <div className="field">
             <label htmlFor="pr-cur">Huidig wachtwoord</label>
@@ -2483,6 +2483,7 @@ function AccountsSection() {
   const [tempPassword, setTempPassword] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   const [loaded, setLoaded] = useState(false);
 
@@ -2583,66 +2584,18 @@ function AccountsSection() {
 
   const requests = users.filter((u) => u.status === 'PENDING');
   const settled = users.filter((u) => u.status !== 'PENDING');
+  // Filtered here rather than on the server: an instance has tens of accounts,
+  // not thousands, and they are all already loaded.
+  const needle = query.trim().toLowerCase();
+  const shown = needle
+    ? settled.filter((u) =>
+        [u.displayName, u.username, u.email].some((field) => field.toLowerCase().includes(needle)),
+      )
+    : settled;
 
   return (
     <>
       <PendingRequests rows={requests} onDecide={decideRequest} />
-
-      <section className="card settings-card">
-        <h2>
-          Accounts
-          <HelpTip>
-            Wie zich aanmeldt komt eerst in de wachtrij: pas als jij die aanvraag toelaat kan
-            diegene iets. Maak je hier zelf een account aan, dan is dat meteen goedgekeurd. Bij de
-            eerste login kiezen ze een eigen wachtwoord; overslaan kan, dan blijven ze een
-            herinnering zien.
-          </HelpTip>
-        </h2>
-        <p className="muted">Iedereen die op deze server een account heeft.</p>
-
-        {/* Hold the list's space while it loads, so the card doesn't jump. */}
-        {!loaded && (
-          <ul className="admin-users" aria-hidden="true">
-            {[0, 1, 2].map((i) => (
-              <li key={i} className="admin-user-skeleton" />
-            ))}
-          </ul>
-        )}
-        <ul className="admin-users">
-          {settled.map((row) => (
-            <li key={row.id}>
-              <div className="admin-user-info">
-                <strong>
-                  {row.displayName} <small className="muted">@{row.username}</small>
-                </strong>
-                <span className="muted">
-                  {row.email} · {row.tripCount} {row.tripCount === 1 ? 'reis' : 'reizen'}
-                  {row.role === 'ADMIN' && ' · admin'}
-                  {row.status === 'REJECTED' && ' · afgewezen'}
-                  {row.mustChangePassword && ' · tijdelijk wachtwoord'}
-                </span>
-              </div>
-              {row.id !== me?.id && (
-                <div className="admin-user-actions">
-                  <button className="btn btn-ghost" onClick={() => void resetPassword(row)}>
-                    Reset
-                  </button>
-                  <button className="btn btn-ghost" onClick={() => void toggleRole(row)}>
-                    {row.role === 'ADMIN' ? 'Demoveer' : 'Maak admin'}
-                  </button>
-                  <button
-                    className="btn btn-danger btn-icon-sm"
-                    aria-label="Account verwijderen"
-                    onClick={() => void removeAccount(row)}
-                  >
-                    <Icon name="trash" size={16} />
-                  </button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
 
       <section className="card settings-card">
         <h2>Account aanmaken</h2>
@@ -2694,6 +2647,87 @@ function AccountsSection() {
         {message && <p className="settings-ok">{message}</p>}
         {error && <p className="error-text">{error}</p>}
       </section>
+
+      <section className="card settings-card">
+        <h2>
+          Accounts
+          <HelpTip>
+            Wie zich aanmeldt komt eerst in de wachtrij: pas als jij die aanvraag toelaat kan
+            diegene iets. Maak je hier zelf een account aan, dan is dat meteen goedgekeurd. Bij de
+            eerste login kiezen ze een eigen wachtwoord; overslaan kan, dan blijven ze een
+            herinnering zien.
+          </HelpTip>
+        </h2>
+        <p className="muted">Iedereen die op deze server een account heeft.</p>
+        <div className="admin-search">
+          <Icon name="search" size={16} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Zoek op naam, gebruikersnaam of e-mail"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+          {query && (
+            <button
+              type="button"
+              className="admin-search-clear"
+              onClick={() => setQuery('')}
+              aria-label="Wissen"
+            >
+              <Icon name="close" size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Hold the list's space while it loads, so the card doesn't jump. */}
+        {!loaded && (
+          <ul className="admin-users" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <li key={i} className="admin-user-skeleton" />
+            ))}
+          </ul>
+        )}
+        <ul className="admin-users">
+          {shown.map((row) => (
+            <li key={row.id}>
+              <div className="admin-user-info">
+                <strong>
+                  {row.displayName} <small className="muted">@{row.username}</small>
+                </strong>
+                <span className="muted">
+                  {row.email} · {row.tripCount} {row.tripCount === 1 ? 'reis' : 'reizen'}
+                  {row.role === 'ADMIN' && ' · admin'}
+                  {row.status === 'REJECTED' && ' · afgewezen'}
+                  {row.mustChangePassword && ' · tijdelijk wachtwoord'}
+                </span>
+              </div>
+              {row.id !== me?.id && (
+                <div className="admin-user-actions">
+                  <button className="btn btn-ghost" onClick={() => void resetPassword(row)}>
+                    Reset
+                  </button>
+                  <button className="btn btn-ghost" onClick={() => void toggleRole(row)}>
+                    {row.role === 'ADMIN' ? 'Demoveer' : 'Maak admin'}
+                  </button>
+                  <button
+                    className="btn btn-danger btn-icon-sm"
+                    aria-label="Account verwijderen"
+                    onClick={() => void removeAccount(row)}
+                  >
+                    <Icon name="trash" size={16} />
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+        {loaded && shown.length === 0 && (
+          <p className="muted">Geen account gevonden met die naam.</p>
+        )}
+      </section>
+
     </>
   );
 }
