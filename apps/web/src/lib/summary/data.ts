@@ -1,6 +1,6 @@
 import { api } from '../../api/client';
 import type { MediaItem } from '../../api/types';
-import { haversineKm } from '../arc';
+import { flightArc, haversineKm } from '../arc';
 import { flagEmoji, formatDate, formatDateRange } from '../colors';
 import { reversePlaceName } from '../geocode';
 import { fetchWeather, type Weather } from '../weather';
@@ -132,8 +132,17 @@ function tripLines(source: SummarySource): [number, number][][] {
     .map((f) => f.geometry.coordinates)
     .filter((c) => c.length > 1);
   if (fromRoutes.length > 0) return fromRoutes;
-  // No tracked route: the planned journey is the shape of the trip.
-  const journey = (source.trip.journey ?? []).map((leg) => leg.points).filter((p) => p.length > 1);
+  // No tracked route: the planned journey is the shape of the trip. A flight
+  // gets the curve it gets everywhere else in the app — a straight line
+  // between two airports is not what flying looks like on a map.
+  const journey = (source.trip.journey ?? [])
+    .map((leg) => {
+      if (!leg.flight || leg.points.length < 2) return leg.points;
+      const from = leg.points[0]!;
+      const to = leg.points[leg.points.length - 1]!;
+      return flightArc(from, to);
+    })
+    .filter((p) => p.length > 1);
   if (journey.length > 0) return journey;
   const stops = source.stops
     .filter((s) => s.latitude !== null && s.longitude !== null && !s.parentStopId)

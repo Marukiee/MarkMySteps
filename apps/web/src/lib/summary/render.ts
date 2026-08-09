@@ -57,39 +57,3 @@ export function revokePages(pages: RenderedPage[]): void {
   for (const page of pages) URL.revokeObjectURL(page.url);
 }
 
-/**
- * A thumbnail of each layout, drawn with this trip's own data and no photos.
- *
- * Names and a sentence cannot tell you what "Stoppenlint" looks like. These
- * are not drawings of the layouts, they ARE the layouts: the same renderer at
- * a smaller size, with the photo slots left as empty panels so the shape of
- * the thing is what you are comparing.
- */
-export async function renderSpecimens(
-  source: SummarySource,
-  spec: SummarySpec,
-): Promise<Record<string, string>> {
-  await readyFonts();
-  const [page] = await buildPages(source, { ...spec, series: false });
-  if (!page) return {};
-  const blank: PageData = { ...page, photos: [], pageLabel: null };
-  const format = FORMATS[spec.format];
-  // Half size, which at 1080 wide is still enough to read the shape.
-  const width = 540;
-  const height = Math.round((width * format.height) / format.width);
-  const out: Record<string, string> = {};
-
-  for (const [id, render] of Object.entries(TEMPLATES)) {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) continue;
-    await render(ctx, { w: width, h: height }, blank, {
-      showLogo: spec.showLogo,
-      palette: PALETTES[spec.theme] ?? PALETTES.dark,
-    });
-    out[id] = canvas.toDataURL('image/jpeg', 0.7);
-  }
-  return out;
-}

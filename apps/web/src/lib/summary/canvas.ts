@@ -448,14 +448,15 @@ export function drawStopDot(
   accent: string,
   ring: string,
   big = false,
+  scale = 1,
 ): void {
-  const r = big ? 16 : 12;
+  const r = (big ? 16 : 12) * scale;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fillStyle = accent;
   ctx.fill();
   ctx.strokeStyle = ring;
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 5 * scale;
   ctx.stroke();
 }
 

@@ -233,13 +233,15 @@ export function GlobeBackdrop({
      * them rather than as arriving. Long enough for the dot to throw two rings.
      */
     /**
-     * Coming down somewhere: worth standing still for, two rings' worth.
+     * Coming down somewhere: worth standing still for, two rings' worth —
+     * which is the ring's own beat twice over PLUS the pause before the first
+     * one. Cut to the length of the rings alone, the second never started.
      *
      * Only for a place reached by air. Overland, the light stopping at every
      * dot read as a cursor being dragged from waypoint to waypoint; the dot
      * still throws its ring, but the light goes straight on through it.
      */
-    const AIR_ARRIVAL_MS = 2100;
+    const AIR_ARRIVAL_MS = 2700;
     /**
      * A beat between the light reaching a place and the plane leaving it. Long
      * enough that the departure is its own moment, short enough that the globe

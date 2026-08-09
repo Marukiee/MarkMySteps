@@ -50,6 +50,8 @@ interface Metrics {
   m: number;
   /** Vertical rhythm, relative to a story. Gaps close up on a short poster. */
   v: number;
+  /** Horizontal scale, so a half-size render is a miniature and not a fat one. */
+  u: number;
   title: number;
   fact: number;
   label: number;
@@ -59,6 +61,7 @@ function metrics(size: { w: number; h: number }): Metrics {
   return {
     m: Math.round((68 * size.w) / 1080),
     v: Math.min(1, size.h / 1920),
+    u: size.w / 1080,
     // Bounded by the height as well as the width, or a square poster is all
     // headline and no picture.
     title: Math.round(Math.min(size.w * 0.082, size.h * 0.058)),
@@ -197,6 +200,108 @@ async function photoRow(
   }
 }
 
+/**
+ * Where the map looks.
+ *
+ * The places, not the line. A trip that flies Eindhoven → Krakau → Praag →
+ * Schiphol is about Krakau and Praag; framing the whole line pulls the camera
+ * back over the Netherlands to fit two airports you only stood in.
+ */
+function mapFocus(page: PageData): [number, number][] {
+  if (page.stops.length > 0) return page.stops.map((s) => [s.lng, s.lat] as [number, number]);
+  return page.lines.flat();
+}
+
+/**
+ * The places, listed inside the top-left of the map.
+ *
+ * Dots say where, not what. A label per dot collides the moment two places are
+ * a day trip apart, so the names live together on one card with a spine down
+ * the side — a legend rather than a stack of floating words.
+ */
+function drawStopList(
+  ctx: CanvasRenderingContext2D,
+  map: Box,
+  page: PageData,
+  p: Palette,
+  mt: Metrics,
+): void {
+  const size = Math.round(26 * mt.u);
+  const lineH = Math.round(38 * mt.u);
+  const pad = Math.round(20 * mt.u);
+  const room = Math.max(1, Math.floor((map.h * 0.62 - pad * 2) / lineH));
+  const names = page.stops.map((s) => s.name);
+  const shown = names.length > room ? names.slice(0, room - 1) : names.slice();
+  const trimmed = names.length > room;
+  if (trimmed) shown.push(`+${names.length - shown.length} meer`);
+
+  setFont(ctx, size, 700, FONT_BODY);
+  const textW = Math.min(
+    map.w * 0.62,
+    Math.max(...shown.map((n) => ctx.measureText(n).width)) + pad * 2 + 26 * mt.u,
+  );
+  const card: Box = {
+    x: map.x + Math.round(22 * mt.u),
+    y: map.y + Math.round(22 * mt.u),
+    w: textW,
+    h: shown.length * lineH + pad * 2 - (lineH - size),
+  };
+
+  ctx.save();
+  roundRect(ctx, map, 40);
+  ctx.clip();
+  // The map's own surface at three quarters, so the route reads through it
+  // without the names having to fight anything.
+  panel(ctx, card, Math.round(18 * mt.u), withAlpha(p.paper, 0.78));
+  roundRect(ctx, card, Math.round(18 * mt.u));
+  ctx.strokeStyle = p.landLine;
+  ctx.lineWidth = 1.5 * mt.u;
+  ctx.stroke();
+
+  const dotX = card.x + pad + 4 * mt.u;
+  const firstY = card.y + pad + size / 2;
+  // A spine joining the dots, so the list reads in the order you travelled it.
+  if (shown.length > 1) {
+    ctx.beginPath();
+    ctx.moveTo(dotX, firstY);
+    ctx.lineTo(dotX, firstY + (shown.length - 1) * lineH);
+    ctx.strokeStyle = withAlpha(page.accent, 0.45);
+    ctx.lineWidth = 2.5 * mt.u;
+    ctx.stroke();
+  }
+
+  shown.forEach((name, i) => {
+    const y = firstY + i * lineH;
+    const last = trimmed && i === shown.length - 1;
+    if (!last) {
+      ctx.beginPath();
+      ctx.arc(dotX, y, 5 * mt.u, 0, Math.PI * 2);
+      ctx.fillStyle = page.accent;
+      ctx.fill();
+    }
+    const fitted = layoutText(ctx, name, card.w - pad * 2 - 26 * mt.u, {
+      size,
+      minSize: Math.round(16 * mt.u),
+      weight: 700,
+      family: FONT_BODY,
+      lines: 1,
+      color: last ? p.inkFaint : p.ink,
+    });
+    drawLayout(ctx, fitted, dotX + 20 * mt.u, y - fitted.size * 0.62);
+  });
+  ctx.restore();
+}
+
+/** Same colour, dialled back — works for both hex and hsl(). */
+function withAlpha(color: string, alpha: number): string {
+  if (color.startsWith('#') && color.length === 7) {
+    const n = parseInt(color.slice(1), 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+  }
+  if (color.startsWith('hsl(')) return color.replace('hsl(', 'hsla(').replace(')', ` / ${alpha})`);
+  return color;
+}
+
 /** How the space under the head is split between a map and a row of photos. */
 function bodySplit(
   size: { w: number; h: number },
@@ -240,26 +345,28 @@ const renderRoute: TemplateRenderer = async (ctx, size, page, opts) => {
   const top = head(ctx, size, page, opts, mt);
   const split = bodySplit(size, mt, top, Math.min(page.photos.length, 3), false);
 
-  const focus: [number, number][] = page.lines.flat();
-  for (const stop of page.stops) focus.push([stop.lng, stop.lat]);
-  const map = drawMap(ctx, split.map, focus, { accent: page.accent, palette: p });
-  drawRoute(ctx, map, page.lines, split.map, { color: page.accent, width: 10 });
+  const map = drawMap(ctx, split.map, mapFocus(page), { accent: page.accent, palette: p });
+  // A single place is a city trip: there is no line worth drawing, only the
+  // dot, and a flight home across the continent would be the whole picture.
+  if (page.stops.length !== 1) {
+    drawRoute(ctx, map, page.lines, split.map, { color: page.accent, width: 10 * mt.u });
+  }
 
   ctx.save();
   roundRect(ctx, split.map, 40);
   ctx.clip();
   for (const stop of page.stops) {
     const xy = map.project([stop.lng, stop.lat]);
-    if (xy) drawStopDot(ctx, xy[0], xy[1], page.accent, p.paper);
+    if (xy) drawStopDot(ctx, xy[0], xy[1], page.accent, p.paper, page.stops.length === 1, mt.u);
   }
   // Where the day began and where it ended, which is the story of a route.
   const line = page.lines[0];
   const last = page.lines[page.lines.length - 1];
-  if (line && last && line.length > 1) {
+  if (page.stops.length === 0 && line && last && line.length > 1) {
     const start = map.project(line[0]!);
     const end = map.project(last[last.length - 1]!);
-    if (start) drawStopDot(ctx, start[0], start[1], p.ink, p.paper, true);
-    if (end) drawStopDot(ctx, end[0], end[1], page.accent, p.paper, true);
+    if (start) drawStopDot(ctx, start[0], start[1], p.ink, p.paper, true, mt.u);
+    if (end) drawStopDot(ctx, end[0], end[1], page.accent, p.paper, true, mt.u);
   }
   ctx.restore();
 
@@ -267,31 +374,7 @@ const renderRoute: TemplateRenderer = async (ctx, size, page, opts) => {
   // where, not what: the name beside them is what turns a line into a route
   // you can read, and a label per dot would collide the moment two of them
   // are a day trip apart.
-  if (page.stops.length > 0) {
-    const lineH = 36;
-    const room = Math.max(1, Math.floor((split.map.h - 44) / lineH));
-    const names = page.stops.map((s) => s.name);
-    const shown = names.length > room ? names.slice(0, room - 1) : names.slice();
-    if (names.length > room) shown.push(`+${names.length - shown.length} meer`);
-    ctx.save();
-    roundRect(ctx, split.map, 40);
-    ctx.clip();
-    // A soft shadow, so a name stays readable wherever the route runs under it.
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-    ctx.shadowBlur = 12;
-    shown.forEach((name, i) => {
-      const fitted = layoutText(ctx, name, split.map.w * 0.6, {
-        size: 27,
-        minSize: 18,
-        weight: 700,
-        family: FONT_BODY,
-        lines: 1,
-        color: names.length > room && i === shown.length - 1 ? p.inkFaint : p.ink,
-      });
-      drawLayout(ctx, fitted, split.map.x + 26, split.map.y + 24 + i * lineH);
-    });
-    ctx.restore();
-  }
+  if (page.stops.length > 0) drawStopList(ctx, split.map, page, p, mt);
 
   if (split.photos) await photoRow(ctx, page.photos.slice(0, 3), split.photos, 20, p);
   pageBadge(ctx, size, page, mt, p.inkFaint);
@@ -419,10 +502,10 @@ const renderRibbon: TemplateRenderer = async (ctx, size, page, opts) => {
   const shown = page.stops.slice(0, 4);
   const split = bodySplit(size, mt, top, Math.min(page.photos.length, 4), shown.length > 0);
 
-  const focus: [number, number][] = page.lines.flat();
-  for (const stop of page.stops) focus.push([stop.lng, stop.lat]);
-  const map = drawMap(ctx, split.map, focus, { accent: page.accent, palette: p });
-  drawRoute(ctx, map, page.lines, split.map, { color: page.accent, width: 8 });
+  const map = drawMap(ctx, split.map, mapFocus(page), { accent: page.accent, palette: p });
+  if (page.stops.length !== 1) {
+    drawRoute(ctx, map, page.lines, split.map, { color: page.accent, width: 8 * mt.u });
+  }
 
   // No numbers on the dots. Two places a day trip apart sat on top of each
   // other and the figures were unreadable anyway; a place is a dot.
@@ -431,7 +514,7 @@ const renderRibbon: TemplateRenderer = async (ctx, size, page, opts) => {
   ctx.clip();
   for (const stop of page.stops) {
     const xy = map.project([stop.lng, stop.lat]);
-    if (xy) drawStopDot(ctx, xy[0], xy[1], page.accent, p.paper);
+    if (xy) drawStopDot(ctx, xy[0], xy[1], page.accent, p.paper, page.stops.length === 1, mt.u);
   }
   ctx.restore();
 
@@ -489,7 +572,7 @@ const renderStats: TemplateRenderer = async (ctx, size, page, opts) => {
       fill: null,
       radius: 0,
     });
-    drawRoute(ctx, sig, page.allLines, sigBox, { color: page.accent, width: 7, radius: 0 });
+    drawRoute(ctx, sig, page.allLines, sigBox, { color: page.accent, width: 7 * mt.u, radius: 0 });
   }
 
   // Bottom-up: flags, then the numbers, then the name above them, so a long

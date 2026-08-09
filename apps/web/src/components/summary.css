@@ -283,7 +283,23 @@
 }
 
 .summary-studio-head h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
   font-size: 1.25rem;
+}
+
+/* Says what it is: the posters work, the shapes are still moving. */
+.summary-beta {
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-faint);
+  font-family: var(--font-body);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 /* The preview is the poster itself, at whatever size the sheet can spare. */
@@ -295,6 +311,9 @@
   padding: 0.7rem;
   border-radius: var(--radius-m);
   background: var(--paper-sunken);
+  /* The poster is 1080px of intrinsic width. Anything less than a hard clip
+     here and it sizes its own box and spills over half the sheet. */
+  overflow: hidden;
 }
 
 .summary-preview-strip {
@@ -316,19 +335,22 @@
 
 .summary-preview-strip[data-single='true'] {
   justify-content: center;
-  overflow-x: visible;
 }
 
 .summary-preview-page {
   position: relative;
   flex: 0 0 auto;
+  max-width: 100%;
+  min-width: 0;
   margin: 0;
   scroll-snap-align: center;
 }
 
 .summary-preview-page img {
   display: block;
-  max-height: 46vh;
+  width: auto;
+  height: auto;
+  max-height: min(42vh, 380px);
   max-width: 100%;
   border-radius: var(--radius-s);
   box-shadow: var(--shadow-m);
@@ -409,6 +431,26 @@
   font-weight: 600;
 }
 
+/* A block that opens to the height it needs and shuts to nothing, so what is
+   under it slides rather than jumps. Same trick as the chip row when you add
+   somebody to a trip. */
+.summary-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.26s var(--ease), opacity 0.2s var(--ease);
+  opacity: 0;
+}
+
+.summary-fold[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.summary-fold > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Pick the photos yourself. A strip rather than a grid: the choice is a few
    out of a day, and a grid of three hundred is a scroll of its own. */
 .summary-photo-strip {
@@ -416,7 +458,7 @@
   gap: 0.4rem;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  padding: 0.15rem 0.15rem 0.35rem;
+  padding: 0.15rem 0.15rem 0.2rem;
 }
 
 .summary-photo {
@@ -477,7 +519,7 @@
 }
 
 .summary-photo-clear {
-  justify-self: start;
+  margin-top: 0.35rem;
   padding: 0.3rem 0.7rem;
   font-size: 0.8rem;
 }
@@ -550,46 +592,87 @@
   line-height: 1.3;
 }
 
-/* The layout itself, drawn small with the photo slots left empty. */
+/* A diagram of the layout: bars for text, blocks for photographs, a frame for
+   the map. Its own tint, so the sheet's white does not run straight into it. */
 .summary-template-shot {
   display: block;
   width: 100%;
   aspect-ratio: 9 / 16;
   margin-bottom: 0.15rem;
+  border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
   background: var(--paper-sunken);
 }
 
-.summary-template-shot[data-format='post'] {
-  aspect-ratio: 4 / 5;
-}
-
-.summary-template-shot[data-format='square'] {
-  aspect-ratio: 1;
-}
-
-.summary-template-shot img {
+.summary-schematic {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  animation: summaryShotIn 0.28s var(--ease);
 }
 
-.summary-template-wait {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(100deg, var(--paper-sunken) 30%, var(--paper-raised) 50%, var(--paper-sunken) 70%);
-  background-size: 220% 100%;
-  animation: summaryWait 1.1s linear infinite;
+/* One ink, at four strengths, plus the accent for the route itself. */
+.summary-schematic .s-ink {
+  fill: var(--ink);
+  opacity: 0.72;
 }
 
-@keyframes summaryWait {
-  to {
-    background-position: -120% 0;
-  }
+.summary-schematic .s-line {
+  fill: var(--ink);
+  opacity: 0.42;
+}
+
+.summary-schematic .s-faint {
+  fill: var(--ink);
+  opacity: 0.22;
+}
+
+.summary-schematic .s-panel {
+  fill: var(--ink);
+  opacity: 0.07;
+}
+
+.summary-schematic .s-card {
+  fill: var(--paper-raised);
+  opacity: 0.9;
+}
+
+.summary-schematic .s-block {
+  fill: var(--ink);
+  opacity: 0.16;
+}
+
+.summary-schematic .s-veil {
+  fill: var(--ink);
+  opacity: 0.1;
+}
+
+.summary-schematic .s-onphoto {
+  fill: var(--ink);
+  opacity: 0.55;
+}
+
+.summary-schematic .s-onphoto-soft {
+  fill: var(--ink);
+  opacity: 0.3;
+}
+
+.summary-schematic .s-route {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.75;
+}
+
+.summary-schematic .s-dot {
+  fill: var(--accent);
+}
+
+.summary-template.active .summary-template-shot {
+  border-color: var(--accent);
+  background: var(--paper-raised);
 }
 
 .summary-template.active {

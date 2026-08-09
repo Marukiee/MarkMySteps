@@ -13,7 +13,7 @@ import {
   scopeLines,
   suggestTemplate,
 } from '../lib/summary/data';
-import { renderSpecimens, renderSummary, revokePages, type RenderedPage } from '../lib/summary/render';
+import { renderSummary, revokePages, type RenderedPage } from '../lib/summary/render';
 import {
   FORMATS,
   SUBTITLE_NAMES,
@@ -30,6 +30,7 @@ import {
 import { resolvedTheme } from '../lib/prefs';
 import { AuthImage } from './AuthImage';
 import { DateField } from './DatePicker';
+import { SummarySchematic } from './SummarySchematic';
 import { Icon } from './Icon';
 import './summary.css';
 
@@ -197,28 +198,6 @@ export function SummaryStudio({
 
   useEffect(() => () => revokePages(pages), [pages]);
 
-  /**
-   * Thumbnails for the four layouts, drawn from this trip with the photo slots
-   * left empty. Cheap to make (half size, no images to fetch) and they are the
-   * real renderer, so what you pick is what you get.
-   */
-  const [specimens, setSpecimens] = useState<Record<string, string>>({});
-  useEffect(() => {
-    let alive = true;
-    const timer = window.setTimeout(() => {
-      void renderSpecimens({ trip, stops, media, routes }, spec)
-        .then((shots) => alive && setSpecimens(shots))
-        .catch(() => undefined);
-    }, 320);
-    return () => {
-      alive = false;
-      window.clearTimeout(timer);
-    };
-    // Same input as the poster itself; the layout choice is the one thing that
-    // does not matter here, since every layout is drawn.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spec.format, spec.theme, spec.scope, spec.showLogo, spec.showWeather, spec.subtitle, spec.subtitleText]);
-
   // Stoppenlint is a route with places on it. One day usually has one place,
   // and a lint of one dot is not a picture — so that pairing is not offered.
   const dayAllowed = template !== 'ribbon';
@@ -264,7 +243,9 @@ export function SummaryStudio({
     <div className={`summary-studio-backdrop ${closing ? 'closing' : ''}`} onClick={close}>
       <div className="summary-studio card" onClick={(e) => e.stopPropagation()}>
         <div className="summary-studio-head">
-          <h2>Samenvatting maken</h2>
+          <h2>
+            Samenvatting maken <span className="summary-beta">bèta</span>
+          </h2>
           <button className="people-sheet-close" aria-label="Sluiten" onClick={close}>
             <Icon name="close" size={18} />
           </button>
@@ -359,8 +340,8 @@ export function SummaryStudio({
                   setTouchedTemplate(true);
                 }}
               >
-                <span className="summary-template-shot" data-format={format}>
-                  {specimens[id] ? <img src={specimens[id]} alt="" /> : <span className="summary-template-wait" />}
+                <span className="summary-template-shot">
+                  <SummarySchematic template={id} />
                 </span>
                 <strong>{TEMPLATE_NAMES[id]}</strong>
                 <span className="summary-template-hint">{TEMPLATE_HINTS[id]}</span>
@@ -405,15 +386,19 @@ export function SummaryStudio({
                 );
               })}
             </div>
-            {photoIds.length > 0 && (
-              <button
-                type="button"
-                className="btn btn-ghost summary-photo-clear"
-                onClick={() => setPhotoIds([])}
-              >
-                Weer automatisch kiezen
-              </button>
-            )}
+            {/* Folds open and shut, so the sections under it slide instead of
+                jumping a button's worth. */}
+            <div className="summary-fold" data-open={photoIds.length > 0}>
+              <div>
+                <button
+                  type="button"
+                  className="btn btn-ghost summary-photo-clear"
+                  onClick={() => setPhotoIds([])}
+                >
+                  Weer automatisch kiezen
+                </button>
+              </div>
+            </div>
           </section>
         )}
 
@@ -469,7 +454,7 @@ export function SummaryStudio({
           <input
             value={subtitleText}
             onChange={(e) => setSubtitleText(e.target.value)}
-            placeholder="of typ hier iets eigens"
+            placeholder="of typ zelf wat"
           />
           <span className="muted summary-note">
             “Automatisch” zegt bij een hele reis in welke landen je was, en bij een dag of een
