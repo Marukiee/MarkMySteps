@@ -62,6 +62,29 @@ export function SummaryStudio({
     window.setTimeout(onClose, 220);
   };
 
+  /**
+   * A back gesture belongs to whatever is on top.
+   *
+   * Without an entry of its own the swipe went straight past the maker and out
+   * of the trip; this puts one on the stack so back closes the maker and
+   * leaves you where you were, in mensen & delen.
+   */
+  useEffect(() => {
+    window.history.pushState({ mmsSummaryStudio: true }, '');
+    let popped = false;
+    const onPop = () => {
+      popped = true;
+      onClose();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      if (!popped) window.history.back();
+    };
+    // Mounted once per visit to the maker.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const tripStart = dayKey(trip.startDate);
   const tripEnd = dayKey(trip.endDate);
   const [scope, setScope] = useState<Scope>(() => defaultScope(trip, media));
@@ -244,7 +267,7 @@ export function SummaryStudio({
       <div className="summary-studio card" onClick={(e) => e.stopPropagation()}>
         <div className="summary-studio-head">
           <h2>
-            Samenvatting maken <span className="summary-beta">bèta</span>
+            Samenvatting maken <span className="summary-beta">(bèta)</span>
           </h2>
           <button className="people-sheet-close" aria-label="Sluiten" onClick={close}>
             <Icon name="close" size={18} />

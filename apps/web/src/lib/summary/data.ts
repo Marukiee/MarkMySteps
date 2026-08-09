@@ -56,24 +56,22 @@ export function defaultScope(
 }
 
 /**
- * Which layout suits this slice of trip.
+ * Which layout to open on.
  *
- * Reading the data rather than asking: a day you barely moved is about the
- * photos, a day with a long line on the map is about the line, and a whole
- * trip is about where it went.
+ * The map, unless the data says otherwise: a route reads as a trip whether it
+ * is one day or three weeks, and it is the layout people reach for. Only a day
+ * that went nowhere and came back with photographs starts somewhere else.
  */
 export function suggestTemplate(
   scope: Scope,
   km: number,
   photoCount: number,
-  stopCount: number,
+  _stopCount: number,
 ): 'route' | 'photos' | 'ribbon' | 'stats' {
-  if (scope.kind === 'trip' || stopCount >= 3) {
-    return photoCount >= 20 && stopCount < 3 ? 'stats' : 'ribbon';
-  }
-  if (km < 2) return 'photos';
-  if (km >= 8) return 'route';
-  return photoCount >= 4 ? 'photos' : 'route';
+  // A day you barely moved is about what you saw; everything else starts as
+  // the map, which is the one layout that suits a trip and a day alike.
+  if (scope.kind !== 'trip' && km < 2 && photoCount >= 3) return 'photos';
+  return 'route';
 }
 
 /** Metres of line, in kilometres, for a set of polylines. */

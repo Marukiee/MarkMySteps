@@ -76,7 +76,9 @@ export function SummaryPanel({
 
   return (
     <section className="summary-panel">
-      <h2 className="trip-side-heading">Samenvattingen</h2>
+      <h2 className="trip-side-heading">
+        Samenvattingen <span className="summary-beta">(bèta)</span>
+      </h2>
       <p className="muted summary-hint">
         {isGuest
           ? 'Reisgenoten kunnen hier posters van deze reis maken.'

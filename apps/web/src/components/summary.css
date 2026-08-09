@@ -291,15 +291,10 @@
 
 /* Says what it is: the posters work, the shapes are still moving. */
 .summary-beta {
-  padding: 0.05rem 0.4rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
   color: var(--ink-faint);
   font-family: var(--font-body);
-  font-size: 0.66rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 /* The preview is the poster itself, at whatever size the sheet can spare. */
@@ -320,17 +315,21 @@
   display: flex;
   gap: 0.6rem;
   width: 100%;
+  min-width: 0;
   overflow-x: auto;
   /* Proximity, not mandatory: a mandatory strip grabbed a half-finished swipe
      and threw it at the next page. */
   scroll-snap-type: x proximity;
   overscroll-behavior-x: contain;
   padding-bottom: 0.2rem;
-  transition: opacity 0.2s var(--ease);
+  transition: opacity 0.2s var(--ease), filter 0.2s var(--ease);
 }
 
+/* Out of focus while it is being drawn: the old poster is still there to look
+   at, and it is plainly not the answer yet. */
 .summary-preview[data-busy='true'] .summary-preview-strip {
-  opacity: 0.45;
+  opacity: 0.6;
+  filter: blur(7px);
 }
 
 .summary-preview-strip[data-single='true'] {
@@ -339,7 +338,7 @@
 
 .summary-preview-page {
   position: relative;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   max-width: 100%;
   min-width: 0;
   margin: 0;
@@ -348,9 +347,12 @@
 
 .summary-preview-page img {
   display: block;
+  /* Sized from its height, with the width left to follow the aspect ratio. A
+     poster is 1080px of intrinsic width, and a flex item that may not shrink
+     takes that as its base size — which is how it came out cropped by the box
+     it was supposed to fit inside. */
+  height: min(42vh, 380px);
   width: auto;
-  height: auto;
-  max-height: min(42vh, 380px);
   max-width: 100%;
   border-radius: var(--radius-s);
   box-shadow: var(--shadow-m);
@@ -437,12 +439,20 @@
 .summary-fold {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.26s var(--ease), opacity 0.2s var(--ease);
+  /* Shut, it still costs the section's own row gap, which is the empty space that
+     showed up under the photo strip whenever the choice was automatic. The
+     negative margin eats exactly that gap and animates back to nothing. */
+  margin-top: -0.45rem;
   opacity: 0;
+  transition:
+    grid-template-rows 0.26s var(--ease),
+    margin-top 0.26s var(--ease),
+    opacity 0.2s var(--ease);
 }
 
 .summary-fold[data-open='true'] {
   grid-template-rows: 1fr;
+  margin-top: 0;
   opacity: 1;
 }
 
