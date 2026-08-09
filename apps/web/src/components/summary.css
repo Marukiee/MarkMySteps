@@ -1,0 +1,488 @@
+/* Samenvattingen: the panel in the share sheet, and the maker it opens. */
+
+.summary-panel {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+}
+
+.summary-hint {
+  margin: -0.3rem 0 0.2rem;
+  font-size: 0.86rem;
+}
+
+.summary-make {
+  justify-self: start;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.3rem;
+}
+
+/* Same folding exit as a revoked share link: the tile collapses instead of
+   vanishing from under your thumb. */
+.summary-card {
+  position: relative;
+  display: grid;
+  gap: 0.4rem;
+  animation: summaryCardIn 0.26s var(--ease) both;
+}
+
+@keyframes summaryCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+.summary-card.leaving {
+  pointer-events: none;
+  animation: summaryCardOut 0.26s var(--ease) forwards;
+}
+
+@keyframes summaryCardOut {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+    max-height: 0;
+    margin-bottom: -0.7rem;
+  }
+}
+
+.summary-card-shot {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  padding: 0;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  background: var(--paper-sunken);
+  box-shadow: var(--shadow-s);
+  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease);
+}
+
+.summary-card-shot:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .summary-card-shot:hover {
+    box-shadow: var(--shadow-m);
+  }
+}
+
+.summary-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* How many pages a series has, in the corner of its first one. */
+.summary-card-count {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  min-width: 24px;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: rgb(16 21 27 / 0.7);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.summary-card-meta {
+  display: grid;
+  padding-right: 2rem;
+  line-height: 1.25;
+}
+
+.summary-card-meta strong {
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-card-meta small {
+  color: var(--ink-faint);
+  font-size: 0.74rem;
+}
+
+.summary-card-note {
+  font-size: 0.76rem;
+}
+
+.summary-card-menu-btn {
+  position: absolute;
+  right: -0.15rem;
+  bottom: 0.1rem;
+  display: grid;
+  place-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.summary-card-menu-btn.open,
+.summary-card-menu-btn:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+/* The trip-card menu, same shape, same animations. */
+.summary-menu {
+  position: absolute;
+  right: 0;
+  bottom: 2.4rem;
+  z-index: 5;
+  display: grid;
+  min-width: 220px;
+  padding: 0.3rem;
+  transform-origin: bottom right;
+  animation: summaryMenuIn 0.14s var(--ease);
+}
+
+@keyframes summaryMenuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(6px);
+  }
+}
+
+.summary-menu.closing {
+  animation: summaryMenuOut 0.14s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes summaryMenuOut {
+  to {
+    opacity: 0;
+    transform: scale(0.94) translateY(6px);
+  }
+}
+
+.summary-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-s);
+  color: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.summary-menu > button:hover {
+  background: var(--paper-sunken);
+}
+
+/* Same red as the trip-card menu's "verwijderen". */
+.summary-menu-danger {
+  color: #b3402a;
+}
+
+@media (hover: hover) {
+  .summary-menu > button.summary-menu-danger:hover {
+    background: rgb(179 64 42 / 0.1);
+    color: #b3402a;
+  }
+}
+
+.summary-menu-form {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.4rem;
+}
+
+.summary-menu-form label {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--ink-faint);
+}
+
+.summary-menu-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.summary-menu-actions .btn {
+  justify-content: center;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.82rem;
+}
+
+/* ---------- The maker ---------- */
+
+.summary-studio-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: end center;
+  background: rgb(16 21 27 / 0.55);
+  backdrop-filter: blur(4px);
+  animation: sheetBackdropIn 0.28s var(--ease);
+}
+
+@media (min-width: 601px) {
+  .summary-studio-backdrop {
+    place-items: center;
+  }
+}
+
+.summary-studio-backdrop.closing {
+  animation: sheetBackdropOut 0.22s var(--ease) forwards;
+}
+
+.summary-studio-backdrop.closing .summary-studio {
+  animation: sheetDown 0.22s var(--ease) forwards;
+}
+
+.summary-studio {
+  display: grid;
+  gap: 0.9rem;
+  width: min(560px, 100%);
+  max-height: 94vh;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  padding: 1.1rem 1.15rem calc(1.4rem + env(safe-area-inset-bottom));
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+  animation: sheetUp 0.28s var(--ease);
+}
+
+@media (min-width: 601px) {
+  .summary-studio {
+    border-radius: var(--radius-l);
+  }
+}
+
+.summary-studio-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.summary-studio-head h2 {
+  font-size: 1.25rem;
+}
+
+/* The preview is the poster itself, at whatever size the sheet can spare. */
+.summary-preview {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+  padding: 0.7rem;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+}
+
+.summary-preview-strip {
+  display: flex;
+  gap: 0.6rem;
+  width: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.2rem;
+}
+
+.summary-preview-strip[data-single='true'] {
+  justify-content: center;
+  overflow-x: visible;
+}
+
+.summary-preview-page {
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0;
+  scroll-snap-align: center;
+}
+
+.summary-preview-page img {
+  display: block;
+  max-height: 46vh;
+  max-width: 100%;
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-m);
+  animation: summaryShotIn 0.3s var(--ease);
+}
+
+@keyframes summaryShotIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+.summary-preview-page figcaption {
+  position: absolute;
+  left: 0.4rem;
+  bottom: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: rgb(16 21 27 / 0.65);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.summary-preview-busy {
+  position: absolute;
+  inset: auto 0 0.5rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.summary-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: summarySpin 0.8s linear infinite;
+}
+
+@keyframes summarySpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.summary-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.summary-field > label {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--ink-faint);
+}
+
+.summary-note {
+  font-size: 0.78rem;
+}
+
+.summary-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.summary-pills button {
+  padding: 0.4rem 0.75rem;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  font-weight: 650;
+  transition: border-color 0.16s var(--ease), color 0.16s var(--ease), transform 0.16s var(--ease);
+}
+
+.summary-pills button:active {
+  transform: scale(0.97);
+}
+
+.summary-pills button.active {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.summary-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.summary-templates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.summary-template {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.6rem 0.65rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--paper-raised);
+  text-align: left;
+  color: inherit;
+  transition: border-color 0.16s var(--ease), box-shadow 0.16s var(--ease), transform 0.16s var(--ease);
+}
+
+.summary-template:active {
+  transform: scale(0.985);
+}
+
+.summary-template strong {
+  font-size: 0.88rem;
+}
+
+.summary-template span {
+  color: var(--ink-faint);
+  font-size: 0.74rem;
+  line-height: 1.3;
+}
+
+.summary-template.active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.summary-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+}
+
+.summary-toggle div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.summary-toggle strong {
+  font-size: 0.88rem;
+}
+
+.summary-toggle .muted {
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
+.summary-studio-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 0.5rem;
+  position: sticky;
+  bottom: 0;
+  padding-top: 0.4rem;
+  background: linear-gradient(to bottom, transparent, var(--paper-raised) 40%);
+}
+
+.summary-studio-actions .btn {
+  justify-content: center;
+}

@@ -47,6 +47,23 @@
   animation: lightboxPhotoIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Carries the zoom. Sized by the photo, so the arrows and the frame around it
+   keep measuring the photo at 1x however far in you are. */
+.lightbox-zoom {
+  display: grid;
+  transform-origin: center;
+  will-change: transform;
+}
+
+/* Dragging a zoomed photo with a mouse should say so. */
+.lightbox-imgwrap.zoomed {
+  cursor: grab;
+}
+
+.lightbox-imgwrap.zoomed:active {
+  cursor: grabbing;
+}
+
 @keyframes lightboxPhotoIn {
   from {
     opacity: 0;
@@ -121,6 +138,9 @@
   display: inline-grid;
   justify-self: center;
   align-content: center;
+  /* Every gesture on the photo is ours: paging, dismissing, panning, pinching.
+     Left to the browser, a pinch zooms the whole page and a drag scrolls it. */
+  touch-action: none;
   /* Reserve a floor while the image loads so the nav arrows don't centre on a
      tiny placeholder, then ease between shapes as you page through photos of
      different aspect ratios. */

@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import './bottomnav.css';
 import { travellersTabLabel } from '../lib/localMode';
+import { getNavBarMode, type NavBarMode } from '../lib/prefs';
 
 const ICONS = {
   // The same compass the site's nav and the wordmark use: a pin said "a place",
@@ -42,8 +44,27 @@ export function BottomNav() {
   const friendsActive = pathname.startsWith('/friends');
   const settingsActive = pathname.startsWith('/settings');
 
+  const [mode, setMode] = useState<NavBarMode>(getNavBarMode);
+  useEffect(() => {
+    const listen = (e: Event) => setMode((e as CustomEvent<NavBarMode>).detail);
+    window.addEventListener('mms-navbar', listen);
+    return () => window.removeEventListener('mms-navbar', listen);
+  }, []);
+
+  // Everything under /trips/ is "inside a trip": the trip itself, its planner
+  // and its settings. The list of trips is the home screen and keeps the bar.
+  const tucked = mode === 'auto' && pathname.startsWith('/trips/');
+
+  // The bar slides away rather than unmounting, so it comes back with the same
+  // movement. The class on <body> hands the space it was reserving back to the
+  // page — without it every trip page ended in 88px of nothing.
+  useEffect(() => {
+    document.body.classList.toggle('nav-tucked', tucked);
+    return () => document.body.classList.remove('nav-tucked');
+  }, [tucked]);
+
   return (
-    <nav className="bottomnav">
+    <nav className={`bottomnav ${tucked ? 'tucked' : ''}`} aria-hidden={tucked}>
       <Link to="/" className={tripsActive ? 'active' : ''}>
         {ICONS.trips}
         <span>Reizen</span>

@@ -40,6 +40,19 @@ export interface ShareLinkInfo {
   createdAt: string;
 }
 
+/** A poster made from a trip; the images themselves are fetched per page. */
+export interface TripSummaryInfo {
+  id: string;
+  tripId: string;
+  title: string;
+  template: string;
+  scopeLabel: string;
+  spec: unknown;
+  createdAt: string;
+  createdBy: { id: string; displayName: string };
+  pages: { index: number; width: number; height: number }[];
+}
+
 export interface Trip {
   id: string;
   title: string;

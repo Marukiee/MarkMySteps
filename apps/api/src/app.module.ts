@@ -19,6 +19,7 @@ import { TrackingModule } from './tracking/tracking.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ShareModule } from './share/share.module';
 import { StopsModule } from './stops/stops.module';
+import { SummariesModule } from './summaries/summaries.module';
 import { TripsModule } from './trips/trips.module';
 import { UsersModule } from './users/users.module';
 
@@ -47,6 +48,7 @@ import { UsersModule } from './users/users.module';
     ImportModule,
     StopsModule,
     ShareModule,
+    SummariesModule,
     AdminModule,
     NotesModule,
     NotificationsModule,

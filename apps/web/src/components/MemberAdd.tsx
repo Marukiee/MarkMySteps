@@ -105,8 +105,12 @@ export function MemberAdd({
 
       {/* Everyone you have ticked, whether or not their row is still on screen.
           A running total under the search box is the only place that survives
-          a new search, and it is where you go to take somebody back off. */}
-      {picked.length > 0 && (
+          a new search, and it is where you go to take somebody back off.
+
+          The row is always in the page and opens to the height it needs, so the
+          first person you tick makes the list below slide down rather than jump
+          a chip's worth in one frame. */}
+      <div className="member-add-chips-wrap" data-open={picked.length > 0}>
         <div className="member-add-chips">
           {picked.map((u) => (
             <button
@@ -122,7 +126,7 @@ export function MemberAdd({
             </button>
           ))}
         </div>
-      )}
+      </div>
 
       <div className="member-add-list">
         {visible.map((u, i) => (

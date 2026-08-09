@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon';
 import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
 import { SharePanel } from '../components/SharePanel';
+import { SummaryPanel } from '../components/SummaryPanel';
 import { Timeline } from '../components/Timeline';
 import { TrackPointsEditor } from '../components/TrackPointsEditor';
 import { TripMap, TripMapApi, Waypoint } from '../components/TripMap';
@@ -590,7 +591,7 @@ export function TripDetailPage() {
               aria-label="Mensen & delen"
               onClick={() => setPeopleOpen(true)}
             >
-              <Icon name="people" size={20} />
+              <Icon name="share" size={20} />
             </button>
             {trip.ownerId === user?.id && (
               <Link
@@ -901,6 +902,9 @@ export function TripDetailPage() {
             </div>
             <MembersPanel trip={trip} onChanged={loadData} />
             {trip.ownerId === user?.id && tripId && <SharePanel tripId={tripId} />}
+            {/* Made from what this page already has in hand: the route, the
+                stops and the photos. */}
+            <SummaryPanel trip={trip} stops={stops} media={media} routes={routes} />
             {/* Somebody put you on this trip; the way back off it belongs here,
                 where the rest of "who is on this trip" lives. */}
             {trip.ownerId !== user?.id && (

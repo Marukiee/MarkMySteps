@@ -35,7 +35,7 @@ import {
 import { formatDate } from '../lib/colors';
 import { reversePlaceName } from '../lib/geocode';
 import { clearThumbCache, enforceThumbBudget, thumbCacheUsage } from '../lib/offlineCache';
-import { isLocalMode } from '../lib/localMode';
+import { isLocalMode, travellersTabLabel } from '../lib/localMode';
 import {
   backgroundNotifyOn,
   disableBackgroundNotify,
@@ -47,11 +47,14 @@ import {
   MAP_STYLES,
   MapStyleId,
   GlobeStopsMode,
+  NavBarMode,
   ThemeId,
   TripCardSize,
   clearTripCardOverrides,
   getGlobeStops,
   getMapStyleId,
+  getNavBarMode,
+  setNavBarMode,
   isDynamicAccent,
   getThemeId,
   getShowSelfOnHome,
@@ -191,6 +194,7 @@ function DisplaySection() {
   const [wallpaperAccent, setWallpaperAccent] = useState(isDynamicAccent());
   const [cardSize, setCardSize] = useState<TripCardSize>(getTripCardSize());
   const [hasOverrides, setHasOverrides] = useState(hasTripCardOverrides());
+  const [navBar, setNavBar] = useState<NavBarMode>(getNavBarMode());
 
   const themes: { id: ThemeId; label: string }[] = [
     { id: 'system', label: 'Systeem' },
@@ -203,6 +207,10 @@ function DisplaySection() {
     { id: 'auto', label: 'Auto' },
     { id: 'large', label: 'Groot' },
     { id: 'compact', label: 'Klein' },
+  ];
+  const navBars: { id: NavBarMode; label: string }[] = [
+    { id: 'auto', label: 'Automatisch' },
+    { id: 'always', label: 'Altijd' },
   ];
 
   return (
@@ -286,6 +294,33 @@ function DisplaySection() {
             Handmatige keuzes wissen
           </button>
         )}
+      </section>
+      <section className="card settings-card">
+        <h2>Navigatiebalk</h2>
+        <div
+          className="theme-choice pill-switch"
+          style={{ '--n': navBars.length, '--i': Math.max(0, navBars.findIndex((n) => n.id === navBar)) } as CSSProperties}
+        >
+          {navBars.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              className={`theme-opt ${navBar === n.id ? 'active' : ''}`}
+              onClick={() => {
+                setNavBar(n.id);
+                setNavBarMode(n.id);
+              }}
+            >
+              {n.label}
+            </button>
+          ))}
+        </div>
+        <span className="muted">
+          De balk onderin met Reizen, {travellersTabLabel()} en Instellingen. “Automatisch”
+          schuift hem weg zodra je een reis opent, inclusief de tijdlijn, de routeplanner en het
+          delen-scherm; de pijl linksboven op de kaart brengt je terug. “Altijd” houdt hem overal
+          in beeld.
+        </span>
       </section>
       <section className="card settings-card">
         <h2>Kaartstijl</h2>

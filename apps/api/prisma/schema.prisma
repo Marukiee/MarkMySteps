@@ -68,6 +68,7 @@ model User {
   actedNotifications Notification[] @relation("NotificationActor")
   accessRequests   TripAccessRequest[] @relation("AccessRequester")
   accessDecisions  TripAccessRequest[] @relation("AccessDecider")
+  tripSummaries    TripSummary[]
 
   @@map("users")
 }
@@ -121,8 +122,54 @@ model Trip {
   notes          TripNote[]
   accessRequests TripAccessRequest[]
   notifications  Notification[]
+  summaries      TripSummary[]
 
   @@map("trips")
+}
+
+/// A shareable picture made from a trip: the poster you post on Instagram.
+///
+/// Rendered on the device (it already has the photos, the route and the
+/// fonts) and kept here so it survives a reinstall and shows up on every
+/// device you sign in on. `spec` is the recipe it was made from — which days,
+/// which photos, which layout — so it can be remade or adjusted later without
+/// answering every question again.
+model TripSummary {
+  id         String   @id @default(uuid()) @db.Uuid
+  tripId     String   @db.Uuid
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  /// Who made it. Not necessarily the trip owner.
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  /// Layout id, or 'series' for a multi-page set.
+  template   String
+  /// Human-readable period, rendered by the client ("12 mei", "hele reis").
+  scopeLabel String
+  spec       Json
+  createdAt  DateTime @default(now())
+
+  pages TripSummaryPage[]
+
+  @@index([tripId])
+  @@map("trip_summaries")
+}
+
+/// One rendered image. A single poster has one page; a series has as many as
+/// it has days. Stored inline like avatars are: a self-hosted server should
+/// not need a second volume to keep working.
+model TripSummaryPage {
+  id        String      @id @default(uuid()) @db.Uuid
+  summaryId String      @db.Uuid
+  summary   TripSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  index     Int
+  image     Bytes
+  mime      String
+  width     Int
+  height    Int
+
+  @@unique([summaryId, index])
+  @@map("trip_summary_pages")
 }
 
 /// Somebody asked the owner to let them onto a trip they can see the name of

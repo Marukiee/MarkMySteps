@@ -51,11 +51,33 @@
 }
 
 /* Who you have ticked so far. Kept above the list, because a new search
-   replaces the rows underneath and the choice must survive that. */
+   replaces the rows underneath and the choice must survive that.
+
+   The row stays mounted and grows from nothing: a 0fr → 1fr grid row is the
+   one way to animate to a height nobody has measured. While it is shut the
+   negative margin eats the panel's own grid gap, so an empty row costs no
+   space at all, and the search box sits exactly where it did before. */
+.member-add-chips-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: -0.55rem;
+  transition:
+    grid-template-rows 0.26s var(--ease),
+    margin-top 0.26s var(--ease);
+}
+
+.member-add-chips-wrap[data-open='true'] {
+  grid-template-rows: 1fr;
+  margin-top: 0;
+}
+
 .member-add-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  /* A grid row only collapses to 0fr if its content is allowed to. */
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Raised and outlined rather than filled with the accent wash: this panel is

@@ -105,3 +105,25 @@ body.native-app {
     display: none;
   }
 }
+
+/* The tab bar on "Automatisch", inside a trip. The bar keeps its place in the layout and
+   slides out of sight, so leaving the trip brings it back the same way it
+   left. Last in the file on purpose: the padding rules below have to beat the
+   equally specific ones above that reserve room for a bar that is not there. */
+.bottomnav.tucked {
+  transform: translateY(130%);
+  pointer-events: none;
+}
+
+body.nav-tucked {
+  padding-bottom: 0;
+}
+
+.nav-tucked .page {
+  padding-bottom: 1.5rem;
+}
+
+.native-app .nav-tucked .page,
+.nav-tucked.native-app .page {
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+}

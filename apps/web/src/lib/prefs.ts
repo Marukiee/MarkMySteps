@@ -187,6 +187,31 @@ export function setGlobeStops(mode: GlobeStopsMode): void {
   window.dispatchEvent(new CustomEvent('mms-globe-stops', { detail: mode }));
 }
 
+/* ---------- Tab bar ---------- */
+
+const NAVBAR_KEY = 'mms.navbar';
+
+/**
+ * When the tab bar at the bottom is on screen.
+ *
+ * 'auto' is the default: the bar goes away the moment you open a trip, because
+ * there the map wants the whole screen and everything already has its own way
+ * back — the arrow on the map, the link above the planner. It returns as soon
+ * as you leave the trip. 'always' keeps it where it has always been.
+ */
+export type NavBarMode = 'auto' | 'always';
+
+export function getNavBarMode(): NavBarMode {
+  return localStorage.getItem(NAVBAR_KEY) === 'always' ? 'always' : 'auto';
+}
+
+export function setNavBarMode(mode: NavBarMode): void {
+  localStorage.setItem(NAVBAR_KEY, mode);
+  // The tab bar is mounted on another page than the settings screen, so it is
+  // told rather than left to notice.
+  window.dispatchEvent(new CustomEvent('mms-navbar', { detail: mode }));
+}
+
 /* ---------- Default departure airports ---------- */
 
 const AIRPORTS_KEY = 'mms.airports';
