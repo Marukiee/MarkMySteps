@@ -232,22 +232,34 @@ export function GlobeBackdrop({
      * Krakau to Praag ran straight through both, which read as passing over
      * them rather than as arriving. Long enough for the dot to throw two rings.
      */
-    const DWELL_MS = 1900;
     /**
-     * Leaving by air. The plane used to pull away while the dot it was leaving
-     * was still throwing its second ring, so the arrival and the departure ran
-     * over each other; this waits for the rings to finish first.
+     * Coming down somewhere: worth standing still for, two rings' worth.
+     *
+     * Only for a place reached by air. Overland, the light stopping at every
+     * dot read as a cursor being dragged from waypoint to waypoint; the dot
+     * still throws its ring, but the light goes straight on through it.
      */
-    const TAKEOFF_MS = 3400;
+    const AIR_ARRIVAL_MS = 2100;
+    /**
+     * A beat between the light reaching a place and the plane leaving it. Long
+     * enough that the departure is its own moment, short enough that the globe
+     * is not sitting there waiting for a plane to start.
+     */
+    const TAKEOFF_MS = 800;
     /** A layover: the plane touches down, but nobody gets off. */
     const LAYOVER_MS = 450;
+    /** The end of a run, before the globe pulls back out. */
+    const END_MS = 1500;
     /**
      * A beat between wheels-down and the dot's first ring.
      *
      * They used to happen in the same frame, so the ring read as part of the
-     * landing rather than as the place greeting it.
+     * landing rather than as the place greeting it. Only landings get it: on
+     * the ground the place answers the moment the light arrives.
      */
     const FLARE_DELAY_MS = 420;
+    /** How far into the journey the places you flew into sit. */
+    let airMarks: number[] = [];
     /** Per dot: when its first ripple may start. */
     const flareWait = new Map<string, number>();
     let holdUntil = 0;
@@ -299,13 +311,16 @@ export function GlobeBackdrop({
         // a flight merely passes over is not a place the light has got to.
         const mark = headGeo ? journeyDistOf(p) : null;
         if (mark === null || glowDist < mark) return NO_FLARE;
-        // Landed, but not greeted yet: hold the ring back for a beat.
-        const readyAt = flareWait.get(key);
-        if (readyAt === undefined) {
-          flareWait.set(key, performance.now() + FLARE_DELAY_MS);
-          return NO_FLARE;
+        // Landed, but not greeted yet: hold the ring back for a beat. A place
+        // the light simply walked into gets no such pause — it answers now.
+        if (airMarks.some((d) => Math.abs(d - mark) < 0.35)) {
+          const readyAt = flareWait.get(key);
+          if (readyAt === undefined) {
+            flareWait.set(key, performance.now() + FLARE_DELAY_MS);
+            return NO_FLARE;
+          }
+          if (performance.now() < readyAt) return NO_FLARE;
         }
-        if (performance.now() < readyAt) return NO_FLARE;
         ring = 0;
       }
       if (ring < 0) return NO_FLARE;
@@ -1232,6 +1247,10 @@ export function GlobeBackdrop({
           // there. A short hop out to the airport is part of arriving rather
           // than a stop of its own, so the wait goes at the end of THAT instead.
           const arrivals: { at: number; ms: number }[] = [];
+          airMarks = [];
+          // The last stop is an arrival too, and if the last leg flew there it
+          // is a landing like any other.
+          if (legs[legs.length - 1]?.kind === 'flight') airMarks.push(total);
           let walked = 0;
           for (let i = 0; i < legs.length - 1; i++) {
             walked += legs[i]!.len;
@@ -1245,11 +1264,20 @@ export function GlobeBackdrop({
             // a city you stayed in — and it was getting the layover's beat.
             const here = legs[i]!;
             const layover = here.kind === 'flight' && here.layoverAfter;
+            // Landed here, and this is where you got off.
+            const byAir = here.kind === 'flight' && !layover;
             const takingOff = legs[i + 1]!.kind === 'flight';
-            arrivals.push({
-              at: walked,
-              ms: layover ? LAYOVER_MS : takingOff ? TAKEOFF_MS : DWELL_MS,
-            });
+            if (byAir) airMarks.push(walked);
+            // Overland, the light does not stop at all: it passes through the
+            // dot, the dot rings, and the journey carries on.
+            const ms = layover
+              ? LAYOVER_MS
+              : byAir
+                ? AIR_ARRIVAL_MS
+                : takingOff
+                  ? TAKEOFF_MS
+                  : 0;
+            if (ms > 0) arrivals.push({ at: walked, ms });
           }
 
           // A journey that shows itself as it goes needs one pass, not two:
@@ -1288,7 +1316,7 @@ export function GlobeBackdrop({
             // ring at all, while every dot before it did.
             if (before < total && glowDist > total) {
               glowDist = total;
-              holdUntil = now + DWELL_MS;
+              holdUntil = now + (legs[legs.length - 1]?.kind === 'flight' ? AIR_ARRIVAL_MS : END_MS);
               holdPoint = at(total)?.geo ?? null;
             }
             if (glowDist > total + TRAIL_DEG + PAUSE) {

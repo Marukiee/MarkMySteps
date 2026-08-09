@@ -94,6 +94,32 @@ export function TripsPage() {
 
   useEffect(load, []);
 
+  /**
+   * The cards arrive once there is a screen to arrive on.
+   *
+   * Cold-starting the app, the list mounts in the same breath as the WebView's
+   * very first paint, and a CSS entry animation that starts there has already
+   * finished by the time anything is actually on screen — the trips were
+   * simply there, while the globe (which draws every frame) was visibly alive.
+   * Holding them back until a frame has been painted gives the arrival
+   * somewhere to happen.
+   */
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    if (trips === null || revealed) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setRevealed(true));
+    });
+    // Never leave the page holding its breath if the frames never come.
+    const safety = window.setTimeout(() => setRevealed(true), 500);
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+      window.clearTimeout(safety);
+    };
+  }, [trips, revealed]);
+
   const today = new Date().toISOString().slice(0, 10);
   // Yours = the ones you travelled, as organiser or reisgenoot. A trip you were
   // invited to look at is somebody else's, and gets its own tab.
@@ -183,7 +209,7 @@ export function TripsPage() {
   };
 
   return (
-    <main className="page fade-in trips-page">
+    <main className="page fade-in trips-page" data-revealed={revealed}>
       {/* The wordmark sits in the globe's own box, which is the thing that
           actually reaches the top of the screen — positioning it against the
           page put it below the page's padding instead. On a wide window the top
@@ -582,7 +608,7 @@ function TripCard({
       <div
         className={`trip-card-compact ${trip.resolvedCoverId ? 'has-cover' : ''}`}
         style={{
-          animationDelay: `${index * 30}ms`,
+          animationDelay: `${index * 45}ms`,
           zIndex: menuOpen || menuClosing ? 30 : undefined,
         }}
         role="link"
@@ -655,7 +681,7 @@ function TripCard({
     <div
       className={`trip-card ${noImg ? 'trip-card-noimg' : ''}`}
       style={{
-        animationDelay: `${index * 40}ms`,
+        animationDelay: `${index * 60}ms`,
         background: noImg ? tripCoverBg(trip) : coverGradient(trip.id),
         zIndex: menuOpen || menuClosing ? 30 : undefined,
       }}

@@ -78,6 +78,15 @@
   /* A grid row only collapses to 0fr if its content is allowed to. */
   min-height: 0;
   overflow: hidden;
+  /* The row is a window that grows, so a chip at full strength is briefly a
+     chip with its bottom sliced off. Fading it over the same beat means the
+     only thing being cropped is something you can hardly see yet. */
+  opacity: 1;
+  transition: opacity 0.2s var(--ease);
+}
+
+.member-add-chips-wrap[data-open='false'] .member-add-chips {
+  opacity: 0;
 }
 
 /* Raised and outlined rather than filled with the accent wash: this panel is

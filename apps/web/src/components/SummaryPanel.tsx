@@ -32,6 +32,7 @@ export function SummaryPanel({
   // A deleted poster stays in the list for the length of its exit animation,
   // so the tile folds away instead of blinking out from under your thumb.
   const [leaving, setLeaving] = useState<string[]>([]);
+  const hasPhotos = media.some((m) => m.assetType === 'IMAGE');
 
   useEffect(() => {
     api<TripSummaryInfo[]>(`/trips/${trip.id}/summaries`)
@@ -71,10 +72,20 @@ export function SummaryPanel({
     <section className="summary-panel">
       <h2 className="trip-side-heading">Samenvattingen</h2>
       <p className="muted summary-hint">
-        Een poster van de reis, van een dag of van een stuk ervan, klaar om te delen.
+        {hasPhotos
+          ? 'Een poster van de reis, van een dag of van een stuk ervan, klaar om te delen.'
+          : 'Zodra er foto’s in deze reis staan kun je er een poster van maken.'}
       </p>
 
-      <button type="button" className="btn btn-primary summary-make" onClick={() => setStudio(true)}>
+      {/* Every layout is built around photographs, and the two that lean on
+          them hardest have nothing at all to show without any. So the button
+          waits for the first photo rather than making an empty poster. */}
+      <button
+        type="button"
+        className="btn btn-primary summary-make"
+        disabled={!hasPhotos}
+        onClick={() => setStudio(true)}
+      >
         <Icon name="plus" size={16} />
         Samenvatting maken
       </button>

@@ -37,6 +37,16 @@ export function MemberAdd({
   // animation, so the chip shrinks away and the ones after it slide across
   // rather than snapping into the hole.
   const [leaving, setLeaving] = useState<string[]>([]);
+  /**
+   * The chip row shutting itself before the last chip is taken out of it.
+   *
+   * A grid row of 1fr is as tall as what is in it, so unmounting the chip and
+   * asking the row to close in the same frame is a transition from nothing to
+   * nothing: the row snapped shut and everything below it jumped up. Closing
+   * first, while the (already faded) chip still holds the height open, is what
+   * gives the collapse something to animate.
+   */
+  const [collapsing, setCollapsing] = useState(false);
 
   // Debounced, so typing doesn't fire a request per keystroke.
   useEffect(() => {
@@ -61,9 +71,24 @@ export function MemberAdd({
   const active = picked.filter((p) => !leaving.includes(p.id));
   const isPicked = (u: UserSuggestion) => active.some((p) => p.id === u.id);
 
+  /** Chips out, then the row shut, then the row emptied. */
+  const clearRow = () => {
+    setCollapsing(true);
+    window.setTimeout(() => {
+      setPicked([]);
+      setLeaving([]);
+      setCollapsing(false);
+    }, 280);
+  };
+
   const unpick = (id: string) => {
+    const last = active.length === 1 && active[0]!.id === id;
     setLeaving((list) => [...list, id]);
     window.setTimeout(() => {
+      if (last) {
+        clearRow();
+        return;
+      }
       setPicked((list) => list.filter((p) => p.id !== id));
       setLeaving((list) => list.filter((x) => x !== id));
     }, 220);
@@ -79,8 +104,10 @@ export function MemberAdd({
   async function submit(role: 'MEMBER' | 'GUEST') {
     if (active.length === 0) return;
     await onAdd(active.map((p) => p.username), role);
-    setPicked([]);
-    setLeaving([]);
+    // Same way out as unpicking the last one: the row closes rather than the
+    // whole panel jumping a chip's worth.
+    setLeaving(active.map((p) => p.id));
+    clearRow();
     setQuery('');
   }
 
@@ -110,7 +137,7 @@ export function MemberAdd({
           The row is always in the page and opens to the height it needs, so the
           first person you tick makes the list below slide down rather than jump
           a chip's worth in one frame. */}
-      <div className="member-add-chips-wrap" data-open={picked.length > 0}>
+      <div className="member-add-chips-wrap" data-open={picked.length > 0 && !collapsing}>
         <div className="member-add-chips">
           {picked.map((u) => (
             <button

@@ -142,7 +142,24 @@
   transition:
     transform 0.25s var(--ease),
     box-shadow 0.25s var(--ease);
-  animation: fadeIn 0.4s var(--ease) backwards;
+  animation: tripCardIn 0.5s var(--ease) backwards;
+}
+
+/* A trip does not fade in, it comes up and settles — the same movement the
+   globe above it makes when it frames a journey. */
+@keyframes tripCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+}
+
+/* Until a frame has been painted there is nothing to animate onto; see the
+   comment on `revealed` in TripsPage. */
+.trips-page[data-revealed='false'] .trip-card,
+.trips-page[data-revealed='false'] .trip-card-compact {
+  opacity: 0;
+  animation: none;
 }
 
 @media (hover: hover) {
