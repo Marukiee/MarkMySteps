@@ -250,12 +250,29 @@
   }
 }
 
+/* Leaving is the arrival run backwards, and a touch quicker: the sheet drops
+   away under the backdrop rather than the two fading together. */
 .summary-studio-backdrop.closing {
-  animation: sheetBackdropOut 0.22s var(--ease) forwards;
+  animation: summaryStudioBackdropOut 0.26s var(--ease) forwards;
+  pointer-events: none;
 }
 
 .summary-studio-backdrop.closing .summary-studio {
-  animation: sheetDown 0.22s var(--ease) forwards;
+  animation: summaryStudioOut 0.26s cubic-bezier(0.36, 0, 0.66, -0.16) forwards;
+}
+
+@keyframes summaryStudioBackdropOut {
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+@keyframes summaryStudioOut {
+  to {
+    transform: translateY(6%) scale(0.985);
+    opacity: 0;
+  }
 }
 
 .summary-studio {

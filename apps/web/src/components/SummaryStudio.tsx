@@ -57,9 +57,13 @@ export function SummaryStudio({
   onSaved: (summary: TripSummaryInfo) => void;
 }) {
   const [closing, setClosing] = useState(false);
+  const closingRef = useRef(false);
+  /** One way out, so the sheet leaves the same way however you dismissed it. */
   const close = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
     setClosing(true);
-    window.setTimeout(onClose, 220);
+    window.setTimeout(onClose, 260);
   };
 
   /**
@@ -74,7 +78,9 @@ export function SummaryStudio({
     let popped = false;
     const onPop = () => {
       popped = true;
-      onClose();
+      // Down and away, the same as tapping the cross: a back gesture that made
+      // the whole sheet vanish between one frame and the next read as a crash.
+      close();
     };
     window.addEventListener('popstate', onPop);
     return () => {
