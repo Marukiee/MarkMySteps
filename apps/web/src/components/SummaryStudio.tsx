@@ -8,20 +8,27 @@ import {
   dayKey,
   defaultScope,
   lineKm,
+  photoSlots,
   scopeLabel,
   scopeLines,
   suggestTemplate,
 } from '../lib/summary/data';
-import { renderSummary, revokePages, type RenderedPage } from '../lib/summary/render';
+import { renderSpecimens, renderSummary, revokePages, type RenderedPage } from '../lib/summary/render';
 import {
   FORMATS,
+  SUBTITLE_NAMES,
   TEMPLATE_HINTS,
   TEMPLATE_NAMES,
+  THEME_NAMES,
   type FormatId,
   type Scope,
+  type SubtitleMode,
   type SummarySpec,
   type TemplateId,
+  type ThemeId,
 } from '../lib/summary/types';
+import { resolvedTheme } from '../lib/prefs';
+import { AuthImage } from './AuthImage';
 import { DateField } from './DatePicker';
 import { Icon } from './Icon';
 import './summary.css';
@@ -60,6 +67,12 @@ export function SummaryStudio({
   const [template, setTemplate] = useState<TemplateId>('route');
   const [touchedTemplate, setTouchedTemplate] = useState(false);
   const [format, setFormat] = useState<FormatId>('story');
+  // Starts on whatever the app itself is wearing.
+  const [theme, setTheme] = useState<ThemeId>(() => (resolvedTheme() === 'light' ? 'light' : 'dark'));
+  const [subtitle, setSubtitle] = useState<SubtitleMode>('auto');
+  const [subtitleText, setSubtitleText] = useState('');
+  /** Photos you picked yourself; empty means "choose them for me". */
+  const [photoIds, setPhotoIds] = useState<string[]>([]);
   const [series, setSeries] = useState(false);
   const [showLogo, setShowLogo] = useState(true);
   const [showWeather, setShowWeather] = useState(true);
@@ -74,8 +87,19 @@ export function SummaryStudio({
   const renderToken = useRef(0);
 
   const spec: SummarySpec = useMemo(
-    () => ({ template, format, scope, series, showLogo, showWeather, photoIds: [] }),
-    [template, format, scope, series, showLogo, showWeather],
+    () => ({
+      template,
+      format,
+      theme,
+      subtitle,
+      subtitleText,
+      scope,
+      series,
+      showLogo,
+      showWeather,
+      photoIds,
+    }),
+    [template, format, theme, subtitle, subtitleText, scope, series, showLogo, showWeather, photoIds],
   );
 
   const label = scopeLabel(scope);
@@ -96,17 +120,32 @@ export function SummaryStudio({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope]);
 
+  // A photo you picked out of Tuesday means nothing once you are looking at
+  // Friday, so the choice belongs to the period it was made in.
+  useEffect(() => setPhotoIds([]), [scope]);
+
+  /** Every photo taken inside the period, oldest first: what you pick from. */
+  const scopePhotos = useMemo(
+    () =>
+      media
+        .filter((m) => m.assetType === 'IMAGE')
+        .filter((m) => {
+          const day = dayKey(m.takenAt);
+          return day >= scope.from && day <= scope.to;
+        })
+        .sort((a, b) => a.takenAt.localeCompare(b.takenAt)),
+    [media, scope],
+  );
+  const slots = photoSlots(template);
+
   const scopeFacts = useMemo(() => {
-    const photos = media.filter((m) => {
-      const day = dayKey(m.takenAt);
-      return day >= scope.from && day <= scope.to && m.assetType === 'IMAGE';
-    }).length;
+    const photos = scopePhotos.length;
     const inScope = stops.filter((s) => {
       if (s.latitude === null || s.longitude === null) return false;
       return dayKey(s.arrivalDate) <= scope.to && dayKey(s.departureDate) >= scope.from;
     }).length;
     return { photos, stops: inScope, km, days: daysBetween(scope.from, scope.to).length };
-  }, [media, stops, scope, km]);
+  }, [scopePhotos, stops, scope, km]);
 
   // The layout follows the data until you disagree with it once.
   useEffect(() => {
@@ -158,6 +197,37 @@ export function SummaryStudio({
 
   useEffect(() => () => revokePages(pages), [pages]);
 
+  /**
+   * Thumbnails for the four layouts, drawn from this trip with the photo slots
+   * left empty. Cheap to make (half size, no images to fetch) and they are the
+   * real renderer, so what you pick is what you get.
+   */
+  const [specimens, setSpecimens] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      void renderSpecimens({ trip, stops, media, routes }, spec)
+        .then((shots) => alive && setSpecimens(shots))
+        .catch(() => undefined);
+    }, 320);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+    // Same input as the poster itself; the layout choice is the one thing that
+    // does not matter here, since every layout is drawn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spec.format, spec.theme, spec.scope, spec.showLogo, spec.showWeather, spec.subtitle, spec.subtitleText]);
+
+  // Stoppenlint is a route with places on it. One day usually has one place,
+  // and a lint of one dot is not a picture — so that pairing is not offered.
+  const dayAllowed = template !== 'ribbon';
+  useEffect(() => {
+    if (!dayAllowed && scope.kind === 'day') {
+      setScope({ kind: 'trip', from: tripStart, to: tripEnd });
+    }
+  }, [dayAllowed, scope.kind, tripStart, tripEnd]);
+
   async function save() {
     if (pages.length === 0) return;
     setSaving(true);
@@ -200,7 +270,7 @@ export function SummaryStudio({
           </button>
         </div>
 
-        <div className="summary-preview">
+        <div className="summary-preview" data-busy={busy}>
           {pages.length === 0 && !busy && <p className="muted">Nog niets om te tonen.</p>}
           <div className="summary-preview-strip" data-single={pages.length === 1}>
             {pages.map((page, i) => (
@@ -210,10 +280,13 @@ export function SummaryStudio({
               </figure>
             ))}
           </div>
+          {/* Over the whole preview, centred, with the old poster dimmed
+              underneath — a line of text pinned to the bottom edge landed
+              half on top of whatever was being replaced. */}
           {busy && (
             <div className="summary-preview-busy">
               <span className="summary-spinner" aria-hidden="true" />
-              {progress ? `Pagina ${progress.done} van ${progress.total}…` : 'Tekenen…'}
+              <span>{progress ? `Pagina ${progress.done} van ${progress.total}…` : 'Tekenen…'}</span>
             </div>
           )}
         </div>
@@ -226,6 +299,8 @@ export function SummaryStudio({
                 key={s.kind}
                 type="button"
                 className={scope.kind === s.kind ? 'active' : ''}
+                disabled={s.kind === 'day' && !dayAllowed}
+                title={s.kind === 'day' && !dayAllowed ? 'Een stoppenlint heeft meer dan één plaats nodig' : undefined}
                 onClick={() => {
                   if (s.kind === 'trip') setScope({ kind: 'trip', from: tripStart, to: tripEnd });
                   else if (s.kind === 'day') {
@@ -284,8 +359,11 @@ export function SummaryStudio({
                   setTouchedTemplate(true);
                 }}
               >
+                <span className="summary-template-shot" data-format={format}>
+                  {specimens[id] ? <img src={specimens[id]} alt="" /> : <span className="summary-template-wait" />}
+                </span>
                 <strong>{TEMPLATE_NAMES[id]}</strong>
-                <span>{TEMPLATE_HINTS[id]}</span>
+                <span className="summary-template-hint">{TEMPLATE_HINTS[id]}</span>
               </button>
             ))}
           </div>
@@ -293,6 +371,51 @@ export function SummaryStudio({
             <span className="muted summary-note">Voorgesteld op basis van deze dagen.</span>
           )}
         </section>
+
+        {!series && scopePhotos.length > 0 && (
+          <section className="summary-field">
+            <label>
+              Foto’s
+              <span className="summary-field-note">
+                {photoIds.length > 0 ? `${photoIds.length} van ${slots} gekozen` : 'automatisch'}
+              </span>
+            </label>
+            <div className="summary-photo-strip">
+              {scopePhotos.map((item) => {
+                const at = photoIds.indexOf(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`summary-photo ${at >= 0 ? 'picked' : ''}`}
+                    aria-pressed={at >= 0}
+                    onClick={() =>
+                      setPhotoIds((list) =>
+                        list.includes(item.id)
+                          ? list.filter((id) => id !== item.id)
+                          : // Past the last slot the oldest pick makes room,
+                            // so tapping never simply does nothing.
+                            [...list, item.id].slice(-slots),
+                      )
+                    }
+                  >
+                    <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="summary-photo-img" />
+                    {at >= 0 && <span className="summary-photo-mark">{at + 1}</span>}
+                  </button>
+                );
+              })}
+            </div>
+            {photoIds.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-ghost summary-photo-clear"
+                onClick={() => setPhotoIds([])}
+              >
+                Weer automatisch kiezen
+              </button>
+            )}
+          </section>
+        )}
 
         <section className="summary-field">
           <label>Formaat</label>
@@ -308,6 +431,50 @@ export function SummaryStudio({
               </button>
             ))}
           </div>
+        </section>
+
+        <section className="summary-field">
+          <label>Thema</label>
+          <div className="summary-pills">
+            {(Object.keys(THEME_NAMES) as ThemeId[]).map((id) => (
+              <button
+                key={id}
+                type="button"
+                className={theme === id ? 'active' : ''}
+                onClick={() => setTheme(id)}
+              >
+                {THEME_NAMES[id]}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="summary-field">
+          <label>Onder de titel</label>
+          <div className="summary-pills">
+            {(Object.keys(SUBTITLE_NAMES) as SubtitleMode[]).map((id) => (
+              <button
+                key={id}
+                type="button"
+                className={!subtitleText.trim() && subtitle === id ? 'active' : ''}
+                onClick={() => {
+                  setSubtitle(id);
+                  setSubtitleText('');
+                }}
+              >
+                {SUBTITLE_NAMES[id]}
+              </button>
+            ))}
+          </div>
+          <input
+            value={subtitleText}
+            onChange={(e) => setSubtitleText(e.target.value)}
+            placeholder="of typ hier iets eigens"
+          />
+          <span className="muted summary-note">
+            “Automatisch” zegt bij een hele reis in welke landen je was, en bij een dag of een
+            periode waar je toen zat.
+          </span>
         </section>
 
         {scopeFacts.days > 1 && (
@@ -334,10 +501,7 @@ export function SummaryStudio({
         <label className="summary-toggle">
           <div>
             <strong>Weer tonen</strong>
-            <span className="muted">
-              Het echte weer van die dag op de plek waar je was. Staat er niet bij als we het niet
-              zeker weten.
-            </span>
+            <span className="muted">Het echte weer van die dag, op de plek waar je toen was.</span>
           </div>
           <input
             type="checkbox"

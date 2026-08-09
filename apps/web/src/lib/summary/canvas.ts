@@ -20,14 +20,48 @@ type Topology = Parameters<typeof topojson.feature>[0] & {
 const topo = countries110m as unknown as Topology;
 const LAND = topojson.feature(topo, topo.objects.countries) as unknown as GeoPermissibleObjects;
 
-/** The poster palette. Dark, so photos and the route carry the colour. */
-export const INK = '#f6f3ee';
-export const INK_SOFT = 'rgba(246, 243, 238, 0.62)';
-export const INK_FAINT = 'rgba(246, 243, 238, 0.34)';
-export const PAPER = '#0f1319';
-export const PANEL = '#171d25';
-export const LAND_FILL = '#232b35';
-export const LAND_LINE = 'rgba(246, 243, 238, 0.12)';
+/**
+ * What a poster is made of, in two moods.
+ *
+ * Dark lets the photos and the route carry all the colour; light is the app's
+ * own paper, for a feed that is mostly white. Everything that draws takes its
+ * colours from here rather than from a constant, so one setting changes the
+ * whole picture.
+ */
+export interface Palette {
+  ink: string;
+  inkSoft: string;
+  inkFaint: string;
+  paper: string;
+  panel: string;
+  land: string;
+  landLine: string;
+  grid: string;
+}
+
+export const DARK: Palette = {
+  ink: '#f6f3ee',
+  inkSoft: 'rgba(246, 243, 238, 0.62)',
+  inkFaint: 'rgba(246, 243, 238, 0.34)',
+  paper: '#0f1319',
+  panel: '#171d25',
+  land: '#232b35',
+  landLine: 'rgba(246, 243, 238, 0.12)',
+  grid: 'rgba(246, 243, 238, 0.05)',
+};
+
+export const LIGHT: Palette = {
+  ink: '#1c1a17',
+  inkSoft: 'rgba(28, 26, 23, 0.62)',
+  inkFaint: 'rgba(28, 26, 23, 0.40)',
+  paper: '#faf7f2',
+  panel: '#efe9e0',
+  land: '#e2dbd0',
+  landLine: 'rgba(28, 26, 23, 0.14)',
+  grid: 'rgba(28, 26, 23, 0.06)',
+};
+
+export const PALETTES: Record<'dark' | 'light', Palette> = { dark: DARK, light: LIGHT };
 
 export const FONT_BODY = "'Inter Variable', system-ui, sans-serif";
 export const FONT_DISPLAY = "'Fraunces Variable', Georgia, serif";
@@ -46,7 +80,7 @@ export function roundRect(ctx: CanvasRenderingContext2D, box: Box, radius: numbe
 }
 
 /** Fills a rounded panel. */
-export function panel(ctx: CanvasRenderingContext2D, box: Box, radius: number, fill = PANEL): void {
+export function panel(ctx: CanvasRenderingContext2D, box: Box, radius: number, fill: string): void {
   roundRect(ctx, box, radius);
   ctx.fillStyle = fill;
   ctx.fill();
@@ -138,7 +172,11 @@ export function layoutText(
   for (;;) {
     setFont(ctx, size, opts.weight ?? 700, opts.family ?? FONT_DISPLAY);
     lines = wrap(ctx, text, maxWidth);
-    if (lines.length <= maxLines || size <= min) break;
+    // Too many lines, or one line too wide to break — "ZomerZwedenVakantie"
+    // is a single word, so wrapping can never make it fit and only a smaller
+    // size will. Without the second test it ran straight off the poster.
+    const overflows = lines.some((line) => ctx.measureText(line).width > maxWidth);
+    if ((lines.length <= maxLines && !overflows) || size <= min) break;
     size -= 2;
   }
   if (lines.length > maxLines) {
@@ -157,7 +195,7 @@ export function drawLayout(
   y: number,
 ): number {
   setFont(ctx, layout.size, layout.opts.weight ?? 700, layout.opts.family ?? FONT_DISPLAY);
-  ctx.fillStyle = layout.opts.color ?? INK;
+  ctx.fillStyle = layout.opts.color ?? 'currentColor';
   ctx.textBaseline = 'top';
   layout.lines.forEach((line, i) => ctx.fillText(line, x, y + i * layout.lineHeight));
   return y + layout.height;
@@ -211,7 +249,7 @@ export function chip(
   ctx.strokeStyle = opts.border ?? 'rgba(246, 243, 238, 0.28)';
   ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.fillStyle = opts.color ?? INK;
+  ctx.fillStyle = opts.color ?? '#fff';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, x + size * 0.8, y + height / 2 + 1);
   ctx.textBaseline = 'top';
@@ -239,10 +277,17 @@ export function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, si
 }
 
 /** Logo plus wordmark, the block every poster opens with. */
-export function drawBrand(ctx: CanvasRenderingContext2D, x: number, y: number, accent: string, scale = 1): void {
+export function drawBrand(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  accent: string,
+  ink: string,
+  scale = 1,
+): void {
   drawLogo(ctx, x, y, 44 * scale, accent);
   setFont(ctx, 24 * scale, 700, FONT_BRAND);
-  ctx.fillStyle = INK_SOFT;
+  ctx.fillStyle = ink;
   ctx.textBaseline = 'middle';
   ctx.letterSpacing = `${2.5 * scale}px`;
   ctx.fillText('MARKMYSTEPS', x + 58 * scale, y + 23 * scale);
@@ -267,8 +312,13 @@ export function drawMap(
   ctx: CanvasRenderingContext2D,
   box: Box,
   focus: [number, number][],
-  opts: { accent: string; radius?: number; land?: boolean; fill?: string | null; grid?: boolean } = {
-    accent: '#e8613c',
+  opts: {
+    accent: string;
+    palette: Palette;
+    radius?: number;
+    land?: boolean;
+    fill?: string | null;
+    grid?: boolean;
   },
 ): MapDraw {
   const radius = opts.radius ?? 40;
@@ -278,7 +328,7 @@ export function drawMap(
   // `fill: null` asks for the projection and nothing else — the signature
   // route on the stats poster is drawn straight onto the photo behind it.
   if (opts.fill !== null) {
-    ctx.fillStyle = opts.fill ?? PANEL;
+    ctx.fillStyle = opts.fill ?? opts.palette.panel;
     ctx.fillRect(box.x, box.y, box.w, box.h);
   }
 
@@ -320,15 +370,15 @@ export function drawMap(
     const path = geoPath(projection, ctx);
     ctx.beginPath();
     path(LAND);
-    ctx.fillStyle = LAND_FILL;
+    ctx.fillStyle = opts.palette.land;
     ctx.fill();
-    ctx.strokeStyle = LAND_LINE;
+    ctx.strokeStyle = opts.palette.landLine;
     ctx.lineWidth = 1.5;
     ctx.stroke();
   } else if (opts.grid !== false) {
     // Close in, a faint grid gives the eye something to measure the route
     // against without pretending to be a street map.
-    ctx.strokeStyle = 'rgba(246, 243, 238, 0.05)';
+    ctx.strokeStyle = opts.palette.grid;
     ctx.lineWidth = 2;
     for (let gx = box.x; gx < box.x + box.w; gx += 74) {
       ctx.beginPath();
@@ -396,25 +446,17 @@ export function drawStopDot(
   x: number,
   y: number,
   accent: string,
-  label?: string,
+  ring: string,
+  big = false,
 ): void {
-  const r = label ? 26 : 13;
+  const r = big ? 16 : 12;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fillStyle = accent;
   ctx.fill();
-  ctx.strokeStyle = PAPER;
+  ctx.strokeStyle = ring;
   ctx.lineWidth = 5;
   ctx.stroke();
-  if (label) {
-    setFont(ctx, 26, 800, FONT_BODY);
-    ctx.fillStyle = PAPER;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, x, y + 1);
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-  }
 }
 
 const imageCache = new Map<string, HTMLImageElement>();
@@ -444,9 +486,26 @@ export async function loadPhoto(mediaId: string): Promise<HTMLImageElement | nul
   }
 }
 
-/** The fonts have to be there before the first letter is drawn. */
+/**
+ * The fonts have to be there before the first letter is drawn.
+ *
+ * `document.fonts.ready` only promises that what the PAGE asked for has
+ * arrived, and canvas never asks: a face the layout happens not to be using at
+ * that size and weight is quietly swapped for a system one, which is how the
+ * wordmark came out in the wrong type. So each face this file draws with is
+ * requested by name first.
+ */
 export async function readyFonts(): Promise<void> {
+  const faces = [
+    `800 96px ${FONT_DISPLAY}`,
+    `700 54px ${FONT_DISPLAY}`,
+    `700 24px ${FONT_BRAND}`,
+    `600 30px ${FONT_BODY}`,
+    `700 26px ${FONT_BODY}`,
+    `800 26px ${FONT_BODY}`,
+  ];
   try {
+    await Promise.all(faces.map((face) => document.fonts.load(face)));
     await document.fonts.ready;
   } catch {
     /* no font loading API: the fallbacks in the stacks above will do */

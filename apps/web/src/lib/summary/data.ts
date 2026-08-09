@@ -183,21 +183,79 @@ export function photoSlots(template: string): number {
   return 1;
 }
 
+/**
+ * The places you actually stayed, in travel order.
+ *
+ * A planner also holds the getting-there: a stop called "Heenreis" with no
+ * nights in it, which is a day of driving and not somewhere you went. Anything
+ * on the route you did not sleep at is left out; a day trip keeps its place,
+ * because that IS somewhere you went, from the stop it hangs off.
+ */
 function stopsIn(source: SummarySource, from: string, to: string) {
   return source.stops
     .filter((s) => s.latitude !== null && s.longitude !== null)
+    .filter((s) => s.parentStopId || s.nights > 0)
     .filter((s) => {
       const arrival = dayKey(s.arrivalDate);
       const departure = dayKey(s.departureDate);
       return arrival <= to && departure >= from;
     })
-    .map((s, i) => ({
+    .map((s) => ({
       name: s.name,
       lng: s.longitude!,
       lat: s.latitude!,
       countryCode: s.countryCode,
-      number: i + 1,
     }));
+}
+
+/** "SE" → "Zweden". Falls back to the code itself for anything unknown. */
+const REGION_NAMES = (() => {
+  try {
+    return new Intl.DisplayNames(['nl'], { type: 'region' });
+  } catch {
+    return null;
+  }
+})();
+
+function countryName(code: string): string {
+  try {
+    return REGION_NAMES?.of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+/** The line under the trip's name, per the spec's subtitle setting. */
+async function subtitleFor(
+  spec: SummarySpec,
+  scope: Scope,
+  stops: { name: string; countryCode: string | null }[],
+  countries: string[],
+  middle: [number, number] | null,
+): Promise<string | null> {
+  const typed = spec.subtitleText.trim();
+  if (typed) return typed;
+  const mode =
+    spec.subtitle !== 'auto'
+      ? spec.subtitle
+      : // A whole trip visits too many places to name one of them, so it says
+        // which countries it was in. A day or a stretch of days happened
+        // somewhere in particular, and that is worth naming.
+        scope.kind === 'trip' && stops.length > 1 && countries.length > 0
+        ? 'countries'
+        : 'place';
+  if (mode === 'none') return null;
+  if (mode === 'countries') {
+    return countries.length > 0 ? countries.map(countryName).join(' · ') : null;
+  }
+  if (mode === 'stops') {
+    if (stops.length === 0) return null;
+    const names = stops.map((s) => s.name);
+    return names.length > 4 ? `${names.slice(0, 3).join(' · ')} · +${names.length - 3}` : names.join(' · ');
+  }
+  if (stops.length === 1) return stops[0]!.name;
+  if (!middle) return null;
+  return reversePlaceName(middle[1], middle[0]).catch(() => null);
 }
 
 export function scopeLabel(scope: Scope): string {
@@ -256,10 +314,6 @@ export async function buildPages(source: SummarySource, spec: SummarySpec): Prom
       weather = await fetchWeather(middle[1], middle[0], scope.from);
     }
 
-    let place: string | null = null;
-    if (middle) place = await reversePlaceName(middle[1], middle[0]).catch(() => null);
-    if (stops.length === 1) place = stops[0]!.name;
-
     const slots = photoSlots(isEnd ? 'stats' : isCover ? 'ribbon' : spec.template);
     const chosenPhotos =
       spec.photoIds.length > 0 && !spec.series
@@ -268,6 +322,7 @@ export async function buildPages(source: SummarySource, spec: SummarySpec): Prom
 
     const countries = [...new Set(stops.map((s) => s.countryCode).filter(Boolean))] as string[];
     const days = daysBetween(scope.from, scope.to).length;
+    const place = await subtitleFor(spec, scope, stops, countries, middle);
 
     const facts: Fact[] = [];
     if (km > 0) facts.push({ value: km.toLocaleString('nl-NL'), label: 'km' });

@@ -149,12 +149,10 @@
 .member-add-list {
   display: grid;
   gap: 1px;
-  max-height: 15rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* A scroll container clips on both axes, and the picked row's drop shadow
-     was being cut off against those edges. Two pixels of breathing room is
-     all it needs. */
+  /* Not a scroller of its own. A list inside a sheet that also scrolls means
+     a drag over the beige panel is swallowed by the inner box and the sheet
+     itself will not budge — you had to find a strip of non-beige to scroll.
+     The sheet is the only thing that scrolls now. */
   padding: 2px;
 }
 

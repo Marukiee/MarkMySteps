@@ -19,6 +19,29 @@ export const TEMPLATE_HINTS: Record<TemplateId, string> = {
   stats: 'Eén grote foto met de cijfers van de reis eroverheen.',
 };
 
+/** Two moods. Dark for a feed of photographs, light for the app's own paper. */
+export type ThemeId = 'dark' | 'light';
+
+export const THEME_NAMES: Record<ThemeId, string> = { dark: 'Donker', light: 'Licht' };
+
+/**
+ * What the line under the trip's name says.
+ *
+ * A whole trip has no single place: taking the middle of it and asking the
+ * geocoder gave one arbitrary municipality nobody would name. So a trip says
+ * which countries it was in, a day says where you were, and either can be
+ * overruled by hand.
+ */
+export type SubtitleMode = 'auto' | 'countries' | 'stops' | 'place' | 'none';
+
+export const SUBTITLE_NAMES: Record<SubtitleMode, string> = {
+  auto: 'Automatisch',
+  countries: 'Landen',
+  stops: 'Stops',
+  place: 'Plaatsnaam',
+  none: 'Geen',
+};
+
 export type FormatId = 'story' | 'post' | 'square';
 
 export const FORMATS: Record<FormatId, { label: string; width: number; height: number }> = {
@@ -42,6 +65,10 @@ export interface Scope {
 export interface SummarySpec {
   template: TemplateId;
   format: FormatId;
+  theme: ThemeId;
+  subtitle: SubtitleMode;
+  /** Typed by hand; anything here wins over the mode above. */
+  subtitleText: string;
   scope: Scope;
   /** One page, or one page per day of the scope. */
   series: boolean;
@@ -73,8 +100,8 @@ export interface PageData {
   weather: Weather | null;
   /** Route lines in [lng, lat], already limited to this page's period. */
   lines: [number, number][][];
-  /** Stops in this period, in travel order. */
-  stops: { name: string; lng: number; lat: number; countryCode: string | null; number: number }[];
+  /** Places you actually stayed, in travel order. */
+  stops: { name: string; lng: number; lat: number; countryCode: string | null }[];
   /** Every stop of the whole trip, so a series page can show its progress. */
   allLines: [number, number][][];
   photos: string[];

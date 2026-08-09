@@ -99,7 +99,9 @@ export function MemberAdd({
     else setPicked((list) => (list.some((p) => p.id === u.id) ? list : [...list, u]));
   };
 
-  const visible = items.filter((u) => !exclude.includes(u.username));
+  // The list is part of the sheet rather than a box that scrolls on its own,
+  // so it shows a handful and lets the search narrow it down from there.
+  const visible = items.filter((u) => !exclude.includes(u.username)).slice(0, query ? 12 : 8);
 
   async function submit(role: 'MEMBER' | 'GUEST') {
     if (active.length === 0) return;

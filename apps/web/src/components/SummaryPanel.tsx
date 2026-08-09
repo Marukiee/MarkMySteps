@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api, fetchBlobUrl } from '../api/client';
 import type { MediaItem, RouteCollection, Trip, TripSummaryInfo } from '../api/types';
 import type { PlannedStop } from '../lib/arc';
+import { useAuth } from '../auth/AuthContext';
 import { formatDate } from '../lib/colors';
 import { AuthImage } from './AuthImage';
 import { confirmModal } from './confirm';
@@ -32,7 +34,11 @@ export function SummaryPanel({
   // A deleted poster stays in the list for the length of its exit animation,
   // so the tile folds away instead of blinking out from under your thumb.
   const [leaving, setLeaving] = useState<string[]>([]);
+  const { user } = useAuth();
   const hasPhotos = media.some((m) => m.assetType === 'IMAGE');
+  // A guest is watching somebody else's trip; making posters out of it is for
+  // the people who were on it.
+  const isGuest = trip.members.find((m) => m.userId === user?.id)?.role === 'GUEST';
 
   useEffect(() => {
     api<TripSummaryInfo[]>(`/trips/${trip.id}/summaries`)
@@ -72,23 +78,27 @@ export function SummaryPanel({
     <section className="summary-panel">
       <h2 className="trip-side-heading">Samenvattingen</h2>
       <p className="muted summary-hint">
-        {hasPhotos
-          ? 'Een poster van de reis, van een dag of van een stuk ervan, klaar om te delen.'
-          : 'Zodra er foto’s in deze reis staan kun je er een poster van maken.'}
+        {isGuest
+          ? 'Reisgenoten kunnen hier posters van deze reis maken.'
+          : hasPhotos
+            ? 'Een poster van de reis, van een dag of van een stuk ervan, klaar om te delen.'
+            : 'Zodra er foto’s in deze reis staan kun je er een poster van maken.'}
       </p>
 
       {/* Every layout is built around photographs, and the two that lean on
           them hardest have nothing at all to show without any. So the button
           waits for the first photo rather than making an empty poster. */}
-      <button
-        type="button"
-        className="btn btn-primary summary-make"
-        disabled={!hasPhotos}
-        onClick={() => setStudio(true)}
-      >
-        <Icon name="plus" size={16} />
-        Samenvatting maken
-      </button>
+      {!isGuest && (
+        <button
+          type="button"
+          className="btn btn-primary summary-make"
+          disabled={!hasPhotos}
+          onClick={() => setStudio(true)}
+        >
+          <Icon name="plus" size={16} />
+          Samenvatting maken
+        </button>
+      )}
 
       {items.length > 0 && (
         <div className="summary-grid">
@@ -141,11 +151,14 @@ function SummaryCard({
 }) {
   const [menu, setMenu] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
+  /** Where the menu hangs, in viewport coordinates. See the trip cards. */
+  const [menuAt, setMenuAt] = useState<{ top: number; right: number; up: boolean } | null>(null);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(summary.title);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   function closeMenu() {
     if (menuClosing) return;
@@ -160,7 +173,9 @@ function SummaryCard({
   useEffect(() => {
     if (!menu) return;
     const away = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) closeMenu();
+      const target = e.target as Node;
+      if (wrapRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      closeMenu();
     };
     const escape = (e: KeyboardEvent) => e.key === 'Escape' && closeMenu();
     document.addEventListener('mousedown', away);
@@ -216,17 +231,6 @@ function SummaryCard({
     }
   }
 
-  /** The page itself, full size. Through the proxy, so it carries the token. */
-  async function open() {
-    closeMenu();
-    try {
-      const url = await fetchBlobUrl(pageUrl(0));
-      window.open(url, '_blank', 'noopener');
-    } catch {
-      setNote('Openen lukte niet.');
-    }
-  }
-
   async function submitRename(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -258,13 +262,38 @@ function SummaryCard({
         className={`summary-card-menu-btn ${menu && !menuClosing ? 'open' : ''}`}
         aria-label="Meer"
         aria-expanded={menu && !menuClosing}
-        onClick={() => (menu ? closeMenu() : setMenu(true))}
+        onClick={(e) => {
+          if (menu) {
+            closeMenu();
+            return;
+          }
+          // Against the viewport rather than the tile: a tile is 140px wide in
+          // a two-column grid and the menu is wider than that, so anchored to
+          // the tile it hung off the side of the sheet.
+          const r = e.currentTarget.getBoundingClientRect();
+          const up = r.bottom + 230 > window.innerHeight;
+          setMenuAt({
+            top: up ? r.top : r.bottom,
+            right: Math.max(10, window.innerWidth - r.right),
+            up,
+          });
+          setMenu(true);
+        }}
       >
         <Icon name="dots" size={20} />
       </button>
 
-      {menu && (
-        <div className={`summary-menu card ${menuClosing ? 'closing' : ''}`}>
+      {menu && menuAt &&
+        createPortal(
+        <div
+          className={`summary-menu card ${menuAt.up ? 'up' : ''} ${menuClosing ? 'closing' : ''}`}
+          ref={menuRef}
+          style={
+            menuAt.up
+              ? { bottom: window.innerHeight - menuAt.top + 6, right: menuAt.right }
+              : { top: menuAt.top + 6, right: menuAt.right }
+          }
+        >
           {editing ? (
             <form className="summary-menu-form" onSubmit={submitRename}>
               <label htmlFor={`sm-${summary.id}`}>Naam</label>
@@ -289,10 +318,6 @@ function SummaryCard({
                 <Icon name="share" size={15} />
                 Delen of opslaan
               </button>
-              <button type="button" onClick={() => void open()}>
-                <Icon name="external" size={15} />
-                Op ware grootte
-              </button>
               <button type="button" onClick={() => setEditing(true)}>
                 <Icon name="pencil" size={15} />
                 Naam wijzigen
@@ -310,7 +335,8 @@ function SummaryCard({
               </button>
             </>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
       {note && <p className="muted summary-card-note">{note}</p>}
     </div>

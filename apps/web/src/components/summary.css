@@ -138,17 +138,24 @@
   color: var(--ink);
 }
 
-/* The trip-card menu, same shape, same animations. */
+/* The trip-card menu, same shape, same animations — and, like that one, drawn
+   against the viewport: a tile in a two-column grid is narrower than the menu,
+   so anchored to the tile it hung off the side of the sheet. */
 .summary-menu {
-  position: absolute;
-  right: 0;
-  bottom: 2.4rem;
-  z-index: 5;
+  position: fixed;
+  z-index: 120;
   display: grid;
-  min-width: 220px;
+  min-width: 210px;
+  max-width: min(280px, calc(100vw - 20px));
   padding: 0.3rem;
-  transform-origin: bottom right;
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-m);
+  transform-origin: top right;
   animation: summaryMenuIn 0.14s var(--ease);
+}
+
+.summary-menu.up {
+  transform-origin: bottom right;
 }
 
 @keyframes summaryMenuIn {
@@ -186,8 +193,10 @@
   background: var(--paper-sunken);
 }
 
-/* Same red as the trip-card menu's "verwijderen". */
-.summary-menu-danger {
+/* Same red as the trip-card menu's "verwijderen". Written with the button in
+   the selector, or the `color: inherit` on the rule above outranks it and the
+   item comes out the same colour as the rest. */
+.summary-menu > button.summary-menu-danger {
   color: #b3402a;
 }
 
@@ -293,9 +302,16 @@
   gap: 0.6rem;
   width: 100%;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
+  /* Proximity, not mandatory: a mandatory strip grabbed a half-finished swipe
+     and threw it at the next page. */
+  scroll-snap-type: x proximity;
   overscroll-behavior-x: contain;
   padding-bottom: 0.2rem;
+  transition: opacity 0.2s var(--ease);
+}
+
+.summary-preview[data-busy='true'] .summary-preview-strip {
+  opacity: 0.45;
 }
 
 .summary-preview-strip[data-single='true'] {
@@ -338,16 +354,26 @@
   font-weight: 700;
 }
 
+/* Centred over the whole preview: pinned to the bottom edge it sat half on
+   top of the poster it was replacing. */
 .summary-preview-busy {
   position: absolute;
-  inset: auto 0 0.5rem 0;
+  inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
+  border-radius: var(--radius-m);
   color: var(--ink-soft);
   font-size: 0.82rem;
   font-weight: 600;
+  pointer-events: none;
+}
+
+.summary-preview-busy .summary-spinner {
+  width: 22px;
+  height: 22px;
 }
 
 .summary-spinner {
@@ -374,6 +400,86 @@
   font-size: 0.82rem;
   font-weight: 650;
   color: var(--ink-faint);
+}
+
+/* A quiet aside on a section's own label ("3 van 4 gekozen"). */
+.summary-field-note {
+  margin-left: 0.45rem;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+
+/* Pick the photos yourself. A strip rather than a grid: the choice is a few
+   out of a day, and a grid of three hundred is a scroll of its own. */
+.summary-photo-strip {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 0.15rem 0.15rem 0.35rem;
+}
+
+.summary-photo {
+  position: relative;
+  flex: 0 0 auto;
+  width: 74px;
+  height: 74px;
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--paper-sunken);
+  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease);
+}
+
+.summary-photo:active {
+  transform: scale(0.95);
+}
+
+.summary-photo.picked {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+.summary-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.16s var(--ease);
+}
+
+.summary-photo.picked .summary-photo-img {
+  opacity: 0.72;
+}
+
+/* Which slot it lands in, since the order is the order you tapped. */
+.summary-photo-mark {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  animation: summaryPickIn 0.2s var(--ease);
+}
+
+@keyframes summaryPickIn {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+.summary-photo-clear {
+  justify-self: start;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
 }
 
 .summary-note {
@@ -420,7 +526,7 @@
 
 .summary-template {
   display: grid;
-  gap: 0.15rem;
+  gap: 0.25rem;
   padding: 0.6rem 0.65rem;
   border: 1.5px solid var(--line);
   border-radius: var(--radius-m);
@@ -438,10 +544,52 @@
   font-size: 0.88rem;
 }
 
-.summary-template span {
+.summary-template-hint {
   color: var(--ink-faint);
   font-size: 0.74rem;
   line-height: 1.3;
+}
+
+/* The layout itself, drawn small with the photo slots left empty. */
+.summary-template-shot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  margin-bottom: 0.15rem;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--paper-sunken);
+}
+
+.summary-template-shot[data-format='post'] {
+  aspect-ratio: 4 / 5;
+}
+
+.summary-template-shot[data-format='square'] {
+  aspect-ratio: 1;
+}
+
+.summary-template-shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: summaryShotIn 0.28s var(--ease);
+}
+
+.summary-template-wait {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(100deg, var(--paper-sunken) 30%, var(--paper-raised) 50%, var(--paper-sunken) 70%);
+  background-size: 220% 100%;
+  animation: summaryWait 1.1s linear infinite;
+}
+
+@keyframes summaryWait {
+  to {
+    background-position: -120% 0;
+  }
 }
 
 .summary-template.active {
@@ -473,14 +621,18 @@
   line-height: 1.3;
 }
 
+/* The sheet's own surface, not a gradient fading into one: the fade read as
+   something else sitting behind the buttons. */
 .summary-studio-actions {
   display: grid;
   grid-template-columns: 1fr 1.4fr;
   gap: 0.5rem;
   position: sticky;
-  bottom: 0;
-  padding-top: 0.4rem;
-  background: linear-gradient(to bottom, transparent, var(--paper-raised) 40%);
+  bottom: calc(-1.4rem - env(safe-area-inset-bottom));
+  margin: 0 -1.15rem calc(-1.4rem - env(safe-area-inset-bottom));
+  padding: 0.7rem 1.15rem calc(0.9rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--paper-raised);
 }
 
 .summary-studio-actions .btn {
