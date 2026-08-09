@@ -319,7 +319,9 @@
   position: relative;
   display: grid;
   place-items: center;
-  min-height: 240px;
+  /* As tall as the tallest poster it can hold, so the box never comes out
+     shorter than its own contents and clips them top and bottom. */
+  min-height: calc(min(42vh, 380px) + 1.4rem);
   padding: 0.7rem;
   border-radius: var(--radius-m);
   background: var(--paper-sunken);

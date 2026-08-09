@@ -1,8 +1,9 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api, fetchBlobUrl } from '../api/client';
 import type { MediaItem, RouteCollection, Trip, TripSummaryInfo } from '../api/types';
 import type { PlannedStop } from '../lib/arc';
+import type { SummarySpec } from '../lib/summary/types';
 import { useAuth } from '../auth/AuthContext';
 import { formatDate } from '../lib/colors';
 import { AuthImage } from './AuthImage';
@@ -30,6 +31,8 @@ export function SummaryPanel({
 }) {
   const [items, setItems] = useState<TripSummaryInfo[]>([]);
   const [studio, setStudio] = useState(false);
+  /** The recipe a poster was made from, when you opened it to change it. */
+  const [editing, setEditing] = useState<Partial<SummarySpec> | null>(null);
   const [error, setError] = useState<string | null>(null);
   // A deleted poster stays in the list for the length of its exit animation,
   // so the tile folds away instead of blinking out from under your thumb.
@@ -95,7 +98,10 @@ export function SummaryPanel({
           type="button"
           className="btn btn-primary summary-make"
           disabled={!hasPhotos}
-          onClick={() => setStudio(true)}
+          onClick={() => {
+            setEditing(null);
+            setStudio(true);
+          }}
         >
           <Icon name="plus" size={16} />
           Samenvatting maken
@@ -111,7 +117,10 @@ export function SummaryPanel({
               summary={summary}
               leaving={leaving.includes(summary.id)}
               onRemove={() => void remove(summary)}
-              onRename={(title) => rename(summary, title)}
+              onEdit={() => {
+                setEditing((summary.spec ?? null) as Partial<SummarySpec> | null);
+                setStudio(true);
+              }}
             />
           ))}
         </div>
@@ -124,7 +133,11 @@ export function SummaryPanel({
           stops={stops}
           media={media}
           routes={routes}
-          onClose={() => setStudio(false)}
+          initial={editing}
+          onClose={() => {
+            setStudio(false);
+            setEditing(null);
+          }}
           onSaved={(saved) => setItems((list) => [saved, ...list])}
         />
       )}
@@ -143,20 +156,18 @@ function SummaryCard({
   summary,
   leaving,
   onRemove,
-  onRename,
+  onEdit,
 }: {
   tripId: string;
   summary: TripSummaryInfo;
   leaving: boolean;
   onRemove: () => void;
-  onRename: (title: string) => Promise<void>;
+  onEdit: () => void;
 }) {
   const [menu, setMenu] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
   /** Where the menu hangs, in viewport coordinates. See the trip cards. */
   const [menuAt, setMenuAt] = useState<{ top: number; right: number; up: boolean } | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(summary.title);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -168,7 +179,6 @@ function SummaryCard({
     window.setTimeout(() => {
       setMenu(false);
       setMenuClosing(false);
-      setEditing(false);
     }, 140);
   }
 
@@ -207,22 +217,27 @@ function SummaryCard({
         const blob = await fetch(url).then((r) => r.blob());
         files.push(new File([blob], `${slug(summary.title)}-${page.index + 1}.jpg`, { type: blob.type }));
       }
+      // The share sheet when the device has one, a download when it does not,
+      // and failing both the picture on screen to press and hold.
       if (navigator.canShare?.({ files }) && navigator.share) {
         await navigator.share({ files, title: summary.title });
         return;
       }
+      let saved = false;
       for (const file of files) {
         const href = URL.createObjectURL(file);
         const link = document.createElement('a');
         link.href = href;
         link.download = file.name;
         link.rel = 'noopener';
+        link.target = '_blank';
         document.body.appendChild(link);
         link.click();
         link.remove();
-        window.setTimeout(() => URL.revokeObjectURL(href), 10_000);
+        saved = true;
+        window.setTimeout(() => URL.revokeObjectURL(href), 30_000);
       }
-      setNote('Opgeslagen bij je downloads.');
+      setNote(saved ? 'Opgeslagen bij je downloads.' : 'Opslaan lukte niet.');
     } catch (err) {
       // A share the user waved away is not a failure worth reporting.
       if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -233,20 +248,11 @@ function SummaryCard({
     }
   }
 
-  async function submitRename(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    try {
-      await onRename(value.trim() || summary.title);
-      closeMenu();
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div ref={wrapRef} className={`summary-card ${leaving ? 'leaving' : ''}`}>
-      <button type="button" className="summary-card-shot" onClick={() => void share()}>
+      {/* Tapping the poster opens it in the maker with the settings it was
+          made from; sharing is a deliberate choice from the ⋯ menu. */}
+      <button type="button" className="summary-card-shot" onClick={onEdit}>
         <AuthImage path={pageUrl(0)} alt={summary.title} className="summary-card-img" />
         {summary.pages.length > 1 && (
           <span className="summary-card-count">{summary.pages.length}</span>
@@ -296,33 +302,13 @@ function SummaryCard({
               : { top: menuAt.top + 6, right: menuAt.right }
           }
         >
-          {editing ? (
-            <form className="summary-menu-form" onSubmit={submitRename}>
-              <label htmlFor={`sm-${summary.id}`}>Naam</label>
-              <input
-                id={`sm-${summary.id}`}
-                autoFocus
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-              />
-              <div className="summary-menu-actions">
-                <button type="button" className="btn btn-ghost" onClick={() => setEditing(false)}>
-                  Terug
-                </button>
-                <button className="btn btn-primary" disabled={busy}>
-                  Opslaan
-                </button>
-              </div>
-            </form>
-          ) : (
-            <>
               <button type="button" disabled={busy} onClick={() => void share()}>
-                <Icon name="share" size={15} />
-                Delen of opslaan
+                <Icon name="download" size={15} />
+                Downloaden en delen
               </button>
-              <button type="button" onClick={() => setEditing(true)}>
+              <button type="button" onClick={onEdit}>
                 <Icon name="pencil" size={15} />
-                Naam wijzigen
+                Aanpassen
               </button>
               <button
                 type="button"
@@ -335,8 +321,6 @@ function SummaryCard({
                 <Icon name="trash" size={15} />
                 Verwijderen
               </button>
-            </>
-          )}
         </div>,
         document.body,
       )}

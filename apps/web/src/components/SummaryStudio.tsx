@@ -27,6 +27,7 @@ import {
   type TemplateId,
   type ThemeId,
 } from '../lib/summary/types';
+import { skipNextPop } from '../lib/backStack';
 import { resolvedTheme } from '../lib/prefs';
 import { AuthImage } from './AuthImage';
 import { DateField } from './DatePicker';
@@ -46,6 +47,7 @@ export function SummaryStudio({
   stops,
   media,
   routes,
+  initial,
   onClose,
   onSaved,
 }: {
@@ -53,6 +55,8 @@ export function SummaryStudio({
   stops: PlannedStop[];
   media: MediaItem[];
   routes: RouteCollection | null;
+  /** The recipe of a poster you opened to change. Absent for a fresh one. */
+  initial?: Partial<SummarySpec> | null;
   onClose: () => void;
   onSaved: (summary: TripSummaryInfo) => void;
 }) {
@@ -85,7 +89,11 @@ export function SummaryStudio({
     window.addEventListener('popstate', onPop);
     return () => {
       window.removeEventListener('popstate', onPop);
-      if (!popped) window.history.back();
+      if (!popped) {
+        // Ours to consume; the sheet underneath must not read it as a gesture.
+        skipNextPop();
+        window.history.back();
+      }
     };
     // Mounted once per visit to the maker.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,19 +101,23 @@ export function SummaryStudio({
 
   const tripStart = dayKey(trip.startDate);
   const tripEnd = dayKey(trip.endDate);
-  const [scope, setScope] = useState<Scope>(() => defaultScope(trip, media));
-  const [template, setTemplate] = useState<TemplateId>('route');
-  const [touchedTemplate, setTouchedTemplate] = useState(false);
-  const [format, setFormat] = useState<FormatId>('story');
+  const [scope, setScope] = useState<Scope>(() => initial?.scope ?? defaultScope(trip, media));
+  const [template, setTemplate] = useState<TemplateId>(initial?.template ?? 'route');
+  // Reopening a poster means keeping the layout it had, not being talked out
+  // of it by the suggestion.
+  const [touchedTemplate, setTouchedTemplate] = useState(Boolean(initial?.template));
+  const [format, setFormat] = useState<FormatId>(initial?.format ?? 'story');
   // Starts on whatever the app itself is wearing.
-  const [theme, setTheme] = useState<ThemeId>(() => (resolvedTheme() === 'light' ? 'light' : 'dark'));
-  const [subtitle, setSubtitle] = useState<SubtitleMode>('auto');
-  const [subtitleText, setSubtitleText] = useState('');
+  const [theme, setTheme] = useState<ThemeId>(
+    () => initial?.theme ?? (resolvedTheme() === 'light' ? 'light' : 'dark'),
+  );
+  const [subtitle, setSubtitle] = useState<SubtitleMode>(initial?.subtitle ?? 'auto');
+  const [subtitleText, setSubtitleText] = useState(initial?.subtitleText ?? '');
   /** Photos you picked yourself; empty means "choose them for me". */
-  const [photoIds, setPhotoIds] = useState<string[]>([]);
-  const [series, setSeries] = useState(false);
-  const [showLogo, setShowLogo] = useState(true);
-  const [showWeather, setShowWeather] = useState(true);
+  const [photoIds, setPhotoIds] = useState<string[]>(initial?.photoIds ?? []);
+  const [series, setSeries] = useState(Boolean(initial?.series));
+  const [showLogo, setShowLogo] = useState(initial?.showLogo ?? true);
+  const [showWeather, setShowWeather] = useState(initial?.showWeather ?? true);
   const [title, setTitle] = useState('');
   const [titleTouched, setTitleTouched] = useState(false);
 
@@ -152,7 +164,11 @@ export function SummaryStudio({
 
   // A photo you picked out of Tuesday means nothing once you are looking at
   // Friday, so the choice belongs to the period it was made in.
-  useEffect(() => setPhotoIds([]), [scope]);
+  const firstScope = useRef(scope);
+  useEffect(() => {
+    if (firstScope.current === scope) return;
+    setPhotoIds([]);
+  }, [scope]);
 
   /** Every photo taken inside the period, oldest first: what you pick from. */
   const scopePhotos = useMemo(

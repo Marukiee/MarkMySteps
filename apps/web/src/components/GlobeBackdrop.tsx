@@ -328,7 +328,14 @@ export function GlobeBackdrop({
         }
         ring = 0;
       }
-      if (ring < 0) return NO_FLARE;
+      if (ring < 0) {
+        // Done ringing, but the light has since come to a stop here: an arc
+        // comes within reach of a city before it actually lands there, so the
+        // first ring can be over and done before the plane is down. While the
+        // light stands at a place, that place keeps answering.
+        if (holdPoint && distance(holdPoint, p) < 0.6 && performance.now() < holdUntil) ring = 0;
+        else return NO_FLARE;
+      }
       ring += dt / RING_S;
       // Standing at a dot keeps the ripples coming; once the light moves on the
       // one under way finishes, and that is the last of them.

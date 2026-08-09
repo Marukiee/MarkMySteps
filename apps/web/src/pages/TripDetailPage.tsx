@@ -18,6 +18,7 @@ import { TripFacts } from '../components/TripFacts';
 import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
 import { countStopPlaces, type PlannedStop } from '../lib/arc';
+import { popWasOurs } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
 import { colorForUser, formatDate, tripCoverBg } from '../lib/colors';
 import { listDeviceMedia } from '../lib/deviceMedia';
@@ -463,6 +464,8 @@ export function TripDetailPage() {
     window.history.pushState({ mmsPeople: true }, '');
     let popped = false;
     const onPop = () => {
+      // A sheet above this one consuming its own entry, not a back gesture.
+      if (popWasOurs()) return;
       popped = true;
       closePeople();
     };
