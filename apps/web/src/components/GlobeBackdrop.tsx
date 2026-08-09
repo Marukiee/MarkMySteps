@@ -209,20 +209,23 @@ export function GlobeBackdrop({
      * flight went over it.
      */
     let journeyMarks: { p: [number, number]; d: number }[] | null = null;
-    /** How far into the journey a dot sits, or null if it is not on it. */
+    /**
+     * How far into the journey a dot sits, or null if it is not on it.
+     *
+     * The EARLIEST point of the journey that comes near it, not the nearest
+     * one. A flight arc leaving a city curves back over it, and that later
+     * vertex was often the closest of the lot — so the city was only counted
+     * as reached seconds after the plane had left it, and the ring arrived
+     * long after the moment it was about.
+     */
     const journeyDistOf = (p: [number, number]): number | null => {
       if (!journeyMarks) return null;
-      let best = Infinity;
       let at: number | null = null;
       for (const mark of journeyMarks) {
-        const d = distance(mark.p, p);
-        if (d < best) {
-          best = d;
-          at = mark.d;
-        }
+        if (distance(mark.p, p) > 1.2) continue;
+        if (at === null || mark.d < at) at = mark.d;
       }
-      // Far from every point of the journey: not a place this trip went.
-      return best <= 1.2 ? at : null;
+      return at;
     };
     /** The plane's heading, eased so it never twitches. Null while on the ground. */
     let planeAngle: number | null = null;
