@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { MediaItem } from '../api/types';
-import { skipNextPop } from '../lib/backStack';
+import { popWasOurs, skipNextPop } from '../lib/backStack';
 import { formatDay } from '../lib/colors';
 import type { RenderedPage } from '../lib/summary/render';
 import { AuthImage } from './AuthImage';
@@ -28,6 +28,7 @@ function useDismiss(onClose: () => void, ms = 240): { closing: boolean; close: (
     window.history.pushState({ mmsOverlay: true }, '');
     let popped = false;
     const onPop = () => {
+      if (popWasOurs()) return;
       popped = true;
       close();
     };
@@ -45,28 +46,53 @@ function useDismiss(onClose: () => void, ms = 240): { closing: boolean; close: (
   return { closing, close };
 }
 
-/** One page of the poster, as big as the screen will allow. */
+/**
+ * The poster, as big as the screen will allow.
+ *
+ * A series is held whole and swiped through here rather than one page being
+ * lifted out of it: pulling a single page out of a strip that redraws itself
+ * on every change is how the wrong page ended up on screen.
+ */
 export function SummaryPageViewer({
-  page,
-  index,
-  total,
+  pages,
+  start,
   onClose,
 }: {
-  page: RenderedPage;
-  index: number;
-  total: number;
+  pages: RenderedPage[];
+  start: number;
   onClose: () => void;
 }) {
   const { closing, close } = useDismiss(onClose);
+  const [at, setAt] = useState(start);
+  const stripRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const strip = stripRef.current;
+    const child = strip?.children[start] as HTMLElement | undefined;
+    if (child) strip!.scrollLeft = child.offsetLeft;
+  }, [start]);
+
   return createPortal(
     <div className={`summary-viewer ${closing ? 'closing' : ''}`} onClick={close}>
       <button className="summary-viewer-close" aria-label="Sluiten" onClick={close}>
         <Icon name="close" size={20} />
       </button>
-      <img src={page.url} alt={`Pagina ${index + 1}`} onClick={(e) => e.stopPropagation()} />
-      {total > 1 && (
+      <div
+        className="summary-viewer-strip"
+        ref={stripRef}
+        onClick={(e) => e.stopPropagation()}
+        onScroll={(e) => {
+          const strip = e.currentTarget;
+          setAt(Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)));
+        }}
+      >
+        {pages.map((page, i) => (
+          <img key={page.url} src={page.url} alt={`Pagina ${i + 1}`} />
+        ))}
+      </div>
+      {pages.length > 1 && (
         <span className="summary-viewer-count">
-          {index + 1} / {total}
+          {Math.min(at + 1, pages.length)} / {pages.length}
         </span>
       )}
     </div>,
@@ -99,6 +125,17 @@ export function SummaryPhotoSwap({
     currentRef.current?.scrollIntoView({ block: 'center' });
   }, []);
 
+  /**
+   * A window around the one you tapped, not the whole trip.
+   *
+   * Three hundred tiles is three hundred fetches and a grid the browser
+   * repaints in pieces — which is the tearing you saw. The photo you want is
+   * near the one you pressed, so that is what is offered.
+   */
+  const centre = Math.max(0, photos.findIndex((p) => p.id === current));
+  const from = Math.max(0, centre - 60);
+  const shown = photos.slice(from, from + 120);
+
   return createPortal(
     <div className={`summary-swap-backdrop ${closing ? 'closing' : ''}`} onClick={close}>
       <div className="summary-swap card" onClick={(e) => e.stopPropagation()}>
@@ -109,7 +146,7 @@ export function SummaryPhotoSwap({
           </button>
         </div>
         <div className="summary-swap-grid">
-          {photos.map((item) => (
+          {shown.map((item) => (
             <button
               key={item.id}
               ref={item.id === current ? currentRef : undefined}
@@ -127,7 +164,7 @@ export function SummaryPhotoSwap({
               <span>{formatDay(item.takenAt)}</span>
             </button>
           ))}
-          {photos.length === 0 && <p className="muted">Geen foto’s in deze periode.</p>}
+          {shown.length === 0 && <p className="muted">Geen foto’s in deze periode.</p>}
         </div>
       </div>
     </div>,

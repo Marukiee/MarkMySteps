@@ -36,6 +36,8 @@ export function SummaryPanel({
   const [studio, setStudio] = useState(false);
   /** The recipe a poster was made from, when you opened it to change it. */
   const [editing, setEditing] = useState<Partial<SummarySpec> | null>(null);
+  /** Which poster is being changed, so saving replaces it in place. */
+  const [replacing, setReplacing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // A deleted poster stays in the list for the length of its exit animation,
   // so the tile folds away instead of blinking out from under your thumb.
@@ -103,6 +105,7 @@ export function SummaryPanel({
           disabled={!hasPhotos}
           onClick={() => {
             setEditing(null);
+            setReplacing(null);
             setStudio(true);
           }}
         >
@@ -122,6 +125,7 @@ export function SummaryPanel({
               onRemove={() => void remove(summary)}
               onEdit={() => {
                 setEditing((summary.spec ?? null) as Partial<SummarySpec> | null);
+                setReplacing(summary.id);
                 setStudio(true);
               }}
             />
@@ -137,11 +141,19 @@ export function SummaryPanel({
           media={media}
           routes={routes}
           initial={editing}
+          replaces={replacing}
           onClose={() => {
             setStudio(false);
             setEditing(null);
+            setReplacing(null);
           }}
-          onSaved={(saved) => setItems((list) => [saved, ...list])}
+          onSaved={(saved, replaced) =>
+            setItems((list) =>
+              replaced
+                ? list.map((item) => (item.id === replaced ? saved : item))
+                : [saved, ...list],
+            )
+          }
         />
       )}
     </section>

@@ -11,6 +11,34 @@ const DISMISS_KEY = 'mms.trackprompt.dismissed';
 const DAY = 86_400_000;
 
 /**
+ * When a trip that tracks itself may actually start.
+ *
+ * Not on the day it begins: a trip that opens with a flight begins in a
+ * departure hall and then in the air, where a phone reports a scatter of fixes
+ * hundreds of kilometres apart and the route comes out as a mess. The first
+ * place you STAY is where the trip becomes a thing you can follow, so tracking
+ * waits for the day you arrive there.
+ *
+ * A trip with no planned stops has nothing to wait for and starts as before.
+ */
+async function startWhenThere(trip: Trip, now: number): Promise<void> {
+  try {
+    const stops = await api<{ arrivalDate: string; nights: number; parentStopId?: string | null }[]>(
+      `/trips/${trip.id}/stops`,
+    );
+    const firstStay = stops.find((s) => !s.parentStopId && s.nights > 0);
+    if (firstStay) {
+      const arrival = new Date(firstStay.arrivalDate);
+      arrival.setHours(0, 0, 0, 0);
+      if (now < arrival.getTime()) return;
+    }
+  } catch {
+    /* no plan to read: fall through and track as before */
+  }
+  void startTracking(trip.id);
+}
+
+/**
  * Native-only nudge: when a trip is active (or starts within a day) and you
  * aren't tracking it yet, offer to start. Dismissable per trip.
  */
@@ -46,7 +74,7 @@ export function TrackingPrompt() {
         if (!canTrack) return;
         // autoTrack trips start silently once begun; others show the prompt.
         if (active.autoTrack && now >= new Date(active.startDate).getTime()) {
-          void startTracking(active.id);
+          void startWhenThere(active, now);
         } else {
           setTrip(active);
         }

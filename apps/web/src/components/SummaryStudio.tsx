@@ -27,7 +27,7 @@ import {
   type TemplateId,
   type ThemeId,
 } from '../lib/summary/types';
-import { skipNextPop } from '../lib/backStack';
+import { popWasOurs, skipNextPop } from '../lib/backStack';
 import { resolvedTheme } from '../lib/prefs';
 import { AuthImage } from './AuthImage';
 import { DateField } from './DatePicker';
@@ -49,6 +49,7 @@ export function SummaryStudio({
   media,
   routes,
   initial,
+  replaces,
   onClose,
   onSaved,
 }: {
@@ -58,8 +59,10 @@ export function SummaryStudio({
   routes: RouteCollection | null;
   /** The recipe of a poster you opened to change. Absent for a fresh one. */
   initial?: Partial<SummarySpec> | null;
+  /** The poster being changed, when you opened one to edit it. */
+  replaces?: string | null;
   onClose: () => void;
-  onSaved: (summary: TripSummaryInfo) => void;
+  onSaved: (summary: TripSummaryInfo, replaced: string | null) => void;
 }) {
   const [closing, setClosing] = useState(false);
   const closingRef = useRef(false);
@@ -82,6 +85,9 @@ export function SummaryStudio({
     window.history.pushState({ mmsSummaryStudio: true }, '');
     let popped = false;
     const onPop = () => {
+      // An overlay above this one consuming its own entry — the enlarged page
+      // or the photo chooser closing — is not a back gesture aimed at us.
+      if (popWasOurs()) return;
       popped = true;
       // Down and away, the same as tapping the cross: a back gesture that made
       // the whole sheet vanish between one frame and the next read as a crash.
@@ -280,7 +286,14 @@ export function SummaryStudio({
         method: 'POST',
         formData: form,
       });
-      onSaved(saved);
+      // Opened from an existing poster: this IS that poster, so the one it
+      // came from makes way rather than the two of them sitting side by side.
+      if (replaces) {
+        await api(`/trips/${trip.id}/summaries/${replaces}`, { method: 'DELETE' }).catch(
+          () => undefined,
+        );
+      }
+      onSaved(saved, replaces ?? null);
       close();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Opslaan mislukt');
@@ -336,12 +349,6 @@ export function SummaryStudio({
                     <Icon name="camera" size={16} />
                   </button>
                 ))}
-                <button
-                  type="button"
-                  className="summary-preview-open"
-                  aria-label={`Pagina ${i + 1} groter bekijken`}
-                  onClick={() => setZoomed(i)}
-                />
                 {pages.length > 1 && <figcaption>{i + 1}</figcaption>}
               </figure>
             ))}
@@ -349,6 +356,16 @@ export function SummaryStudio({
           {/* Over the whole preview, centred, with the old poster dimmed
               underneath — a line of text pinned to the bottom edge landed
               half on top of whatever was being replaced. */}
+          {pages.length > 0 && (
+            <button
+              type="button"
+              className="summary-fullscreen"
+              aria-label="Groter bekijken"
+              onClick={() => setZoomed(0)}
+            >
+              <Icon name="external" size={16} />
+            </button>
+          )}
           {busy && (
             <div className="summary-preview-busy">
               <span className="summary-spinner" aria-hidden="true" />
@@ -558,12 +575,13 @@ export function SummaryStudio({
         </section>
 
         {scopeFacts.days > 1 && seriesAllowed && (
-          <label className="summary-toggle">
+          <label className="summary-toggle summary-toggle-loud">
             <div>
-              <strong>Reeks van meerdere afbeeldingen</strong>
+              <strong>Meerdere afbeeldingen: één pagina per stop</strong>
               <span className="muted">
-                Een omslag met de hele route, dan een pagina per stop met de foto’s van díe stop, en
-                de cijfers als slot. Maximaal tien stops.
+                In plaats van één poster: een omslag met de hele route, dan een pagina per plaats
+                waar je sliep met de foto’s van díe plaats, en de cijfers als slot. Maximaal tien
+                stops, klaar om als carrousel te posten.
               </span>
             </div>
             <input type="checkbox" checked={series} onChange={(e) => setSeries(e.target.checked)} />
@@ -607,13 +625,8 @@ export function SummaryStudio({
 
         {error && <p className="error-text">{error}</p>}
 
-        {zoomed !== null && pages[zoomed] && (
-          <SummaryPageViewer
-            page={pages[zoomed]!}
-            index={zoomed}
-            total={pages.length}
-            onClose={() => setZoomed(null)}
-          />
+        {zoomed !== null && pages.length > 0 && (
+          <SummaryPageViewer pages={pages} start={zoomed} onClose={() => setZoomed(null)} />
         )}
 
         {swapping && (
@@ -649,7 +662,13 @@ export function SummaryStudio({
             onClick={() => void save()}
           >
             <Icon name="check" size={16} />
-            {saving ? 'Opslaan…' : pages.length > 1 ? `${pages.length} pagina’s bewaren` : 'Bewaren'}
+            {saving
+              ? 'Opslaan…'
+              : replaces
+                ? 'Deze versie opslaan'
+                : pages.length > 1
+                  ? `${pages.length} pagina’s bewaren`
+                  : 'Bewaren'}
           </button>
         </div>
       </div>
