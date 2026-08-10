@@ -11,31 +11,33 @@ const DISMISS_KEY = 'mms.trackprompt.dismissed';
 const DAY = 86_400_000;
 
 /**
- * When a trip that tracks itself may actually start.
+ * Whether a trip that tracks itself should start on its own today.
  *
- * Not on the day it begins: a trip that opens with a flight begins in a
- * departure hall and then in the air, where a phone reports a scatter of fixes
- * hundreds of kilometres apart and the route comes out as a mess. The first
- * place you STAY is where the trip becomes a thing you can follow, so tracking
- * waits for the day you arrive there.
+ * A trip you drive or take the train to IS the getting there: a roadtrip or an
+ * interrail begins the moment you pull off your own street, and waiting for
+ * the first hotel would lose the best day of it. So those start as they always
+ * did, on the day the trip begins.
  *
- * A trip with no planned stops has nothing to wait for and starts as before.
+ * A trip that opens with a flight is the opposite. Its first hours are a
+ * departure hall and then ten kilometres of air, where a phone reports fixes
+ * hundreds of kilometres apart and the route comes out as a scribble across
+ * Europe. There is no way to know from a calendar when you landed, so it is
+ * not guessed: that trip asks instead, and you start it when you are there.
+ *
+ * A trip with no plan at all has nothing to read, and starts.
  */
-async function startWhenThere(trip: Trip, now: number): Promise<void> {
+async function flightFirst(trip: Trip): Promise<boolean> {
   try {
-    const stops = await api<{ arrivalDate: string; nights: number; parentStopId?: string | null }[]>(
-      `/trips/${trip.id}/stops`,
-    );
-    const firstStay = stops.find((s) => !s.parentStopId && s.nights > 0);
-    if (firstStay) {
-      const arrival = new Date(firstStay.arrivalDate);
-      arrival.setHours(0, 0, 0, 0);
-      if (now < arrival.getTime()) return;
-    }
+    const stops = await api<
+      { travelMode: string; parentStopId?: string | null; orderIndex: number }[]
+    >(`/trips/${trip.id}/stops`);
+    const route = stops
+      .filter((s) => !s.parentStopId)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+    return route[0]?.travelMode === 'FLIGHT';
   } catch {
-    /* no plan to read: fall through and track as before */
+    return false;
   }
-  void startTracking(trip.id);
 }
 
 /**
@@ -74,7 +76,12 @@ export function TrackingPrompt() {
         if (!canTrack) return;
         // autoTrack trips start silently once begun; others show the prompt.
         if (active.autoTrack && now >= new Date(active.startDate).getTime()) {
-          void startWhenThere(active, now);
+          void flightFirst(active).then((flying) => {
+            // Flown to: ask rather than track an aeroplane. Driven or by rail:
+            // the journey out is the trip, so it starts itself.
+            if (flying) setTrip(active);
+            else void startTracking(active.id);
+          });
         } else {
           setTrip(active);
         }

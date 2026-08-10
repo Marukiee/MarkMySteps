@@ -665,7 +665,7 @@ export function SummaryStudio({
             {saving
               ? 'Opslaan…'
               : replaces
-                ? 'Deze versie opslaan'
+                ? 'Versie opslaan'
                 : pages.length > 1
                   ? `${pages.length} pagina’s bewaren`
                   : 'Bewaren'}
