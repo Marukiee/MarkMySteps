@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { MediaItem } from '../api/types';
 import { popWasOurs, skipNextPop } from '../lib/backStack';
-import { formatDay } from '../lib/colors';
 import type { RenderedPage } from '../lib/summary/render';
 import { AuthImage } from './AuthImage';
 import { Icon } from './Icon';
@@ -161,7 +160,6 @@ export function SummaryPhotoSwap({
               }}
             >
               <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="summary-photo-img" />
-              <span>{formatDay(item.takenAt)}</span>
             </button>
           ))}
           {shown.length === 0 && <p className="muted">Geen foto’s in deze periode.</p>}

@@ -1008,6 +1008,10 @@
 
 .summary-swap {
   display: grid;
+  /* Head, then a grid that takes what is left and scrolls inside it. Rows left
+     to size themselves meant the sheet grew past its own cap and nothing
+     scrolled at all. */
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 0.6rem;
   width: min(520px, 100%);
   max-height: 76vh;
@@ -1041,17 +1045,20 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0.15rem;
-  /* Rows of tiles that each paint their own box. Without it a long grid of
-     images that arrive at different moments repaints in ragged strips. */
-  content-visibility: auto;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
+/* Each tile paints its own box. Without it a long grid of images arriving at
+   different moments repaints in ragged strips. */
 .summary-swap-photo {
   position: relative;
   display: block;
   padding: 0;
   aspect-ratio: 1;
-  contain: paint;
+  contain: content;
+  content-visibility: auto;
+  contain-intrinsic-size: 88px;
   border-radius: 10px;
   overflow: hidden;
   background: var(--paper-sunken);
@@ -1076,17 +1083,4 @@
   object-fit: cover;
 }
 
-/* The day it was taken, so the strip reads as a timeline and not a heap. */
-.summary-swap-photo span {
-  position: absolute;
-  inset: auto 0 0 0;
-  padding: 0.5rem 0.3rem 0.2rem;
-  background: linear-gradient(to bottom, transparent, rgb(16 21 27 / 0.75));
-  color: #fff;
-  font-size: 0.6rem;
-  font-weight: 700;
-  text-align: left;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
+

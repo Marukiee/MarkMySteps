@@ -11,16 +11,26 @@
  * Anything tidying up after itself says so here first, and the layers beneath
  * let that one pop go by.
  */
-let pending = 0;
+let skipping = false;
 
-/** About to consume our own history entry: the next pop is not a gesture. */
+/**
+ * About to consume our own history entry: the pop this produces is not a
+ * gesture, for anybody.
+ *
+ * A counter was wrong here. Every layer still listening hears the SAME pop, so
+ * the first one to ask used the token up and the next one down — the mensen &
+ * delen sheet under the maker under the photo chooser — took it for a real
+ * back and closed. The flag stands for the whole of that one event and clears
+ * itself on the next turn of the loop.
+ */
 export function skipNextPop(): void {
-  pending += 1;
+  skipping = true;
+  window.setTimeout(() => {
+    skipping = false;
+  }, 0);
 }
 
 /** True when this pop belongs to a layer above, which has already handled it. */
 export function popWasOurs(): boolean {
-  if (pending === 0) return false;
-  pending -= 1;
-  return true;
+  return skipping;
 }
