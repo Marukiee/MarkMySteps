@@ -213,7 +213,9 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
     let popped = false;
     const onPop = () => {
       popped = true;
-      onClose();
+      // Down and out with its animation, the same as the ✕ and the swipe. A
+      // back gesture used to take the photo off the screen in one frame.
+      close();
     };
     window.addEventListener('popstate', onPop);
     return () => {

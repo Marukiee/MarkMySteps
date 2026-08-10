@@ -117,6 +117,14 @@
 
 .summary-card-note {
   font-size: 0.76rem;
+  animation: summaryNoteIn 0.22s var(--ease);
+}
+
+@keyframes summaryNoteIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 
 .summary-card-menu-btn {

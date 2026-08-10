@@ -173,6 +173,12 @@ function SummaryCard({
   const [menuAt, setMenuAt] = useState<{ top: number; right: number; up: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // Said once and then gone, rather than sitting under the tile for good.
+  useEffect(() => {
+    if (!note) return;
+    const timer = window.setTimeout(() => setNote(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [note]);
   const wrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 

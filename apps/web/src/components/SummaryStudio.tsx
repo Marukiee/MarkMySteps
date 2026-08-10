@@ -634,7 +634,6 @@ export function SummaryStudio({
                 base[at] = id;
                 setPhotoIds(base.slice(0, slots));
               }
-              setSwapping(null);
             }}
           />
         )}

@@ -115,7 +115,13 @@ export function SummaryPhotoSwap({
               ref={item.id === current ? currentRef : undefined}
               type="button"
               className={`summary-swap-photo ${item.id === current ? 'current' : ''}`}
-              onClick={() => onPick(item.id)}
+              onClick={() => {
+                // Hand the choice over and then leave the same way as every
+                // other dismissal: picking one used to make the sheet vanish
+                // without an exit at all.
+                onPick(item.id);
+                close();
+              }}
             >
               <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="summary-photo-img" />
               <span>{formatDay(item.takenAt)}</span>
