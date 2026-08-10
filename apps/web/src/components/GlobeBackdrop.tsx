@@ -1264,9 +1264,18 @@ export function GlobeBackdrop({
           // is a landing like any other.
           if (legs[legs.length - 1]?.kind === 'flight') airMarks.push(total);
           let walked = 0;
+          // A landing followed by a hop from the airport into town is still a
+          // landing: the wait belongs at the end of that hop, and so does the
+          // fact that you got there by air. Without carrying it across, Kraków
+          // was treated as a place you merely drove to and got a single ring.
+          let carriedAir = false;
           for (let i = 0; i < legs.length - 1; i++) {
             walked += legs[i]!.len;
-            if (legs[i + 1]!.len <= 0.25) continue;
+            if (legs[i + 1]!.len <= 0.25) {
+              const hop = legs[i]!;
+              if (hop.kind === 'flight' && !hop.layoverAfter) carriedAir = true;
+              continue;
+            }
             // Changing planes is not arriving somewhere: Keflavík on the way to
             // New York is an hour in a terminal. The plane does touch down
             // though, so it pauses for a beat rather than sailing through.
@@ -1277,7 +1286,8 @@ export function GlobeBackdrop({
             const here = legs[i]!;
             const layover = here.kind === 'flight' && here.layoverAfter;
             // Landed here, and this is where you got off.
-            const byAir = here.kind === 'flight' && !layover;
+            const byAir = (here.kind === 'flight' && !layover) || carriedAir;
+            carriedAir = false;
             const takingOff = legs[i + 1]!.kind === 'flight';
             if (byAir) airMarks.push(walked);
             // Overland, the light does not stop at all: it passes through the

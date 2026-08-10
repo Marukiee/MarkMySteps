@@ -355,9 +355,11 @@
   justify-content: center;
 }
 
+/* Each page keeps the width its height gives it. Allowed to shrink, twelve of
+   them shared one row and every poster became a sliver. */
 .summary-preview-page {
   position: relative;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   max-width: 100%;
   min-width: 0;
   margin: 0;
@@ -545,6 +547,72 @@
     opacity: 0;
     transform: scale(0.5);
   }
+}
+
+/* A text field in the app's own clothes: the same raised surface, the same
+   ring on focus as the search box under "mensen". */
+.summary-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.6rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+  color: var(--ink-faint);
+  transition: border-color 0.18s var(--ease);
+}
+
+.summary-input:focus-within {
+  border-color: var(--accent);
+}
+
+.summary-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.summary-input input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.summary-input > button {
+  padding: 0.25rem;
+  border-radius: 999px;
+  color: var(--ink-faint);
+}
+
+/* The shape of the format, at the ratio it stands for. */
+.summary-ratio {
+  display: inline-block;
+  width: 12px;
+  height: 21px;
+  margin-right: 0.45rem;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.7;
+  vertical-align: -4px;
+}
+
+.summary-ratio[data-format='post'] {
+  width: 15px;
+  height: 19px;
+}
+
+.summary-ratio[data-format='square'] {
+  width: 18px;
+  height: 18px;
+}
+
+.summary-pills button {
+  display: inline-flex;
+  align-items: center;
 }
 
 .summary-photo-clear {

@@ -1,6 +1,9 @@
 import { geoMercator, geoPath, type GeoPermissibleObjects } from 'd3-geo';
 import * as topojson from 'topojson-client';
-import countries110m from 'world-atlas/countries-110m.json';
+// 50m, not the 110m the globe uses: a globe is seen from space and a poster
+// is a printed map, where a coastline made of six straight lines is the first
+// thing you notice.
+import countries50m from 'world-atlas/countries-50m.json';
 import { fetchBlobUrl } from '../../api/client';
 
 /**
@@ -17,7 +20,7 @@ type Topology = Parameters<typeof topojson.feature>[0] & {
   objects: { countries: Parameters<typeof topojson.feature>[1] };
 };
 
-const topo = countries110m as unknown as Topology;
+const topo = countries50m as unknown as Topology;
 const LAND = topojson.feature(topo, topo.objects.countries) as unknown as GeoPermissibleObjects;
 
 /**

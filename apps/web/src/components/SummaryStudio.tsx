@@ -246,6 +246,13 @@ export function SummaryStudio({
   // Stoppenlint is a route with places on it. One day usually has one place,
   // and a lint of one dot is not a picture — so that pairing is not offered.
   const dayAllowed = template !== 'ribbon';
+  // A route map and a lint already draw the whole journey on one page; making
+  // ten of them is ten copies of the same picture. Only the photo-led layouts
+  // have something new to say on every page.
+  const seriesAllowed = template === 'photos' || template === 'stats';
+  useEffect(() => {
+    if (!seriesAllowed && series) setSeries(false);
+  }, [seriesAllowed, series]);
   useEffect(() => {
     if (!dayAllowed && scope.kind === 'day') {
       setScope({ kind: 'trip', from: tripStart, to: tripEnd });
@@ -457,6 +464,8 @@ export function SummaryStudio({
                 className={format === id ? 'active' : ''}
                 onClick={() => setFormat(id)}
               >
+                {/* The shape itself, at the ratio it stands for. */}
+                <span className="summary-ratio" data-format={id} aria-hidden="true" />
                 {FORMATS[id].label}
               </button>
             ))}
@@ -482,7 +491,7 @@ export function SummaryStudio({
         <section className="summary-field">
           <label>Onder de titel</label>
           <div className="summary-pills">
-            {(Object.keys(SUBTITLE_NAMES) as SubtitleMode[]).map((id) => (
+            {(['auto', 'countries', 'place'] as SubtitleMode[]).map((id) => (
               <button
                 key={id}
                 type="button"
@@ -496,24 +505,32 @@ export function SummaryStudio({
               </button>
             ))}
           </div>
-          <input
-            value={subtitleText}
-            onChange={(e) => setSubtitleText(e.target.value)}
-            placeholder="of typ zelf wat"
-          />
+          <div className="summary-input">
+            <Icon name="pencil" size={15} />
+            <input
+              value={subtitleText}
+              onChange={(e) => setSubtitleText(e.target.value)}
+              placeholder="of typ zelf wat"
+            />
+            {subtitleText && (
+              <button type="button" aria-label="Wissen" onClick={() => setSubtitleText('')}>
+                <Icon name="close" size={14} />
+              </button>
+            )}
+          </div>
           <span className="muted summary-note">
             “Automatisch” zegt bij een hele reis in welke landen je was, en bij een dag of een
             periode waar je toen zat.
           </span>
         </section>
 
-        {scopeFacts.days > 1 && (
+        {scopeFacts.days > 1 && seriesAllowed && (
           <label className="summary-toggle">
             <div>
               <strong>Reeks van meerdere afbeeldingen</strong>
               <span className="muted">
-                Een omslag met de hele route, dan een pagina per dag met foto’s, en de cijfers als
-                slot. Maximaal tien dagen.
+                Een omslag met de hele route, dan een pagina per stop met de foto’s van díe stop, en
+                de cijfers als slot. Maximaal tien stops.
               </span>
             </div>
             <input type="checkbox" checked={series} onChange={(e) => setSeries(e.target.checked)} />
@@ -542,15 +559,17 @@ export function SummaryStudio({
 
         <section className="summary-field">
           <label htmlFor="summary-title">Naam</label>
-          <input
-            id="summary-title"
-            value={titleTouched ? title : effectiveTitle}
-            onChange={(e) => {
-              setTitleTouched(true);
-              setTitle(e.target.value);
-            }}
-            placeholder={`${trip.title} · ${label}`}
-          />
+          <div className="summary-input">
+            <input
+              id="summary-title"
+              value={titleTouched ? title : effectiveTitle}
+              onChange={(e) => {
+                setTitleTouched(true);
+                setTitle(e.target.value);
+              }}
+              placeholder={`${trip.title} · ${label}`}
+            />
+          </div>
         </section>
 
         {error && <p className="error-text">{error}</p>}

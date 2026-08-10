@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -15,6 +16,7 @@ const DAY = 86_400_000;
  */
 export function TrackingPrompt() {
   const { user } = useAuth();
+  const { pathname } = useLocation();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [tracker, setTracker] = useState<TrackerState>({
@@ -54,6 +56,10 @@ export function TrackingPrompt() {
 
   if (!trip || tracker.tripId === trip.id) return null;
   if (localStorage.getItem(DISMISS_KEY) === trip.id) return null;
+  // It is an offer about the trip list you are looking at. Open a trip, the
+  // planner or the settings and it has nothing to say there — it used to
+  // follow you around the whole app.
+  if (pathname !== '/') return null;
 
   // It slid up on arrival and then simply ceased to exist on Later. It leaves
   // the way it came now, which is also what says the tap was registered.
@@ -73,7 +79,15 @@ export function TrackingPrompt() {
       </div>
       <div className="track-prompt-actions">
         <button onClick={dismiss}>Later</button>
-        <button className="primary" onClick={() => void startTracking(trip.id)}>
+        <button
+          className="primary"
+          onClick={() => {
+            // Leaves the same way "Later" does; it used to blink out the
+            // moment the tracker reported the trip as its own.
+            setLeaving(true);
+            void startTracking(trip.id);
+          }}
+        >
           Start tracking
         </button>
       </div>

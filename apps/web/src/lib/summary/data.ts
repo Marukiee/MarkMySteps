@@ -212,7 +212,48 @@ function stopsIn(source: SummarySource, from: string, to: string) {
       lng: s.longitude!,
       lat: s.latitude!,
       countryCode: s.countryCode,
+      from: dayKey(s.arrivalDate),
+      to: dayKey(s.departureDate),
     }));
+}
+
+/**
+ * One photo per place, taken at that place.
+ *
+ * Spreading the pick evenly over the whole period put a photograph from the
+ * town you stopped in for lunch under the name of the city you slept in.
+ * Coordinates decide when a photo has them (within 30km), and the days you
+ * were there decide when it does not.
+ */
+function pickPhotosPerStop(
+  media: MediaItem[],
+  stops: { name: string; lng: number; lat: number; from: string; to: string }[],
+): string[] {
+  const usable = media
+    .filter((m) => m.assetType === 'IMAGE')
+    .sort((a, b) => a.takenAt.localeCompare(b.takenAt));
+  const taken = new Set<string>();
+  const out: string[] = [];
+  for (const stop of stops) {
+    const near = usable.filter(
+      (m) =>
+        !taken.has(m.id) &&
+        m.latitude !== null &&
+        m.longitude !== null &&
+        haversineKm([m.longitude!, m.latitude!], [stop.lng, stop.lat]) <= 30,
+    );
+    const byDay = usable.filter((m) => {
+      const day = dayKey(m.takenAt);
+      return !taken.has(m.id) && day >= stop.from && day <= stop.to;
+    });
+    const pool = near.length > 0 ? near : byDay;
+    const pick = pool[Math.floor(pool.length / 2)];
+    if (pick) {
+      taken.add(pick.id);
+      out.push(pick.id);
+    }
+  }
+  return out;
 }
 
 /** "SE" → "Zweden". Falls back to the code itself for anything unknown. */
@@ -283,19 +324,28 @@ export async function buildPages(source: SummarySource, spec: SummarySpec): Prom
   const accent = trip.color ?? accentFromId(trip.id);
   const all = tripLines(source);
 
-  const periods: { scope: Scope; label: string | null }[] = [];
+  /**
+   * A series is a page per PLACE, not per day.
+   *
+   * Days are an accident of how long you stayed somewhere; the places are the
+   * chapters. Each page covers the days you were at that stop, which is also
+   * what makes its photographs belong to it.
+   */
+  const periods: { scope: Scope }[] = [];
   if (spec.series) {
-    const days = daysBetween(spec.scope.from, spec.scope.to);
-    const withSomething = days.filter((d) =>
-      source.media.some((m) => dayKey(m.takenAt) === d && m.assetType === 'IMAGE'),
-    );
-    // Ten pages is already a long swipe; beyond that the emptiest days go.
-    const chosen = withSomething.slice(0, 10);
-    periods.push({ scope: spec.scope, label: null });
-    for (const day of chosen) periods.push({ scope: { kind: 'day', from: day, to: day }, label: null });
-    periods.push({ scope: spec.scope, label: null });
+    const chapters = stopsIn(source, spec.scope.from, spec.scope.to)
+      .filter((stop) => source.media.some((m) => {
+        const day = dayKey(m.takenAt);
+        return day >= stop.from && day <= stop.to && m.assetType === 'IMAGE';
+      }))
+      .slice(0, 10);
+    periods.push({ scope: spec.scope });
+    for (const stop of chapters) {
+      periods.push({ scope: { kind: 'range', from: stop.from, to: stop.to } });
+    }
+    periods.push({ scope: spec.scope });
   } else {
-    periods.push({ scope: spec.scope, label: null });
+    periods.push({ scope: spec.scope });
   }
 
   const pages: PageData[] = [];
@@ -322,10 +372,16 @@ export async function buildPages(source: SummarySource, spec: SummarySpec): Prom
     }
 
     const slots = photoSlots(isEnd ? 'stats' : isCover ? 'ribbon' : spec.template);
+    const layout = isEnd ? 'stats' : isCover ? 'ribbon' : spec.template;
     const chosenPhotos =
       spec.photoIds.length > 0 && !spec.series
         ? spec.photoIds.slice(0, slots)
-        : pickPhotos(photosIn, slots);
+        : // A lint names the places under its photos, and the closing figures
+          // want one from each of them, so both take a photo per place rather
+          // than a handful spread over the whole period.
+          layout === 'ribbon' || (layout === 'stats' && stops.length > 1)
+          ? pickPhotosPerStop(photosIn, stops.slice(0, Math.max(slots, stops.length)))
+          : pickPhotos(photosIn, slots);
 
     const countries = [...new Set(stops.map((s) => s.countryCode).filter(Boolean))] as string[];
     const days = daysBetween(scope.from, scope.to).length;

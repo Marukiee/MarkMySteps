@@ -103,6 +103,7 @@ function head(
   page: PageData,
   opts: TemplateOpts,
   mt: Metrics,
+  centreFacts = false,
 ): number {
   const p = opts.palette;
   let y = brandLine(ctx, size, page, opts, mt, p.inkSoft);
@@ -137,8 +138,9 @@ function head(
   if (page.facts.length > 0) {
     y += 26 * mt.v;
     const cell = (size.w - mt.m * 2) / page.facts.length;
+    if (centreFacts) ctx.textAlign = 'center';
     page.facts.forEach((fact, i) => {
-      const x = mt.m + cell * i;
+      const x = mt.m + cell * i + (centreFacts ? cell / 2 : 0);
       setFont(ctx, mt.fact, 800, FONT_DISPLAY);
       ctx.fillStyle = p.ink;
       ctx.fillText(fact.value, x, y);
@@ -146,6 +148,7 @@ function head(
       ctx.fillStyle = p.inkFaint;
       ctx.fillText(fact.label.toUpperCase(), x, y + mt.fact * 1.16);
     });
+    ctx.textAlign = 'left';
     y += mt.fact * 1.16 + mt.label * 1.3;
   }
   return y + 26 * mt.v;
@@ -282,7 +285,8 @@ function drawStopList(
     const fitted = layoutText(ctx, name, card.w - pad * 2 - 26 * mt.u, {
       size,
       minSize: Math.round(16 * mt.u),
-      weight: 700,
+      // Not bold. It is a list of names, not a headline.
+      weight: 600,
       family: FONT_BODY,
       lines: 1,
       color: last ? p.inkFaint : p.ink,
@@ -444,7 +448,9 @@ const renderPhotos: TemplateRenderer = async (ctx, size, page, opts) => {
 
   // Text over photographs is white on a wash whichever mood the poster is in:
   // the picture underneath decides what is legible, not the theme.
-  const ink = 'rgba(255, 255, 255, 0.8)';
+  // Nearly solid: over a photograph, ink at four fifths reads as smudged
+  // rather than quiet.
+  const ink = 'rgba(255, 255, 255, 0.96)';
   scrim(ctx, { x: 0, y: 0, w: size.w, h: 260 }, 'rgba(10, 13, 17, 0.72)', 'rgba(10, 13, 17, 0)');
   scrim(ctx, { x: 0, y: size.h - size.h * 0.44, w: size.w, h: size.h * 0.44 });
 
@@ -498,7 +504,8 @@ const renderRibbon: TemplateRenderer = async (ctx, size, page, opts) => {
   const mt = metrics(size);
   ctx.fillStyle = p.paper;
   ctx.fillRect(0, 0, size.w, size.h);
-  const top = head(ctx, size, page, opts, mt);
+  // Centred under the map's own width: a lint is a symmetrical thing.
+  const top = head(ctx, size, page, opts, mt, true);
   const shown = page.stops.slice(0, 4);
   const split = bodySplit(size, mt, top, Math.min(page.photos.length, 4), shown.length > 0);
 

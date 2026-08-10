@@ -1,3 +1,5 @@
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api, fetchBlobUrl } from '../api/client';
@@ -5,6 +7,7 @@ import type { MediaItem, RouteCollection, Trip, TripSummaryInfo } from '../api/t
 import type { PlannedStop } from '../lib/arc';
 import type { SummarySpec } from '../lib/summary/types';
 import { useAuth } from '../auth/AuthContext';
+import { isNativeApp } from '../lib/native';
 import { formatDate } from '../lib/colors';
 import { AuthImage } from './AuthImage';
 import { confirmModal } from './confirm';
@@ -217,7 +220,25 @@ function SummaryCard({
         const blob = await fetch(url).then((r) => r.blob());
         files.push(new File([blob], `${slug(summary.title)}-${page.index + 1}.jpg`, { type: blob.type }));
       }
-      // The share sheet when the device has one, a download when it does not,
+      // In the app, straight to Android's own share sheet. It wants a file on
+      // disk rather than a blob, so each page is written to the cache first —
+      // a WebView has neither navigator.share nor a working blob download, and
+      // both of the paths below quietly did nothing there.
+      if (isNativeApp()) {
+        const uris: string[] = [];
+        for (const file of files) {
+          const base64 = await toBase64(file);
+          const written = await Filesystem.writeFile({
+            path: file.name,
+            data: base64,
+            directory: Directory.Cache,
+          });
+          uris.push(written.uri);
+        }
+        await Share.share({ title: summary.title, files: uris });
+        return;
+      }
+      // The share sheet when the browser has one, a download when it does not,
       // and failing both the picture on screen to press and hold.
       if (navigator.canShare?.({ files }) && navigator.share) {
         await navigator.share({ files, title: summary.title });
@@ -237,11 +258,11 @@ function SummaryCard({
         saved = true;
         window.setTimeout(() => URL.revokeObjectURL(href), 30_000);
       }
-      setNote(saved ? 'Opgeslagen bij je downloads.' : 'Opslaan lukte niet.');
+      setNote(saved ? 'Bewaard in je downloads' : 'Opslaan lukte niet');
     } catch (err) {
       // A share the user waved away is not a failure worth reporting.
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      setNote('Delen lukte niet. Houd de afbeelding ingedrukt om hem te bewaren.');
+      setNote('Delen lukte niet, houd de poster ingedrukt om hem te bewaren');
     } finally {
       setBusy(false);
       closeMenu();
@@ -327,6 +348,19 @@ function SummaryCard({
       {note && <p className="muted summary-card-note">{note}</p>}
     </div>
   );
+}
+
+/** Filesystem.writeFile speaks base64, not blobs. */
+function toBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('kon het bestand niet lezen'));
+    reader.onload = () => {
+      const result = String(reader.result);
+      resolve(result.slice(result.indexOf(',') + 1));
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function slug(text: string): string {

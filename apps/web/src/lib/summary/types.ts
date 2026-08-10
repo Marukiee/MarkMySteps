@@ -101,7 +101,15 @@ export interface PageData {
   /** Route lines in [lng, lat], already limited to this page's period. */
   lines: [number, number][][];
   /** Places you actually stayed, in travel order. */
-  stops: { name: string; lng: number; lat: number; countryCode: string | null }[];
+  stops: {
+    name: string;
+    lng: number;
+    lat: number;
+    countryCode: string | null;
+    /** The days you were there, for picking a photo that belongs to it. */
+    from: string;
+    to: string;
+  }[];
   /** Every stop of the whole trip, so a series page can show its progress. */
   allLines: [number, number][][];
   photos: string[];
