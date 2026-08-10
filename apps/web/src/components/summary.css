@@ -818,3 +818,213 @@
 .summary-studio-actions .btn {
   justify-content: center;
 }
+
+/* ---------- Tapping the poster ---------- */
+
+/* Every photograph on the preview is a target. Invisible until you press it,
+   because the preview is a poster and not a form. */
+.summary-slot-hit {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 6px;
+  color: #fff;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 0.16s var(--ease);
+}
+
+.summary-slot-hit:active,
+.summary-slot-hit:focus-visible {
+  opacity: 1;
+  background: rgb(16 21 27 / 0.45);
+}
+
+@media (hover: hover) {
+  .summary-slot-hit:hover {
+    opacity: 1;
+    background: rgb(16 21 27 / 0.45);
+  }
+}
+
+/* The rest of the page opens it full size. */
+.summary-preview-open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--radius-s);
+  background: transparent;
+}
+
+.summary-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+  background: rgb(10 13 17 / 0.92);
+  animation: summaryViewerIn 0.24s var(--ease);
+}
+
+.summary-viewer.closing {
+  animation: summaryViewerOut 0.22s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes summaryViewerIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes summaryViewerOut {
+  to {
+    opacity: 0;
+  }
+}
+
+.summary-viewer img {
+  max-width: 100%;
+  max-height: calc(100dvh - 3rem);
+  border-radius: var(--radius-s);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 0.55);
+  animation: summaryViewerRise 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.summary-viewer.closing img {
+  animation: summaryViewerFall 0.22s var(--ease) forwards;
+}
+
+@keyframes summaryViewerRise {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes summaryViewerFall {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.summary-viewer-close {
+  position: absolute;
+  top: calc(0.8rem + env(safe-area-inset-top));
+  right: 0.8rem;
+  display: grid;
+  place-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.12);
+  color: #fff;
+}
+
+.summary-viewer-count {
+  position: absolute;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  color: rgb(255 255 255 / 0.6);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* Choosing a different photograph for one slot. */
+.summary-swap-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: grid;
+  place-items: end center;
+  background: rgb(16 21 27 / 0.5);
+  backdrop-filter: blur(3px);
+  animation: sheetBackdropIn 0.24s var(--ease);
+}
+
+@media (min-width: 601px) {
+  .summary-swap-backdrop {
+    place-items: center;
+  }
+}
+
+.summary-swap-backdrop.closing {
+  animation: summaryStudioBackdropOut 0.22s var(--ease) forwards;
+  pointer-events: none;
+}
+
+.summary-swap-backdrop.closing .summary-swap {
+  animation: summaryStudioOut 0.22s var(--ease) forwards;
+}
+
+.summary-swap {
+  display: grid;
+  gap: 0.6rem;
+  width: min(520px, 100%);
+  max-height: 76vh;
+  padding: 0.9rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+  animation: sheetUp 0.26s var(--ease);
+}
+
+@media (min-width: 601px) {
+  .summary-swap {
+    border-radius: var(--radius-l);
+  }
+}
+
+.summary-swap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.summary-swap-head h3 {
+  font-size: 1.05rem;
+}
+
+.summary-swap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 0.45rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.15rem;
+}
+
+.summary-swap-photo {
+  position: relative;
+  display: block;
+  padding: 0;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--paper-sunken);
+  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease);
+}
+
+.summary-swap-photo:active {
+  transform: scale(0.96);
+}
+
+.summary-swap-photo.current {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+/* The day it was taken, so the strip reads as a timeline and not a heap. */
+.summary-swap-photo span {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 0.5rem 0.3rem 0.2rem;
+  background: linear-gradient(to bottom, transparent, rgb(16 21 27 / 0.75));
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

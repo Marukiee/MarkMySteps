@@ -31,6 +31,7 @@ import { skipNextPop } from '../lib/backStack';
 import { resolvedTheme } from '../lib/prefs';
 import { AuthImage } from './AuthImage';
 import { DateField } from './DatePicker';
+import { SummaryPageViewer, SummaryPhotoSwap } from './SummaryOverlays';
 import { SummarySchematic } from './SummarySchematic';
 import { Icon } from './Icon';
 import './summary.css';
@@ -121,6 +122,9 @@ export function SummaryStudio({
   const [title, setTitle] = useState('');
   const [titleTouched, setTitleTouched] = useState(false);
 
+  /** A page opened full size, and which photo slot you tapped to change. */
+  const [zoomed, setZoomed] = useState<number | null>(null);
+  const [swapping, setSwapping] = useState<{ page: number; slot: number } | null>(null);
   const [pages, setPages] = useState<RenderedPage[]>([]);
   const [busy, setBusy] = useState(true);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -309,6 +313,35 @@ export function SummaryStudio({
             {pages.map((page, i) => (
               <figure key={page.url} className="summary-preview-page">
                 <img src={page.url} alt={`Pagina ${i + 1}`} />
+                {/* Every photograph on the poster is a target: press the one
+                    you want to be something else. The rest of the page opens
+                    it full size. */}
+                {page.slots.map((slot, si) => (
+                  <button
+                    key={si}
+                    type="button"
+                    className="summary-slot-hit"
+                    aria-label="Andere foto kiezen"
+                    style={{
+                      left: `${(slot.box.x / page.width) * 100}%`,
+                      top: `${(slot.box.y / page.height) * 100}%`,
+                      width: `${(slot.box.w / page.width) * 100}%`,
+                      height: `${(slot.box.h / page.height) * 100}%`,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSwapping({ page: i, slot: si });
+                    }}
+                  >
+                    <Icon name="camera" size={16} />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="summary-preview-open"
+                  aria-label={`Pagina ${i + 1} groter bekijken`}
+                  onClick={() => setZoomed(i)}
+                />
                 {pages.length > 1 && <figcaption>{i + 1}</figcaption>}
               </figure>
             ))}
@@ -573,6 +606,38 @@ export function SummaryStudio({
         </section>
 
         {error && <p className="error-text">{error}</p>}
+
+        {zoomed !== null && pages[zoomed] && (
+          <SummaryPageViewer
+            page={pages[zoomed]!}
+            index={zoomed}
+            total={pages.length}
+            onClose={() => setZoomed(null)}
+          />
+        )}
+
+        {swapping && (
+          <SummaryPhotoSwap
+            photos={scopePhotos}
+            current={pages[swapping.page]?.slots[swapping.slot]?.id ?? null}
+            onClose={() => setSwapping(null)}
+            onPick={(id) => {
+              const page = pages[swapping.page];
+              if (page) {
+                // Automatic until now: take what was chosen for you as the
+                // starting point, then put this one in the slot you tapped.
+                const base =
+                  photoIds.length > 0
+                    ? [...photoIds]
+                    : page.slots.map((s) => s.id).filter((s): s is string => s !== null);
+                const at = Math.min(swapping.slot, base.length);
+                base[at] = id;
+                setPhotoIds(base.slice(0, slots));
+              }
+              setSwapping(null);
+            }}
+          />
+        )}
 
         <div className="summary-studio-actions">
           <button type="button" className="btn btn-ghost" onClick={close}>

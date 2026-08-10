@@ -37,6 +37,12 @@ import type { PageData } from './types';
 export interface TemplateOpts {
   showLogo: boolean;
   palette: Palette;
+  /**
+   * Filled in as the poster is drawn: where each photograph ended up, in the
+   * poster's own coordinates. The maker turns these into tap targets, so a
+   * photo you want changed is the one you press.
+   */
+  slots?: { id: string | null; box: Box }[];
 }
 
 export type TemplateRenderer = (
@@ -179,11 +185,13 @@ async function photoRow(
   gap: number,
   palette: Palette,
   labels?: string[],
+  hits?: { id: string | null; box: Box }[],
 ): Promise<void> {
   if (ids.length === 0) return;
   const cell = (box.w - gap * (ids.length - 1)) / ids.length;
   for (let i = 0; i < ids.length; i++) {
     const slot: Box = { x: box.x + (cell + gap) * i, y: box.y, w: cell, h: box.h };
+    hits?.push({ id: ids[i] ?? null, box: slot });
     panel(ctx, slot, 24, palette.panel);
     const img = await loadPhoto(ids[i]!);
     if (img) drawCover(ctx, img, slot, 24);
@@ -380,7 +388,9 @@ const renderRoute: TemplateRenderer = async (ctx, size, page, opts) => {
   // are a day trip apart.
   if (page.stops.length > 0) drawStopList(ctx, split.map, page, p, mt);
 
-  if (split.photos) await photoRow(ctx, page.photos.slice(0, 3), split.photos, 20, p);
+  if (split.photos) {
+    await photoRow(ctx, page.photos.slice(0, 3), split.photos, 20, p, undefined, opts.slots);
+  }
   pageBadge(ctx, size, page, mt, p.inkFaint);
 };
 
@@ -439,6 +449,7 @@ const renderPhotos: TemplateRenderer = async (ctx, size, page, opts) => {
 
   for (let i = 0; i < slots.length; i++) {
     const slot = slots[i]!;
+    opts.slots?.push({ id: ids[i] ?? null, box: slot });
     panel(ctx, slot, 0, p.panel);
     const id = ids[i];
     if (!id) continue;
@@ -533,6 +544,7 @@ const renderRibbon: TemplateRenderer = async (ctx, size, page, opts) => {
       16,
       p,
       shown.length > 0 ? shown.map((s) => s.name) : undefined,
+      opts.slots,
     );
   }
   pageBadge(ctx, size, page, mt, p.inkFaint);
@@ -553,6 +565,7 @@ const renderStats: TemplateRenderer = async (ctx, size, page, opts) => {
 
   const hero = page.photos[0] ? await loadPhoto(page.photos[0]) : null;
   const heroBox: Box = { x: 0, y: 0, w: size.w, h: size.h };
+  opts.slots?.push({ id: page.photos[0] ?? null, box: { x: 0, y: 0, w: size.w, h: size.h * 0.45 } });
   if (hero) drawCover(ctx, hero, heroBox, 0);
   scrim(ctx, heroBox, 'rgba(10, 13, 17, 0.35)', 'rgba(10, 13, 17, 0.95)');
 

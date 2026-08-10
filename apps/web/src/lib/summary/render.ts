@@ -8,6 +8,8 @@ export interface RenderedPage {
   url: string;
   width: number;
   height: number;
+  /** Where the photographs on this page are, for tapping one to change it. */
+  slots: { id: string | null; box: { x: number; y: number; w: number; h: number } }[];
 }
 
 /**
@@ -36,9 +38,11 @@ export async function renderSummary(
 
     const template = templateForPage(spec, i, data.length);
     const render = TEMPLATES[template] ?? TEMPLATES.route!;
+    const slots: RenderedPage['slots'] = [];
     await render(ctx, { w: format.width, h: format.height }, data[i]!, {
       showLogo: spec.showLogo,
       palette: PALETTES[spec.theme] ?? PALETTES.dark,
+      slots,
     });
 
     const blob = await new Promise<Blob | null>((resolve) =>
@@ -47,7 +51,13 @@ export async function renderSummary(
       canvas.toBlob(resolve, 'image/jpeg', 0.92),
     );
     if (!blob) throw new Error('Renderen mislukt');
-    out.push({ blob, url: URL.createObjectURL(blob), width: canvas.width, height: canvas.height });
+    out.push({
+      blob,
+      url: URL.createObjectURL(blob),
+      width: canvas.width,
+      height: canvas.height,
+      slots,
+    });
     onProgress?.(i + 1, data.length);
   }
   return { pages: out, data };
