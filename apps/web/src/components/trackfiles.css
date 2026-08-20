@@ -1,0 +1,40 @@
+.track-files-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+/* A file input styled as a button: the label IS the control, so it needs the
+   button's own pressed and disabled states rather than looking dead. */
+.track-files-pick {
+  cursor: pointer;
+}
+
+.track-files-pick.disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.track-files-result {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.2rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  animation: trackResultIn 0.28s var(--ease);
+}
+
+.track-files-result svg {
+  flex-shrink: 0;
+  margin-top: 0.12rem;
+  color: #0a9d63;
+}
+
+@keyframes trackResultIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}

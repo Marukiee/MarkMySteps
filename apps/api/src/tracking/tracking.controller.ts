@@ -1,8 +1,10 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -10,8 +12,13 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response as ExpressResponse } from 'express';
 // (Get is used by the new manual-points listing endpoint.)
 import { Throttle } from '@nestjs/throttler';
 import { LocationPoint } from '@prisma/client';
@@ -19,6 +26,7 @@ import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ManualPointDto, MovePointDto, RouteFillDto, TrackBatchDto } from './dto/track-points.dto';
+import { TrackFileService, TrackImportResult } from './track-file.service';
 import {
   BatchResult,
   LiveFix,
@@ -30,7 +38,10 @@ import {
 @Controller('trips/:tripId')
 @UseGuards(JwtAuthGuard)
 export class TrackingController {
-  constructor(private readonly tracking: TrackingService) {}
+  constructor(
+    private readonly tracking: TrackingService,
+    private readonly files: TrackFileService,
+  ) {}
 
   /** Offline-buffered batch upload from the mobile tracker. Idempotent. */
   @Post('points/batch')
@@ -154,6 +165,45 @@ export class TrackingController {
       includePhotos: photos !== 'false',
       day: day || undefined,
     });
+  }
+
+  /**
+   * The trip as a track file. Sent as a download so a phone's browser hands it
+   * to the share sheet rather than showing XML on screen.
+   */
+  @Get('export/:format')
+  async exportTrack(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Param('format') format: string,
+    @Res() res: ExpressResponse,
+  ): Promise<void> {
+    const wantsKml = format.toLowerCase() === 'kml';
+    if (!wantsKml && format.toLowerCase() !== 'gpx') {
+      throw new BadRequestException('Format must be gpx or kml');
+    }
+    const file = wantsKml
+      ? await this.files.exportKml(tripId, user.sub)
+      : await this.files.exportGpx(tripId, user.sub);
+
+    res.setHeader('content-type', wantsKml ? 'application/vnd.google-earth.kml+xml' : 'application/gpx+xml');
+    res.setHeader('content-disposition', `attachment; filename="${file.filename}"`);
+    res.send(file.body);
+  }
+
+  /** Read a GPX/KML file into this trip as your own track. */
+  @Post('import-track')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 60 * 1024 * 1024 } }))
+  importTrack(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<TrackImportResult> {
+    if (!file) {
+      throw new BadRequestException('Upload the track as multipart field "file"');
+    }
+    return this.files.importFile(tripId, user.sub, file.originalname, file.buffer.toString('utf8'));
   }
 
   /** Which days of this trip have a track or a photo on them. */
