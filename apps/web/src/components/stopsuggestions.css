@@ -1,0 +1,221 @@
+/* Suggestions read as a note pinned to the plan, not as part of the route:
+   a dashed edge, because nothing here is real until you say so. */
+.stay-suggest {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.55rem;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius-l);
+  background: var(--paper-raised);
+  animation: staySuggestIn 0.35s var(--ease);
+}
+
+@keyframes staySuggestIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.stay-suggest-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.2rem 0.25rem;
+  border: none;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.stay-suggest-spark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--paper-sunken);
+  color: var(--accent);
+}
+
+.stay-suggest-title {
+  display: grid;
+  min-width: 0;
+}
+
+.stay-suggest-title strong {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.stay-suggest-title small {
+  font-size: 0.76rem;
+  color: var(--ink-faint);
+}
+
+.stay-suggest-caret {
+  color: var(--ink-faint);
+  transition: transform 0.24s var(--ease);
+}
+
+.stay-suggest.collapsed .stay-suggest-caret {
+  transform: rotate(-90deg);
+}
+
+.stay-suggest-list {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.stay-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-m);
+  background: var(--paper);
+  box-shadow: var(--shadow-s);
+  animation: stayCardIn 0.3s var(--ease) backwards;
+}
+
+@keyframes stayCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+/* Accepted or waved away, the card collapses so the ones under it slide up
+   instead of jumping into the gap. */
+.stay-card.leaving {
+  animation: stayCardOut 0.3s var(--ease) forwards;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+@keyframes stayCardOut {
+  to {
+    opacity: 0;
+    transform: translateX(12px);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-bottom: -0.4rem;
+  }
+}
+
+.stay-card-body {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.stay-card-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Still being named: shown as the coordinate, dimmed, so the row never jumps
+   height when the real name lands. */
+.stay-card-ghost {
+  color: var(--ink-faint);
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  animation: stayGhostPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes stayGhostPulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.stay-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.76rem;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stay-card-dot {
+  opacity: 0.6;
+}
+
+.stay-card-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.7rem;
+  border: 1.5px solid var(--accent);
+  border-radius: 999px;
+  background: none;
+  color: var(--accent-ink);
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease),
+    transform 0.14s var(--ease);
+}
+
+.stay-card-add:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.stay-card-add:active {
+  transform: scale(0.94);
+}
+
+.stay-card-add:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.stay-card-no {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease);
+}
+
+.stay-card-no:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+@media (max-width: 460px) {
+  .stay-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 0.45rem;
+  }
+
+  .stay-card-add {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .stay-card-no {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+}

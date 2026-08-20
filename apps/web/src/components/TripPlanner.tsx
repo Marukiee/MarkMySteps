@@ -26,6 +26,7 @@ import {
 import { airportByCode } from '../lib/airports';
 import { formatDate, formatDateRange } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
+import { StopSuggestions, type StaySuggestion } from './StopSuggestions';
 import { haptic } from '../lib/haptics';
 import { useExit } from '../lib/useExit';
 import { cachePutJson } from '../lib/offlineCache';
@@ -202,6 +203,28 @@ export function TripPlanner({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Stop toevoegen mislukt');
     }
+  }
+
+  /**
+   * A stay the track found, accepted as a stop.
+   *
+   * It lands at the end of the route like any new stop; the nights come from
+   * how long you actually stayed, which is what makes this worth a press
+   * rather than a form.
+   */
+  async function addSuggestedStop(stay: StaySuggestion, name: string, countryCode?: string) {
+    const body = {
+      id: crypto.randomUUID(),
+      name,
+      nights: stay.nights,
+      latitude: stay.latitude,
+      longitude: stay.longitude,
+      countryCode,
+    };
+    refresh(
+      await mutate(stopsPath, 'POST', body, (current) => localCreate(current, tripStart, body)),
+    );
+    onChanged?.();
   }
 
   async function saveFlight(
@@ -848,6 +871,10 @@ export function TripPlanner({
       {!hasReturn && !readOnly && (
         <ModeMenu label="Terugreis" onPick={(m) => void addReturnLeg(m)} />
       )}
+
+      {/* What the track already knows, before the form where you would have
+          typed it in yourself. */}
+      {!readOnly && <StopSuggestions tripId={tripId} onAdd={addSuggestedStop} />}
 
       {!readOnly && (
       <form className="card stop-add" onSubmit={addStop}>
