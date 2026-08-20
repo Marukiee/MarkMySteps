@@ -10,6 +10,7 @@ import { DayFilter, type TripDay } from '../components/DayFilter';
 import { Icon } from '../components/Icon';
 import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
+import { PhotoBook } from '../components/PhotoBook';
 import { SharePanel } from '../components/SharePanel';
 import { SummaryPanel } from '../components/SummaryPanel';
 import { Timeline } from '../components/Timeline';
@@ -961,6 +962,9 @@ export function TripDetailPage() {
             {/* Made from what this page already has in hand: the route, the
                 stops and the photos. */}
             <SummaryPanel trip={trip} stops={stops} media={media} routes={routes} />
+            {/* The other thing people want from a finished trip: all of it, in
+                order, on paper. */}
+            <PhotoBook trip={trip} stops={stops} media={media} routes={routes} notes={notes} />
             {/* Somebody put you on this trip; the way back off it belongs here,
                 where the rest of "who is on this trip" lives. */}
             {trip.ownerId !== user?.id && (

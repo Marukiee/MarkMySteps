@@ -1,0 +1,44 @@
+.photo-book {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.photo-book-hint {
+  margin-top: -0.4rem;
+}
+
+.photo-book-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+/* While it renders, the buttons' row becomes the bar — same height, so the
+   panel does not jump when you press. */
+.photo-book-progress {
+  position: relative;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  overflow: hidden;
+}
+
+.photo-book-bar {
+  height: 100%;
+  background: var(--accent);
+  opacity: 0.8;
+  transition: width 0.35s var(--ease);
+}
+
+.photo-book-progress span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.photo-book-note {
+  font-size: 0.82rem;
+}
