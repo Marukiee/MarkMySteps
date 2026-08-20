@@ -63,8 +63,44 @@ export class SearchService {
     private readonly connections: ImmichConnectionService,
   ) {}
 
-  async search(userId: string, query: string): Promise<SearchResults> {
+  /**
+   * What there is to filter by: faces Immich knows, and the countries this
+   * account has actually been to.
+   */
+  async facets(userId: string): Promise<{
+    people: { id: string; name: string }[];
+    countries: { code: string; name: string }[];
+  }> {
+    const [people, visited] = await Promise.all([
+      this.peopleOf(userId),
+      this.prisma.stop.findMany({
+        where: { trip: { members: { some: { userId } } }, countryCode: { not: null } },
+        select: { countryCode: true },
+        distinct: ['countryCode'],
+      }),
+    ]);
+
+    const countries = visited
+      .map(({ countryCode }) => ({
+        code: countryCode!,
+        name: countryNames(countryCode!)[0] ?? countryCode!,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+
+    return {
+      people: [...people].sort((a, b) => a.name.localeCompare(b.name, 'nl')).slice(0, 60),
+      countries,
+    };
+  }
+
+  async search(
+    userId: string,
+    query: string,
+    picked: { personIds?: string[]; countryCodes?: string[] } = {},
+  ): Promise<SearchResults> {
     const terms = query.trim().split(/\s+/).filter(Boolean).slice(0, 8);
+    const pickedPeople = picked.personIds ?? [];
+    const pickedCountries = picked.countryCodes ?? [];
     const empty: SearchResults = {
       interpretation: { people: [], places: [], text: null },
       trips: [],
@@ -72,7 +108,9 @@ export class SearchService {
       notes: [],
       photos: [],
     };
-    if (terms.length === 0) return empty;
+    if (terms.length === 0 && pickedPeople.length === 0 && pickedCountries.length === 0) {
+      return empty;
+    }
 
     // The trips this account may see at all. Everything below is scoped to
     // these ids, which is both the permission check and the cheapest filter.
@@ -84,8 +122,19 @@ export class SearchService {
     if (tripIds.length === 0) return empty;
     const titleOf = new Map(memberships.map((m) => [m.tripId, m.trip.title]));
 
-    const people = await this.matchPeople(userId, terms);
-    const usedByPeople = new Set(people.map((p) => p.term));
+    // Ticked in the filter panel, or recognised in the words — both end up as
+    // the same face filter.
+    const named = await this.matchPeople(userId, terms);
+    const people = [...named];
+    if (pickedPeople.length > 0) {
+      const known = await this.peopleOf(userId);
+      for (const id of pickedPeople) {
+        if (people.some((p) => p.id === id)) continue;
+        const person = known.find((p) => p.id === id);
+        if (person) people.push({ id: person.id, name: person.name, term: '' });
+      }
+    }
+    const usedByPeople = new Set(named.map((p) => p.term));
     const placeTerms = terms.filter((t) => !usedByPeople.has(t));
 
     const [trips, stops, notes] = await Promise.all([
@@ -132,7 +181,7 @@ export class SearchService {
     // Countries are named in the search box the way people speak ("Zweden"),
     // while a stop only carries "SE" — so the codes this account has actually
     // been to are turned into names and matched against the words.
-    const countryStops = await this.stopsInCountries(tripIds, placeTerms);
+    const countryStops = await this.stopsInCountries(tripIds, placeTerms, pickedCountries);
 
     // A term that named a place is a filter on the photos, not a search word
     // to hand to Immich: "Zweden" is where, not what.
@@ -197,11 +246,12 @@ export class SearchService {
   private async stopsInCountries(
     tripIds: string[],
     terms: string[],
+    picked: string[] = [],
   ): Promise<{
     terms: string[];
     stops: { latitude: number | null; longitude: number | null }[];
   }> {
-    if (terms.length === 0) return { terms: [], stops: [] };
+    if (terms.length === 0 && picked.length === 0) return { terms: [], stops: [] };
     const visited = await this.prisma.stop.findMany({
       where: { tripId: { in: tripIds }, countryCode: { not: null } },
       select: { countryCode: true },
@@ -209,10 +259,11 @@ export class SearchService {
     });
     if (visited.length === 0) return { terms: [], stops: [] };
 
-    const matchedCodes: string[] = [];
-    const matchedTerms: string[] = [];
+    const matchedCodes: string[] = [...picked];
+    const matchedTerms: string[] = picked.map((code) => countryNames(code)[0] ?? code);
     for (const { countryCode } of visited) {
       const code = countryCode!;
+      if (matchedCodes.includes(code)) continue;
       const names = countryNames(code);
       const term = terms.find((t) => names.includes(t.toLowerCase()) || t.toUpperCase() === code);
       if (term) {
@@ -293,24 +344,29 @@ export class SearchService {
    * The list is small and changes rarely, so it is fetched once every ten
    * minutes per account rather than on every keystroke.
    */
+  private async peopleOf(userId: string): Promise<{ id: string; name: string }[]> {
+    const cached = this.peopleCache.get(userId);
+    if (cached && Date.now() - cached.at < PEOPLE_TTL_MS) return cached.people;
+
+    const credentials = await this.connections.getCredentials(userId);
+    if (!credentials) return [];
+    let people: { id: string; name: string }[];
+    try {
+      people = await this.immich.listPeople(credentials.serverUrl, credentials.apiKey);
+    } catch (err) {
+      this.logger.warn(`Could not list Immich people for user ${userId}: ${String(err)}`);
+      people = [];
+    }
+    this.peopleCache.set(userId, { at: Date.now(), people });
+    return people;
+  }
+
   private async matchPeople(
     userId: string,
     terms: string[],
   ): Promise<{ id: string; name: string; term: string }[]> {
-    const cached = this.peopleCache.get(userId);
-    let people = cached && Date.now() - cached.at < PEOPLE_TTL_MS ? cached.people : null;
-
-    if (!people) {
-      const credentials = await this.connections.getCredentials(userId);
-      if (!credentials) return [];
-      try {
-        people = await this.immich.listPeople(credentials.serverUrl, credentials.apiKey);
-      } catch (err) {
-        this.logger.warn(`Could not list Immich people for user ${userId}: ${String(err)}`);
-        people = [];
-      }
-      this.peopleCache.set(userId, { at: Date.now(), people });
-    }
+    if (terms.length === 0) return [];
+    const people = await this.peopleOf(userId);
 
     const matches: { id: string; name: string; term: string }[] = [];
     for (const term of terms) {

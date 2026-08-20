@@ -1113,18 +1113,24 @@ export function TripMap({
 
 /* ---- The travelling light ------------------------------------------------
  *
- * The home globe lights a trip up by walking a light along it. Switching the
- * map to a single day changes the line under you without moving the camera
- * much, so the same light runs the new route once and leaves: it says "this
- * is what you are looking at now" without anything having to be written down.
+ * The home globe lights a trip up by running a ribbon of light along it:
+ * brightest at the head, fading out behind, a beat at the end, then again.
+ * Switching the map to a single day changes the line under you, so the same
+ * light runs the new route and keeps running while that day is the one you
+ * are looking at.
  */
 
 const GLOW_SOURCE = 'trip-glow';
-const GLOW_LAYER = 'trip-glow-line';
-/** How much of the line the light's tail covers. */
-const GLOW_TAIL = 0.16;
-const GLOW_RUN_MS = 1150;
-const GLOW_RUNS = 2;
+const GLOW_HALO = 'trip-glow-halo';
+const GLOW_CORE = 'trip-glow-core';
+/** How much of the line the light's tail covers, as on the globe. */
+const GLOW_TAIL = 0.22;
+/** One pass. Slow enough to follow with your eyes rather than a flicker. */
+const GLOW_RUN_MS = 3200;
+/** A beat at the end, so two passes read as two rather than one long one. */
+const GLOW_PAUSE_MS = 850;
+/** The gradient is rebuilt per frame; 30 is plenty for a light this soft. */
+const GLOW_FPS = 30;
 
 /** One running animation per map, so a second call replaces the first. */
 const glowFrames = new WeakMap<MapLibreMap, number>();
@@ -1152,15 +1158,29 @@ function runGlow(map: MapLibreMap, lines: [number, number][][]): void {
         })),
       },
     });
+    // Two passes of the same ribbon: a wide soft halo carrying the colour into
+    // the map around it, and a narrow core that is the light itself.
     map.addLayer({
-      id: GLOW_LAYER,
+      id: GLOW_HALO,
       type: 'line',
       source: GLOW_SOURCE,
       paint: {
-        'line-width': 7,
-        'line-blur': 4,
+        'line-width': 16,
+        'line-blur': 10,
+        'line-opacity': 0.45,
+        'line-gradient': glowGradient(-GLOW_TAIL, colour) as never,
+      },
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+    });
+    map.addLayer({
+      id: GLOW_CORE,
+      type: 'line',
+      source: GLOW_SOURCE,
+      paint: {
+        'line-width': 4.5,
+        'line-blur': 1.2,
         'line-opacity': 0.95,
-        'line-gradient': glowGradient(0, colour) as never,
+        'line-gradient': glowGradient(-GLOW_TAIL, colour) as never,
       },
       layout: { 'line-cap': 'round', 'line-join': 'round' },
     });
@@ -1169,23 +1189,34 @@ function runGlow(map: MapLibreMap, lines: [number, number][][]): void {
     return;
   }
 
+  const cycle = GLOW_RUN_MS + GLOW_PAUSE_MS;
   const started = performance.now();
-  const total = GLOW_RUN_MS * GLOW_RUNS;
+  let painted = 0;
+
   const step = () => {
-    if (!map.getLayer(GLOW_LAYER)) {
+    if (!map.getLayer(GLOW_CORE)) {
       glowFrames.delete(map);
       return;
     }
-    const elapsed = performance.now() - started;
-    if (elapsed >= total) {
-      stopGlow(map);
+    const now = performance.now();
+    // A page in the background gets no light: the frames are wasted and the
+    // phone pays for them.
+    if (document.hidden) {
+      glowFrames.set(map, requestAnimationFrame(step));
       return;
     }
-    // Each run carries the light from before the start to past the end, so it
-    // enters and leaves rather than appearing and stopping.
-    const within = (elapsed % GLOW_RUN_MS) / GLOW_RUN_MS;
-    const p = within * (1 + GLOW_TAIL) - GLOW_TAIL;
-    map.setPaintProperty(GLOW_LAYER, 'line-gradient', glowGradient(p, colour) as never);
+    if (now - painted >= 1000 / GLOW_FPS) {
+      painted = now;
+      const within = (now - started) % cycle;
+      // During the pause the head sits past the end, which draws nothing.
+      const t = Math.min(1, within / GLOW_RUN_MS);
+      // The head enters from before the start and leaves past the end, so the
+      // ribbon arrives and departs instead of appearing and stopping.
+      const p = t * (1 + GLOW_TAIL * 2) - GLOW_TAIL;
+      const gradient = glowGradient(p, colour) as never;
+      map.setPaintProperty(GLOW_HALO, 'line-gradient', gradient);
+      map.setPaintProperty(GLOW_CORE, 'line-gradient', gradient);
+    }
     glowFrames.set(map, requestAnimationFrame(step));
   };
   glowFrames.set(map, requestAnimationFrame(step));
@@ -1195,21 +1226,22 @@ function stopGlow(map: MapLibreMap): void {
   const frame = glowFrames.get(map);
   if (frame !== undefined) cancelAnimationFrame(frame);
   glowFrames.delete(map);
-  if (map.getLayer(GLOW_LAYER)) map.removeLayer(GLOW_LAYER);
+  for (const layer of [GLOW_CORE, GLOW_HALO]) {
+    if (map.getLayer(layer)) map.removeLayer(layer);
+  }
   if (map.getSource(GLOW_SOURCE)) map.removeSource(GLOW_SOURCE);
 }
 
 /**
- * A bright head at `p` with a fading tail behind it, as a line-gradient.
+ * A bright head at `p` with a fading ribbon behind it, as a line-gradient.
  *
  * Stops have to climb, and the first one has to sit at 0, so they are built in
  * order and anything that would repeat a position is dropped.
  */
 function glowGradient(p: number, colour: string): unknown[] {
-  const clear = 'rgba(255, 255, 255, 0)';
+  const clear = withAlpha(colour, 0);
   const head = Math.min(1, Math.max(0, p));
   const start = Math.max(0, head - GLOW_TAIL);
-  const end = Math.min(1, head + 0.02);
 
   const expression: unknown[] = ['interpolate', ['linear'], ['line-progress']];
   let last = -1;
@@ -1221,11 +1253,12 @@ function glowGradient(p: number, colour: string): unknown[] {
 
   push(0, clear);
   push(start, clear);
-  // Halfway down the tail the light is already dim, which is what makes it
-  // read as a comet rather than a moving stripe.
-  push(start + (head - start) * 0.7, withAlpha(colour, 0.35));
-  push(head, colour);
-  push(end, clear);
+  // The ribbon brightens along its length rather than in one step, which is
+  // what makes it read as a comet instead of a moving stripe.
+  push(start + (head - start) * 0.55, withAlpha(colour, 0.28));
+  push(start + (head - start) * 0.85, withAlpha(colour, 0.7));
+  push(head, p >= 0 && p <= 1 ? '#ffffff' : colour);
+  push(Math.min(1, head + 0.012), clear);
   push(1, clear);
   return expression;
 }

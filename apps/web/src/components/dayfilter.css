@@ -95,9 +95,11 @@
   }
 }
 
+/* Name, then its count right beside it, then the tick at the far end. The
+   counts used to be pushed to their own column, which left them floating in
+   the middle of the row with nothing to line up against. */
 .day-filter-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.6rem;
@@ -129,21 +131,32 @@
 }
 
 .day-filter-item-name {
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .day-filter-count {
-  display: inline-flex;
+  flex: 0 0 auto;
+  /* Not inline-flex: an inline box sits on the text baseline, which is what
+     dropped the camera a couple of pixels below the words next to it. */
+  display: flex;
   align-items: center;
   gap: 0.22rem;
+  margin-right: auto;
   font-size: 0.74rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--ink-faint);
 }
 
+.day-filter-count svg {
+  display: block;
+}
+
 .day-filter-check {
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
   width: 18px;
@@ -165,6 +178,8 @@
 }
 
 /* Both pills live in one column at the top of the map. */
+/* Both pills sit in one row at the top of the map: they answer two halves of
+   the same question — what the map is showing right now. */
 .map-top-pills {
   position: absolute;
   top: 0.9rem;
@@ -172,9 +187,11 @@
   transform: translateX(-50%);
   z-index: 45;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 0.4rem;
+  max-width: calc(100% - 1.8rem);
   pointer-events: none;
 }
 

@@ -32,10 +32,12 @@ export function PhotoBook({
 
   async function make(theme: 'light' | 'dark') {
     setNote(null);
-    setProgress({ done: 0, total: 1 });
+    setProgress({ done: 0, total: pages || 1 });
     try {
-      const pdf = await renderPhotoBook({ trip, stops, media, routes, notes }, theme, (done, total) =>
-        setProgress({ done, total }),
+      const pdf = await renderPhotoBook(
+        { trip, stops, media, routes, notes },
+        theme,
+        (done, total) => setProgress({ done, total }),
       );
       const file = new File([pdf], `${slug(trip.title)}.pdf`, { type: 'application/pdf' });
       const outcome = await shareOrSaveFiles([file], trip.title);
@@ -48,12 +50,17 @@ export function PhotoBook({
     }
   }
 
-  const pages = media.length === 0 ? 0 : new Set(media.map((m) => m.takenAt.slice(0, 10))).size + 2;
+  // The real page count, not the number of days: a day with more than six
+  // photographs runs onto a second and third page, which is how a book of
+  // "12 pages" arrived as thirty.
+  const pages = countPages(media);
   const percent = progress && progress.total > 0 ? (progress.done / progress.total) * 100 : 0;
 
   return (
     <section className="photo-book">
-      <h2 className="trip-side-heading">Fotoboek</h2>
+      <h2 className="trip-side-heading">
+        Fotoboek <span className="summary-beta">(bèta)</span>
+      </h2>
       <p className="muted photo-book-hint">
         {pages > 0
           ? `Een PDF van ongeveer ${pages} pagina's: omslag, de route, en per dag je notitie met de foto's van die dag.`
@@ -80,6 +87,19 @@ export function PhotoBook({
       {note && <p className="muted photo-book-note">{note}</p>}
     </section>
   );
+}
+
+/** Cover, route, then each day split into pages of six. Mirrors photobook.ts. */
+function countPages(media: MediaItem[]): number {
+  if (media.length === 0) return 0;
+  const perDay = new Map<string, number>();
+  for (const item of media) {
+    const day = item.takenAt.slice(0, 10);
+    perDay.set(day, (perDay.get(day) ?? 0) + 1);
+  }
+  let pages = 2;
+  for (const count of perDay.values()) pages += Math.max(1, Math.ceil(count / 6));
+  return pages;
 }
 
 function slug(text: string): string {

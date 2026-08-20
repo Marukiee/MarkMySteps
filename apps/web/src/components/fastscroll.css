@@ -1,0 +1,69 @@
+/* The grip sits over the list, fixed to the viewport, because the list itself
+   scrolls under it. */
+.fast-scroll {
+  position: fixed;
+  z-index: 44;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: fastScrollIn 0.18s var(--ease);
+  transition: opacity 0.24s var(--ease);
+}
+
+@keyframes fastScrollIn {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+
+.fast-scroll-grip {
+  display: grid;
+  place-items: center;
+  gap: 1px;
+  width: 46px;
+  height: 46px;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-s);
+  color: var(--ink-soft);
+  cursor: grab;
+  /* The browser must not take the drag for a scroll of the page behind it. */
+  touch-action: none;
+  transition: transform 0.16s var(--ease), border-color 0.2s var(--ease),
+    color 0.2s var(--ease);
+}
+
+.fast-scroll-grip svg {
+  display: block;
+  margin: -3px 0;
+}
+
+.fast-scroll.dragging .fast-scroll-grip {
+  transform: scale(1.08);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  cursor: grabbing;
+}
+
+/* The date you are passing, beside the grip where your thumb is not. */
+.fast-scroll-label {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: var(--shadow-s);
+  animation: fastLabelIn 0.16s var(--ease);
+}
+
+@keyframes fastLabelIn {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+}

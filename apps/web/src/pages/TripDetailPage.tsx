@@ -8,6 +8,7 @@ import { AuthImage } from '../components/AuthImage';
 import { ChoiceOption, chooseModal, confirmModal } from '../components/confirm';
 import { DayFilter, type TripDay } from '../components/DayFilter';
 import { Icon } from '../components/Icon';
+import { FastScroll } from '../components/FastScroll';
 import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
 import { PhotoBook } from '../components/PhotoBook';
@@ -295,7 +296,27 @@ export function TripDetailPage() {
     api<RouteCollection>(`/trips/${tripId}/route${filter}`)
       .then((collection) => {
         setRoutes(collection);
-        if (day) window.setTimeout(() => mapApiRef.current?.glowRoutes(), 120);
+        if (!day) {
+          // Back to the whole trip: frame the whole trip again.
+          mapApiRef.current?.resetView();
+          return;
+        }
+        // A day is a much smaller thing than a trip, and looking at it on the
+        // trip's own camera means a dot somewhere in a continent. Frame the
+        // day first, then run the light along it once the camera has settled.
+        const coords: [number, number][] = [];
+        for (const feature of collection.features) {
+          for (const point of feature.geometry.coordinates as [number, number][]) {
+            coords.push(point);
+          }
+        }
+        for (const item of mediaRef.current) {
+          if (item.takenAt.slice(0, 10) !== day) continue;
+          if (item.latitude === null || item.longitude === null) continue;
+          coords.push([item.longitude, item.latitude]);
+        }
+        if (coords.length > 0) mapApiRef.current?.focusOn(coords);
+        window.setTimeout(() => mapApiRef.current?.glowRoutes(), coords.length > 0 ? 780 : 150);
       })
       .catch(() => undefined);
   }, [day, tripId]);
@@ -604,13 +625,27 @@ export function TripDetailPage() {
   useEffect(() => {
     const wanted = searchParams.get('photo');
     if (!wanted) return;
+    if (media.length === 0) return; // photos still on their way
+
+    const item = media.find((m) => m.id === wanted);
+    // Arriving from a search at somebody else's photo: their pictures are not
+    // on screen yet, so the lightbox would have nothing to open. Switch that
+    // traveller on and let the next pass find it.
+    if (item && !visibleUsers.has(item.userId)) {
+      setVisibleUsers((current) => new Set(current).add(item.userId));
+      return;
+    }
+    // Same for a day filter left on: the photo may belong to another day.
     const index = visibleMedia.findIndex((m) => m.id === wanted);
-    if (index < 0 && media.length === 0) return; // photos still on their way
+    if (index < 0 && item && day !== null) {
+      setDay(null);
+      return;
+    }
     if (index >= 0) setLightboxIndex(index);
     const next = new URLSearchParams(searchParams);
     next.delete('photo');
     setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams, visibleMedia, media.length]);
+  }, [searchParams, setSearchParams, visibleMedia, visibleUsers, media, day]);
 
   useEffect(() => {
     if (lightboxIndex === null) return;
@@ -665,7 +700,7 @@ export function TripDetailPage() {
         )}
         <TripMap
           routes={routes}
-          media={media}
+          media={visibleMedia}
           stops={stops}
           // Hand-placed points are editing scaffolding: they belong in the
           // points editor, where you can drag them, not scattered over the
@@ -989,6 +1024,10 @@ export function TripDetailPage() {
           </div>
         </div>
       )}
+
+      {/* A trip of three months is a very long timeline; the grip throws it
+          around by the day instead of by the flick. */}
+      <FastScroll scrollers={[scrollRef, sideRef]} />
 
       {lightboxIndex !== null && (
         <Lightbox

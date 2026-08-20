@@ -229,21 +229,66 @@
 
 .share-create {
   display: flex;
+  align-items: stretch;
   gap: 0.5rem;
   min-width: 0;
+}
+
+/* The field is a box the cross can sit inside; without it the cross would be
+   a third item in the row and the input would shrink around it. */
+.share-create-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
 }
 
 .share-create button {
   flex-shrink: 0;
 }
 
+/* Same height as the button beside it and as a link row: three pills in a
+   column that do not line up read as three unrelated things. */
 .share-create input {
   flex: 1;
   min-width: 0;
-  padding: 0.5rem 0.8rem;
+  height: 40px;
+  padding: 0 2.2rem 0 0.9rem;
   border: 1.5px solid var(--line);
-  border-radius: var(--radius-s);
+  border-radius: 999px;
   background: var(--paper-raised);
+  font-size: 0.9rem;
+}
+
+.share-create .btn {
+  height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.share-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.45rem;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.share-clear:hover {
+  color: var(--ink);
+}
+
+.share-clear-inline {
+  right: 0.35rem;
 }
 
 /* A new link should arrive, not appear. */
@@ -251,42 +296,13 @@
   animation: shareLinkIn 0.28s var(--ease) backwards;
 }
 
-/* The generator sits inside the field's row, not as a third button in the
-   form: it belongs to the password, not to "make a link". */
-.share-dice {
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius-s);
-  background: var(--paper-raised);
-  color: var(--ink-soft);
-  cursor: pointer;
-  transition: color 0.18s var(--ease), border-color 0.18s var(--ease),
-    transform 0.18s var(--ease);
-}
 
-.share-dice:hover {
-  color: var(--ink);
-  border-color: var(--ink-faint);
-}
 
-.share-dice:active {
-  transform: scale(0.9) rotate(-12deg);
-}
 
-/* Said once, under the form, because it is about what you type there. */
-.share-warn {
-  margin-top: -0.2rem;
-  font-size: 0.78rem;
-  line-height: 1.4;
-}
 
 .share-menu-pw {
+  position: relative;
   display: flex;
-  gap: 0.4rem;
   min-width: 0;
 }
 

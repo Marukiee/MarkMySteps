@@ -1,0 +1,429 @@
+/* Search is a page from the bottom, not a bar in a header: typing into a
+   header means a keyboard over the very list you are searching. */
+.search-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgb(16 21 27 / 0.5);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: end center;
+  animation: searchBackdropIn 0.26s var(--ease);
+}
+
+@keyframes searchBackdropIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+.search-sheet-backdrop.closing {
+  animation: searchBackdropOut 0.24s var(--ease) forwards;
+}
+
+@keyframes searchBackdropOut {
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+.search-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(620px, 100%);
+  /* Tall, but never taller than what the keyboard leaves: dvh follows the
+     visible viewport on Android, so the field stays above the keys. */
+  height: min(88dvh, 46rem);
+  max-height: 92dvh;
+  padding: 0.5rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom));
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+  animation: searchSheetUp 0.28s var(--ease);
+}
+
+.search-sheet-backdrop.closing .search-sheet {
+  animation: searchSheetDown 0.24s var(--ease) forwards;
+}
+
+@keyframes searchSheetUp {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+
+@keyframes searchSheetDown {
+  to {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+}
+
+@media (min-width: 601px) {
+  .search-sheet-backdrop {
+    place-items: center;
+  }
+
+  .search-sheet {
+    border-radius: var(--radius-l);
+  }
+}
+
+.search-sheet-grab {
+  width: 42px;
+  height: 4px;
+  margin: 0.15rem auto 0.6rem;
+  border-radius: 999px;
+  background: var(--line);
+  flex-shrink: 0;
+}
+
+.search-sheet-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.search-sheet-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 44px;
+  padding: 0 0.9rem;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-raised);
+}
+
+.search-sheet-field:focus-within {
+  border-color: var(--ink-faint);
+}
+
+.search-sheet-field > svg {
+  flex-shrink: 0;
+  color: var(--ink-faint);
+}
+
+.search-sheet-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.search-sheet-field input:focus {
+  outline: none;
+}
+
+.search-sheet-clear {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.search-sheet-go {
+  height: 44px;
+  padding-top: 0;
+  padding-bottom: 0;
+  flex-shrink: 0;
+}
+
+.search-sheet-close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 44px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+@media (max-width: 480px) {
+  /* Three controls do not fit a phone's width; the cross is the sheet's own
+     backdrop and back gesture anyway. */
+  .search-sheet-close {
+    display: none;
+  }
+}
+
+.search-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  margin: 0.55rem 0 0.1rem;
+  padding: 0.35rem 0.7rem;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+
+.search-filter-toggle.on {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.search-filter-count {
+  display: grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.68rem;
+}
+
+.search-filter-caret {
+  transition: transform 0.24s var(--ease);
+}
+
+.search-filter-caret.on {
+  transform: rotate(180deg);
+}
+
+.search-filters {
+  flex-shrink: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: 0.4rem 0.1rem 0.2rem;
+  animation: searchFiltersIn 0.2s var(--ease);
+}
+
+.search-filters.closing {
+  animation: searchFiltersOut 0.18s var(--ease) forwards;
+}
+
+@keyframes searchFiltersIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes searchFiltersOut {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.search-filters h3 {
+  margin: 0.35rem 0 0.35rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.search-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.32rem 0.7rem;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), background 0.18s var(--ease),
+    color 0.18s var(--ease);
+}
+
+.search-chip.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.search-sheet-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 0.5rem;
+  display: grid;
+  align-content: start;
+  gap: 1px;
+}
+
+.search-reading {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0.2rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.search-reading svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.search-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 4px;
+  margin-bottom: 0.6rem;
+}
+
+.search-photo {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--paper-sunken);
+  cursor: pointer;
+  animation: searchPhotoIn 0.24s var(--ease) backwards;
+  transition: transform 0.16s var(--ease);
+}
+
+@keyframes searchPhotoIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+.search-photo:active {
+  transform: scale(0.95);
+}
+
+.search-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.search-photo-play {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgb(16 21 27 / 0.6);
+  color: #fff;
+}
+
+.search-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.5rem;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+
+.search-row:hover {
+  background: var(--paper-sunken);
+}
+
+.search-row-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+}
+
+.search-row-text {
+  display: grid;
+  min-width: 0;
+}
+
+.search-row-text strong {
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-row-text small {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-empty {
+  margin: 0;
+  padding: 0.8rem 0.5rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+
+/* The round button that opens all this, beside "nieuwe reis". Its height is
+   the pill's, or the row reads as two different sizes. */
+.search-open {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  background: var(--paper-raised);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.16s var(--ease), border-color 0.2s var(--ease),
+    background 0.2s var(--ease);
+}
+
+.search-open:hover {
+  border-color: var(--ink-faint);
+  background: var(--paper-sunken);
+}
+
+.search-open:active {
+  transform: scale(0.92);
+}

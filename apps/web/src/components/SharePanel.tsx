@@ -107,11 +107,10 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
       ))}
 
       {ownerView && (
-        <>
-          <form className="share-create" onSubmit={createLink}>
+        <form className="share-create" onSubmit={createLink}>
+          <div className="share-create-field">
             <input
               type="text"
-              className="share-create-pw"
               placeholder="wachtwoord (optioneel)"
               autoComplete="off"
               autoCapitalize="none"
@@ -120,24 +119,23 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <button
-              type="button"
-              className="share-dice"
-              aria-label="Wachtwoord verzinnen"
-              title="Wachtwoord verzinnen"
-              onClick={() => setPassword(makePassphrase())}
-            >
-              <Icon name="sparkle" size={15} />
-            </button>
-            <button className="btn btn-ghost">
-              <Icon name="plus" size={16} /> Deellink
-            </button>
-          </form>
-          <p className="muted share-warn">
-            Het wachtwoord is later terug te lezen, dus het staat leesbaar op je server. Gebruik er
-            een die je nergens anders gebruikt, of laat er een verzinnen.
-          </p>
-        </>
+            {/* Typed something and changed your mind: the cross sits inside the
+                field, where what it clears is. */}
+            {password && (
+              <button
+                type="button"
+                className="share-clear"
+                aria-label="Wachtwoord wissen"
+                onClick={() => setPassword('')}
+              >
+                <Icon name="close" size={14} />
+              </button>
+            )}
+          </div>
+          <button className="btn btn-ghost">
+            <Icon name="plus" size={16} /> Deellink
+          </button>
+        </form>
       )}
       {error && <p className="error-text">{error}</p>}
     </section>
@@ -335,14 +333,16 @@ function ShareLinkRow({
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
                 />
-                <button
-                  type="button"
-                  className="share-dice"
-                  aria-label="Wachtwoord verzinnen"
-                  onClick={() => setValue(makePassphrase())}
-                >
-                  <Icon name="sparkle" size={15} />
-                </button>
+                {value && (
+                  <button
+                    type="button"
+                    className="share-clear share-clear-inline"
+                    aria-label="Wissen"
+                    onClick={() => setValue('')}
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
+                )}
               </div>
               <div className="share-menu-actions">
                 <button type="button" className="btn btn-ghost" onClick={() => setEditing(false)}>
@@ -410,30 +410,6 @@ function ShareLinkRow({
       )}
     </div>
   );
-}
-
-/**
- * A password worth sending in a message: three easy words and a number.
- *
- * Made here rather than typed, because this one is stored in a form the server
- * can read back, and nobody should be handing that a password they use
- * anywhere else.
- */
-const WORDS = [
-  'kade', 'noorderlicht', 'zandpad', 'veerpont', 'duinroos', 'sneeuwuil', 'kompas', 'baken',
-  'zeewind', 'kiezel', 'bergpas', 'wolkbreuk', 'houtvuur', 'ochtendmist', 'sterrenkaart',
-  'landweg', 'brugwachter', 'rugzak', 'zonsopgang', 'waterval', 'olijfgaard', 'fjord',
-];
-
-function makePassphrase(): string {
-  const pick = () => {
-    const bytes = new Uint32Array(1);
-    crypto.getRandomValues(bytes);
-    return WORDS[bytes[0]! % WORDS.length]!;
-  };
-  const digits = new Uint32Array(1);
-  crypto.getRandomValues(digits);
-  return `${pick()}-${pick()}-${(digits[0]! % 90) + 10}`;
 }
 
 /** Clipboard fallback for contexts without navigator.clipboard. */

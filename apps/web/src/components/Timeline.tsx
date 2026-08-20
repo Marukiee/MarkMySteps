@@ -117,7 +117,9 @@ export function Timeline({
       {days.map(([day, items]) => {
         const loc = locationForDay(day, items);
         return (
-        <section key={day} className="timeline-day">
+        // The day is written onto the section so the fast-scroll grip can say
+        // where the list is without knowing anything about the timeline.
+        <section key={day} className="timeline-day" data-day={day}>
           <h3>
             <span className="timeline-dot" />
             <span className="timeline-day-label">

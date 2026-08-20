@@ -289,6 +289,22 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
     g.moved = false;
     g.at = now;
     touchRef.current = { x: t.clientX, y: t.clientY };
+
+    // The second tap acts the moment it lands, not when it lifts. Waiting for
+    // the lift meant a thumb that rolled a few pixels while pressing was read
+    // as the drag-zoom instead, and the photo crept to some scale nobody asked
+    // for rather than snapping back to fitted.
+    if (second && !video) {
+      setEased(true);
+      const next = zoomed ? FIT : zoomAround(ZOOM_TAP, t.clientX, t.clientY, view, origin);
+      setView(next);
+      // Drag-zoom continues from where the jump landed, so holding on after
+      // the second tap still fine-tunes it.
+      g.start = next;
+      g.cx = origin.x;
+      g.cy = origin.y;
+      tap.current = { at: 0, x: 0, y: 0 };
+    }
   };
 
   const onTouchMove = (e: ReactTouchEvent) => {
@@ -312,7 +328,11 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
     const t = e.touches[0]!;
     const dx = t.clientX - g.sx;
     const dy = t.clientY - g.sy;
-    if (!g.moved && Math.hypot(dx, dy) > 8) g.moved = true;
+    // A double-tap-and-hold has to travel further before it counts as a drag:
+    // the same 8px that means "you are panning" is well within the wobble of
+    // pressing twice in one spot.
+    const threshold = g.mode === 'holdzoom' ? 24 : 8;
+    if (!g.moved && Math.hypot(dx, dy) > threshold) g.moved = true;
 
     if (g.mode === 'holdzoom') {
       if (!g.moved) return;
@@ -344,15 +364,9 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
     }
 
     if (g.mode === 'holdzoom') {
-      if (!g.moved && now - g.at < 320) {
-        // A plain double-tap: in to 2.5x on what you tapped, or all the way back.
-        setEased(true);
-        setView(
-          zoomed ? FIT : zoomAround(ZOOM_TAP, t.clientX, t.clientY, g.start, { x: g.cx, y: g.cy }),
-        );
-      } else {
-        settle(view);
-      }
+      // The jump itself happened when the finger landed; this only tidies up
+      // after whatever dragging followed it.
+      settle(view);
       // Consumed, so a third tap starts a fresh pair rather than toggling again.
       tap.current = { at: 0, x: 0, y: 0 };
       g.mode = 'none';

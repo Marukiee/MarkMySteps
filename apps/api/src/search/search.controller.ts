@@ -18,7 +18,29 @@ export class SearchController {
    */
   @Get()
   @Throttle({ default: { ttl: 60_000, limit: 40 } })
-  query(@CurrentUser() user: JwtPayload, @Query('q') q?: string): Promise<SearchResults> {
-    return this.search.search(user.sub, q ?? '');
+  query(
+    @CurrentUser() user: JwtPayload,
+    @Query('q') q?: string,
+    @Query('person') person?: string | string[],
+    @Query('country') country?: string | string[],
+  ): Promise<SearchResults> {
+    return this.search.search(user.sub, q ?? '', {
+      personIds: asArray(person),
+      countryCodes: asArray(country).map((code) => code.toUpperCase()),
+    });
   }
+
+  /** The faces and countries the filter panel offers. */
+  @Get('facets')
+  facets(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ people: { id: string; name: string }[]; countries: { code: string; name: string }[] }> {
+    return this.search.facets(user.sub);
+  }
+}
+
+/** A repeated query parameter arrives as a string, or as several. */
+function asArray(value: string | string[] | undefined): string[] {
+  if (!value) return [];
+  return (Array.isArray(value) ? value : [value]).filter(Boolean).slice(0, 20);
 }

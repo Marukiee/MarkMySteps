@@ -1,5 +1,5 @@
 import maplibregl, { type StyleSpecification } from 'maplibre-gl';
-import { dbDelete, dbGet, dbPut } from './localDb';
+import { dbAll, dbDelete, dbGet, dbPut } from './localDb';
 
 /**
  * Map tiles kept on the device, per trip.
@@ -39,16 +39,38 @@ export interface RegionProgress {
 }
 
 let registered = false;
+/**
+ * Whether anything is stored at all.
+ *
+ * Every tile the map draws comes through this protocol, and asking Cache
+ * Storage about a tile that cannot be there costs a round trip through another
+ * thread for each one. Until a region is saved, requests go straight out.
+ */
+let hasRegions = false;
+/** One handle, opened once: `caches.open` per tile is not free either. */
+let cachePromise: Promise<Cache> | null = null;
+
+function mapCache(): Promise<Cache> {
+  cachePromise ??= caches.open(MAP_CACHE);
+  return cachePromise;
+}
 
 /** Installs the protocol MapLibre asks cached resources over. Idempotent. */
 export function registerMapCache(): void {
   if (registered) return;
   registered = true;
+  // Cheap and once: which trips have a saved region decides whether every
+  // later tile request needs to look in storage at all.
+  void dbAll<{ tripId?: string; urls?: string[] }>('meta')
+    .then((rows) => {
+      hasRegions = rows.some((row) => Array.isArray(row?.urls) && row.urls.length > 0);
+    })
+    .catch(() => undefined);
 
   maplibregl.addProtocol(CACHE_SCHEME, async (params, abortController) => {
     const target = params.url.slice(PREFIX.length);
 
-    const cached = await matchCache(target);
+    const cached = hasRegions ? await matchCache(target) : null;
     const response = cached ?? (await fetch(target, { signal: abortController.signal }));
     if (!response.ok) {
       throw new Error(`${response.status} ${response.statusText}`);
@@ -81,12 +103,14 @@ export async function clearRegion(tripId: string): Promise<void> {
   const region = await regionFor(tripId);
   if (!region) return;
   try {
-    const cache = await caches.open(MAP_CACHE);
+    const cache = await mapCache();
     for (const url of region.urls) await cache.delete(url);
   } catch {
     /* best-effort */
   }
   await dbDelete('meta', `map:${tripId}`);
+  const rows = await dbAll<{ urls?: string[] }>('meta').catch(() => []);
+  hasRegions = rows.some((row) => Array.isArray(row?.urls) && row.urls.length > 0);
 }
 
 /**
@@ -102,7 +126,7 @@ export async function saveRegion(
   styleUrl: string,
   onProgress?: (progress: RegionProgress) => void,
 ): Promise<RegionInfo> {
-  const cache = await caches.open(MAP_CACHE);
+  const cache = await mapCache();
   const style = (await fetchJson(styleUrl)) as StyleSpecification & {
     sprite?: string | { id: string; url: string }[];
     glyphs?: string;
@@ -180,6 +204,7 @@ export async function saveRegion(
 
   const info: RegionInfo = { tripId, urls: list, bytes, savedAt: Date.now(), zoom };
   await dbPut<RegionInfo>('meta', info, `map:${tripId}`);
+  hasRegions = true;
   return info;
 }
 
@@ -212,7 +237,7 @@ export function zoomThatFits(
 async function matchCache(url: string): Promise<Response | null> {
   if (!('caches' in window)) return null;
   try {
-    const cache = await caches.open(MAP_CACHE);
+    const cache = await mapCache();
     return (await cache.match(url)) ?? null;
   } catch {
     return null;
