@@ -13,6 +13,7 @@ import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_SERVER_URL } from '../config';
 import { Avatar, bumpAvatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
+import { TrackFiles } from '../components/TrackFiles';
 import { HelpTip } from '../components/HelpTip';
 import { previewInvitePopup } from '../components/InvitePopup';
 import { Icon } from '../components/Icon';
@@ -160,6 +161,7 @@ export function SettingsPage() {
             <>
               <BackupSection />
               <PolarstepsSection />
+              <TrackFiles />
               <PhotoCacheSection />
             </>
           )}

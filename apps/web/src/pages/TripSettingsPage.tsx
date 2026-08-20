@@ -8,7 +8,6 @@ import { confirmModal } from '../components/confirm';
 import { DateField } from '../components/DatePicker';
 import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
-import { TrackFiles } from '../components/TrackFiles';
 import { TripFacts } from '../components/TripFacts';
 import {
   clearDeviceMedia,
@@ -460,8 +459,6 @@ export function TripSettingsPage() {
         </button>
       </section>
       )}
-
-      {canEdit && tripId && trip && <TrackFiles tripId={tripId} title={trip.title} />}
 
       {/* Photos you would rather not hand over. They are matched to the trip the
           same way Immich's are, but the files stay on the phone. */}

@@ -1,3 +1,15 @@
+/* Which trip the file belongs to: one field above the buttons, because on
+   this page the trip is part of the question rather than the context. */
+.track-files-trip {
+  margin: 0.2rem 0 0.7rem;
+  max-width: 22rem;
+}
+
+.track-files-note {
+  margin-top: 0.5rem;
+  font-size: 0.84rem;
+}
+
 .track-files-actions {
   display: flex;
   flex-wrap: wrap;

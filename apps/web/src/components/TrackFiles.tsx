@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { fetchBlobUrl } from '../api/client';
-import { api } from '../api/client';
+import { useEffect, useState } from 'react';
+import { api, fetchBlobUrl } from '../api/client';
+import type { Trip } from '../api/types';
 import { shareOrSaveFiles } from '../lib/fileShare';
 import { Icon } from './Icon';
 import './trackfiles.css';
@@ -13,13 +13,31 @@ interface TrackImportResult {
 }
 
 /**
- * Track files in and out.
+ * Track files in and out, for one of your trips.
  *
  * A route recorded on a watch, in OsmAnd, or on the phone before this app
- * existed is still this trip's route; and a trip that lives here should be
- * able to leave again in a form other maps read.
+ * existed is still a trip's route; and a trip that lives here should be able
+ * to leave again in a form other maps read.
+ *
+ * It sits with the other data that comes and goes rather than inside one trip:
+ * this is where you look when you are moving things in or out, and the trip is
+ * one field of that question.
  */
-export function TrackFiles({ tripId, title }: { tripId: string; title: string }) {
+export function TrackFiles() {
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [tripId, setTripId] = useState('');
+
+  useEffect(() => {
+    api<Trip[]>('/trips')
+      .then((all) => {
+        setTrips(all);
+        setTripId((current) => current || (all[0]?.id ?? ''));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const trip = trips.find((t) => t.id === tripId) ?? null;
+  const title = trip?.title ?? 'reis';
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [imported, setImported] = useState<TrackImportResult | null>(null);
@@ -62,36 +80,55 @@ export function TrackFiles({ tripId, title }: { tripId: string; title: string })
   }
 
   return (
-    <section className="ts-sync ts-sync-stacked track-files">
-      <div>
-        <strong>Route-bestanden</strong>
-        <span className="muted">
-          Exporteer deze reis als GPX of KML, of voeg een track toe die je ergens anders opnam.
-          Punten buiten de reisdagen blijven waar ze zijn.
-        </span>
+    <section className="card settings-card track-files">
+      <h2>Route-bestanden</h2>
+      <p className="muted">
+        Exporteer een reis als GPX of KML, of voeg een track toe die je ergens anders opnam.
+        Punten buiten de reisdagen worden overgeslagen: die horen bij een andere reis.
+      </p>
+
+      <div className="field track-files-trip">
+        <label htmlFor="tf-trip">Reis</label>
+        <select
+          id="tf-trip"
+          value={tripId}
+          disabled={trips.length === 0}
+          onChange={(e) => {
+            setTripId(e.target.value);
+            setImported(null);
+            setNote(null);
+          }}
+        >
+          {trips.length === 0 && <option value="">Geen reizen</option>}
+          {trips.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.title}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="track-files-actions">
         <button
           className="btn btn-ghost"
-          disabled={busy !== null}
+          disabled={busy !== null || !tripId}
           onClick={() => void exportAs('gpx')}
         >
           <Icon name="download" size={15} /> {busy === 'gpx' ? 'Bezig…' : 'GPX'}
         </button>
         <button
           className="btn btn-ghost"
-          disabled={busy !== null}
+          disabled={busy !== null || !tripId}
           onClick={() => void exportAs('kml')}
         >
           <Icon name="download" size={15} /> {busy === 'kml' ? 'Bezig…' : 'KML'}
         </button>
-        <label className={`btn btn-ghost track-files-pick ${busy ? 'disabled' : ''}`}>
+        <label className={`btn btn-ghost track-files-pick ${busy || !tripId ? 'disabled' : ''}`}>
           <input
             type="file"
             accept=".gpx,.kml,application/gpx+xml,application/vnd.google-earth.kml+xml"
             hidden
-            disabled={busy !== null}
+            disabled={busy !== null || !tripId}
             onChange={(e) => {
               const file = e.target.files?.[0];
               e.target.value = '';
@@ -113,7 +150,7 @@ export function TrackFiles({ tripId, title }: { tripId: string; title: string })
           </span>
         </p>
       )}
-      {note && <p className="muted ts-sync-msg">{note}</p>}
+      {note && <p className="muted track-files-note">{note}</p>}
     </section>
   );
 }
