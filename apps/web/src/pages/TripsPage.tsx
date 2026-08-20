@@ -17,6 +17,7 @@ import { Avatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
 import { DateField } from '../components/DatePicker';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
+import { SearchBox } from '../components/SearchBox';
 import { LogoMark } from '../components/Logo';
 import { Icon } from '../components/Icon';
 import { coverGradient, formatDate, tripCoverBg } from '../lib/colors';
@@ -225,12 +226,15 @@ export function TripsPage() {
 
       <div className="trips-head">
         <h1>Reizen</h1>
-        <button
-          className="btn btn-primary"
-          onClick={() => (showNew ? closeNew() : setShowNew(true))}
-        >
-          {showNew && !newClosing ? 'Annuleren' : '+ Nieuwe reis'}
-        </button>
+        <div className="trips-head-actions">
+          <SearchBox />
+          <button
+            className="btn btn-primary"
+            onClick={() => (showNew ? closeNew() : setShowNew(true))}
+          >
+            {showNew && !newClosing ? 'Annuleren' : '+ Nieuwe reis'}
+          </button>
+        </div>
       </div>
 
       {showNew && (

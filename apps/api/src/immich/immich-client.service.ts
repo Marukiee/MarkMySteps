@@ -88,6 +88,54 @@ export class ImmichClientService {
   }
 
   /**
+   * People Immich has recognised, so a name in the search box can become a
+   * face filter. Only named people are useful here.
+   */
+  async listPeople(serverUrl: string, apiKey: string): Promise<{ id: string; name: string }[]> {
+    const res = await this.request(serverUrl, apiKey, '/api/people?withHidden=false&size=1000');
+    const data = (await res.json()) as { people?: { id: string; name?: string }[] };
+    return (data.people ?? [])
+      .filter((p): p is { id: string; name: string } => Boolean(p.name))
+      .map((p) => ({ id: p.id, name: p.name }));
+  }
+
+  /**
+   * Asset ids for a search: Immich's own smart search when there are words to
+   * search on, otherwise the metadata search filtered by face.
+   *
+   * Only ids come back. What those assets are, and whether the caller may see
+   * them at all, is answered from our own media refs.
+   */
+  async searchAssetIds(
+    serverUrl: string,
+    apiKey: string,
+    filters: { query?: string; personIds?: string[]; limit?: number },
+  ): Promise<string[]> {
+    const size = Math.min(filters.limit ?? 250, 1000);
+    const smart = Boolean(filters.query);
+    const res = await this.request(
+      serverUrl,
+      apiKey,
+      smart ? '/api/search/smart' : '/api/search/metadata',
+      {
+        method: 'POST',
+        body: {
+          ...(filters.query ? { query: filters.query } : {}),
+          ...(filters.personIds && filters.personIds.length > 0
+            ? { personIds: filters.personIds }
+            : {}),
+          size,
+          page: 1,
+          isArchived: false,
+          visibility: 'timeline',
+        },
+      },
+    );
+    const data = (await res.json()) as { assets?: { items?: { id: string }[] } };
+    return (data.assets?.items ?? []).map((item) => item.id);
+  }
+
+  /**
    * Writes a position onto an asset that has none.
    *
    * Immich takes coordinates on the asset itself (PUT /api/assets/:id), which

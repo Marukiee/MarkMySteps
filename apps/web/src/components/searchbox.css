@@ -1,0 +1,234 @@
+/* Starts as a circle beside "nieuwe reis" and grows into a field. Beige and
+   ink, never accent: the accent belongs to the button that makes something,
+   and two coloured pills in one row fight each other. */
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.search-box-btn {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.16s var(--ease), border-color 0.2s var(--ease),
+    background 0.2s var(--ease);
+}
+
+.search-box-btn:hover {
+  border-color: var(--ink-faint);
+}
+
+.search-box-btn:active {
+  transform: scale(0.92);
+}
+
+.search-box.open .search-box-btn {
+  background: var(--paper-sunken);
+}
+
+/* The field unrolls from behind the circle. Width, not display, so it can be
+   animated; and pointer-events off while closed so the circle keeps the tap. */
+.search-box-input {
+  width: 0;
+  height: 40px;
+  padding: 0;
+  margin-left: -20px;
+  padding-left: 20px;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-size: 0.92rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: width 0.28s var(--ease), opacity 0.22s var(--ease),
+    padding 0.28s var(--ease), border-color 0.22s var(--ease);
+}
+
+.search-box.open .search-box-input {
+  width: min(58vw, 20rem);
+  padding-right: 0.9rem;
+  padding-left: 28px;
+  border-color: var(--line);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.search-box-input:focus {
+  outline: none;
+  border-color: var(--ink-faint);
+}
+
+/* The browser's own clear button sits where the text ends and looks nothing
+   like the rest; the Escape key and the cross on the circle do that job. */
+.search-box-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: min(92vw, 26rem);
+  /* The on-screen keyboard eats the bottom half of a phone; the panel is
+     capped against the visible viewport so its last row stays reachable. */
+  max-height: min(60vh, 26rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.35rem;
+  display: grid;
+  gap: 1px;
+  transform-origin: top right;
+  animation: searchPanelIn 0.18s var(--ease);
+}
+
+.search-panel.closing {
+  animation: searchPanelOut 0.16s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes searchPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+}
+
+@keyframes searchPanelOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+/* What the words were taken to mean — "foto's van Thijs, in Zweden". */
+.search-reading {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.1rem 0.2rem 0.35rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.search-reading svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.search-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.55rem;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+
+.search-row:hover {
+  background: var(--paper-sunken);
+}
+
+.search-row-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+}
+
+.search-row-text {
+  display: grid;
+  min-width: 0;
+}
+
+.search-row-text strong {
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-row-text small {
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  gap: 4px;
+  padding: 0.3rem 0.2rem 0.1rem;
+}
+
+.search-photo {
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--paper-sunken);
+  cursor: pointer;
+  transition: transform 0.16s var(--ease);
+}
+
+.search-photo:active {
+  transform: scale(0.94);
+}
+
+.search-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.search-empty {
+  margin: 0;
+  padding: 0.6rem 0.55rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+
+/* On a phone the row cannot hold a title, a field and a button at once, so
+   while the search is open the "new trip" button steps aside — you are not
+   making a trip and searching for one in the same second. */
+@media (max-width: 720px) {
+  .trips-head-actions:has(.search-box.open) .btn-primary {
+    display: none;
+  }
+
+  .search-box.open .search-box-input {
+    width: min(72vw, 22rem);
+  }
+
+  .search-panel {
+    width: min(94vw, 26rem);
+    max-height: min(52vh, 24rem);
+  }
+}

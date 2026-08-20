@@ -598,6 +598,20 @@ export function TripDetailPage() {
     });
   }, []);
 
+  // Arriving from a search result means "show me this photo", so the lightbox
+  // opens on it as soon as the trip's media are in. The parameter is consumed
+  // straight away, or closing the photo and reloading would reopen it.
+  useEffect(() => {
+    const wanted = searchParams.get('photo');
+    if (!wanted) return;
+    const index = visibleMedia.findIndex((m) => m.id === wanted);
+    if (index < 0 && media.length === 0) return; // photos still on their way
+    if (index >= 0) setLightboxIndex(index);
+    const next = new URLSearchParams(searchParams);
+    next.delete('photo');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, visibleMedia, media.length]);
+
   useEffect(() => {
     if (lightboxIndex === null) return;
     const item = visibleMedia[lightboxIndex];
