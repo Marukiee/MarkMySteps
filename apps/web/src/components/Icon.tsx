@@ -9,6 +9,7 @@ export type IconName =
   | 'minus'
   | 'download'
   | 'close'
+  | 'calendar'
   | 'eye'
   | 'eye-off'
   | 'sparkle'
@@ -309,6 +310,12 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M7 4h10M7 20h10" />
       <path d="M7 4c0 4 3 5 5 8 2-3 5-4 5-8" />
       <path d="M7 20c0-4 3-5 5-8 2 3 5 4 5 8" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
+      <path d="M3.5 10h17M8 3.5v3M16 3.5v3" />
     </>
   ),
   eye: (

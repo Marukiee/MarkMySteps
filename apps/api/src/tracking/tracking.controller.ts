@@ -143,6 +143,7 @@ export class TrackingController {
     @Query('users') users?: string,
     @Query('tolerance') tolerance?: string,
     @Query('photos') photos?: string,
+    @Query('day') day?: string,
   ): Promise<RouteCollection> {
     return this.tracking.getRoutes(tripId, user.sub, {
       userIds: users
@@ -151,7 +152,17 @@ export class TrackingController {
         .filter(Boolean),
       tolerance: tolerance ? Number(tolerance) : undefined,
       includePhotos: photos !== 'false',
+      day: day || undefined,
     });
+  }
+
+  /** Which days of this trip have a track or a photo on them. */
+  @Get('days')
+  days(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+  ): Promise<{ day: string; points: number; photos: number }[]> {
+    return this.tracking.listTripDays(tripId, user.sub);
   }
 
   /** Snap the nearest straight gap in your line to real roads (keyless OSM). */

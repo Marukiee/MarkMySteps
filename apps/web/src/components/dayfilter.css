@@ -1,0 +1,189 @@
+/* Second line under the live pill: which day of the trip the map is showing.
+   Sits in the same top-centre stack, so the two read as one control. */
+.day-filter {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.day-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem 0.3rem 0.62rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-s);
+  font-size: 0.76rem;
+  font-weight: 650;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.14s var(--ease), border-color 0.2s var(--ease),
+    background 0.2s var(--ease), color 0.2s var(--ease);
+}
+
+.day-filter-btn svg {
+  color: var(--ink-faint);
+  transition: color 0.2s var(--ease), transform 0.24s var(--ease);
+}
+
+.day-filter-btn:active {
+  transform: scale(0.95);
+}
+
+/* A day is on: the pill takes the trip's own accent so the filtered map is
+   never mistaken for the whole trip. */
+.day-filter-btn.on {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.day-filter-btn.on svg {
+  color: var(--accent);
+}
+
+.day-filter-btn.open .day-filter-caret {
+  transform: rotate(180deg);
+}
+
+.day-filter-label {
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 50;
+  width: max-content;
+  min-width: 13.5rem;
+  max-width: min(86vw, 20rem);
+  max-height: min(52vh, 22rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.3rem;
+  display: grid;
+  gap: 1px;
+  transform-origin: top center;
+  animation: dayMenuIn 0.16s var(--ease);
+  /* The left:50% above still has to be pulled back by half its own width. */
+  translate: -50% 0;
+}
+
+.day-filter-menu.closing {
+  animation: dayMenuOut 0.14s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes dayMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+}
+
+@keyframes dayMenuOut {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+.day-filter-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-size: 0.86rem;
+  font-weight: 550;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  animation: dayItemIn 0.2s var(--ease) backwards;
+  transition: background 0.15s var(--ease);
+}
+
+@keyframes dayItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.day-filter-item:hover {
+  background: var(--paper-sunken);
+}
+
+.day-filter-item.active {
+  background: var(--paper-sunken);
+}
+
+.day-filter-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-filter-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.day-filter-check {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  color: var(--accent);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
+}
+
+.day-filter-check.on {
+  opacity: 1;
+  transform: none;
+}
+
+.day-filter-rule {
+  height: 1px;
+  margin: 0.2rem 0.4rem;
+  background: var(--line);
+}
+
+/* Both pills live in one column at the top of the map. */
+.map-top-pills {
+  position: absolute;
+  top: 0.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.map-top-pills > * {
+  pointer-events: auto;
+}
+
+@media (max-width: 900px) {
+  .map-top-pills {
+    top: calc(0.9rem + env(safe-area-inset-top));
+  }
+}

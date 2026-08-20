@@ -176,6 +176,40 @@ export class TrackingService {
     return rows.map((r) => ({ day: r.day.toISOString().slice(0, 10), count: Number(r.count) }));
   }
 
+  /**
+   * The trip's days that have anything on them, for everybody on it.
+   *
+   * The day picker offers what there is to see rather than every date between
+   * the two ends of the trip: a day nobody tracked and nobody photographed
+   * would filter the map down to nothing.
+   */
+  async listTripDays(
+    tripId: string,
+    userId: string,
+  ): Promise<{ day: string; points: number; photos: number }[]> {
+    await this.trips.getForMember(tripId, userId);
+    const rows = await this.prisma.$queryRaw<{ day: Date; points: bigint; photos: bigint }[]>`
+      SELECT
+        date_trunc('day', t) AS day,
+        SUM(CASE WHEN kind = 'point' THEN 1 ELSE 0 END) AS points,
+        SUM(CASE WHEN kind = 'photo' THEN 1 ELSE 0 END) AS photos
+      FROM (
+        SELECT "recordedAt" AS t, 'point' AS kind
+        FROM location_points WHERE "tripId" = ${tripId}::uuid
+        UNION ALL
+        SELECT "takenAt" AS t, 'photo' AS kind
+        FROM media_refs WHERE "tripId" = ${tripId}::uuid
+      ) x
+      GROUP BY 1
+      ORDER BY 1 ASC
+    `;
+    return rows.map((r) => ({
+      day: r.day.toISOString().slice(0, 10),
+      points: Number(r.points),
+      photos: Number(r.photos),
+    }));
+  }
+
   /** Drag a point to where you actually were. Only your own points. */
   async movePoint(
     tripId: string,
@@ -269,7 +303,7 @@ export class TrackingService {
   async getRoutes(
     tripId: string,
     requesterId: string,
-    options: { userIds?: string[]; tolerance?: number; includePhotos?: boolean } = {},
+    options: { userIds?: string[]; tolerance?: number; includePhotos?: boolean; day?: string } = {},
   ): Promise<RouteCollection> {
     await this.trips.getForMember(tripId, requesterId);
     return this.getRoutesUnchecked(tripId, options);
@@ -496,7 +530,7 @@ export class TrackingService {
 
   async getRoutesUnchecked(
     tripId: string,
-    options: { userIds?: string[]; tolerance?: number; includePhotos?: boolean } = {},
+    options: { userIds?: string[]; tolerance?: number; includePhotos?: boolean; day?: string } = {},
   ): Promise<RouteCollection> {
 
     const tolerance = Math.min(Math.abs(options.tolerance ?? DEFAULT_TOLERANCE), MAX_TOLERANCE);
@@ -506,12 +540,22 @@ export class TrackingService {
         ? Prisma.sql`AND "userId" = ANY(${options.userIds}::uuid[])`
         : Prisma.empty;
 
+    // One day of the trip instead of all of it. Both sources are filtered, or
+    // a day would show its photos strung onto the whole trip's line.
+    const day = options.day ? dayBounds(options.day) : null;
+    const pointDayFilter = day
+      ? Prisma.sql`AND "recordedAt" >= ${day.from} AND "recordedAt" < ${day.to}`
+      : Prisma.empty;
+    const photoDayFilter = day
+      ? Prisma.sql`AND "takenAt" >= ${day.from} AND "takenAt" < ${day.to}`
+      : Prisma.empty;
+
     const photoSource = includePhotos
       ? Prisma.sql`
           UNION ALL
           SELECT "userId", "takenAt" AS t, geom
           FROM media_refs
-          WHERE "tripId" = ${tripId}::uuid AND geom IS NOT NULL ${userFilter}`
+          WHERE "tripId" = ${tripId}::uuid AND geom IS NOT NULL ${userFilter} ${photoDayFilter}`
       : Prisma.empty;
 
     const rows = await this.prisma.$queryRaw<
@@ -520,7 +564,7 @@ export class TrackingService {
       WITH pts AS (
         SELECT "userId", "recordedAt" AS t, geom
         FROM location_points
-        WHERE "tripId" = ${tripId}::uuid ${userFilter}
+        WHERE "tripId" = ${tripId}::uuid ${userFilter} ${pointDayFilter}
         ${photoSource}
       )
       SELECT
@@ -557,6 +601,15 @@ export class TrackingService {
 
     return { type: 'FeatureCollection', features };
   }
+}
+
+/** The UTC day a `YYYY-MM-DD` string stands for. */
+function dayBounds(day: string): { from: Date; to: Date } {
+  const from = new Date(`${day}T00:00:00.000Z`);
+  if (Number.isNaN(from.getTime())) {
+    throw new BadRequestException('day must be YYYY-MM-DD');
+  }
+  return { from, to: new Date(from.getTime() + 86_400_000) };
 }
 
 /** Radius (metres) within which consecutive fixes count as the same place. */

@@ -6,6 +6,7 @@ import type { LiveFix, MediaItem, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
 import { ChoiceOption, chooseModal, confirmModal } from '../components/confirm';
+import { DayFilter, type TripDay } from '../components/DayFilter';
 import { Icon } from '../components/Icon';
 import { Lightbox } from '../components/Lightbox';
 import { MembersPanel } from '../components/MembersPanel';
@@ -45,6 +46,9 @@ export function TripDetailPage() {
   const { user } = useAuth();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [routes, setRoutes] = useState<RouteCollection | null>(null);
+  /** One day of the trip, or the whole thing (null). */
+  const [day, setDay] = useState<string | null>(null);
+  const [days, setDays] = useState<TripDay[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [visibleUsers, setVisibleUsers] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -220,6 +224,18 @@ export function TripDetailPage() {
     };
   }, [tripId]);
 
+  // Every reload of the line goes through here, so switching to a day is not
+  // something the next "the route changed" refetch can quietly undo.
+  const dayRef = useRef<string | null>(null);
+  dayRef.current = day;
+  const reloadRoutes = useCallback(() => {
+    if (!tripId) return;
+    const filter = dayRef.current ? `?day=${dayRef.current}` : '';
+    api<RouteCollection>(`/trips/${tripId}/route${filter}`)
+      .then(setRoutes)
+      .catch(() => undefined);
+  }, [tripId]);
+
   const loadData = useCallback(() => {
     if (!tripId) return;
     api<Trip>(`/trips/${tripId}`)
@@ -241,7 +257,7 @@ export function TripDetailPage() {
         if (err instanceof ApiError && err.status === 404) setNoAccess(true);
         else setError(err.message);
       });
-    api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
+    reloadRoutes();
     // The server's photos, plus any that were left on this phone. They are the
     // same thing to everything downstream — timeline, map, lightbox — so they
     // arrive as one list, sorted by when they were taken like the server's own.
@@ -261,16 +277,36 @@ export function TripDetailPage() {
     api<TripStats>(`/trips/${tripId}/stats`).then(setStats).catch(() => undefined);
     api<TripNote[]>(`/trips/${tripId}/notes`).then(setNotes).catch(() => undefined);
     api<Waypoint[]>(`/trips/${tripId}/points`).then(setWaypoints).catch(() => undefined);
-  }, [tripId]);
+    api<TripDay[]>(`/trips/${tripId}/days`).then(setDays).catch(() => undefined);
+  }, [tripId, reloadRoutes]);
+
+  // Picking a day fetches that day's line and runs the light along it, the way
+  // the home globe lights up the trip you point at. Going back to the whole
+  // trip just reloads: nothing to single out.
+  const firstDayRender = useRef(true);
+  useEffect(() => {
+    if (firstDayRender.current) {
+      firstDayRender.current = false;
+      return;
+    }
+    if (!tripId) return;
+    const filter = day ? `?day=${day}` : '';
+    api<RouteCollection>(`/trips/${tripId}/route${filter}`)
+      .then((collection) => {
+        setRoutes(collection);
+        if (day) window.setTimeout(() => mapApiRef.current?.glowRoutes(), 120);
+      })
+      .catch(() => undefined);
+  }, [day, tripId]);
 
   const deleteWaypoint = useCallback(
     async (id: string) => {
       if (!tripId) return;
       await api(`/trips/${tripId}/points/${id}`, { method: 'DELETE' });
       setWaypoints((cur) => cur.filter((w) => w.id !== id));
-      api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
+      reloadRoutes();
     },
-    [tripId],
+    [tripId, reloadRoutes],
   );
 
   const saveNote = useCallback(
@@ -408,7 +444,7 @@ export function TripDetailPage() {
             body: { hideLeg: next },
           });
         }
-        api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
+        reloadRoutes();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Dat lukte niet');
       }
@@ -428,7 +464,7 @@ export function TripDetailPage() {
         },
       });
       setPendingPoint(null);
-      api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
+      reloadRoutes();
       api<Waypoint[]>(`/trips/${tripId}/points`).then(setWaypoints).catch(() => undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Punt opslaan mislukt');
@@ -513,9 +549,14 @@ export function TripDetailPage() {
   const primaryMember =
     shownMembers.find((m) => m.userId === user?.id) ?? shownMembers[0] ?? null;
 
+  // The day filter reaches the photos as well as the line: a day's map with
+  // the whole trip's photos on it is not that day.
   const visibleMedia = useMemo(
-    () => media.filter((m) => visibleUsers.has(m.userId)),
-    [media, visibleUsers],
+    () =>
+      media.filter(
+        (m) => visibleUsers.has(m.userId) && (day === null || m.takenAt.slice(0, 10) === day),
+      ),
+    [media, visibleUsers, day],
   );
 
   // Your own "you are here" dot only belongs on a trip that is CURRENTLY running
@@ -634,23 +675,30 @@ export function TripDetailPage() {
           onReady={(api) => (mapApiRef.current = api)}
         />
 
-        {liveTracking && (
-          <button
-            className="live-badge"
-            onClick={() => currentLoc && mapApiRef.current?.flyTo(currentLoc.lng, currentLoc.lat, 13)}
-            title="Ga naar mijn huidige locatie"
-          >
-            <span className="live-badge-dot" />
-            Live
-            {/* Green pin once a real fix has come in — grey while we're still
-                waiting for the first one. */}
-            <Icon
-              name="pin"
-              size={13}
-              className={`live-badge-go ${currentLoc ? 'has-fix' : ''}`}
-            />
-          </button>
-        )}
+        {/* One stack at the top of the map: whether you are being tracked right
+            now, and which day of the trip you are looking at. */}
+        <div className="map-top-pills">
+          {liveTracking && (
+            <button
+              className="live-badge"
+              onClick={() =>
+                currentLoc && mapApiRef.current?.flyTo(currentLoc.lng, currentLoc.lat, 13)
+              }
+              title="Ga naar mijn huidige locatie"
+            >
+              <span className="live-badge-dot" />
+              Live
+              {/* Green pin once a real fix has come in — grey while we're still
+                  waiting for the first one. */}
+              <Icon
+                name="pin"
+                size={13}
+                className={`live-badge-go ${currentLoc ? 'has-fix' : ''}`}
+              />
+            </button>
+          )}
+          <DayFilter days={days} value={day} onChange={setDay} />
+        </div>
 
         {/* Also shown for a single traveller who isn't you — that is exactly the
             case (a friend's trip) where the pill has something to say. */}
@@ -941,7 +989,7 @@ export function TripDetailPage() {
           onClose={() => {
             setPointsOpen(false);
             // Points may have been dragged, added or removed — redraw the line.
-            api<RouteCollection>(`/trips/${tripId}/route`).then(setRoutes).catch(() => undefined);
+            reloadRoutes();
           }}
         />
       )}

@@ -116,13 +116,9 @@
   min-height: 320px;
 }
 
-/* Live tracking indicator on the map. */
+/* Live tracking indicator on the map. Positioned by .map-top-pills, which
+   stacks it with the day filter under it. */
 .live-badge {
-  position: absolute;
-  top: 0.9rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 45;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -142,7 +138,7 @@
 }
 
 .live-badge:active {
-  transform: translateX(-50%) scale(0.95);
+  transform: scale(0.95);
 }
 
 .live-badge-go {
@@ -175,12 +171,6 @@
   }
   100% {
     box-shadow: 0 0 0 0 rgb(226 72 61 / 0);
-  }
-}
-
-@media (max-width: 900px) {
-  .live-badge {
-    top: calc(0.9rem + env(safe-area-inset-top));
   }
 }
 

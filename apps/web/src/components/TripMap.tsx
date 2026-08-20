@@ -101,6 +101,12 @@ export interface TripMapApi {
   flyTo: (lng: number, lat: number, zoom?: number) => void;
   /** Frame the whole trip again, as it was when the page opened. */
   resetView: () => void;
+  /**
+   * Runs a light along the drawn route, the way the home globe lights a trip
+   * up when you pick it. Used when a single day is switched on: the map has
+   * just become a different, much shorter line, and the light says which one.
+   */
+  glowRoutes: () => void;
 }
 
 export function TripMap({
@@ -150,6 +156,8 @@ export function TripMap({
   const meMarkerRef = useRef<maplibregl.Marker | null>(null);
   /** The bounds that framed the whole trip, for resetView. */
   const wholeTripRef = useRef<LngLatBounds | null>(null);
+  /** The route lines as last drawn, so the glow can trace exactly those. */
+  const glowLinesRef = useRef<[number, number][][]>([]);
   const liveMarkersRef = useRef<maplibregl.Marker[]>([]);
   // Cache thumbnail object-URLs by media id so re-clustering on zoom reuses the
   // loaded image instead of flashing the empty placeholder white.
@@ -336,6 +344,7 @@ export function TripMap({
         if (!bounds) return;
         map.fitBounds(bounds, { padding: camPadding(), maxZoom: 13, duration: 700 });
       },
+      glowRoutes: () => runGlow(map, glowLinesRef.current),
     });
 
     // Keep the canvas matched to its container. The bottom-sheet layout
@@ -406,6 +415,8 @@ export function TripMap({
       });
 
     const apply = () => {
+      // A light still running belongs to the line that is about to be replaced.
+      stopGlow(map);
       // Remove previous route layers/sources.
       for (const layerId of map.getLayersOrder().filter((l) => l.startsWith('route-'))) {
         map.removeLayer(layerId);
@@ -418,6 +429,7 @@ export function TripMap({
 
       const bounds = new LngLatBounds();
       let hasPoints = false;
+      const glowLines: [number, number][][] = [];
 
       const near = (a: [number, number], b: [number, number]) => haversineKm(a, b) <= 250;
       const isExplicitFlight = (a: [number, number], b: [number, number]) =>
@@ -454,6 +466,7 @@ export function TripMap({
         }
         if (run.length >= 2) ground.push(run);
 
+        glowLines.push(...ground);
         map.addSource(id, {
           type: 'geojson',
           data: { type: 'Feature', geometry: { type: 'MultiLineString', coordinates: ground }, properties: {} },
@@ -491,6 +504,8 @@ export function TripMap({
           hasPoints = true;
         }
       }
+
+      glowLinesRef.current = glowLines;
 
       for (const item of media) {
         if (item.latitude !== null && item.longitude !== null && visibleUsers.has(item.userId)) {
@@ -1094,4 +1109,133 @@ export function TripMap({
       data-testid="trip-map"
     />
   );
+}
+
+/* ---- The travelling light ------------------------------------------------
+ *
+ * The home globe lights a trip up by walking a light along it. Switching the
+ * map to a single day changes the line under you without moving the camera
+ * much, so the same light runs the new route once and leaves: it says "this
+ * is what you are looking at now" without anything having to be written down.
+ */
+
+const GLOW_SOURCE = 'trip-glow';
+const GLOW_LAYER = 'trip-glow-line';
+/** How much of the line the light's tail covers. */
+const GLOW_TAIL = 0.16;
+const GLOW_RUN_MS = 1150;
+const GLOW_RUNS = 2;
+
+/** One running animation per map, so a second call replaces the first. */
+const glowFrames = new WeakMap<MapLibreMap, number>();
+
+function runGlow(map: MapLibreMap, lines: [number, number][][]): void {
+  stopGlow(map);
+  const usable = lines.filter((line) => line.length >= 2);
+  if (usable.length === 0) return;
+
+  const colour =
+    getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e8613c';
+
+  try {
+    map.addSource(GLOW_SOURCE, {
+      type: 'geojson',
+      // The gradient is expressed in "how far along this line are we", which
+      // only exists when the source measures its lines.
+      lineMetrics: true,
+      data: {
+        type: 'FeatureCollection',
+        features: usable.map((coordinates) => ({
+          type: 'Feature' as const,
+          properties: {},
+          geometry: { type: 'LineString' as const, coordinates },
+        })),
+      },
+    });
+    map.addLayer({
+      id: GLOW_LAYER,
+      type: 'line',
+      source: GLOW_SOURCE,
+      paint: {
+        'line-width': 7,
+        'line-blur': 4,
+        'line-opacity': 0.95,
+        'line-gradient': glowGradient(0, colour) as never,
+      },
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+    });
+  } catch {
+    // Style swapped mid-call (theme change): nothing to light up.
+    return;
+  }
+
+  const started = performance.now();
+  const total = GLOW_RUN_MS * GLOW_RUNS;
+  const step = () => {
+    if (!map.getLayer(GLOW_LAYER)) {
+      glowFrames.delete(map);
+      return;
+    }
+    const elapsed = performance.now() - started;
+    if (elapsed >= total) {
+      stopGlow(map);
+      return;
+    }
+    // Each run carries the light from before the start to past the end, so it
+    // enters and leaves rather than appearing and stopping.
+    const within = (elapsed % GLOW_RUN_MS) / GLOW_RUN_MS;
+    const p = within * (1 + GLOW_TAIL) - GLOW_TAIL;
+    map.setPaintProperty(GLOW_LAYER, 'line-gradient', glowGradient(p, colour) as never);
+    glowFrames.set(map, requestAnimationFrame(step));
+  };
+  glowFrames.set(map, requestAnimationFrame(step));
+}
+
+function stopGlow(map: MapLibreMap): void {
+  const frame = glowFrames.get(map);
+  if (frame !== undefined) cancelAnimationFrame(frame);
+  glowFrames.delete(map);
+  if (map.getLayer(GLOW_LAYER)) map.removeLayer(GLOW_LAYER);
+  if (map.getSource(GLOW_SOURCE)) map.removeSource(GLOW_SOURCE);
+}
+
+/**
+ * A bright head at `p` with a fading tail behind it, as a line-gradient.
+ *
+ * Stops have to climb, and the first one has to sit at 0, so they are built in
+ * order and anything that would repeat a position is dropped.
+ */
+function glowGradient(p: number, colour: string): unknown[] {
+  const clear = 'rgba(255, 255, 255, 0)';
+  const head = Math.min(1, Math.max(0, p));
+  const start = Math.max(0, head - GLOW_TAIL);
+  const end = Math.min(1, head + 0.02);
+
+  const expression: unknown[] = ['interpolate', ['linear'], ['line-progress']];
+  let last = -1;
+  const push = (at: number, c: string) => {
+    if (at <= last) return;
+    last = at;
+    expression.push(at, c);
+  };
+
+  push(0, clear);
+  push(start, clear);
+  // Halfway down the tail the light is already dim, which is what makes it
+  // read as a comet rather than a moving stripe.
+  push(start + (head - start) * 0.7, withAlpha(colour, 0.35));
+  push(head, colour);
+  push(end, clear);
+  push(1, clear);
+  return expression;
+}
+
+/** `#rrggbb` with an alpha, since the gradient needs a colour it can fade. */
+function withAlpha(colour: string, alpha: number): string {
+  const hex = colour.replace('#', '');
+  if (hex.length !== 6) return colour;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
