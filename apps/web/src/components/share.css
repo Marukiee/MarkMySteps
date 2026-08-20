@@ -250,3 +250,108 @@
 .share-link-in {
   animation: shareLinkIn 0.28s var(--ease) backwards;
 }
+
+/* The generator sits inside the field's row, not as a third button in the
+   form: it belongs to the password, not to "make a link". */
+.share-dice {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 0.18s var(--ease), border-color 0.18s var(--ease),
+    transform 0.18s var(--ease);
+}
+
+.share-dice:hover {
+  color: var(--ink);
+  border-color: var(--ink-faint);
+}
+
+.share-dice:active {
+  transform: scale(0.9) rotate(-12deg);
+}
+
+/* Said once, under the form, because it is about what you type there. */
+.share-warn {
+  margin-top: -0.2rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.share-menu-pw {
+  display: flex;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.share-menu-pw input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The revealed password unfolds where the "bekijken" row was, so the menu
+   grows into it instead of swapping one line for another. */
+.share-secret {
+  display: grid;
+  padding: 0.15rem;
+  animation: shareSecretIn 0.22s var(--ease);
+}
+
+@keyframes shareSecretIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.share-secret-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1.5px dashed var(--line);
+  border-radius: 8px;
+  background: var(--paper-sunken);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), background 0.18s var(--ease);
+}
+
+.share-secret-value:hover {
+  border-color: var(--ink-faint);
+}
+
+.share-secret-value code {
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  word-break: break-all;
+  text-align: left;
+}
+
+.share-secret-value svg {
+  flex-shrink: 0;
+  color: var(--ink-faint);
+}
+
+.share-secret-gone {
+  margin: 0;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}

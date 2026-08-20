@@ -21,6 +21,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ImmichClientService } from '../immich/immich-client.service';
 import { ImmichConnectionService } from '../immich/immich-connection.service';
+import { GeotagResult, ImmichGeotagService } from '../immich/immich-geotag.service';
 import { ImmichSyncService, SyncResult } from '../immich/immich-sync.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TripsService } from '../trips/trips.service';
@@ -38,6 +39,7 @@ export class MediaController {
     private readonly media: MediaService,
     private readonly trips: TripsService,
     private readonly sync: ImmichSyncService,
+    private readonly geotag: ImmichGeotagService,
     private readonly connections: ImmichConnectionService,
     private readonly immich: ImmichClientService,
     private readonly jwt: JwtService,
@@ -82,6 +84,22 @@ export class MediaController {
   ): Promise<SyncResult> {
     await this.trips.getForEditor(tripId, user.sub);
     return this.sync.syncTrip(tripId);
+  }
+
+  /**
+   * Places the trip's position-less photos from its tracked route, without
+   * pulling Immich again. A sync does this by itself; this is the button for
+   * a trip that finished long ago, or one whose track arrived after its
+   * photos did.
+   */
+  @Post('trips/:tripId/geotag')
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  async geotagTrip(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+  ): Promise<GeotagResult> {
+    await this.trips.getForEditor(tripId, user.sub);
+    return this.geotag.geotagTrip(tripId);
   }
 
   /**

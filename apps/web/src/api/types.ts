@@ -37,6 +37,8 @@ export interface ShareLinkInfo {
   slug: string;
   url: string;
   hasPassword: boolean;
+  /** False for a travel companion: they may pass the link on, not change it. */
+  canManage: boolean;
   createdAt: string;
 }
 

@@ -87,6 +87,26 @@ export class ImmichClientService {
     return assets;
   }
 
+  /**
+   * Writes a position onto an asset that has none.
+   *
+   * Immich takes coordinates on the asset itself (PUT /api/assets/:id), which
+   * is also what its own map reads, so a photo placed here shows up in the
+   * right country over there too.
+   */
+  async setAssetLocation(
+    serverUrl: string,
+    apiKey: string,
+    assetId: string,
+    latitude: number,
+    longitude: number,
+  ): Promise<void> {
+    await this.request(serverUrl, apiKey, `/api/assets/${encodeURIComponent(assetId)}`, {
+      method: 'PUT',
+      body: { latitude, longitude },
+    });
+  }
+
   /** Streams a thumbnail; returns the upstream response for piping. */
   async fetchThumbnail(serverUrl: string, apiKey: string, assetId: string): Promise<Response> {
     return this.request(

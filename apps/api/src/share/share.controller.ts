@@ -83,6 +83,21 @@ export class ShareManagementController {
     return this.share.list(tripId, user.sub);
   }
 
+  /**
+   * Reads one link's password back. Rate-limited hard: this is the one
+   * endpoint that hands a secret to somebody who is already allowed to have
+   * it, and there is no reason to ask for it more than a few times a minute.
+   */
+  @Get(':linkId/password')
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  reveal(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Param('linkId', ParseUUIDPipe) linkId: string,
+  ): Promise<{ password: string | null; recoverable: boolean }> {
+    return this.share.revealPassword(tripId, user.sub, linkId);
+  }
+
   @Patch(':linkId')
   setPassword(
     @CurrentUser() user: JwtPayload,

@@ -13,6 +13,15 @@
   font-size: 0.85rem;
   line-height: 1.35;
   animation: offlineBannerIn 0.4s var(--ease);
+  /* The row has to be able to collapse on the way out, so its own height is
+     something the closing animation can animate down to nothing. */
+  overflow: hidden;
+}
+
+/* Rolls up instead of blinking out, so the page below glides back up. */
+.offline-banner.closing {
+  animation: offlineBannerOut 0.3s var(--ease) forwards;
+  pointer-events: none;
 }
 
 /* The update banner floats over the page, so this one has to get out from
@@ -34,9 +43,47 @@
   font-weight: 700;
 }
 
+/* Same affordance as the update banner's cross, in this banner's colours. */
+.offline-banner-close {
+  flex-shrink: 0;
+  display: grid;
+  place-content: center;
+  width: 30px;
+  height: 30px;
+  margin: -0.25rem -0.4rem -0.25rem auto;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--paper);
+  opacity: 0.75;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), opacity 0.2s var(--ease);
+}
+
+.offline-banner-close:hover {
+  background: rgb(255 255 255 / 0.16);
+  opacity: 1;
+}
+
+.offline-banner-close:active {
+  transform: scale(0.92);
+}
+
 @keyframes offlineBannerIn {
   from {
     opacity: 0;
     transform: translateY(-10px);
+  }
+}
+
+@keyframes offlineBannerOut {
+  from {
+    max-height: 8rem;
+  }
+  to {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
   }
 }

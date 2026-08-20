@@ -4,6 +4,7 @@ import { TripRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImmichClientService } from './immich-client.service';
 import { ImmichConnectionService } from './immich-connection.service';
+import { ImmichGeotagService } from './immich-geotag.service';
 
 export interface SyncResult {
   tripId: string;
@@ -11,6 +12,10 @@ export interface SyncResult {
   assetsFound: number;
   assetsAdded: number;
   assetsRemoved: number;
+  /** Photos that had no GPS and were placed from the tracked route. */
+  assetsGeotagged: number;
+  /** Of those, the ones whose position was written back into Immich. */
+  assetsPushed: number;
 }
 
 /** Extra window after a trip's end date; photos often sync to Immich late. */
@@ -26,6 +31,7 @@ export class ImmichSyncService {
     private readonly prisma: PrismaService,
     private readonly client: ImmichClientService,
     private readonly connections: ImmichConnectionService,
+    private readonly geotag: ImmichGeotagService,
   ) {}
 
   /** Periodic sync of every currently active trip. */
@@ -85,6 +91,8 @@ export class ImmichSyncService {
       assetsFound: 0,
       assetsAdded: 0,
       assetsRemoved: 0,
+      assetsGeotagged: 0,
+      assetsPushed: 0,
     };
 
     for (const { userId } of travellers) {
@@ -140,6 +148,17 @@ export class ImmichSyncService {
         this.logger.warn(`Sync failed for user ${userId} in trip ${tripId}: ${message}`);
         await this.connections.recordSyncResult(userId, message);
       }
+    }
+
+    // Photos the camera never placed get their position from the trip's own
+    // track. Runs after every traveller has been pulled in, so a photo can
+    // borrow a companion's fixes when its own owner tracked nothing.
+    try {
+      const placed = await this.geotag.geotagTrip(tripId);
+      result.assetsGeotagged = placed.matched;
+      result.assetsPushed = placed.pushed;
+    } catch (err) {
+      this.logger.warn(`Geotagging failed for trip ${tripId}: ${String(err)}`);
     }
 
     return result;

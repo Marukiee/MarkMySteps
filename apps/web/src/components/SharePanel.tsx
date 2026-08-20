@@ -6,7 +6,14 @@ import { webBase } from '../lib/native';
 import { Icon } from './Icon';
 import './share.css';
 
-export function SharePanel({ tripId }: { tripId: string }) {
+/**
+ * The trip's public links.
+ *
+ * The owner makes and revokes them; a travel companion sees the same list and
+ * can hand a link on, including the password that goes with it, because they
+ * are on the trip the link is about.
+ */
+export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: boolean }) {
   const [links, setLinks] = useState<ShareLinkInfo[]>([]);
   const [password, setPassword] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
@@ -43,6 +50,12 @@ export function SharePanel({ tripId }: { tripId: string }) {
     }, 260);
   }
 
+  async function revealPassword(id: string) {
+    return api<{ password: string | null; recoverable: boolean }>(
+      `/trips/${tripId}/share/${id}/password`,
+    );
+  }
+
   async function savePassword(id: string, value: string | null) {
     const updated = await api<ShareLinkInfo>(`/trips/${tripId}/share/${id}`, {
       method: 'PATCH',
@@ -66,11 +79,18 @@ export function SharePanel({ tripId }: { tripId: string }) {
     }
   }
 
+  // A companion gets the panel only once there is something in it: an empty
+  // "Delen" heading with nothing under it reads as a broken feature, while the
+  // owner needs the empty state to make the first link from.
+  if (links.length === 0 && !ownerView) return null;
+
   return (
     <section className="share-panel">
       <h2 className="trip-side-heading">Delen</h2>
       <p className="muted share-hint">
-        Publieke, alleen-lezen link voor thuisblijvers, zonder account.
+        {ownerView
+          ? 'Publieke, alleen-lezen link voor thuisblijvers, zonder account.'
+          : 'De link die de beheerder maakte. Doorsturen mag; wijzigen doet de beheerder.'}
       </p>
 
       {links.map((link) => (
@@ -82,21 +102,43 @@ export function SharePanel({ tripId }: { tripId: string }) {
           onCopy={() => copy(link)}
           onSavePassword={(value) => savePassword(link.id, value)}
           onRemove={() => removeLink(link.id)}
+          onReveal={() => revealPassword(link.id)}
         />
       ))}
 
-      <form className="share-create" onSubmit={createLink}>
-        <input
-          type="password"
-          placeholder="wachtwoord (optioneel)"
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button className="btn btn-ghost">
-          <Icon name="plus" size={16} /> Deellink
-        </button>
-      </form>
+      {ownerView && (
+        <>
+          <form className="share-create" onSubmit={createLink}>
+            <input
+              type="text"
+              className="share-create-pw"
+              placeholder="wachtwoord (optioneel)"
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button
+              type="button"
+              className="share-dice"
+              aria-label="Wachtwoord verzinnen"
+              title="Wachtwoord verzinnen"
+              onClick={() => setPassword(makePassphrase())}
+            >
+              <Icon name="sparkle" size={15} />
+            </button>
+            <button className="btn btn-ghost">
+              <Icon name="plus" size={16} /> Deellink
+            </button>
+          </form>
+          <p className="muted share-warn">
+            Het wachtwoord is later terug te lezen, dus het staat leesbaar op je server. Gebruik er
+            een die je nergens anders gebruikt, of laat er een verzinnen.
+          </p>
+        </>
+      )}
       {error && <p className="error-text">{error}</p>}
     </section>
   );
@@ -118,6 +160,7 @@ function ShareLinkRow({
   onCopy,
   onSavePassword,
   onRemove,
+  onReveal,
 }: {
   link: ShareLinkInfo;
   leaving: boolean;
@@ -125,6 +168,7 @@ function ShareLinkRow({
   onCopy: () => void;
   onSavePassword: (password: string | null) => Promise<void>;
   onRemove: () => Promise<void>;
+  onReveal: () => Promise<{ password: string | null; recoverable: boolean }>;
 }) {
   const [menu, setMenu] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
@@ -132,6 +176,10 @@ function ShareLinkRow({
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  // The password, once it has been asked for. `null` inside the object means
+  // the link predates recoverable passwords.
+  const [secret, setSecret] = useState<{ password: string | null } | null>(null);
+  const [secretCopied, setSecretCopied] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   function closeMenu() {
@@ -143,6 +191,11 @@ function ShareLinkRow({
       setEditing(false);
       setValue('');
       setFailed(null);
+      // The password goes back in the drawer with the menu. Leaving it on
+      // screen for the next open would put it in front of whoever picks the
+      // phone up after you.
+      setSecret(null);
+      setSecretCopied(false);
     }, 140);
   }
 
@@ -185,6 +238,31 @@ function ShareLinkRow({
       setFailed(err instanceof Error ? err.message : 'Opslaan mislukt');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function reveal() {
+    setFailed(null);
+    setBusy(true);
+    try {
+      const answer = await onReveal();
+      setSecret({ password: answer.recoverable ? answer.password : null });
+    } catch (err) {
+      setFailed(err instanceof Error ? err.message : 'Ophalen mislukt');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copySecret(password: string) {
+    const flash = () => {
+      setSecretCopied(true);
+      window.setTimeout(() => setSecretCopied(false), 1600);
+    };
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(password).then(flash).catch(() => legacyCopy(password, flash));
+    } else {
+      legacyCopy(password, flash);
     }
   }
 
@@ -243,16 +321,29 @@ function ShareLinkRow({
               <label htmlFor={`sp-${link.id}`}>
                 {link.hasPassword ? 'Nieuw wachtwoord' : 'Wachtwoord'}
               </label>
-              <input
-                id={`sp-${link.id}`}
-                type="password"
-                autoFocus
-                minLength={4}
-                required
-                autoComplete="new-password"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-              />
+              <div className="share-menu-pw">
+                <input
+                  id={`sp-${link.id}`}
+                  type="text"
+                  autoFocus
+                  minLength={4}
+                  required
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="share-dice"
+                  aria-label="Wachtwoord verzinnen"
+                  onClick={() => setValue(makePassphrase())}
+                >
+                  <Icon name="sparkle" size={15} />
+                </button>
+              </div>
               <div className="share-menu-actions">
                 <button type="button" className="btn btn-ghost" onClick={() => setEditing(false)}>
                   Terug
@@ -265,20 +356,53 @@ function ShareLinkRow({
             </form>
           ) : (
             <>
-              <button type="button" onClick={() => setEditing(true)}>
-                <Icon name="lock" size={15} />
-                {link.hasPassword ? 'Wachtwoord wijzigen' : 'Wachtwoord instellen'}
-              </button>
-              {link.hasPassword && (
-                <button type="button" disabled={busy} onClick={() => void clearPassword()}>
-                  <Icon name="close" size={15} />
-                  Wachtwoord verwijderen
-                </button>
+              {/* Whoever is on the trip may read the password back: the link is
+                  already out there, and resetting it to remember what it was
+                  would lock out everyone who has it. */}
+              {link.hasPassword &&
+                (secret ? (
+                  <div className="share-secret">
+                    {secret.password === null ? (
+                      <p className="share-secret-gone">
+                        Dit wachtwoord is van voor deze functie en niet meer terug te lezen.
+                        {link.canManage ? ' Stel een nieuw wachtwoord in.' : ''}
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        className="share-secret-value"
+                        title="Kopieer wachtwoord"
+                        onClick={() => copySecret(secret.password!)}
+                      >
+                        <code>{secret.password}</code>
+                        <Icon name={secretCopied ? 'check' : 'share'} size={14} />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button type="button" disabled={busy} onClick={() => void reveal()}>
+                    <Icon name="eye" size={15} />
+                    Wachtwoord bekijken
+                  </button>
+                ))}
+              {link.canManage && (
+                <>
+                  <button type="button" onClick={() => setEditing(true)}>
+                    <Icon name="lock" size={15} />
+                    {link.hasPassword ? 'Wachtwoord wijzigen' : 'Wachtwoord instellen'}
+                  </button>
+                  {link.hasPassword && (
+                    <button type="button" disabled={busy} onClick={() => void clearPassword()}>
+                      <Icon name="close" size={15} />
+                      Wachtwoord verwijderen
+                    </button>
+                  )}
+                  <button type="button" className="share-menu-danger" onClick={() => void revoke()}>
+                    <Icon name="trash" size={15} />
+                    Link intrekken
+                  </button>
+                </>
               )}
-              <button type="button" className="share-menu-danger" onClick={() => void revoke()}>
-                <Icon name="trash" size={15} />
-                Link intrekken
-              </button>
               {failed && <p className="error-text">{failed}</p>}
             </>
           )}
@@ -286,6 +410,30 @@ function ShareLinkRow({
       )}
     </div>
   );
+}
+
+/**
+ * A password worth sending in a message: three easy words and a number.
+ *
+ * Made here rather than typed, because this one is stored in a form the server
+ * can read back, and nobody should be handing that a password they use
+ * anywhere else.
+ */
+const WORDS = [
+  'kade', 'noorderlicht', 'zandpad', 'veerpont', 'duinroos', 'sneeuwuil', 'kompas', 'baken',
+  'zeewind', 'kiezel', 'bergpas', 'wolkbreuk', 'houtvuur', 'ochtendmist', 'sterrenkaart',
+  'landweg', 'brugwachter', 'rugzak', 'zonsopgang', 'waterval', 'olijfgaard', 'fjord',
+];
+
+function makePassphrase(): string {
+  const pick = () => {
+    const bytes = new Uint32Array(1);
+    crypto.getRandomValues(bytes);
+    return WORDS[bytes[0]! % WORDS.length]!;
+  };
+  const digits = new Uint32Array(1);
+  crypto.getRandomValues(digits);
+  return `${pick()}-${pick()}-${(digits[0]! % 90) + 10}`;
 }
 
 /** Clipboard fallback for contexts without navigator.clipboard. */

@@ -296,6 +296,11 @@ model ShareLink {
   trip         Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
   slug         String    @unique
   passwordHash String?
+  /// The same password, encrypted (AES-256-GCM, master key) so the owner and
+  /// their travel companions can look it up again instead of resetting a link
+  /// that is already going round. The hash above stays the thing that is
+  /// checked; this is only ever read back to the people already on the trip.
+  passwordEnc  String?
   createdAt    DateTime  @default(now())
 
   @@index([tripId])
@@ -428,6 +433,12 @@ model MediaRef {
   takenAt       DateTime
   latitude      Float?
   longitude     Float?
+  /// True when the position did not come from the photo's own EXIF but was
+  /// worked out from the trip's tracked route by matching capture time.
+  geoDerived    Boolean  @default(false)
+  /// When the derived position was written back into Immich, so the photo has
+  /// a place there too. Null means "not pushed (yet)".
+  geoPushedAt   DateTime?
   /// Generated column (see migration): ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
   geom          Unsupported("geometry(Point, 4326)")?
   createdAt     DateTime @default(now())

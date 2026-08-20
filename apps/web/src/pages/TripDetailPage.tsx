@@ -904,7 +904,12 @@ export function TripDetailPage() {
               </button>
             </div>
             <MembersPanel trip={trip} onChanged={loadData} />
-            {trip.ownerId === user?.id && tripId && <SharePanel tripId={tripId} />}
+            {/* Companions see the links too, so they can pass one on without
+                asking the owner to send it again. Guests get nothing to hand
+                out: they were invited to look, not to widen the audience. */}
+            {canEdit && tripId && (
+              <SharePanel tripId={tripId} ownerView={trip.ownerId === user?.id} />
+            )}
             {/* Made from what this page already has in hand: the route, the
                 stops and the photos. */}
             <SummaryPanel trip={trip} stops={stops} media={media} routes={routes} />

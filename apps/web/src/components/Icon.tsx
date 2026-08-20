@@ -9,6 +9,9 @@ export type IconName =
   | 'minus'
   | 'download'
   | 'close'
+  | 'eye'
+  | 'eye-off'
+  | 'sparkle'
   | 'gear'
   | 'plane'
   | 'car'
@@ -306,6 +309,26 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M7 4h10M7 20h10" />
       <path d="M7 4c0 4 3 5 5 8 2-3 5-4 5-8" />
       <path d="M7 20c0-4 3-5 5-8 2 3 5 4 5 8" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  'eye-off': (
+    <>
+      <path d="M10.6 6.1A8.6 8.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-3 3.6" />
+      <path d="M6.3 7.6A16 16 0 0 0 2.5 12S6 18 12 18a8.9 8.9 0 0 0 3.5-.7" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <path d="m3 3 18 18" />
+    </>
+  ),
+  sparkle: (
+    <>
+      <path d="M12 3.5 13.7 9l5.5 1.7-5.5 1.7L12 18l-1.7-5.6L4.8 10.7 10.3 9Z" />
+      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7Z" />
     </>
   ),
   'cloud-off': (
