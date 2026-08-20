@@ -1,3 +1,4 @@
+import { cachedStyle } from './mapCache';
 import type { StyleSpecification } from 'maplibre-gl';
 
 /** Local display preferences (device-scoped, no server round-trip). */
@@ -38,8 +39,19 @@ export function setMapStyleId(id: MapStyleId): void {
   localStorage.setItem(MAP_STYLE_KEY, id);
 }
 
-/** Returns a MapLibre style: a URL for vector styles, or a spec for satellite. */
+/**
+ * Returns a MapLibre style: a URL for vector styles, or a spec for satellite.
+ *
+ * Everything is handed over the app's own cache scheme, so a map whose region
+ * was saved draws from storage and one that was not falls straight through to
+ * the network. See lib/mapCache.
+ */
 export function getMapStyle(): string | StyleSpecification {
+  return cachedStyle(rawMapStyle());
+}
+
+/** The real upstream style, for the downloader that has to read it. */
+export function rawMapStyle(): string | StyleSpecification {
   const id = getMapStyleId();
   if (id === 'satellite') return SATELLITE_STYLE;
   // In dark mode swap any light vector style for a dark one so the map (and the

@@ -1,0 +1,40 @@
+.offline-map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.offline-map-clear,
+.offline-map-clear svg {
+  color: var(--danger, #c0392b);
+}
+
+/* The bar doubles as the button's place, so the row does not jump height when
+   a download starts. */
+.offline-map-progress {
+  position: relative;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  overflow: hidden;
+}
+
+.offline-map-bar {
+  height: 100%;
+  background: var(--accent);
+  opacity: 0.85;
+  transition: width 0.3s var(--ease);
+}
+
+.offline-map-count {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  mix-blend-mode: difference;
+  filter: invert(1) grayscale(1) contrast(4);
+}

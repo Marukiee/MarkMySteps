@@ -17,12 +17,16 @@ import {
   isNativeApp,
 } from './lib/native';
 import { initDynamicAccent } from './lib/dynamicColor';
+import { registerMapCache } from './lib/mapCache';
 import { applyTheme, getThemeId } from './lib/prefs';
 import { enforceThumbBudget } from './lib/offlineCache';
 import { initPendingWrites } from './lib/pendingWrites';
 import { captureCurrentLocation, resumeIfTracking } from './tracking/tracker';
 import './styles/global.css';
 
+// Maps answer their own requests from storage where a region was saved. Must
+// run before any map is built, or its style is fetched over the bare scheme.
+registerMapCache();
 // Theme before first paint; keep following the OS when set to "system".
 applyTheme();
 // Optional: borrow the accent from the wallpaper. Fire-and-forget, because the
