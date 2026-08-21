@@ -2,6 +2,9 @@
    scrolls under it. */
 .fast-scroll {
   position: fixed;
+  /* Placed by script; these are only so it never starts life in the corner. */
+  top: 0;
+  right: 8px;
   z-index: 44;
   display: flex;
   align-items: center;

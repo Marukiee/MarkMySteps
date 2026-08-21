@@ -114,12 +114,6 @@ export async function showJobProgress(
   await MmsNotify.progress({ title, body, percent, done: false }).catch(() => undefined);
 }
 
-/** The same notification, finished: it stops being sticky and can be tapped. */
-export async function showJobDone(title: string, body: string): Promise<void> {
-  if (!Capacitor.isNativePlatform()) return;
-  await MmsNotify.progress({ title, body, done: true }).catch(() => undefined);
-}
-
 export async function clearJobProgress(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
   await MmsNotify.clearProgress().catch(() => undefined);

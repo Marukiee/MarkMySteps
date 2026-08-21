@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useExit } from '../lib/useExit';
 import { Icon } from './Icon';
 import './fastscroll.css';
@@ -7,6 +7,8 @@ import './fastscroll.css';
 const MIN_RATIO = 2.5;
 /** How long the grip stays visible after the last movement. */
 const IDLE_MS = 1500;
+/** Diameter of the grip; its travel is the track minus its own height. */
+const SIZE = 46;
 
 /**
  * A grip you can throw down a long list with, the way a photo library does.
@@ -16,8 +18,9 @@ const IDLE_MS = 1500;
  * moves the whole list at once, and the bubble beside it says which day you
  * are passing, so you can aim rather than scroll and check.
  *
- * Its track starts under whatever is pinned across the top — on a trip that is
- * the map, and a grip sitting over the map points at nothing.
+ * Nothing about its position goes through React: the node is moved directly,
+ * once per frame. A component that re-rendered on every scroll event was the
+ * thing making the list stutter it was supposed to be helping with.
  */
 export function FastScroll({
   page,
@@ -31,23 +34,21 @@ export function FastScroll({
   const [awake, setAwake] = useState(false);
   const [visible, closing] = useExit(awake, 220);
   const [dragging, setDragging] = useState(false);
-  const [fraction, setFraction] = useState(0);
   const [label, setLabel] = useState<string | null>(null);
-  const [track, setTrack] = useState<{ top: number; height: number; right: number } | null>(null);
-  const idleTimer = useRef(0);
-  const activeRef = useRef<HTMLElement | null>(null);
-  /** Scroll fires many times a frame; React must not hear all of them. */
-  const frameRef = useRef(0);
+
+  const gripRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLElement | null>(null);
+  /** The pinned map, if this page has one: the track starts below it. */
+  const pinnedRef = useRef<HTMLElement | null>(null);
+  const trackRef = useRef({ top: 0, height: 1, right: 8 });
   const fractionRef = useRef(0);
   const draggingRef = useRef(false);
-  draggingRef.current = dragging;
-  /** The grip itself, moved directly while a finger is on it. */
-  const gripRef = useRef<HTMLDivElement>(null);
-  /** Where every day of the list starts, measured once when the drag begins. */
-  const marksRef = useRef<{ day: string; at: number }[]>([]);
+  const idleTimer = useRef(0);
+  const frameRef = useRef(0);
   const pendingY = useRef<number | null>(null);
-  const dragFrame = useRef(0);
+  const marksRef = useRef<{ day: string; at: number }[]>([]);
   const labelRef = useRef<string | null>(null);
+  const measuredAt = useRef(0);
 
   /** The scroller that is doing the scrolling at this window size. */
   const pick = useCallback((): HTMLElement | null => {
@@ -58,80 +59,117 @@ export function FastScroll({
     return null;
   }, [page, side]);
 
-  const measure = useCallback(() => {
-    const el = pick();
-    activeRef.current = el;
-    if (!el) {
-      setTrack(null);
-      return null;
-    }
+  /**
+   * Where the grip may travel.
+   *
+   * Read from the layout, so it costs a reflow: done when the window changes
+   * and when the map above it has moved, never on every frame of a scroll.
+   */
+  const measureTrack = useCallback((el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
-    // The map is pinned across the top of the page and the list scrolls under
-    // it; the grip belongs to the list, so its track starts where the list
-    // becomes visible.
     let top = Math.max(rect.top, 0);
-    for (const node of document.querySelectorAll<HTMLElement>('.trip-map-panel')) {
-      const position = getComputedStyle(node).position;
-      if (position !== 'sticky' && position !== 'fixed') continue;
-      const box = node.getBoundingClientRect();
-      if (box.top <= 4) top = Math.max(top, box.bottom);
+    const pinned = pinnedRef.current;
+    if (pinned) {
+      const box = pinned.getBoundingClientRect();
+      // Only while it is actually pinned across the top; once it has scrolled
+      // away the list starts at the top of the screen.
+      if (box.top <= 4 && box.bottom > top) top = box.bottom;
     }
     top += 12;
     const bottom = Math.min(rect.bottom, window.innerHeight) - 96;
-    setTrack({ top, height: Math.max(80, bottom - top), right: window.innerWidth - rect.right + 8 });
-    return el;
-  }, [pick]);
-
-  // Follow the list: position, and whether the grip is worth showing at all.
-  useEffect(() => {
-    const wake = () => {
-      setAwake(true);
-      window.clearTimeout(idleTimer.current);
-      idleTimer.current = window.setTimeout(() => {
-        if (!draggingRef.current) setAwake(false);
-      }, IDLE_MS);
+    trackRef.current = {
+      top,
+      height: Math.max(80, bottom - top),
+      right: window.innerWidth - rect.right + 8,
     };
+  }, []);
+
+  /** Moves the node itself; React is not involved in where the grip sits. */
+  const paint = useCallback(() => {
+    const grip = gripRef.current;
+    const track = trackRef.current;
+    if (!grip) return;
+    grip.style.right = `${track.right}px`;
+    grip.style.top = `${track.top + fractionRef.current * (track.height - SIZE)}px`;
+  }, []);
+
+  const wake = useCallback(() => {
+    setAwake(true);
+    window.clearTimeout(idleTimer.current);
+    idleTimer.current = window.setTimeout(() => {
+      if (!draggingRef.current) setAwake(false);
+    }, IDLE_MS);
+  }, []);
+
+  useEffect(() => {
+    pinnedRef.current = document.querySelector<HTMLElement>('.trip-map-panel');
+    const el = pick();
+    scrollerRef.current = el;
+    if (el) {
+      measureTrack(el);
+      fractionRef.current = fractionOf(el);
+      paint();
+    }
 
     const onScroll = () => {
-      // One update per frame, and only when the grip would actually move: a
-      // long timeline fires scroll events faster than the page can paint, and
-      // re-rendering on each of them is felt as the list stuttering.
+      // While a finger is on the grip it writes its own position; the scroll
+      // it causes must not fight it.
+      if (draggingRef.current) return;
       if (frameRef.current) return;
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = 0;
-        const el = activeRef.current ?? measure();
-        if (!el) return;
-        if (el.scrollHeight < el.clientHeight * MIN_RATIO) {
+        const scroller = scrollerRef.current ?? pick();
+        if (!scroller) return;
+        scrollerRef.current = scroller;
+        if (scroller.scrollHeight < scroller.clientHeight * MIN_RATIO) {
           setAwake(false);
           return;
         }
-        measure();
-        const max = el.scrollHeight - el.clientHeight;
-        const next = max > 0 ? el.scrollTop / max : 0;
-        if (!draggingRef.current && Math.abs(next - fractionRef.current) > 0.002) {
-          fractionRef.current = next;
-          setFraction(next);
+        // The map above the list shrinks as the page scrolls, so the top of
+        // the track moves with it. Read a few times a second rather than every
+        // frame: the same frame has just written that map's height, and asking
+        // for its box straight afterwards forces the browser to lay the page
+        // out again mid-scroll — which is the stutter itself.
+        const now = performance.now();
+        if (now - measuredAt.current > 150) {
+          measuredAt.current = now;
+          measureTrack(scroller);
         }
+        fractionRef.current = fractionOf(scroller);
+        paint();
         wake();
       });
     };
 
-    measure();
+    const onResize = () => {
+      const scroller = pick();
+      scrollerRef.current = scroller;
+      if (scroller) {
+        measureTrack(scroller);
+        paint();
+      }
+    };
+
     const nodes = [page.current, side.current].filter((n): n is HTMLElement => !!n);
     for (const node of nodes) node.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', measure);
+    window.addEventListener('resize', onResize);
     return () => {
       for (const node of nodes) node.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', measure);
+      window.removeEventListener('resize', onResize);
       window.clearTimeout(idleTimer.current);
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
     };
-    // Refs are stable; re-subscribing on every render is what stopped the
-    // idle timer from ever reaching the end of its wait.
-  }, [measure, page, side]);
+  }, [measureTrack, page, paint, pick, side, wake]);
+
+  // The grip is only in the document once it is awake, so its first position
+  // has to be written the moment it appears — before the browser paints, or it
+  // flashes in the corner on its way to where it belongs.
+  useLayoutEffect(() => {
+    if (visible) paint();
+  }, [visible, paint]);
 
   /**
-   * Where each day of the list begins, measured once.
+   * Where each day of the list begins, measured once when a drag starts.
    *
    * Asking the DOM for every day heading on each move — a query plus a layout
    * read per pointer event — is what made the grip feel like it was running at
@@ -156,52 +194,37 @@ export function FastScroll({
     return current;
   }, []);
 
-  /**
-   * Follows the finger.
-   *
-   * The scroll and the grip's position are written straight to the DOM, once
-   * per frame; React only hears about the date on the bubble, and only when it
-   * changes. Going through state for the position meant a re-render for every
-   * pointer event, which is exactly as smooth as it sounds.
-   */
+  /** Follows the finger: one scroll write and one style write per frame. */
   const moveTo = useCallback(
     (clientY: number) => {
       pendingY.current = clientY;
-      if (dragFrame.current) return;
-      dragFrame.current = requestAnimationFrame(() => {
-        dragFrame.current = 0;
+      if (frameRef.current) return;
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = 0;
         const y = pendingY.current;
-        const el = activeRef.current;
-        if (y === null || !el || !track) return;
-        const f = Math.min(1, Math.max(0, (y - track.top) / track.height));
-        const max = el.scrollHeight - el.clientHeight;
-        el.scrollTop = f * max;
+        const el = scrollerRef.current;
+        if (y === null || !el) return;
+        const track = trackRef.current;
+        const f = Math.min(1, Math.max(0, (y - track.top) / (track.height - SIZE)));
+        el.scrollTop = f * (el.scrollHeight - el.clientHeight);
         fractionRef.current = f;
-        if (gripRef.current) {
-          gripRef.current.style.top = `${track.top + f * (track.height - 46)}px`;
-        }
-        const day = formatDay(dayAt(f * max));
+        paint();
+        const day = formatDay(dayAt(el.scrollTop));
         if (day !== labelRef.current) {
           labelRef.current = day;
           setLabel(day);
         }
       });
     },
-    [dayAt, track],
+    [dayAt, paint],
   );
 
-  if (!track || !visible) return null;
-
-  const size = 46;
-  // While a finger is on it the position is written straight to the node; a
-  // re-render for the date bubble must not put the old one back.
-  const top = track.top + (dragging ? fractionRef.current : fraction) * (track.height - size);
+  if (!visible) return null;
 
   return (
     <div
       ref={gripRef}
       className={`fast-scroll ${dragging ? 'dragging' : ''} ${closing ? 'closing' : ''}`}
-      style={{ top: `${top}px`, right: `${track.right}px` }}
     >
       {dragging && label && <span className="fast-scroll-label">{label}</span>}
       <button
@@ -210,10 +233,17 @@ export function FastScroll({
         aria-label="Snel scrollen"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
+          draggingRef.current = true;
           setDragging(true);
           setAwake(true);
-          const el = measure();
-          if (el) measureDays(el);
+          window.clearTimeout(idleTimer.current);
+          const el = scrollerRef.current ?? pick();
+          if (el) {
+            scrollerRef.current = el;
+            measuredAt.current = performance.now();
+            measureTrack(el);
+            measureDays(el);
+          }
           moveTo(e.clientY);
         }}
         onPointerMove={(e) => {
@@ -223,20 +253,18 @@ export function FastScroll({
         }}
         onPointerUp={(e) => {
           e.currentTarget.releasePointerCapture(e.pointerId);
+          draggingRef.current = false;
           setDragging(false);
           setLabel(null);
           labelRef.current = null;
-          // React owns the position again; it must start from where the finger
-          // left it rather than from the last value it happened to hear about.
-          setFraction(fractionRef.current);
-          window.clearTimeout(idleTimer.current);
-          idleTimer.current = window.setTimeout(() => setAwake(false), IDLE_MS);
+          wake();
         }}
         onPointerCancel={() => {
+          draggingRef.current = false;
           setDragging(false);
           setLabel(null);
           labelRef.current = null;
-          setFraction(fractionRef.current);
+          wake();
         }}
       >
         <Icon name="chevron-up" size={15} />
@@ -244,6 +272,11 @@ export function FastScroll({
       </button>
     </div>
   );
+}
+
+function fractionOf(el: HTMLElement): number {
+  const max = el.scrollHeight - el.clientHeight;
+  return max > 0 ? Math.min(1, Math.max(0, el.scrollTop / max)) : 0;
 }
 
 /** "12 aug 2026" — enough to aim with, short enough for a bubble. */

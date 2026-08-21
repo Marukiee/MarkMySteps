@@ -1,5 +1,5 @@
 import { shareOrSaveFiles } from './fileShare';
-import { clearJobProgress, notifyPermitted, showJobDone, showJobProgress } from './notify';
+import { clearJobProgress, notify, notifyPermitted, showJobProgress } from './notify';
 import { renderPhotoBook, type BookSource } from './photobook';
 
 export interface BookJob {
@@ -64,8 +64,13 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
     note: null,
   });
 
-  // Asked once, when there is finally something worth notifying about.
-  void notifyPermitted();
+  // Asked for now, and waited for: posting before the answer comes back is
+  // how the notification ended up never appearing at all. A refusal is not a
+  // reason to stop — the pill in the app says the same thing.
+  const mayNotify = await notifyPermitted();
+  if (mayNotify) {
+    await showJobProgress(`Fotoboek · ${source.trip.title}`, 'Voorbereiden…', 0);
+  }
 
   // The shade is updated on the way past whole percentages rather than on
   // every page: a hundred notification writes a minute is its own slowdown.
@@ -77,7 +82,7 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
       set({ done, total });
       const percent = total > 0 ? Math.round((done / total) * 100) : 0;
       const now = Date.now();
-      if (percent !== lastPercent && now - lastAt > 700) {
+      if (mayNotify && percent !== lastPercent && now - lastAt > 700) {
         lastPercent = percent;
         lastAt = now;
         void showJobProgress(
@@ -90,7 +95,13 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
 
     const file = new File([pdf], `${slug(source.trip.title)}.pdf`, { type: 'application/pdf' });
     set({ status: 'done', file, note: null });
-    void showJobDone('Fotoboek klaar', `${source.trip.title} · tik om te bewaren`);
+    // The quiet progress notification goes away and a real one takes its
+    // place: finishing is worth hearing about, every percent along the way is
+    // not.
+    void clearJobProgress();
+    if (mayNotify) {
+      notify('Fotoboek klaar', `${source.trip.title} · open de app om te bewaren`);
+    }
   } catch {
     set({ status: 'failed', note: 'Maken mislukt' });
     void clearJobProgress();

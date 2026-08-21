@@ -121,7 +121,18 @@
   font-size: 0.85rem;
 }
 
+/* Arrives with the numbers, a moment after the page, so it lands rather than
+   pops. Set on the pill itself: it appears in two headers, only one of which
+   has a chip row around it. */
+@keyframes travellerChipIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+}
+
 .stats-ongoing {
+  animation: travellerChipIn 0.34s var(--ease) backwards;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -248,13 +259,6 @@
 /* The chips land when the numbers do, a moment after the page. */
 .traveller-chips > * {
   animation: travellerChipIn 0.34s var(--ease) backwards;
-}
-
-@keyframes travellerChipIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.96);
-  }
 }
 
 .traveller-chips {
