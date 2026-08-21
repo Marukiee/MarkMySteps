@@ -138,6 +138,10 @@
   display: inline-grid;
   justify-self: center;
   align-content: center;
+  /* And the photo centred inside it. A portrait narrower than the width floor
+     below is a replaced element that `stretch` cannot stretch, so it fell back
+     to the start of the track and sat against the left edge of the frame. */
+  justify-items: center;
   /* Every gesture on the photo is ours: paging, dismissing, panning, pinching.
      Left to the browser, a pinch zooms the whole page and a drag scrolls it. */
   touch-action: none;

@@ -63,12 +63,22 @@
 
 /* ---------- Page shell ---------- */
 
+/* Wider than it was, and far tighter on a phone: this page is mostly photos,
+   and a 1.25rem gutter on a 393px screen was four percent of it spent on paper
+   either side. The timeline reads --page-pad back to place its rail. */
 .share-view {
-  max-width: 940px;
+  --page-pad: 0.6rem;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 0 1.25rem 4rem;
+  padding: 0 var(--page-pad) 4rem;
   display: grid;
   gap: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .share-view {
+    --page-pad: 1.25rem;
+  }
 }
 
 .share-topbar {

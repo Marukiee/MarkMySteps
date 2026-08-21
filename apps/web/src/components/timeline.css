@@ -107,10 +107,17 @@
 }
 
 .timeline-grid {
-  /* Rows are solved in JS (see PhotoGrid) — the layout lives there, this only
-     keeps it clear of the timeline rail.
-     Hard against the rail: every millimetre here is a millimetre of photo. */
-  margin-left: 0.9rem;
+  /*
+   * Rows are solved in JS (see PhotoGrid); this only says where the photos
+   * start, which is what puts the rail exactly halfway between the edge of the
+   * screen and the edge of the first photo.
+   *
+   * The rail's centre sits 5.5px into this container (see ::before and the day
+   * dot), so measured from the screen it is at `--page-pad + 5.5`. Half of the
+   * lane means the photos have to start at twice that: `2*pad + 11`, of which
+   * the page already contributes `pad`.
+   */
+  margin-left: calc(var(--page-pad, 0px) + 11px);
 }
 
 .timeline-photo {

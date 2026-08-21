@@ -77,10 +77,14 @@ export function PhotoGrid<T extends PhotoGridItem>({
     };
   }, []);
 
-  // A sensible row height for the width we got: tall rows on a desktop, short
-  // ones on a phone, where a row of three 200px photos would be a wall.
-  const target = targetRowHeight ?? (width < 520 ? 108 : width < 900 ? 150 : 190);
-  const rows = width > 0 ? packRows(items, width, target) : [];
+  // A sensible row height for the width we got: tall rows on a desktop, shorter
+  // ones on a phone, where a row of three 250px photos would be a wall.
+  const target = targetRowHeight ?? (width < 520 ? 132 : width < 900 ? 168 : 200);
+  // And a ceiling on how many can share one row regardless. Justification alone
+  // will happily put five or six narrow photos on a phone's width, and by then
+  // each of them is a stamp.
+  const perRow = width < 520 ? 4 : width < 900 ? 5 : 6;
+  const rows = width > 0 ? packRows(items, width, target, perRow) : [];
 
   return (
     <div ref={hostRef} className={`photo-grid ${className ?? ''}`}>
@@ -126,15 +130,26 @@ const sumRatios = (row: PhotoGridItem[]) => row.reduce((sum, item) => sum + rati
  * width, would still be taller than the target. The first photo that would
  * push it below starts the next row — unless keeping it lands closer to the
  * target than dropping it, which is what stops the last-but-one row from
- * ending up noticeably squatter than its neighbours.
+ * ending up noticeably squatter than its neighbours. `maxPerRow` overrules
+ * that judgement: past it the row is simply full.
  */
-function packRows<T extends PhotoGridItem>(items: T[], width: number, target: number): T[][] {
+function packRows<T extends PhotoGridItem>(
+  items: T[],
+  width: number,
+  target: number,
+  maxPerRow: number,
+): T[][] {
   const rows: T[][] = [];
   let row: T[] = [];
   let ratioSum = 0;
 
   for (const item of items) {
     const ratio = ratioOf(item);
+    if (row.length >= maxPerRow) {
+      rows.push(row);
+      row = [];
+      ratioSum = 0;
+    }
     const withIt = heightFor(ratioSum + ratio, row.length + 1, width);
     if (row.length > 0 && withIt < target) {
       const without = heightFor(ratioSum, row.length, width);

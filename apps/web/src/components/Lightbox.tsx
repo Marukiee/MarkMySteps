@@ -539,27 +539,13 @@ export function Lightbox({
             {item.assetType === 'VIDEO' && videoUrl ? (
               <video className="lightbox-img" src={videoUrl} controls autoPlay playsInline />
             ) : srcFor ? (
-              <img
+              <ProgressiveImg
                 key={item.id}
                 // A video that has not resolved its playback URL yet shows its
                 // still, not a preview render of a file that isn't an image.
-                src={srcFor(item, item.assetType === 'VIDEO' ? 'thumbnail' : 'preview')}
-                alt=""
+                lowSrc={srcFor(item, 'thumbnail')}
+                highSrc={srcFor(item, item.assetType === 'VIDEO' ? 'thumbnail' : 'preview')}
                 className="lightbox-img"
-                decoding="async"
-                // The grid's thumbnail is already in the browser's cache, so it
-                // paints behind the preview the instant this element exists and
-                // the frame is never empty while the big one comes down.
-                style={{
-                  backgroundImage: `url("${srcFor(item, 'thumbnail')}")`,
-                  backgroundSize: 'contain',
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat',
-                }}
-                // Known shape → the frame is the right size before any pixels
-                // land, so nothing jumps when they do.
-                width={item.width ?? undefined}
-                height={item.height ?? undefined}
               />
             ) : (
               <AuthImage
@@ -634,4 +620,41 @@ export function Lightbox({
     </div>,
     document.body,
   );
+}
+
+/**
+ * The small version first, the big one when it gets here — in one element.
+ *
+ * The grid the photo was tapped in has already pulled its thumbnail, so it is
+ * sitting in the browser's cache and paints in the same frame this mounts. It
+ * also carries the photo's real proportions, which is what keeps the frame the
+ * right shape: sizing the element from `width`/`height` attributes instead made
+ * the box the full height it was allowed and letterboxed the picture inside it
+ * with black bands above and below.
+ */
+function ProgressiveImg({
+  lowSrc,
+  highSrc,
+  className,
+}: {
+  lowSrc: string;
+  highSrc: string;
+  className?: string;
+}) {
+  const [src, setSrc] = useState(lowSrc);
+
+  useEffect(() => {
+    setSrc(lowSrc);
+    if (highSrc === lowSrc) return;
+    const loader = new Image();
+    // Swapped only once it is decoded and ready, so the picture never blinks
+    // back to nothing on the way up in resolution.
+    loader.onload = () => setSrc(highSrc);
+    loader.src = highSrc;
+    return () => {
+      loader.onload = null;
+    };
+  }, [lowSrc, highSrc]);
+
+  return <img src={src} alt="" className={className} decoding="async" />;
 }

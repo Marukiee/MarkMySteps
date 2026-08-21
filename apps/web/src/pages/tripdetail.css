@@ -77,8 +77,10 @@
     min-height: var(--vh-stable, 100vh);
     background: var(--paper);
     /* Narrow gutters: on a phone every millimetre spent on empty paper here is
-       a millimetre of photo. */
-    padding: 0.2rem 0.7rem calc(96px + env(safe-area-inset-bottom));
+       a millimetre of photo. Published as a variable because the timeline reads
+       it back to work out where its rail goes. */
+    --page-pad: 0.6rem;
+    padding: 0.2rem var(--page-pad) calc(96px + env(safe-area-inset-bottom));
     /* This box IS the width of the screen, so it is the right place to stop a
        swiped card — anything narrower cut it off early. Clip, not hidden: no
        scrollbar, and the vertical axis stays visible for the sticky map. */
@@ -446,6 +448,8 @@
 
 .trip-side {
   overflow-y: auto;
+  /* The desktop column is flush left inside its own grid cell. */
+  --page-pad: 0px;
   padding-right: 0.25rem;
   display: flex;
   flex-direction: column;
