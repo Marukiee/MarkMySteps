@@ -1200,8 +1200,12 @@
   z-index: -1;
 }
 
+/* Leaving collapses the row as well as fading it, so the branch line closes
+   over it instead of the rows below jumping up into the gap. */
 .daytrip-row.leaving {
-  animation: dayTripOut 0.24s var(--ease) forwards;
+  animation: dayTripOut 0.26s var(--ease) forwards;
+  pointer-events: none;
+  overflow: hidden;
 }
 
 @keyframes dayTripIn {
@@ -1212,9 +1216,14 @@
 }
 
 @keyframes dayTripOut {
+  from {
+    max-height: 8rem;
+  }
   to {
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateX(14px) scale(0.97);
+    max-height: 0;
+    margin-bottom: -0.35rem;
   }
 }
 
@@ -1259,10 +1268,13 @@
   font-size: 0.92rem;
 }
 
+/* Date, dot, weather sit together as one line of text, the way they do on a
+   normal stop. The gap plus the button's own padding plus the badge's leading
+   dot added up to three spaces where there should be one. */
 .daytrip-meta {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.1rem;
   font-size: 0.78rem;
   white-space: nowrap;
 }
@@ -1279,8 +1291,8 @@
 }
 
 .daytrip-meta .date-field-btn {
-  padding: 0.1rem 0.35rem;
-  margin-left: -0.35rem;
+  padding: 0.1rem 0.2rem;
+  margin-left: -0.2rem;
   border-radius: 7px;
   background: transparent;
   border: none;
@@ -1525,8 +1537,11 @@
   max-width: min(92vw, 460px);
   padding: 0.6rem 0.7rem 0.6rem 1rem;
   border-radius: 999px;
-  background: var(--ink);
-  color: var(--paper);
+  /* The app's own paper, not an inverted snackbar: on a light page a black
+     pill reads as something from a different app in dark mode. */
+  background: var(--paper-raised);
+  color: var(--ink);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-l);
   animation: undoIn 0.26s var(--ease);
 }
@@ -1549,8 +1564,8 @@
   flex-shrink: 0;
   padding: 0.35rem 0.8rem;
   border-radius: 999px;
-  background: rgb(255 255 255 / 0.14);
-  color: var(--paper);
+  background: var(--accent);
+  color: #fff;
   font-size: 0.82rem;
   font-weight: 700;
   transition: background 0.15s var(--ease), transform 0.15s var(--ease);
@@ -1561,7 +1576,7 @@
 }
 
 .undo-btn:hover {
-  background: rgb(255 255 255 / 0.24);
+  filter: brightness(1.05);
 }
 
 /* Edits made without a connection are kept on the device and replayed later;

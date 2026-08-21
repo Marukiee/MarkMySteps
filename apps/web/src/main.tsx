@@ -9,6 +9,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { AuthProvider } from './auth/AuthContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import {
   initBackButton,
   initKeyboardInset,
@@ -61,8 +62,12 @@ if (isNativeApp()) document.documentElement.classList.add('native-app');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    {/* A render that throws used to take the whole page with it and leave a
+        white screen; now it leaves a message and a way back. */}
+    <ErrorBoundary>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

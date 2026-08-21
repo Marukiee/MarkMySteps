@@ -1,0 +1,48 @@
+.crash {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 1.2rem;
+}
+
+.crash-card {
+  width: min(30rem, 100%);
+  padding: 1.4rem 1.2rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.crash-card h1 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.crash-card p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+/* The message itself, small and selectable — it is the one thing worth
+   copying out of here. */
+.crash-detail {
+  margin: 0.2rem 0 0;
+  padding: 0.7rem 0.8rem;
+  max-height: 12rem;
+  overflow: auto;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.crash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}

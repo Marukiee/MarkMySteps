@@ -1149,10 +1149,10 @@ const GLOW_TAIL = 0.22;
  * afternoon's walk crawl and a flight across a continent flash past. Speed is
  * the thing that should be constant, as it is on the globe.
  */
-const GLOW_DEG_PER_S = 3.2;
+const GLOW_DEG_PER_S = 1.7;
 /** Even so, a pass is never over in a blink or long enough to be forgotten. */
-const GLOW_MIN_MS = 2800;
-const GLOW_MAX_MS = 12_000;
+const GLOW_MIN_MS = 4500;
+const GLOW_MAX_MS = 16_000;
 /** A beat at the end, so two passes read as two rather than one long one. */
 const GLOW_PAUSE_MS = 900;
 /** The gradient is rebuilt per frame; 30 is plenty for a light this soft. */

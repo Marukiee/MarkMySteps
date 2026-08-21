@@ -391,7 +391,7 @@ async function drawRoutePage(
     w: page.w - page.margin * 2,
     h: Math.round(page.h * 0.5),
   };
-  drawTrackMap(ctx, mapBox, focus, ground, flights, stops, palette, accent);
+  drawTrackMap(ctx, mapBox, focus, ground, flights, stops, palette, accent, true);
 
   // The itinerary in words underneath, which is what somebody reads when the
   // map has told them the shape of it.
@@ -447,15 +447,15 @@ function drawLegPage(
     lines: 1,
   });
 
-  const heading = `${leg.from.name} → ${leg.to.name}`;
-  const title = layoutText(ctx, heading, page.w - page.margin * 2, {
-    size: Math.round(page.w * 0.062),
-    weight: 700,
-    family: FONT_DISPLAY,
-    color: palette.ink,
-    lines: 2,
-  });
-  const bottom = drawLayout(ctx, title, page.margin, page.margin + Math.round(page.w * 0.075));
+  const bottom = drawJourneyTitle(
+    ctx,
+    page,
+    leg.from.name,
+    leg.to.name,
+    page.margin + Math.round(page.w * 0.075),
+    palette,
+    accent,
+  );
 
   // The distance along the way it was actually travelled where that is known,
   // and how it was travelled according to the plan — "Trein", not "over land".
@@ -601,6 +601,8 @@ async function drawJustified(
 
 /** How much a picture may be cropped to make a row come out even. */
 const CROP_TOLERANCE = 0.1;
+/** Four portraits across is a contact sheet, not a page of a book. */
+const MAX_PER_ROW = 3;
 /** How much of the page a layout may leave empty before it is not worth it. */
 const FILLS = [1, 0.97, 0.94, 0.91, 0.88, 0.85, 0.82];
 
@@ -645,6 +647,7 @@ function uniformRows<T extends { ratio: number }>(
           items.push(shapes[index]!);
           sum += shapes[index]!.ratio;
           index++;
+          if (items.length >= MAX_PER_ROW) break;
           if (shapes.length - index <= rowsLeft) break;
           if (sum >= ((width - gap * (items.length - 1)) / height) * 0.94) break;
         }
@@ -719,7 +722,7 @@ function packRows<T extends { ratio: number }>(
     for (const shape of rest) {
       items.push(shape);
       sum += shape.ratio;
-      if (sum >= budget) {
+      if (sum >= budget || items.length >= MAX_PER_ROW) {
         rows.push(finishRow(items, sum, width, gap));
         items = [];
         sum = 0;
@@ -764,7 +767,12 @@ function packRows<T extends { ratio: number }>(
       if (height <= 0 || height > available * OVERFLOW) continue;
       // Two identical layouts (the same rows from neighbouring budgets) score
       // the same; the first one wins, which is the one with bigger pictures.
-      const score = Math.min(height, available) / available;
+      // A layout with one thin strip of a row in it is worth less than a
+      // slightly emptier page: photographs that end up a quarter the height of
+      // the ones above them read as an afterthought.
+      const shortest = Math.min(...rows.map((row) => row.height));
+      const thin = shortest < available / 4.5 ? 0.3 : 0;
+      const score = Math.min(height, available) / available - thin;
       if (score > bestScore + 0.001) {
         bestScore = score;
         best = rows;
@@ -801,6 +809,89 @@ function finishRow<T extends { ratio: number }>(
 /* ---- maps --------------------------------------------------------------- */
 
 /**
+ * "Marrakesh → Rabat", with the arrow drawn rather than typed.
+ *
+ * The font's own arrow is a thin little glyph sitting on the baseline between
+ * two heavy display words; drawn at the right weight and height it belongs to
+ * them. On a narrow page the second name drops to its own line and takes the
+ * arrow with it.
+ */
+function drawJourneyTitle(
+  ctx: CanvasRenderingContext2D,
+  page: PageBox,
+  from: string,
+  to: string,
+  top: number,
+  palette: Palette,
+  accent: string,
+): number {
+  const width = page.w - page.margin * 2;
+  let size = Math.round(page.w * 0.062);
+  const gap = () => size * 0.42;
+  const arrowWidth = () => size * 0.85;
+
+  const widthsAt = (value: number) => {
+    setFont(ctx, value, 700, FONT_DISPLAY);
+    return { from: ctx.measureText(from).width, to: ctx.measureText(to).width };
+  };
+
+  let widths = widthsAt(size);
+  // Shrink a little before breaking the line; two long names get both.
+  while (size > page.w * 0.04 && widths.from + widths.to + gap() * 2 + arrowWidth() > width) {
+    size -= 2;
+    widths = widthsAt(size);
+  }
+
+  const oneLine = widths.from + widths.to + gap() * 2 + arrowWidth() <= width;
+  const lineHeight = size * 1.2;
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = palette.ink;
+
+  if (oneLine) {
+    setFont(ctx, size, 700, FONT_DISPLAY);
+    ctx.fillText(from, page.margin, top);
+    const arrowX = page.margin + widths.from + gap();
+    drawArrow(ctx, arrowX, top + lineHeight * 0.42, arrowWidth(), size * 0.1, accent);
+    ctx.fillText(to, arrowX + arrowWidth() + gap(), top);
+    return top + lineHeight;
+  }
+
+  setFont(ctx, size, 700, FONT_DISPLAY);
+  ctx.fillText(from, page.margin, top);
+  const second = top + lineHeight;
+  drawArrow(ctx, page.margin, second + lineHeight * 0.42, arrowWidth(), size * 0.1, accent);
+  setFont(ctx, size, 700, FONT_DISPLAY);
+  ctx.fillStyle = palette.ink;
+  ctx.fillText(to, page.margin + arrowWidth() + gap(), second);
+  return second + lineHeight;
+}
+
+/** A shaft and a head, at the weight of the words it sits between. */
+function drawArrow(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  length: number,
+  weight: number,
+  colour: string,
+): void {
+  const head = length * 0.42;
+  ctx.save();
+  ctx.strokeStyle = colour;
+  ctx.lineWidth = weight;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + length, y);
+  ctx.moveTo(x + length - head, y - head * 0.62);
+  ctx.lineTo(x + length, y);
+  ctx.lineTo(x + length - head, y + head * 0.62);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
  * The tracked line, with the bits that were flown drawn as bows.
  *
  * A straight line from the Netherlands to Morocco is what a flight looks like
@@ -814,9 +905,11 @@ function drawTrackMap(
   focus: [number, number][],
   ground: [number, number][][],
   flights: [number, number][][],
-  stops: { latitude: number | null; longitude: number | null }[],
+  stops: { name?: string; latitude: number | null; longitude: number | null }[],
   palette: Palette,
   accent: string,
+  /** Write each stop's name beside its dot, on a little leader line. */
+  labels = false,
 ): void {
   const radius = Math.round(box.w * 0.03);
   const map = drawMap(ctx, box, focus.length > 0 ? focus : [[0, 20]], {
@@ -858,11 +951,89 @@ function drawTrackMap(
     radius,
   });
 
+  const dots: { xy: [number, number]; name: string }[] = [];
   for (const stop of stops) {
     if (stop.latitude === null || stop.longitude === null) continue;
     const xy = map.project([stop.longitude, stop.latitude]);
-    if (xy) drawStopDot(ctx, xy[0], xy[1], accent, palette.paper, false, box.w / 1000);
+    if (!xy) continue;
+    drawStopDot(ctx, xy[0], xy[1], accent, palette.paper, false, box.w / 1000);
+    if (labels && stop.name) dots.push({ xy, name: stop.name });
   }
+  if (dots.length > 0) drawStopLabels(ctx, box, dots, palette);
+}
+
+/**
+ * A name beside every dot, on a short tick.
+ *
+ * A map of a trip with unnamed dots is a shape, not an itinerary. Each name is
+ * tried in four directions and dropped if it will not sit clear of the ones
+ * already written — a label over another label is worse than no label.
+ */
+function drawStopLabels(
+  ctx: CanvasRenderingContext2D,
+  box: { x: number; y: number; w: number; h: number },
+  dots: { xy: [number, number]; name: string }[],
+  palette: Palette,
+): void {
+  const size = Math.max(11, Math.round(box.w * 0.026));
+  const tick = Math.round(size * 0.9);
+  const taken: { x: number; y: number; w: number; h: number }[] = [];
+
+  setFont(ctx, size, 700, FONT_BODY);
+  ctx.textBaseline = 'middle';
+
+  for (const { xy, name } of dots) {
+    const textWidth = ctx.measureText(name).width;
+    const options: { dx: number; dy: number; align: 'left' | 'right' }[] = [
+      { dx: tick, dy: -tick, align: 'left' },
+      { dx: -tick, dy: -tick, align: 'right' },
+      { dx: tick, dy: tick, align: 'left' },
+      { dx: -tick, dy: tick, align: 'right' },
+    ];
+
+    for (const option of options) {
+      const x = xy[0] + option.dx;
+      const y = xy[1] + option.dy;
+      const left = option.align === 'left' ? x + 4 : x - 4 - textWidth;
+      const rect = { x: left - 3, y: y - size * 0.75, w: textWidth + 6, h: size * 1.5 };
+      const inside =
+        rect.x > box.x + 4 &&
+        rect.x + rect.w < box.x + box.w - 4 &&
+        rect.y > box.y + 4 &&
+        rect.y + rect.h < box.y + box.h - 4;
+      if (!inside) continue;
+      if (taken.some((other) => overlapsBox(other, rect))) continue;
+
+      // The tick: dot to label, so a name never floats free of its place.
+      ctx.strokeStyle = palette.inkFaint;
+      ctx.lineWidth = Math.max(1, size * 0.09);
+      ctx.beginPath();
+      ctx.moveTo(xy[0], xy[1]);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+
+      // Written twice: once in the paper colour, thickly, so the name stays
+      // readable where it crosses the route.
+      ctx.textAlign = option.align;
+      ctx.lineWidth = Math.max(2, size * 0.28);
+      ctx.strokeStyle = palette.paper;
+      ctx.strokeText(name, option.align === 'left' ? x + 4 : x - 4, y);
+      ctx.fillStyle = palette.ink;
+      ctx.fillText(name, option.align === 'left' ? x + 4 : x - 4, y);
+
+      taken.push(rect);
+      break;
+    }
+  }
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+}
+
+function overlapsBox(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
 
 /**
@@ -903,10 +1074,31 @@ function trackedBetween(
     // Both ends have to be somewhere near the line, or this traveller did not
     // make this leg at all.
     if (a.distance > 40 || b.distance > 40) continue;
-    const slice = coords.slice(Math.min(a.index, b.index), Math.max(a.index, b.index) + 1);
+    const lo = Math.min(a.index, b.index);
+    const hi = Math.max(a.index, b.index);
+    const forwards = a.index <= b.index;
+    const slice = coords.slice(lo, hi + 1);
     if (slice.length < 3) continue;
-    const ordered = a.index <= b.index ? slice : [...slice].reverse();
-    if (!best || ordered.length > best.length) best = ordered;
+    const ordered = forwards ? slice : [...slice].reverse();
+
+    // Trim both ends back to where the journey actually began and ended. Left
+    // whole, the line carries the morning's wandering around the first city
+    // and the evening's around the second, and the page reads as a scribble
+    // with a long line out of it.
+    const townKm = Math.max(8, haversineKm(from, to) * 0.04);
+    let start = 0;
+    for (let i = 0; i < ordered.length - 1; i++) {
+      if (haversineKm(ordered[i]!, from) <= townKm) start = i;
+      else break;
+    }
+    let end = ordered.length - 1;
+    for (let i = ordered.length - 1; i > start; i--) {
+      if (haversineKm(ordered[i]!, to) <= townKm) end = i;
+      else break;
+    }
+    const trimmed = ordered.slice(start, end + 1);
+    const journey = trimmed.length >= 3 ? trimmed : ordered;
+    if (!best || journey.length > best.length) best = journey;
   }
 
   return best;
