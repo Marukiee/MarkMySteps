@@ -106,9 +106,11 @@
   border: 3px solid var(--paper);
   box-shadow: 0 0 0 2px var(--line);
   z-index: 1;
-  /* Centred on the rail above, which is 2px wide at the container's edge: the
-     dot is 13px, so it has to hang 5.5px out to the left of it. */
-  margin-left: -5.5px;
+  /* Sat centred on the rail, which put half of it out in the page gutter and
+     nearly against the edge of the screen. Nudged right: the rail runs a
+     little off-centre through it, and the dot has room to breathe on both
+     sides. */
+  margin-left: -3px;
   /* Line up the dot's centre with the date text, not its top. */
   margin-top: 0.32rem;
 }

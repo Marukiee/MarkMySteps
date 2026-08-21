@@ -79,7 +79,7 @@
     /* Narrow gutters: on a phone every millimetre spent on empty paper here is
        a millimetre of photo. Published as a variable because the timeline reads
        it back to work out where its rail goes. */
-    --page-pad: 0.75rem;
+    --page-pad: 0.85rem;
     padding: 0.2rem var(--page-pad) calc(96px + env(safe-area-inset-bottom));
     /* This box IS the width of the screen, so it is the right place to stop a
        swiped card — anything narrower cut it off early. Clip, not hidden: no

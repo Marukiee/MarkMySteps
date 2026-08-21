@@ -67,7 +67,7 @@
    and a 1.25rem gutter on a 393px screen was four percent of it spent on paper
    either side. The timeline reads --page-pad back to place its rail. */
 .share-view {
-  --page-pad: 0.75rem;
+  --page-pad: 0.85rem;
   max-width: 1180px;
   margin: 0 auto;
   padding: 0 var(--page-pad) 4rem;
