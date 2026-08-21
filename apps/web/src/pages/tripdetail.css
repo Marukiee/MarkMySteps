@@ -803,14 +803,22 @@
 
 .people-sheet {
   width: min(560px, 100%);
+  /* Square along the bottom, whatever else claims otherwise: a sheet that
+     comes up from the edge of the screen has no bottom corners. */
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
   max-width: 100%;
-  max-height: 92vh;
+  /* dvh, not vh: on the builds where the keyboard shrinks the viewport this
+     keeps the sheet inside what is left instead of hanging off the bottom. */
+  max-height: 92dvh;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: none;
   /* Generous bottom room so the "deellink" field stays reachable above the
      on-screen keyboard. */
-  padding: 1.1rem 1.15rem calc(6rem + env(safe-area-inset-bottom));
+  /* The keyboard covers the bottom of the screen without the sheet moving,
+     so the room it needs is padding rather than a smaller sheet. */
+  padding: 1.1rem 1.15rem calc(6rem + env(safe-area-inset-bottom) + var(--kb-inset, 0px));
   border-radius: var(--radius-l) var(--radius-l) 0 0;
   animation: sheetUp 0.28s var(--ease);
 }

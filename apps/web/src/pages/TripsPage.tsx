@@ -17,7 +17,6 @@ import { Avatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
 import { DateField } from '../components/DatePicker';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
-import { SearchSheet } from '../components/SearchSheet';
 import { LogoMark } from '../components/Logo';
 import { Icon } from '../components/Icon';
 import { coverGradient, formatDate, tripCoverBg } from '../lib/colors';
@@ -36,7 +35,6 @@ export function TripsPage() {
   const { user } = useAuth();
   const [trips, setTrips] = useState<Trip[] | null>(null);
   const [showNew, setShowNew] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [newClosing, setNewClosing] = useState(false);
   // The wordmark's compass follows the globe's zoom: in one way, out the
   // other, and back to north whenever the globe is back where it started.
@@ -229,14 +227,6 @@ export function TripsPage() {
         <h1>Reizen</h1>
         <div className="trips-head-actions">
           <button
-            type="button"
-            className="search-open"
-            aria-label="Zoeken"
-            onClick={() => setSearchOpen(true)}
-          >
-            <Icon name="search" size={18} />
-          </button>
-          <button
             className="btn btn-primary"
             onClick={() => (showNew ? closeNew() : setShowNew(true))}
           >
@@ -244,8 +234,6 @@ export function TripsPage() {
           </button>
         </div>
       </div>
-
-      {searchOpen && <SearchSheet onClose={() => setSearchOpen(false)} />}
 
       {showNew && (
         <div className={`new-trip-wrap ${newClosing ? 'closing' : ''}`}>

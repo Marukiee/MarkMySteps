@@ -159,14 +159,17 @@ function TripPicker({
 
   useEffect(() => {
     if (!open) return;
-    const away = (e: PointerEvent) => {
+    // Click, not pointerdown: a finger put down to SCROLL the page is not a
+    // tap somewhere else, and closing on it made the menu vanish the moment
+    // you tried to reach the rest of the page.
+    const away = (e: MouseEvent) => {
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
     const escape = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('pointerdown', away);
+    document.addEventListener('click', away);
     document.addEventListener('keydown', escape);
     return () => {
-      document.removeEventListener('pointerdown', away);
+      document.removeEventListener('click', away);
       document.removeEventListener('keydown', escape);
     };
   }, [open]);
@@ -228,11 +231,11 @@ function ExportMenu({
 
   useEffect(() => {
     if (!open) return;
-    const away = (e: PointerEvent) => {
+    const away = (e: MouseEvent) => {
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener('pointerdown', away);
-    return () => document.removeEventListener('pointerdown', away);
+    document.addEventListener('click', away);
+    return () => document.removeEventListener('click', away);
   }, [open]);
 
   return (

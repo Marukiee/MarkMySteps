@@ -37,8 +37,10 @@
      visible viewport on Android, so the field stays above the keys. */
   height: min(88dvh, 46rem);
   max-height: 92dvh;
-  padding: 0.5rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom));
+  padding: 0.5rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom) + var(--kb-inset, 0px));
   border-radius: var(--radius-l) var(--radius-l) 0 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
   animation: searchSheetUp 0.28s var(--ease);
 }
 

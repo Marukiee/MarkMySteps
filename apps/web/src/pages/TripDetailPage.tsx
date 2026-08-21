@@ -573,6 +573,16 @@ export function TripDetailPage() {
 
   // The day filter reaches the photos as well as the line: a day's map with
   // the whole trip's photos on it is not that day.
+  // The stops that day covers. A stop's stay runs from its arrival to its
+  // departure, so "which places was I in on this day" is a range test.
+  const visibleStops = useMemo(
+    () =>
+      day === null
+        ? stops
+        : stops.filter((stop) => stop.arrivalDate <= day && day <= stop.departureDate),
+    [stops, day],
+  );
+
   const visibleMedia = useMemo(
     () =>
       media.filter(
@@ -701,7 +711,11 @@ export function TripDetailPage() {
         <TripMap
           routes={routes}
           media={visibleMedia}
-          stops={stops}
+          // One day means that day's places too: the planner's line from stop
+          // to stop was still drawing legs across countries nobody travelled
+          // that day.
+          stops={visibleStops}
+          autoFit={day === null}
           // Hand-placed points are editing scaffolding: they belong in the
           // points editor, where you can drag them, not scattered over the
           // trip's own map.
@@ -725,8 +739,7 @@ export function TripDetailPage() {
           onReady={(api) => (mapApiRef.current = api)}
         />
 
-        {/* One stack at the top of the map: whether you are being tracked right
-            now, and which day of the trip you are looking at. */}
+        {/* Whether you are being tracked right now, at the top of the map. */}
         <div className="map-top-pills">
           {liveTracking && (
             <button
@@ -747,8 +760,13 @@ export function TripDetailPage() {
               />
             </button>
           )}
-          <DayFilter days={days} value={day} onChange={setDay} />
         </div>
+
+        {/* Bottom left, above the traveller picker: which day the map is
+            showing, and whose route is on it. The picker is not always there,
+            so the stack holds the gutter rather than the pill hanging off it. */}
+        <div className="map-bottom-left">
+          <DayFilter days={days} value={day} onChange={setDay} />
 
         {/* Also shown for a single traveller who isn't you — that is exactly the
             case (a friend's trip) where the pill has something to say. */}
@@ -813,6 +831,7 @@ export function TripDetailPage() {
             </button>
           </div>
         )}
+        </div>
 
         {pendingPoint && (
           <div className="add-point-panel card">
@@ -1013,7 +1032,7 @@ export function TripDetailPage() {
             <SummaryPanel trip={trip} stops={stops} media={media} routes={routes} />
             {/* The other thing people want from a finished trip: all of it, in
                 order, on paper. */}
-            <PhotoBook trip={trip} stops={stops} media={media} routes={routes} notes={notes} />
+            <PhotoBook trip={trip} stops={stops} media={media} notes={notes} />
             {/* Somebody put you on this trip; the way back off it belongs here,
                 where the rest of "who is on this trip" lives. */}
             {trip.ownerId !== user?.id && (
@@ -1027,7 +1046,7 @@ export function TripDetailPage() {
 
       {/* A trip of three months is a very long timeline; the grip throws it
           around by the day instead of by the flick. */}
-      <FastScroll scrollers={[scrollRef, sideRef]} />
+      <FastScroll page={scrollRef} side={sideRef} />
 
       {lightboxIndex !== null && (
         <Lightbox

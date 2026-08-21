@@ -11,6 +11,7 @@ import { App } from './App';
 import { AuthProvider } from './auth/AuthContext';
 import {
   initBackButton,
+  initKeyboardInset,
   initKeyboardScroll,
   initStableViewport,
   initStatusBar,
@@ -45,6 +46,8 @@ void captureCurrentLocation();
 initPendingWrites();
 // Applies a photo-cache limit that was lowered in a previous session.
 void enforceThumbBudget();
+// Sheets need to know what the keyboard is covering.
+initKeyboardInset();
 // Android back gesture support.
 initBackButton();
 // Overlay + style the native status bar.

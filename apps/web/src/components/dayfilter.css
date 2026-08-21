@@ -56,13 +56,14 @@
   white-space: nowrap;
 }
 
+/* Drawn on the page, not inside the map: the map panel clips its own
+   children, which cut the list off at the bottom edge of the map. Fixed to
+   the pill's own position, and opening upwards because the pill sits low. */
 .day-filter-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  z-index: 50;
+  position: fixed;
+  z-index: 80;
   width: max-content;
-  min-width: 13.5rem;
+  min-width: 14rem;
   max-width: min(86vw, 20rem);
   max-height: min(52vh, 22rem);
   overflow-y: auto;
@@ -70,10 +71,8 @@
   padding: 0.3rem;
   display: grid;
   gap: 1px;
-  transform-origin: top center;
+  transform-origin: bottom left;
   animation: dayMenuIn 0.16s var(--ease);
-  /* The left:50% above still has to be pulled back by half its own width. */
-  translate: -50% 0;
 }
 
 .day-filter-menu.closing {
@@ -84,14 +83,14 @@
 @keyframes dayMenuIn {
   from {
     opacity: 0;
-    transform: translateY(-6px) scale(0.96);
+    transform: translateY(8px) scale(0.96);
   }
 }
 
 @keyframes dayMenuOut {
   to {
     opacity: 0;
-    transform: translateY(-4px) scale(0.97);
+    transform: translateY(6px) scale(0.97);
   }
 }
 
@@ -132,6 +131,7 @@
 
 .day-filter-item-name {
   flex: 0 1 auto;
+  margin-right: 0.4rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -144,7 +144,9 @@
   display: flex;
   align-items: center;
   gap: 0.22rem;
-  margin-right: auto;
+  /* Hard against the tick at the right-hand end, so the counts line up with
+     each other down the list instead of trailing each name. */
+  margin-left: auto;
   font-size: 0.74rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -178,8 +180,27 @@
 }
 
 /* Both pills live in one column at the top of the map. */
-/* Both pills sit in one row at the top of the map: they answer two halves of
-   the same question — what the map is showing right now. */
+/* The day pill lives at the bottom left, stacked over the traveller picker —
+   which is not always there, so the stack is what holds the gutter rather
+   than the pill positioning itself against it. */
+.map-bottom-left {
+  position: absolute;
+  left: 0.9rem;
+  bottom: 0.9rem;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  max-width: calc(100% - 1.8rem);
+}
+
+/* Inside the stack the traveller picker is a row like any other, so it must
+   not position itself as well. */
+.map-bottom-left .person-select {
+  position: static;
+}
+
 .map-top-pills {
   position: absolute;
   top: 0.9rem;

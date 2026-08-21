@@ -89,6 +89,12 @@ interface TripMapProps {
   onReady?: (api: TripMapApi) => void;
   /** Tapping your own live dot (opens today's recorded points). */
   onSelfClick?: () => void;
+  /**
+   * Whether a change of data may reframe the camera. Off while the map is
+   * showing a single day: the caller has already framed that day, and fitting
+   * the trip's own bounds would zoom straight back out to the whole trip.
+   */
+  autoFit?: boolean;
 }
 
 export interface TripMapApi {
@@ -127,6 +133,7 @@ export function TripMap({
   liveFixes,
   selfUserId,
   onReady,
+  autoFit = true,
   onSelfClick,
 }: TripMapProps) {
   // Read from a marker listener that is only attached once.
@@ -158,6 +165,9 @@ export function TripMap({
   const wholeTripRef = useRef<LngLatBounds | null>(null);
   /** The route lines as last drawn, so the glow can trace exactly those. */
   const glowLinesRef = useRef<[number, number][][]>([]);
+  /** Whether a data change may move the camera. Off while a day is framed. */
+  const autoFitRef = useRef(true);
+  autoFitRef.current = autoFit;
   const liveMarkersRef = useRef<maplibregl.Marker[]>([]);
   // Cache thumbnail object-URLs by media id so re-clustering on zoom reuses the
   // loaded image instead of flashing the empty placeholder white.
@@ -527,13 +537,17 @@ export function TripMap({
         // Remembered so the camera can be sent back here — scrolling the
         // timeline walks it away from the trip as a whole.
         wholeTripRef.current = bounds;
-        map.fitBounds(bounds, {
-          // The sheet covers the bottom of the canvas, so padding that ignores
-          // it centres the trip behind the sheet instead of in view.
-          padding: { top: 60, bottom: 60 + hiddenBottomRef.current, left: 60, right: 60 },
-          maxZoom: 13,
-          duration: 900,
-        });
+        // Filtered down to one day, the caller frames that day itself; fitting
+        // the trip's own bounds here would zoom straight back out again.
+        if (autoFitRef.current) {
+          map.fitBounds(bounds, {
+            // The sheet covers the bottom of the canvas, so padding that
+            // ignores it centres the trip behind the sheet instead of in view.
+            padding: { top: 60, bottom: 60 + hiddenBottomRef.current, left: 60, right: 60 },
+            maxZoom: 13,
+            duration: 900,
+          });
+        }
       }
     };
 
@@ -1125,8 +1139,17 @@ const GLOW_HALO = 'trip-glow-halo';
 const GLOW_CORE = 'trip-glow-core';
 /** How much of the line the light's tail covers, as on the globe. */
 const GLOW_TAIL = 0.22;
-/** One pass. Slow enough to follow with your eyes rather than a flicker. */
-const GLOW_RUN_MS = 3200;
+/**
+ * How fast the light travels, in degrees of the map per second.
+ *
+ * A pass used to take the same time whatever it was tracing, which made an
+ * afternoon's walk crawl and a flight across a continent flash past. Speed is
+ * the thing that should be constant, as it is on the globe.
+ */
+const GLOW_DEG_PER_S = 5.5;
+/** Even so, a pass is never over in a blink or long enough to be forgotten. */
+const GLOW_MIN_MS = 1400;
+const GLOW_MAX_MS = 9000;
 /** A beat at the end, so two passes read as two rather than one long one. */
 const GLOW_PAUSE_MS = 850;
 /** The gradient is rebuilt per frame; 30 is plenty for a light this soft. */
@@ -1189,7 +1212,13 @@ function runGlow(map: MapLibreMap, lines: [number, number][][]): void {
     return;
   }
 
-  const cycle = GLOW_RUN_MS + GLOW_PAUSE_MS;
+  // The route's own length decides how long a pass takes, so the light moves
+  // at the same speed over a day in one town as over a trip across Europe.
+  const runMs = Math.min(
+    GLOW_MAX_MS,
+    Math.max(GLOW_MIN_MS, (lineLengthDeg(usable) / GLOW_DEG_PER_S) * 1000),
+  );
+  const cycle = runMs + GLOW_PAUSE_MS;
   const started = performance.now();
   let painted = 0;
 
@@ -1209,7 +1238,7 @@ function runGlow(map: MapLibreMap, lines: [number, number][][]): void {
       painted = now;
       const within = (now - started) % cycle;
       // During the pause the head sits past the end, which draws nothing.
-      const t = Math.min(1, within / GLOW_RUN_MS);
+      const t = Math.min(1, within / runMs);
       // The head enters from before the start and leaves past the end, so the
       // ribbon arrives and departs instead of appearing and stopping.
       const p = t * (1 + GLOW_TAIL * 2) - GLOW_TAIL;
@@ -1230,6 +1259,22 @@ function stopGlow(map: MapLibreMap): void {
     if (map.getLayer(layer)) map.removeLayer(layer);
   }
   if (map.getSource(GLOW_SOURCE)) map.removeSource(GLOW_SOURCE);
+}
+
+/** Rough length of everything being lit, in degrees — good enough for a pace. */
+function lineLengthDeg(lines: [number, number][][]): number {
+  let total = 0;
+  for (const line of lines) {
+    for (let i = 1; i < line.length; i++) {
+      const [x1, y1] = line[i - 1]!;
+      const [x2, y2] = line[i]!;
+      // Longitudes converge towards the poles; without this a route in Norway
+      // measures far longer than the same distance at the equator.
+      const dx = (x2 - x1) * Math.cos(((y1 + y2) / 2) * (Math.PI / 180));
+      total += Math.hypot(dx, y2 - y1);
+    }
+  }
+  return total;
 }
 
 /**

@@ -355,7 +355,10 @@ function DisplaySection() {
  * move data in and out of the app.
  */
 function PhotoCacheSection() {
-  const LIMITS = [100, 250, 500, 1000];
+  // Four choices, because five wrapped onto a second line on a phone and the
+  // row read as two rows of unrelated buttons. Anything between them is what
+  // the pencil is for.
+  const LIMITS = [250, 1000];
   const [limit, setLimit] = useState(getThumbCacheLimitMb());
   const [customOpen, setCustomOpen] = useState(
     !LIMITS.includes(getThumbCacheLimitMb()) && getThumbCacheLimitMb() !== 0,

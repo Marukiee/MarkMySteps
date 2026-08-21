@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../api/client';
 import type { MediaItem, RouteCollection, Trip } from '../api/types';
 import type { PlannedStop } from '../lib/arc';
 import { shareOrSaveFiles } from '../lib/fileShare';
-import { renderPhotoBook, type BookNote } from '../lib/photobook';
+import { countBookPages, renderPhotoBook, type BookNote } from '../lib/photobook';
 import { Icon } from './Icon';
 import './photobook.css';
 
@@ -18,25 +19,33 @@ export function PhotoBook({
   trip,
   stops,
   media,
-  routes,
   notes,
 }: {
   trip: Trip;
   stops: PlannedStop[];
   media: MediaItem[];
-  routes: RouteCollection | null;
   notes: BookNote[];
 }) {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // The book is always the whole trip. The page's own route follows the day
+  // filter, and a book made while looking at one day came out with that day's
+  // map and everybody's photographs.
+  const [routes, setRoutes] = useState<RouteCollection | null>(null);
 
-  async function make(theme: 'light' | 'dark') {
+  useEffect(() => {
+    api<RouteCollection>(`/trips/${trip.id}/route`)
+      .then(setRoutes)
+      .catch(() => undefined);
+  }, [trip.id]);
+
+  async function make(dpi: number) {
     setNote(null);
     setProgress({ done: 0, total: pages || 1 });
     try {
       const pdf = await renderPhotoBook(
         { trip, stops, media, routes, notes },
-        theme,
+        { dpi },
         (done, total) => setProgress({ done, total }),
       );
       const file = new File([pdf], `${slug(trip.title)}.pdf`, { type: 'application/pdf' });
@@ -50,10 +59,9 @@ export function PhotoBook({
     }
   }
 
-  // The real page count, not the number of days: a day with more than six
-  // photographs runs onto a second and third page, which is how a book of
-  // "12 pages" arrived as thirty.
-  const pages = countPages(media);
+  // The real page count: a day with more than six photographs runs onto a
+  // second and third page, and every move to the next stop gets its own map.
+  const pages = countBookPages({ trip, stops, media, routes, notes });
   const percent = progress && progress.total > 0 ? (progress.done / progress.total) * 100 : 0;
 
   return (
@@ -63,7 +71,7 @@ export function PhotoBook({
       </h2>
       <p className="muted photo-book-hint">
         {pages > 0
-          ? `Een PDF van ongeveer ${pages} pagina's: omslag, de route, en per dag je notitie met de foto's van die dag.`
+          ? `Een PDF van ${pages} pagina's: omslag, de route, per dag je notitie met de foto's van die dag, en een kaartje bij elke verplaatsing.`
           : 'Zodra deze reis foto’s heeft, kun je er een boek van maken.'}
       </p>
 
@@ -76,30 +84,19 @@ export function PhotoBook({
         </div>
       ) : (
         <div className="photo-book-actions">
-          <button className="btn btn-primary" disabled={pages === 0} onClick={() => void make('light')}>
-            <Icon name="download" size={15} /> Licht
+          {/* Snel is 120 dpi, Print 150 — a long book is a lot of drawing, and
+              most of them are read on a screen. */}
+          <button className="btn btn-primary" disabled={pages === 0} onClick={() => void make(120)}>
+            <Icon name="download" size={15} /> Snel
           </button>
-          <button className="btn btn-ghost" disabled={pages === 0} onClick={() => void make('dark')}>
-            <Icon name="download" size={15} /> Donker
+          <button className="btn btn-ghost" disabled={pages === 0} onClick={() => void make(150)}>
+            <Icon name="download" size={15} /> Print
           </button>
         </div>
       )}
       {note && <p className="muted photo-book-note">{note}</p>}
     </section>
   );
-}
-
-/** Cover, route, then each day split into pages of six. Mirrors photobook.ts. */
-function countPages(media: MediaItem[]): number {
-  if (media.length === 0) return 0;
-  const perDay = new Map<string, number>();
-  for (const item of media) {
-    const day = item.takenAt.slice(0, 10);
-    perDay.set(day, (perDay.get(day) ?? 0) + 1);
-  }
-  let pages = 2;
-  for (const count of perDay.values()) pages += Math.max(1, Math.ceil(count / 6));
-  return pages;
 }
 
 function slug(text: string): string {

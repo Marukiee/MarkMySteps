@@ -6,8 +6,21 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  animation: fastScrollIn 0.18s var(--ease);
-  transition: opacity 0.24s var(--ease);
+  animation: fastScrollIn 0.2s var(--ease);
+}
+
+/* It leaves the way it came in, sideways, rather than blinking out from
+   under your thumb. */
+.fast-scroll.closing {
+  animation: fastScrollOut 0.22s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes fastScrollOut {
+  to {
+    opacity: 0;
+    transform: translateX(14px);
+  }
 }
 
 @keyframes fastScrollIn {

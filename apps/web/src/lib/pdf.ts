@@ -14,10 +14,8 @@ export interface PdfPage {
   height: number;
 }
 
-/** PDF units are 1/72 inch; pages are rendered at 150 dpi. */
-const DPI = 150;
-
-export function buildPdf(pages: PdfPage[], title: string): Blob {
+/** PDF units are 1/72 inch; the pages say what resolution they were drawn at. */
+export function buildPdf(pages: PdfPage[], title: string, dpi = 150): Blob {
   const encoder = new TextEncoder();
   const chunks: Uint8Array[] = [];
   const offsets: number[] = [];
@@ -57,8 +55,8 @@ export function buildPdf(pages: PdfPage[], title: string): Blob {
     const pageId = pageIds[index]!;
     const imageId = pageId + 1;
     const contentId = pageId + 2;
-    const w = (page.width / DPI) * 72;
-    const h = (page.height / DPI) * 72;
+    const w = (page.width / dpi) * 72;
+    const h = (page.height / dpi) * 72;
 
     startObject(pageId);
     push(

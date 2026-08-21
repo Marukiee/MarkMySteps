@@ -133,6 +133,29 @@ export function initStableViewport(): void {
  * its new height and then centring the field in what's left is the only way to
  * land in the right place.
  */
+/**
+ * How much of the screen the on-screen keyboard is covering, as `--kb-inset`.
+ *
+ * Android does not agree with itself about what a keyboard does to a page: on
+ * some builds the layout viewport shrinks (fixed things land above the keys),
+ * on others it does not (fixed things stay behind them). Reading the visual
+ * viewport gives the same answer either way, and a sheet that pads itself by
+ * this much keeps its content reachable while its background still runs to the
+ * bottom edge of the screen — no rounded corner floating above the keys.
+ */
+export function initKeyboardInset(): void {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const apply = () => {
+    const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    // Under about 90px it is a browser bar, not a keyboard.
+    document.documentElement.style.setProperty('--kb-inset', covered > 90 ? `${covered}px` : '0px');
+  };
+  apply();
+  vv.addEventListener('resize', apply);
+  vv.addEventListener('scroll', apply);
+}
+
 export function initKeyboardScroll(): void {
   let target: HTMLElement | null = null;
   let timer = 0;

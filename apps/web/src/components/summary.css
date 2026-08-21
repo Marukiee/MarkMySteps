@@ -287,11 +287,13 @@
   display: grid;
   gap: 0.9rem;
   width: min(560px, 100%);
-  max-height: 94vh;
+  max-height: 94dvh;
   overflow-y: auto;
   overscroll-behavior: none;
-  padding: 1.1rem 1.15rem calc(1.4rem + env(safe-area-inset-bottom));
+  padding: 1.1rem 1.15rem calc(1.4rem + env(safe-area-inset-bottom) + var(--kb-inset, 0px));
   border-radius: var(--radius-l) var(--radius-l) 0 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
   animation: sheetUp 0.28s var(--ease);
 }
 
@@ -1014,9 +1016,11 @@
   grid-template-rows: auto minmax(0, 1fr);
   gap: 0.6rem;
   width: min(520px, 100%);
-  max-height: 76vh;
-  padding: 0.9rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  max-height: 76dvh;
+  padding: 0.9rem 1rem calc(1rem + env(safe-area-inset-bottom) + var(--kb-inset, 0px));
   border-radius: var(--radius-l) var(--radius-l) 0 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
   animation: sheetUp 0.26s var(--ease);
 }
 
