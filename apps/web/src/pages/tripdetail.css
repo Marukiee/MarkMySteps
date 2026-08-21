@@ -76,7 +76,9 @@
     margin-top: calc(var(--vh-stable, 100vh) * 0.55);
     min-height: var(--vh-stable, 100vh);
     background: var(--paper);
-    padding: 0.2rem 1.15rem calc(96px + env(safe-area-inset-bottom));
+    /* Narrow gutters: on a phone every millimetre spent on empty paper here is
+       a millimetre of photo. */
+    padding: 0.2rem 0.7rem calc(96px + env(safe-area-inset-bottom));
     /* This box IS the width of the screen, so it is the right place to stop a
        swiped card — anything narrower cut it off early. Clip, not hidden: no
        scrollbar, and the vertical axis stays visible for the sticky map. */

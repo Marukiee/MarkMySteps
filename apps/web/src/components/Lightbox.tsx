@@ -547,11 +547,27 @@ export function Lightbox({
                 alt=""
                 className="lightbox-img"
                 decoding="async"
+                // The grid's thumbnail is already in the browser's cache, so it
+                // paints behind the preview the instant this element exists and
+                // the frame is never empty while the big one comes down.
+                style={{
+                  backgroundImage: `url("${srcFor(item, 'thumbnail')}")`,
+                  backgroundSize: 'contain',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                }}
+                // Known shape → the frame is the right size before any pixels
+                // land, so nothing jumps when they do.
+                width={item.width ?? undefined}
+                height={item.height ?? undefined}
               />
             ) : (
               <AuthImage
                 key={item.id}
                 path={`/media/${item.id}/thumbnail`}
+                // What the grid you tapped in already has in hand.
+                lowResPath={`/media/${item.id}/thumbnail?size=thumbnail`}
+                eager
                 alt=""
                 className="lightbox-img"
               />

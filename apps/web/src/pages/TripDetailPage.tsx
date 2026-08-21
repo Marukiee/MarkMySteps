@@ -129,6 +129,11 @@ export function TripDetailPage() {
       // past would each pull the camera to themselves and the map would end up
       // wherever the scroll happened to finish.
       if (!api || suppressFocus.current > Date.now()) return;
+      // The top of the page belongs to the whole trip. Scrolling back up
+      // resets the camera to it, and this used to immediately steal it back
+      // for whichever photos happened to be under the fold — visible now that
+      // the justified rows fit far more of the timeline on one screen.
+      if (el.scrollTop < 40) return;
       // On a phone the map covers the top of the screen; on desktop it's a
       // separate column, so the whole viewport height counts.
       const mapBottom = window.matchMedia('(max-width: 900px)').matches

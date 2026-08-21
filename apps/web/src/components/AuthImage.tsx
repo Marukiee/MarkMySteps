@@ -60,6 +60,11 @@ export function preloadImage(path: string): void {
     .catch(() => undefined);
 }
 
+/** Whichever of the two resolutions is already cached, full size first. */
+function bestCached(path: string, lowResPath?: string): string | undefined {
+  return cache.get(path) ?? (lowResPath !== undefined ? cache.get(lowResPath) : undefined);
+}
+
 /** Drop a cached image so the next render refetches it (e.g. after an avatar
  *  upload replaces the same URL). */
 export function evictImage(path: string): void {
@@ -71,30 +76,54 @@ export function evictImage(path: string): void {
  * <img> that loads through the authorized thumbnail proxy — but only once
  * it scrolls near the viewport (IntersectionObserver), so photo-heavy
  * timelines don't fire hundreds of fetches up front.
+ *
+ * `lowResPath` is a smaller version of the same picture that some other part of
+ * the app has already loaded. If it is in the cache it goes on screen at once
+ * and the full-size one replaces it in place when it arrives. That is how the
+ * viewer opens on the photo you tapped instead of on a grey rectangle: the grid
+ * you tapped it in was holding the small one all along.
+ *
+ * `eager` skips the visibility check, for somewhere the image is on screen by
+ * definition — waiting for an observer callback there is a frame wasted.
  */
 export function AuthImage({
   path,
+  lowResPath,
+  eager = false,
   alt,
   className,
   style,
 }: {
   path: string;
+  lowResPath?: string;
+  eager?: boolean;
   alt: string;
   className?: string;
   style?: CSSProperties;
 }) {
   const [src, setSrc] = useState<string | undefined>(cache.get(path));
-  const [visible, setVisible] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  // Visible enough to fetch: told so, or already painting the small version —
+  // in that case there is no placeholder left for the observer to watch, and
+  // waiting on it would mean the full-size one never gets asked for at all.
+  const [visible, setVisible] = useState(() => eager || bestCached(path, lowResPath) !== undefined);
+  // Something already in hand is not something to fade in: it is on screen the
+  // moment this element is, and the entrance animation over it should show the
+  // picture moving, not a blank rectangle counting down. Starting at "not
+  // loaded" is what made the viewer look like it had lost its animation.
+  const [loaded, setLoaded] = useState(() => bestCached(path, lowResPath) !== undefined);
   const placeholderRef = useRef<HTMLDivElement>(null);
+  // Read at render: whatever is cached right now, or nothing.
+  const lowRes = lowResPath !== undefined ? cache.get(lowResPath) : undefined;
+  const shown = src ?? lowRes;
 
   // When the path prop changes (e.g. lightbox navigation), swap to the new
   // image instead of keeping the previous one on screen.
   useEffect(() => {
     touch(path);
     setSrc(cache.get(path));
-    setLoaded(false);
-  }, [path]);
+    setVisible(eager || bestCached(path, lowResPath) !== undefined);
+    setLoaded(bestCached(path, lowResPath) !== undefined);
+  }, [path, lowResPath, eager]);
 
   // Claim the path while this image is mounted, so the cache never revokes a
   // blob that something is still displaying.
@@ -108,7 +137,7 @@ export function AuthImage({
   }, [path]);
 
   useEffect(() => {
-    if (src || !placeholderRef.current) return;
+    if (src || eager || !placeholderRef.current) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) {
@@ -120,7 +149,7 @@ export function AuthImage({
     );
     observer.observe(placeholderRef.current);
     return () => observer.disconnect();
-  }, [src]);
+  }, [src, eager]);
 
   useEffect(() => {
     if (!visible || src) return;
@@ -141,7 +170,7 @@ export function AuthImage({
     };
   }, [visible, path, src]);
 
-  if (!src) {
+  if (!shown) {
     return (
       <div
         ref={placeholderRef}
@@ -155,16 +184,20 @@ export function AuthImage({
   // A cached object URL can already be complete before onLoad ever fires, which
   // would leave the image stuck at opacity 0 — so also flip `loaded` via a ref
   // callback the moment the element is complete.
+  //
+  // One element for both resolutions: swapping `src` on the SAME <img> is what
+  // lets the small one hold the frame while the big one decodes, with no second
+  // mount and so no second entrance animation.
   return (
     <img
       ref={(el) => {
         if (el?.complete && el.naturalWidth > 0 && !loaded) setLoaded(true);
       }}
-      src={src}
+      src={shown}
       alt={alt}
       className={`${className ?? ''} auth-img ${loaded ? 'loaded' : ''}`}
       style={style}
-      loading="lazy"
+      loading={eager ? 'eager' : 'lazy'}
       onLoad={() => setLoaded(true)}
       onError={() => setLoaded(true)}
     />

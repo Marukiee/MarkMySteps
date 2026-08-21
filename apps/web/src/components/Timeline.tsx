@@ -91,6 +91,19 @@ export function Timeline({
     return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [media, visibleUsers, notes]);
 
+  // A colour dot per photo says whose it is. With one contributor it says the
+  // same thing on every photo, so it says nothing — the trip can have five
+  // members and still only one of them ever pointed a camera.
+  const manyOwners = useMemo(() => {
+    const owners = new Set<string>();
+    for (const item of media) {
+      if (!visibleUsers.has(item.userId)) continue;
+      owners.add(item.userId);
+      if (owners.size > 1) return true;
+    }
+    return false;
+  }, [media, visibleUsers]);
+
   const notesByDay = useMemo(() => {
     const map = new Map<string, TripNote[]>();
     for (const note of notes) {
@@ -171,7 +184,7 @@ export function Timeline({
                   alt=""
                   className="timeline-img"
                 />
-                {showOwner && (
+                {showOwner && manyOwners && (
                   <span
                     className="timeline-owner"
                     style={{ background: colorForUser(item.userId) }}

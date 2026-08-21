@@ -3,6 +3,11 @@
   gap: 1.5rem;
   position: relative;
   padding-left: 0;
+  /* Grid items are min-width:auto by default, so anything inside that overflows
+     widens the track — and the photo rows are solved against that track's
+     width. Left alone, one pixel of overflow feeds back into a wider row and
+     then a wider track. */
+  min-width: 0;
 }
 
 .timeline::before {
@@ -21,6 +26,7 @@
   position: relative;
   display: grid;
   gap: 0.65rem;
+  min-width: 0;
   animation: rise 0.4s var(--ease) backwards;
 }
 
@@ -104,7 +110,7 @@
   /* Rows are solved in JS (see PhotoGrid) — the layout lives there, this only
      keeps it clear of the timeline rail.
      Hard against the rail: every millimetre here is a millimetre of photo. */
-  margin-left: 1.15rem;
+  margin-left: 0.9rem;
 }
 
 .timeline-photo {

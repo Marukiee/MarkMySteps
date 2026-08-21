@@ -4,9 +4,12 @@
   flex-direction: column;
   gap: 6px;
   /* The rows are solved against this element's own width, so it must not be
-     allowed to grow to fit its contents. */
+     allowed to grow to fit its contents.
+     No `width: 100%`: callers indent this box with a margin, and 100% of the
+     container PLUS that margin is exactly one margin too wide — which is why
+     every row used to run off the right edge. A block box already fills what
+     is left over. */
   min-width: 0;
-  width: 100%;
 }
 
 .photo-grid-row {
