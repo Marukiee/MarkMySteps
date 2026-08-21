@@ -16,7 +16,7 @@ import { mediaSrc } from '../lib/gallery';
 import { reversePlaceName } from '../lib/geocode';
 import { isNativeApp, openExternal } from '../lib/native';
 import { AuthImage, preloadImage } from './AuthImage';
-import { Icon } from './Icon';
+import { Icon, IconName } from './Icon';
 import './lightbox.css';
 
 /** How the photo is currently framed: a scale plus a translation in CSS pixels. */
@@ -69,6 +69,7 @@ export function Lightbox({
   const isPublic = Boolean(srcFor);
   const [immichUrl, setImmichUrl] = useState<string | null>(null);
   const [coverSaved, setCoverSaved] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const [place, setPlace] = useState<string | null>(null);
@@ -162,6 +163,7 @@ export function Lightbox({
   useEffect(() => {
     setEased(false);
     setView(FIT);
+    setMenuOpen(false);
     gesture.current.mode = 'none';
   }, [index]);
 
@@ -296,6 +298,22 @@ export function Lightbox({
   if (!item) return null;
   const isOwn = !isPublic && item.userId === user?.id;
   const onDevice = isDeviceMediaId(item.id);
+
+  const actions: { label: string; icon: IconName; run: () => void }[] = [];
+  if (coverTripId && !onDevice) {
+    actions.push({
+      label: coverSaved ? 'Cover ingesteld' : 'Als cover',
+      icon: coverSaved ? 'check' : 'camera',
+      run: () => void setAsCover(),
+    });
+  }
+  if (isOwn && immichUrl && !onDevice) {
+    actions.push({
+      label: 'Openen in Immich',
+      icon: 'external',
+      run: () => openExternal(`${immichUrl}/photos/${item.immichAssetId}`),
+    });
+  }
 
   /**
    * One handler for everything a finger can mean on a photo.
@@ -494,7 +512,9 @@ export function Lightbox({
   return createPortal(
     <div
       className={`lightbox ${closing ? 'closing' : ''}`}
-      onClick={close}
+      // With the menu open, a tap outside it means "never mind" — not "close
+      // the photo I was about to act on".
+      onClick={() => (menuOpen ? setMenuOpen(false) : close())}
       role="dialog"
       aria-modal="true"
     >
@@ -508,6 +528,38 @@ export function Lightbox({
           </span>
         )}
       </div>
+
+      {/* A photo the server has never seen cannot be its cover, and there is
+          nothing in Immich to open — with neither, there is no menu. */}
+      {actions.length > 0 && (
+        <div className="lightbox-menu" onClick={(e) => e.stopPropagation()}>
+          <button
+            className="lightbox-menu-btn"
+            aria-label="Meer"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <Icon name="dots" size={20} />
+          </button>
+          {menuOpen && (
+            <div className="lightbox-menu-list" role="menu">
+              {actions.map((action) => (
+                <button
+                  key={action.label}
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    action.run();
+                  }}
+                >
+                  <Icon name={action.icon} size={16} />
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <button className="lightbox-close" aria-label="Sluiten" onClick={close}>
         <Icon name="close" size={22} />
@@ -590,31 +642,16 @@ export function Lightbox({
             </button>
           )}
         </div>
+        {/* Nothing but the counter down here now. The two action buttons used
+            to live on this line, which is as wide as the photo above it and
+            therefore a different width for every photo — they walked around
+            the screen as you paged, and on a tall photo they sat inside the
+            frame's own drop shadow. They are in the menu at the top instead,
+            which is in the same place whatever you are looking at. */}
         <figcaption className="lightbox-bar">
           <span className="lightbox-count">
             {index + 1} / {items.length}
           </span>
-          {/* A photo the server has never seen cannot be its cover, and there
-              is nothing in Immich to open. */}
-          {coverTripId && !onDevice && (
-            <button className="btn btn-ghost lightbox-cover" onClick={() => void setAsCover()}>
-              {coverSaved ? (
-                <>
-                  <Icon name="check" size={15} /> Cover ingesteld
-                </>
-              ) : (
-                'Als cover'
-              )}
-            </button>
-          )}
-          {isOwn && immichUrl && !onDevice && (
-            <button
-              className="btn btn-primary lightbox-immich"
-              onClick={() => openExternal(`${immichUrl}/photos/${item.immichAssetId}`)}
-            >
-              Openen in Immich <Icon name="external" size={15} />
-            </button>
-          )}
         </figcaption>
       </figure>
     </div>,

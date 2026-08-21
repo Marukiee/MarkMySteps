@@ -26,11 +26,30 @@ const MAX_RATIO = 2.6;
  *  which is what the grid used to be for everything. */
 const FALLBACK_RATIO = 1;
 
+/**
+ * How much wider one photo in a row may be laid out than the narrowest one in
+ * that same row, per unit of height.
+ *
+ * A landscape shot next to two portraits is naturally twice their width, and it
+ * takes the row over: the portraits end up thin and the row reads lopsided.
+ * Held to this, the wide one gives some width back and is cropped to fit — the
+ * photos are `object-fit: cover`, so the trim comes off its sides — and the two
+ * either side of it come out equal and centred.
+ */
+const ROW_SPREAD = 1.6;
+
 const ratioOf = (item: PhotoGridItem): number => {
   const { width, height } = item;
   if (!width || !height || width <= 0 || height <= 0) return FALLBACK_RATIO;
   return Math.min(MAX_RATIO, Math.max(MIN_RATIO, width / height));
 };
+
+/** The shapes a row is actually laid out with, once its widest is reined in. */
+function rowRatios(row: PhotoGridItem[]): number[] {
+  const raw = row.map(ratioOf);
+  const cap = Math.min(...raw) * ROW_SPREAD;
+  return raw.map((r) => Math.min(r, cap));
+}
 
 /**
  * Justified rows, the way Immich and Google Photos lay a day out: photos keep
@@ -89,7 +108,12 @@ export function PhotoGrid<T extends PhotoGridItem>({
   return (
     <div ref={hostRef} className={`photo-grid ${className ?? ''}`}>
       {rows.map((row, i) => {
-        const exact = heightFor(sumRatios(row), row.length, width);
+        const ratios = rowRatios(row);
+        const exact = heightFor(
+          ratios.reduce((sum, r) => sum + r, 0),
+          row.length,
+          width,
+        );
         // A last row of one or two photos would be blown up to fill the width
         // on its own, dwarfing everything above it. Capped, it keeps its shape
         // and simply stops short of the right edge.
@@ -97,8 +121,8 @@ export function PhotoGrid<T extends PhotoGridItem>({
         const stretched = height >= exact - 0.5;
         return (
           <div className="photo-grid-row" key={row[0]?.id ?? i} style={{ height }}>
-            {row.map((item) => {
-              const ratio = ratioOf(item);
+            {row.map((item, j) => {
+              const ratio = ratios[j]!;
               return (
                 <div
                   className="photo-grid-cell"
@@ -122,8 +146,6 @@ export function PhotoGrid<T extends PhotoGridItem>({
     </div>
   );
 }
-
-const sumRatios = (row: PhotoGridItem[]) => row.reduce((sum, item) => sum + ratioOf(item), 0);
 
 /**
  * Greedy row packing: keep adding photos while the row, scaled to fill the

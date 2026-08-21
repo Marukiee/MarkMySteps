@@ -83,17 +83,66 @@
   color: rgb(255 255 255 / 0.5);
 }
 
-.lightbox-immich {
-  margin-left: auto;
+/* Actions menu — mirrors the close button on the other side of the top bar, so
+   it is in the same place for every photo instead of tracking the width of the
+   one on screen. */
+.lightbox-menu {
+  position: fixed;
+  top: calc(0.9rem + env(safe-area-inset-top));
+  left: 1rem;
+  z-index: 201;
 }
 
-.lightbox-cover {
-  border-color: rgb(255 255 255 / 0.3);
-  color: rgb(255 255 255 / 0.85);
+.lightbox-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(6px);
+  color: rgb(255 255 255 / 0.9);
 }
 
-.lightbox-cover:hover {
-  background: rgb(255 255 255 / 0.12) !important;
+.lightbox-menu-list {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  min-width: 208px;
+  padding: 0.3rem;
+  display: grid;
+  gap: 2px;
+  border-radius: var(--radius-m);
+  background: rgb(22 26 32 / 0.96);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 34px rgb(0 0 0 / 0.5);
+  animation: lightboxMenuIn 0.16s var(--ease);
+}
+
+@keyframes lightboxMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.lightbox-menu-list button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.65rem;
+  border-radius: var(--radius-s);
+  color: rgb(255 255 255 / 0.9);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.lightbox-menu-list button:hover,
+.lightbox-menu-list button:active {
+  background: rgb(255 255 255 / 0.12);
   color: #fff;
 }
 
@@ -192,22 +241,7 @@
   }
 
   .lightbox-bar {
-    flex-wrap: wrap;
-    gap: 0.5rem 0.7rem;
     font-size: 0.82rem;
-  }
-
-  .lightbox-bar .btn {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.8rem;
-  }
-
-  .lightbox-count {
-    margin-right: auto;
-  }
-
-  .lightbox-immich {
-    margin-left: 0;
   }
 }
 

@@ -1055,7 +1055,9 @@ export function TripDetailPage() {
 
       {/* A trip of three months is a very long timeline; the grip throws it
           around by the day instead of by the flick. */}
-      <FastScroll page={scrollRef} side={sideRef} />
+      {/* The grip labels itself with the day it is over, which it reads off the
+          timeline. On the routeplanner there is no timeline for it to read. */}
+      {tab === 'timeline' && <FastScroll page={scrollRef} side={sideRef} />}
 
       {lightboxIndex !== null && (
         <Lightbox

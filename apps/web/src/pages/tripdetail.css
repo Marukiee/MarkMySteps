@@ -79,7 +79,7 @@
     /* Narrow gutters: on a phone every millimetre spent on empty paper here is
        a millimetre of photo. Published as a variable because the timeline reads
        it back to work out where its rail goes. */
-    --page-pad: 0.6rem;
+    --page-pad: 0.75rem;
     padding: 0.2rem var(--page-pad) calc(96px + env(safe-area-inset-bottom));
     /* This box IS the width of the screen, so it is the right place to stop a
        swiped card — anything narrower cut it off early. Clip, not hidden: no
@@ -448,9 +448,10 @@
 
 .trip-side {
   overflow-y: auto;
-  /* The desktop column is flush left inside its own grid cell. */
-  --page-pad: 0px;
-  padding-right: 0.25rem;
+  /* Same gutter on both sides of the column: the timeline's rail hangs its day
+     dot into the left one, so it cannot be zero. */
+  --page-pad: 0.5rem;
+  padding-inline: var(--page-pad);
   display: flex;
   flex-direction: column;
   gap: 0.6rem;

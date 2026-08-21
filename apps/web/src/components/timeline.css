@@ -10,11 +10,16 @@
   min-width: 0;
 }
 
+/*
+ * The rail runs down the very left edge of this container, which is one page
+ * gutter in from the screen. The photos then start one page gutter to the
+ * right of it. That is what makes the three gaps — screen to rail, rail to
+ * photos, photos to the other edge of the screen — the same width.
+ */
 .timeline::before {
   content: '';
   position: absolute;
-  /* Centred under the day dot, which starts at -1px and is 13px wide. */
-  left: 4.5px;
+  left: 0;
   top: 12px;
   bottom: 12px;
   width: 2px;
@@ -101,7 +106,9 @@
   border: 3px solid var(--paper);
   box-shadow: 0 0 0 2px var(--line);
   z-index: 1;
-  margin-left: -1px;
+  /* Centred on the rail above, which is 2px wide at the container's edge: the
+     dot is 13px, so it has to hang 5.5px out to the left of it. */
+  margin-left: -5.5px;
   /* Line up the dot's centre with the date text, not its top. */
   margin-top: 0.32rem;
 }
@@ -109,15 +116,10 @@
 .timeline-grid {
   /*
    * Rows are solved in JS (see PhotoGrid); this only says where the photos
-   * start, which is what puts the rail exactly halfway between the edge of the
-   * screen and the edge of the first photo.
-   *
-   * The rail's centre sits 5.5px into this container (see ::before and the day
-   * dot), so measured from the screen it is at `--page-pad + 5.5`. Half of the
-   * lane means the photos have to start at twice that: `2*pad + 11`, of which
-   * the page already contributes `pad`.
+   * start: past the 2px rail at the container's edge, plus the same gutter the
+   * page keeps against the screen. See the note on .timeline::before.
    */
-  margin-left: calc(var(--page-pad, 0px) + 11px);
+  margin-left: calc(var(--page-pad, 0px) + 2px);
 }
 
 .timeline-photo {
