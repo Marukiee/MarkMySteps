@@ -43,14 +43,19 @@
   font-weight: 700;
 }
 
-/* Same affordance as the update banner's cross, in this banner's colours. */
+/* The update banner's cross, in this banner's colours — and in the same place:
+   same size, hard against the same 1rem gutter, and centred on the banner
+   rather than hung off the first line of the text. The icon beside the message
+   still starts at the top, which is why only this one opts out of the row's
+   flex-start. */
 .offline-banner-close {
   flex-shrink: 0;
+  align-self: center;
   display: grid;
   place-content: center;
-  width: 30px;
-  height: 30px;
-  margin: -0.25rem -0.4rem -0.25rem auto;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
   border: none;
   border-radius: 50%;
   background: none;
