@@ -337,6 +337,9 @@ export function Lightbox({
    */
   const onTouchStart = (e: ReactTouchEvent) => {
     lastTouch.current = Date.now();
+    // Gone the moment a finger lands, rather than when it lifts: a pinch or a
+    // drag never becomes a click, so it would otherwise stay open underneath.
+    closeMenu();
     setEased(false);
     const g = gesture.current;
     const origin = originOf(view);
@@ -579,7 +582,16 @@ export function Lightbox({
         <Icon name="close" size={22} />
       </button>
 
-      <figure className="lightbox-stage" onClick={(e) => e.stopPropagation()}>
+      {/* The stage swallows clicks so tapping the photo does not dismiss the
+          viewer, which also kept them from reaching the menu. Touching the
+          picture is still "never mind" as far as the menu is concerned. */}
+      <figure
+        className="lightbox-stage"
+        onClick={(e) => {
+          e.stopPropagation();
+          closeMenu();
+        }}
+      >
         <div
           className={`lightbox-imgwrap ${zoomed ? 'zoomed' : ''}`}
           ref={wrapRef}
