@@ -264,10 +264,12 @@ function releaseBlobSlot(): void {
 }
 
 /** Authorized binary fetch → object URL (for Immich thumbnail proxying). */
-/** `/media/<encoded content:// uri>/thumbnail` — how local media is addressed. */
-const LOCAL_MEDIA = /^\/media\/(.+)\/thumbnail$/;
+/** `/media/<encoded content:// uri>/thumbnail` — how local media is addressed.
+ *  The optional query is the rendition the caller wants (`?size=thumbnail`);
+ *  a file on this phone has only one, so it is matched and ignored. */
+const LOCAL_MEDIA = /^\/media\/(.+)\/thumbnail(?:\?.*)?$/;
 /** `/media/device:<encoded content:// uri>/thumbnail` — a file on this phone. */
-const DEVICE_MEDIA = /^\/media\/device:(.+)\/thumbnail$/;
+const DEVICE_MEDIA = /^\/media\/device:(.+)\/thumbnail(?:\?.*)?$/;
 
 export async function fetchBlobUrl(path: string): Promise<string> {
   // A photo the server has never been given: signed in or not, it is on this

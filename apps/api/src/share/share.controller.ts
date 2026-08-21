@@ -212,6 +212,8 @@ export class SharePublicController {
         takenAt: true,
         latitude: true,
         longitude: true,
+        width: true,
+        height: true,
       },
     });
   }
@@ -221,6 +223,10 @@ export class SharePublicController {
    * lets the public page use plain <img src> tags, so the browser handles lazy
    * loading, decoding and its own HTTP cache — fetching every photo as a blob
    * instead is what made the shared trip crawl on a phone.
+   *
+   * The grid gets Immich's small rendition by default; only the viewer asks
+   * for `?size=preview`. Serving the ~1440px preview into a grid meant a page
+   * of two hundred photos pulled tens of megabytes it never showed.
    */
   @Get(':slug/media/:id/thumbnail')
   @Throttle({ default: { ttl: 60_000, limit: 1200 } })
@@ -229,6 +235,7 @@ export class SharePublicController {
     @Param('id', ParseUUIDPipe) id: string,
     @Headers('x-share-token') token: string,
     @Query('t') queryToken: string | undefined,
+    @Query('size') size: string | undefined,
     @Res() res: ExpressResponse,
   ): Promise<void> {
     const session = await this.requireSession(slug, token || queryToken);
@@ -244,11 +251,57 @@ export class SharePublicController {
       credentials.serverUrl,
       credentials.apiKey,
       media.immichAssetId,
+      size === 'preview' ? 'preview' : 'thumbnail',
     );
     res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'image/jpeg');
     // A media id always resolves to the same picture, so the browser can keep
     // it without revalidating — scrolling back up costs nothing.
     res.setHeader('Cache-Control', 'private, max-age=86400, immutable');
+    if (upstream.body) {
+      Readable.fromWeb(upstream.body as NodeReadableStream).pipe(res);
+    } else {
+      res.end();
+    }
+  }
+
+  /**
+   * Video playback for a shared trip, with Range passed through so the
+   * scrubber works. Same authorization as the thumbnails: the link's own
+   * session token, in the query, because a <video> element cannot send
+   * headers. Without this a shared video was a still frame you could not play.
+   */
+  @Get(':slug/media/:id/video')
+  @Throttle({ default: { ttl: 60_000, limit: 240 } })
+  async video(
+    @Param('slug') slug: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('x-share-token') token: string,
+    @Query('t') queryToken: string | undefined,
+    @Headers('range') range: string | undefined,
+    @Res() res: ExpressResponse,
+  ): Promise<void> {
+    const session = await this.requireSession(slug, token || queryToken);
+    const media = await this.prisma.mediaRef.findFirst({
+      where: { id, tripId: session.tripId },
+    });
+    if (!media) throw new NotFoundException('Media not found');
+
+    const credentials = await this.connections.getCredentials(media.userId);
+    if (!credentials) throw new NotFoundException('Media unavailable');
+
+    const upstream = await this.immich.fetchVideo(
+      credentials.serverUrl,
+      credentials.apiKey,
+      media.immichAssetId,
+      range,
+    );
+
+    res.status(upstream.status);
+    for (const header of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
+      const value = upstream.headers.get(header);
+      if (value) res.setHeader(header, value);
+    }
+    res.setHeader('Cache-Control', 'private, no-store');
     if (upstream.body) {
       Readable.fromWeb(upstream.body as NodeReadableStream).pipe(res);
     } else {

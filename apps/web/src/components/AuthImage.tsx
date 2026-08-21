@@ -1,15 +1,70 @@
 import { CSSProperties, useEffect, useRef, useState } from 'react';
 import { fetchBlobUrl } from '../api/client';
 
-// Object-URL cache so re-renders and repeated thumbnails don't refetch.
+/**
+ * Object-URL cache so re-renders and repeated thumbnails don't refetch.
+ *
+ * Bounded, because an object URL pins its blob in memory until it is revoked:
+ * a trip of two thousand photos used to end the day holding every one of them
+ * at once, and the tab it was scrolled in got slower the further you went.
+ * Insertion order is the eviction order, and a path that is on screen right
+ * now is never thrown away underneath the <img> that is showing it.
+ */
 const cache = new Map<string, string>();
+/** How many mounted images are currently pointing at each path. */
+const inUse = new Map<string, number>();
+const MAX_CACHED = 300;
+
+function remember(path: string, url: string): void {
+  cache.set(path, url);
+  prune();
+}
+
+/** Move a hit to the back of the queue, so what you keep looking at stays. */
+function touch(path: string): void {
+  const url = cache.get(path);
+  if (url === undefined) return;
+  cache.delete(path);
+  cache.set(path, url);
+}
+
+function prune(): void {
+  for (const [path, url] of cache) {
+    if (cache.size <= MAX_CACHED) return;
+    if ((inUse.get(path) ?? 0) > 0) continue; // on screen — leave it alone
+    release(path, url);
+  }
+}
+
+function release(path: string, url: string): void {
+  // Local and on-device photos are addressed directly, not through a blob;
+  // there is nothing to revoke and the URL stays valid forever.
+  if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+  cache.delete(path);
+}
+
+/**
+ * Warm the cache for an image that is about to be needed.
+ *
+ * The viewer uses it on the photos either side of the one on screen, so paging
+ * lands on a picture that is already there instead of a placeholder. Failures
+ * are ignored: this is a guess about what you will look at next.
+ */
+export function preloadImage(path: string): void {
+  if (cache.has(path)) {
+    touch(path);
+    return;
+  }
+  void fetchBlobUrl(path)
+    .then((url) => remember(path, url))
+    .catch(() => undefined);
+}
 
 /** Drop a cached image so the next render refetches it (e.g. after an avatar
  *  upload replaces the same URL). */
 export function evictImage(path: string): void {
   const url = cache.get(path);
-  if (url) URL.revokeObjectURL(url);
-  cache.delete(path);
+  if (url !== undefined) release(path, url);
 }
 
 /**
@@ -36,8 +91,20 @@ export function AuthImage({
   // When the path prop changes (e.g. lightbox navigation), swap to the new
   // image instead of keeping the previous one on screen.
   useEffect(() => {
+    touch(path);
     setSrc(cache.get(path));
     setLoaded(false);
+  }, [path]);
+
+  // Claim the path while this image is mounted, so the cache never revokes a
+  // blob that something is still displaying.
+  useEffect(() => {
+    inUse.set(path, (inUse.get(path) ?? 0) + 1);
+    return () => {
+      const next = (inUse.get(path) ?? 1) - 1;
+      if (next > 0) inUse.set(path, next);
+      else inUse.delete(path);
+    };
   }, [path]);
 
   useEffect(() => {
@@ -58,13 +125,14 @@ export function AuthImage({
   useEffect(() => {
     if (!visible || src) return;
     if (cache.has(path)) {
+      touch(path);
       setSrc(cache.get(path));
       return;
     }
     let cancelled = false;
     fetchBlobUrl(path)
       .then((url) => {
-        cache.set(path, url);
+        remember(path, url);
         if (!cancelled) setSrc(url);
       })
       .catch(() => undefined);

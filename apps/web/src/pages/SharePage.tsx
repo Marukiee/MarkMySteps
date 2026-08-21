@@ -1,15 +1,15 @@
 import maplibregl, { LngLatBounds, Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import type { TouchEvent as ReactTouchEvent } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import type { MediaItem, RouteCollection } from '../api/types';
 import { trimOutlierEnds } from '../lib/arc';
 import { colorForUser, formatDay } from '../lib/colors';
-import { reversePlaceName } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
 import { Icon } from '../components/Icon';
+import { Lightbox } from '../components/Lightbox';
 import { LogoMark } from '../components/Logo';
+import { PhotoGrid } from '../components/PhotoGrid';
 import { TripFacts } from '../components/TripFacts';
 import { WeatherBadge } from '../components/WeatherBadge';
 import { resolveFacts } from '../lib/tripFacts';
@@ -156,12 +156,24 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
+  // Keyed by cluster cell so a redraw can keep the markers that did not move.
+  const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
 
   // Thumbnails go through plain <img> tags: the token rides along as a query
   // parameter so the browser can lazy-load and cache them itself.
-  const thumb = (id: string) =>
-    `/api/share/${slug}/media/${id}/thumbnail?t=${encodeURIComponent(token)}`;
+  //
+  // The grid asks for the small rendition. It used to take the ~1440px preview
+  // of every photo and paint it into a 100px box, which is why a trip with a
+  // few hundred pictures took an age to settle and stuttered while it did.
+  const thumb = useCallback(
+    (id: string, size: 'thumbnail' | 'preview' = 'thumbnail') =>
+      `/api/share/${slug}/media/${id}/thumbnail?size=${size}&t=${encodeURIComponent(token)}`,
+    [slug, token],
+  );
+  const videoSrc = useCallback(
+    (id: string) => `/api/share/${slug}/media/${id}/video?t=${encodeURIComponent(token)}`,
+    [slug, token],
+  );
 
   // Stable chronological order — the timeline and the viewer share these indices.
   const orderedMedia = useMemo(
@@ -173,6 +185,14 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     orderedMedia.forEach((m, i) => map.set(m.id, i));
     return map;
   }, [orderedMedia]);
+
+  // The viewer is the app's, and it takes app media. A share link deliberately
+  // never learns the Immich asset ids behind the photos, and it has no use for
+  // them either: the field is there to be shaped like a MediaItem.
+  const lightboxItems = useMemo<MediaItem[]>(
+    () => orderedMedia.map((m) => ({ ...m, immichAssetId: '' })),
+    [orderedMedia],
+  );
 
   useEffect(() => {
     const get = <T,>(path: string): Promise<T> =>
@@ -228,24 +248,54 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
   // Photo markers, clustered per zoom level exactly like the app's map. Placing
   // one marker per photo piles hundreds of DOM nodes (and their shadows) on top
   // of each other, which is both unreadable and slow on a phone.
+  //
+  // Markers are kept between redraws and keyed by their cluster cell. Rebuilding
+  // the whole set on every zoom meant every visible thumbnail was requested
+  // again, mid-gesture, which is what made panning and zooming stutter.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const live = markersRef.current;
+    // A fresh set of photos invalidates every cell: drop what is there rather
+    // than leaving a marker showing a picture that is no longer its cluster's.
+    for (const marker of live.values()) marker.remove();
+    live.clear();
 
     const draw = () => {
-      for (const m of markersRef.current) m.remove();
-      markersRef.current = [];
-
       const withGps = orderedMedia.filter((m) => m.latitude !== null && m.longitude !== null);
-      const zoom = map.getZoom();
-      const cell = 40 / 2 ** zoom; // degrees per cluster cell
+      // The LEVEL is rounded, so the grid only changes on a real step of zoom.
+      const level = Math.round(map.getZoom());
+      const cell = 40 / 2 ** level;
+
+      // Only what is on screen, plus a screen's worth of margin so a pan does
+      // not arrive at empty map. Zoomed into one city, this is the difference
+      // between forty markers and two thousand.
+      const view = map.getBounds();
+      const padLng = (view.getEast() - view.getWest()) / 2;
+      const padLat = (view.getNorth() - view.getSouth()) / 2;
+      const inView = (lat: number, lon: number) =>
+        lon >= view.getWest() - padLng &&
+        lon <= view.getEast() + padLng &&
+        lat >= view.getSouth() - padLat &&
+        lat <= view.getNorth() + padLat;
+
       const clusters = new Map<string, SharedMedia[]>();
       for (const item of withGps) {
+        if (!inView(item.latitude!, item.longitude!)) continue;
         const key = `${Math.round(item.latitude! / cell)}:${Math.round(item.longitude! / cell)}`;
-        clusters.set(key, [...(clusters.get(key) ?? []), item]);
+        const list = clusters.get(key) ?? [];
+        list.push(item);
+        clusters.set(key, list);
       }
 
-      for (const items of clusters.values()) {
+      for (const [key, marker] of live) {
+        if (clusters.has(key)) continue;
+        marker.remove();
+        live.delete(key);
+      }
+
+      for (const [key, items] of clusters) {
+        if (live.has(key)) continue;
         const rep = items[0]!;
         const el = document.createElement('div');
         el.className = 'photo-marker';
@@ -263,26 +313,42 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
           if (items.length > 1) {
             map.easeTo({
               center: [rep.longitude!, rep.latitude!],
-              zoom: Math.min(zoom + 2.5, 16),
+              zoom: Math.min(map.getZoom() + 2.5, 16),
             });
           } else {
             setLightboxIndex(indexOf.get(rep.id) ?? 0);
           }
         });
-        markersRef.current.push(
+        live.set(
+          key,
           new maplibregl.Marker({ element: el }).setLngLat([rep.longitude!, rep.latitude!]).addTo(map),
         );
       }
     };
 
+    // Redraws land on a frame of their own, and never more than one per frame:
+    // moveend after a fling fires alongside zoomend, and doing the work twice
+    // in the same tick is a visible hitch.
+    let frame = 0;
+    const schedule = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        draw();
+      });
+    };
+
     if (map.isStyleLoaded()) draw();
     else map.once('load', draw);
-    map.on('zoomend', draw);
+    map.on('moveend', schedule);
+    map.on('zoomend', schedule);
     return () => {
-      map.off('zoomend', draw);
+      map.off('moveend', schedule);
+      map.off('zoomend', schedule);
+      cancelAnimationFrame(frame);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderedMedia, indexOf, slug, token]);
+  }, [orderedMedia, indexOf, thumb]);
 
   // One section per day, exactly like the app's timeline: the date, the places
   // that day touched (day trips included), the weather, then the photos. The
@@ -334,10 +400,13 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       <div className={`share-headcard ${trip?.resolvedCoverId ? 'has-cover' : ''}`}>
         {trip?.resolvedCoverId && (
           <img
-            src={thumb(trip.resolvedCoverId)}
+            // The cover fills the top of the page, so this one wants the big
+            // rendition — everything else on the page takes the small one.
+            src={thumb(trip.resolvedCoverId, 'preview')}
             alt=""
             className="share-headcard-img"
             decoding="async"
+            fetchPriority="high"
           />
         )}
         <div className="share-headcard-body">
@@ -401,10 +470,11 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                     )}
                   </span>
                 </h3>
-                <div className="timeline-grid">
-                  {entry.items.map((item) => (
+                {/* Justified rows, same as the app: each photo keeps its own
+                    shape instead of being cropped into a square. */}
+                <PhotoGrid items={entry.items} className="timeline-grid">
+                  {(item) => (
                     <figure
-                      key={item.id}
                       className="timeline-photo"
                       role="button"
                       onClick={() => setLightboxIndex(indexOf.get(item.id) ?? 0)}
@@ -415,6 +485,10 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                         className="timeline-img"
                         loading="lazy"
                         decoding="async"
+                        // The shapes are already known, so the browser can size
+                        // and decode without waiting for the header bytes.
+                        width={item.width ?? undefined}
+                        height={item.height ?? undefined}
                         onLoad={(e) => e.currentTarget.setAttribute('data-loaded', '1')}
                         // A cached image is already complete by the time React
                         // attaches onLoad, and would otherwise stay invisible.
@@ -428,8 +502,8 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                         </span>
                       )}
                     </figure>
-                  ))}
-                </div>
+                  )}
+                </PhotoGrid>
               </section>
             ))}
           </div>
@@ -440,143 +514,19 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
         Gedeeld met <LogoMark size={18} /> <strong>MarkMySteps</strong>
       </footer>
 
-      {lightboxIndex !== null && orderedMedia[lightboxIndex] && (
-        <ShareLightbox
-          items={orderedMedia}
+      {/* The app's viewer, not a second one that merely looked like it: the
+          same pinch, double-tap and drag zoom, the same paging and the same
+          swipe to dismiss. It only gets told where the pixels live. */}
+      {lightboxIndex !== null && lightboxItems[lightboxIndex] && (
+        <Lightbox
+          items={lightboxItems}
           index={lightboxIndex}
-          srcFor={thumb}
+          srcFor={(item, size) => thumb(item.id, size)}
+          videoSrcFor={(item) => videoSrc(item.id)}
           onNavigate={setLightboxIndex}
           onClose={() => setLightboxIndex(null)}
         />
       )}
-    </div>
-  );
-}
-
-/** Fullscreen photo viewer for the public share page (prev/next, esc, tap-out). */
-function ShareLightbox({
-  items,
-  index,
-  srcFor,
-  onNavigate,
-  onClose,
-}: {
-  items: SharedMedia[];
-  index: number;
-  srcFor: (id: string) => string;
-  onNavigate: (i: number) => void;
-  onClose: () => void;
-}) {
-  const [closing, setClosing] = useState(false);
-  const [place, setPlace] = useState<string | null>(null);
-  const touchRef = useRef<{ x: number; y: number } | null>(null);
-  const item = items[index]!;
-
-  // Animate out before unmounting, so closing isn't an abrupt cut.
-  const close = () => {
-    setClosing(true);
-    window.setTimeout(onClose, 200);
-  };
-
-  const onTouchStart = (e: ReactTouchEvent) => {
-    const t = e.touches[0]!;
-    touchRef.current = { x: t.clientX, y: t.clientY };
-  };
-  const onTouchEnd = (e: ReactTouchEvent) => {
-    const s = touchRef.current;
-    if (!s) return;
-    touchRef.current = null;
-    const t = e.changedTouches[0]!;
-    const dx = t.clientX - s.x;
-    const dy = t.clientY - s.y;
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx > 0 && index > 0) onNavigate(index - 1);
-      else if (dx < 0 && index < items.length - 1) onNavigate(index + 1);
-    } else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5) {
-      close(); // swipe down to dismiss
-    }
-  };
-
-  // City + country, same as the app's viewer.
-  useEffect(() => {
-    setPlace(null);
-    if (item.latitude == null || item.longitude == null) return;
-    let alive = true;
-    void reversePlaceName(item.latitude, item.longitude).then((name) => alive && setPlace(name));
-    return () => {
-      alive = false;
-    };
-  }, [item.id, item.latitude, item.longitude]);
-
-  // Preload the neighbours so paging through doesn't flash an empty frame.
-  useEffect(() => {
-    for (const i of [index - 1, index + 1]) {
-      const next = items[i];
-      if (next) new Image().src = srcFor(next.id);
-    }
-  }, [index, items, srcFor]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-      if (e.key === 'ArrowLeft' && index > 0) onNavigate(index - 1);
-      if (e.key === 'ArrowRight' && index < items.length - 1) onNavigate(index + 1);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, items.length, onNavigate]);
-
-  return (
-    <div className={`share-lightbox ${closing ? 'closing' : ''}`} onClick={close}>
-      <button className="share-lightbox-close" aria-label="Sluiten" onClick={close}>
-        <Icon name="close" size={22} />
-      </button>
-
-      <figure
-        className="share-lightbox-fig"
-        onClick={(e) => e.stopPropagation()}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        {/* The frame sizes to the image, so a portrait after a landscape eases
-            between shapes instead of snapping. */}
-        <div className="share-lightbox-imgwrap">
-          <img key={item.id} src={srcFor(item.id)} alt="" decoding="async" />
-          {index > 0 && (
-            <button
-              className="share-lightbox-nav share-lightbox-prev"
-              aria-label="Vorige"
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigate(index - 1);
-              }}
-            >
-              <Icon name="chevron-left" size={26} />
-            </button>
-          )}
-          {index < items.length - 1 && (
-            <button
-              className="share-lightbox-nav share-lightbox-next"
-              aria-label="Volgende"
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigate(index + 1);
-              }}
-            >
-              <Icon name="chevron-right" size={26} />
-            </button>
-          )}
-        </div>
-
-        <figcaption className="share-lightbox-caption">
-          <span className="share-lightbox-date">{formatDay(item.takenAt)}</span>
-          {place && <span className="share-lightbox-place">{place}</span>}
-          <span className="share-lightbox-count">
-            {index + 1} / {items.length}
-          </span>
-        </figcaption>
-      </figure>
     </div>
   );
 }

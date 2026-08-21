@@ -101,16 +101,17 @@
 }
 
 .timeline-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 0.5rem;
-  /* Hard against the rail: every millimetre here is a millimetre of photo. */
+  /* Rows are solved in JS (see PhotoGrid) — the layout lives there, this only
+     keeps it clear of the timeline rail.
+     Hard against the rail: every millimetre here is a millimetre of photo. */
   margin-left: 1.15rem;
 }
 
 .timeline-photo {
   position: relative;
-  aspect-ratio: 1;
+  /* Sized by its cell now: the row decides the height, the photo's own shape
+     decides the width. A square crop threw away most of every portrait. */
+  margin: 0;
   border-radius: var(--radius-s);
   overflow: hidden;
   background: var(--paper-sunken);

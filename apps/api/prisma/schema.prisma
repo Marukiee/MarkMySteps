@@ -433,6 +433,11 @@ model MediaRef {
   takenAt       DateTime
   latitude      Float?
   longitude     Float?
+  /// Pixel dimensions after EXIF orientation, so a gallery can lay a photo out
+  /// at its real shape before the bytes arrive. Null for refs synced before
+  /// this was recorded; the next sync fills them in.
+  width         Int?
+  height        Int?
   /// True when the position did not come from the photo's own EXIF but was
   /// worked out from the trip's tracked route by matching capture time.
   geoDerived    Boolean  @default(false)

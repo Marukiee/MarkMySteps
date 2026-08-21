@@ -84,6 +84,10 @@ export async function importDeviceMedia(
       takenAt: new Date(item.takenAt).toISOString(),
       latitude: item.latitude ?? null,
       longitude: item.longitude ?? null,
+      // The gallery already knows the shape, so a phone's own photos lay out in
+      // the justified grid just like the server's do.
+      width: item.width || null,
+      height: item.height || null,
     });
   }
   if (fresh.length > 0) await dbPutMany('media', fresh);

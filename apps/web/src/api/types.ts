@@ -92,6 +92,10 @@ export interface MediaItem {
   takenAt: string;
   latitude: number | null;
   longitude: number | null;
+  /** Displayed pixel size, EXIF orientation applied. Null on older refs and on
+   *  photos that never left the phone; the gallery falls back to a square. */
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface RouteFeature {

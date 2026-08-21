@@ -821,6 +821,10 @@ route('POST', '/trips/:id/sync', async (_req, [id]) => {
       takenAt: new Date(item.takenAt).toISOString(),
       latitude: item.latitude ?? null,
       longitude: item.longitude ?? null,
+      // Shape as the gallery reports it, so the justified grid can lay these
+      // out without first decoding every file.
+      width: item.width || null,
+      height: item.height || null,
     });
   }
   await dbPutMany('media', fresh);

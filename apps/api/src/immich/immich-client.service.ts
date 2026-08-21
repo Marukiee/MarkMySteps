@@ -7,7 +7,20 @@ export interface ImmichAsset {
   takenAt: Date;
   latitude: number | null;
   longitude: number | null;
+  /** Displayed size in pixels (EXIF orientation already applied). */
+  width: number | null;
+  height: number | null;
 }
+
+/**
+ * Which rendition of an asset to serve.
+ *
+ * `thumbnail` is the small square-ish WebP Immich generates for its own grid —
+ * tens of kilobytes. `preview` is the ~1440px JPEG meant for a full-screen
+ * viewer. Handing a grid of two hundred photos the preview of each is what
+ * makes a shared trip crawl.
+ */
+export type ThumbnailSize = 'thumbnail' | 'preview';
 
 interface SearchPageResponse {
   assets: {
@@ -25,8 +38,14 @@ interface RawAsset {
     latitude?: number | null;
     longitude?: number | null;
     dateTimeOriginal?: string | null;
+    exifImageWidth?: number | null;
+    exifImageHeight?: number | null;
+    orientation?: string | number | null;
   };
 }
+
+/** EXIF orientations that turn the image a quarter turn: width and height swap. */
+const ROTATED_ORIENTATIONS = new Set([5, 6, 7, 8]);
 
 const REQUEST_TIMEOUT_MS = 15_000;
 const PAGE_SIZE = 250;
@@ -156,11 +175,16 @@ export class ImmichClientService {
   }
 
   /** Streams a thumbnail; returns the upstream response for piping. */
-  async fetchThumbnail(serverUrl: string, apiKey: string, assetId: string): Promise<Response> {
+  async fetchThumbnail(
+    serverUrl: string,
+    apiKey: string,
+    assetId: string,
+    size: ThumbnailSize = 'preview',
+  ): Promise<Response> {
     return this.request(
       serverUrl,
       apiKey,
-      `/api/assets/${encodeURIComponent(assetId)}/thumbnail?size=preview`,
+      `/api/assets/${encodeURIComponent(assetId)}/thumbnail?size=${size}`,
     );
   }
 
@@ -228,13 +252,31 @@ export class ImmichClientService {
 }
 
 function toAsset(raw: RawAsset): ImmichAsset {
+  const { width, height } = displayedSize(raw.exifInfo);
   return {
     id: raw.id,
     type: raw.type === 'VIDEO' ? 'VIDEO' : 'IMAGE',
     takenAt: new Date(raw.exifInfo?.dateTimeOriginal ?? raw.fileCreatedAt),
     latitude: raw.exifInfo?.latitude ?? null,
     longitude: raw.exifInfo?.longitude ?? null,
+    width,
+    height,
   };
+}
+
+/**
+ * The size the photo is actually seen at.
+ *
+ * EXIF stores the sensor's dimensions plus a flag saying how the camera was
+ * held. A portrait shot off a phone is a landscape file with orientation 6, so
+ * taking the stored numbers at face value lays every portrait out sideways.
+ */
+function displayedSize(exif: RawAsset['exifInfo']): { width: number | null; height: number | null } {
+  const w = exif?.exifImageWidth ?? null;
+  const h = exif?.exifImageHeight ?? null;
+  if (!w || !h || w <= 0 || h <= 0) return { width: null, height: null };
+  const orientation = Number(exif?.orientation ?? 1);
+  return ROTATED_ORIENTATIONS.has(orientation) ? { width: h, height: w } : { width: w, height: h };
 }
 
 function ensureTrailingSlash(url: string): string {

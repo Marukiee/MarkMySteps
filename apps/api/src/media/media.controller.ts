@@ -103,15 +103,20 @@ export class MediaController {
   }
 
   /**
-   * Thumbnail proxy: streams the preview straight from the owner's Immich
+   * Thumbnail proxy: streams the rendition straight from the owner's Immich
    * server using their (decrypted, in-memory) API key. Nothing is written
    * to disk. Higher rate limit — photo grids fire many of these.
+   *
+   * `?size=thumbnail` asks for Immich's small grid rendition instead of the
+   * full-screen preview: a timeline of two hundred photos then costs a few
+   * megabytes rather than a few dozen.
    */
   @Get('media/:id/thumbnail')
   @Throttle({ default: { ttl: 60_000, limit: 600 } })
   async thumbnail(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('size') size: string | undefined,
     @Res() res: ExpressResponse,
   ): Promise<void> {
     const media = await this.media.getForRequester(id, user.sub);
@@ -125,6 +130,7 @@ export class MediaController {
       credentials.serverUrl,
       credentials.apiKey,
       media.immichAssetId,
+      size === 'thumbnail' ? 'thumbnail' : 'preview',
     );
 
     res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'image/jpeg');

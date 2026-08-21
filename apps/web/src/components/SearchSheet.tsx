@@ -275,7 +275,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
                   title={`${photo.tripTitle} · ${photo.takenAt.slice(0, 10)}`}
                   onClick={() => go(`/trips/${photo.tripId}?photo=${photo.id}`)}
                 >
-                  <AuthImage path={`/media/${photo.id}/thumbnail`} alt="" />
+                  <AuthImage path={`/media/${photo.id}/thumbnail?size=thumbnail`} alt="" />
                   {photo.assetType === 'VIDEO' && (
                     <span className="search-photo-play">
                       <Icon name="play" size={14} />

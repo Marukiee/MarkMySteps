@@ -4,6 +4,7 @@ import { colorForUser, formatDay } from '../lib/colors';
 import { AuthImage } from './AuthImage';
 import { DayNote, TripNote } from './DayNote';
 import { Icon } from './Icon';
+import { PhotoGrid } from './PhotoGrid';
 import { WeatherBadge } from './WeatherBadge';
 import './timeline.css';
 import { Flag } from './Flag';
@@ -155,16 +156,21 @@ export function Timeline({
                 onDelete={onDeleteNote}
               />
             )}
-          <div className="timeline-grid">
-            {items.map((item) => (
+          {/* Justified rows rather than a grid of squares: a portrait stays a
+              portrait and a panorama stays wide, the way the photos were taken. */}
+          <PhotoGrid items={items} className="timeline-grid">
+            {(item) => (
               <figure
-                key={item.id}
                 data-media-id={item.id}
                 className="timeline-photo"
                 onClick={() => onPhotoClick?.(item)}
                 role={onPhotoClick ? 'button' : undefined}
               >
-                <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="timeline-img" />
+                <AuthImage
+                  path={`/media/${item.id}/thumbnail?size=thumbnail`}
+                  alt=""
+                  className="timeline-img"
+                />
                 {showOwner && (
                   <span
                     className="timeline-owner"
@@ -177,8 +183,8 @@ export function Timeline({
                   </span>
                 )}
               </figure>
-            ))}
-          </div>
+            )}
+          </PhotoGrid>
         </section>
         );
       })}

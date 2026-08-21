@@ -21,7 +21,12 @@
      shadows, and a wide soft blur turns a cluster into one black blob. */
   box-shadow: 0 1px 3px rgb(8 12 18 / 0.3), 0 0 0 1px rgb(8 12 18 / 0.14);
   cursor: pointer;
-  transition: transform 0.18s var(--ease);
+  /* NOTHING here may transition `transform`. MapLibre positions this very
+     element by writing an inline transform on every frame of a pan or zoom, so
+     a transition on that property makes each marker ease towards where the map
+     already is — a hundred of them lagging a frame behind is the stutter you
+     feel when dragging the map. */
+  transition: box-shadow 0.18s var(--ease), filter 0.18s var(--ease);
   /* Soft fade as clusters split/merge on zoom (opacity only — maplibre drives
      the marker's transform for positioning). */
   animation: markerFade 0.32s var(--ease) backwards;
@@ -49,9 +54,12 @@
   }
 }
 
+/* Highlight without touching `transform` — see above. An inline transform from
+   maplibre outranks a stylesheet rule anyway, so the old scale never ran. */
 .photo-marker:hover {
-  transform: scale(1.35);
-  z-index: 10;
+  filter: brightness(1.08);
+  box-shadow: 0 2px 8px rgb(8 12 18 / 0.4), 0 0 0 3px var(--accent);
+  z-index: 30;
 }
 
 /* A photo is the thing you came to look at, so it sits over the itinerary's
@@ -88,12 +96,13 @@
 
 .waypoint-dot.deletable {
   cursor: pointer;
-  transition: transform 0.15s var(--ease);
+  /* Same rule as the photo markers: maplibre owns this element's transform. */
+  transition: background 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
 
 .waypoint-dot.deletable:hover {
-  transform: scale(1.5);
   background: #b3402a;
+  box-shadow: 0 0 0 4px rgb(179 64 42 / 0.3);
 }
 
 .photo-marker-count {
@@ -138,23 +147,25 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 20px;
-  height: 20px;
-  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
   border-radius: 50%;
   background: rgb(26 115 232 / 0.35);
+  /* A child of the marker, not the marker itself, so it may use transform. It
+     runs forever: growing it by width/height re-laid-out the map's overlay on
+     every frame of every second, all day. Scale is a composite. */
   animation: mePulse 1.8s ease-out infinite;
+  will-change: transform, opacity;
 }
 
 @keyframes mePulse {
   from {
-    width: 18px;
-    height: 18px;
+    transform: scale(1);
     opacity: 0.7;
   }
   to {
-    width: 54px;
-    height: 54px;
+    transform: scale(3);
     opacity: 0;
   }
 }
@@ -178,10 +189,12 @@
   animation: liveMarkerIn 0.4s var(--ease) backwards;
 }
 
+/* Opacity only: this animation runs ON the marker element, and a transform in
+   a keyframe outranks the inline one maplibre positions it with — so the pin
+   used to arrive at the wrong spot and slide over during its entrance. */
 @keyframes liveMarkerIn {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.85);
   }
 }
 

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { TripRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ImmichClientService } from './immich-client.service';
+import { ImmichAsset, ImmichClientService } from './immich-client.service';
 import { ImmichConnectionService } from './immich-connection.service';
 import { ImmichGeotagService } from './immich-geotag.service';
 
@@ -120,12 +120,19 @@ export class ImmichSyncService {
                 takenAt: asset.takenAt,
                 latitude: asset.latitude,
                 longitude: asset.longitude,
+                width: asset.width,
+                height: asset.height,
               },
             ],
             skipDuplicates: true,
           });
           result.assetsAdded += count;
         }
+
+        // Refs that predate dimensions being recorded: fill them in from the
+        // assets we just fetched. Only rows still missing them are touched, so
+        // this costs nothing from the second sync onwards.
+        await this.backfillDimensions(tripId, userId, assets);
 
         // Reconcile: drop references that Immich no longer returns for this
         // range — assets that were archived or deleted since the last sync.
@@ -162,5 +169,37 @@ export class ImmichSyncService {
     }
 
     return result;
+  }
+
+  /**
+   * Writes pixel dimensions onto refs that were synced before we recorded them.
+   *
+   * Without a shape, the gallery cannot lay a photo out until its bytes have
+   * arrived, which is exactly the reflow-per-image jank the justified grid
+   * exists to avoid. One query finds the gaps; only those rows are written.
+   */
+  private async backfillDimensions(
+    tripId: string,
+    userId: string,
+    assets: ImmichAsset[],
+  ): Promise<void> {
+    const sized = new Map(
+      assets.filter((a) => a.width && a.height).map((a) => [a.id, a] as const),
+    );
+    if (sized.size === 0) return;
+
+    const missing = await this.prisma.mediaRef.findMany({
+      where: { tripId, userId, width: null },
+      select: { id: true, immichAssetId: true },
+    });
+
+    for (const ref of missing) {
+      const asset = sized.get(ref.immichAssetId);
+      if (!asset) continue;
+      await this.prisma.mediaRef.update({
+        where: { id: ref.id },
+        data: { width: asset.width, height: asset.height },
+      });
+    }
   }
 }

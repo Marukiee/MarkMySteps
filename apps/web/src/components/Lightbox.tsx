@@ -15,7 +15,7 @@ import { deviceMediaUri, isDeviceMediaId } from '../lib/deviceMedia';
 import { mediaSrc } from '../lib/gallery';
 import { reversePlaceName } from '../lib/geocode';
 import { isNativeApp, openExternal } from '../lib/native';
-import { AuthImage } from './AuthImage';
+import { AuthImage, preloadImage } from './AuthImage';
 import { Icon } from './Icon';
 import './lightbox.css';
 
@@ -41,10 +41,32 @@ interface LightboxProps {
   /** When set (trip owner), shows the "set as cover" action. */
   coverTripId?: string;
   onCoverSet?: () => void;
+  /**
+   * Where the pixels come from, for viewers that are not the signed-in app.
+   *
+   * The public share page reaches its photos through a link token rather than
+   * a bearer header, so it hands in its own URL builder and the viewer skips
+   * the authorized fetch, the Immich deep link and the cover action. Everything
+   * else — zoom, pinch, double-tap, paging, the swipe to dismiss — is the same
+   * code, because it should be the same viewer.
+   */
+  srcFor?: (item: MediaItem, size: 'thumbnail' | 'preview') => string;
+  /** Playback URL for a video, for those same viewers. */
+  videoSrcFor?: (item: MediaItem) => string;
 }
 
-export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCoverSet }: LightboxProps) {
+export function Lightbox({
+  items,
+  index,
+  onClose,
+  onNavigate,
+  coverTripId,
+  onCoverSet,
+  srcFor,
+  videoSrcFor,
+}: LightboxProps) {
   const { user } = useAuth();
+  const isPublic = Boolean(srcFor);
   const [immichUrl, setImmichUrl] = useState<string | null>(null);
   const [coverSaved, setCoverSaved] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -152,11 +174,17 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
 
   // City + country for the photo, when it carries a coordinate. Cached per ~1 km
   // so paging through an album doesn't re-query the geocoder.
+  //
+  // The name is NOT cleared between photos. Twenty shots taken in one town all
+  // resolve to that town, and blanking the line in between made it fade itself
+  // back in twenty times over. It changes when the place changes, and only then.
   useEffect(() => {
-    setPlace(null);
     const lat = item?.latitude;
     const lon = item?.longitude;
-    if (lat == null || lon == null) return;
+    if (lat == null || lon == null) {
+      setPlace(null);
+      return;
+    }
     let alive = true;
     void reversePlaceName(lat, lon).then((name) => alive && setPlace(name));
     return () => {
@@ -168,6 +196,12 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   useEffect(() => {
     setVideoUrl(null);
     if (item?.assetType !== 'VIDEO') return;
+    // A share link has no bearer token to trade for a playback URL; its own
+    // proxy is already reachable with the link token it was handed.
+    if (videoSrcFor) {
+      setVideoUrl(videoSrcFor(item));
+      return;
+    }
     // A video that never left the phone plays from the phone; there is no
     // playback URL to ask the server for, and asking would only 404.
     if (isDeviceMediaId(item.id)) {
@@ -183,6 +217,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id, item?.assetType]);
 
   async function setAsCover() {
@@ -196,13 +231,14 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   // Public Immich URL → deep link to the asset. Only for own photos;
   // friends' photos live on their server.
   useEffect(() => {
+    if (isPublic) return; // nothing to deep-link to, and no session to ask with
     api<ConnectionStatus>('/immich/connection')
       .then((s) => setImmichUrl(s.publicUrl ?? DEFAULT_IMMICH_PUBLIC_URL))
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 404)
           setImmichUrl(DEFAULT_IMMICH_PUBLIC_URL);
       });
-  }, []);
+  }, [isPublic]);
 
   // The lightbox is a dark overlay — flip the native status bar to light icons
   // so the clock/battery stay legible, then restore on close.
@@ -235,6 +271,18 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fetch the neighbours ahead of time, so paging lands on a photo instead of
+  // on a placeholder. One either way: any more and a fast scroll through an
+  // album is pulling down photos nobody stopped on.
+  useEffect(() => {
+    for (const i of [index + 1, index - 1]) {
+      const next = items[i];
+      if (!next || next.assetType === 'VIDEO') continue;
+      if (srcFor) new Image().src = srcFor(next, 'preview');
+      else if (!isDeviceMediaId(next.id)) preloadImage(`/media/${next.id}/thumbnail`);
+    }
+  }, [index, items, srcFor]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close();
@@ -246,7 +294,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   }, [index, items.length, onClose, onNavigate]);
 
   if (!item) return null;
-  const isOwn = item.userId === user?.id;
+  const isOwn = !isPublic && item.userId === user?.id;
   const onDevice = isDeviceMediaId(item.id);
 
   /**
@@ -452,7 +500,13 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
     >
       <div className="lightbox-date">
         {formatDay(item.takenAt)}
-        {place && <span className="lightbox-place">{place}</span>}
+        {/* Keyed on the name: the same place keeps the same element and stays
+            put, a different one is a new element and fades in. */}
+        {place && (
+          <span key={place} className="lightbox-place">
+            {place}
+          </span>
+        )}
       </div>
 
       <button className="lightbox-close" aria-label="Sluiten" onClick={close}>
@@ -484,6 +538,16 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
           >
             {item.assetType === 'VIDEO' && videoUrl ? (
               <video className="lightbox-img" src={videoUrl} controls autoPlay playsInline />
+            ) : srcFor ? (
+              <img
+                key={item.id}
+                // A video that has not resolved its playback URL yet shows its
+                // still, not a preview render of a file that isn't an image.
+                src={srcFor(item, item.assetType === 'VIDEO' ? 'thumbnail' : 'preview')}
+                alt=""
+                className="lightbox-img"
+                decoding="async"
+              />
             ) : (
               <AuthImage
                 key={item.id}

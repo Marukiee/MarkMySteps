@@ -5,7 +5,15 @@ import { TripsService } from '../trips/trips.service';
 
 export type MediaItem = Pick<
   MediaRef,
-  'id' | 'userId' | 'immichAssetId' | 'assetType' | 'takenAt' | 'latitude' | 'longitude'
+  | 'id'
+  | 'userId'
+  | 'immichAssetId'
+  | 'assetType'
+  | 'takenAt'
+  | 'latitude'
+  | 'longitude'
+  | 'width'
+  | 'height'
 >;
 
 @Injectable()
@@ -36,6 +44,8 @@ export class MediaService {
         takenAt: true,
         latitude: true,
         longitude: true,
+        width: true,
+        height: true,
       },
     });
   }

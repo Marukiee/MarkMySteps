@@ -752,7 +752,7 @@ export function TripMap({
           el.style.backgroundImage = `url(${cached})`;
           el.style.animation = 'none';
         } else {
-          void fetchBlobUrl(`/media/${representative.id}/thumbnail`)
+          void fetchBlobUrl(`/media/${representative.id}/thumbnail?size=thumbnail`)
             .then((url) => {
               thumbCacheRef.current.set(representative.id, url);
               el.style.backgroundImage = `url(${url})`;
@@ -1313,7 +1313,12 @@ function runGlow(map: MapLibreMap, lines: [number, number][][]): void {
     const now = performance.now();
     // A page in the background gets no light: the frames are wasted and the
     // phone pays for them.
-    if (document.hidden) {
+    //
+    // Neither does a map somebody is dragging. Every pass of the light rewrites
+    // two line gradients and a source, and each rewrite forces the map to
+    // repaint — thirty times a second, on top of the repaints the drag itself
+    // is already asking for. That contention is what a pan felt like.
+    if (document.hidden || map.isMoving() || map.isZooming() || map.isRotating()) {
       glowFrames.set(map, requestAnimationFrame(step));
       return;
     }
