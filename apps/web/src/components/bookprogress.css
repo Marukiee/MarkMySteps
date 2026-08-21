@@ -1,129 +1,184 @@
-/* Above the tab bar, out of the way of whatever you moved on to. */
-.book-pill {
+/* A panel that floats over whatever you had moved on to, dimming it just
+   enough to say "this is waiting for an answer". */
+.book-done-layer {
   position: fixed;
-  left: 50%;
-  bottom: calc(76px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  z-index: 55;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  width: min(30rem, calc(100vw - 1.6rem));
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--glass);
-  backdrop-filter: blur(10px);
-  box-shadow: var(--shadow-m);
-  overflow: hidden;
-  animation: bookPillIn 0.28s var(--ease);
+  inset: 0;
+  z-index: 65;
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+  background: rgb(16 21 27 / 0.42);
+  backdrop-filter: blur(3px);
+  animation: bookLayerIn 0.26s var(--ease);
 }
 
-.book-pill.closing {
-  animation: bookPillOut 0.24s var(--ease) forwards;
+.book-done-layer.closing {
+  animation: bookLayerOut 0.24s var(--ease) forwards;
   pointer-events: none;
 }
 
-@keyframes bookPillIn {
+@keyframes bookLayerIn {
   from {
     opacity: 0;
-    transform: translate(-50%, 14px);
+    backdrop-filter: blur(0);
   }
 }
 
-@keyframes bookPillOut {
+@keyframes bookLayerOut {
   to {
     opacity: 0;
-    transform: translate(-50%, 10px);
+    backdrop-filter: blur(0);
   }
 }
 
-/* The progress fills the pill itself rather than a separate bar: one shape,
-   and it reads at a glance from the corner of your eye. */
-.book-pill-bar {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: var(--accent-soft);
-  transition: width 0.4s var(--ease);
-}
-
-.book-pill > * {
+.book-done {
   position: relative;
+  width: min(23rem, 100%);
+  padding: 1.6rem 1.3rem 1.3rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  text-align: center;
+  animation: bookDoneIn 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.book-pill-icon {
+.book-done-layer.closing .book-done {
+  animation: bookDoneOut 0.22s var(--ease) forwards;
+}
+
+@keyframes bookDoneIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+}
+
+@keyframes bookDoneOut {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+
+.book-done h3 {
+  margin: 0.7rem 0 0;
+  font-size: 1.15rem;
+}
+
+.book-done p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.book-done-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--paper-sunken);
-  color: var(--accent-ink);
-}
-
-.book-pill.done .book-pill-icon {
-  color: #0a9d63;
-}
-
-.book-pill.failed .book-pill-icon {
-  color: #b3402a;
-}
-
-.book-pill-text {
-  display: grid;
-  min-width: 0;
-  flex: 1;
-}
-
-.book-pill-text strong {
-  font-size: 0.85rem;
-  font-weight: 650;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.book-pill-text small {
-  font-size: 0.74rem;
-  color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.book-pill-save {
-  flex-shrink: 0;
-  padding: 0.4rem 0.85rem;
-  border: none;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.82rem;
-  font-weight: 650;
-  cursor: pointer;
-  transition: transform 0.15s var(--ease);
-}
-
-.book-pill-save:active {
-  transform: scale(0.95);
-}
-
-.book-pill-close {
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 50%;
   background: none;
   color: var(--ink-faint);
   cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
 
-.book-pill-close:hover {
+.book-done-close:hover {
   background: var(--paper-sunken);
   color: var(--ink);
+}
+
+/* ---- the book itself ---------------------------------------------------- */
+
+.book-cover {
+  position: relative;
+  width: 128px;
+  height: 172px;
+  /* Stood up and turned a little, the way a book is shown rather than a file. */
+  transform: perspective(700px) rotateY(-14deg);
+  animation: bookTilt 0.7s var(--ease) backwards;
+}
+
+@keyframes bookTilt {
+  from {
+    transform: perspective(700px) rotateY(-38deg) translateY(8px);
+    opacity: 0;
+  }
+}
+
+/* The block of pages, peeking out along the right edge. */
+.book-cover-pages {
+  position: absolute;
+  inset: 4px -6px 4px 8px;
+  border-radius: 3px 6px 6px 3px;
+  background: linear-gradient(90deg, #e8e2d8, var(--paper) 40%, #cfc7ba);
+  box-shadow: var(--shadow-m);
+}
+
+.book-cover-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px 7px 7px 3px;
+  overflow: hidden;
+  background: var(--paper-sunken);
+  box-shadow: var(--shadow-l);
+}
+
+.book-cover-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-cover-blank {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--ink-faint);
+}
+
+/* A darker band down the hinge, which is what makes it read as a book. */
+.book-cover-spine {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 14px;
+  background: linear-gradient(90deg, rgb(0 0 0 / 0.38), rgb(0 0 0 / 0.06));
+}
+
+.book-cover-title {
+  position: absolute;
+  left: 20px;
+  right: 10px;
+  bottom: 10px;
+  font-family: var(--font-display, inherit);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fff;
+  text-align: left;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.6);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.book-cover.failed .book-cover-face {
+  background: var(--paper-sunken);
+  color: #b3402a;
+}
+
+.book-done-save {
+  margin-top: 0.9rem;
+  width: 100%;
+}
+
+.book-done-note {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
 }

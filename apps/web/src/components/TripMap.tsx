@@ -1137,6 +1137,9 @@ export function TripMap({
 const GLOW_SOURCE = 'trip-glow';
 const GLOW_HALO = 'trip-glow-halo';
 const GLOW_CORE = 'trip-glow-core';
+const HEAD_SOURCE = 'trip-glow-head';
+const HEAD_GLOW = 'trip-glow-head-glow';
+const HEAD_DOT = 'trip-glow-head-dot';
 /** How much of the line the light's tail covers, as on the globe. */
 const GLOW_TAIL = 0.22;
 /**
@@ -1146,12 +1149,12 @@ const GLOW_TAIL = 0.22;
  * afternoon's walk crawl and a flight across a continent flash past. Speed is
  * the thing that should be constant, as it is on the globe.
  */
-const GLOW_DEG_PER_S = 5.5;
+const GLOW_DEG_PER_S = 3.2;
 /** Even so, a pass is never over in a blink or long enough to be forgotten. */
-const GLOW_MIN_MS = 1400;
-const GLOW_MAX_MS = 9000;
+const GLOW_MIN_MS = 2800;
+const GLOW_MAX_MS = 12_000;
 /** A beat at the end, so two passes read as two rather than one long one. */
-const GLOW_PAUSE_MS = 850;
+const GLOW_PAUSE_MS = 900;
 /** The gradient is rebuilt per frame; 30 is plenty for a light this soft. */
 const GLOW_FPS = 30;
 
@@ -1165,6 +1168,12 @@ function runGlow(map: MapLibreMap, lines: [number, number][][]): void {
 
   const colour =
     getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e8613c';
+  // The head runs along the longest line — the route proper, rather than a
+  // stray hop out to an airport.
+  const path = usable.reduce((longest, line) =>
+    lineLengthDeg([line]) > lineLengthDeg([longest]) ? line : longest,
+  );
+  const walk = measureLine(path);
 
   try {
     map.addSource(GLOW_SOURCE, {
@@ -1182,7 +1191,7 @@ function runGlow(map: MapLibreMap, lines: [number, number][][]): void {
       },
     });
     // Two passes of the same ribbon: a wide soft halo carrying the colour into
-    // the map around it, and a narrow core that is the light itself.
+    // the map around it, and a narrow core that is the trail itself.
     map.addLayer({
       id: GLOW_HALO,
       type: 'line',
@@ -1206,6 +1215,36 @@ function runGlow(map: MapLibreMap, lines: [number, number][][]): void {
         'line-gradient': glowGradient(-GLOW_TAIL, colour) as never,
       },
       layout: { 'line-cap': 'round', 'line-join': 'round' },
+    });
+
+    // The light itself: a dot with a halo around it, which is what the home
+    // globe draws. A gradient alone reads as a stripe sliding along; the dot
+    // is the thing your eye follows.
+    map.addSource(HEAD_SOURCE, {
+      type: 'geojson',
+      data: { type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: path[0]! } },
+    });
+    map.addLayer({
+      id: HEAD_GLOW,
+      type: 'circle',
+      source: HEAD_SOURCE,
+      paint: {
+        'circle-radius': 14,
+        'circle-color': colour,
+        'circle-blur': 1,
+        'circle-opacity': 0.55,
+      },
+    });
+    map.addLayer({
+      id: HEAD_DOT,
+      type: 'circle',
+      source: HEAD_SOURCE,
+      paint: {
+        'circle-radius': 5,
+        'circle-color': '#ffffff',
+        'circle-stroke-width': 2.5,
+        'circle-stroke-color': colour,
+      },
     });
   } catch {
     // Style swapped mid-call (theme change): nothing to light up.
@@ -1237,14 +1276,30 @@ function runGlow(map: MapLibreMap, lines: [number, number][][]): void {
     if (now - painted >= 1000 / GLOW_FPS) {
       painted = now;
       const within = (now - started) % cycle;
-      // During the pause the head sits past the end, which draws nothing.
       const t = Math.min(1, within / runMs);
-      // The head enters from before the start and leaves past the end, so the
-      // ribbon arrives and departs instead of appearing and stopping.
-      const p = t * (1 + GLOW_TAIL * 2) - GLOW_TAIL;
+      // The head leaves past the end and the tail follows it off, so the
+      // ribbon empties instead of parking itself on the last stretch.
+      const p = t * (1 + GLOW_TAIL) ;
       const gradient = glowGradient(p, colour) as never;
       map.setPaintProperty(GLOW_HALO, 'line-gradient', gradient);
       map.setPaintProperty(GLOW_CORE, 'line-gradient', gradient);
+
+      const source = map.getSource(HEAD_SOURCE) as
+        | { setData: (data: GeoJSON.Feature) => void }
+        | undefined;
+      if (source) {
+        const visible = p <= 1;
+        source.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'Point', coordinates: pointAt(walk, Math.min(1, p)) },
+        });
+        // Past the end there is nothing left to lead; the dot goes out and the
+        // trail runs off after it.
+        map.setPaintProperty(HEAD_DOT, 'circle-opacity', visible ? 1 : 0);
+        map.setPaintProperty(HEAD_DOT, 'circle-stroke-opacity', visible ? 1 : 0);
+        map.setPaintProperty(HEAD_GLOW, 'circle-opacity', visible ? 0.55 : 0);
+      }
     }
     glowFrames.set(map, requestAnimationFrame(step));
   };
@@ -1255,10 +1310,82 @@ function stopGlow(map: MapLibreMap): void {
   const frame = glowFrames.get(map);
   if (frame !== undefined) cancelAnimationFrame(frame);
   glowFrames.delete(map);
-  for (const layer of [GLOW_CORE, GLOW_HALO]) {
+  for (const layer of [HEAD_DOT, HEAD_GLOW, GLOW_CORE, GLOW_HALO]) {
     if (map.getLayer(layer)) map.removeLayer(layer);
   }
-  if (map.getSource(GLOW_SOURCE)) map.removeSource(GLOW_SOURCE);
+  for (const source of [HEAD_SOURCE, GLOW_SOURCE]) {
+    if (map.getSource(source)) map.removeSource(source);
+  }
+}
+
+/**
+ * A bright head at `p` with a fading ribbon behind it, as a line-gradient.
+ *
+ * `p` may run past the end of the line: the head leaves first and the tail
+ * follows it off, which is what stops the last stretch keeping a lit tail
+ * until the next pass starts.
+ *
+ * Stops have to climb, and the first one has to sit at 0, so they are built in
+ * order and anything that would repeat a position is dropped.
+ */
+function glowGradient(p: number, colour: string): unknown[] {
+  const clear = withAlpha(colour, 0);
+  const start = p - GLOW_TAIL;
+
+  const expression: unknown[] = ['interpolate', ['linear'], ['line-progress']];
+  let last = -1;
+  const push = (at: number, c: string) => {
+    if (at <= last || at < 0 || at > 1) return;
+    last = at;
+    expression.push(at, c);
+  };
+
+  push(0, start <= 0 && p >= 0 ? withAlpha(colour, 0.28 + 0.42 * Math.min(1, p / GLOW_TAIL)) : clear);
+  push(Math.max(0, start), clear);
+  // The ribbon brightens along its length rather than in one step, which is
+  // what makes it read as a comet instead of a moving stripe.
+  push(start + GLOW_TAIL * 0.55, withAlpha(colour, 0.28));
+  push(start + GLOW_TAIL * 0.85, withAlpha(colour, 0.7));
+  push(p, '#ffffff');
+  push(p + 0.012, clear);
+  push(1, clear);
+  // A gradient needs at least two stops; off the line entirely, it is empty.
+  if (expression.length < 5) {
+    return ['interpolate', ['linear'], ['line-progress'], 0, clear, 1, clear];
+  }
+  return expression;
+}
+
+/** Cumulative lengths along a line, so a fraction can become a position. */
+function measureLine(line: [number, number][]): { points: [number, number][]; at: number[] } {
+  const at = [0];
+  let total = 0;
+  for (let i = 1; i < line.length; i++) {
+    const [x1, y1] = line[i - 1]!;
+    const [x2, y2] = line[i]!;
+    const dx = (x2 - x1) * Math.cos(((y1 + y2) / 2) * (Math.PI / 180));
+    total += Math.hypot(dx, y2 - y1);
+    at.push(total);
+  }
+  return { points: line, at: at.map((value) => (total > 0 ? value / total : 0)) };
+}
+
+/** Where along the measured line a fraction lands. */
+function pointAt(
+  walk: { points: [number, number][]; at: number[] },
+  fraction: number,
+): [number, number] {
+  const { points, at } = walk;
+  if (points.length === 0) return [0, 0];
+  if (fraction <= 0) return points[0]!;
+  if (fraction >= 1) return points[points.length - 1]!;
+  let i = 1;
+  while (i < at.length && at[i]! < fraction) i++;
+  const before = points[i - 1]!;
+  const after = points[i] ?? before;
+  const span = (at[i] ?? 1) - at[i - 1]!;
+  const f = span > 0 ? (fraction - at[i - 1]!) / span : 0;
+  return [before[0] + (after[0] - before[0]) * f, before[1] + (after[1] - before[1]) * f];
 }
 
 /** Rough length of everything being lit, in degrees — good enough for a pace. */
@@ -1275,37 +1402,6 @@ function lineLengthDeg(lines: [number, number][][]): number {
     }
   }
   return total;
-}
-
-/**
- * A bright head at `p` with a fading ribbon behind it, as a line-gradient.
- *
- * Stops have to climb, and the first one has to sit at 0, so they are built in
- * order and anything that would repeat a position is dropped.
- */
-function glowGradient(p: number, colour: string): unknown[] {
-  const clear = withAlpha(colour, 0);
-  const head = Math.min(1, Math.max(0, p));
-  const start = Math.max(0, head - GLOW_TAIL);
-
-  const expression: unknown[] = ['interpolate', ['linear'], ['line-progress']];
-  let last = -1;
-  const push = (at: number, c: string) => {
-    if (at <= last) return;
-    last = at;
-    expression.push(at, c);
-  };
-
-  push(0, clear);
-  push(start, clear);
-  // The ribbon brightens along its length rather than in one step, which is
-  // what makes it read as a comet instead of a moving stripe.
-  push(start + (head - start) * 0.55, withAlpha(colour, 0.28));
-  push(start + (head - start) * 0.85, withAlpha(colour, 0.7));
-  push(head, p >= 0 && p <= 1 ? '#ffffff' : colour);
-  push(Math.min(1, head + 0.012), clear);
-  push(1, clear);
-  return expression;
 }
 
 /** `#rrggbb` with an alpha, since the gradient needs a colour it can fade. */

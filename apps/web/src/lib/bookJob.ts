@@ -8,6 +8,8 @@ export interface BookJob {
   title: string;
   done: number;
   total: number;
+  /** The trip's cover photo, for the panel that offers the finished book. */
+  coverId: string | null;
   /** The finished book, waiting to be handed to the share sheet. */
   file: File | null;
   note: string | null;
@@ -19,6 +21,7 @@ const IDLE: BookJob = {
   title: '',
   done: 0,
   total: 0,
+  coverId: null,
   file: null,
   note: null,
 };
@@ -60,6 +63,7 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
     title: source.trip.title,
     done: 0,
     total: 0,
+    coverId: source.trip.resolvedCoverId ?? source.media[0]?.id ?? null,
     file: null,
     note: null,
   });

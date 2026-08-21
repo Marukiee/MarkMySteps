@@ -49,6 +49,7 @@ export function FastScroll({
   const marksRef = useRef<{ day: string; at: number }[]>([]);
   const labelRef = useRef<string | null>(null);
   const measuredAt = useRef(0);
+  const settleTimer = useRef(0);
 
   /** The scroller that is doing the scrolling at this window size. */
   const pick = useCallback((): HTMLElement | null => {
@@ -138,6 +139,20 @@ export function FastScroll({
         fractionRef.current = fractionOf(scroller);
         paint();
         wake();
+
+        // And once more when the scrolling stops. The map above the list grows
+        // back as you return to the top, and a track measured mid-flight left
+        // the grip sitting on the map — which is exactly where it does not
+        // belong, since the map is not the list.
+        window.clearTimeout(settleTimer.current);
+        settleTimer.current = window.setTimeout(() => {
+          const el = scrollerRef.current;
+          if (!el) return;
+          measuredAt.current = performance.now();
+          measureTrack(el);
+          fractionRef.current = fractionOf(el);
+          paint();
+        }, 220);
       });
     };
 
@@ -157,6 +172,7 @@ export function FastScroll({
       for (const node of nodes) node.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
       window.clearTimeout(idleTimer.current);
+      window.clearTimeout(settleTimer.current);
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
     };
   }, [measureTrack, page, paint, pick, side, wake]);
