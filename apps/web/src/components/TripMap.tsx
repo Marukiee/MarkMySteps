@@ -1141,7 +1141,10 @@ export function TripMap({
 const TRIP_MAX_ZOOM = 12;
 
 const tripPadding = (hiddenBottom: number) => ({
-  top: 80,
+  /* Deeper at the top: the back arrow, the live pill and the share and
+     settings buttons float over the first eighty-odd pixels of the map, and
+     an evenly fitted trip put its first days underneath them. */
+  top: 130,
   bottom: 80 + hiddenBottom,
   left: 80,
   right: 80,

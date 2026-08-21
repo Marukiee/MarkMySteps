@@ -187,6 +187,13 @@ export function TripDetailPage() {
       // so put it back on the trip as a whole.
       if (top < 40 && lastKey !== '') {
         lastKey = '';
+        // The map is back at its full height here, but the height update is
+        // deferred to a frame — so without this the camera was still being
+        // told that a quarter of the canvas was hidden behind the sheet, and
+        // framed the trip for a strip that no longer existed. That is why
+        // scrolling back to the top landed somewhere other than where opening
+        // the trip does, with the first days tucked under the buttons.
+        shrinkMap();
         mapApiRef.current?.resetView();
       }
       window.clearTimeout(focusTimer);
