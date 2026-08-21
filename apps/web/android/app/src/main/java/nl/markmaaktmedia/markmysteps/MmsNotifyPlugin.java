@@ -5,8 +5,10 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -50,7 +52,60 @@ public class MmsNotifyPlugin extends Plugin {
     private static final String TASK_CHANNEL_ID = "mms_tasks";
     private static final int NOTIFICATION_ID = 4711;
     private static final int TASK_NOTIFICATION_ID = 4712;
+    /** Broadcast the job notification's own "Annuleren" button sends. */
+    private static final String ACTION_CANCEL = "nl.markmaaktmedia.markmysteps.CANCEL_TASK";
+
+    /**
+     * Whether the cancel button has been pressed since anybody last asked.
+     *
+     * The work itself runs in the web view, so this is only a flag: the job
+     * checks it as it goes and stops itself. Read once and cleared, because a
+     * cancellation belongs to the job that was running when it was pressed.
+     */
+    private volatile boolean cancelRequested = false;
+    private BroadcastReceiver cancelReceiver;
     private static final String WORK_NAME = "mms-notify-poll";
+
+    @Override
+    public void load() {
+        cancelReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                cancelRequested = true;
+                NotificationManager manager = notifications();
+                if (manager != null) manager.cancel(TASK_NOTIFICATION_ID);
+            }
+        };
+        IntentFilter filter = new IntentFilter(ACTION_CANCEL);
+        // Registered at runtime rather than in the manifest: it is only of use
+        // while the app is running, which is also the only time a job is.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getContext().registerReceiver(cancelReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            getContext().registerReceiver(cancelReceiver, filter);
+        }
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        if (cancelReceiver != null) {
+            try {
+                getContext().unregisterReceiver(cancelReceiver);
+            } catch (IllegalArgumentException ignored) {
+                // Already gone; nothing to take down.
+            }
+            cancelReceiver = null;
+        }
+    }
+
+    /** Whether the notification's cancel button was pressed. Clears on read. */
+    @PluginMethod
+    public void takeCancel(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("cancelled", cancelRequested);
+        cancelRequested = false;
+        call.resolve(result);
+    }
 
     /**
      * Turns the background check on and remembers what it needs.
@@ -164,6 +219,8 @@ public class MmsNotifyPlugin extends Plugin {
         String body = call.getString("body", "");
         Integer percent = call.getInt("percent");
         boolean done = Boolean.TRUE.equals(call.getBoolean("done", false));
+        // The first post of a job clears whatever the previous one left behind.
+        if (percent != null && percent == 0 && !done) cancelRequested = false;
 
         NotificationManager manager = notifications();
         if (manager == null || !allowed()) {
@@ -189,6 +246,16 @@ public class MmsNotifyPlugin extends Plugin {
                 // the same notification changing its mind.
                 .setOnlyAlertOnce(true)
                 .setContentIntent(openApp());
+
+        if (!done) {
+            // A job you have changed your mind about should be stoppable from
+            // where you can see it, without opening the app to find a button.
+            Intent cancel = new Intent(ACTION_CANCEL).setPackage(getContext().getPackageName());
+            PendingIntent pending = PendingIntent.getBroadcast(
+                    getContext(), 0, cancel,
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+            builder.addAction(0, "Annuleren", pending);
+        }
 
         if (done) {
             // Finished: it may be swiped away, and tapping it opens the app.

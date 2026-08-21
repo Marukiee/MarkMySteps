@@ -880,6 +880,10 @@ export function TripDetailPage() {
               // Long enough for the smooth scroll to land; the camera is set
               // once, at the end, so it actually stays on the whole trip.
               suppressFocus.current = Date.now() + 1200;
+              // The grip is for aiming at the middle of a long list; on the way
+              // back to the top there is nothing to aim at, and it chasing the
+              // list up the screen was only ever in the way.
+              window.dispatchEvent(new Event('mms:fastscroll-hide'));
               scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
               sideRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
               window.setTimeout(() => mapApiRef.current?.resetView(), 420);

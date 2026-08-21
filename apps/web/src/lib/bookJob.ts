@@ -1,5 +1,11 @@
 import { shareOrSaveFiles } from './fileShare';
-import { clearJobProgress, notify, notifyPermitted, showJobProgress } from './notify';
+import {
+  clearJobProgress,
+  jobCancelled,
+  notify,
+  notifyPermitted,
+  showJobProgress,
+} from './notify';
 import { renderPhotoBook, type BookSource } from './photobook';
 
 export interface BookJob {
@@ -55,8 +61,19 @@ function set(next: Partial<BookJob>): void {
   for (const fn of listeners) fn(job);
 }
 
+/** Set while a job should stop: the panel's button, or the notification's. */
+let cancelling = false;
+
+/** Stops the book being made. What has been drawn so far is thrown away. */
+export function cancelBook(): void {
+  if (job.status !== 'running') return;
+  cancelling = true;
+  set({ note: 'Annuleren…' });
+}
+
 export async function startBook(source: BookSource, dpi: number): Promise<void> {
   if (job.status === 'running') return;
+  cancelling = false;
   set({
     status: 'running',
     tripId: source.trip.id,
@@ -83,7 +100,16 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
 
   try {
     const pdf = await renderPhotoBook(source, { dpi }, (done, total) => {
+      // Thrown from inside the renderer, which is exactly where it has to
+      // stop: between two pages, with nothing half-drawn.
+      if (cancelling) throw new CancelledError();
       set({ done, total });
+      // The notification's own button leaves a flag behind; this is where it
+      // is picked up. Asked once a page, which is often enough to feel instant
+      // and rare enough to cost nothing.
+      void jobCancelled().then((yes) => {
+        if (yes) cancelling = true;
+      });
       const percent = total > 0 ? Math.round((done / total) * 100) : 0;
       const now = Date.now();
       if (mayNotify && percent !== lastPercent && now - lastAt > 700) {
@@ -106,9 +132,16 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
     if (mayNotify) {
       notify('Fotoboek klaar', `${source.trip.title} · open de app om te bewaren`);
     }
-  } catch {
-    set({ status: 'failed', note: 'Maken mislukt' });
+  } catch (err) {
     void clearJobProgress();
+    if (err instanceof CancelledError) {
+      // Nothing to show and nothing to save: it was called off on purpose.
+      dismissBook();
+      return;
+    }
+    set({ status: 'failed', note: 'Maken mislukt' });
+  } finally {
+    cancelling = false;
   }
 }
 
@@ -126,6 +159,9 @@ export function dismissBook(): void {
   for (const fn of listeners) fn(job);
   void clearJobProgress();
 }
+
+/** Not a failure: the job was called off. */
+class CancelledError extends Error {}
 
 function slug(text: string): string {
   return (

@@ -337,7 +337,7 @@ export function TripMap({
         if (coords.length === 0) return;
         const b = new LngLatBounds();
         for (const c of coords) b.extend(c);
-        map.fitBounds(b, { padding: camPadding(), maxZoom: 12, duration: 700 });
+        fitSafely(map, b, camPadding(), 12, 700);
       },
       flyTo: (lng, lat, zoom = 8) =>
         map.easeTo({
@@ -352,7 +352,7 @@ export function TripMap({
       resetView: () => {
         const bounds = wholeTripRef.current;
         if (!bounds) return;
-        map.fitBounds(bounds, { padding: camPadding(), maxZoom: 13, duration: 700 });
+        fitSafely(map, bounds, camPadding(), 13, 700);
       },
       glowRoutes: () => runGlow(map, glowLinesRef.current),
     });
@@ -540,13 +540,15 @@ export function TripMap({
         // Filtered down to one day, the caller frames that day itself; fitting
         // the trip's own bounds here would zoom straight back out again.
         if (autoFitRef.current) {
-          map.fitBounds(bounds, {
-            // The sheet covers the bottom of the canvas, so padding that
-            // ignores it centres the trip behind the sheet instead of in view.
-            padding: { top: 60, bottom: 60 + hiddenBottomRef.current, left: 60, right: 60 },
-            maxZoom: 13,
-            duration: 900,
-          });
+          // The sheet covers the bottom of the canvas, so padding that ignores
+          // it centres the trip behind the sheet instead of in view.
+          fitSafely(
+            map,
+            bounds,
+            { top: 60, bottom: 60 + hiddenBottomRef.current, left: 60, right: 60 },
+            13,
+            900,
+          );
         }
       }
     };
@@ -1123,6 +1125,48 @@ export function TripMap({
       data-testid="trip-map"
     />
   );
+}
+
+/**
+ * `fitBounds`, without the crash.
+ *
+ * MapLibre works out a camera for the box and then eases to it — but when the
+ * padding leaves no room (the timeline sheet covering most of a shrunken map,
+ * a box with one point in it), there is no camera to work out, and it eases to
+ * `undefined`: "Cannot read properties of undefined (reading 'center')", and
+ * the whole page goes with it. So the padding is cut back to something the
+ * canvas can actually hold, and the call itself is guarded.
+ */
+function fitSafely(
+  map: MapLibreMap,
+  bounds: LngLatBounds,
+  padding: { top: number; bottom: number; left: number; right: number },
+  maxZoom: number,
+  duration: number,
+): void {
+  if (bounds.isEmpty()) return;
+  const canvas = map.getCanvas();
+  const width = canvas.clientWidth || canvas.width;
+  const height = canvas.clientHeight || canvas.height;
+  if (!width || !height) return;
+
+  // Never more than two thirds of the canvas in either direction, and never
+  // negative — either leaves the map with nothing to draw the box into.
+  const fit = (a: number, b: number, size: number): [number, number] => {
+    const room = size * 0.66;
+    const total = Math.max(0, a) + Math.max(0, b);
+    if (total <= room || total === 0) return [Math.max(0, a), Math.max(0, b)];
+    const scale = room / total;
+    return [Math.max(0, a) * scale, Math.max(0, b) * scale];
+  };
+  const [top, bottom] = fit(padding.top, padding.bottom, height);
+  const [left, right] = fit(padding.left, padding.right, width);
+
+  try {
+    map.fitBounds(bounds, { padding: { top, bottom, left, right }, maxZoom, duration });
+  } catch {
+    // A camera that cannot be worked out is not worth taking the app down for.
+  }
 }
 
 /* ---- The travelling light ------------------------------------------------

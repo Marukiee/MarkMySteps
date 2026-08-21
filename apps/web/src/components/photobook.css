@@ -14,6 +14,25 @@
 
 /* While it renders, the buttons' row becomes the bar — same height, so the
    panel does not jump when you press. */
+/* The bar and the way out of it, on one line. */
+.photo-book-running {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.photo-book-running .photo-book-progress {
+  flex: 1;
+  min-width: 0;
+}
+
+.photo-book-cancel {
+  flex-shrink: 0;
+  height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .photo-book-progress {
   position: relative;
   height: 40px;

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { MediaItem, RouteCollection, Trip } from '../api/types';
 import type { PlannedStop } from '../lib/arc';
-import { bookJob, onBookJob, startBook } from '../lib/bookJob';
+import { bookJob, cancelBook, onBookJob, startBook } from '../lib/bookJob';
 import { countBookPages, type BookNote } from '../lib/photobook';
 import { Icon } from './Icon';
 import './photobook.css';
@@ -64,11 +64,16 @@ export function PhotoBook({
       </p>
 
       {running ? (
-        <div className="photo-book-progress">
-          <div className="photo-book-bar" style={{ width: `${percent}%` }} />
-          <span>
-            Pagina {job.done} van {job.total || '…'}
-          </span>
+        <div className="photo-book-running">
+          <div className="photo-book-progress">
+            <div className="photo-book-bar" style={{ width: `${percent}%` }} />
+            <span>
+              Pagina {job.done} van {job.total || '…'}
+            </span>
+          </div>
+          <button className="btn btn-ghost photo-book-cancel" onClick={cancelBook}>
+            Annuleren
+          </button>
         </div>
       ) : (
         <div className="photo-book-actions">

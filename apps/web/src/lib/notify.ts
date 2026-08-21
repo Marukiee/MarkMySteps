@@ -20,6 +20,8 @@ interface MmsNotifyPlugin {
     done?: boolean;
   }): Promise<void>;
   clearProgress(): Promise<void>;
+  /** Whether the job notification's cancel button was pressed. Clears on read. */
+  takeCancel(): Promise<{ cancelled: boolean }>;
   /** Start the quarter-hourly background check with a token of its own. */
   enableBackground(options: { baseUrl: string; token: string }): Promise<void>;
   disableBackground(): Promise<void>;
@@ -112,6 +114,22 @@ export async function showJobProgress(
 ): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
   await MmsNotify.progress({ title, body, percent, done: false }).catch(() => undefined);
+}
+
+/**
+ * Whether the notification's own cancel button has been pressed.
+ *
+ * The work runs in here, so the button can only leave a flag behind; the job
+ * asks between pages and stops itself.
+ */
+export async function jobCancelled(): Promise<boolean> {
+  if (!Capacitor.isNativePlatform()) return false;
+  try {
+    const { cancelled } = await MmsNotify.takeCancel();
+    return cancelled;
+  } catch {
+    return false;
+  }
 }
 
 export async function clearJobProgress(): Promise<void> {

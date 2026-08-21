@@ -50,6 +50,8 @@ export function FastScroll({
   const labelRef = useRef<string | null>(null);
   const measuredAt = useRef(0);
   const settleTimer = useRef(0);
+  /** Until this moment the grip stays away, whatever the list is doing. */
+  const mutedUntil = useRef(0);
 
   /** The scroller that is doing the scrolling at this window size. */
   const pick = useCallback((): HTMLElement | null => {
@@ -95,6 +97,7 @@ export function FastScroll({
   }, []);
 
   const wake = useCallback(() => {
+    if (performance.now() < mutedUntil.current) return;
     setAwake(true);
     window.clearTimeout(idleTimer.current);
     idleTimer.current = window.setTimeout(() => {
@@ -165,12 +168,22 @@ export function FastScroll({
       }
     };
 
+    // Somebody else is taking the list somewhere (the back-to-top button):
+    // the grip has no part in that and stands down until it has landed.
+    const onHide = () => {
+      mutedUntil.current = performance.now() + 1400;
+      window.clearTimeout(idleTimer.current);
+      setAwake(false);
+    };
+
     const nodes = [page.current, side.current].filter((n): n is HTMLElement => !!n);
     for (const node of nodes) node.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize);
+    window.addEventListener('mms:fastscroll-hide', onHide);
     return () => {
       for (const node of nodes) node.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('mms:fastscroll-hide', onHide);
       window.clearTimeout(idleTimer.current);
       window.clearTimeout(settleTimer.current);
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
