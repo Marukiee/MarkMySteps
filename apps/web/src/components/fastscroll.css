@@ -6,6 +6,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  will-change: top;
   animation: fastScrollIn 0.2s var(--ease);
 }
 

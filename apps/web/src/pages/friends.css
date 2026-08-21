@@ -245,6 +245,18 @@
   min-height: 1.2rem;
 }
 
+/* The chips land when the numbers do, a moment after the page. */
+.traveller-chips > * {
+  animation: travellerChipIn 0.34s var(--ease) backwards;
+}
+
+@keyframes travellerChipIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+}
+
 .traveller-chips {
   display: flex;
   flex-wrap: wrap;

@@ -63,19 +63,22 @@ export function DayFilter({
     // long day name makes the menu wider than the pill.
     const left = Math.min(rect.left, window.innerWidth - width - 12);
 
+    // Half the screen at most: a list as tall as the map hides the very thing
+    // you are choosing a day of. The rest is reached by scrolling it.
+    const ceiling = Math.round(window.innerHeight * 0.44);
     if (above >= below) {
       setAnchor({
         left: Math.max(12, left),
         bottom: window.innerHeight - rect.top + 8,
         width: rect.width,
-        maxHeight: above - 8,
+        maxHeight: Math.min(ceiling, above - 8),
       });
     } else {
       setAnchor({
         left: Math.max(12, left),
         top: rect.bottom + 8,
         width: rect.width,
-        maxHeight: below - 8,
+        maxHeight: Math.min(ceiling, below - 8),
       });
     }
   };
@@ -91,16 +94,23 @@ export function DayFilter({
       setOpen(false);
     };
     const escape = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    // Scrolling the page puts the menu away. The pill is pinned to a map that
+    // moves as the page scrolls, and a list chasing it down the screen is
+    // worse than a list that simply closes. Scrolling inside the list itself
+    // is how you reach the far end of a long trip, so that is left alone.
+    const onScroll = (e: Event) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
     document.addEventListener('click', away);
     document.addEventListener('keydown', escape);
     window.addEventListener('resize', place);
-    // The map panel is sticky and the page scrolls under it, so the pill moves.
-    window.addEventListener('scroll', place, true);
+    window.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('click', away);
       document.removeEventListener('keydown', escape);
       window.removeEventListener('resize', place);
-      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);
 
@@ -148,9 +158,6 @@ export function DayFilter({
             >
               <span className="day-filter-item-name">Hele reis</span>
               <span className="day-filter-count">{days.length} dagen</span>
-              <span className={`day-filter-check ${value === null ? 'on' : ''}`}>
-                <Icon name="check" size={14} />
-              </span>
             </button>
             <div className="day-filter-rule" />
             {days.map((day, index) => (
@@ -164,15 +171,10 @@ export function DayFilter({
                 onClick={() => pick(day.day)}
               >
                 <span className="day-filter-item-name">{longDay(day.day)}</span>
+                {/* A day that was tracked but not photographed says nothing at
+                    all otherwise, which reads as a missing number. */}
                 <span className="day-filter-count">
-                  {day.photos > 0 && (
-                    <>
-                      <Icon name="camera" size={12} /> {day.photos}
-                    </>
-                  )}
-                </span>
-                <span className={`day-filter-check ${value === day.day ? 'on' : ''}`}>
-                  <Icon name="check" size={14} />
+                  <Icon name="camera" size={12} /> {day.photos}
                 </span>
               </button>
             ))}

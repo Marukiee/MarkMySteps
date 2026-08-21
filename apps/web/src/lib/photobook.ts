@@ -1,6 +1,6 @@
 import { fetchBlobUrl } from '../api/client';
 import type { MediaItem, RouteCollection, Trip } from '../api/types';
-import { buildLegs, haversineKm, splitOnGaps, type PlannedStop } from './arc';
+import { buildLegs, haversineKm, MODE_LABEL, splitOnGaps, type PlannedStop } from './arc';
 import { buildPdf, type PdfPage } from './pdf';
 import {
   DARK,
@@ -88,7 +88,10 @@ export async function renderPhotoBook(
   const accent =
     getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e8613c';
 
-  const pages = planPages(source);
+  const page = { w: width, h: height, margin: Math.round(width * 0.072) };
+  // The plan needs to know what shape every photograph is: how many fit on a
+  // page is a question about proportions, not a number decided in advance.
+  const pages = await planPages(source, page);
   const total = pages.length + 2;
 
   // One canvas for the whole book. Ninety of them is ninety allocations of a
@@ -111,8 +114,6 @@ export async function renderPhotoBook(
     onProgress?.(++done, total);
   };
 
-  const page = { w: width, h: height, margin: Math.round(width * 0.072) };
-
   await drawCoverPage(ctx, page, source, palette, accent);
   await finish();
   await drawRoutePage(ctx, page, source, palette, accent);
@@ -130,6 +131,9 @@ export async function renderPhotoBook(
     await finish();
   }
 
+  // The blobs were only ever needed while the pages were being drawn.
+  forgetImages();
+
   return buildPdf(out, source.trip.title, dpi);
 }
 
@@ -143,13 +147,16 @@ export async function renderPhotoBook(
  * pages in, "where is this?" has no answer on the page. The little maps are
  * the answer, and they cost one page per move.
  */
-function planPages(source: BookSource): BookPage[] {
+async function planPages(source: BookSource, page: PageBox): Promise<BookPage[]> {
   const byDay = groupByDay(source.media);
   const days = [...byDay.keys()].sort();
   const route = source.stops.filter(
     (s): s is PlannedStop & { latitude: number; longitude: number } =>
       !s.parentStopId && s.latitude !== null && s.longitude !== null,
   );
+
+  const gap = Math.round(page.w * 0.018);
+  const width = page.w - page.margin * 2;
 
   const pages: BookPage[] = [];
   let placed = 0; // how far through the stop list the days have got
@@ -164,15 +171,23 @@ function planPages(source: BookSource): BookPage[] {
       placed++;
     }
 
-    const parts = Math.max(1, Math.ceil(photos.length / PER_PAGE));
     const title = dayTitle(source, day, photos);
-    for (let part = 0; part < parts; part++) {
+    const hasNote = source.notes.some((n) => n.day.slice(0, 10) === day);
+    // What the writing at the top of a page leaves for the pictures. The first
+    // page of a day carries the date, the place and any note; the rest carry
+    // one small line saying which page of the day they are.
+    const first = page.h - page.margin - Math.round(page.h * (hasNote ? 0.3 : 0.17));
+    const rest = page.h - page.margin - Math.round(page.h * 0.08);
+
+    const shapes = await measure(photos);
+    const split = paginate(shapes, width, gap, first, rest);
+    for (const [part, group] of split.entries()) {
       pages.push({
         kind: 'day',
         day,
-        photos: photos.slice(part * PER_PAGE, (part + 1) * PER_PAGE),
+        photos: group.map((shape) => shape.item),
         part,
-        parts,
+        parts: split.length,
         title,
       });
     }
@@ -181,10 +196,72 @@ function planPages(source: BookSource): BookPage[] {
   return pages;
 }
 
-/** How many pages a book would have, for the estimate on screen. */
+/**
+ * How many photographs a page holds: as many as fill it.
+ *
+ * A fixed six per page is what left half of a page white - six portraits are
+ * two rows, six panoramas are three, and neither happens to be the height of
+ * an A4. Rows are built to a width budget and added until the next one would
+ * not fit, so every page but the last of a day comes out full.
+ */
+function paginate(
+  shapes: Shape[],
+  width: number,
+  gap: number,
+  availFirst: number,
+  availRest: number,
+): Shape[][] {
+  const groups: Shape[][] = [];
+  let index = 0;
+
+  while (index < shapes.length) {
+    const available = groups.length === 0 ? availFirst : availRest;
+    // Three rows to a page is the size photographs want to be in a book: big
+    // enough to look at, small enough that a day is not thirty pages.
+    const budget = Math.min(5, Math.max(1.4, width / (available / 3)));
+    const group: Shape[] = [];
+    let used = 0;
+
+    while (index < shapes.length) {
+      const row: Shape[] = [];
+      let sum = 0;
+      let next = index;
+      while (next < shapes.length) {
+        row.push(shapes[next]!);
+        sum += shapes[next]!.ratio;
+        next++;
+        if (sum >= budget) break;
+      }
+      const height = (width - gap * (row.length - 1)) / sum;
+      const needed = used === 0 ? height : used + gap + height;
+      // A page always takes at least one row, or a single panorama taller than
+      // the space left would never be placed anywhere.
+      if (group.length > 0 && needed > available) break;
+      used = needed;
+      group.push(...row);
+      index = next;
+      if (used > available - gap * 2) break;
+    }
+
+    groups.push(group);
+  }
+
+  return groups.length > 0 ? groups : [[]];
+}
+
+/** How many pages a book comes to, near enough for a line of text. */
 export function countBookPages(source: BookSource): number {
   if (source.media.length === 0) return 0;
-  return planPages(source).length + 2;
+  const byDay = groupByDay(source.media);
+  // Eight is what a page of mixed proportions tends to hold; the real number
+  // is known only once every photograph has been measured, which is work this
+  // estimate exists to avoid.
+  let pages = 2;
+  for (const photos of byDay.values()) pages += Math.max(1, Math.ceil(photos.length / 8));
+  const stops = source.stops.filter(
+    (s) => !s.parentStopId && s.latitude !== null && s.longitude !== null,
+  );
+  return pages + Math.max(0, stops.length - 1);
 }
 
 /**
@@ -245,11 +322,12 @@ async function drawCoverPage(
 ): Promise<void> {
   clear(ctx, page, palette);
   const coverId = source.trip.resolvedCoverId ?? source.media[0]?.id ?? null;
-  const photo = coverId ? await loadImage(coverId) : null;
+  const photo = coverId ? await decode(coverId) : null;
 
   const box = { x: 0, y: 0, w: page.w, h: page.h };
   if (photo) {
     drawBitmapCover(ctx, photo, box);
+    if ('close' in photo) photo.close();
     scrim(ctx, box, 'rgba(10, 13, 17, 0.15)', 'rgba(10, 13, 17, 0.92)');
   } else {
     ctx.fillStyle = palette.panel;
@@ -351,7 +429,11 @@ function drawLegPage(
   const to: [number, number] = [leg.to.longitude, leg.to.latitude];
   const flight = leg.to.travelMode === 'FLIGHT';
   const legs = buildLegs([leg.from, leg.to]);
+  // The way you actually went, if it was tracked: the straight line between
+  // two stops says nothing that the two dots did not already say.
+  const tracked = flight ? null : trackedBetween(source.routes, from, to);
   const shape =
+    tracked ??
     (legs[legs.length - 1]?.feature.geometry.coordinates as [number, number][] | undefined) ?? [
       from,
       to,
@@ -375,14 +457,15 @@ function drawLegPage(
   });
   const bottom = drawLayout(ctx, title, page.margin, page.margin + Math.round(page.w * 0.075));
 
-  const km = Math.round(haversineKm(from, to));
+  // The distance along the way it was actually travelled where that is known,
+  // and how it was travelled according to the plan — "Trein", not "over land".
+  const km = Math.round(tracked ? lineKm(tracked) : haversineKm(from, to));
+  const mode = MODE_LABEL[leg.to.travelMode] ?? 'Onderweg';
   setFont(ctx, Math.round(page.w * 0.024), 600, FONT_BODY);
   ctx.fillStyle = palette.inkSoft;
   ctx.textBaseline = 'top';
   ctx.fillText(
-    `${flight ? 'Gevlogen' : 'Over land'} · ${km.toLocaleString('nl-NL')} km · ${formatDay(
-      leg.to.arrivalDate,
-    )}`,
+    `${mode} · ${km.toLocaleString('nl-NL')} km · ${formatDay(leg.to.arrivalDate)}`,
     page.margin,
     bottom + Math.round(page.w * 0.02),
   );
@@ -489,61 +572,230 @@ async function drawJustified(
   const width = page.w - page.margin * 2;
   const available = page.h - page.margin - top;
 
-  const images = await Promise.all(photos.map((item) => loadImage(item.id)));
-  const shapes = images.map((img, i) => ({
-    img,
-    ratio: img ? img.width / img.height : 1.5,
-    id: photos[i]!.id,
-  }));
+  const shapes = await measure(photos);
+  const rows = uniformRows(shapes, width, gap, available) ?? packRows(shapes, width, gap, available);
 
-  // How many fit across, chosen so the rows together come out about as tall as
-  // the space that is left. With n pictures of average proportion r, k per row
-  // gives a total height of n·width / (k²·r) — solve that for the height we
-  // have, and round to something a page can hold.
-  const avgRatio =
-    shapes.reduce((total, s) => total + s.ratio, 0) / Math.max(1, shapes.length);
-  const ideal = Math.sqrt((shapes.length * width) / Math.max(1, available * avgRatio));
-  const perRow = Math.min(4, Math.max(1, Math.round(ideal)));
-
-  const rows: (typeof shapes)[] = [];
-  let row: typeof shapes = [];
-  let ratioSum = 0;
-  for (const shape of shapes) {
-    row.push(shape);
-    ratioSum += shape.ratio;
-    // A panorama counts for more than one picture: a row holding one is full
-    // sooner than a row of portraits.
-    if (row.length >= perRow || ratioSum > perRow * avgRatio * 1.6) {
-      rows.push(row);
-      row = [];
-      ratioSum = 0;
-    }
-  }
-  if (row.length > 0) rows.push(row);
-
-  // Each row's height is whatever makes its own pictures fill the width at
-  // their own proportions; if the set is then too tall, everything shrinks by
-  // the same factor and the rows are centred rather than stretched.
-  const heights = rows.map((r) => {
-    const sum = r.reduce((total, s) => total + s.ratio, 0);
-    return (width - gap * (r.length - 1)) / sum;
-  });
-  const needed = heights.reduce((a, b) => a + b, 0) + gap * (rows.length - 1);
-  const scale = needed > available ? available / needed : 1;
-
-  let y = top;
-  for (const [index, r] of rows.entries()) {
-    const h = heights[index]! * scale;
-    const rowWidth = r.reduce((total, s) => total + s.ratio * h, 0) + gap * (r.length - 1);
-    let x = page.margin + (width - rowWidth) / 2;
-    for (const shape of r) {
-      const box = { x, y, w: shape.ratio * h, h };
-      panel(ctx, box, Math.round(page.w * 0.012), palette.panel);
-      if (shape.img) drawBitmapCover(ctx, shape.img, box, Math.round(page.w * 0.012));
+  // Three portraits fill the width but only two thirds of the height; the
+  // block sits in the middle of what is left rather than hanging from the
+  // text with a third of the page blank underneath it.
+  const used = rows.reduce((total, row) => total + row.height, 0) + gap * (rows.length - 1);
+  let y = top + Math.max(0, (available - used) / 2);
+  const radius = Math.round(page.w * 0.012);
+  for (const row of rows) {
+    let x = page.margin + (width - row.width) / 2;
+    for (const shape of row.items) {
+      const box = { x, y, w: shape.ratio * row.height, h: row.height };
+      panel(ctx, box, radius, palette.panel);
+      // Decoded here and closed straight away: one picture in memory at a
+      // time is what lets a book of nine hundred photographs finish at all.
+      const image = await decode(shape.item.id);
+      if (image) {
+        drawBitmapCover(ctx, image, box, radius);
+        if ('close' in image) image.close();
+      }
       x += box.w + gap;
     }
-    y += h + gap;
+    y += row.height + gap;
   }
+}
+
+/** How much a picture may be cropped to make a row come out even. */
+const CROP_TOLERANCE = 0.1;
+/** How much of the page a layout may leave empty before it is not worth it. */
+const FILLS = [1, 0.97, 0.94, 0.91, 0.88, 0.85, 0.82];
+
+/**
+ * Rows that all share one height and together fill the page.
+ *
+ * Left to their own proportions, rows come out at three different heights and
+ * a page ends either short or with a cramped little row along the bottom.
+ * Giving every row the same height and letting each picture be cropped by a
+ * few per cent - which is all `drawCover` does anyway - makes a page look
+ * composed rather than merely filled.
+ *
+ * Both the number of rows and how much of the page they cover are searched
+ * for. Nothing comes back when it would take more than a tenth of a picture
+ * to make it work: at that point the pictures are being forced, and the honest
+ * ragged version is better.
+ */
+function uniformRows<T extends { ratio: number }>(
+  shapes: T[],
+  width: number,
+  gap: number,
+  available: number,
+): PackedRow<T>[] | null {
+  if (shapes.length === 0) return null;
+  let best: { rows: PackedRow<T>[]; score: number } | null = null;
+
+  for (let count = 1; count <= Math.min(5, shapes.length); count++) {
+    for (const fill of FILLS) {
+      const height = (available * fill - gap * (count - 1)) / count;
+      if (height <= 0) continue;
+
+      // Photographs stay in the order they were taken; a row is closed once it
+      // holds about enough width, keeping one for every row still to come.
+      const groups: T[][] = [];
+      let index = 0;
+      let usable = true;
+      for (let row = 0; row < count; row++) {
+        const items: T[] = [];
+        let sum = 0;
+        const rowsLeft = count - row - 1;
+        while (index < shapes.length) {
+          items.push(shapes[index]!);
+          sum += shapes[index]!.ratio;
+          index++;
+          if (shapes.length - index <= rowsLeft) break;
+          if (sum >= ((width - gap * (items.length - 1)) / height) * 0.94) break;
+        }
+        if (items.length === 0) {
+          usable = false;
+          break;
+        }
+        groups.push(items);
+      }
+      if (!usable || index < shapes.length) continue;
+
+      let worst = 0;
+      const rows: PackedRow<T>[] = groups.map((items) => {
+        const sum = items.reduce((value, item) => value + item.ratio, 0);
+        // What the row's proportions would have to add up to for it to fill
+        // the width at this height; the difference is the crop.
+        const stretch = (width - gap * (items.length - 1)) / height / sum;
+        worst = Math.max(worst, Math.abs(stretch - 1));
+        return {
+          items: items.map((item) => ({ ...item, ratio: item.ratio * stretch })),
+          height,
+          width,
+        };
+      });
+      if (worst > CROP_TOLERANCE) continue;
+
+      // A full page is worth a little cropping, but not much.
+      const score = fill - worst * 0.5;
+      if (!best || score > best.score) best = { rows, score };
+    }
+  }
+
+  return best?.rows ?? null;
+}
+
+interface PackedRow<T extends { ratio: number }> {
+  items: T[];
+  height: number;
+  /** What the row actually measures, so a short last row can be centred. */
+  width: number;
+}
+
+/**
+ * Rows of photographs at their own proportions, each row filling the width.
+ *
+ * A row is full when the proportions in it add up to a budget: three portraits
+ * come to about the same as two landscapes, which is why a page can hold three
+ * of one or two of the other. The budget is searched for rather than fixed,
+ * because it is the thing that decides how tall the whole set comes out, and
+ * the set has to fit the space left under the writing.
+ *
+ * Rows always fill the page width, so a page never ends up with two pictures
+ * marooned in the middle of it - which is what scaling the rows down instead
+ * of packing more into them used to do.
+ */
+function packRows<T extends { ratio: number }>(
+  shapes: T[],
+  width: number,
+  gap: number,
+  available: number,
+): PackedRow<T>[] {
+  const build = (budget: number, feature: boolean): PackedRow<T>[] => {
+    const rows: PackedRow<T>[] = [];
+    let items: T[] = [];
+    let sum = 0;
+    // A page that will not fill otherwise can open with one picture across the
+    // whole width: three landscapes are a short page as three half-rows and a
+    // handsome one as a big picture over a pair.
+    const rest = feature ? shapes.slice(1) : shapes;
+    if (feature && shapes[0]) rows.push(finishRow([shapes[0]], shapes[0].ratio, width, gap));
+
+    for (const shape of rest) {
+      items.push(shape);
+      sum += shape.ratio;
+      if (sum >= budget) {
+        rows.push(finishRow(items, sum, width, gap));
+        items = [];
+        sum = 0;
+      }
+    }
+    if (items.length > 0) rows.push(finishRow(items, sum, width, gap));
+
+    // A last row with one picture in it would be as wide as the page and far
+    // taller than the rows above; it keeps their height and is centred later.
+    const last = rows[rows.length - 1];
+    if (last && rows.length > 1) {
+      const tallest = Math.max(...rows.slice(0, -1).map((row) => row.height));
+      if (last.height > tallest * 1.15) {
+        const rowWidth =
+          last.items.reduce((total, item) => total + item.ratio * tallest, 0) +
+          gap * (last.items.length - 1);
+        rows[rows.length - 1] = { items: last.items, height: tallest, width: rowWidth };
+      }
+    }
+    return rows;
+  };
+
+  const heightOf = (rows: PackedRow<T>[]) =>
+    rows.reduce((total, row) => total + row.height, 0) + gap * Math.max(0, rows.length - 1);
+
+  /**
+   * How good a layout is: how much of the page it covers.
+   *
+   * A little over is better than a lot under — a set that comes out eight per
+   * cent too tall is drawn a shade smaller and still fills the page, while the
+   * tighter packing that fits exactly leaves half of it white.
+   */
+  const OVERFLOW = 1.12;
+  let best: PackedRow<T>[] | null = null;
+  let bestScore = -1;
+
+  for (const feature of [false, true]) {
+    for (let step = 0; step <= 56; step++) {
+      const budget = 1.2 + (step / 56) * 5.8;
+      const rows = build(budget, feature);
+      const height = heightOf(rows);
+      if (height <= 0 || height > available * OVERFLOW) continue;
+      // Two identical layouts (the same rows from neighbouring budgets) score
+      // the same; the first one wins, which is the one with bigger pictures.
+      const score = Math.min(height, available) / available;
+      if (score > bestScore + 0.001) {
+        bestScore = score;
+        best = rows;
+      }
+    }
+  }
+
+  // Nothing fit even with room to spare: the tightest packing, scaled down.
+  let rows = best ?? build(7, false);
+  const total = heightOf(rows);
+  if (total > available && total > 0) {
+    const scale = available / total;
+    rows = rows.map((row) => ({
+      ...row,
+      height: row.height * scale,
+      width: row.width * scale,
+    }));
+  }
+  return rows;
+}
+
+function finishRow<T extends { ratio: number }>(
+  items: T[],
+  ratioSum: number,
+  width: number,
+  gap: number,
+): PackedRow<T> {
+  // The height that makes these pictures, at their own proportions, exactly
+  // fill the width with the gaps between them.
+  const height = (width - gap * (items.length - 1)) / Math.max(0.01, ratioSum);
+  return { items, height, width };
 }
 
 /* ---- maps --------------------------------------------------------------- */
@@ -613,6 +865,60 @@ function drawTrackMap(
   }
 }
 
+/**
+ * The stretch of the tracked line that runs between two stops.
+ *
+ * The line carries no times by the time it reaches here, so the two ends are
+ * found by proximity: the vertex nearest each stop, and everything between
+ * them. Nothing comes back when the line does not come near both, or when what
+ * is between them is a single hop — that is not a route, it is the straight
+ * line again.
+ */
+function trackedBetween(
+  routes: RouteCollection | null,
+  from: [number, number],
+  to: [number, number],
+): [number, number][] | null {
+  let best: [number, number][] | null = null;
+
+  for (const feature of routes?.features ?? []) {
+    const coords = feature.geometry.coordinates as [number, number][];
+    if (coords.length < 3) continue;
+
+    const nearest = (point: [number, number]) => {
+      let index = -1;
+      let distance = Infinity;
+      for (const [i, vertex] of coords.entries()) {
+        const km = haversineKm(vertex, point);
+        if (km < distance) {
+          distance = km;
+          index = i;
+        }
+      }
+      return { index, distance };
+    };
+
+    const a = nearest(from);
+    const b = nearest(to);
+    // Both ends have to be somewhere near the line, or this traveller did not
+    // make this leg at all.
+    if (a.distance > 40 || b.distance > 40) continue;
+    const slice = coords.slice(Math.min(a.index, b.index), Math.max(a.index, b.index) + 1);
+    if (slice.length < 3) continue;
+    const ordered = a.index <= b.index ? slice : [...slice].reverse();
+    if (!best || ordered.length > best.length) best = ordered;
+  }
+
+  return best;
+}
+
+/** Length of a line in kilometres, hop by hop. */
+function lineKm(line: [number, number][]): number {
+  let total = 0;
+  for (let i = 1; i < line.length; i++) total += haversineKm(line[i - 1]!, line[i]!);
+  return total;
+}
+
 /** Ground runs and the flown jumps between them, from the tracked route. */
 function splitTrack(
   routes: RouteCollection | null,
@@ -659,17 +965,26 @@ function bow(from: [number, number], to: [number, number]): [number, number][] {
 
 /* ---- images ------------------------------------------------------------- */
 
-const bitmaps = new Map<string, ImageBitmap | HTMLImageElement | null>();
-const pending = new Map<string, Promise<ImageBitmap | HTMLImageElement | null>>();
-
 /**
- * A photo, decoded and ready to draw.
+ * The photographs, as the bytes they arrived in.
  *
- * `createImageBitmap` decodes off the main thread, which for a book of several
- * hundred photographs is the difference between a minute and several.
+ * A decoded page-sized picture is several megabytes; a day of a hundred and
+ * forty of them held open at once is more memory than a phone will give a web
+ * view. The compressed blob is a couple of hundred kilobytes, so those are
+ * what is kept, and each one is decoded twice at most: once to learn its
+ * shape, once to draw it.
  */
-async function loadImage(mediaId: string): Promise<ImageBitmap | HTMLImageElement | null> {
-  const cached = bitmaps.get(mediaId);
+const blobs = new Map<string, Blob | null>();
+const ratios = new Map<string, number>();
+const pending = new Map<string, Promise<Blob | null>>();
+
+export interface Shape {
+  item: MediaItem;
+  ratio: number;
+}
+
+async function getBlob(mediaId: string): Promise<Blob | null> {
+  const cached = blobs.get(mediaId);
   if (cached !== undefined) return cached;
   const existing = pending.get(mediaId);
   if (existing) return existing;
@@ -678,14 +993,10 @@ async function loadImage(mediaId: string): Promise<ImageBitmap | HTMLImageElemen
     try {
       const url = await fetchBlobUrl(`/media/${mediaId}/thumbnail`);
       const blob = await fetch(url).then((r) => r.blob());
-      const image =
-        typeof createImageBitmap === 'function'
-          ? await createImageBitmap(blob)
-          : await decodeElement(blob);
-      bitmaps.set(mediaId, image);
-      return image;
+      blobs.set(mediaId, blob);
+      return blob;
     } catch {
-      bitmaps.set(mediaId, null);
+      blobs.set(mediaId, null);
       return null;
     } finally {
       pending.delete(mediaId);
@@ -695,13 +1006,42 @@ async function loadImage(mediaId: string): Promise<ImageBitmap | HTMLImageElemen
   return job;
 }
 
-function decodeElement(blob: Blob): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('decode failed'));
-    img.src = URL.createObjectURL(blob);
-  });
+/** A decoded picture, to be drawn once and closed. */
+async function decode(mediaId: string): Promise<ImageBitmap | HTMLImageElement | null> {
+  const blob = await getBlob(mediaId);
+  if (!blob) return null;
+  try {
+    if (typeof createImageBitmap === 'function') return await createImageBitmap(blob);
+    return await decodeElement(blob);
+  } catch {
+    return null;
+  }
+}
+
+/** What shape each of these photographs is, fetching them a few at a time. */
+async function measure(photos: MediaItem[]): Promise<Shape[]> {
+  const shapes: Shape[] = photos.map((item) => ({ item, ratio: ratios.get(item.id) ?? 0 }));
+  const todo = shapes.filter((shape) => shape.ratio === 0);
+
+  const queue = [...todo];
+  await Promise.all(
+    Array.from({ length: Math.min(PREFETCH, queue.length) }, async () => {
+      for (;;) {
+        const shape = queue.shift();
+        if (!shape) return;
+        const image = await decode(shape.item.id);
+        // Portraits are the common case for a phone; a photo that will not
+        // decode is assumed to be one rather than left at zero.
+        const ratio = image ? image.width / image.height : 0.75;
+        if (image && 'close' in image) image.close();
+        ratios.set(shape.item.id, ratio);
+        shape.ratio = ratio;
+      }
+    }),
+  );
+
+  for (const shape of shapes) if (shape.ratio === 0) shape.ratio = ratios.get(shape.item.id) ?? 0.75;
+  return shapes;
 }
 
 /** Starts the next page's photographs on their way, a few at a time. */
@@ -712,10 +1052,25 @@ async function prefetch(photos: MediaItem[]): Promise<void> {
       for (;;) {
         const item = queue.shift();
         if (!item) return;
-        await loadImage(item.id);
+        await getBlob(item.id);
       }
     }),
   );
+}
+
+/** The book is finished; none of this is worth keeping. */
+function forgetImages(): void {
+  blobs.clear();
+  ratios.clear();
+}
+
+function decodeElement(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('decode failed'));
+    img.src = URL.createObjectURL(blob);
+  });
 }
 
 /** drawCover, but for a bitmap as well as an element. */

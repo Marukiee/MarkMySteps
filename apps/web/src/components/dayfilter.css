@@ -66,7 +66,7 @@
   min-width: 14rem;
   max-width: min(86vw, 20rem);
   /* The height comes from the room the pill has; this is only a ceiling. */
-  max-height: min(60vh, 26rem);
+  max-height: min(44vh, 20rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0.3rem;
@@ -139,8 +139,16 @@
   background: var(--paper-sunken);
 }
 
+/* The chosen row: filled in and in the accent, since there is no tick beside
+   it any more — that column was holding the counts away from the edge. */
 .day-filter-item.active {
-  background: var(--paper-sunken);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.day-filter-item.active .day-filter-count,
+.day-filter-item.active .day-filter-count svg {
+  color: var(--accent-ink);
 }
 
 .day-filter-item-name {
@@ -171,22 +179,6 @@
   display: block;
 }
 
-.day-filter-check {
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  width: 18px;
-  color: var(--accent);
-  opacity: 0;
-  transform: scale(0.6);
-  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
-}
-
-.day-filter-check.on {
-  opacity: 1;
-  transform: none;
-}
-
 .day-filter-rule {
   height: 1px;
   margin: 0.2rem 0.4rem;
@@ -197,6 +189,20 @@
 /* The day pill lives at the bottom left, stacked over the traveller picker —
    which is not always there, so the stack is what holds the gutter rather
    than the pill positioning itself against it. */
+/* Both pills wait for something to say — the days of the trip, the people on
+   it — so they land a moment after the page. Arriving is better than
+   appearing. */
+.map-bottom-left > * {
+  animation: mapPillIn 0.34s var(--ease) backwards;
+}
+
+@keyframes mapPillIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+}
+
 .map-bottom-left {
   position: absolute;
   left: 0.9rem;

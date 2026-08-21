@@ -41,6 +41,13 @@ export function FastScroll({
   const fractionRef = useRef(0);
   const draggingRef = useRef(false);
   draggingRef.current = dragging;
+  /** The grip itself, moved directly while a finger is on it. */
+  const gripRef = useRef<HTMLDivElement>(null);
+  /** Where every day of the list starts, measured once when the drag begins. */
+  const marksRef = useRef<{ day: string; at: number }[]>([]);
+  const pendingY = useRef<number | null>(null);
+  const dragFrame = useRef(0);
+  const labelRef = useRef<string | null>(null);
 
   /** The scroller that is doing the scrolling at this window size. */
   const pick = useCallback((): HTMLElement | null => {
@@ -123,30 +130,62 @@ export function FastScroll({
     // idle timer from ever reaching the end of its wait.
   }, [measure, page, side]);
 
-  /** The day the list is showing at this scroll position, if it says. */
-  const dayAt = useCallback((el: HTMLElement, scrollTop: number): string | null => {
-    const days = el.querySelectorAll<HTMLElement>('[data-day]');
-    if (days.length === 0) return null;
-    let current: string | null = null;
-    for (const node of days) {
-      // offsetTop is relative to the offset parent; the difference between two
-      // of them is what matters, so a shared parent is enough.
-      if (node.offsetTop - el.offsetTop <= scrollTop + 120) current = node.dataset.day ?? null;
-      else break;
-    }
-    return current ?? days[0]?.dataset.day ?? null;
+  /**
+   * Where each day of the list begins, measured once.
+   *
+   * Asking the DOM for every day heading on each move — a query plus a layout
+   * read per pointer event — is what made the grip feel like it was running at
+   * half speed. The list does not change while you are dragging it.
+   */
+  const measureDays = useCallback((el: HTMLElement) => {
+    const nodes = el.querySelectorAll<HTMLElement>('[data-day]');
+    marksRef.current = [...nodes].map((node) => ({
+      day: node.dataset.day ?? '',
+      at: node.offsetTop - el.offsetTop,
+    }));
   }, []);
 
+  const dayAt = useCallback((scrollTop: number): string | null => {
+    const marks = marksRef.current;
+    if (marks.length === 0) return null;
+    let current = marks[0]!.day;
+    for (const mark of marks) {
+      if (mark.at <= scrollTop + 120) current = mark.day;
+      else break;
+    }
+    return current;
+  }, []);
+
+  /**
+   * Follows the finger.
+   *
+   * The scroll and the grip's position are written straight to the DOM, once
+   * per frame; React only hears about the date on the bubble, and only when it
+   * changes. Going through state for the position meant a re-render for every
+   * pointer event, which is exactly as smooth as it sounds.
+   */
   const moveTo = useCallback(
     (clientY: number) => {
-      const el = activeRef.current;
-      if (!el || !track) return;
-      const f = Math.min(1, Math.max(0, (clientY - track.top) / track.height));
-      const max = el.scrollHeight - el.clientHeight;
-      el.scrollTop = f * max;
-      fractionRef.current = f;
-      setFraction(f);
-      setLabel(formatDay(dayAt(el, f * max)));
+      pendingY.current = clientY;
+      if (dragFrame.current) return;
+      dragFrame.current = requestAnimationFrame(() => {
+        dragFrame.current = 0;
+        const y = pendingY.current;
+        const el = activeRef.current;
+        if (y === null || !el || !track) return;
+        const f = Math.min(1, Math.max(0, (y - track.top) / track.height));
+        const max = el.scrollHeight - el.clientHeight;
+        el.scrollTop = f * max;
+        fractionRef.current = f;
+        if (gripRef.current) {
+          gripRef.current.style.top = `${track.top + f * (track.height - 46)}px`;
+        }
+        const day = formatDay(dayAt(f * max));
+        if (day !== labelRef.current) {
+          labelRef.current = day;
+          setLabel(day);
+        }
+      });
     },
     [dayAt, track],
   );
@@ -154,10 +193,13 @@ export function FastScroll({
   if (!track || !visible) return null;
 
   const size = 46;
-  const top = track.top + fraction * (track.height - size);
+  // While a finger is on it the position is written straight to the node; a
+  // re-render for the date bubble must not put the old one back.
+  const top = track.top + (dragging ? fractionRef.current : fraction) * (track.height - size);
 
   return (
     <div
+      ref={gripRef}
       className={`fast-scroll ${dragging ? 'dragging' : ''} ${closing ? 'closing' : ''}`}
       style={{ top: `${top}px`, right: `${track.right}px` }}
     >
@@ -170,7 +212,8 @@ export function FastScroll({
           e.currentTarget.setPointerCapture(e.pointerId);
           setDragging(true);
           setAwake(true);
-          measure();
+          const el = measure();
+          if (el) measureDays(el);
           moveTo(e.clientY);
         }}
         onPointerMove={(e) => {
@@ -182,12 +225,18 @@ export function FastScroll({
           e.currentTarget.releasePointerCapture(e.pointerId);
           setDragging(false);
           setLabel(null);
+          labelRef.current = null;
+          // React owns the position again; it must start from where the finger
+          // left it rather than from the last value it happened to hear about.
+          setFraction(fractionRef.current);
           window.clearTimeout(idleTimer.current);
           idleTimer.current = window.setTimeout(() => setAwake(false), IDLE_MS);
         }}
         onPointerCancel={() => {
           setDragging(false);
           setLabel(null);
+          labelRef.current = null;
+          setFraction(fractionRef.current);
         }}
       >
         <Icon name="chevron-up" size={15} />
