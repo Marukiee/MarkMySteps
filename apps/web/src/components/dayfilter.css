@@ -11,14 +11,17 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.3rem 0.6rem 0.3rem 0.62rem;
+  /* Type and padding are the traveller pill's (.person-select-btn), which sits
+     directly under this one: two pills in one stack that were set a notch
+     apart read as two controls that got separated, not as one. */
+  padding: 0.45rem 0.8rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--glass);
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-s);
-  font-size: 0.76rem;
-  font-weight: 650;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--ink);
   cursor: pointer;
   transition: transform 0.14s var(--ease), border-color 0.2s var(--ease),

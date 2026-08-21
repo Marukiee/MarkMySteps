@@ -126,6 +126,15 @@
   margin-left: calc(var(--page-pad, 0px) + 2px);
 }
 
+/*
+ * Hovering a photo: the tile stays exactly where it is and the picture inside
+ * it zooms, with a veil drawn over it. The same hover markmaaktmedia.nl uses on
+ * its album tiles.
+ *
+ * It used to lift the whole tile and put a shadow under it, which moved a photo
+ * out of the row it had been laid into and nudged its neighbours' shadows.
+ * Nothing outside the frame moves now.
+ */
 .timeline-photo {
   position: relative;
   /* Sized by its cell now: the row decides the height, the photo's own shape
@@ -135,17 +144,24 @@
   overflow: hidden;
   background: var(--paper-sunken);
   cursor: pointer;
-  /* Longer, softer easing — the old 0.18s pop felt abrupt, especially against
-     the slower zoom of the image inside it. */
-  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The veil. On the element itself rather than a second tag, so the timeline and
+   the shared page get it without either of them drawing one. */
+.timeline-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(10 4 26 / 0.55), rgb(10 4 26 / 0.05));
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
 }
 
 @media (hover: hover) {
-  .timeline-photo:hover {
-    transform: translateY(-3px) scale(1.015);
-    box-shadow: var(--shadow-m);
-    z-index: 2;
+  .timeline-photo:hover::after {
+    opacity: 1;
   }
 }
 
@@ -153,12 +169,13 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
 @media (hover: hover) {
   .timeline-photo:hover .timeline-img {
-    transform: scale(1.06);
+    transform: scale(1.07);
   }
 }
 
@@ -170,6 +187,8 @@
 
 .timeline-owner {
   position: absolute;
+  /* Above the veil: ::after is painted after the children it covers. */
+  z-index: 1;
   top: 6px;
   right: 6px;
   width: 10px;
@@ -180,6 +199,7 @@
 
 .timeline-video {
   position: absolute;
+  z-index: 1;
   inset: 0;
   display: grid;
   place-content: center;
@@ -211,5 +231,12 @@
   .timeline,
   .timeline-empty {
     animation: none;
+  }
+
+  /* No movement: the veil says the same thing on its own. */
+  .timeline-img,
+  .timeline-photo:hover .timeline-img {
+    transition: none;
+    transform: none;
   }
 }

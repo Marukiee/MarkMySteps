@@ -233,7 +233,10 @@
  */
 .share-view .timeline-img {
   opacity: 0;
-  transition: opacity 0.4s var(--ease);
+  /* The zoom is restated because this rule replaces the timeline's transition
+     rather than adding to it, and dropping it left the hover snapping. */
+  transition: opacity 0.4s var(--ease),
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .share-view .timeline-img[data-loaded='1'] {

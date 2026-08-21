@@ -130,7 +130,7 @@ export function DayFilter({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <Icon name="calendar" size={13} />
+        <Icon name="calendar" size={14} />
         <span className="day-filter-label">{value ? longDay(value) : 'Hele reis'}</span>
         <Icon name="chevron-down" size={14} className="day-filter-caret" />
       </button>

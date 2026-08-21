@@ -848,11 +848,6 @@ export function TripMap({
       }
 
       /**
-       * A planned ground leg: a dark casing under a light dashed line. Beige on
-       * its own vanished into satellite imagery; the casing is what keeps it
-       * readable over both an aerial photo and a pale street map.
-       */
-      /**
        * The colour a planned ground leg is drawn in.
        *
        * Beige on a trip nobody recorded — it is a plan, and it should look
@@ -866,26 +861,16 @@ export function TripMap({
       const gapColour =
         realPoints.length > 0 && firstVisible ? colorForUser(firstVisible) : '#ffc46b';
 
+      /**
+       * One line, nothing under it.
+       *
+       * A planned leg used to be drawn twice: the dashes, and a wide blurred
+       * dark copy beneath them meant to keep beige readable over satellite
+       * imagery. What it actually read as was a shadow the line was casting,
+       * and it was thicker than everything else on the map. The dashes are the
+       * recorded route's own width now, and they are all there is.
+       */
       const addPlannedGround = (id: string, width: number, dash: [number, number] | null) => {
-        // Wide and blurred, so it reads as the line's own shadow rather than as
-        // a black outline drawn around it — a tight, hard casing looked like a
-        // border somebody had put there on purpose.
-        const casing = width + 5;
-        // A dash is measured in line widths, so the wider casing needs the
-        // pattern scaled down or its dashes run past the ones they sit under.
-        const scale = width / casing;
-        map.addLayer({
-          id: `${id}-casing`,
-          type: 'line',
-          source: id,
-          paint: {
-            'line-color': 'rgba(16, 18, 24, 0.34)',
-            'line-width': casing,
-            'line-blur': 3.5,
-            ...(dash ? { 'line-dasharray': [dash[0] * scale, dash[1] * scale] } : {}),
-          },
-          layout: { 'line-cap': 'round' },
-        });
         map.addLayer({
           id,
           type: 'line',
@@ -991,7 +976,8 @@ export function TripMap({
             geometry: { type: 'LineString', coordinates: [from, to] },
           },
         });
-        addPlannedGround(id, 1.6, isFuture(stop.dayTripDate ?? stop.arrivalDate) ? [1, 2.4] : null);
+        // A spur, not a leg of the route: thinner than the line it hangs off.
+        addPlannedGround(id, 2, isFuture(stop.dayTripDate ?? stop.arrivalDate) ? [1.4, 2.6] : null);
       }
 
       // Legs. Flights are deduped by coarse endpoints so a there-and-back on the same
@@ -1034,7 +1020,9 @@ export function TripMap({
           if (leg.hops) tracks.push(...leg.hops);
         } else {
           map.addSource(id, { type: 'geojson', data: leg.feature });
-          addPlannedGround(id, 2, future ? [2, 2] : null);
+          // The recorded route's own width (2.5): a planned leg and a walked
+          // one are the same journey, and only the dashes should say which.
+          addPlannedGround(id, 2.5, future ? [2, 2] : null);
         }
       }
 

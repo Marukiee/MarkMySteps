@@ -353,7 +353,7 @@ export function Lightbox({
   // phone is already in its gallery, so there is nothing to download.
   if (!onDevice) {
     actions.push({
-      label: saving ? 'Downloaden…' : item.assetType === 'VIDEO' ? 'Video downloaden' : 'Afbeelding downloaden',
+      label: saving ? 'Downloaden…' : item.assetType === 'VIDEO' ? 'Video downloaden' : 'Foto downloaden',
       icon: 'download',
       run: () => void saveToDevice(),
     });
