@@ -62,7 +62,11 @@
   }
 }
 
-@media (min-width: 601px) {
+/* A floating dialog, not a sheet, once there is a real window around it.
+   601px is not that: a large phone reports more than 600 CSS pixels, and its
+   sheets were being centred with all four corners rounded — a card hanging in
+   the middle of a phone screen with the keyboard under it. */
+@media (min-width: 860px) and (pointer: fine) {
   .search-sheet-backdrop {
     place-items: center;
   }

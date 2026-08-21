@@ -65,7 +65,8 @@
   width: max-content;
   min-width: 14rem;
   max-width: min(86vw, 20rem);
-  max-height: min(52vh, 22rem);
+  /* The height comes from the room the pill has; this is only a ceiling. */
+  max-height: min(60vh, 26rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0.3rem;
@@ -73,6 +74,19 @@
   gap: 1px;
   transform-origin: bottom left;
   animation: dayMenuIn 0.16s var(--ease);
+}
+
+/* Dropped downwards instead, when there is more room under the pill. */
+.day-filter-menu.below {
+  transform-origin: top left;
+  animation: dayMenuInDown 0.16s var(--ease);
+}
+
+@keyframes dayMenuInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
 }
 
 .day-filter-menu.closing {

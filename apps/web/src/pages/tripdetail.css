@@ -795,12 +795,17 @@
   }
 }
 
-@media (min-width: 601px) {
+/* A floating dialog, not a sheet, once there is a real window around it.
+   601px is not that: a large phone reports more than 600 CSS pixels, and its
+   sheets were being centred with all four corners rounded — a card hanging in
+   the middle of a phone screen with the keyboard under it. */
+@media (min-width: 860px) and (pointer: fine) {
   .people-sheet-backdrop {
     place-items: center;
   }
 }
 
+.people-sheet.card,
 .people-sheet {
   width: min(560px, 100%);
   /* Square along the bottom, whatever else claims otherwise: a sheet that
@@ -823,7 +828,7 @@
   animation: sheetUp 0.28s var(--ease);
 }
 
-@media (min-width: 601px) {
+@media (min-width: 860px) and (pointer: fine) {
   .people-sheet {
     border-radius: var(--radius-l);
   }

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { MediaItem, RouteCollection, Trip } from '../api/types';
 import type { PlannedStop } from '../lib/arc';
-import { shareOrSaveFiles } from '../lib/fileShare';
-import { countBookPages, renderPhotoBook, type BookNote } from '../lib/photobook';
+import { bookJob, onBookJob, startBook } from '../lib/bookJob';
+import { countBookPages, type BookNote } from '../lib/photobook';
 import { Icon } from './Icon';
 import './photobook.css';
 
@@ -26,8 +26,10 @@ export function PhotoBook({
   media: MediaItem[];
   notes: BookNote[];
 }) {
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [note, setNote] = useState<string | null>(null);
+  // The job itself lives outside this panel, so leaving the page does not
+  // throw away twenty minutes of drawing.
+  const [job, setJob] = useState(bookJob);
+  useEffect(() => onBookJob(setJob), []);
   // The book is always the whole trip. The page's own route follows the day
   // filter, and a book made while looking at one day came out with that day's
   // map and everybody's photographs.
@@ -39,30 +41,16 @@ export function PhotoBook({
       .catch(() => undefined);
   }, [trip.id]);
 
-  async function make(dpi: number) {
-    setNote(null);
-    setProgress({ done: 0, total: pages || 1 });
-    try {
-      const pdf = await renderPhotoBook(
-        { trip, stops, media, routes, notes },
-        { dpi },
-        (done, total) => setProgress({ done, total }),
-      );
-      const file = new File([pdf], `${slug(trip.title)}.pdf`, { type: 'application/pdf' });
-      const outcome = await shareOrSaveFiles([file], trip.title);
-      if (outcome === 'downloaded') setNote('Bewaard in je downloads');
-      else if (outcome === 'failed') setNote('Maken lukte niet');
-    } catch {
-      setNote('Maken lukte niet');
-    } finally {
-      setProgress(null);
-    }
+  function make(dpi: number) {
+    void startBook({ trip, stops, media, routes, notes }, dpi);
   }
 
   // The real page count: a day with more than six photographs runs onto a
   // second and third page, and every move to the next stop gets its own map.
   const pages = countBookPages({ trip, stops, media, routes, notes });
-  const percent = progress && progress.total > 0 ? (progress.done / progress.total) * 100 : 0;
+  const running = job.status === 'running' && job.tripId === trip.id;
+  const percent = job.total > 0 ? (job.done / job.total) * 100 : 0;
+  const busy = job.status === 'running';
 
   return (
     <section className="photo-book">
@@ -75,38 +63,41 @@ export function PhotoBook({
           : 'Zodra deze reis foto’s heeft, kun je er een boek van maken.'}
       </p>
 
-      {progress ? (
+      {running ? (
         <div className="photo-book-progress">
           <div className="photo-book-bar" style={{ width: `${percent}%` }} />
           <span>
-            Pagina {progress.done} van {progress.total}
+            Pagina {job.done} van {job.total || '…'}
           </span>
         </div>
       ) : (
         <div className="photo-book-actions">
           {/* Snel is 120 dpi, Print 150 — a long book is a lot of drawing, and
               most of them are read on a screen. */}
-          <button className="btn btn-primary" disabled={pages === 0} onClick={() => void make(120)}>
+          <button
+            className="btn btn-primary"
+            disabled={pages === 0 || busy}
+            onClick={() => make(120)}
+          >
             <Icon name="download" size={15} /> Snel
           </button>
-          <button className="btn btn-ghost" disabled={pages === 0} onClick={() => void make(150)}>
+          <button
+            className="btn btn-ghost"
+            disabled={pages === 0 || busy}
+            onClick={() => make(150)}
+          >
             <Icon name="download" size={15} /> Print
           </button>
         </div>
       )}
-      {note && <p className="muted photo-book-note">{note}</p>}
+      {running && (
+        <p className="muted photo-book-note">
+          Je kunt de app gewoon blijven gebruiken; hij zegt het als het boek klaar is.
+        </p>
+      )}
+      {busy && !running && (
+        <p className="muted photo-book-note">Er wordt al een ander fotoboek gemaakt.</p>
+      )}
     </section>
-  );
-}
-
-function slug(text: string): string {
-  return (
-    text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 60) || 'reis'
   );
 }

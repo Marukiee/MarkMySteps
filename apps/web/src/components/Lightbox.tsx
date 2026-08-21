@@ -76,6 +76,14 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
     at: 0,
   });
   const tap = useRef({ at: 0, x: 0, y: 0 });
+  /**
+   * When a finger last did something.
+   *
+   * A touchscreen also sends the mouse events it thinks a mouse would have
+   * sent, so the double-tap that had just zoomed in was followed by a
+   * synthetic dblclick that zoomed straight back out.
+   */
+  const lastTouch = useRef(0);
 
   const photoEl = () => wrapRef.current?.querySelector('.lightbox-img') as HTMLElement | null;
 
@@ -251,6 +259,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
    * zooms out without ever lifting your thumb.
    */
   const onTouchStart = (e: ReactTouchEvent) => {
+    lastTouch.current = Date.now();
     setEased(false);
     const g = gesture.current;
     const origin = originOf(view);
@@ -349,6 +358,7 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   };
 
   const onTouchEnd = (e: ReactTouchEvent) => {
+    lastTouch.current = Date.now();
     const g = gesture.current;
     const t = e.changedTouches[0]!;
     const now = Date.now();
@@ -399,6 +409,8 @@ export function Lightbox({ items, index, onClose, onNavigate, coverTripId, onCov
   /** Mouse: double-click toggles, the wheel zooms, and a drag pans once zoomed. */
   const onDoubleClick = (e: ReactMouseEvent) => {
     if (item.assetType === 'VIDEO') return;
+    // The touch handlers have already answered this one.
+    if (Date.now() - lastTouch.current < 900) return;
     e.stopPropagation();
     setEased(true);
     setView(zoomed ? FIT : zoomAround(ZOOM_TAP, e.clientX, e.clientY, view, originOf(view)));

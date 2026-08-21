@@ -113,8 +113,9 @@
   }
 }
 
-/* Desktop: a centred dialog rather than a bottom sheet. */
-@media (min-width: 700px) {
+/* Desktop: a centred dialog rather than a bottom sheet. A wide phone is not a
+   desktop — it reports well over 700 CSS pixels and was getting the dialog. */
+@media (min-width: 860px) and (pointer: fine) {
   .fe-layer {
     align-items: center;
   }

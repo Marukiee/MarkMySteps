@@ -46,7 +46,10 @@ import java.util.concurrent.TimeUnit;
 public class MmsNotifyPlugin extends Plugin {
 
     private static final String CHANNEL_ID = "mms_account";
+    /** Quiet channel: a progress bar that buzzes every percent is a nuisance. */
+    private static final String TASK_CHANNEL_ID = "mms_tasks";
     private static final int NOTIFICATION_ID = 4711;
+    private static final int TASK_NOTIFICATION_ID = 4712;
     private static final String WORK_NAME = "mms-notify-poll";
 
     /**
@@ -146,6 +149,78 @@ public class MmsNotifyPlugin extends Plugin {
                         == PackageManager.PERMISSION_GRANTED;
     }
 
+    /**
+     * A job the app is busy with, as a notification that updates itself.
+     *
+     * Making a photo book of ninety pages takes a while, and staring at a
+     * progress bar is not what anyone wants to do with that time. The work
+     * carries on in the app; this says how far it has got from the shade, and
+     * says so quietly - one notification, updated in place, on a channel with
+     * no sound of its own.
+     */
+    @PluginMethod
+    public void progress(PluginCall call) {
+        String title = call.getString("title", "MarkMySteps");
+        String body = call.getString("body", "");
+        Integer percent = call.getInt("percent");
+        boolean done = Boolean.TRUE.equals(call.getBoolean("done", false));
+
+        NotificationManager manager = notifications();
+        if (manager == null || !allowed()) {
+            call.resolve();
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                && manager.getNotificationChannel(TASK_CHANNEL_ID) == null) {
+            NotificationChannel channel = new NotificationChannel(
+                    TASK_CHANNEL_ID, "Bezig", NotificationManager.IMPORTANCE_LOW);
+            channel.setDescription("Voortgang van iets dat de app aan het maken is");
+            channel.setSound(null, null);
+            manager.createNotificationChannel(channel);
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(
+                        getContext(), TASK_CHANNEL_ID)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setSmallIcon(R.drawable.ic_stat_track)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                // Only the first post makes a sound; every update after it is
+                // the same notification changing its mind.
+                .setOnlyAlertOnce(true)
+                .setContentIntent(openApp());
+
+        if (done) {
+            // Finished: it may be swiped away, and tapping it opens the app.
+            builder.setOngoing(false).setAutoCancel(true);
+        } else {
+            builder.setOngoing(true)
+                    .setProgress(100, percent == null ? 0 : Math.max(0, Math.min(100, percent)),
+                            percent == null);
+        }
+
+        manager.notify(TASK_NOTIFICATION_ID, builder.build());
+        call.resolve();
+    }
+
+    /** Takes the job notification away — the job was cancelled or is stale. */
+    @PluginMethod
+    public void clearProgress(PluginCall call) {
+        NotificationManager manager = notifications();
+        if (manager != null) manager.cancel(TASK_NOTIFICATION_ID);
+        call.resolve();
+    }
+
+    private NotificationManager notifications() {
+        return getContext().getSystemService(NotificationManager.class);
+    }
+
+    private PendingIntent openApp() {
+        Intent open = new Intent(getContext(), MainActivity.class);
+        open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        return PendingIntent.getActivity(getContext(), 0, open, PendingIntent.FLAG_IMMUTABLE);
+    }
+
     @PluginMethod
     public void show(PluginCall call) {
         String title = call.getString("title", "MarkMySteps");
@@ -173,10 +248,7 @@ public class MmsNotifyPlugin extends Plugin {
             manager.createNotificationChannel(channel);
         }
 
-        Intent open = new Intent(getContext(), MainActivity.class);
-        open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent pending = PendingIntent.getActivity(
-                getContext(), 0, open, PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pending = openApp();
 
         Notification notification = new NotificationCompat.Builder(getContext(), CHANNEL_ID)
                 .setContentTitle(title)

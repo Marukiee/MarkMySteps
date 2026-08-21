@@ -1,0 +1,129 @@
+/* Above the tab bar, out of the way of whatever you moved on to. */
+.book-pill {
+  position: fixed;
+  left: 50%;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: min(30rem, calc(100vw - 1.6rem));
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-m);
+  overflow: hidden;
+  animation: bookPillIn 0.28s var(--ease);
+}
+
+.book-pill.closing {
+  animation: bookPillOut 0.24s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes bookPillIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 14px);
+  }
+}
+
+@keyframes bookPillOut {
+  to {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+}
+
+/* The progress fills the pill itself rather than a separate bar: one shape,
+   and it reads at a glance from the corner of your eye. */
+.book-pill-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent-soft);
+  transition: width 0.4s var(--ease);
+}
+
+.book-pill > * {
+  position: relative;
+}
+
+.book-pill-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--paper-sunken);
+  color: var(--accent-ink);
+}
+
+.book-pill.done .book-pill-icon {
+  color: #0a9d63;
+}
+
+.book-pill.failed .book-pill-icon {
+  color: #b3402a;
+}
+
+.book-pill-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+
+.book-pill-text strong {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-pill-text small {
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-pill-save {
+  flex-shrink: 0;
+  padding: 0.4rem 0.85rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease);
+}
+
+.book-pill-save:active {
+  transform: scale(0.95);
+}
+
+.book-pill-close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+
+.book-pill-close:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}

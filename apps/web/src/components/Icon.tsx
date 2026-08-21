@@ -10,6 +10,7 @@ export type IconName =
   | 'minus'
   | 'download'
   | 'close'
+  | 'book'
   | 'calendar'
   | 'eye'
   | 'eye-off'
@@ -312,6 +313,12 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M7 4h10M7 20h10" />
       <path d="M7 4c0 4 3 5 5 8 2-3 5-4 5-8" />
       <path d="M7 20c0-4 3-5 5-8 2 3 5 4 5 8" />
+    </>
+  ),
+  book: (
+    <>
+      <path d="M4 5.5A2 2 0 0 1 6 3.5h13v14H6a2 2 0 0 0-2 2Z" />
+      <path d="M4 19.5a2 2 0 0 1 2-2h13v3H6a2 2 0 0 1-2-1Z" />
     </>
   ),
   calendar: (

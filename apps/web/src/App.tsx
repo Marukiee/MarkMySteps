@@ -11,6 +11,7 @@ import {
 } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { BottomNav } from './components/BottomNav';
+import { BookProgress } from './components/BookProgress';
 import { InvitePopup } from './components/InvitePopup';
 import { TopBar } from './components/TopBar';
 import { TrackingPrompt } from './components/TrackingPrompt';
@@ -108,6 +109,9 @@ function Shell() {
       )}
       <Outlet />
       <BottomNav />
+      {/* A photo book being made keeps being made wherever you go; this is how
+          it says so, and how it hands the file over when it is done. */}
+      <BookProgress />
       <TrackingPrompt />
       <InvitePopup />
     </>

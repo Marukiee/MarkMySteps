@@ -63,7 +63,9 @@
   }
 }
 
-@media (min-width: 640px) {
+/* Same as the other sheets: a floating card only where there is a window
+   around it, not on a phone that happens to be wide. */
+@media (min-width: 860px) and (pointer: fine) {
   .lm-layer {
     place-items: center;
   }

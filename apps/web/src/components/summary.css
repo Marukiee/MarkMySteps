@@ -252,7 +252,11 @@
   animation: sheetBackdropIn 0.28s var(--ease);
 }
 
-@media (min-width: 601px) {
+/* A floating dialog, not a sheet, once there is a real window around it.
+   601px is not that: a large phone reports more than 600 CSS pixels, and its
+   sheets were being centred with all four corners rounded — a card hanging in
+   the middle of a phone screen with the keyboard under it. */
+@media (min-width: 860px) and (pointer: fine) {
   .summary-studio-backdrop {
     place-items: center;
   }
@@ -297,7 +301,7 @@
   animation: sheetUp 0.28s var(--ease);
 }
 
-@media (min-width: 601px) {
+@media (min-width: 860px) and (pointer: fine) {
   .summary-studio {
     border-radius: var(--radius-l);
   }
@@ -993,7 +997,7 @@
   animation: sheetBackdropIn 0.24s var(--ease);
 }
 
-@media (min-width: 601px) {
+@media (min-width: 860px) and (pointer: fine) {
   .summary-swap-backdrop {
     place-items: center;
   }
@@ -1024,7 +1028,7 @@
   animation: sheetUp 0.26s var(--ease);
 }
 
-@media (min-width: 601px) {
+@media (min-width: 860px) and (pointer: fine) {
   .summary-swap {
     border-radius: var(--radius-l);
   }

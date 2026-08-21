@@ -12,6 +12,14 @@ import { api, getServerBase } from '../api/client';
 
 interface MmsNotifyPlugin {
   show(options: { title: string; body: string }): Promise<void>;
+  /** A job in progress, as one notification that updates itself. */
+  progress(options: {
+    title: string;
+    body: string;
+    percent?: number;
+    done?: boolean;
+  }): Promise<void>;
+  clearProgress(): Promise<void>;
   /** Start the quarter-hourly background check with a token of its own. */
   enableBackground(options: { baseUrl: string; token: string }): Promise<void>;
   disableBackground(): Promise<void>;
@@ -89,6 +97,45 @@ export async function resumeBackgroundNotify(): Promise<void> {
     return;
   }
   await MmsNotify.enableBackground({ baseUrl: getServerBase(), token }).catch(() => undefined);
+}
+
+/**
+ * Says how far something the app is making has got, from the shade.
+ *
+ * Quiet by design: one notification, updated in place on a channel with no
+ * sound, so a book of ninety pages does not buzz ninety times.
+ */
+export async function showJobProgress(
+  title: string,
+  body: string,
+  percent: number,
+): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  await MmsNotify.progress({ title, body, percent, done: false }).catch(() => undefined);
+}
+
+/** The same notification, finished: it stops being sticky and can be tapped. */
+export async function showJobDone(title: string, body: string): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  await MmsNotify.progress({ title, body, done: true }).catch(() => undefined);
+}
+
+export async function clearJobProgress(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  await MmsNotify.clearProgress().catch(() => undefined);
+}
+
+/** Whether the phone will let the app post anything at all. */
+export async function notifyPermitted(): Promise<boolean> {
+  if (!Capacitor.isNativePlatform()) return false;
+  try {
+    const { granted } = await MmsNotify.permission();
+    if (granted) return true;
+    const asked = await MmsNotify.requestPermission();
+    return asked.granted;
+  } catch {
+    return false;
+  }
 }
 
 /** The route a tapped notification asked for, or null. Consumed once. */

@@ -36,16 +36,48 @@ export function DayFilter({
   const menuRef = useRef<HTMLDivElement>(null);
   // Where the menu hangs. The map panel clips anything drawn inside it, so the
   // menu is drawn on the page itself and told where the pill is.
-  const [anchor, setAnchor] = useState<{ left: number; bottom: number; width: number } | null>(null);
+  const [anchor, setAnchor] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
 
+  /**
+   * Hangs the menu off the pill, on whichever side it fits.
+   *
+   * The pill sits near the bottom of the map, so the list normally drops
+   * upwards — but a trip of three months has more days than there is screen
+   * above it, and the list was running off the top with its first days
+   * unreachable. Whichever side has more room gets the menu, and the menu is
+   * never taller than that room.
+   */
   const place = () => {
     const rect = btnRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setAnchor({
-      left: rect.left,
-      bottom: window.innerHeight - rect.top + 8,
-      width: rect.width,
-    });
+    const above = rect.top - 12;
+    const below = window.innerHeight - rect.bottom - 12;
+    const width = Math.max(rect.width, 224);
+    // Keep it on screen sideways as well: the pill is at the left edge, but a
+    // long day name makes the menu wider than the pill.
+    const left = Math.min(rect.left, window.innerWidth - width - 12);
+
+    if (above >= below) {
+      setAnchor({
+        left: Math.max(12, left),
+        bottom: window.innerHeight - rect.top + 8,
+        width: rect.width,
+        maxHeight: above - 8,
+      });
+    } else {
+      setAnchor({
+        left: Math.max(12, left),
+        top: rect.bottom + 8,
+        width: rect.width,
+        maxHeight: below - 8,
+      });
+    }
   };
 
   useEffect(() => {
@@ -98,8 +130,16 @@ export function DayFilter({
         createPortal(
           <div
             ref={menuRef}
-            className={`day-filter-menu card ${closing ? 'closing' : ''}`}
-            style={{ left: anchor.left, bottom: anchor.bottom, minWidth: anchor.width }}
+            className={`day-filter-menu card ${closing ? 'closing' : ''} ${
+              anchor.top !== undefined ? 'below' : ''
+            }`}
+            style={{
+              left: anchor.left,
+              top: anchor.top,
+              bottom: anchor.bottom,
+              minWidth: anchor.width,
+              maxHeight: anchor.maxHeight,
+            }}
           >
             <button
               type="button"
