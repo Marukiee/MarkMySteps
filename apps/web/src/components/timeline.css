@@ -177,6 +177,12 @@
   .timeline-photo:hover .timeline-img {
     transform: scale(1.07);
   }
+
+  /* Except on a panorama, which is shown whole: seven per cent of a sweep this
+     wide is a good deal of scenery to take off both ends. */
+  .photo-grid-row.pano .timeline-photo:hover .timeline-img {
+    transform: none;
+  }
 }
 
 /* Tap feedback on touch, where there is no hover state to speak of. */

@@ -31,3 +31,16 @@
   width: 100%;
   height: 100%;
 }
+
+/*
+ * A panorama's own row.
+ *
+ * The cell is the photo's true shape, so `contain` and `cover` agree — until
+ * the row hits its height floor, where the picture is a little shorter than
+ * the box. Contained, that shows as a band above and below it; covering, it
+ * would be the ends of the sweep cut off, which is the one thing a panorama
+ * cannot afford to lose.
+ */
+.photo-grid-row.pano img {
+  object-fit: contain;
+}

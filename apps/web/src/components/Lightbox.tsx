@@ -16,7 +16,7 @@ import { mediaSrc } from '../lib/gallery';
 import { reversePlaceName } from '../lib/geocode';
 import { isNativeApp, openExternal } from '../lib/native';
 import { savePhoto } from '../lib/photoSave';
-import { cachedImage, decoded, loadImage, preloadImage } from './AuthImage';
+import { cachedImage, decoded, loadImage, preloadImage, retainImage } from './AuthImage';
 import { Icon, IconName } from './Icon';
 import './lightbox.css';
 
@@ -672,6 +672,11 @@ export function Lightbox({
                     ? srcFor(item, 'thumbnail')
                     : cachedImage(`/media/${item.id}/thumbnail?size=thumbnail`)
                 }
+                // The two cache entries this photo is shown from, so neither can
+                // be evicted out from under it while it is on screen. A share
+                // link fetches by URL and has no cache to hold anything in.
+                fullPath={srcFor ? undefined : `/media/${item.id}/thumbnail`}
+                lowPath={srcFor ? undefined : `/media/${item.id}/thumbnail?size=thumbnail`}
                 // A video that has not resolved its playback URL yet shows its
                 // still, not a preview render of a file that isn't an image.
                 loadFull={
@@ -752,14 +757,27 @@ function LightboxPhoto({
   id,
   lowSrc,
   loadFull,
+  fullPath,
+  lowPath,
   className,
 }: {
   id: string;
   lowSrc?: string;
   loadFull: () => Promise<string>;
+  fullPath?: string;
+  lowPath?: string;
   className?: string;
 }) {
   const [frame, setFrame] = useState<{ id: string; src: string } | null>(null);
+
+  // Claimed before a byte is asked for, and held until this photo is off the
+  // screen. Without it the object URL the full-size photo lives at was being
+  // revoked between arriving and being painted, and the viewer showed the
+  // thumbnail for an instant and then nothing at all.
+  useEffect(() => {
+    const held = [fullPath, lowPath].filter((p): p is string => Boolean(p)).map(retainImage);
+    return () => held.forEach((release) => release());
+  }, [fullPath, lowPath]);
 
   useEffect(() => {
     let alive = true;
@@ -791,5 +809,20 @@ function LightboxPhoto({
   if (!frame) return <div className={`${className ?? ''} img-placeholder`} aria-hidden="true" />;
   // Keyed on the photo, not the source: a new photo is a new element and plays
   // the entrance, the small one growing into the big one is not.
-  return <img key={frame.id} src={frame.src} alt="" className={className} decoding="sync" />;
+  return (
+    <img
+      key={frame.id}
+      src={frame.src}
+      alt=""
+      className={className}
+      decoding="sync"
+      // A source that will not paint (a blob that has been revoked, a rendition
+      // the server could not fetch) falls back to the small version rather than
+      // leaving a black frame. Setting the same src again cannot loop: an
+      // unchanged src is not re-requested.
+      onError={() => {
+        if (lowSrc && frame.src !== lowSrc) setFrame({ id, src: lowSrc });
+      }}
+    />
+  );
 }

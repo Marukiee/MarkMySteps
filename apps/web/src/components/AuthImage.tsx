@@ -43,6 +43,29 @@ function release(path: string, url: string): void {
   cache.delete(path);
 }
 
+/**
+ * Claim a path for as long as the caller is showing it, so the eviction above
+ * can never revoke a blob that is on screen.
+ *
+ * <AuthImage> does this for itself. The viewer does it too, and has to: a trip
+ * with more photos than the cache holds keeps every one of its mounted grid
+ * thumbnails claimed, so the only entries prune() was ever free to throw away
+ * were the viewer's own full-size ones — revoked a moment after they were
+ * fetched, which is why the photo you tapped went blank as soon as the big
+ * version "arrived".
+ */
+export function retainImage(path: string): () => void {
+  inUse.set(path, (inUse.get(path) ?? 0) + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const next = (inUse.get(path) ?? 1) - 1;
+    if (next > 0) inUse.set(path, next);
+    else inUse.delete(path);
+  };
+}
+
 /** The object URL for a path if it has already been fetched, else nothing. */
 export function cachedImage(path: string): string | undefined {
   const url = cache.get(path);
@@ -155,14 +178,7 @@ export function AuthImage({
 
   // Claim the path while this image is mounted, so the cache never revokes a
   // blob that something is still displaying.
-  useEffect(() => {
-    inUse.set(path, (inUse.get(path) ?? 0) + 1);
-    return () => {
-      const next = (inUse.get(path) ?? 1) - 1;
-      if (next > 0) inUse.set(path, next);
-      else inUse.delete(path);
-    };
-  }, [path]);
+  useEffect(() => retainImage(path), [path]);
 
   useEffect(() => {
     if (src || eager || !placeholderRef.current) return;

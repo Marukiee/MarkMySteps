@@ -18,18 +18,45 @@ interface PhotoGridProps<T extends PhotoGridItem> {
 }
 
 const GAP = 6;
-/** Anything wider or narrower than this is clamped, so one panorama in a day
+/** Anything wider or narrower than this is clamped, so one wide shot in a day
  *  cannot flatten its whole row into a letterbox strip. */
 const MIN_RATIO = 0.5;
 const MAX_RATIO = 2.6;
 /** No shape recorded (an older sync, a photo still on the phone) → a square,
  *  which is what the grid used to be for everything. */
 const FALLBACK_RATIO = 1;
+/** Wider than this and clamping is no longer a nudge: it is throwing half the
+ *  picture away. Those get a row to themselves instead — see `isPanorama`. */
+const PANO_RATIO = MAX_RATIO;
+/** How short a panorama's own row is allowed to get. A 7:1 sweep across a
+ *  phone works out to about fifty pixels, which is a line, not a photograph.
+ *  Past this the row keeps its height and the photo is letterboxed inside it —
+ *  never cropped. */
+const PANO_MIN_HEIGHT = 96;
 
-const ratioOf = (item: PhotoGridItem): number => {
+/** The photo's own shape, as it was taken. */
+const rawRatioOf = (item: PhotoGridItem): number => {
   const { width, height } = item;
   if (!width || !height || width <= 0 || height <= 0) return FALLBACK_RATIO;
-  return Math.min(MAX_RATIO, Math.max(MIN_RATIO, width / height));
+  return width / height;
+};
+
+/**
+ * A photo too wide to share a row with anything.
+ *
+ * Exported because the caller wants to know as well: a panorama runs the full
+ * width of the screen here, and the small grid rendition it would otherwise be
+ * given is a couple of hundred pixels stretched across all of it.
+ */
+export function isPanorama(item: PhotoGridItem): boolean {
+  return rawRatioOf(item) > PANO_RATIO;
+}
+
+const ratioOf = (item: PhotoGridItem): number => {
+  // A panorama is laid out at its true shape. It is alone on its row, so there
+  // is nothing for it to squash, and clamping it is what cropped it.
+  if (isPanorama(item)) return rawRatioOf(item);
+  return Math.min(MAX_RATIO, Math.max(MIN_RATIO, rawRatioOf(item)));
 };
 
 /**
@@ -107,13 +134,24 @@ export function PhotoGrid<T extends PhotoGridItem>({
           row.length,
           width,
         );
+        const pano = row.length === 1 && isPanorama(row[0]!);
         // A last row of one or two photos would be blown up to fill the width
         // on its own, dwarfing everything above it. Capped, it keeps its shape
         // and simply stops short of the right edge.
-        const height = Math.round(Math.min(exact, target * 1.35));
-        const stretched = height >= exact - 0.5;
+        //
+        // A panorama is the exception: its own row exists so it can have the
+        // full width at its own shape, so only the floor applies to it, and at
+        // the floor it is letterboxed rather than cut down.
+        const height = pano
+          ? Math.round(Math.max(exact, PANO_MIN_HEIGHT))
+          : Math.round(Math.min(exact, target * 1.35));
+        const stretched = pano || height >= exact - 0.5;
         return (
-          <div className="photo-grid-row" key={row[0]?.id ?? i} style={{ height }}>
+          <div
+            className={`photo-grid-row ${pano ? 'pano' : ''}`}
+            key={row[0]?.id ?? i}
+            style={{ height }}
+          >
             {row.map((item, j) => {
               const ratio = ratios[j]!;
               return (
@@ -160,6 +198,15 @@ function packRows<T extends PhotoGridItem>(
 
   for (const item of items) {
     const ratio = ratioOf(item);
+    // A panorama takes a row of its own: whatever was being filled is closed
+    // off before it, and the next photo starts a fresh one after it.
+    if (isPanorama(item)) {
+      if (row.length > 0) rows.push(row);
+      rows.push([item]);
+      row = [];
+      ratioSum = 0;
+      continue;
+    }
     if (row.length >= maxPerRow) {
       rows.push(row);
       row = [];

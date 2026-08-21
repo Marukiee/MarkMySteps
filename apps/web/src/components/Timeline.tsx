@@ -4,7 +4,7 @@ import { colorForUser, formatDay } from '../lib/colors';
 import { AuthImage } from './AuthImage';
 import { DayNote, TripNote } from './DayNote';
 import { Icon } from './Icon';
-import { PhotoGrid } from './PhotoGrid';
+import { isPanorama, PhotoGrid } from './PhotoGrid';
 import { WeatherBadge } from './WeatherBadge';
 import './timeline.css';
 import { Flag } from './Flag';
@@ -180,7 +180,18 @@ export function Timeline({
                 role={onPhotoClick ? 'button' : undefined}
               >
                 <AuthImage
-                  path={`/media/${item.id}/thumbnail?size=thumbnail`}
+                  // A panorama runs the full width of the screen on a row of
+                  // its own, and the small grid rendition is a few hundred
+                  // pixels stretched across all of it. It gets the preview,
+                  // with the small one held up in front until that arrives.
+                  path={
+                    isPanorama(item)
+                      ? `/media/${item.id}/thumbnail`
+                      : `/media/${item.id}/thumbnail?size=thumbnail`
+                  }
+                  lowResPath={
+                    isPanorama(item) ? `/media/${item.id}/thumbnail?size=thumbnail` : undefined
+                  }
                   alt=""
                   className="timeline-img"
                 />
