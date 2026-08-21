@@ -1716,10 +1716,13 @@
   }
 }
 
+/* Lined up with the middle of the title's letters, not the top of its line
+   box. Those are not the same place: the heading runs at line-height 1.55, so
+   there is a couple of pixels of leading above the capitals to account for. */
 .changelog-dot {
   position: absolute;
   left: -1.15rem;
-  top: 0.35rem;
+  top: 0.45rem;
   width: 10px;
   height: 10px;
   border-radius: 50%;

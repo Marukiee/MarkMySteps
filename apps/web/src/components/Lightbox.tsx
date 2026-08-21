@@ -15,7 +15,7 @@ import { deviceMediaUri, isDeviceMediaId } from '../lib/deviceMedia';
 import { mediaSrc } from '../lib/gallery';
 import { reversePlaceName } from '../lib/geocode';
 import { isNativeApp, openExternal } from '../lib/native';
-import { AuthImage, preloadImage } from './AuthImage';
+import { cachedImage, decoded, loadImage, preloadImage } from './AuthImage';
 import { Icon, IconName } from './Icon';
 import './lightbox.css';
 
@@ -69,7 +69,11 @@ export function Lightbox({
   const isPublic = Boolean(srcFor);
   const [immichUrl, setImmichUrl] = useState<string | null>(null);
   const [coverSaved, setCoverSaved] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  // Three states, not two: a menu that is only ever mounted or not cannot
+  // animate itself away — it was simply gone the moment you tapped past it.
+  const [menu, setMenu] = useState<'closed' | 'open' | 'closing'>('closed');
+  const menuOpen = menu === 'open';
+  const closeMenu = () => setMenu((m) => (m === 'open' ? 'closing' : m));
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const [place, setPlace] = useState<string | null>(null);
@@ -163,9 +167,16 @@ export function Lightbox({
   useEffect(() => {
     setEased(false);
     setView(FIT);
-    setMenuOpen(false);
+    closeMenu();
     gesture.current.mode = 'none';
   }, [index]);
+
+  // Off the screen once its exit has played.
+  useEffect(() => {
+    if (menu !== 'closing') return;
+    const timer = window.setTimeout(() => setMenu('closed'), 150);
+    return () => window.clearTimeout(timer);
+  }, [menu]);
 
   // Animate out before unmounting; closing used to be an abrupt cut.
   const close = () => {
@@ -514,7 +525,7 @@ export function Lightbox({
       className={`lightbox ${closing ? 'closing' : ''}`}
       // With the menu open, a tap outside it means "never mind" — not "close
       // the photo I was about to act on".
-      onClick={() => (menuOpen ? setMenuOpen(false) : close())}
+      onClick={() => (menuOpen ? closeMenu() : close())}
       role="dialog"
       aria-modal="true"
     >
@@ -537,18 +548,21 @@ export function Lightbox({
             className="lightbox-menu-btn"
             aria-label="Meer"
             aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
+            onClick={() => setMenu((m) => (m === 'open' ? 'closing' : 'open'))}
           >
             <Icon name="dots" size={20} />
           </button>
-          {menuOpen && (
-            <div className="lightbox-menu-list" role="menu">
+          {menu !== 'closed' && (
+            <div
+              className={`lightbox-menu-list ${menu === 'closing' ? 'closing' : ''}`}
+              role="menu"
+            >
               {actions.map((action) => (
                 <button
                   key={action.label}
                   role="menuitem"
                   onClick={() => {
-                    setMenuOpen(false);
+                    closeMenu();
                     action.run();
                   }}
                 >
@@ -590,23 +604,26 @@ export function Lightbox({
           >
             {item.assetType === 'VIDEO' && videoUrl ? (
               <video className="lightbox-img" src={videoUrl} controls autoPlay playsInline />
-            ) : srcFor ? (
-              <ProgressiveImg
-                key={item.id}
+            ) : (
+              <LightboxPhoto
+                id={item.id}
+                // What the grid you tapped in already has in hand: a cached blob
+                // in the app, a URL the browser has cached on a share link.
+                lowSrc={
+                  srcFor
+                    ? srcFor(item, 'thumbnail')
+                    : cachedImage(`/media/${item.id}/thumbnail?size=thumbnail`)
+                }
                 // A video that has not resolved its playback URL yet shows its
                 // still, not a preview render of a file that isn't an image.
-                lowSrc={srcFor(item, 'thumbnail')}
-                highSrc={srcFor(item, item.assetType === 'VIDEO' ? 'thumbnail' : 'preview')}
-                className="lightbox-img"
-              />
-            ) : (
-              <AuthImage
-                key={item.id}
-                path={`/media/${item.id}/thumbnail`}
-                // What the grid you tapped in already has in hand.
-                lowResPath={`/media/${item.id}/thumbnail?size=thumbnail`}
-                eager
-                alt=""
+                loadFull={
+                  srcFor
+                    ? () =>
+                        Promise.resolve(
+                          srcFor(item, item.assetType === 'VIDEO' ? 'thumbnail' : 'preview'),
+                        )
+                    : () => loadImage(`/media/${item.id}/thumbnail`)
+                }
                 className="lightbox-img"
               />
             )}
@@ -660,38 +677,61 @@ export function Lightbox({
 }
 
 /**
- * The small version first, the big one when it gets here — in one element.
+ * The photo in the viewer, and the reason paging through does not blink.
  *
- * The grid the photo was tapped in has already pulled its thumbnail, so it is
- * sitting in the browser's cache and paints in the same frame this mounts. It
- * also carries the photo's real proportions, which is what keeps the frame the
- * right shape: sizing the element from `width`/`height` attributes instead made
- * the box the full height it was allowed and letterboxed the picture inside it
- * with black bands above and below.
+ * Nothing is put on screen until the browser has actually decoded it. Handing
+ * a fresh <img> a URL — even one whose bytes are already cached — leaves it
+ * blank for a frame or two while the bitmap is made, and the entrance
+ * animation was playing out over exactly that nothing.
+ *
+ * So the photo on screen stays where it is until its replacement is ready, and
+ * only then does it swap, which is also when the animation runs: the element
+ * is keyed on the photo, so a new photo is a new element and animates, while
+ * the small version quietly becoming the big one is the same element with a
+ * different `src` and does not.
  */
-function ProgressiveImg({
+function LightboxPhoto({
+  id,
   lowSrc,
-  highSrc,
+  loadFull,
   className,
 }: {
-  lowSrc: string;
-  highSrc: string;
+  id: string;
+  lowSrc?: string;
+  loadFull: () => Promise<string>;
   className?: string;
 }) {
-  const [src, setSrc] = useState(lowSrc);
+  const [frame, setFrame] = useState<{ id: string; src: string } | null>(null);
 
   useEffect(() => {
-    setSrc(lowSrc);
-    if (highSrc === lowSrc) return;
-    const loader = new Image();
-    // Swapped only once it is decoded and ready, so the picture never blinks
-    // back to nothing on the way up in resolution.
-    loader.onload = () => setSrc(highSrc);
-    loader.src = highSrc;
+    let alive = true;
+    let arrived = false;
+    // Whatever is already in hand goes up first, once it can be painted — but
+    // never over the full-size one, which on a photo that was preloaded can
+    // easily be ready first.
+    if (lowSrc) {
+      void decoded(lowSrc).then((url) => {
+        if (alive && !arrived) setFrame({ id, src: url });
+      });
+    }
+    void loadFull()
+      .then(decoded)
+      .then((url) => {
+        if (!alive) return;
+        arrived = true;
+        setFrame({ id, src: url });
+      })
+      .catch(() => undefined);
     return () => {
-      loader.onload = null;
+      alive = false;
     };
-  }, [lowSrc, highSrc]);
+    // loadFull is rebuilt every render; the photo it points at is `id`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, lowSrc]);
 
-  return <img src={src} alt="" className={className} decoding="async" />;
+  // Nothing at all yet: the previous photo is gone and this one has not landed.
+  if (!frame) return <div className={`${className ?? ''} img-placeholder`} aria-hidden="true" />;
+  // Keyed on the photo, not the source: a new photo is a new element and plays
+  // the entrance, the small one growing into the big one is not.
+  return <img key={frame.id} src={frame.src} alt="" className={className} decoding="sync" />;
 }

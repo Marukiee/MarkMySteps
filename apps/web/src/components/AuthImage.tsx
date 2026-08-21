@@ -43,21 +43,49 @@ function release(path: string, url: string): void {
   cache.delete(path);
 }
 
+/** The object URL for a path if it has already been fetched, else nothing. */
+export function cachedImage(path: string): string | undefined {
+  const url = cache.get(path);
+  if (url !== undefined) touch(path);
+  return url;
+}
+
+/** Fetch a path through the authorized proxy, or hand back the cached copy. */
+export async function loadImage(path: string): Promise<string> {
+  const cached = cachedImage(path);
+  if (cached !== undefined) return cached;
+  const url = await fetchBlobUrl(path);
+  remember(path, url);
+  return url;
+}
+
 /**
  * Warm the cache for an image that is about to be needed.
  *
  * The viewer uses it on the photos either side of the one on screen, so paging
  * lands on a picture that is already there instead of a placeholder. Failures
  * are ignored: this is a guess about what you will look at next.
+ *
+ * It decodes as well as downloads. Bytes in hand are not pixels: a fresh <img>
+ * pointed at an undecoded photo still shows nothing for a frame or two while
+ * the browser turns it into a bitmap, which was the flicker between photos
+ * that the preloading was supposed to have removed.
  */
 export function preloadImage(path: string): void {
-  if (cache.has(path)) {
-    touch(path);
-    return;
-  }
-  void fetchBlobUrl(path)
-    .then((url) => remember(path, url))
-    .catch(() => undefined);
+  void loadImage(path).then(decoded).catch(() => undefined);
+}
+
+/** Resolves once the browser has the bitmap ready to paint. */
+export function decoded(url: string): Promise<string> {
+  const img = new Image();
+  img.src = url;
+  // decode() is not everywhere, and rejects on an image it cannot read. Either
+  // way the answer is the same: go ahead and show it.
+  if (typeof img.decode !== 'function') return Promise.resolve(url);
+  return img.decode().then(
+    () => url,
+    () => url,
+  );
 }
 
 /** Whichever of the two resolutions is already cached, full size first. */

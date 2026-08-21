@@ -97,22 +97,24 @@
   color: var(--ink-faint);
 }
 
+/* The same bullet the what's-new page uses: a small solid dot with a ring of
+   page behind it, so the rail reads as broken around every day rather than
+   running straight through a bordered bead. */
 .timeline-dot {
-  width: 13px;
-  height: 13px;
+  width: 10px;
+  height: 10px;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--accent);
-  border: 3px solid var(--paper);
-  box-shadow: 0 0 0 2px var(--line);
+  box-shadow: 0 0 0 3px var(--paper);
   z-index: 1;
   /* Sat centred on the rail, which put half of it out in the page gutter and
      nearly against the edge of the screen. Nudged right: the rail runs a
      little off-centre through it, and the dot has room to breathe on both
      sides. */
-  margin-left: -3px;
+  margin-left: -2px;
   /* Line up the dot's centre with the date text, not its top. */
-  margin-top: 0.32rem;
+  margin-top: 0.42rem;
 }
 
 .timeline-grid {

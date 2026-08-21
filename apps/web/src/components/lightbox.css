@@ -127,6 +127,19 @@
   }
 }
 
+/* Leaves the way it arrived. */
+.lightbox-menu-list.closing {
+  animation: lightboxMenuOut 0.15s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes lightboxMenuOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
 .lightbox-menu-list button {
   display: flex;
   align-items: center;

@@ -352,7 +352,7 @@ export function TripMap({
       resetView: () => {
         const bounds = wholeTripRef.current;
         if (!bounds) return;
-        fitSafely(map, bounds, camPadding(), 13, 700);
+        fitSafely(map, bounds, tripPadding(hiddenBottomRef.current), TRIP_MAX_ZOOM, 700);
       },
       glowRoutes: () => runGlow(map, glowLinesRef.current),
     });
@@ -542,13 +542,7 @@ export function TripMap({
         if (autoFitRef.current) {
           // The sheet covers the bottom of the canvas, so padding that ignores
           // it centres the trip behind the sheet instead of in view.
-          fitSafely(
-            map,
-            bounds,
-            { top: 60, bottom: 60 + hiddenBottomRef.current, left: 60, right: 60 },
-            13,
-            900,
-          );
+          fitSafely(map, bounds, tripPadding(hiddenBottomRef.current), TRIP_MAX_ZOOM, 900);
         }
       }
     };
@@ -1137,6 +1131,22 @@ export function TripMap({
  * the whole page goes with it. So the padding is cut back to something the
  * canvas can actually hold, and the call itself is guarded.
  */
+/**
+ * Framing for the trip as a whole: opening it, and scrolling back to the top.
+ *
+ * Deliberately loose. Fitted tight, a trip filled the canvas edge to edge with
+ * no country around it, which tells you where you went but not where that is.
+ * A generous border and one zoom level in hand puts it back on a map.
+ */
+const TRIP_MAX_ZOOM = 12;
+
+const tripPadding = (hiddenBottom: number) => ({
+  top: 80,
+  bottom: 80 + hiddenBottom,
+  left: 80,
+  right: 80,
+});
+
 function fitSafely(
   map: MapLibreMap,
   bounds: LngLatBounds,
