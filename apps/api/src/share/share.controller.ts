@@ -247,13 +247,27 @@ export class SharePublicController {
     const credentials = await this.connections.getCredentials(media.userId);
     if (!credentials) throw new NotFoundException('Media unavailable');
 
-    const upstream = await this.immich.fetchThumbnail(
-      credentials.serverUrl,
-      credentials.apiKey,
-      media.immichAssetId,
-      size === 'preview' ? 'preview' : 'thumbnail',
-    );
+    // `?size=original` is what the viewer's download action asks for: the file
+    // as it was uploaded. A share link already shows every photo in this trip,
+    // so being able to keep one is not a wider door than the page itself.
+    const upstream =
+      size === 'original'
+        ? await this.immich.fetchOriginal(
+            credentials.serverUrl,
+            credentials.apiKey,
+            media.immichAssetId,
+          )
+        : await this.immich.fetchThumbnail(
+            credentials.serverUrl,
+            credentials.apiKey,
+            media.immichAssetId,
+            size === 'preview' ? 'preview' : 'thumbnail',
+          );
     res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'image/jpeg');
+    const disposition = upstream.headers.get('content-disposition');
+    if (disposition) res.setHeader('Content-Disposition', disposition);
+    const length = upstream.headers.get('content-length');
+    if (length) res.setHeader('Content-Length', length);
     // A media id always resolves to the same picture, so the browser can keep
     // it without revalidating — scrolling back up costs nothing.
     res.setHeader('Cache-Control', 'private, max-age=86400, immutable');

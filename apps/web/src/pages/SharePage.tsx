@@ -166,7 +166,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
   // of every photo and paint it into a 100px box, which is why a trip with a
   // few hundred pictures took an age to settle and stuttered while it did.
   const thumb = useCallback(
-    (id: string, size: 'thumbnail' | 'preview' = 'thumbnail') =>
+    (id: string, size: 'thumbnail' | 'preview' | 'original' = 'thumbnail') =>
       `/api/share/${slug}/media/${id}/thumbnail?size=${size}&t=${encodeURIComponent(token)}`,
     [slug, token],
   );

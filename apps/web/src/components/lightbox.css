@@ -179,6 +179,39 @@
   text-transform: capitalize;
 }
 
+/* What became of a download, over the bottom of the photo: the viewer is dark
+   and full-screen, so there is nowhere else for a line like this to go. */
+.lightbox-note {
+  position: fixed;
+  left: 50%;
+  bottom: calc(4.2rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 201;
+  max-width: 80vw;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(6px);
+  color: rgb(255 255 255 / 0.92);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: center;
+  animation: lightboxNote 0.22s var(--ease) both;
+}
+
+@keyframes lightboxNote {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lightbox-note {
+    animation: none;
+  }
+}
+
 .lightbox-close {
   position: fixed;
   top: calc(0.9rem + env(safe-area-inset-top));

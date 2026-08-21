@@ -188,6 +188,21 @@ export class ImmichClientService {
     );
   }
 
+  /**
+   * Streams the file as it was uploaded, for "download this photo".
+   *
+   * The preview rendition is a re-encoded ~1440px JPEG, which is the right
+   * thing to look at and the wrong thing to keep: a download should hand back
+   * the picture the camera took, metadata and all.
+   */
+  async fetchOriginal(serverUrl: string, apiKey: string, assetId: string): Promise<Response> {
+    return this.request(
+      serverUrl,
+      apiKey,
+      `/api/assets/${encodeURIComponent(assetId)}/original`,
+    );
+  }
+
   /** Streams video playback with Range support (seeking). */
   async fetchVideo(
     serverUrl: string,

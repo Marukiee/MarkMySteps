@@ -30,6 +30,9 @@ export const CHANGELOG: ChangeEntry[] = [
     title: "Foto's in hun eigen vorm",
     date: '2026-08-21',
     highlight: true,
+    new: [
+      'Een foto of video bewaren op je toestel, via het \u22ef menu in de viewer',
+    ],
     better: [
       "Foto's staan in rijen op hun eigen vorm, niet meer bijgesneden tot vierkantjes",
       'Een gedeelde reis laadt een stuk sneller: de tijdlijn haalt kleine foto\u2019s op, alleen de viewer de grote',
@@ -46,6 +49,7 @@ export const CHANGELOG: ChangeEntry[] = [
       'Terugscrollen naar boven brengt de hele reis weer in beeld',
       'De snelscroll-greep hoort bij de tijdlijn, niet bij de routeplanner',
       'De plaatsnaam in de viewer knippert niet meer bij elke foto uit dezelfde stad',
+      'Een deel-link laat de nieuwste versie van de pagina zien, in plaats van een oude uit de cache van je browser',
     ],
   },
   {

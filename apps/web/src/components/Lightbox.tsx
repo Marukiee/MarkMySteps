@@ -15,6 +15,7 @@ import { deviceMediaUri, isDeviceMediaId } from '../lib/deviceMedia';
 import { mediaSrc } from '../lib/gallery';
 import { reversePlaceName } from '../lib/geocode';
 import { isNativeApp, openExternal } from '../lib/native';
+import { savePhoto } from '../lib/photoSave';
 import { cachedImage, decoded, loadImage, preloadImage } from './AuthImage';
 import { Icon, IconName } from './Icon';
 import './lightbox.css';
@@ -50,7 +51,7 @@ interface LightboxProps {
    * else — zoom, pinch, double-tap, paging, the swipe to dismiss — is the same
    * code, because it should be the same viewer.
    */
-  srcFor?: (item: MediaItem, size: 'thumbnail' | 'preview') => string;
+  srcFor?: (item: MediaItem, size: 'thumbnail' | 'preview' | 'original') => string;
   /** Playback URL for a video, for those same viewers. */
   videoSrcFor?: (item: MediaItem) => string;
 }
@@ -69,6 +70,11 @@ export function Lightbox({
   const isPublic = Boolean(srcFor);
   const [immichUrl, setImmichUrl] = useState<string | null>(null);
   const [coverSaved, setCoverSaved] = useState(false);
+  // A download is the one action here that takes long enough to need saying
+  // something about, and it says it over the photo rather than in the menu it
+  // was started from — the menu is closed by the time the file arrives.
+  const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
   // Three states, not two: a menu that is only ever mounted or not cannot
   // animate itself away — it was simply gone the moment you tapped past it.
   const [menu, setMenu] = useState<'closed' | 'open' | 'closing'>('closed');
@@ -241,6 +247,30 @@ export function Lightbox({
     onCoverSet?.();
   }
 
+  async function saveToDevice() {
+    if (!item || saving) return;
+    setSaving(true);
+    setNote('Downloaden…');
+    const outcome = await savePhoto(item, srcFor);
+    setSaving(false);
+    // A share sheet the user waved away is not a failure, and it has already
+    // told them what happened — say nothing.
+    if (outcome === 'cancelled') setNote(null);
+    else if (outcome === 'failed') setNote('Downloaden lukte niet');
+    else setNote(outcome === 'shared' ? 'Opgeslagen' : 'Bewaard in je downloads');
+  }
+
+  // The note clears itself; a photo you page away from takes it with you.
+  useEffect(() => {
+    if (!note || saving) return;
+    const timer = window.setTimeout(() => setNote(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [note, saving]);
+
+  useEffect(() => {
+    setNote(null);
+  }, [index]);
+
   // Public Immich URL → deep link to the asset. Only for own photos;
   // friends' photos live on their server.
   useEffect(() => {
@@ -316,6 +346,16 @@ export function Lightbox({
       label: coverSaved ? 'Cover ingesteld' : 'Als cover',
       icon: coverSaved ? 'check' : 'camera',
       run: () => void setAsCover(),
+    });
+  }
+  // Every viewer gets this one, the share page included: whoever is looking at
+  // the photo may as well be able to keep it. A photo that never left this
+  // phone is already in its gallery, so there is nothing to download.
+  if (!onDevice) {
+    actions.push({
+      label: saving ? 'Downloaden…' : item.assetType === 'VIDEO' ? 'Video downloaden' : 'Afbeelding downloaden',
+      icon: 'download',
+      run: () => void saveToDevice(),
     });
   }
   if (isOwn && immichUrl && !onDevice) {
@@ -542,6 +582,12 @@ export function Lightbox({
           </span>
         )}
       </div>
+
+      {note && (
+        <div className="lightbox-note" role="status">
+          {note}
+        </div>
+      )}
 
       {/* A photo the server has never seen cannot be its cover, and there is
           nothing in Immich to open — with neither, there is no menu. */}

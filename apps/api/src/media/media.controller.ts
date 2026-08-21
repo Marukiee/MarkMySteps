@@ -126,14 +126,29 @@ export class MediaController {
       throw new NotFoundException('The owner of this photo has no Immich connection');
     }
 
-    const upstream = await this.immich.fetchThumbnail(
-      credentials.serverUrl,
-      credentials.apiKey,
-      media.immichAssetId,
-      size === 'thumbnail' ? 'thumbnail' : 'preview',
-    );
+    // `?size=original` is the download: the file as it was uploaded, not a
+    // rendition of it. Everything else on the page asks for a rendition.
+    const upstream =
+      size === 'original'
+        ? await this.immich.fetchOriginal(
+            credentials.serverUrl,
+            credentials.apiKey,
+            media.immichAssetId,
+          )
+        : await this.immich.fetchThumbnail(
+            credentials.serverUrl,
+            credentials.apiKey,
+            media.immichAssetId,
+            size === 'thumbnail' ? 'thumbnail' : 'preview',
+          );
 
     res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'image/jpeg');
+    // The original keeps the name it was uploaded under, so what lands in the
+    // downloads folder is the photo's own filename rather than a media id.
+    const disposition = upstream.headers.get('content-disposition');
+    if (disposition) res.setHeader('Content-Disposition', disposition);
+    const length = upstream.headers.get('content-length');
+    if (length) res.setHeader('Content-Length', length);
     // Private: responses are per-user authorized; never cache in shared proxies.
     res.setHeader('Cache-Control', 'private, max-age=86400');
     if (upstream.body) {
