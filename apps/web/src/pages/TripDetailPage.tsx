@@ -1184,6 +1184,9 @@ export function TripDetailPage() {
           onCoverSet={loadData}
           stopCoverFor={trip?.ownerId === user?.id ? stopForPhoto : undefined}
           onSetStopCover={setStopCover}
+          // Where the trip says this photo was, when the map has no name for
+          // the coordinate it was given.
+          placeFallbackFor={(item) => stopForPhoto(item)?.name ?? null}
         />
       )}
 

@@ -51,6 +51,17 @@ interface LightboxProps {
   stopCoverFor?: (item: MediaItem) => { id: string; name: string } | null;
   onSetStopCover?: (stopId: string, mediaId: string) => Promise<void>;
   /**
+   * What the trip itself says this photo's place is called, for when the
+   * geocoder has nothing.
+   *
+   * A photo given its position by MarkMySteps rather than by the camera sits
+   * wherever the tracked route was that minute — a motorway, a field, the
+   * middle of a fjord — and asking a map what that spot is called often gets
+   * no answer at all. The trip knows: it is the stop whose days that photo
+   * falls in.
+   */
+  placeFallbackFor?: (item: MediaItem) => string | null;
+  /**
    * Where the pixels come from, for viewers that are not the signed-in app.
    *
    * The public share page reaches its photos through a link token rather than
@@ -73,6 +84,7 @@ export function Lightbox({
   onCoverSet,
   stopCoverFor,
   onSetStopCover,
+  placeFallbackFor,
   srcFor,
   videoSrcFor,
 }: LightboxProps) {
@@ -94,6 +106,8 @@ export function Lightbox({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const [place, setPlace] = useState<string | null>(null);
+  const fallbackRef = useRef(placeFallbackFor);
+  fallbackRef.current = placeFallbackFor;
   const [closing, setClosing] = useState(false);
 
   // ---- Zoom ------------------------------------------------------------
@@ -216,10 +230,14 @@ export function Lightbox({
       return;
     }
     let alive = true;
-    void reversePlaceName(lat, lon).then((name) => alive && setPlace(name));
+    const known = item ? fallbackRef.current?.(item) ?? null : null;
+    void reversePlaceName(lat, lon).then((name) => alive && setPlace(name ?? known));
     return () => {
       alive = false;
     };
+    // The fallback is read through a ref: it is rebuilt on every render of the
+    // page above, and depending on it would re-ask the geocoder each time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id, item?.latitude, item?.longitude]);
 
   // Fetch a short-lived playback URL when a video is shown.

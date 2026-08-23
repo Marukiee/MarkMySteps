@@ -545,6 +545,12 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       .map(([date, items]) => ({ date, items, ...placeFor(date) }));
   }, [stops, orderedMedia]);
 
+  const placeByDay = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const entry of entries) if (entry.place) map.set(entry.date, entry.place);
+    return map;
+  }, [entries]);
+
   return (
     <div className="share-view">
       <header className="share-topbar">
@@ -742,6 +748,9 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
           videoSrcFor={(item) => videoSrc(item.id)}
           onNavigate={setLightboxIndex}
           onClose={() => setLightboxIndex(null)}
+          // The day's own places, for a photo whose coordinate the map cannot
+          // put a name to.
+          placeFallbackFor={(item) => placeByDay.get(item.takenAt.slice(0, 10)) ?? null}
         />
       )}
     </div>

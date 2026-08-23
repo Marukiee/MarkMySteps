@@ -19,7 +19,10 @@ interface PhotonFeature {
     country?: string;
     countrycode?: string;
     state?: string;
+    county?: string;
     city?: string;
+    district?: string;
+    locality?: string;
     type?: string;
   };
 }
@@ -59,13 +62,52 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   return suggestions;
 }
 
-/** Cached reverse lookups, so paging through a photo album doesn't hammer the
- *  geocoder with the same coordinates. Keyed to ~1 km. */
+/**
+ * Cached reverse lookups, so paging through a photo album doesn't hammer the
+ * geocoder with the same coordinates. Keyed to ~1 km.
+ *
+ * Only real answers go in here, including a real "there is nothing there".
+ * A lookup that failed — no connection, a geocoder that was busy — is not an
+ * answer about the place, and caching it meant one bad moment left the line
+ * blank for the rest of the session.
+ */
 const reverseCache = new Map<string, string | null>();
+
+/** A geocoder that never replies must not hold the line blank forever. */
+const REVERSE_TIMEOUT_MS = 6000;
+
+async function photonReverse(lat: number, lon: number, settlements: boolean) {
+  const url = new URL('https://photon.komoot.io/reverse');
+  url.searchParams.set('lat', String(lat));
+  url.searchParams.set('lon', String(lon));
+  url.searchParams.set('limit', '1');
+  url.searchParams.set('lang', 'en');
+  if (settlements) {
+    // The nearest town, rather than whatever OSM object happens to be closest.
+    url.searchParams.append('osm_tag', 'place');
+    url.searchParams.set('radius', '30');
+  }
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), REVERSE_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(String(res.status));
+    const data = (await res.json()) as { features: PhotonFeature[] };
+    return data.features[0]?.properties ?? null;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
 
 /**
  * "Stad, Land" for a coordinate, or null when nothing sensible comes back.
  * Same keyless Photon instance as the search.
+ *
+ * The nearest settlement is asked for first. A photo placed from the trip's own
+ * tracked route can sit anywhere the route went — a motorway, a field, a ferry
+ * — and a plain reverse lookup there answers with the closest unnamed thing,
+ * or with nothing at all, which is why those photos showed a coordinate on the
+ * map and no place name above them.
  */
 export async function reversePlaceName(lat: number, lon: number): Promise<string | null> {
   const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
@@ -73,21 +115,16 @@ export async function reversePlaceName(lat: number, lon: number): Promise<string
   if (cached !== undefined) return cached;
 
   try {
-    const url = new URL('https://photon.komoot.io/reverse');
-    url.searchParams.set('lat', String(lat));
-    url.searchParams.set('lon', String(lon));
-    url.searchParams.set('limit', '1');
-    url.searchParams.set('lang', 'en');
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('reverse failed');
-    const data = (await res.json()) as { features: PhotonFeature[] };
-    const p = data.features[0]?.properties;
-    const city = p?.city ?? p?.name ?? null;
+    const p = (await photonReverse(lat, lon, true)) ?? (await photonReverse(lat, lon, false));
+    // Whatever the smallest named thing around here is called. A district or a
+    // county is a poor city, but it beats a blank line.
+    const city = p?.city ?? p?.district ?? p?.locality ?? p?.name ?? p?.county ?? p?.state ?? null;
     const name = [city, p?.country].filter(Boolean).join(', ') || null;
     reverseCache.set(key, name);
     return name;
   } catch {
-    reverseCache.set(key, null);
+    // Not remembered: ask again next time rather than deciding this place has
+    // no name because the network had a bad second.
     return null;
   }
 }
