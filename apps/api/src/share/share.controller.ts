@@ -181,13 +181,26 @@ export class SharePublicController {
     };
   }
 
+  /**
+   * The route, as one line: the trip owner's.
+   *
+   * A trip is often travelled together, and every companion's tracker draws a
+   * line of its own. Side by side on a public page that reads as several
+   * different routes between the same two towns, which is not what the trip
+   * looked like. The people at home get the owner's track; the app still shows
+   * everybody's, with the names to tell them apart.
+   */
   @Get(':slug/route')
   async route(
     @Param('slug') slug: string,
     @Headers('x-share-token') token: string,
   ): Promise<RouteCollection> {
     const session = await this.requireSession(slug, token);
-    return this.tracking.getRoutesUnchecked(session.tripId);
+    const trip = await this.prisma.trip.findUniqueOrThrow({
+      where: { id: session.tripId },
+      select: { ownerId: true },
+    });
+    return this.tracking.getRoutesUnchecked(session.tripId, { userIds: [trip.ownerId] });
   }
 
   @Get(':slug/stops')

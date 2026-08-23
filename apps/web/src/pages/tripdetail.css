@@ -36,6 +36,16 @@
     overflow: hidden;
     border-radius: 0 0 var(--radius-l) var(--radius-l);
     box-shadow: 0 8px 22px rgb(16 21 27 / 0.28);
+    /* Slid up as you scroll (script), never resized: a transform stays on the
+       compositor, a height does not. */
+    will-change: transform;
+  }
+
+  /* Slid back down by the same amount, so the map's contents stay put and only
+     the panel's crop moves. */
+  .trip-detail .trip-map,
+  .trip-detail .map-top-pills {
+    will-change: transform;
   }
 
   /* Fixed-height canvas anchored at the top; the panel just clips its bottom as

@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, Stop } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TripsService } from '../trips/trips.service';
@@ -111,7 +116,12 @@ export class StopsService {
     stopId: string,
     dto: UpdateStopDto,
   ): Promise<PlannedStop[]> {
-    await this.trips.getForEditor(tripId, userId);
+    const trip = await this.trips.getForEditor(tripId, userId);
+    // Who a stop's tile wears the face of is the organiser's call, not every
+    // companion's: it is the picture the people at home see the place by.
+    if (dto.coverMediaId !== undefined && trip.ownerId !== userId) {
+      throw new ForbiddenException('Only the trip owner can set a stop cover');
+    }
     // Switching a leg away from FLIGHT clears its airports/flight number, so no
     // stale flight arc keeps drawing on the map/globe.
     const clearFlight =
@@ -134,6 +144,7 @@ export class StopsService {
         viaAirports: clearFlight ? [] : dto.viaAirports?.map((a) => a.trim().toUpperCase()),
         notes: dto.notes?.trim(),
         hideLeg: dto.hideLeg,
+        ...(dto.coverMediaId !== undefined ? { coverMediaId: dto.coverMediaId } : {}),
       },
     });
     if (count === 0) throw new NotFoundException('Stop not found');

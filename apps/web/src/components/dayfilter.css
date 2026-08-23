@@ -72,7 +72,9 @@
   max-height: min(44vh, 20rem);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0.3rem;
+  /* Published so the rows can round themselves to match the box they sit in. */
+  --day-menu-pad: 0.3rem;
+  padding: var(--day-menu-pad);
   display: grid;
   gap: 1px;
   transform-origin: bottom left;
@@ -92,9 +94,26 @@
   }
 }
 
+/*
+ * Closing is opening, backwards.
+ *
+ * It used to leave over a shorter time, a shorter distance and — for a menu
+ * that had dropped downwards — in the wrong direction entirely, while the rows
+ * inside kept their staggered arrival. Unrolling felt considered and rolling
+ * back up felt like a glitch. Same duration, same distance, same easing, and
+ * the rows stay put on the way out.
+ */
 .day-filter-menu.closing {
-  animation: dayMenuOut 0.14s var(--ease) forwards;
+  animation: dayMenuOut 0.16s var(--ease) forwards;
   pointer-events: none;
+}
+
+.day-filter-menu.below.closing {
+  animation: dayMenuOutDown 0.16s var(--ease) forwards;
+}
+
+.day-filter-menu.closing .day-filter-item {
+  animation: none;
 }
 
 @keyframes dayMenuIn {
@@ -107,7 +126,14 @@
 @keyframes dayMenuOut {
   to {
     opacity: 0;
-    transform: translateY(6px) scale(0.97);
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+@keyframes dayMenuOutDown {
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
   }
 }
 
@@ -120,7 +146,13 @@
   gap: 0.5rem;
   padding: 0.5rem 0.6rem;
   border: none;
-  border-radius: 8px;
+  /*
+   * Concentric with the menu's own corners: an inner box inset by the padding
+   * needs that much less radius, or the two curves fight each other. At a flat
+   * 8px against the card's 16px, the highlighted row read as a sticker stuck
+   * on top of the menu rather than part of it.
+   */
+  border-radius: calc(var(--radius-m) - var(--day-menu-pad, 0.3rem));
   background: none;
   font-size: 0.86rem;
   font-weight: 550;

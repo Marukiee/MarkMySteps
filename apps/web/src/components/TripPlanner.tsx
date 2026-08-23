@@ -1743,9 +1743,12 @@ function ModeMenu({
               key={m}
               type="button"
               className={current === m ? 'active' : ''}
+              // close(), not setOpen(false): picking one is the same gesture
+              // as tapping away, and it used to skip the exit and simply
+              // vanish while the other way out played its animation.
               onClick={() => {
                 onPick(m);
-                setOpen(false);
+                close();
               }}
             >
               <Icon name={MODE_ICON[m] ?? 'car'} size={16} />

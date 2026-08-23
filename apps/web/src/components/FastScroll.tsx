@@ -25,11 +25,21 @@ const SIZE = 46;
 export function FastScroll({
   page,
   side,
+  topOffset,
 }: {
   /** The page itself, which scrolls on a phone. */
   page?: React.RefObject<HTMLElement | null>;
   /** The side column, which scrolls on a wide window. */
   side?: React.RefObject<HTMLElement | null>;
+  /**
+   * How much of the top of the screen something else is covering, in pixels.
+   *
+   * Asked for, rather than measured: the trip page pins a map across the top
+   * that shrinks as you scroll, and reading its box mid-scroll forces the
+   * browser to lay the page out again in the same frame that just resized it
+   * — which was the stutter this grip was supposed to be curing.
+   */
+  topOffset?: () => number;
 }) {
   const [awake, setAwake] = useState(false);
   const [visible, closing] = useExit(awake, 220);
@@ -38,8 +48,11 @@ export function FastScroll({
 
   const gripRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLElement | null>(null);
-  /** The pinned map, if this page has one: the track starts below it. */
-  const pinnedRef = useRef<HTMLElement | null>(null);
+  /** Read every frame; kept in a ref so the effect never restarts for it. */
+  const offsetRef = useRef(topOffset);
+  offsetRef.current = topOffset;
+  /** The last right offset written, so the style is only touched on a change. */
+  const rightRef = useRef(-1);
   const trackRef = useRef({ top: 0, height: 1, right: 8 });
   const fractionRef = useRef(0);
   const draggingRef = useRef(false);
@@ -59,9 +72,12 @@ export function FastScroll({
       const el = ref?.current;
       if (el && el.scrollHeight > el.clientHeight + 40) return el;
     }
-    // A share link has no scrolling box of its own: the document scrolls.
-    const root = document.scrollingElement as HTMLElement | null;
-    if (root && root.scrollHeight > root.clientHeight + 40) return root;
+    // A share link has no scrolling box of its own. `overflow-x: hidden` on the
+    // body computes its overflow-y to `auto`, which makes the BODY the scroller
+    // — not the viewport, and not the scrolling element — so it is asked first.
+    for (const el of [document.body, document.scrollingElement as HTMLElement | null]) {
+      if (el && el.scrollHeight > el.clientHeight + 40) return el;
+    }
     return null;
   }, [page, side]);
 
@@ -78,13 +94,10 @@ export function FastScroll({
       ? { top: 0, bottom: window.innerHeight, right: el.clientWidth }
       : el.getBoundingClientRect();
     let top = Math.max(rect.top, 0);
-    const pinned = pinnedRef.current;
-    if (pinned) {
-      const box = pinned.getBoundingClientRect();
-      // Only while it is actually pinned across the top; once it has scrolled
-      // away the list starts at the top of the screen.
-      if (box.top <= 4 && box.bottom > top) top = box.bottom;
-    }
+    // Whatever is pinned across the top of the screen (the trip page's map),
+    // as a number the page hands over rather than a box read back off it.
+    const covered = offsetRef.current?.() ?? 0;
+    if (covered > top) top = covered;
     top += 12;
     const bottom = Math.min(rect.bottom, window.innerHeight) - 96;
     trackRef.current = {
@@ -94,13 +107,24 @@ export function FastScroll({
     };
   }, []);
 
-  /** Moves the node itself; React is not involved in where the grip sits. */
+  /**
+   * Moves the node itself; React is not involved in where the grip sits.
+   *
+   * A transform rather than `top`: the browser can hand a transform straight to
+   * the compositor, while writing `top` on every frame of a scroll relaid the
+   * element out each time — which is what made the grip lag behind the list it
+   * was riding.
+   */
   const paint = useCallback(() => {
     const grip = gripRef.current;
     const track = trackRef.current;
     if (!grip) return;
-    grip.style.right = `${track.right}px`;
-    grip.style.top = `${track.top + fractionRef.current * (track.height - SIZE)}px`;
+    if (track.right !== rightRef.current) {
+      rightRef.current = track.right;
+      grip.style.right = `${track.right}px`;
+    }
+    const y = track.top + fractionRef.current * (track.height - SIZE);
+    grip.style.transform = `translate3d(0, ${Math.round(y)}px, 0)`;
   }, []);
 
   const wake = useCallback(() => {
@@ -113,7 +137,6 @@ export function FastScroll({
   }, []);
 
   useEffect(() => {
-    pinnedRef.current = document.querySelector<HTMLElement>('.trip-map-panel');
     const el = pick();
     scrollerRef.current = el;
     if (el) {
@@ -183,7 +206,9 @@ export function FastScroll({
       setAwake(false);
     };
 
-    const nodes = [page?.current, side?.current].filter((n): n is HTMLElement => !!n);
+    const nodes = [page?.current, side?.current, document.body].filter(
+      (n): n is HTMLElement => !!n,
+    );
     for (const node of nodes) node.addEventListener('scroll', onScroll, { passive: true });
     // The document's own scroll is reported at the window, never at the element
     // that scrolled — so a page without a scrolling box of its own (a share
@@ -269,10 +294,8 @@ export function FastScroll({
   if (!visible) return null;
 
   return (
-    <div
-      ref={gripRef}
-      className={`fast-scroll ${dragging ? 'dragging' : ''} ${closing ? 'closing' : ''}`}
-    >
+    <div ref={gripRef} className="fast-scroll">
+      <div className={`fast-scroll-body ${dragging ? 'dragging' : ''} ${closing ? 'closing' : ''}`}>
       {dragging && label && formatDay(label.day) && (
         <span className="fast-scroll-label">
           <span className="fast-scroll-date">{formatDay(label.day)}</span>
@@ -324,6 +347,7 @@ export function FastScroll({
         <Icon name="chevron-up" size={15} />
         <Icon name="chevron-down" size={15} />
       </button>
+      </div>
     </div>
   );
 }

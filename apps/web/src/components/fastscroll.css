@@ -1,21 +1,31 @@
 /* The grip sits over the list, fixed to the viewport, because the list itself
-   scrolls under it. */
+   scrolls under it.
+
+   Two elements, not one: the outer box is moved down the screen by script, on a
+   transform, and the inner one carries the entrance and exit — an animation
+   outranks an inline style, so one element could not do both, and the grip
+   would jump back to the top for the length of its own arrival. */
 .fast-scroll {
   position: fixed;
   /* Placed by script; these are only so it never starts life in the corner. */
   top: 0;
   right: 8px;
   z-index: 44;
+  /* Only ever a transform from here on, so the browser can leave it on the
+     compositor and never lay the page out for it. */
+  will-change: transform;
+}
+
+.fast-scroll-body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  will-change: top;
   animation: fastScrollIn 0.2s var(--ease);
 }
 
 /* It leaves the way it came in, sideways, rather than blinking out from
    under your thumb. */
-.fast-scroll.closing {
+.fast-scroll-body.closing {
   animation: fastScrollOut 0.22s var(--ease) forwards;
   pointer-events: none;
 }
@@ -58,7 +68,7 @@
   margin: -3px 0;
 }
 
-.fast-scroll.dragging .fast-scroll-grip {
+.fast-scroll-body.dragging .fast-scroll-grip {
   transform: scale(1.08);
   border-color: var(--accent);
   color: var(--accent-ink);

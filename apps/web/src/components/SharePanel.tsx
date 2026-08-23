@@ -13,8 +13,30 @@ import './share.css';
  * can hand a link on, including the password that goes with it, because they
  * are on the trip the link is about.
  */
+const COUNT_KEY = 'mms.sharelinks.';
+
+/**
+ * How many links this browser saw for this trip last time.
+ *
+ * One, if it has never looked: every trip that has a share panel worth waiting
+ * for has at least one link, and a single placeholder is the smallest honest
+ * guess.
+ */
+function placeholderCount(tripId: string): number {
+  try {
+    const raw = Number(localStorage.getItem(`${COUNT_KEY}${tripId}`));
+    if (Number.isFinite(raw) && raw > 0) return Math.min(4, raw);
+  } catch {
+    /* fall through */
+  }
+  return 1;
+}
+
 export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: boolean }) {
-  const [links, setLinks] = useState<ShareLinkInfo[]>([]);
+  // `null` is "we do not know yet", which is a different thing from "there are
+  // none" — and telling somebody on a slow connection that their trip has no
+  // links, seconds before two of them appear, is the wrong answer twice.
+  const [links, setLinks] = useState<ShareLinkInfo[] | null>(null);
   const [password, setPassword] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +45,17 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
   const [leaving, setLeaving] = useState<string[]>([]);
 
   useEffect(() => {
-    api<ShareLinkInfo[]>(`/trips/${tripId}/share`).then(setLinks).catch(() => undefined);
+    api<ShareLinkInfo[]>(`/trips/${tripId}/share`)
+      .then((list) => {
+        setLinks(list);
+        // So the next visit can hold the right amount of space open.
+        try {
+          localStorage.setItem(`${COUNT_KEY}${tripId}`, String(list.length));
+        } catch {
+          /* storage off: the placeholder count falls back to one */
+        }
+      })
+      .catch(() => setLinks([]));
   }, [tripId]);
 
   async function createLink(event: FormEvent) {
@@ -34,7 +66,7 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
         method: 'POST',
         body: password ? { password } : {},
       });
-      setLinks((current) => [link, ...current]);
+      setLinks((current) => [link, ...(current ?? [])]);
       setPassword('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Aanmaken mislukt');
@@ -45,7 +77,7 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
     await api(`/trips/${tripId}/share/${id}`, { method: 'DELETE' });
     setLeaving((current) => [...current, id]);
     window.setTimeout(() => {
-      setLinks((current) => current.filter((l) => l.id !== id));
+      setLinks((current) => (current ?? []).filter((l) => l.id !== id));
       setLeaving((current) => current.filter((x) => x !== id));
     }, 260);
   }
@@ -61,7 +93,7 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
       method: 'PATCH',
       body: { password: value },
     });
-    setLinks((current) => current.map((l) => (l.id === id ? updated : l)));
+    setLinks((current) => (current ?? []).map((l) => (l.id === id ? updated : l)));
   }
 
   function copy(link: ShareLinkInfo) {
@@ -79,10 +111,13 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
     }
   }
 
+  const loading = links === null;
   // A companion gets the panel only once there is something in it: an empty
   // "Delen" heading with nothing under it reads as a broken feature, while the
-  // owner needs the empty state to make the first link from.
-  if (links.length === 0 && !ownerView) return null;
+  // owner needs the empty state to make the first link from. While the answer
+  // is still on its way, a companion gets the placeholders — the panel
+  // disappearing and then reappearing is worse than either.
+  if (!loading && links.length === 0 && !ownerView) return null;
 
   return (
     <section className="share-panel">
@@ -93,7 +128,16 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
           : 'De link die de beheerder maakte. Doorsturen mag; wijzigen doet de beheerder.'}
       </p>
 
-      {links.map((link) => (
+      {loading &&
+        Array.from({ length: placeholderCount(tripId) }, (_, i) => (
+          <div className="share-link share-link-skel" key={i} aria-hidden="true">
+            <span className="share-skel-line" />
+            <span className="share-skel-btn" />
+            <span className="share-skel-btn" />
+          </div>
+        ))}
+
+      {(links ?? []).map((link) => (
         <ShareLinkRow
           key={link.id}
           link={link}

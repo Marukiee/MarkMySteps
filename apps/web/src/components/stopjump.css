@@ -1,20 +1,24 @@
-/* The trip's places, as a row of jumps into the timeline. Sits above the
-   timeline in both the app and a share link, so both read the same. */
+/* The trip's places, as a row of small photo tiles you can jump from. Sits
+   above the timeline in both the app and a share link, so both read the same. */
 .stop-jump {
   min-width: 0;
   /* Runs to both edges of the screen: a rail that stops one gutter short looks
      like a list that has ended, and there is usually more of it. The gutter is
-     given back as padding so the first and last pill still line up with the
+     given back as padding so the first and last tile still line up with the
      text above them. */
   margin: 0 calc(var(--page-pad, 1.25rem) * -1);
 }
 
 .stop-jump-rail {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.45rem;
   overflow-x: auto;
   scroll-snap-type: x proximity;
-  padding: 0.15rem var(--page-pad, 1.25rem) 0.4rem;
+  /* Lined up with where the timeline's photos start (past the rail and its own
+     gutter), not with the page edge: one gutter in, the first tile read as if
+     it were leaning against the side of the screen. */
+  padding: 0.15rem calc(var(--page-pad, 1.25rem) * 2) 0.45rem
+    calc(var(--page-pad, 1.25rem) * 2 + 2px);
   scrollbar-width: none;
 }
 
@@ -22,49 +26,90 @@
   display: none;
 }
 
-.stop-jump-pill {
+/*
+ * Small and upright, with the place's own photo behind the name.
+ *
+ * Wide enough for a city name at a glance, narrow enough that five or six of
+ * them fit on a phone — the point of the rail is that you can see there is
+ * more of it without it becoming a second timeline.
+ */
+.stop-jump-tile {
+  position: relative;
   flex: 0 0 auto;
   scroll-snap-align: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  /* The map's day pill, so a pill is a pill wherever it appears. */
-  padding: 0.4rem 0.75rem;
+  width: 82px;
+  height: 104px;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--paper);
-  font-size: 0.83rem;
-  font-weight: 600;
-  color: var(--ink);
+  border-radius: 14px;
+  background: var(--paper-sunken);
   cursor: pointer;
-  transition: transform 0.14s var(--ease), border-color 0.2s var(--ease),
-    color 0.2s var(--ease);
+  isolation: isolate;
+  transition: transform 0.16s var(--ease), border-color 0.2s var(--ease);
+}
+
+.stop-jump-tile:active {
+  transform: scale(0.95);
+}
+
+@media (hover: hover) {
+  .stop-jump-tile:hover {
+    border-color: var(--accent);
+  }
+
+  .stop-jump-tile:hover .stop-jump-photo img {
+    transform: scale(1.06);
+  }
+}
+
+.stop-jump-photo {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.stop-jump-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s var(--ease), opacity 0.35s var(--ease);
+}
+
+/* The name sits on the photo, so it needs its own ground to stand on. */
+.stop-jump-label {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.9rem 0.4rem 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+  color: var(--ink);
+}
+
+/* With a photo behind it the label is white over a shade of the photo itself;
+   without one it is ordinary ink on the sunken paper. */
+.stop-jump-tile.has-photo .stop-jump-label {
+  color: #fff;
+  background: linear-gradient(to top, rgb(8 11 15 / 0.82), rgb(8 11 15 / 0.42) 55%, transparent);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
 }
 
 .stop-jump-name {
-  max-width: 12rem;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-@media (hover: hover) {
-  .stop-jump-pill:hover {
-    border-color: var(--accent);
-    color: var(--accent-ink);
-  }
-}
-
-.stop-jump-pill:active {
-  transform: scale(0.95);
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .stop-jump-rail {
-    scroll-behavior: auto;
-  }
-
-  .stop-jump-pill {
+  .stop-jump-tile,
+  .stop-jump-photo img {
     transition: none;
   }
 }

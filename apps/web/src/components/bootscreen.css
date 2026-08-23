@@ -1,0 +1,79 @@
+/*
+ * Over everything, on the app's own paper, so the page it is covering can
+ * already be building underneath it.
+ */
+.boot-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.1rem;
+  padding: 2rem;
+  background: var(--paper);
+  animation: bootIn 0.4s var(--ease) both;
+}
+
+@keyframes bootIn {
+  from {
+    opacity: 0;
+  }
+}
+
+/*
+ * And it leaves by getting out of the way rather than blinking out: the
+ * compass grows a little and fades, which is the same movement the trip cards
+ * underneath make as they arrive.
+ */
+.boot-screen.closing {
+  animation: bootOut 0.42s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes bootOut {
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+.boot-compass {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  animation: bootCompass 2.4s ease-in-out infinite;
+}
+
+/* It breathes; the needle inside it does the turning. */
+@keyframes bootCompass {
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.boot-text {
+  margin: 0;
+  max-width: 22rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  animation: bootTextIn 0.5s var(--ease) 0.1s both;
+}
+
+@keyframes bootTextIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-screen,
+  .boot-screen.closing,
+  .boot-compass,
+  .boot-text {
+    animation: none;
+  }
+}

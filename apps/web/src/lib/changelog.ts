@@ -27,9 +27,36 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    title: 'De kaart, en wat erop staat',
+    date: '2026-08-24',
+    highlight: true,
+    new: [
+      'Kaartinstellingen: kies wiens route je op de kaart ziet, en wiens foto\u2019s \u2014 of helemaal geen foto\u2019s',
+      'Een foto in de viewer instellen als omslag van een stop, via het \u22ef menu (alleen de reisorganisator)',
+      'De stop-tegels dragen nu een foto van die plek',
+      'Een deel-link zegt het als er nieuwe foto\u2019s bij staan sinds je vorige bezoek, met een knop ernaartoe',
+      'Een knop terug naar boven op een deel-link',
+      'Een wachtscherm met kompas als het opstarten lang duurt',
+    ],
+    better: [
+      'De kaart van een deel-link tekent nu hetzelfde als die in de app: de gereden route, de vluchten als bogen, en de geplande stops gestippeld',
+      'Op een deel-link zie je de route van de reisorganisator, niet die van alle reisgenoten door elkaar',
+      'Het krimpen van de kaart tijdens het scrollen loopt vloeiend, en de snelscroll-greep loopt netjes mee',
+      "Reizen en deel-links laten alvast zien hoeveel er komen, in plaats van een lege pagina",
+      'De mensen & delen-kaart kun je naar beneden vegen om te sluiten',
+      'Menu\u2019s sluiten zoals ze opengaan, in plaats van zomaar te verdwijnen',
+    ],
+    fixed: [
+      'De pijltjes in de viewer zoomen niet meer in als je er snel op tikt',
+      'Inzoomen op een foto is net zo soepel als uitzoomen',
+      "Dagtrips staan niet meer tussen de stop-tegels; die zijn voor de stops zelf",
+      'De eerste stop-tegel staat niet meer tegen de rand van het scherm',
+      'E\u00e9n speld per plaats op de kaart, ook als je er drie keer bent geweest',
+    ],
+  },
+  {
     title: 'Sneller door een lange reis',
     date: '2026-08-23',
-    highlight: true,
     new: [
       'Pillen boven de tijdlijn brengen je in \u00e9\u00e9n tik naar een stop, in de app en in een deel-link',
       'De snelscroll-greep zit nu ook op een deel-link',

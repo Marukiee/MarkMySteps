@@ -27,6 +27,8 @@ import { PendingPage } from './pages/PendingPage';
 import { PlanPage } from './pages/PlanPage';
 import { TripSettingsPage } from './pages/TripSettingsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { BootScreen } from './components/BootScreen';
+import { useExit } from './lib/useExit';
 import { SharePage } from './pages/SharePage';
 import { TripDetailPage } from './pages/TripDetailPage';
 import { TravellerPage } from './pages/TravellerPage';
@@ -34,13 +36,21 @@ import { TripsPage } from './pages/TripsPage';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready, pending } = useAuth();
-  if (!ready) return null;
+  // Held on screen for its own exit, so the app does not simply cut from the
+  // waiting screen to the home screen.
+  const [bootMounted, bootClosing] = useExit(!ready, 460);
+  if (!ready) return <BootScreen />;
   // Signed in, but the server has not let this account in yet. It refuses
   // everything for such a session anyway; this is the screen that says so.
   if (pending) return <PendingPage />;
   if (!user) return <Navigate to="/login" replace />;
   if (isNativeApp() && !isOnboarded()) return <Navigate to="/onboarding" replace />;
-  return <>{children}</>;
+  return (
+    <>
+      {bootMounted && <BootScreen closing={bootClosing} />}
+      {children}
+    </>
+  );
 }
 
 /**

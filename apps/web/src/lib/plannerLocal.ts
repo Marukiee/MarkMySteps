@@ -33,7 +33,12 @@ export interface CreateStopBody {
   dayTripDate?: string;
 }
 
-export type UpdateStopBody = Partial<Omit<CreateStopBody, 'id' | 'afterStopId' | 'parentStopId'>>;
+export type UpdateStopBody = Partial<
+  Omit<CreateStopBody, 'id' | 'afterStopId' | 'parentStopId'>
+> & {
+  /** The photo that fronts this stop's tile in the timeline rail. */
+  coverMediaId?: string | null;
+};
 
 function isoDay(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
@@ -144,6 +149,7 @@ export function localUpdate(
       ...(body.travelMode !== undefined ? { travelMode: body.travelMode } : {}),
       ...(body.notes !== undefined ? { notes: body.notes } : {}),
       ...(body.dayTripDate !== undefined ? { dayTripDate: body.dayTripDate } : {}),
+      ...(body.coverMediaId !== undefined ? { coverMediaId: body.coverMediaId } : {}),
       ...(clearFlight
         ? { flightNumber: null, fromAirport: null, toAirport: null, viaAirports: [] }
         : {

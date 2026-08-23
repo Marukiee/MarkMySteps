@@ -344,6 +344,10 @@ model Stop {
   /// but has nothing to draw — a stretch nobody tracked and nobody wants a
   /// straight line across either. The stop keeps its place in the route.
   hideLeg     Boolean  @default(false)
+  /// The photo that fronts this stop's tile in the timeline rail, chosen from
+  /// the viewer. Not a relation: losing the photo must not take the stop with
+  /// it, and the rail falls back to its own pick.
+  coverMediaId String? @db.Uuid
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

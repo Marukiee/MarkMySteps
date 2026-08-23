@@ -17,6 +17,10 @@ export interface TimelineStop {
   longitude: number | null;
   arrivalDate: string;
   departureDate: string;
+  /** Set on a day trip: a place you visited, not a stop on the route. */
+  parentStopId?: string | null;
+  /** The photo the trip's organiser picked as this stop's face, if any. */
+  coverMediaId?: string | null;
 }
 
 interface TimelineProps {
@@ -130,7 +134,14 @@ export function Timeline({
   return (
     <>
       {/* Straight to a city, without scrolling three months to find it. */}
-      <StopJump stops={stops} days={days.map(([day]) => day)} />
+      <StopJump
+        stops={stops}
+        days={days.map(([day]) => day)}
+        media={media}
+        renderThumb={(id) => (
+          <AuthImage path={`/media/${id}/thumbnail?size=thumbnail`} alt="" className="" />
+        )}
+      />
       <div className="timeline">
       {days.map(([day, items]) => {
         const loc = locationForDay(day, items);

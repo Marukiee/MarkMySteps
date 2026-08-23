@@ -274,3 +274,123 @@
     transform: none;
   }
 }
+
+/* ---------- Back to the top ---------- */
+
+/*
+ * The app's button, in the one place this page can put it: nothing is pinned
+ * across the top here, so it sits at the very top of the screen rather than
+ * under a map.
+ */
+.share-backtop {
+  position: fixed;
+  top: calc(0.8rem + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 40;
+  display: grid;
+  place-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  color: var(--ink);
+  box-shadow: var(--shadow-m);
+  cursor: pointer;
+  transform: translateX(-50%);
+  animation: shareBackTopIn 0.28s var(--ease);
+}
+
+.share-backtop:active {
+  transform: translateX(-50%) scale(0.9);
+}
+
+@keyframes shareBackTopIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px) scale(0.85);
+  }
+}
+
+/* ---------- "New photos since you were last here" ---------- */
+
+.share-fresh {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 41;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: min(560px, calc(100vw - 1.6rem));
+  padding: 0.7rem 0.8rem 0.7rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-m);
+  transform: translateX(-50%);
+  animation: shareFreshIn 0.32s var(--ease);
+}
+
+.share-fresh.closing {
+  animation: shareFreshOut 0.22s var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes shareFreshIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+}
+
+@keyframes shareFreshOut {
+  to {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+}
+
+.share-fresh-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.share-fresh-go {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.share-fresh-go:active {
+  transform: scale(0.95);
+}
+
+.share-fresh-close {
+  flex: 0 0 auto;
+  display: grid;
+  place-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-backtop,
+  .share-fresh {
+    animation: none;
+  }
+}

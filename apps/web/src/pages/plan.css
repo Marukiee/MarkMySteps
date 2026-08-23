@@ -838,7 +838,8 @@
 }
 
 .mode-menu-drop.closing {
-  animation: menuOut 0.14s var(--ease) forwards;
+  /* The same length as the way in, so leaving is arriving backwards. */
+  animation: menuOut 0.15s var(--ease) forwards;
 }
 
 .mode-menu-drop button {

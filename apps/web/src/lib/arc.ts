@@ -305,6 +305,8 @@ export interface StopPoint {
   dayTripDate?: string | null;
   /** Draw no line from the previous stop to this one. */
   hideLeg?: boolean;
+  /** The photo that fronts this stop's tile in the timeline rail. */
+  coverMediaId?: string | null;
 }
 
 /** A stop with the extra planner fields (nights, notes). */

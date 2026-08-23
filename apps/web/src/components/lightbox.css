@@ -70,11 +70,22 @@
 }
 
 /* Carries the zoom. Sized by the photo, so the arrows and the frame around it
-   keep measuring the photo at 1x however far in you are. */
+   keep measuring the photo at 1x however far in you are.
+
+   Both this and the photo inside it are kept on layers of their own. Scaling a
+   photo UP is the expensive direction — the browser has to draw it again at the
+   bigger size, while scaling one down can reuse what it already has — and that
+   is why zooming in used to feel a step rougher than zooming out. */
 .lightbox-zoom {
   display: grid;
   transform-origin: center;
   will-change: transform;
+  backface-visibility: hidden;
+}
+
+.lightbox-zoom .lightbox-img {
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* Dragging a zoomed photo with a mouse should say so. */
@@ -282,11 +293,17 @@
   color: rgb(255 255 255 / 0.75);
   padding: 0.75rem;
   z-index: 201;
-  transition: color 0.15s;
+  transition: color 0.15s, opacity 0.18s var(--ease);
 }
 
 .lightbox-nav:hover {
   color: #fff;
+}
+
+/* Zoomed in: out of the way, but still in the document. */
+.lightbox-nav.away {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .lightbox-prev {

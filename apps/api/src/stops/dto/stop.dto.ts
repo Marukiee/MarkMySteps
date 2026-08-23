@@ -13,6 +13,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 export enum TravelModeDto {
@@ -172,6 +173,15 @@ export class UpdateStopDto {
   @IsOptional()
   @IsBoolean()
   hideLeg?: boolean;
+
+  /**
+   * The photo that fronts this stop's tile in the timeline rail. `null` puts
+   * the automatic pick back. Owner-only, unlike the rest of this DTO.
+   */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  coverMediaId?: string | null;
 }
 
 export class ReorderStopsDto {

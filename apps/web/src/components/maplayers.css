@@ -1,0 +1,124 @@
+/* The two lists inside the map-settings sheet: routes, and photos. */
+.layer-group {
+  display: grid;
+  gap: 0.15rem;
+  padding-top: 0.4rem;
+}
+
+.layer-hint {
+  margin: -0.2rem 0 0.35rem;
+  font-size: 0.82rem;
+}
+
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border: none;
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+
+.layer-row:hover {
+  background: var(--paper-sunken);
+}
+
+.layer-dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  /* Off, the colour is the only thing saying who this row is about, so it
+     stays — the row itself goes quiet instead. */
+  opacity: 0.35;
+  transition: opacity 0.2s var(--ease);
+}
+
+.layer-row.on .layer-dot {
+  opacity: 1;
+}
+
+.layer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.55;
+  transition: opacity 0.2s var(--ease);
+}
+
+.layer-row.on .layer-name {
+  opacity: 1;
+}
+
+.layer-seen {
+  flex: 0 0 auto;
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+}
+
+.layer-seen.fresh {
+  color: var(--accent-ink);
+}
+
+/* An empty ring until it is ticked, so an unticked row still has a target. */
+.layer-check {
+  flex: 0 0 auto;
+  display: grid;
+  place-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  color: transparent;
+  transition: background 0.18s var(--ease), border-color 0.18s var(--ease),
+    color 0.18s var(--ease);
+}
+
+.layer-check.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.layer-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.layer-actions .btn {
+  flex: 1;
+}
+
+/* The note on the map itself when nothing's photos are on it. */
+.map-photos-off {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-s);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-align: left;
+}
+
+.map-photos-off svg {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
+}

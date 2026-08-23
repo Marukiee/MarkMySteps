@@ -44,6 +44,13 @@ interface LightboxProps {
   coverTripId?: string;
   onCoverSet?: () => void;
   /**
+   * The stop this photo was taken at, when the viewer may make it that stop's
+   * face in the timeline rail. Owner-only, like the trip cover: it is the
+   * picture the people at home come to know the place by.
+   */
+  stopCoverFor?: (item: MediaItem) => { id: string; name: string } | null;
+  onSetStopCover?: (stopId: string, mediaId: string) => Promise<void>;
+  /**
    * Where the pixels come from, for viewers that are not the signed-in app.
    *
    * The public share page reaches its photos through a link token rather than
@@ -64,6 +71,8 @@ export function Lightbox({
   onNavigate,
   coverTripId,
   onCoverSet,
+  stopCoverFor,
+  onSetStopCover,
   srcFor,
   videoSrcFor,
 }: LightboxProps) {
@@ -71,6 +80,7 @@ export function Lightbox({
   const isPublic = Boolean(srcFor);
   const [immichUrl, setImmichUrl] = useState<string | null>(null);
   const [coverSaved, setCoverSaved] = useState(false);
+  const [stopCoverSaved, setStopCoverSaved] = useState(false);
   // A download is the one action here that takes long enough to need saying
   // something about, and it says it over the photo rather than in the menu it
   // was started from — the menu is closed by the time the file arrives.
@@ -248,6 +258,13 @@ export function Lightbox({
     onCoverSet?.();
   }
 
+  async function setAsStopCover(stopId: string) {
+    if (!item || !onSetStopCover) return;
+    await onSetStopCover(stopId, item.id);
+    setStopCoverSaved(true);
+    window.setTimeout(() => setStopCoverSaved(false), 1600);
+  }
+
   async function saveToDevice() {
     if (!item || saving) return;
     setSaving(true);
@@ -349,6 +366,16 @@ export function Lightbox({
       run: () => void setAsCover(),
     });
   }
+  // The tile at the top of the timeline that takes you to this place: this is
+  // where you choose which photo it wears.
+  const stopForCover = stopCoverFor && !onDevice ? stopCoverFor(item) : null;
+  if (stopForCover && onSetStopCover) {
+    actions.push({
+      label: stopCoverSaved ? 'Stop-omslag ingesteld' : `Omslag van ${stopForCover.name}`,
+      icon: stopCoverSaved ? 'check' : 'pin',
+      run: () => void setAsStopCover(stopForCover.id),
+    });
+  }
   // Every viewer gets this one, the share page included: whoever is looking at
   // the photo may as well be able to keep it. A photo that never left this
   // phone is already in its gallery, so there is nothing to download.
@@ -378,6 +405,10 @@ export function Lightbox({
    */
   const onTouchStart = (e: ReactTouchEvent) => {
     lastTouch.current = Date.now();
+    // The arrows sit inside the photo's own gesture area, so a quick double tap
+    // on "next" was reaching the double-tap-to-zoom. Paging fast is the whole
+    // point of the arrows; they are never a gesture on the photo.
+    if ((e.target as Element | null)?.closest?.('.lightbox-nav')) return;
     // Gone the moment a finger lands, rather than when it lifts: a pinch or a
     // drag never becomes a click, so it would otherwise stay open underneath.
     closeMenu();
@@ -704,27 +735,32 @@ export function Lightbox({
           )}
           {/* Arrows sit at the vertical centre of the image, not the screen.
               Zoomed in they are in the way of the part you zoomed in on, and
-              the drag that would reach them is a pan now. */}
-          {index > 0 && !zoomed && (
+              the drag that would reach them is a pan now — so they fade out
+              rather than being taken out of the document, which was a DOM
+              change landing on the first frame of the zoom. */}
+          {index > 0 && (
             <button
-              className="lightbox-nav lightbox-prev"
+              className={`lightbox-nav lightbox-prev ${zoomed ? 'away' : ''}`}
               aria-label="Vorige"
               onClick={(e) => {
                 e.stopPropagation();
                 onNavigate(index - 1);
               }}
+              // Two fast clicks on the arrow are two pages, not a zoom.
+              onDoubleClick={(e) => e.stopPropagation()}
             >
               <Icon name="chevron-left" size={30} />
             </button>
           )}
-          {index < items.length - 1 && !zoomed && (
+          {index < items.length - 1 && (
             <button
-              className="lightbox-nav lightbox-next"
+              className={`lightbox-nav lightbox-next ${zoomed ? 'away' : ''}`}
               aria-label="Volgende"
               onClick={(e) => {
                 e.stopPropagation();
                 onNavigate(index + 1);
               }}
+              onDoubleClick={(e) => e.stopPropagation()}
             >
               <Icon name="chevron-right" size={30} />
             </button>

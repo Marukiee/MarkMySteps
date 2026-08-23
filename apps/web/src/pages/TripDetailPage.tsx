@@ -10,6 +10,7 @@ import { DayFilter, type TripDay } from '../components/DayFilter';
 import { Icon } from '../components/Icon';
 import { FastScroll } from '../components/FastScroll';
 import { Lightbox } from '../components/Lightbox';
+import { MapLayersSheet } from '../components/MapLayersSheet';
 import { MembersPanel } from '../components/MembersPanel';
 import { PhotoBook } from '../components/PhotoBook';
 import { SharePanel } from '../components/SharePanel';
@@ -23,9 +24,10 @@ import type { TripNote } from '../components/DayNote';
 import { countStopPlaces, type PlannedStop } from '../lib/arc';
 import { popWasOurs } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
-import { colorForUser, formatDate, tripCoverBg } from '../lib/colors';
+import { useSheetDismiss } from '../lib/useSheetDismiss';
+import { formatDate, tripCoverBg } from '../lib/colors';
 import { listDeviceMedia } from '../lib/deviceMedia';
-import { lastSeenLabel, useNow } from '../lib/lastSeen';
+import { useNow } from '../lib/lastSeen';
 import { canEditTrip } from '../lib/perm';
 import { tripGlyph, tripGlyphSize, tripGlyphStroke } from '../lib/tripGlyph';
 import { stableViewportHeight } from '../lib/native';
@@ -77,17 +79,22 @@ export function TripDetailPage() {
   const liveTick = useNow(5_000);
   // How many travellers are shown besides you. The pill keeps rendering the
   // last non-zero value so the counter doesn't read "+0" on its way out.
-  const extraCount = Math.max(0, visibleUsers.size - 1);
-  const shownExtraRef = useRef(extraCount);
-  if (extraCount > 0) shownExtraRef.current = extraCount;
-  const shownExtra = shownExtraRef.current;
   // A guest is here to look at the trip, not to change it: no notes, no
   // waypoints, no drawing over the route, and a routeplanner that only reads.
   const canEdit = canEditTrip(trip, user?.id);
-  const [personMenuOpen, setPersonMenuOpen] = useState(false);
-  const [personMenuClosing, setPersonMenuClosing] = useState(false);
-  const personRef = useRef<HTMLDivElement>(null);
-  const personClosingRef = useRef(false);
+  /** The sheet follows your thumb back down, rather than only its own cross. */
+  const peopleSheet = useSheetDismiss(() => closePeople());
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [layersShown, layersClosing] = useExit(layersOpen, 240);
+  /**
+   * Whose photos sit on the map, which is not the same question as whose route
+   * does. Kept per trip in this browser: it is how you like to look at this
+   * trip, not something about the trip itself.
+   */
+  const [photoUsers, setPhotoUsers] = useState<Set<string>>(new Set());
+  /** Where the pinned map currently ends, for anything that has to clear it. */
+  const mapBottomRef = useRef(0);
+  const mapTopOffset = useCallback(() => mapBottomRef.current, []);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
@@ -159,29 +166,55 @@ export function TripDetailPage() {
       api.focusOn(coords);
     };
 
-    // Mobile only: shrink the fixed map as the page scrolls (content slides up
-    // under it at 1×), down to a floor so the map always stays visible.
+    /*
+     * Mobile only: the pinned map gives up its bottom half as the page scrolls,
+     * down to a floor so it always stays visible.
+     *
+     * Not by changing its height. That is a layout property, and writing it on
+     * every frame of a scroll made the browser lay the page out again each
+     * time — the shrink stuttered, and everything riding along with it (the
+     * fast-scroll grip, the pills on the map) stuttered with it.
+     *
+     * The panel keeps its full height and is slid UP instead, which is a
+     * transform and costs nothing; the map inside it is slid back DOWN by the
+     * same amount, so its contents stay exactly where they were while the
+     * panel's own overflow crops the bottom. The result on screen is identical
+     * to the old shrink, and the only thing that changes per frame is a
+     * transform the compositor can carry on its own.
+     */
     const isMobile = window.matchMedia('(max-width: 900px)').matches;
     // Keyboard-independent height, so focusing an input never resizes the map.
     const vh = stableViewportHeight() / 100;
     const startH = 55 * vh;
     const minH = 32 * vh;
+    const maxShift = startH - minH;
+    mapBottomRef.current = isMobile ? startH : 0;
+    // Looked up once: a query per frame is the other half of the same problem.
+    const panel = mapPanelRef.current;
+    const inner = panel?.querySelector<HTMLElement>('.trip-map') ?? null;
+    const topPills = panel?.querySelector<HTMLElement>('.map-top-pills') ?? null;
+    let shift = -1;
     let raf = 0;
     const shrinkMap = () => {
-      const panel = mapPanelRef.current;
       if (!panel || !isMobile) return;
-      const height = Math.max(minH, startH - el.scrollTop);
-      panel.style.height = `${height}px`;
-      // The canvas keeps its full height and is clipped at the bottom; tell the
-      // map how much is hidden so it frames photos in the visible strip rather
-      // than behind the timeline. Applied on the next camera move, so this
-      // stays a cheap assignment during the scroll.
-      mapApiRef.current?.setHiddenBottom(startH - height);
+      const next = Math.min(maxShift, Math.max(0, el.scrollTop));
+      if (next === shift) return;
+      shift = next;
+      panel.style.transform = `translate3d(0, ${-next}px, 0)`;
+      // Slid back down by the same amount, so only the crop moves.
+      const back = `translate3d(0, ${next}px, 0)`;
+      if (inner) inner.style.transform = back;
+      if (topPills) topPills.style.transform = back;
+      mapBottomRef.current = startH - next;
+      // Tell the map how much of its canvas is hidden, so it frames photos in
+      // the visible strip rather than behind the timeline. Applied on the next
+      // camera move, so this stays a cheap assignment during the scroll.
+      mapApiRef.current?.setHiddenBottom(next);
     };
     shrinkMap();
 
     const onScroll = () => {
-      // Height update on rAF so it stays glued to the scroll (no lag/jank).
+      // On rAF so the transform lands on the same frame the scroll is painted.
       if (!raf) raf = requestAnimationFrame(() => { raf = 0; shrinkMap(); });
       const top = el.scrollTop;
       setScrolled(top > 260);
@@ -265,6 +298,19 @@ export function TripDetailPage() {
         setVisibleUsers((cur) =>
           cur.size > 0 ? cur : new Set([t.ownerId, mine].filter((x): x is string => !!x)),
         );
+        // Photos on the map: everybody's, unless this browser was told
+        // otherwise for this trip. An empty array is a real answer ("none"),
+        // so only a missing key falls back to all of them.
+        setPhotoUsers((cur) => {
+          if (cur.size > 0) return cur;
+          try {
+            const raw = localStorage.getItem(`mms.map.photos.${t.id}`);
+            if (raw) return new Set(JSON.parse(raw) as string[]);
+          } catch {
+            /* fall through to everybody */
+          }
+          return new Set(t.members.map((m) => m.userId));
+        });
       })
       .catch((err: Error) => {
         // The server answers 404 for a trip you are not on, whether or not it
@@ -549,6 +595,35 @@ export function TripDetailPage() {
     };
   }, [peopleOpen, peopleClosing, closePeople]);
 
+  const setAllPhotoUsers = useCallback(
+    (ids: string[]) => {
+      setPhotoUsers(new Set(ids));
+      try {
+        localStorage.setItem(`mms.map.photos.${tripId}`, JSON.stringify(ids));
+      } catch {
+        /* see above */
+      }
+    },
+    [tripId],
+  );
+
+  const togglePhotoUser = useCallback(
+    (userId: string) => {
+      setPhotoUsers((current) => {
+        const next = new Set(current);
+        if (next.has(userId)) next.delete(userId);
+        else next.add(userId);
+        try {
+          localStorage.setItem(`mms.map.photos.${tripId}`, JSON.stringify([...next]));
+        } catch {
+          /* storage off: the choice simply lasts as long as the page does */
+        }
+        return next;
+      });
+    },
+    [tripId],
+  );
+
   const toggleUser = useCallback((userId: string) => {
     setVisibleUsers((current) => {
       const next = new Set(current);
@@ -605,6 +680,18 @@ export function TripDetailPage() {
     [media, visibleUsers, day],
   );
 
+  // The map's own set, and its own question: whose photos are ON THE MAP is
+  // not whose route is, and not what the timeline below it lists. It can be
+  // narrowed to one traveller, or emptied altogether, leaving nothing but the
+  // line.
+  const mapMedia = useMemo(
+    () =>
+      media.filter(
+        (m) => photoUsers.has(m.userId) && (day === null || m.takenAt.slice(0, 10) === day),
+      ),
+    [media, photoUsers, day],
+  );
+
   // Your own "you are here" dot only belongs on a trip that is CURRENTLY running
   // (between start and end) — not on every past/future trip's map.
   const tripActive =
@@ -612,65 +699,55 @@ export function TripDetailPage() {
     trip.startDate.slice(0, 10) <= new Date().toISOString().slice(0, 10) &&
     new Date(trip.endDate).getTime() + 86_400_000 >= Date.now();
 
-  // Animate the person dropdown out before it unmounts (mirrors the open pop).
-  const closePersonMenu = useCallback(() => {
-    // Two things can ask for it at once (a tap outside is also a scroll's
-    // first event); the second must not start a second timer.
-    if (personClosingRef.current) return;
-    personClosingRef.current = true;
-    setPersonMenuClosing(true);
-    window.setTimeout(() => {
-      setPersonMenuOpen(false);
-      setPersonMenuClosing(false);
-      personClosingRef.current = false;
-    }, 150);
-  }, []);
-
-  const togglePersonMenu = () => {
-    if (personMenuOpen) closePersonMenu();
-    else setPersonMenuOpen(true);
-  };
-
   /**
-   * The traveller list puts itself away, the way the day list already did.
+   * Which stop a photo was taken at, for the "make this the stop's face" action.
    *
-   * The two pills sit on top of each other in the same corner of the map.
-   * Opening one used to leave the other standing open behind it, and neither
-   * closed when the page moved away underneath them — so a list of ninety days
-   * would follow you halfway down the timeline. Tapping elsewhere (which
-   * includes the other pill), scrolling, and Escape all close it.
+   * The day it was taken, matched the way the rail matches its own tiles: the
+   * route stop whose stay covers that day. A day trip is a place you visited,
+   * not a tile in the rail, so it is never the answer here.
    */
-  useEffect(() => {
-    if (!personMenuOpen || personMenuClosing) return;
-    const away = (e: MouseEvent) => {
-      if (personRef.current?.contains(e.target as Node)) return;
-      closePersonMenu();
-    };
-    const escape = (e: KeyboardEvent) => e.key === 'Escape' && closePersonMenu();
-    // Scrolling inside the list itself is how you reach the far end of it.
-    const onScroll = (e: Event) => {
-      if (personRef.current?.contains(e.target as Node)) return;
-      closePersonMenu();
-    };
-    document.addEventListener('click', away);
-    document.addEventListener('keydown', escape);
-    window.addEventListener('scroll', onScroll, true);
-    return () => {
-      document.removeEventListener('click', away);
-      document.removeEventListener('keydown', escape);
-      window.removeEventListener('scroll', onScroll, true);
-    };
-  }, [personMenuOpen, personMenuClosing, closePersonMenu]);
+  const stopForPhoto = useCallback(
+    (item: { takenAt: string }) => {
+      const day = item.takenAt.slice(0, 10);
+      const stop = stops.find(
+        (s) => !s.parentStopId && s.arrivalDate.slice(0, 10) <= day && day <= s.departureDate.slice(0, 10),
+      );
+      return stop ? { id: stop.id, name: stop.name } : null;
+    },
+    [stops],
+  );
+
+  const setStopCover = useCallback(
+    async (stopId: string, mediaId: string) => {
+      if (!tripId) return;
+      const updated = await api<PlannedStop[]>(`/trips/${tripId}/stops/${stopId}`, {
+        method: 'PATCH',
+        body: { coverMediaId: mediaId },
+      });
+      setStops(updated);
+    },
+    [tripId],
+  );
 
   // Keep the timeline in sync with the open photo: switch to the Tijdlijn tab
   // and scroll the matching thumbnail into view.
   const openPhoto = useCallback(
     (mediaId: string) => {
       const idx = visibleMedia.findIndex((m) => m.id === mediaId);
-      if (idx === -1) return;
-      setLightboxIndex(idx);
+      if (idx >= 0) {
+        setLightboxIndex(idx);
+        return;
+      }
+      // A photo on the map belonging to somebody whose route you are not
+      // following: the timeline has never heard of it. Asking for it the way a
+      // search result does switches that traveller on and opens it.
+      if (media.some((m) => m.id === mediaId)) {
+        const next = new URLSearchParams(searchParams);
+        next.set('photo', mediaId);
+        setSearchParams(next, { replace: true });
+      }
     },
-    [visibleMedia],
+    [visibleMedia, media, searchParams, setSearchParams],
   );
 
   const scrollTimelineTo = useCallback((mediaId: string) => {
@@ -748,6 +825,16 @@ export function TripDetailPage() {
             >
               <Icon name="share" size={20} />
             </button>
+            {/* What the map is showing, and whose. Used once and then left
+                alone, which is why it is a button and not a pill parked over
+                the map. */}
+            <button
+              className="trip-fab"
+              aria-label="Kaartinstellingen"
+              onClick={() => setLayersOpen(true)}
+            >
+              <Icon name="eye" size={20} />
+            </button>
             {trip.ownerId === user?.id && (
               <Link
                 to={`/trips/${tripId}/settings`}
@@ -761,7 +848,8 @@ export function TripDetailPage() {
         )}
         <TripMap
           routes={routes}
-          media={visibleMedia}
+          media={mapMedia}
+          hidePhotos={photoUsers.size === 0}
           // One day means that day's places too: the planner's line from stop
           // to stop was still drawing legs across countries nobody travelled
           // that day.
@@ -813,74 +901,25 @@ export function TripDetailPage() {
           )}
         </div>
 
-        {/* Bottom left, above the traveller picker: which day the map is
-            showing, and whose route is on it. The picker is not always there,
-            so the stack holds the gutter rather than the pill hanging off it. */}
+        {/* Bottom left: which day the map is showing, and a word when the
+            photos have been switched off. */}
         <div className="map-bottom-left">
           <DayFilter days={days} value={day} onChange={setDay} />
 
-        {/* Also shown for a single traveller who isn't you — that is exactly the
-            case (a friend's trip) where the pill has something to say. */}
-        {trip && primaryMember && (shownMembers.length > 1 || primaryMember.userId !== user?.id) && (
-          <div className="person-select" ref={personRef}>
-            {personMenuOpen && (
-              <div className={`person-select-menu card ${personMenuClosing ? 'closing' : ''}`}>
-                {shownMembers.map((member) => {
-                  const active = visibleUsers.has(member.userId);
-                  const fix = liveFixes.find((f) => f.userId === member.userId);
-                  const seen = fix ? lastSeenLabel(fix.recordedAt, liveTick) : null;
-                  return (
-                    <button
-                      key={member.userId}
-                      className={active ? 'active' : ''}
-                      onClick={() => toggleUser(member.userId)}
-                    >
-                      <span
-                        className="person-chip-dot"
-                        style={{ background: colorForUser(member.userId) }}
-                      />
-                      <span className="person-select-name">
-                        {member.user.displayName}
-                        {member.userId === user?.id && ' (ik)'}
-                      </span>
-                      {/* Last known position, same wording as the map marker. */}
-                      {seen && (
-                        <span className={`person-seen ${seen.fresh ? 'fresh' : ''}`}>
-                          {seen.text}
-                        </span>
-                      )}
-                      <span className={`person-check ${active ? 'on' : ''}`}>
-                        <Icon name="check" size={15} />
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            <button
-              className="person-select-btn"
-              onClick={togglePersonMenu}
-              aria-expanded={personMenuOpen}
-            >
-              <span
-                className="person-chip-dot"
-                style={{ background: colorForUser(primaryMember.userId) }}
-              />
-              <span className="person-select-name">{primaryMember.user.displayName}</span>
-              {/* Stays mounted at zero width so the pill can GROW into the extra
-                  count instead of snapping wider the moment you tick someone.
-                  It keeps showing the last real number while collapsing — the
-                  live count is 0 by then, and "+0" flashing past looks broken. */}
-              <span className={`person-extra ${extraCount > 0 ? 'on' : ''}`}>
-                <span key={shownExtra}>+{shownExtra}</span>
-              </span>
-              <Icon
-                name="chevron-down"
-                size={14}
-                className={`person-select-caret ${personMenuOpen && !personMenuClosing ? 'open' : ''}`}
-              />
-            </button>
-          </div>
+        {/* Nothing else is pinned to the map any more: whose route and whose
+            photos are on it is a choice you make once, and it lives in the map
+            settings rather than permanently over the map. What does belong
+            here is a word when the photos are switched off, because an empty
+            map is otherwise indistinguishable from a broken one. */}
+        {photoUsers.size === 0 && (
+          <button
+            type="button"
+            className="map-photos-off"
+            onClick={() => setLayersOpen(true)}
+          >
+            <Icon name="camera" size={13} />
+            Foto&apos;s staan uit op de kaart
+          </button>
         )}
         </div>
 
@@ -1042,6 +1081,8 @@ export function TripDetailPage() {
               longitude: s.longitude,
               arrivalDate: s.arrivalDate,
               departureDate: s.departureDate,
+              parentStopId: s.parentStopId,
+              coverMediaId: s.coverMediaId,
             }))}
           />
         ) : (
@@ -1059,12 +1100,38 @@ export function TripDetailPage() {
         )}
       </aside>
 
+      {layersShown && trip && (
+        <MapLayersSheet
+          members={shownMembers.length > 0 ? shownMembers : trip.members}
+          routeUsers={visibleUsers}
+          photoUsers={photoUsers}
+          liveFixes={liveFixes}
+          liveTick={liveTick}
+          ownUserId={user?.id}
+          onToggleRoute={toggleUser}
+          onTogglePhoto={togglePhotoUser}
+          onAllPhotos={() =>
+            setAllPhotoUsers(
+              (shownMembers.length > 0 ? shownMembers : trip.members).map((m) => m.userId),
+            )
+          }
+          onNoPhotos={() => setAllPhotoUsers([])}
+          onClose={() => setLayersOpen(false)}
+          closing={layersClosing}
+        />
+      )}
+
       {peopleOpen && trip && (
         <div
           className={`people-sheet-backdrop ${peopleClosing ? 'closing' : ''}`}
           onClick={closePeople}
         >
-          <div className="people-sheet card" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="people-sheet card"
+            ref={peopleSheet.ref}
+            onClick={(e) => e.stopPropagation()}
+            {...peopleSheet.handlers}
+          >
             <div className="people-sheet-head">
               <h2>Mensen &amp; delen</h2>
               <button
@@ -1103,7 +1170,9 @@ export function TripDetailPage() {
           around by the day instead of by the flick. */}
       {/* The grip labels itself with the day it is over, which it reads off the
           timeline. On the routeplanner there is no timeline for it to read. */}
-      {tab === 'timeline' && <FastScroll page={scrollRef} side={sideRef} />}
+      {tab === 'timeline' && (
+        <FastScroll page={scrollRef} side={sideRef} topOffset={mapTopOffset} />
+      )}
 
       {lightboxIndex !== null && (
         <Lightbox
@@ -1113,6 +1182,8 @@ export function TripDetailPage() {
           onNavigate={setLightboxIndex}
           coverTripId={trip?.ownerId === user?.id ? tripId : undefined}
           onCoverSet={loadData}
+          stopCoverFor={trip?.ownerId === user?.id ? stopForPhoto : undefined}
+          onSetStopCover={setStopCover}
         />
       )}
 

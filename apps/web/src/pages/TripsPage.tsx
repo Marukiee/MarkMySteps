@@ -31,6 +31,47 @@ import { tripGlyph, tripGlyphSize, tripGlyphStroke } from '../lib/tripGlyph';
 import { onTrackerChange } from '../tracking/tracker';
 import './trips.css';
 
+/** How many trips this browser saw last time, to size the placeholders. */
+const TRIP_COUNT_KEY = 'mms.trips.count';
+
+function rememberedTripCount(): number {
+  try {
+    const raw = Number(localStorage.getItem(TRIP_COUNT_KEY));
+    if (Number.isFinite(raw) && raw > 0) return Math.min(6, raw);
+  } catch {
+    /* fall through */
+  }
+  return 2;
+}
+
+/**
+ * The shape of the list, before the list.
+ *
+ * Deliberately the trip card's own geometry — the same grid, the same aspect,
+ * the same rounded corner — so what arrives lands in the space that was being
+ * held for it instead of pushing a "nothing here" message out of the way.
+ */
+function TripsSkeleton({ count }: { count: number }) {
+  return (
+    <div className="trips-grid trips-skeleton" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => (
+        <div className="trip-skel" key={i} style={{ animationDelay: `${i * 90}ms` }}>
+          <div className="trip-skel-shine" />
+          <div className="trip-skel-body">
+            <span className="trip-skel-line wide" />
+            <span className="trip-skel-line" />
+            <span className="trip-skel-facts">
+              <i />
+              <i />
+              <i />
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function TripsPage() {
   const { user } = useAuth();
   const [trips, setTrips] = useState<Trip[] | null>(null);
@@ -88,7 +129,16 @@ export function TripsPage() {
 
   function load() {
     api<Trip[]>('/trips')
-      .then(setTrips)
+      .then((list) => {
+        setTrips(list);
+        // So the next cold start can put the right number of placeholders up
+        // rather than guessing, or showing nothing at all.
+        try {
+          localStorage.setItem(TRIP_COUNT_KEY, String(list.length));
+        } catch {
+          /* storage off: the placeholder count falls back to a guess */
+        }
+      })
       .catch((err: Error) => setError(err.message));
   }
 
@@ -249,6 +299,12 @@ export function TripsPage() {
       )}
 
       {error && <p className="error-text">{error}</p>}
+
+      {/* On a slow connection the page used to sit here empty, which reads as
+          "you have no trips" rather than "still loading". These are the cards
+          that are on their way, in the number this browser saw last time. */}
+      {trips === null && !error && <TripsSkeleton count={rememberedTripCount()} />}
+
       {trips?.length === 0 && (
         <div className="card trips-empty">
           <h2>Nog geen reizen</h2>

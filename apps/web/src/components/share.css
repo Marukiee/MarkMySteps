@@ -373,3 +373,55 @@
   line-height: 1.45;
   color: var(--ink-soft);
 }
+
+/* ---------- Placeholders, while the links are on their way ---------- */
+
+/*
+ * The row that is coming, held open. Without it the panel said "no links yet"
+ * for as long as the request took, which on a poor connection is long enough
+ * to believe.
+ */
+.share-link-skel {
+  align-items: center;
+  animation: shareSkelIn 0.3s var(--ease) backwards;
+}
+
+@keyframes shareSkelIn {
+  from {
+    opacity: 0;
+  }
+}
+
+.share-skel-line,
+.share-skel-btn {
+  display: block;
+  border-radius: 8px;
+  background: var(--line);
+  animation: shareSkelPulse 1.5s ease-in-out infinite;
+}
+
+.share-skel-line {
+  flex: 1;
+  min-width: 0;
+  height: 14px;
+}
+
+.share-skel-btn {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+
+@keyframes shareSkelPulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-skel-line,
+  .share-skel-btn {
+    animation: none;
+  }
+}
