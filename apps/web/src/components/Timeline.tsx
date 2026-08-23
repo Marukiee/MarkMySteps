@@ -5,6 +5,7 @@ import { AuthImage } from './AuthImage';
 import { DayNote, TripNote } from './DayNote';
 import { Icon } from './Icon';
 import { isPanorama, PhotoGrid } from './PhotoGrid';
+import { StopJump } from './StopJump';
 import { WeatherBadge } from './WeatherBadge';
 import './timeline.css';
 import { Flag } from './Flag';
@@ -127,13 +128,22 @@ export function Timeline({
   }
 
   return (
-    <div className="timeline">
+    <>
+      {/* Straight to a city, without scrolling three months to find it. */}
+      <StopJump stops={stops} days={days.map(([day]) => day)} />
+      <div className="timeline">
       {days.map(([day, items]) => {
         const loc = locationForDay(day, items);
         return (
-        // The day is written onto the section so the fast-scroll grip can say
-        // where the list is without knowing anything about the timeline.
-        <section key={day} className="timeline-day" data-day={day}>
+        // The day and its place are written onto the section so the fast-scroll
+        // grip can say where the list is without knowing anything about the
+        // timeline.
+        <section
+          key={day}
+          className="timeline-day"
+          data-day={day}
+          data-place={loc?.name ?? undefined}
+        >
           <h3>
             <span className="timeline-dot" />
             <span className="timeline-day-label">
@@ -212,6 +222,7 @@ export function Timeline({
         </section>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }

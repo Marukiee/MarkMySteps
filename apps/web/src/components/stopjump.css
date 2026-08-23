@@ -1,0 +1,70 @@
+/* The trip's places, as a row of jumps into the timeline. Sits above the
+   timeline in both the app and a share link, so both read the same. */
+.stop-jump {
+  min-width: 0;
+  /* Runs to both edges of the screen: a rail that stops one gutter short looks
+     like a list that has ended, and there is usually more of it. The gutter is
+     given back as padding so the first and last pill still line up with the
+     text above them. */
+  margin: 0 calc(var(--page-pad, 1.25rem) * -1);
+}
+
+.stop-jump-rail {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding: 0.15rem var(--page-pad, 1.25rem) 0.4rem;
+  scrollbar-width: none;
+}
+
+.stop-jump-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.stop-jump-pill {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  /* The map's day pill, so a pill is a pill wherever it appears. */
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.14s var(--ease), border-color 0.2s var(--ease),
+    color 0.2s var(--ease);
+}
+
+.stop-jump-name {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .stop-jump-pill:hover {
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+}
+
+.stop-jump-pill:active {
+  transform: scale(0.95);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stop-jump-rail {
+    scroll-behavior: auto;
+  }
+
+  .stop-jump-pill {
+    transition: none;
+  }
+}

@@ -27,14 +27,14 @@ export function FastScroll({
   side,
 }: {
   /** The page itself, which scrolls on a phone. */
-  page: React.RefObject<HTMLElement | null>;
+  page?: React.RefObject<HTMLElement | null>;
   /** The side column, which scrolls on a wide window. */
-  side: React.RefObject<HTMLElement | null>;
+  side?: React.RefObject<HTMLElement | null>;
 }) {
   const [awake, setAwake] = useState(false);
   const [visible, closing] = useExit(awake, 220);
   const [dragging, setDragging] = useState(false);
-  const [label, setLabel] = useState<string | null>(null);
+  const [label, setLabel] = useState<Mark | null>(null);
 
   const gripRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLElement | null>(null);
@@ -46,8 +46,8 @@ export function FastScroll({
   const idleTimer = useRef(0);
   const frameRef = useRef(0);
   const pendingY = useRef<number | null>(null);
-  const marksRef = useRef<{ day: string; at: number }[]>([]);
-  const labelRef = useRef<string | null>(null);
+  const marksRef = useRef<Mark[]>([]);
+  const labelRef = useRef<string>('');
   const measuredAt = useRef(0);
   const settleTimer = useRef(0);
   /** Until this moment the grip stays away, whatever the list is doing. */
@@ -56,9 +56,12 @@ export function FastScroll({
   /** The scroller that is doing the scrolling at this window size. */
   const pick = useCallback((): HTMLElement | null => {
     for (const ref of [side, page]) {
-      const el = ref.current;
+      const el = ref?.current;
       if (el && el.scrollHeight > el.clientHeight + 40) return el;
     }
+    // A share link has no scrolling box of its own: the document scrolls.
+    const root = document.scrollingElement as HTMLElement | null;
+    if (root && root.scrollHeight > root.clientHeight + 40) return root;
     return null;
   }, [page, side]);
 
@@ -69,7 +72,11 @@ export function FastScroll({
    * and when the map above it has moved, never on every frame of a scroll.
    */
   const measureTrack = useCallback((el: HTMLElement) => {
-    const rect = el.getBoundingClientRect();
+    // The root element's box is as tall as the document and starts above the
+    // window; what the grip may travel is the window.
+    const rect = isRoot(el)
+      ? { top: 0, bottom: window.innerHeight, right: el.clientWidth }
+      : el.getBoundingClientRect();
     let top = Math.max(rect.top, 0);
     const pinned = pinnedRef.current;
     if (pinned) {
@@ -176,12 +183,17 @@ export function FastScroll({
       setAwake(false);
     };
 
-    const nodes = [page.current, side.current].filter((n): n is HTMLElement => !!n);
+    const nodes = [page?.current, side?.current].filter((n): n is HTMLElement => !!n);
     for (const node of nodes) node.addEventListener('scroll', onScroll, { passive: true });
+    // The document's own scroll is reported at the window, never at the element
+    // that scrolled — so a page without a scrolling box of its own (a share
+    // link) is listened to here.
+    window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize);
     window.addEventListener('mms:fastscroll-hide', onHide);
     return () => {
       for (const node of nodes) node.removeEventListener('scroll', onScroll);
+      window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('mms:fastscroll-hide', onHide);
       window.clearTimeout(idleTimer.current);
@@ -205,19 +217,24 @@ export function FastScroll({
    * half speed. The list does not change while you are dragging it.
    */
   const measureDays = useCallback((el: HTMLElement) => {
-    const nodes = el.querySelectorAll<HTMLElement>('[data-day]');
+    const nodes = document.querySelectorAll<HTMLElement>('[data-day]');
+    // Measured against the scroller's own box rather than the offset chain: a
+    // day section's offsetParent is whatever happens to be positioned above it,
+    // which is not the same element on a share link as it is in the app.
+    const top = isRoot(el) ? 0 : el.getBoundingClientRect().top;
     marksRef.current = [...nodes].map((node) => ({
       day: node.dataset.day ?? '',
-      at: node.offsetTop - el.offsetTop,
+      place: node.dataset.place || null,
+      at: node.getBoundingClientRect().top - top + el.scrollTop,
     }));
   }, []);
 
-  const dayAt = useCallback((scrollTop: number): string | null => {
+  const dayAt = useCallback((scrollTop: number): Mark | null => {
     const marks = marksRef.current;
     if (marks.length === 0) return null;
-    let current = marks[0]!.day;
+    let current = marks[0]!;
     for (const mark of marks) {
-      if (mark.at <= scrollTop + 120) current = mark.day;
+      if (mark.at <= scrollTop + 120) current = mark;
       else break;
     }
     return current;
@@ -238,10 +255,11 @@ export function FastScroll({
         el.scrollTop = f * (el.scrollHeight - el.clientHeight);
         fractionRef.current = f;
         paint();
-        const day = formatDay(dayAt(el.scrollTop));
-        if (day !== labelRef.current) {
-          labelRef.current = day;
-          setLabel(day);
+        const mark = dayAt(el.scrollTop);
+        const key = mark ? `${mark.day}|${mark.place ?? ''}` : '';
+        if (key !== labelRef.current) {
+          labelRef.current = key;
+          setLabel(mark);
         }
       });
     },
@@ -255,7 +273,14 @@ export function FastScroll({
       ref={gripRef}
       className={`fast-scroll ${dragging ? 'dragging' : ''} ${closing ? 'closing' : ''}`}
     >
-      {dragging && label && <span className="fast-scroll-label">{label}</span>}
+      {dragging && label && formatDay(label.day) && (
+        <span className="fast-scroll-label">
+          <span className="fast-scroll-date">{formatDay(label.day)}</span>
+          {/* The date on its own is a number in a month; the city is the thing
+              you are actually looking for. */}
+          {label.place && <span className="fast-scroll-place">{label.place}</span>}
+        </span>
+      )}
       <button
         type="button"
         className="fast-scroll-grip"
@@ -285,14 +310,14 @@ export function FastScroll({
           draggingRef.current = false;
           setDragging(false);
           setLabel(null);
-          labelRef.current = null;
+          labelRef.current = '';
           wake();
         }}
         onPointerCancel={() => {
           draggingRef.current = false;
           setDragging(false);
           setLabel(null);
-          labelRef.current = null;
+          labelRef.current = '';
           wake();
         }}
       >
@@ -301,6 +326,18 @@ export function FastScroll({
       </button>
     </div>
   );
+}
+
+/** One day section of the list: where it starts, and what it is called. */
+interface Mark {
+  day: string;
+  place: string | null;
+  at: number;
+}
+
+/** Whether this "element" is the page itself rather than a box on it. */
+function isRoot(el: HTMLElement): boolean {
+  return el === document.scrollingElement || el === document.documentElement;
 }
 
 function fractionOf(el: HTMLElement): number {

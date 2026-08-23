@@ -3,13 +3,15 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import type { MediaItem, RouteCollection } from '../api/types';
-import { trimOutlierEnds } from '../lib/arc';
+import { buildLegs, flightArc, haversineKm, trimOutlierEnds, type TravelMode } from '../lib/arc';
 import { colorForUser, formatDay } from '../lib/colors';
 import { getMapStyle } from '../lib/prefs';
+import { FastScroll } from '../components/FastScroll';
 import { Icon } from '../components/Icon';
 import { Lightbox } from '../components/Lightbox';
 import { LogoMark } from '../components/Logo';
 import { PhotoGrid } from '../components/PhotoGrid';
+import { StopJump } from '../components/StopJump';
 import { TripFacts } from '../components/TripFacts';
 import { WeatherBadge } from '../components/WeatherBadge';
 import { resolveFacts } from '../lib/tripFacts';
@@ -40,11 +42,17 @@ interface SharedStop {
   id: string;
   name: string;
   countryCode: string | null;
-  travelMode: string | null;
+  travelMode: TravelMode | null;
   latitude: number | null;
   longitude: number | null;
   arrivalDate: string;
   departureDate: string;
+  /** The rest of what a leg is drawn from — a flight's airports, day trips. */
+  fromAirport: string | null;
+  toAirport: string | null;
+  viaAirports: string[];
+  parentStopId: string | null;
+  hideLeg: boolean;
 }
 
 type SharedMedia = Omit<MediaItem, 'immichAssetId'>;
@@ -213,31 +221,13 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     });
     mapRef.current = map;
 
-    void get<RouteCollection>('route').then((routes) => {
-      const drawRoutes = () => {
-        const bounds = new LngLatBounds();
-        for (const feature of routes.features) {
-          const id = `share-route-${feature.properties.userId}`;
-          // Trim stray home snaps so the line doesn't run from home to the trip.
-          const coords = trimOutlierEnds(feature.geometry.coordinates as [number, number][]);
-          const trimmed = { ...feature, geometry: { ...feature.geometry, coordinates: coords } };
-          map.addSource(id, { type: 'geojson', data: trimmed });
-          map.addLayer({
-            id,
-            type: 'line',
-            source: id,
-            paint: { 'line-color': colorForUser(feature.properties.userId), 'line-width': 3.5 },
-            layout: { 'line-cap': 'round', 'line-join': 'round' },
-          });
-          for (const c of coords) bounds.extend(c);
-        }
-        if (routes.features.length > 0) {
-          map.fitBounds(bounds, { padding: 70, maxZoom: 12, duration: 800 });
-        }
-      };
-      if (map.isStyleLoaded()) drawRoutes();
-      else map.once('load', drawRoutes);
-    });
+    void Promise.all([get<RouteCollection>('route'), get<SharedStop[]>('stops')]).then(
+      ([routes, tripStops]) => {
+        const drawRoutes = () => drawTrackedRoute(map, routes, tripStops);
+        if (map.isStyleLoaded()) drawRoutes();
+        else map.once('load', drawRoutes);
+      },
+    );
 
     return () => {
       map.remove();
@@ -447,9 +437,18 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
           <h2 className="share-section-title">Tijdlijn</h2>
           {/* Same markup and classes as the app's timeline, so the shared page
               reads identically: one row per day with its places and weather. */}
+          {/* Straight to a city, the same row of pills the app's timeline has. */}
+          <StopJump stops={stops} days={entries.map((entry) => entry.date)} />
           <div className="timeline">
             {entries.map((entry) => (
-              <section key={entry.date} className="timeline-day">
+              // The day and its place are written onto the section so the
+              // fast-scroll grip can say where the page is.
+              <section
+                key={entry.date}
+                className="timeline-day"
+                data-day={entry.date}
+                data-place={entry.place ?? undefined}
+              >
                 <h3>
                   <span className="timeline-dot" />
                   <span className="timeline-day-label">
@@ -514,6 +513,10 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
         Gedeeld met <LogoMark size={18} /> <strong>MarkMySteps</strong>
       </footer>
 
+      {/* The same grip the app has: a trip of three months is a very long page
+          to flick through, and this one scrolls the document itself. */}
+      <FastScroll />
+
       {/* The app's viewer, not a second one that merely looked like it: the
           same pinch, double-tap and drag zoom, the same paging and the same
           swipe to dismiss. It only gets told where the pixels live. */}
@@ -529,4 +532,117 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       )}
     </div>
   );
+}
+
+/** A single-hop jump longer than this in a route line is treated as a flight. */
+const FLIGHT_KM = 400;
+
+/**
+ * The recorded route, drawn the way the app draws it.
+ *
+ * The shared page used to hand the whole track to one line layer, which put a
+ * straight coloured line across the map wherever the tracker had a gap — a
+ * flight, a day the battery died, the hop home. The app has not done that for
+ * a while: it cuts the line at every big jump and draws a dashed arc over the
+ * gap instead. This is that same treatment, so a link you send someone shows
+ * the route you actually travelled rather than a fan of straight lines over it.
+ */
+function drawTrackedRoute(map: MapLibreMap, routes: RouteCollection, stops: SharedStop[]) {
+  // Where the trip itself says a flight happened. Those legs are cut even when
+  // the tracker filled them in, and long ground legs stay joined up.
+  const flightEndpoints = buildLegs(
+    stops.map((s) => ({
+      id: s.id,
+      latitude: s.latitude,
+      longitude: s.longitude,
+      travelMode: s.travelMode ?? 'GROUND',
+      fromAirport: s.fromAirport ?? null,
+      toAirport: s.toAirport ?? null,
+      viaAirports: s.viaAirports ?? [],
+      parentStopId: s.parentStopId,
+      hideLeg: s.hideLeg,
+    })),
+  )
+    .filter((leg) => leg.isFlight)
+    .map((leg) => {
+      const c = (leg.feature.geometry as GeoJSON.LineString).coordinates as [number, number][];
+      return { from: c[0]!, to: c[c.length - 1]! };
+    });
+
+  const near = (a: [number, number], b: [number, number]) => haversineKm(a, b) <= 250;
+  const isExplicitFlight = (a: [number, number], b: [number, number]) =>
+    flightEndpoints.some(
+      (f) => (near(a, f.from) && near(b, f.to)) || (near(a, f.to) && near(b, f.from)),
+    );
+
+  const bounds = new LngLatBounds();
+  let hasPoints = false;
+
+  for (const feature of routes.features) {
+    const { userId } = feature.properties;
+    const id = `share-route-${userId}`;
+    // Trim stray home snaps so the line doesn't run from home to the trip.
+    const coords = trimOutlierEnds(feature.geometry.coordinates as [number, number][]);
+
+    const ground: [number, number][][] = [];
+    const flights: [number, number][][] = [];
+    let run: [number, number][] = coords.length ? [coords[0]!] : [];
+    for (let i = 1; i < coords.length; i++) {
+      const a = coords[i - 1]!;
+      const b = coords[i]!;
+      const longJump = haversineKm(a, b) > FLIGHT_KM;
+      const explicit = isExplicitFlight(a, b);
+      if (longJump || explicit) {
+        if (run.length >= 2) ground.push(run);
+        if (longJump && !explicit) flights.push(flightArc(a, b));
+        run = [b];
+      } else {
+        run.push(b);
+      }
+    }
+    if (run.length >= 2) ground.push(run);
+
+    map.addSource(id, {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        geometry: { type: 'MultiLineString', coordinates: ground },
+        properties: {},
+      },
+    });
+    map.addLayer({
+      id: `${id}-line`,
+      type: 'line',
+      source: id,
+      paint: { 'line-color': colorForUser(userId), 'line-width': 3.5 },
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+    });
+
+    if (flights.length > 0) {
+      const fid = `${id}-flights`;
+      map.addSource(fid, {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: { type: 'MultiLineString', coordinates: flights },
+          properties: {},
+        },
+      });
+      map.addLayer({
+        id: `${fid}-line`,
+        type: 'line',
+        source: fid,
+        // Dashed, and grey: the arc is drawn, not recorded.
+        paint: { 'line-color': '#8a94a3', 'line-width': 2, 'line-dasharray': [1.4, 2.6] },
+        layout: { 'line-cap': 'round' },
+      });
+    }
+
+    for (const coordinate of coords) {
+      bounds.extend(coordinate);
+      hasPoints = true;
+    }
+  }
+
+  if (hasPoints) map.fitBounds(bounds, { padding: 70, maxZoom: 12, duration: 800 });
 }

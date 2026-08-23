@@ -27,9 +27,25 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    title: 'Sneller door een lange reis',
+    date: '2026-08-23',
+    highlight: true,
+    new: [
+      'Pillen boven de tijdlijn brengen je in \u00e9\u00e9n tik naar een stop, in de app en in een deel-link',
+      'De snelscroll-greep zit nu ook op een deel-link',
+    ],
+    better: [
+      'De greep zegt naast de datum ook in welke plaats je zit',
+    ],
+    fixed: [
+      'Een deel-link tekent de gereden route, in plaats van een rechte lijn over elk gat heen',
+      'De dagen-pil en de mensen-pil klappen elkaar dicht, en gaan dicht zodra je scrollt',
+      'De foto in de viewer springt niet meer van klein naar groot zodra de grote versie binnen is',
+    ],
+  },
+  {
     title: "Foto's in hun eigen vorm",
     date: '2026-08-21',
-    highlight: true,
     new: [
       'Een foto of video bewaren op je toestel, via het \u22ef menu in de viewer',
     ],

@@ -86,6 +86,8 @@ export function TripDetailPage() {
   const canEdit = canEditTrip(trip, user?.id);
   const [personMenuOpen, setPersonMenuOpen] = useState(false);
   const [personMenuClosing, setPersonMenuClosing] = useState(false);
+  const personRef = useRef<HTMLDivElement>(null);
+  const personClosingRef = useRef(false);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
@@ -611,17 +613,54 @@ export function TripDetailPage() {
     new Date(trip.endDate).getTime() + 86_400_000 >= Date.now();
 
   // Animate the person dropdown out before it unmounts (mirrors the open pop).
+  const closePersonMenu = useCallback(() => {
+    // Two things can ask for it at once (a tap outside is also a scroll's
+    // first event); the second must not start a second timer.
+    if (personClosingRef.current) return;
+    personClosingRef.current = true;
+    setPersonMenuClosing(true);
+    window.setTimeout(() => {
+      setPersonMenuOpen(false);
+      setPersonMenuClosing(false);
+      personClosingRef.current = false;
+    }, 150);
+  }, []);
+
   const togglePersonMenu = () => {
-    if (personMenuOpen) {
-      setPersonMenuClosing(true);
-      window.setTimeout(() => {
-        setPersonMenuOpen(false);
-        setPersonMenuClosing(false);
-      }, 150);
-    } else {
-      setPersonMenuOpen(true);
-    }
+    if (personMenuOpen) closePersonMenu();
+    else setPersonMenuOpen(true);
   };
+
+  /**
+   * The traveller list puts itself away, the way the day list already did.
+   *
+   * The two pills sit on top of each other in the same corner of the map.
+   * Opening one used to leave the other standing open behind it, and neither
+   * closed when the page moved away underneath them — so a list of ninety days
+   * would follow you halfway down the timeline. Tapping elsewhere (which
+   * includes the other pill), scrolling, and Escape all close it.
+   */
+  useEffect(() => {
+    if (!personMenuOpen || personMenuClosing) return;
+    const away = (e: MouseEvent) => {
+      if (personRef.current?.contains(e.target as Node)) return;
+      closePersonMenu();
+    };
+    const escape = (e: KeyboardEvent) => e.key === 'Escape' && closePersonMenu();
+    // Scrolling inside the list itself is how you reach the far end of it.
+    const onScroll = (e: Event) => {
+      if (personRef.current?.contains(e.target as Node)) return;
+      closePersonMenu();
+    };
+    document.addEventListener('click', away);
+    document.addEventListener('keydown', escape);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('click', away);
+      document.removeEventListener('keydown', escape);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [personMenuOpen, personMenuClosing, closePersonMenu]);
 
   // Keep the timeline in sync with the open photo: switch to the Tijdlijn tab
   // and scroll the matching thumbnail into view.
@@ -783,7 +822,7 @@ export function TripDetailPage() {
         {/* Also shown for a single traveller who isn't you — that is exactly the
             case (a friend's trip) where the pill has something to say. */}
         {trip && primaryMember && (shownMembers.length > 1 || primaryMember.userId !== user?.id) && (
-          <div className="person-select">
+          <div className="person-select" ref={personRef}>
             {personMenuOpen && (
               <div className={`person-select-menu card ${personMenuClosing ? 'closing' : ''}`}>
                 {shownMembers.map((member) => {

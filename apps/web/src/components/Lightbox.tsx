@@ -1,6 +1,7 @@
 import { Style, StatusBar } from '@capacitor/status-bar';
 import { useEffect, useRef, useState } from 'react';
 import type {
+  CSSProperties,
   MouseEvent as ReactMouseEvent,
   TouchEvent as ReactTouchEvent,
   WheelEvent as ReactWheelEvent,
@@ -687,6 +688,13 @@ export function Lightbox({
                         )
                     : () => loadImage(`/media/${item.id}/thumbnail`)
                 }
+                // The shape of the photo, which is known before any of its
+                // pixels are: it fixes the frame at the size the full-size
+                // rendition will fill, so the small one shown first is shown
+                // at that size too instead of appearing at its own — a few
+                // hundred pixels in the middle of the screen that then jumped
+                // to full size the moment the real photo landed.
+                ratio={item.width && item.height ? item.width / item.height : null}
                 className="lightbox-img"
               />
             )}
@@ -759,6 +767,7 @@ function LightboxPhoto({
   loadFull,
   fullPath,
   lowPath,
+  ratio,
   className,
 }: {
   id: string;
@@ -766,6 +775,8 @@ function LightboxPhoto({
   loadFull: () => Promise<string>;
   fullPath?: string;
   lowPath?: string;
+  /** Width ÷ height of the photo itself, when the server knows it. */
+  ratio?: number | null;
   className?: string;
 }) {
   const [frame, setFrame] = useState<{ id: string; src: string } | null>(null);
@@ -805,8 +816,22 @@ function LightboxPhoto({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, lowSrc]);
 
+  // Both the placeholder and the photo are laid out from the shape, so the
+  // frame is the right size from the first frame to the last.
+  const shape = ratio
+    ? { className: 'has-ratio', style: { '--ar': ratio } as CSSProperties }
+    : { className: '', style: undefined };
+
   // Nothing at all yet: the previous photo is gone and this one has not landed.
-  if (!frame) return <div className={`${className ?? ''} img-placeholder`} aria-hidden="true" />;
+  if (!frame) {
+    return (
+      <div
+        className={`${className ?? ''} ${shape.className} img-placeholder`}
+        style={shape.style}
+        aria-hidden="true"
+      />
+    );
+  }
   // Keyed on the photo, not the source: a new photo is a new element and plays
   // the entrance, the small one growing into the big one is not.
   return (
@@ -814,7 +839,8 @@ function LightboxPhoto({
       key={frame.id}
       src={frame.src}
       alt=""
-      className={className}
+      className={`${className ?? ''} ${shape.className}`}
+      style={shape.style}
       decoding="sync"
       // A source that will not paint (a blob that has been revoked, a rendition
       // the server could not fetch) falls back to the small version rather than

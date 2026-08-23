@@ -36,8 +36,12 @@
 }
 
 .lightbox-img {
+  /* Published as variables so the shaped rule below can do its sums with the
+     same numbers, and the phone override only has to change them once. */
+  --maxh: min(78vh, calc(100dvh - 12rem));
+  --maxw: min(92vw, 1100px);
   max-width: 100%;
-  max-height: min(78vh, calc(100dvh - 12rem));
+  max-height: var(--maxh);
   object-fit: contain;
   border-radius: var(--radius-m);
   box-shadow: 0 24px 70px rgb(0 0 0 / 0.55);
@@ -45,6 +49,24 @@
   /* No minimum: a portrait shot was being padded out to a landscape box, which
      is where the odd empty margins came from. */
   animation: lightboxPhotoIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * A photo whose shape the server told us, sized from that shape rather than
+ * from whichever rendition happens to be loaded.
+ *
+ * Left to `max-width`/`max-height` alone, an <img> is as big as its own pixels:
+ * the cached thumbnail put up first is a few hundred pixels wide and was drawn
+ * at a few hundred pixels, then jumped to the full frame when the real photo
+ * arrived. The width here is the frame the full one will fill — as tall as
+ * there is room for, or as wide, whichever runs out first — so both renditions
+ * are drawn at exactly the same size and the swap is invisible.
+ */
+.lightbox-img.has-ratio {
+  aspect-ratio: var(--ar);
+  width: calc(min(var(--maxh), calc(var(--maxw) / var(--ar))) * var(--ar));
+  height: auto;
+  max-height: none;
 }
 
 /* Carries the zoom. Sized by the photo, so the arrows and the frame around it
@@ -283,7 +305,9 @@
   }
 
   .lightbox-img {
-    max-height: min(70vh, calc(100dvh - 11rem));
+    --maxh: min(70vh, calc(100dvh - 11rem));
+    /* The stage runs the full width here, inside the viewer's own gutter. */
+    --maxw: calc(100vw - 3.2rem);
   }
 
   .lightbox-bar {

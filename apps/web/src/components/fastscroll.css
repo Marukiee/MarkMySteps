@@ -67,8 +67,12 @@
 
 /* The date you are passing, beside the grip where your thumb is not. */
 .fast-scroll-label {
+  display: grid;
+  justify-items: end;
+  gap: 0.08rem;
+  /* Two lines now, so a pill radius would bow around them. */
   padding: 0.35rem 0.7rem;
-  border-radius: 999px;
+  border-radius: var(--radius-m);
   background: var(--ink);
   color: var(--paper);
   font-size: 0.8rem;
@@ -76,6 +80,17 @@
   white-space: nowrap;
   box-shadow: var(--shadow-s);
   animation: fastLabelIn 0.16s var(--ease);
+}
+
+/* The city under the date, quieter than it: the date is what the grip is
+   aiming with, the place is what tells you you have arrived. */
+.fast-scroll-place {
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.74rem;
+  font-weight: 600;
+  opacity: 0.72;
 }
 
 @keyframes fastLabelIn {
