@@ -373,11 +373,12 @@ const PATHS: Record<IconName, ReactNode> = {
       <circle cx="12" cy="8.4" r="1.5" fill="currentColor" stroke="none" />
     </>
   ),
-  /* A circle of arrow: put it back the way it started. */
+  /* Lucide's rotate-cw, unaltered: the arrow everything else uses for "put it
+     back the way it was", drawn by people who draw icons. */
   reload: (
     <>
-      <path d="M20 12a8 8 0 1 1-2.6-5.9" />
-      <path d="M20.2 4.4V10h-5.6" />
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
     </>
   ),
   /* Crosshair: take me to where I am. */
