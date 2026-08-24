@@ -11,12 +11,11 @@
    * margin and far enough out to be its own thing. The negative margin below
    * cancels the page's own gutter, so this number is the whole inset.
    *
-   * The page gutter is where the timeline hangs its 2px rail, and a tile that
-   * started one pixel into it had the grey line running out from under its
-   * corner. The tiles start just clear of the rail instead, so the row lines
-   * up against it.
+   * The page gutter is where the timeline hangs its 2px rail, and the tiles
+   * start on the same line the rail does: their left edge and its left edge
+   * are the same edge, so the row hangs off the rail rather than beside it.
    */
-  --stop-jump-inset: calc(var(--page-pad, 1.25rem) + 4px);
+  --stop-jump-inset: var(--page-pad, 1.25rem);
   /* Runs to both edges of the screen: a rail that stops one gutter short looks
      like a list that has ended, and there is usually more of it. The gutter is
      given back as padding so the first and last tile still line up with the
