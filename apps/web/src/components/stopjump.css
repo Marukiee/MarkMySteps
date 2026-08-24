@@ -11,11 +11,17 @@
    * margin and far enough out to be its own thing. The negative margin below
    * cancels the page's own gutter, so this number is the whole inset.
    *
-   * The page gutter is where the timeline hangs its 2px rail, and the tiles
-   * start on the same line the rail does: their left edge and its left edge
-   * are the same edge, so the row hangs off the rail rather than beside it.
+   * The page gutter is where the timeline hangs its 2px rail, and the day dots
+   * on it hang two pixels into the gutter. The tiles line up with the dots
+   * rather than with the rail: the dot is the leftmost thing on this page, so
+   * it is the edge everything else is read against.
+   *
+   * The label above them keeps the rail's own line. It has no round corner to
+   * lose, and starting it further out than the days below would read as a
+   * hanging indent nobody asked for.
    */
-  --stop-jump-inset: var(--page-pad, 1.25rem);
+  --stop-jump-inset: calc(var(--page-pad, 1.25rem) - 2px);
+  --stop-jump-title-inset: var(--page-pad, 1.25rem);
   /* Runs to both edges of the screen: a rail that stops one gutter short looks
      like a list that has ended, and there is usually more of it. The gutter is
      given back as padding so the first and last tile still line up with the
@@ -28,7 +34,7 @@
    Indented to the same line as the tiles under it. */
 .stop-jump-title {
   margin: 0.35rem 0 0.35rem;
-  padding-left: var(--stop-jump-inset);
+  padding-left: var(--stop-jump-title-inset);
   font-family: var(--font-body);
   font-size: 0.84rem;
   font-weight: 700;
