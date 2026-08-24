@@ -26,6 +26,7 @@ export function FastScroll({
   page,
   side,
   topOffset,
+  armed,
 }: {
   /** The page itself, which scrolls on a phone. */
   page?: React.RefObject<HTMLElement | null>;
@@ -40,6 +41,19 @@ export function FastScroll({
    * — which was the stutter this grip was supposed to be curing.
    */
   topOffset?: () => number;
+  /**
+   * Whether the grip may show itself at all at this moment.
+   *
+   * The trip page pins a map across the top that folds away as you scroll, and
+   * the grip's track is measured from the bottom of that map. While the map is
+   * still folding, that line is moving under the grip, so it rode the map up
+   * and down instead of the list. It stays away until the map has settled, and
+   * goes again as soon as scrolling back up starts unfolding it.
+   *
+   * A function rather than a prop value: this is read on every scroll, and a
+   * component that re-rendered for it would undo the point of the grip.
+   */
+  armed?: () => boolean;
 }) {
   const [awake, setAwake] = useState(false);
   const [visible, closing] = useExit(awake, 220);
@@ -65,6 +79,9 @@ export function FastScroll({
   const settleTimer = useRef(0);
   /** Until this moment the grip stays away, whatever the list is doing. */
   const mutedUntil = useRef(0);
+  /** Read every frame; kept in a ref so the effect never restarts for it. */
+  const armedRef = useRef(armed);
+  armedRef.current = armed;
 
   /** The scroller that is doing the scrolling at this window size. */
   const pick = useCallback((): HTMLElement | null => {
@@ -129,6 +146,7 @@ export function FastScroll({
 
   const wake = useCallback(() => {
     if (performance.now() < mutedUntil.current) return;
+    if (armedRef.current?.() === false) return;
     setAwake(true);
     window.clearTimeout(idleTimer.current);
     idleTimer.current = window.setTimeout(() => {
@@ -155,6 +173,12 @@ export function FastScroll({
         const scroller = scrollerRef.current ?? pick();
         if (!scroller) return;
         scrollerRef.current = scroller;
+        // Whatever is pinned above the list is still moving: the grip has no
+        // stable track to sit on, so it does not sit on one.
+        if (armedRef.current?.() === false) {
+          setAwake(false);
+          return;
+        }
         if (scroller.scrollHeight < scroller.clientHeight * MIN_RATIO) {
           setAwake(false);
           return;

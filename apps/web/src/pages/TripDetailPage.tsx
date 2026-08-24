@@ -95,6 +95,15 @@ export function TripDetailPage() {
   /** Where the pinned map currently ends, for anything that has to clear it. */
   const mapBottomRef = useRef(0);
   const mapTopOffset = useCallback(() => mapBottomRef.current, []);
+  /**
+   * Whether the fast-scroll grip may show itself.
+   *
+   * False while the map across the top is still folding away, in either
+   * direction: the grip's track starts at the bottom of that map, so a grip
+   * offered mid-fold rides the map instead of the list.
+   */
+  const fastArmedRef = useRef(true);
+  const fastArmed = useCallback(() => fastArmedRef.current, []);
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
@@ -226,12 +235,19 @@ export function TripDetailPage() {
     // it has to be gone again by the time scrolling back up starts unfolding
     // it. One line past the floor, in both directions.
     const backTopAt = isMobile ? maxShift + 80 : 260;
+    // The grip is offered on the same line, for the same reason: on a desktop
+    // there is no folding map above the list, so it is always welcome.
+    const armAt = (top: number) => {
+      fastArmedRef.current = !isMobile || top > backTopAt;
+    };
+    armAt(el.scrollTop);
 
     const onScroll = () => {
       // On rAF so the transform lands on the same frame the scroll is painted.
       if (!raf) raf = requestAnimationFrame(() => { raf = 0; shrinkMap(); });
       const top = el.scrollTop;
       setScrolled(top > backTopAt);
+      armAt(top);
       // Back at the top: the camera has been walking along with the timeline,
       // so put it back on the trip as a whole. Also when the button did the
       // scrolling and the camera never wandered — see the button itself.
@@ -1004,7 +1020,10 @@ export function TripDetailPage() {
             inside it can beat the map panel above. */}
         {/* Not while a sheet is up: it is fixed to the viewport, so it floated
             over the sheet's scrim instead of with the page it belongs to. */}
+        {/* Timeline only: the planner is a form and a map, not a long list to
+            climb back out of, and the button sat over its controls. */}
         {backTopShown &&
+          tab === 'timeline' &&
           !peopleOpen &&
           !layersOpen &&
           createPortal(
@@ -1222,7 +1241,7 @@ export function TripDetailPage() {
       {/* The grip labels itself with the day it is over, which it reads off the
           timeline. On the routeplanner there is no timeline for it to read. */}
       {tab === 'timeline' && (
-        <FastScroll page={scrollRef} side={sideRef} topOffset={mapTopOffset} />
+        <FastScroll page={scrollRef} side={sideRef} topOffset={mapTopOffset} armed={fastArmed} />
       )}
 
       {lightboxIndex !== null && (
