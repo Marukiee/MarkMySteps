@@ -239,6 +239,20 @@
   transform: scale(0.86);
 }
 
+/* MapLibre's "use two fingers" screen, in this page's own voice: its stylesheet
+   sets a 12px Helvetica stack on the map and the message inherits it, which is
+   a different typeface from every other word on the page. */
+.share-map-inner .maplibregl-cooperative-gesture-screen {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  background: rgb(10 13 18 / 0.45);
+  backdrop-filter: blur(2px);
+  border-radius: inherit;
+}
+
 /* The ⓘ steps aside for it, the way it does on the app's map. */
 .share-map-inner .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
   margin-right: 46px;

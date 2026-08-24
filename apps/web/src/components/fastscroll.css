@@ -92,6 +92,20 @@
   animation: fastLabelIn 0.16s var(--ease);
 }
 
+/*
+ * In the dark the bubble is a dark card, not an inverted one.
+ *
+ * Ink on paper inverts with the theme, so the chip that reads as a dark label
+ * on a light page becomes a bright white slab on a dark one — the one light
+ * thing on the screen, right under your thumb, and brighter than the grip it
+ * belongs to.
+ */
+:root[data-theme='dark'] .fast-scroll-label {
+  background: var(--paper-raised);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
 /* The city under the date, quieter than it: the date is what the grip is
    aiming with, the place is what tells you you have arrived. */
 .fast-scroll-place {

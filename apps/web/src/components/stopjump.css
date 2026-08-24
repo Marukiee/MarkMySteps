@@ -23,13 +23,12 @@
    this page, and a second serif line above them was competing with them.
    Indented to the same line as the tiles under it. */
 .stop-jump-title {
-  margin: 0.35rem 0 0.3rem;
+  margin: 0.35rem 0 0.35rem;
   padding-left: var(--stop-jump-inset);
   font-family: var(--font-body);
-  font-size: 0.72rem;
+  font-size: 0.84rem;
   font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--ink-faint);
 }
 
