@@ -647,7 +647,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
               }
             }}
           >
-            <Icon name="frame" size={19} />
+            <Icon name="route" size={19} />
           </button>
         )}
       </div>

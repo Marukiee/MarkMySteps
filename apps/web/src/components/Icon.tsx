@@ -17,6 +17,7 @@ export type IconName =
   | 'map'
   | 'locate'
   | 'frame'
+  | 'route'
   | 'sparkle'
   | 'gear'
   | 'plane'
@@ -358,6 +359,17 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M15 4h3.4A1.6 1.6 0 0 1 20 5.6V9" />
       <path d="M20 15v3.4a1.6 1.6 0 0 1-1.6 1.6H15" />
       <path d="M9 20H5.6A1.6 1.6 0 0 1 4 18.4V15" />
+    </>
+  ),
+  /* An arc between two dots: the whole route, from one end to the other. Four
+     corner brackets read as "make this fullscreen" on a map, which is not what
+     the button under it does. */
+  route: (
+    <>
+      <path d="M5.6 17.2C7.4 9.6 16.6 9.6 18.4 17.2" />
+      <circle cx="4.6" cy="18.4" r="2.1" fill="currentColor" stroke="none" />
+      <circle cx="19.4" cy="18.4" r="2.1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="8.4" r="1.5" fill="currentColor" stroke="none" />
     </>
   ),
   /* Crosshair: take me to where I am. */

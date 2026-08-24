@@ -7,11 +7,16 @@
    *
    * Not the line the photos below start on. Lined up with those, the tiles
    * read as another row of the timeline rather than as the rail over it; this
-   * sits halfway between that line and the edge, which is far enough in to be
-   * a margin and far enough out to be its own thing. The negative margin below
+   * sits between that line and the edge, which is far enough in to be a
+   * margin and far enough out to be its own thing. The negative margin below
    * cancels the page's own gutter, so this number is the whole inset.
+   *
+   * The page gutter is where the timeline hangs its 2px rail, and a tile that
+   * started one pixel into it had the grey line running out from under its
+   * corner. The tiles start just clear of the rail instead, so the row lines
+   * up against it.
    */
-  --stop-jump-inset: calc(var(--page-pad, 1.25rem) + 1px);
+  --stop-jump-inset: calc(var(--page-pad, 1.25rem) + 4px);
   /* Runs to both edges of the screen: a rail that stops one gutter short looks
      like a list that has ended, and there is usually more of it. The gutter is
      given back as padding so the first and last tile still line up with the
@@ -29,7 +34,9 @@
   font-size: 0.84rem;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: var(--ink-faint);
+  /* Full ink: at this size the faint grey read as a disabled label rather than
+     as the name of the row under it. */
+  color: var(--ink);
 }
 
 .stop-jump-rail {
