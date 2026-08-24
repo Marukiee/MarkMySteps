@@ -44,6 +44,7 @@ import {
 } from '../lib/notify';
 import { applyDynamicAccent, dynamicAccentAvailable } from '../lib/dynamicColor';
 import { MapStylePicker } from '../components/MapStylePicker';
+import { skipNextPop } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
 import {
   GlobeStopsMode,
@@ -1496,6 +1497,29 @@ const CHANGE_GROUPS: { key: 'new' | 'better' | 'fixed'; label: string; tone: str
  * all at once.
  */
 function ChangelogPanel({ onBack }: { onBack: () => void }) {
+  // A back gesture belongs to the page you came from. This one is a panel
+  // swapped in over the About tab rather than a route, so without an entry of
+  // its own the gesture went straight past the settings page and out to the
+  // home screen. It takes the entry, gives it back on the way out, and says so
+  // first, or the layers underneath take our own pop for a gesture.
+  useEffect(() => {
+    window.history.pushState({ mmsChangelog: true }, '');
+    let popped = false;
+    const onPop = () => {
+      popped = true;
+      onBack();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      if (!popped) {
+        skipNextPop();
+        window.history.back();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <section className="card settings-card changelog settings-swap">
       <button type="button" className="changelog-back" onClick={onBack}>

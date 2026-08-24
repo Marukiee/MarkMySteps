@@ -68,6 +68,7 @@ export const CHANGELOG: ChangeEntry[] = [
       'De eerste stop-tegel houdt zijn marge links; de rij schoof die zelf weg',
       'De pijl van de knop terug naar boven heeft hetzelfde grijs als de snelscroll-greep, in plaats van fel wit in donkere modus',
       'Het datumballonnetje van de snelscroll-greep is donker in donkere modus, in plaats van een wit vlak',
+      'De terugveeg vanuit \u201cWat is er nieuw\u201d brengt je terug bij Over, niet naar het beginscherm',
       'De knop terug naar boven staat niet meer voor de kaartinstellingen',
       'Terug naar boven zet de kaart terug op zijn beginpositie in plaats van een stuk verder uit te zoomen',
       'Als omslag voor een stop wordt de stop genomen waar de foto ook echt genomen is, niet de stop waar je die dag toevallig aankwam',
