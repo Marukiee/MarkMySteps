@@ -33,15 +33,35 @@ import './trips.css';
 
 /** How many trips this browser saw last time, to size the placeholders. */
 const TRIP_COUNT_KEY = 'mms.trips.count';
+/** And how they were divided, so the headings can be up before the cards are. */
+const TRIP_SHAPE_KEY = 'mms.trips.shape';
 
-function rememberedTripCount(): number {
+interface TripShape {
+  upcoming: number;
+  past: number;
+  friends: number;
+}
+
+function rememberedShape(): TripShape {
   try {
-    const raw = Number(localStorage.getItem(TRIP_COUNT_KEY));
-    if (Number.isFinite(raw) && raw > 0) return Math.min(6, raw);
+    const raw = localStorage.getItem(TRIP_SHAPE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<TripShape>;
+      const clamp = (n: unknown) => (Number.isFinite(n) ? Math.min(6, Math.max(0, Number(n))) : 0);
+      return {
+        upcoming: clamp(parsed.upcoming),
+        past: clamp(parsed.past),
+        friends: clamp(parsed.friends),
+      };
+    }
+    // Nothing that detailed remembered yet, but the old count still tells us
+    // roughly how big to draw the shape.
+    const count = Number(localStorage.getItem(TRIP_COUNT_KEY));
+    if (Number.isFinite(count) && count > 0) return { upcoming: 1, past: Math.min(5, count - 1), friends: 0 };
   } catch {
     /* fall through */
   }
-  return 2;
+  return { upcoming: 1, past: 1, friends: 0 };
 }
 
 /**
@@ -50,12 +70,17 @@ function rememberedTripCount(): number {
  * Deliberately the trip card's own geometry — the same grid, the same aspect,
  * the same rounded corner — so what arrives lands in the space that was being
  * held for it instead of pushing a "nothing here" message out of the way.
+ *
+ * Including the words. The cards were being held a place and the headings over
+ * them were not, so the moment the trips landed a row of text appeared above
+ * them and pushed everything down a notch. The page it is standing in for has
+ * a heading, then cards, then the tabs — so this does too.
  */
-function TripsSkeleton({ count }: { count: number }) {
-  return (
-    <div className="trips-grid trips-skeleton" aria-hidden="true">
+function TripsSkeleton({ shape }: { shape: TripShape }) {
+  const cards = (count: number, offset: number) => (
+    <div className="trips-grid trips-skeleton">
       {Array.from({ length: count }, (_, i) => (
-        <div className="trip-skel" key={i} style={{ animationDelay: `${i * 90}ms` }}>
+        <div className="trip-skel" key={i} style={{ animationDelay: `${(i + offset) * 90}ms` }}>
           <div className="trip-skel-shine" />
           <div className="trip-skel-body">
             <span className="trip-skel-line wide" />
@@ -68,6 +93,29 @@ function TripsSkeleton({ count }: { count: number }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+
+  return (
+    <div aria-hidden="true">
+      {shape.upcoming > 0 && (
+        <>
+          <h2 className="trips-section-title">Aankomend &amp; onderweg</h2>
+          {cards(shape.upcoming, 0)}
+        </>
+      )}
+      {(shape.past > 0 || shape.friends > 0) && (
+        <>
+          {/* The same pill row, minus the ability to press it: it is the rest
+              of the height the real page is about to need. */}
+          <div className="trips-tabs" role="presentation" data-tab="past">
+            <span className="trips-tabs-thumb" />
+            <span className="trips-tab-skel active">Afgelopen reizen</span>
+            <span className="trips-tab-skel">Gedeeld</span>
+          </div>
+          {cards(Math.max(1, shape.past || shape.friends), shape.upcoming)}
+        </>
+      )}
     </div>
   );
 }
@@ -131,10 +179,19 @@ export function TripsPage() {
     api<Trip[]>('/trips')
       .then((list) => {
         setTrips(list);
-        // So the next cold start can put the right number of placeholders up
-        // rather than guessing, or showing nothing at all.
+        // So the next cold start can put the right placeholders up — the right
+        // number of them, under the right headings — rather than guessing, or
+        // showing nothing at all.
         try {
+          const today = new Date().toISOString().slice(0, 10);
+          const mine = list.filter((t) => canEditTrip(t, user?.id));
+          const shape: TripShape = {
+            upcoming: mine.filter((t) => t.endDate.slice(0, 10) >= today).length,
+            past: mine.filter((t) => t.endDate.slice(0, 10) < today).length,
+            friends: list.length - mine.length,
+          };
           localStorage.setItem(TRIP_COUNT_KEY, String(list.length));
+          localStorage.setItem(TRIP_SHAPE_KEY, JSON.stringify(shape));
         } catch {
           /* storage off: the placeholder count falls back to a guess */
         }
@@ -303,7 +360,7 @@ export function TripsPage() {
       {/* On a slow connection the page used to sit here empty, which reads as
           "you have no trips" rather than "still loading". These are the cards
           that are on their way, in the number this browser saw last time. */}
-      {trips === null && !error && <TripsSkeleton count={rememberedTripCount()} />}
+      {trips === null && !error && <TripsSkeleton shape={rememberedShape()} />}
 
       {trips?.length === 0 && (
         <div className="card trips-empty">

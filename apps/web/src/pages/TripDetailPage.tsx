@@ -192,7 +192,13 @@ export function TripDetailPage() {
     // Looked up once: a query per frame is the other half of the same problem.
     const panel = mapPanelRef.current;
     const inner = panel?.querySelector<HTMLElement>('.trip-map') ?? null;
-    const topPills = panel?.querySelector<HTMLElement>('.map-top-pills') ?? null;
+    // The buttons in the map's corners are pinned to the viewport, but the
+    // panel they live in is transformed as it shrinks — and a transformed
+    // ancestor is what a fixed child is measured against, so they slid up the
+    // screen with it. They ride back down with the map instead.
+    const corners = panel
+      ? Array.from(panel.querySelectorAll<HTMLElement>('.trip-fabs, .trip-fab-back'))
+      : [];
     let shift = -1;
     let raf = 0;
     const shrinkMap = () => {
@@ -204,7 +210,7 @@ export function TripDetailPage() {
       // Slid back down by the same amount, so only the crop moves.
       const back = `translate3d(0, ${next}px, 0)`;
       if (inner) inner.style.transform = back;
-      if (topPills) topPills.style.transform = back;
+      for (const node of corners) node.style.transform = back;
       mapBottomRef.current = startH - next;
       // Tell the map how much of its canvas is hidden, so it frames photos in
       // the visible strip rather than behind the timeline. Applied on the next
@@ -699,6 +705,10 @@ export function TripDetailPage() {
     trip.startDate.slice(0, 10) <= new Date().toISOString().slice(0, 10) &&
     new Date(trip.endDate).getTime() + 86_400_000 >= Date.now();
 
+  // The button that puts the map back on you is offered exactly when your own
+  // dot is on the map to go back to.
+  const showLocate = canEdit && (liveTracking || tripActive);
+
   /**
    * Which stop a photo was taken at, for the "make this the stop's face" action.
    *
@@ -833,7 +843,7 @@ export function TripDetailPage() {
               aria-label="Kaartinstellingen"
               onClick={() => setLayersOpen(true)}
             >
-              <Icon name="eye" size={20} />
+              <Icon name="map" size={20} />
             </button>
             {trip.ownerId === user?.id && (
               <Link
@@ -878,28 +888,26 @@ export function TripDetailPage() {
           onReady={(api) => (mapApiRef.current = api)}
         />
 
-        {/* Whether you are being tracked right now, at the top of the map. */}
-        <div className="map-top-pills">
-          {liveTracking && (
-            <button
-              className="live-badge"
-              onClick={() =>
-                currentLoc && mapApiRef.current?.flyTo(currentLoc.lng, currentLoc.lat, 13)
-              }
-              title="Ga naar mijn huidige locatie"
-            >
-              <span className="live-badge-dot" />
-              Live
-              {/* Green pin once a real fix has come in — grey while we're still
-                  waiting for the first one. */}
-              <Icon
-                name="pin"
-                size={13}
-                className={`live-badge-go ${currentLoc ? 'has-fix' : ''}`}
-              />
-            </button>
-          )}
-        </div>
+        {/* Where you are, in the corner nearest your thumb.
+            This was a "LIVE" pill across the top of the map, which said little
+            the recording dot on the map did not already say and took a strip
+            of the picture to say it. What was worth keeping is the tap: put
+            the map back on me. So it is a button now, and its own colour is
+            the rest of the message — green once a real fix has come in, grey
+            while the first one is still on its way. */}
+        {showLocate && (
+          <button
+            type="button"
+            className={`map-locate ${currentLoc ? 'has-fix' : ''}`}
+            onClick={() =>
+              currentLoc && mapApiRef.current?.flyTo(currentLoc.lng, currentLoc.lat, 13)
+            }
+            aria-label="Ga naar mijn huidige locatie"
+            title="Ga naar mijn huidige locatie"
+          >
+            <Icon name="locate" size={20} />
+          </button>
+        )}
 
         {/* Bottom left: which day the map is showing, and a word when the
             photos have been switched off. */}

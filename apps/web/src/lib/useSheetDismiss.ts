@@ -1,4 +1,4 @@
-import { TouchEvent as ReactTouchEvent, useRef } from 'react';
+import { TouchEvent as ReactTouchEvent, useEffect, useRef } from 'react';
 
 /** How far down it has to come before letting go closes it. */
 const CLOSE_PX = 120;
@@ -6,6 +6,9 @@ const CLOSE_PX = 120;
 const FLICK_PX_PER_MS = 0.7;
 /** Below this, a finger is still deciding whether it meant to scroll. */
 const START_PX = 10;
+/** How long the sheet takes to fall away once you have let go of it. Kept just
+ *  inside the page's own unmount delay, or the last frames are cut off. */
+const EXIT_MS = 230;
 
 /**
  * A sheet you can push back down.
@@ -20,17 +23,31 @@ const START_PX = 10;
  * already at its top, only once the finger has clearly committed downwards,
  * and only lets go after a real distance or a real flick. Anything shorter
  * springs back.
+ *
+ * The exit is driven from here rather than handed back to the stylesheet. The
+ * page's own closing animation starts from the sheet's resting place, so a
+ * sheet dragged halfway down the screen snapped back up to the top before
+ * playing it — you let go and it jumped away from your thumb. It now carries
+ * on from wherever your thumb left it, straight off the bottom edge, and the
+ * `sheet-swiping` class keeps the stylesheet from overruling that.
  */
 export function useSheetDismiss(onClose: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   const start = useRef<{ x: number; y: number; at: number } | null>(null);
   const dragging = useRef(false);
   const offset = useRef(0);
+  const timer = useRef(0);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const move = (dy: number) => {
     const el = ref.current;
     if (!el) return;
+    // A spring-back from a previous drag may still be waiting to hand the
+    // sheet back to the stylesheet; this one owns it now.
+    window.clearTimeout(timer.current);
     offset.current = dy;
+    el.classList.add('sheet-swiping');
     el.style.transition = 'none';
     el.style.transform = `translateY(${dy}px)`;
   };
@@ -41,6 +58,13 @@ export function useSheetDismiss(onClose: () => void) {
     el.style.transition = 'transform 0.24s cubic-bezier(0.22, 1, 0.36, 1)';
     el.style.transform = '';
     offset.current = 0;
+    // Handed back to the stylesheet once it has settled, so closing it with
+    // the cross afterwards still plays the page's own exit.
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      el.classList.remove('sheet-swiping');
+      el.style.transition = '';
+    }, 260);
   };
 
   const onTouchStart = (e: ReactTouchEvent) => {
@@ -79,12 +103,14 @@ export function useSheetDismiss(onClose: () => void) {
     const travelled = offset.current;
     const speed = travelled / Math.max(1, performance.now() - from.at);
     if (travelled > CLOSE_PX || speed > FLICK_PX_PER_MS) {
-      // The sheet's own exit animation takes it from here; the inline
-      // transform would otherwise fight it.
       const el = ref.current;
       if (el) {
-        el.style.transition = '';
-        el.style.transform = '';
+        // Carries on the way it was going: from where your thumb let go, out
+        // through the bottom of the screen.
+        const away = Math.max(el.offsetHeight, window.innerHeight - el.getBoundingClientRect().top);
+        el.style.transition = `transform ${EXIT_MS}ms cubic-bezier(0.32, 0, 0.67, 0), opacity ${EXIT_MS}ms linear`;
+        el.style.transform = `translateY(${away}px)`;
+        el.style.opacity = '0';
       }
       offset.current = 0;
       onClose();

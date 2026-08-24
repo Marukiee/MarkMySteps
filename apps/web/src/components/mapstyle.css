@@ -1,0 +1,96 @@
+/* The map-style chooser: a 2-up grid of option cards with a little painted
+   preview of what each style looks like. Lives here rather than in the
+   settings page's stylesheet because the map's own settings sheet offers the
+   same choice, and both have to look identical. */
+.map-style-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.map-style-opt {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  padding: 0.6rem 0.6rem 0.7rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  text-align: center;
+  transition: all 0.15s var(--ease);
+}
+
+/* Little preview thumbnail of what each style looks like. */
+.map-style-preview {
+  width: 100%;
+  height: 54px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background-size: cover;
+  background-position: center;
+}
+
+.map-style-positron {
+  background:
+    linear-gradient(115deg, transparent 44%, #cfd6dd 44% 47%, transparent 47%),
+    linear-gradient(200deg, transparent 60%, #d7ddb9 60%), #f3f1ec;
+}
+
+.map-style-bright {
+  background:
+    radial-gradient(circle at 70% 30%, #7fc8f0 0 18%, transparent 18%),
+    linear-gradient(120deg, #bfe3a6 40%, #e9d79a 40%), #d9efc7;
+}
+
+.map-style-liberty {
+  background:
+    linear-gradient(135deg, transparent 46%, #b9a98a 46% 49%, transparent 49%),
+    linear-gradient(#efe7d6, #e2d7bf);
+}
+
+.map-style-satellite {
+  background:
+    radial-gradient(circle at 40% 60%, #3f5d3a 0 30%, transparent 30%),
+    linear-gradient(150deg, #2f4a63, #47624a 60%, #6b6a45);
+}
+
+/* Dark-mode swatches, so the previews match what the maps look like in the app
+   when the theme is dark (the light gradients above would look wrong). */
+:root[data-theme='dark'] .map-style-positron {
+  background:
+    linear-gradient(115deg, transparent 44%, #3b4652 44% 47%, transparent 47%),
+    linear-gradient(200deg, transparent 60%, #2b3a2e 60%), #212933;
+}
+
+:root[data-theme='dark'] .map-style-bright {
+  background:
+    radial-gradient(circle at 70% 30%, #2f6f9e 0 18%, transparent 18%),
+    linear-gradient(120deg, #3f5f45 40%, #6a5c37 40%), #2a3a2c;
+}
+
+:root[data-theme='dark'] .map-style-liberty {
+  background:
+    linear-gradient(135deg, transparent 46%, #7a6c52 46% 49%, transparent 49%),
+    linear-gradient(#2c2822, #211e19);
+}
+
+.map-style-opt.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* Inside the map's own settings sheet the cards sit tighter and the labels are
+   smaller: the sheet has two lists above them and is not a settings page. */
+.map-style-grid.compact .map-style-opt {
+  padding: 0.45rem 0.45rem 0.5rem;
+  font-size: 0.8rem;
+  gap: 0.4rem;
+}
+
+.map-style-grid.compact .map-style-preview {
+  height: 42px;
+}

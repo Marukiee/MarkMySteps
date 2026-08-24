@@ -14,6 +14,8 @@ export type IconName =
   | 'calendar'
   | 'eye'
   | 'eye-off'
+  | 'map'
+  | 'locate'
   | 'sparkle'
   | 'gear'
   | 'plane'
@@ -339,6 +341,21 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M6.3 7.6A16 16 0 0 0 2.5 12S6 18 12 18a8.9 8.9 0 0 0 3.5-.7" />
       <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
       <path d="m3 3 18 18" />
+    </>
+  ),
+  /* A folded paper map: the button that opens what the map is showing. */
+  map: (
+    <>
+      <path d="M9 4.2 3.5 6.4v13.4L9 17.6l6 2.2 5.5-2.2V4.2L15 6.4Z" />
+      <path d="M9 4.2v13.4M15 6.4v13.4" />
+    </>
+  ),
+  /* Crosshair: take me to where I am. */
+  locate: (
+    <>
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
     </>
   ),
   sparkle: (

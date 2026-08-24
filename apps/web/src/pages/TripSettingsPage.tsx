@@ -358,6 +358,16 @@ export function TripSettingsPage() {
           yet showed the loading sweep for an instant and then dropped the
           whole block — which read as the page glitching. No photo now means
           the trip's own colour and its glyph, exactly like its card. */}
+      {/* And the frame is up before the trip is. It used to wait for the trip
+          to load, so the whole page under it dropped a picture's height the
+          moment it arrived. Nothing is known about the cover yet, so the frame
+          holds its own space and sweeps until it is. */}
+      {!trip && (
+        <div className="ts-cover">
+          <span className="ts-cover-skeleton" aria-hidden="true" />
+        </div>
+      )}
+
       {trip && (
         <div
           className={`ts-cover ${trip.resolvedCoverId ? '' : 'no-photo'}`}

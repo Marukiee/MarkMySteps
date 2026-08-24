@@ -502,3 +502,11 @@ textarea {
   color: var(--ink-faint);
   white-space: pre;
 }
+
+/* A sheet being pushed back down with your thumb is positioned from script,
+   frame by frame. Whatever the stylesheet had planned for it — the way it came
+   up, the way it normally leaves — would win over an inline transform, so
+   while the gesture owns the sheet, nothing else does. */
+.sheet-swiping {
+  animation: none !important;
+}

@@ -1,4 +1,5 @@
 import { Icon } from './Icon';
+import { MapStylePicker } from './MapStylePicker';
 import { colorForUser } from '../lib/colors';
 import { lastSeenLabel } from '../lib/lastSeen';
 import { useSheetDismiss } from '../lib/useSheetDismiss';
@@ -19,7 +20,9 @@ export interface LayerMember {
  * all of us, but only my photos", or "no photos at all, just the line".
  *
  * So: two lists, one for the tracked routes and one for the photos, and the
- * photo list may be emptied altogether.
+ * photo list may be emptied altogether — with the map's own style under them,
+ * because picking it from a settings page you cannot see the map from was
+ * always the wrong place to stand.
  */
 export function MapLayersSheet({
   members,
@@ -115,6 +118,15 @@ export function MapLayersSheet({
               Allemaal uit
             </button>
           </div>
+        </section>
+
+        {/* Also offered in Instellingen, and also here: which map you are
+            looking at is a thing you decide while looking at it. The same grid
+            of painted previews, one size down. */}
+        <section className="layer-group">
+          <h3 className="trip-side-heading">Kaartstijl</h3>
+          <p className="muted layer-hint">Geldt voor alle kaarten op dit apparaat.</p>
+          <MapStylePicker compact />
         </section>
       </div>
     </div>

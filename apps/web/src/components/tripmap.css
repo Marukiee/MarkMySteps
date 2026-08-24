@@ -418,3 +418,9 @@
   pointer-events: none;
   z-index: 5;
 }
+
+/* The ⓘ shares the bottom-right corner with the "where am I" button, so it
+   steps aside far enough for the button to sit on the edge where it belongs. */
+.trip-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+  margin-right: 50px;
+}

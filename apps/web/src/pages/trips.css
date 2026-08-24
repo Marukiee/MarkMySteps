@@ -847,6 +847,26 @@
   color: var(--ink);
 }
 
+/* The placeholder row wears the same pill as the real one, so the tabs do not
+   arrive a beat after the cards they belong to. Text, not buttons: there is
+   nothing here to press yet. */
+.trips-tab-skel {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.4rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--ink-faint);
+}
+
+.trips-tab-skel.active {
+  color: var(--ink);
+}
+
 /* The count rides along, and only carries weight on the open tab. */
 .trips-tabs button small {
   min-width: 1.35em;

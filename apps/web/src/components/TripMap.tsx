@@ -18,6 +18,23 @@ import { useNow } from '../lib/lastSeen';
 import './tripmap.css';
 import { paintMarker } from './Flag';
 
+/** How long a line takes to come up, or to go. */
+const FADE_MS = 260;
+
+/**
+ * Brings a line layer up from nothing.
+ *
+ * The layer is added at zero opacity and raised a frame later: MapLibre only
+ * animates a paint property that changes after the layer exists, so setting it
+ * in the same breath would simply draw it at full strength.
+ */
+function fadeUp(map: MapLibreMap, layerId: string) {
+  requestAnimationFrame(() => {
+    if (!map.getLayer(layerId)) return;
+    map.setPaintProperty(layerId, 'line-opacity', 1);
+  });
+}
+
 export interface Waypoint {
   id: string;
   latitude: number;
@@ -108,6 +125,8 @@ export function TripMap({
    * share link's map, which draws the same arcs.
    */
   const arcsRef = useRef<ArcOverlay | null>(null);
+  /** Whose route is currently drawn, so a redraw knows who is new. */
+  const drawnRoutesRef = useRef<Set<string>>(new Set());
   /** Photo markers by cluster cell, so a redraw can keep what has not moved. */
   const photoMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const photoTimersRef = useRef<number[]>([]);
@@ -243,6 +262,12 @@ export function TripMap({
       // Trigger a re-render pass by dispatching a resize; route effect below
       // re-runs when props change, and reads loadedRef.
       map.resize();
+      // Folded shut. A compact attribution control still starts expanded, so
+      // the corner of the map read "Imagery © Esri" over the photo you were
+      // looking at. The ⓘ stays, and so does everything behind it.
+      containerRef.current
+        ?.querySelector('.maplibregl-ctrl-attrib')
+        ?.classList.remove('maplibregl-compact-show');
     });
     map.on('click', (e) => {
       closeStopPopup();
@@ -341,8 +366,10 @@ export function TripMap({
     const apply = () => setDarkBackdrop(getMapStyleId() === 'satellite');
     apply();
     window.addEventListener('mms-theme', apply);
+    window.addEventListener('mms-mapstyle', apply);
     return () => {
       window.removeEventListener('mms-theme', apply);
+      window.removeEventListener('mms-mapstyle', apply);
       setDarkBackdrop(false);
     };
   }, [styleUrl]);
@@ -362,7 +389,13 @@ export function TripMap({
       });
     };
     window.addEventListener('mms-theme', onTheme);
-    return () => window.removeEventListener('mms-theme', onTheme);
+    // The same swap, for the style you picked yourself rather than the one the
+    // theme picked for you.
+    window.addEventListener('mms-mapstyle', onTheme);
+    return () => {
+      window.removeEventListener('mms-theme', onTheme);
+      window.removeEventListener('mms-mapstyle', onTheme);
+    };
   }, []);
 
   // Draw routes whenever data or filters change.
@@ -371,6 +404,10 @@ export function TripMap({
     if (!map) return;
 
     const apply = () => {
+      // Which lines were on the map a moment ago, so the ones that are new can
+      // arrive rather than appear.
+      const before = drawnRoutesRef.current;
+      const after = new Set<string>();
       // A light still running belongs to the line that is about to be replaced.
       stopGlow(map);
       // Remove previous route layers/sources.
@@ -391,6 +428,10 @@ export function TripMap({
         const { userId } = feature.properties;
         if (!visibleUsers.has(userId)) continue;
         const id = `route-${userId}`;
+        after.add(userId);
+        // Switched on just now: it fades up. Already there: it must not blink
+        // every time the day filter or a photo changes something else.
+        const arriving = !before.has(userId);
         // Cut into the bits that were travelled on the ground and the jumps
         // between them: a flight the plan knows about, or an unmarked hop of
         // hundreds of kilometres, is never a straight coloured line.
@@ -409,9 +450,15 @@ export function TripMap({
           id: `${id}-line`,
           type: 'line',
           source: id,
-          paint: { 'line-color': colorForUser(userId), 'line-width': 2.5 },
+          paint: {
+            'line-color': colorForUser(userId),
+            'line-width': 2.5,
+            'line-opacity': arriving ? 0 : 1,
+            'line-opacity-transition': { duration: FADE_MS, delay: 0 },
+          },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         });
+        if (arriving) fadeUp(map, `${id}-line`);
 
         if (implicitFlights.length > 0) {
           const fid = `route-${userId}-flights`;
@@ -428,9 +475,16 @@ export function TripMap({
             type: 'line',
             source: fid,
             // Dashed like every other flight: the arc is drawn, not recorded.
-            paint: { 'line-color': '#8a94a3', 'line-width': 2, 'line-dasharray': [1.4, 2.6] },
+            paint: {
+              'line-color': '#8a94a3',
+              'line-width': 2,
+              'line-dasharray': [1.4, 2.6],
+              'line-opacity': arriving ? 0 : 1,
+              'line-opacity-transition': { duration: FADE_MS, delay: 0 },
+            },
             layout: { 'line-cap': 'round' },
           });
+          if (arriving) fadeUp(map, `${fid}-line`);
         }
 
         for (const coordinate of coords) {
@@ -440,6 +494,7 @@ export function TripMap({
       }
 
       glowLinesRef.current = glowLines;
+      drawnRoutesRef.current = after;
 
       for (const item of media) {
         if (item.latitude !== null && item.longitude !== null && visibleUsers.has(item.userId)) {
@@ -471,11 +526,32 @@ export function TripMap({
       }
     };
 
-    if (loadedRef.current) {
-      apply();
-    } else {
+    if (!loadedRef.current) {
       map.once('load', apply);
+      return;
     }
+
+    // Somebody's route has just been switched off. Redrawing straight away
+    // takes it off the map between one frame and the next, which is the thing
+    // that made the toggles feel like a light switch. It dims where it lies
+    // first, and the redraw follows it.
+    const leaving = [...drawnRoutesRef.current].filter((id) => !visibleUsers.has(id));
+    if (leaving.length === 0) {
+      apply();
+      return;
+    }
+    for (const userId of leaving) {
+      for (const layerId of [`route-${userId}-line`, `route-${userId}-flights-line`]) {
+        if (!map.getLayer(layerId)) continue;
+        map.setPaintProperty(layerId, 'line-opacity-transition', { duration: FADE_MS, delay: 0 });
+        map.setPaintProperty(layerId, 'line-opacity', 0);
+      }
+    }
+    // Nothing is left on the map for the redraw to keep, so the ones that stay
+    // are not treated as newcomers when it runs.
+    drawnRoutesRef.current = new Set([...drawnRoutesRef.current].filter((id) => !leaving.includes(id)));
+    const timer = window.setTimeout(apply, FADE_MS);
+    return () => window.clearTimeout(timer);
   }, [routes, media, visibleUsers, stops, themeVersion]);
 
   /**
@@ -511,11 +587,27 @@ export function TripMap({
      * pass keeps the ones that still exist, adds the new ones and fades out
      * only the ones that really went.
      */
-    const draw = () => {
+    /**
+     * @param animate Whether markers that were not there a moment ago should
+     *   come up rather than appear. True when the set of photos itself changed
+     *   — somebody's photos switched on, a day filter lifted — and false when
+     *   the same photos are merely regrouping under a new zoom level, where a
+     *   fade reads as a blink.
+     */
+    const draw = (animate: boolean) => {
       const live = photoMarkersRef.current;
       if (hidePhotos) {
-        for (const [, marker] of live) marker.remove();
-        live.clear();
+        // Switched off: they leave the way a cluster does, rather than being
+        // there one frame and gone the next.
+        for (const [key, marker] of live) {
+          live.delete(key);
+          marker.getElement().classList.add('leaving');
+          const timer = window.setTimeout(() => {
+            marker.remove();
+            photoTimersRef.current = photoTimersRef.current.filter((t) => t !== timer);
+          }, 200);
+          photoTimersRef.current.push(timer);
+        }
         return;
       }
 
@@ -564,10 +656,11 @@ export function TripMap({
         }
         const cached = thumbCacheRef.current.get(representative.id);
         if (cached) {
-          // Instant — no white placeholder, and skip the fade-in so re-cluster
-          // on zoom doesn't blink.
+          // Instant — no white placeholder. And on a re-cluster the fade-in is
+          // skipped as well, or every marker on the map blinks each time the
+          // zoom crosses a level.
           el.style.backgroundImage = `url(${cached})`;
-          el.style.animation = 'none';
+          if (!animate) el.style.animation = 'none';
         } else {
           void fetchBlobUrl(`/media/${representative.id}/thumbnail?size=thumbnail`)
             .then((url) => {
@@ -602,7 +695,7 @@ export function TripMap({
       }
     };
 
-    draw();
+    draw(true);
     // Only when the rounded zoom actually changes: zoomend fires for the
     // hundredth of a level a pinch-pan leaves behind, and regrouping there is
     // both pointless and visible.
@@ -611,7 +704,7 @@ export function TripMap({
       const level = Math.round(map.getZoom());
       if (level === lastLevel) return;
       lastLevel = level;
-      draw();
+      draw(false);
     };
     map.on('zoomend', onZoom);
     return () => {

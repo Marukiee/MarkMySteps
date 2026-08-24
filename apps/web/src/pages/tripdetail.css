@@ -43,8 +43,7 @@
 
   /* Slid back down by the same amount, so the map's contents stay put and only
      the panel's crop moves. */
-  .trip-detail .trip-map,
-  .trip-detail .map-top-pills {
+  .trip-detail .trip-map {
     will-change: transform;
   }
 
@@ -130,62 +129,45 @@
   min-height: 320px;
 }
 
-/* Live tracking indicator on the map. Positioned by .map-top-pills, which
-   stacks it with the day filter under it. */
-.live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.32rem 0.75rem 0.32rem 0.6rem;
-  border-radius: 999px;
+/* Back to where I am, bottom-right over the map.
+   Glass like the buttons in the other corners, and the only thing it says
+   beyond "tap me" is whether the location itself is working yet: the crosshair
+   is grey until the first real fix arrives, green after. */
+.map-locate {
+  position: absolute;
+  right: 0.9rem;
+  bottom: 0.9rem;
+  z-index: 45;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-content: center;
+  border-radius: 50%;
   background: var(--glass);
   backdrop-filter: blur(8px);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow-s);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--ink);
-  cursor: pointer;
-  transition: transform 0.12s var(--ease);
-}
-
-.live-badge:active {
-  transform: scale(0.95);
-}
-
-.live-badge-go {
+  box-shadow: var(--shadow-m);
   color: var(--ink-faint);
-  margin-left: 0.05rem;
-  transition: color 0.25s var(--ease);
+  cursor: pointer;
+  animation: mapPillIn 0.34s var(--ease) backwards;
+  transition: color 0.25s var(--ease), box-shadow 0.18s var(--ease);
 }
 
-/* Turns green the moment a real GPS fix has come in, so the pill also tells you
-   whether the location itself is working — not just that tracking is on. */
-.live-badge-go.has-fix {
+.map-locate.has-fix {
   color: #0a9d63;
 }
 
-.live-badge-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #e2483d;
-  box-shadow: 0 0 0 0 rgb(226 72 61 / 0.5);
-  animation: livePulse 1.6s ease-out infinite;
+.map-locate:hover {
+  box-shadow: var(--shadow-l);
 }
 
-@keyframes livePulse {
-  0% {
-    box-shadow: 0 0 0 0 rgb(226 72 61 / 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 7px rgb(226 72 61 / 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgb(226 72 61 / 0);
-  }
+/* Same as the round buttons at the top: the glass never scales, the icon does. */
+.map-locate svg {
+  transition: transform 0.16s var(--ease);
+}
+
+.map-locate:active svg {
+  transform: scale(0.86);
 }
 
 /* Bottom-left traveller selector with a drop-up menu. */

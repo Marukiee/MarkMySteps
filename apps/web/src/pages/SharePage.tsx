@@ -230,6 +230,12 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     const onLoad = () => setMapReady(true);
     if (map.isStyleLoaded()) setMapReady(true);
     else map.once('load', onLoad);
+    // Folded shut, like the app's map: a compact attribution control still
+    // starts expanded, and "Imagery © Esri" over the corner of the picture is
+    // not what anybody opened the link for. The ⓘ stays.
+    map.once('idle', () =>
+      container.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show'),
+    );
 
     return () => {
       overlay.destroy();

@@ -37,8 +37,11 @@
   position: relative;
   flex: 0 0 auto;
   scroll-snap-align: start;
-  width: 82px;
-  height: 104px;
+  /* A shade wider than it was. Names like "Sankt Petersburg" were being cut
+     off mid-word, and the flag that used to sit in front of them has gone to
+     pay for most of the extra room. */
+  width: 96px;
+  height: 116px;
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -83,9 +86,8 @@
   inset: auto 0 0 0;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.9rem 0.4rem 0.35rem;
-  font-size: 0.72rem;
+  padding: 0.9rem 0.45rem 0.4rem;
+  font-size: 0.76rem;
   font-weight: 700;
   line-height: 1.2;
   text-align: left;

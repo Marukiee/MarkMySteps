@@ -43,17 +43,15 @@ import {
   enableBackgroundNotify,
 } from '../lib/notify';
 import { applyDynamicAccent, dynamicAccentAvailable } from '../lib/dynamicColor';
+import { MapStylePicker } from '../components/MapStylePicker';
 import { useExit } from '../lib/useExit';
 import {
-  MAP_STYLES,
-  MapStyleId,
   GlobeStopsMode,
   NavBarMode,
   ThemeId,
   TripCardSize,
   clearTripCardOverrides,
   getGlobeStops,
-  getMapStyleId,
   getNavBarMode,
   setNavBarMode,
   isDynamicAccent,
@@ -65,7 +63,6 @@ import {
   getTripCardSize,
   hasTripCardOverrides,
   setGlobeStops,
-  setMapStyleId,
   setShowSelfOnHome,
   setDynamicAccent,
   setThemeId,
@@ -191,7 +188,6 @@ export function SettingsPage() {
 }
 
 function DisplaySection() {
-  const [style, setStyle] = useState<MapStyleId>(getMapStyleId());
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
   const [wallpaperAccent, setWallpaperAccent] = useState(isDynamicAccent());
   const [cardSize, setCardSize] = useState<TripCardSize>(getTripCardSize());
@@ -326,22 +322,7 @@ function DisplaySection() {
       </section>
       <section className="card settings-card">
         <h2>Kaartstijl</h2>
-        <div className="map-style-grid">
-          {MAP_STYLES.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={`map-style-opt ${style === s.id ? 'active' : ''}`}
-              onClick={() => {
-                setStyle(s.id);
-                setMapStyleId(s.id);
-              }}
-            >
-              <span className={`map-style-preview map-style-${s.id}`} aria-hidden="true" />
-              {s.label}
-            </button>
-          ))}
-        </div>
+        <MapStylePicker />
         <span className="muted">Geldt voor alle kaarten op dit apparaat.</span>
       </section>
     </>

@@ -37,6 +37,10 @@ export function getMapStyleId(): MapStyleId {
 
 export function setMapStyleId(id: MapStyleId): void {
   localStorage.setItem(MAP_STYLE_KEY, id);
+  // A map that is on screen right now swaps to the new style instead of
+  // waiting to be opened again: the choice is offered from the map's own
+  // settings sheet, where not seeing it happen is the whole problem.
+  window.dispatchEvent(new CustomEvent('mms-mapstyle', { detail: id }));
 }
 
 /**
