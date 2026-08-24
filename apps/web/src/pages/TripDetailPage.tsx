@@ -21,7 +21,7 @@ import { TripMap, TripMapApi, Waypoint } from '../components/TripMap';
 import { TripFacts } from '../components/TripFacts';
 import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
-import { countStopPlaces, type PlannedStop } from '../lib/arc';
+import { countStopPlaces, haversineKm, STOP_NEAR_KM, type PlannedStop } from '../lib/arc';
 import { popWasOurs } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
 import { useSheetDismiss } from '../lib/useSheetDismiss';
@@ -114,6 +114,8 @@ export function TripDetailPage() {
   const scrollRef = useRef<HTMLElement>(null);
   const sideRef = useRef<HTMLElement>(null);
   const mapPanelRef = useRef<HTMLDivElement>(null);
+  /** Set by the "back to the top" button, read when the page gets there. */
+  const resetOnTop = useRef(false);
   const mapApiRef = useRef<TripMapApi | null>(null);
   const mediaRef = useRef<MediaItem[]>([]);
   mediaRef.current = media;
@@ -219,15 +221,23 @@ export function TripDetailPage() {
     };
     shrinkMap();
 
+    // The button back to the top belongs to a map that has finished shrinking:
+    // offered before that, it sits over a map still folding itself away, and
+    // it has to be gone again by the time scrolling back up starts unfolding
+    // it. One line past the floor, in both directions.
+    const backTopAt = isMobile ? maxShift + 80 : 260;
+
     const onScroll = () => {
       // On rAF so the transform lands on the same frame the scroll is painted.
       if (!raf) raf = requestAnimationFrame(() => { raf = 0; shrinkMap(); });
       const top = el.scrollTop;
-      setScrolled(top > 260);
+      setScrolled(top > backTopAt);
       // Back at the top: the camera has been walking along with the timeline,
-      // so put it back on the trip as a whole.
-      if (top < 40 && lastKey !== '') {
+      // so put it back on the trip as a whole. Also when the button did the
+      // scrolling and the camera never wandered — see the button itself.
+      if (top < 40 && (lastKey !== '' || resetOnTop.current)) {
         lastKey = '';
+        resetOnTop.current = false;
         // The map is back at its full height here, but the height update is
         // deferred to a frame — so without this the camera was still being
         // told that a quarter of the canvas was hidden behind the sheet, and
@@ -235,6 +245,11 @@ export function TripDetailPage() {
         // scrolling back to the top landed somewhere other than where opening
         // the trip does, with the first days tucked under the buttons.
         shrinkMap();
+        // The map is whole again here, so none of it is hidden. Reading the
+        // scroll for that gives the last few pixels of the smooth scroll as a
+        // hidden strip, and the camera pulls back to clear a sheet that is no
+        // longer there.
+        mapApiRef.current?.setHiddenBottom(0);
         mapApiRef.current?.resetView();
       }
       window.clearTimeout(focusTimer);
@@ -710,18 +725,41 @@ export function TripDetailPage() {
   const showLocate = canEdit && (liveTracking || tripActive);
 
   /**
-   * Which stop a photo was taken at, for the "make this the stop's face" action.
+   * Which stop a photo was taken at, for the "make this the stop's face" action
+   * and for the place name over a photo the trip placed itself.
    *
-   * The day it was taken, matched the way the rail matches its own tiles: the
-   * route stop whose stay covers that day. A day trip is a place you visited,
-   * not a tile in the rail, so it is never the answer here.
+   * The day it was taken used to be the whole answer, and on a travel day that
+   * is the wrong one: you photograph Madrid in the morning, arrive in Granada
+   * after lunch, and the viewer offers to make the picture of Madrid the face
+   * of Granada. So where it was taken comes first. Of the stops whose stay
+   * covers that day, the nearest one to the photo, as long as the photo really
+   * was there; failing that, any stop of the trip it was taken at, whatever
+   * the itinerary says about which day that was; and only when the photo has
+   * no position at all does the calendar decide on its own.
+   *
+   * A day trip counts here when the photo was taken at it. It is a place you
+   * were, and it wears a face of its own above the timeline.
    */
   const stopForPhoto = useCallback(
-    (item: { takenAt: string }) => {
+    (item: { takenAt: string; latitude?: number | null; longitude?: number | null }) => {
       const day = item.takenAt.slice(0, 10);
-      const stop = stops.find(
-        (s) => !s.parentStopId && s.arrivalDate.slice(0, 10) <= day && day <= s.departureDate.slice(0, 10),
-      );
+      const covers = (s: PlannedStop) =>
+        s.arrivalDate.slice(0, 10) <= day && day <= s.departureDate.slice(0, 10);
+
+      if (item.latitude != null && item.longitude != null) {
+        const here: [number, number] = [item.longitude, item.latitude];
+        const byDistance = (list: PlannedStop[]) =>
+          list
+            .filter((s) => s.latitude != null && s.longitude != null)
+            .map((s) => ({ stop: s, km: haversineKm([s.longitude!, s.latitude!], here) }))
+            .sort((a, b) => a.km - b.km)[0];
+        const onTheDay = byDistance(stops.filter(covers));
+        const best =
+          onTheDay && onTheDay.km <= STOP_NEAR_KM ? onTheDay : byDistance(stops);
+        if (best && best.km <= STOP_NEAR_KM) return { id: best.stop.id, name: best.stop.name };
+      }
+
+      const stop = stops.find((s) => !s.parentStopId && covers(s));
       return stop ? { id: stop.id, name: stop.name } : null;
     },
     [stops],
@@ -964,11 +1002,11 @@ export function TripDetailPage() {
         {/* Portalled out of the side column on purpose: that column sets its
             own z-index, which makes it a stacking context, and no z-index
             inside it can beat the map panel above. */}
-        {/* Not while the people sheet is up: it is fixed to the viewport, so it
-            floated over the sheet's scrim instead of with the page it belongs
-            to. */}
+        {/* Not while a sheet is up: it is fixed to the viewport, so it floated
+            over the sheet's scrim instead of with the page it belongs to. */}
         {backTopShown &&
           !peopleOpen &&
+          !layersOpen &&
           createPortal(
           <button
             type="button"
@@ -982,9 +1020,14 @@ export function TripDetailPage() {
               // back to the top there is nothing to aim at, and it chasing the
               // list up the screen was only ever in the way.
               window.dispatchEvent(new Event('mms:fastscroll-hide'));
+              // Framed again when the page has actually arrived at the top,
+              // not on a timer: the timer fired mid-flight, while a strip of
+              // the map was still counted as hidden behind the sheet, and the
+              // camera pulled back to fit the trip into what was left. The
+              // scroll handler does it, and this is how it knows to.
+              resetOnTop.current = true;
               scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
               sideRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-              window.setTimeout(() => mapApiRef.current?.resetView(), 420);
             }}
           >
             <Icon name="chevron-down" size={20} />

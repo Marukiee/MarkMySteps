@@ -41,6 +41,9 @@ export const CHANGELOG: ChangeEntry[] = [
       'Een wachtscherm met kompas als het opstarten lang duurt',
     ],
     better: [
+      'Boven de stop-tegels staat nu \u201cStops\u201d, zodat de rij zich uitlegt',
+      'De previews van de kaartstijl in de kaartinstellingen zijn hoger, zodat je de vier uit elkaar houdt',
+      'De knop terug naar boven komt pas als de kaart helemaal is ingeklapt, en gaat weg zodra je zover terug scrollt dat hij weer uitklapt',
       'De kaart van een deel-link tekent nu hetzelfde als die in de app: de gereden route, de vluchten als bogen, en de geplande stops gestippeld',
       'Routes en foto\u2019s die je in de kaartinstellingen aan- of uitzet komen op en gaan weg, in plaats van er ineens wel of niet te staan',
       'De stop-tegels zijn breder en de vlag ervoor is weg, zodat de naam van de plaats er nu op past',
@@ -57,6 +60,10 @@ export const CHANGELOG: ChangeEntry[] = [
       'Menu\u2019s sluiten zoals ze opengaan, in plaats van zomaar te verdwijnen',
     ],
     fixed: [
+      'De eerste stop-tegel houdt zijn marge links; de rij schoof die zelf weg',
+      'De knop terug naar boven staat niet meer voor de kaartinstellingen',
+      'Terug naar boven zet de kaart terug op zijn beginpositie in plaats van een stuk verder uit te zoomen',
+      'Als omslag voor een stop wordt de stop genomen waar de foto ook echt genomen is, niet de stop waar je die dag toevallig aankwam',
       'Een sheet wegvegen laat hem nu vallen vanaf waar je hem loslaat, in plaats van eerst terug omhoog te springen',
       'De knoppen rechtsboven op de kaart blijven staan als je scrollt',
       'De pijltjes in de viewer zoomen niet meer in als je er snel op tikt',

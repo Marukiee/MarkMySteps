@@ -1,5 +1,5 @@
 import { ReactNode, useMemo } from 'react';
-import { haversineKm } from '../lib/arc';
+import { haversineKm, STOP_NEAR_KM } from '../lib/arc';
 import './stopjump.css';
 
 export interface JumpStop {
@@ -25,14 +25,6 @@ export interface JumpPhoto {
 
 /** Route legs are not places you were; they are the line in between. */
 const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
-
-/**
- * How close a photo has to have been taken to count as a photo OF a stop.
- *
- * Wide enough to cover a city and the day you spent walking around it, narrow
- * enough that the next town along the road is a different place.
- */
-const NEAR_KM = 30;
 
 interface Target {
   name: string;
@@ -69,7 +61,7 @@ function faceOf(
       .filter((m) => m.latitude != null && m.longitude != null)
       .map((m) => ({ item: m, km: haversineKm([m.longitude!, m.latitude!], here) }));
     // Taken there: the first one, so the tile shows the place as you found it.
-    const near = located.find((m) => m.km <= NEAR_KM);
+    const near = located.find((m) => m.km <= STOP_NEAR_KM);
     if (near) return { id: near.item.id, near: true };
     // Nothing was taken there, but something has coordinates: the nearest of
     // those still beats the earliest, which on a travel day is a picture of
@@ -143,6 +135,9 @@ export function StopJump({
 
   return (
     <nav className="stop-jump" aria-label="Naar een stop">
+      {/* A row of photographs with no word over it reads as the top of the
+          timeline rather than as a way into it. */}
+      <h3 className="stop-jump-title">Stops</h3>
       <div className="stop-jump-rail">
         {targets.map((target) => (
           <button

@@ -165,6 +165,16 @@ export function trimOutlierEnds(
   return clusters.flat();
 }
 
+/**
+ * How close a photo has to have been taken to count as a photo OF a place.
+ *
+ * Wide enough to cover a city and a day of walking around it, narrow enough
+ * that the next town along the road is somewhere else. Used wherever a photo
+ * has to be matched to the stop it belongs to: the tiles above the timeline,
+ * and the "make this the stop's face" action in the viewer.
+ */
+export const STOP_NEAR_KM = 30;
+
 /** Great-circle distance in km between two [lng,lat] points. */
 export function haversineKm(a: [number, number], b: [number, number]): number {
   const toRad = Math.PI / 180;

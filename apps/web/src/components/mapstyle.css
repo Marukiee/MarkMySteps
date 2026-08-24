@@ -91,6 +91,8 @@
   gap: 0.4rem;
 }
 
+/* Not shorter than the settings page's, only tighter around the edges: a
+   42-pixel strip was too little of the map to tell the four apart. */
 .map-style-grid.compact .map-style-preview {
-  height: 42px;
+  height: 62px;
 }

@@ -9,6 +9,15 @@
   margin: 0 calc(var(--page-pad, 1.25rem) * -1);
 }
 
+/* The rail runs to both edges of the screen; its heading does not, so it gets
+   the gutter back and lines up with the tiles under it. */
+.stop-jump-title {
+  margin: 0.25rem 0 0.15rem;
+  padding-left: calc(var(--page-pad, 1.25rem) * 2 + 2px);
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+}
+
 .stop-jump-rail {
   display: flex;
   gap: 0.45rem;
@@ -19,6 +28,12 @@
      it were leaning against the side of the screen. */
   padding: 0.15rem calc(var(--page-pad, 1.25rem) * 2) 0.45rem
     calc(var(--page-pad, 1.25rem) * 2 + 2px);
+  /* And the snap has to know about that gutter too. A snap area lines up with
+     the edge of the SCROLLPORT, which sits outside the padding — so the rail
+     snapped to the first tile on sight, scrolled its own gutter away, and put
+     the tile flat against the side of the screen. Scroll-padding moves the
+     line the tiles snap to onto the gutter. */
+  scroll-padding-left: calc(var(--page-pad, 1.25rem) * 2 + 2px);
   scrollbar-width: none;
 }
 
