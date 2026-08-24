@@ -2,6 +2,16 @@
    above the timeline in both the app and a share link, so both read the same. */
 .stop-jump {
   min-width: 0;
+  /*
+   * How far in the rail starts, measured from the edge of the screen.
+   *
+   * Not the line the photos below start on. Lined up with those, the tiles
+   * read as another row of the timeline rather than as the rail over it; this
+   * sits halfway between that line and the edge, which is far enough in to be
+   * a margin and far enough out to be its own thing. The negative margin below
+   * cancels the page's own gutter, so this number is the whole inset.
+   */
+  --stop-jump-inset: calc(var(--page-pad, 1.25rem) + 1px);
   /* Runs to both edges of the screen: a rail that stops one gutter short looks
      like a list that has ended, and there is usually more of it. The gutter is
      given back as padding so the first and last tile still line up with the
@@ -9,13 +19,18 @@
   margin: 0 calc(var(--page-pad, 1.25rem) * -1);
 }
 
-/* The rail runs to both edges of the screen; its heading does not, so it gets
-   the gutter back and lines up with the tiles under it. */
+/* A quiet label rather than a heading: the days below it are the headings on
+   this page, and a second serif line above them was competing with them.
+   Indented to the same line as the tiles under it. */
 .stop-jump-title {
-  margin: 0.25rem 0 0.15rem;
-  padding-left: calc(var(--page-pad, 1.25rem) * 2 + 2px);
-  font-size: 1.05rem;
-  color: var(--ink-soft);
+  margin: 0.35rem 0 0.3rem;
+  padding-left: var(--stop-jump-inset);
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
 
 .stop-jump-rail {
@@ -23,17 +38,15 @@
   gap: 0.45rem;
   overflow-x: auto;
   scroll-snap-type: x proximity;
-  /* Lined up with where the timeline's photos start (past the rail and its own
-     gutter), not with the page edge: one gutter in, the first tile read as if
-     it were leaning against the side of the screen. */
-  padding: 0.15rem calc(var(--page-pad, 1.25rem) * 2) 0.45rem
-    calc(var(--page-pad, 1.25rem) * 2 + 2px);
+  /* The inset above on the left, and a full gutter's worth of room after the
+     last tile so the rail does not end flush against the screen either. */
+  padding: 0.15rem calc(var(--page-pad, 1.25rem) * 2) 0.45rem var(--stop-jump-inset);
   /* And the snap has to know about that gutter too. A snap area lines up with
      the edge of the SCROLLPORT, which sits outside the padding — so the rail
      snapped to the first tile on sight, scrolled its own gutter away, and put
      the tile flat against the side of the screen. Scroll-padding moves the
      line the tiles snap to onto the gutter. */
-  scroll-padding-left: calc(var(--page-pad, 1.25rem) * 2 + 2px);
+  scroll-padding-left: var(--stop-jump-inset);
   scrollbar-width: none;
 }
 

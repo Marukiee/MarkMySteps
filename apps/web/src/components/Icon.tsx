@@ -16,6 +16,7 @@ export type IconName =
   | 'eye-off'
   | 'map'
   | 'locate'
+  | 'frame'
   | 'sparkle'
   | 'gear'
   | 'plane'
@@ -348,6 +349,15 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M9 4.2 3.5 6.4v13.4L9 17.6l6 2.2 5.5-2.2V4.2L15 6.4Z" />
       <path d="M9 4.2v13.4M15 6.4v13.4" />
+    </>
+  ),
+  /* Four corner brackets: fit the whole thing back into view. */
+  frame: (
+    <>
+      <path d="M4 9V5.6A1.6 1.6 0 0 1 5.6 4H9" />
+      <path d="M15 4h3.4A1.6 1.6 0 0 1 20 5.6V9" />
+      <path d="M20 15v3.4a1.6 1.6 0 0 1-1.6 1.6H15" />
+      <path d="M9 20H5.6A1.6 1.6 0 0 1 4 18.4V15" />
     </>
   ),
   /* Crosshair: take me to where I am. */

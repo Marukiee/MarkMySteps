@@ -316,13 +316,25 @@
 
 /* --- Phone: keep the caption bar compact so pills don't dominate --- */
 @media (max-width: 720px) {
+  /*
+   * The date and the place under it are pinned across the top of the viewer,
+   * and the photo is centred in the whole screen as though they were not
+   * there. A landscape shot is short enough for that never to matter; a
+   * portrait one fills the height and came up against the place name with a
+   * few pixels between them. So the top of the screen is reserved, and the
+   * photo gives back the height it takes.
+   */
+  .lightbox {
+    padding-top: calc(3.4rem + env(safe-area-inset-top));
+  }
+
   .lightbox-stage {
     max-width: 100vw;
     padding: 0 0.6rem calc(0.6rem + env(safe-area-inset-bottom));
   }
 
   .lightbox-img {
-    --maxh: min(70vh, calc(100dvh - 11rem));
+    --maxh: min(70vh, calc(100dvh - 13rem));
     /* The stage runs the full width here, inside the viewer's own gutter. */
     --maxw: calc(100vw - 3.2rem);
   }

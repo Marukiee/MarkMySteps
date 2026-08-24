@@ -1018,7 +1018,9 @@
   background: var(--glass);
   backdrop-filter: blur(8px);
   border: 1px solid var(--glass-border);
-  color: var(--ink);
+  /* The same grey as the fast-scroll grip's chevrons. Full ink made the arrow
+     a bright white disc in dark mode, next to a grip that stayed quiet. */
+  color: var(--ink-soft);
   box-shadow: var(--shadow-m);
   transform: translateX(var(--backtop-x));
   animation: backTopIn 0.28s var(--ease);

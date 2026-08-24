@@ -2,8 +2,14 @@ import { useEffect, useState } from 'react';
 import { LogoMark } from './Logo';
 import './bootscreen.css';
 
-/** Below this the app is simply starting, and a spinner is noise. */
-const SLOW_MS = 1200;
+/**
+ * Below this the app is simply starting, and a spinner is noise.
+ *
+ * Raised from 1200: a normal launch was landing just past it, so the screen
+ * came up for a third of a second and left again. A flash of "this is taking
+ * a while" on a launch that took no time is worse than no screen at all.
+ */
+const SLOW_MS = 2000;
 
 /**
  * The screen for a launch that is taking its time.

@@ -31,6 +31,8 @@ export const CHANGELOG: ChangeEntry[] = [
     date: '2026-08-24',
     highlight: true,
     new: [
+      'Een knop op de kaart van een deel-link zet de kaart terug op de hele reis',
+      'De kaart in een deel-link beweegt op mobiel met twee vingers, zodat je met \u00e9\u00e9n vinger langs de kaart kunt scrollen',
       'Kaartinstellingen: kies wiens route je op de kaart ziet, en wiens foto\u2019s, of helemaal geen foto\u2019s',
       'De kaartstijl staat nu ook in de kaartinstellingen zelf, met dezelfde voorbeeldjes als in Instellingen, en de kaart wisselt meteen mee',
       'Een knop rechtsonderin de kaart zet de kaart terug op jouw locatie; groen zodra er een echte fix binnen is, grijs zolang die er nog niet is',
@@ -41,7 +43,10 @@ export const CHANGELOG: ChangeEntry[] = [
       'Een wachtscherm met kompas als het opstarten lang duurt',
     ],
     better: [
-      'Boven de stop-tegels staat nu \u201cStops\u201d, zodat de rij zich uitlegt',
+      'Het wachtscherm bij het opstarten komt later, zodat het niet even opflitst bij een start die toch al klaar was',
+      'De stop-tegels staan verder naar links dan de foto\u2019s eronder, zodat de rij niet als nog een rij tijdlijn leest',
+      'In de viewer op een telefoon houdt een staande foto afstand tot de datum en plaats bovenin',
+      'Boven de stop-tegels staat nu \u201cPlaatsen\u201d, zodat de rij zich uitlegt',
       'De previews van de kaartstijl in de kaartinstellingen zijn hoger, zodat je de vier uit elkaar houdt',
       'De knop terug naar boven komt pas als de kaart helemaal is ingeklapt, en gaat weg zodra je zover terug scrollt dat hij weer uitklapt',
       'De kaart van een deel-link tekent nu hetzelfde als die in de app: de gereden route, de vluchten als bogen, en de geplande stops gestippeld',
@@ -61,6 +66,7 @@ export const CHANGELOG: ChangeEntry[] = [
     ],
     fixed: [
       'De eerste stop-tegel houdt zijn marge links; de rij schoof die zelf weg',
+      'De pijl van de knop terug naar boven heeft hetzelfde grijs als de snelscroll-greep, in plaats van fel wit in donkere modus',
       'De knop terug naar boven staat niet meer voor de kaartinstellingen',
       'Terug naar boven zet de kaart terug op zijn beginpositie in plaats van een stuk verder uit te zoomen',
       'Als omslag voor een stop wordt de stop genomen waar de foto ook echt genomen is, niet de stop waar je die dag toevallig aankwam',

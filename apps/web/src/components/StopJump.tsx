@@ -137,7 +137,7 @@ export function StopJump({
     <nav className="stop-jump" aria-label="Naar een stop">
       {/* A row of photographs with no word over it reads as the top of the
           timeline rather than as a way into it. */}
-      <h3 className="stop-jump-title">Stops</h3>
+      <h3 className="stop-jump-title">Plaatsen</h3>
       <div className="stop-jump-rail">
         {targets.map((target) => (
           <button

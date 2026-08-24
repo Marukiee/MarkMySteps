@@ -157,6 +157,8 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
   const [media, setMedia] = useState<SharedMedia[]>([]);
   const [routes, setRoutes] = useState<RouteCollection | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  /** The frame the whole trip was given, for the recentre button. */
+  const homeBoundsRef = useRef<LngLatBounds | null>(null);
   const [atTop, setAtTop] = useState(true);
   const [fresh, setFresh] = useState<{ count: number; day: string } | null>(null);
   const [freshOpen, setFreshOpen] = useState(false);
@@ -221,6 +223,20 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       center: [4.9, 52.37],
       zoom: 3,
       attributionControl: { compact: true },
+      /*
+       * The page scrolls, and the map is a panel in the middle of it. A thumb
+       * dragged upwards over that panel was panning the map instead of the
+       * page, so reading the trip meant fighting it. Two fingers move the map
+       * now, one finger scrolls past it, and MapLibre says so on the map the
+       * moment somebody tries with one.
+       */
+      cooperativeGestures: true,
+      locale: {
+        'CooperativeGesturesHandler.MobileHelpText':
+          'Gebruik twee vingers om de kaart te verplaatsen',
+        'CooperativeGesturesHandler.WindowsHelpText': 'Gebruik Ctrl + scrollen om te zoomen',
+        'CooperativeGesturesHandler.MacHelpText': 'Gebruik \u2318 + scrollen om te zoomen',
+      },
     });
     mapRef.current = map;
     // The flights are painted over the map rather than onto it, by the same
@@ -347,7 +363,12 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       bounds.extend([stop.longitude, stop.latitude]);
       hasPoints = true;
     }
-    if (hasPoints) map.fitBounds(bounds, { padding: 70, maxZoom: 12, duration: 800 });
+    if (hasPoints) {
+      // Kept, so the button in the corner can put the map back exactly here
+      // after you have wandered off across it.
+      homeBoundsRef.current = bounds;
+      map.fitBounds(bounds, { padding: 70, maxZoom: 12, duration: 800 });
+    }
 
     return () => {
       for (const marker of markers) marker.remove();
@@ -610,6 +631,25 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
 
       <div className="share-map">
         <div ref={mapContainerRef} className="share-map-inner" />
+        {/* Back to the whole trip. Panning and pinching a map is how you get
+            lost on one, and a map you cannot get back from is a map you stop
+            touching. */}
+        {mapReady && (
+          <button
+            type="button"
+            className="share-map-recenter"
+            aria-label="Terug naar de hele reis"
+            title="Terug naar de hele reis"
+            onClick={() => {
+              const bounds = homeBoundsRef.current;
+              if (bounds && mapRef.current) {
+                mapRef.current.fitBounds(bounds, { padding: 70, maxZoom: 12, duration: 700 });
+              }
+            }}
+          >
+            <Icon name="frame" size={19} />
+          </button>
+        )}
       </div>
 
       {entries.length > 0 && (
