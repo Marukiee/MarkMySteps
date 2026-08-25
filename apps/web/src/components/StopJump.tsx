@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { haversineKm, STOP_NEAR_KM } from '../lib/arc';
 import './stopjump.css';
 
@@ -99,9 +99,22 @@ export function StopJump({
   days: string[];
   /** Enough of the trip's photos to pick a face for each tile. */
   media?: JumpPhoto[];
-  /** How this page loads a thumbnail: authenticated in the app, plain on a link. */
-  renderThumb?: (mediaId: string) => ReactNode;
+  /**
+   * How this page loads a thumbnail: authenticated in the app, plain on a link.
+   *
+   * `onMissing` is called when that picture cannot be produced, which on this
+   * rail means the chosen cover was deleted in Immich. The tile then falls
+   * back to a photo taken at the place, the same one it would have picked if
+   * nobody had chosen a cover at all.
+   */
+  renderThumb?: (mediaId: string, onMissing: () => void) => ReactNode;
 }) {
+  /** Chosen covers that turned out not to resolve to a picture any more. */
+  const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  const markGone = useCallback((id: string) => {
+    setGone((before) => (before.has(id) ? before : new Set(before).add(id)));
+  }, []);
+
   const targets = useMemo<Target[]>(() => {
     const sorted = [...days].sort();
     const out: Target[] = [];
@@ -114,21 +127,23 @@ export function StopJump({
       // The same city twice in a row (a stop split over two entries) is one
       // pill, not two that land on the spot.
       if (out.some((t) => t.day === day && t.name === stop.name)) continue;
-      // The organiser's own choice first, otherwise a photo taken there.
+      // The organiser's own choice first, otherwise a photo taken there. A
+      // choice that no longer loads counts as no choice.
+      const cover = stop.coverMediaId && !gone.has(stop.coverMediaId) ? stop.coverMediaId : null;
       const face = faceOf(stop, media, from, to, day);
       // A day trip is not a stop on the route, and putting every one of them
       // on the rail doubled its length on a trip that made a lot of them. It
       // earns its tile by having something to show: a photo actually taken
       // there, not merely one taken on the day you went.
-      if (stop.parentStopId && !stop.coverMediaId && !face?.near) continue;
+      if (stop.parentStopId && !cover && !face?.near) continue;
       out.push({
         name: stop.name,
         day,
-        photoId: stop.coverMediaId ?? face?.id ?? null,
+        photoId: cover ?? face?.id ?? null,
       });
     }
     return out.sort((a, b) => a.day.localeCompare(b.day));
-  }, [stops, days, media]);
+  }, [stops, days, media, gone]);
 
   // One tile is not a shortcut, it is a label for the thing you are looking at.
   if (targets.length < 2) return null;
@@ -147,7 +162,9 @@ export function StopJump({
             onClick={() => jumpToDay(target.day)}
           >
             {target.photoId && renderThumb && (
-              <span className="stop-jump-photo">{renderThumb(target.photoId)}</span>
+              <span className="stop-jump-photo">
+                {renderThumb(target.photoId, () => markGone(target.photoId!))}
+              </span>
             )}
             {/* No flag in front of the name any more: on a tile this size it
                 was taking the room the name needed, and the name is the thing

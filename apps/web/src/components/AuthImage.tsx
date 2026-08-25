@@ -144,6 +144,7 @@ export function AuthImage({
   alt,
   className,
   style,
+  onMissing,
 }: {
   path: string;
   lowResPath?: string;
@@ -151,6 +152,12 @@ export function AuthImage({
   alt: string;
   className?: string;
   style?: CSSProperties;
+  /**
+   * The proxy cannot produce this picture: it was deleted where it lives, and
+   * whatever is pointing at it is out of date. Callers that have something
+   * else to show use this to go and show it.
+   */
+  onMissing?: () => void;
 }) {
   const [src, setSrc] = useState<string | undefined>(cache.get(path));
   // Visible enough to fetch: told so, or already painting the small version —
@@ -164,6 +171,9 @@ export function AuthImage({
   const [loaded, setLoaded] = useState(() => bestCached(path, lowResPath) !== undefined);
   /** The proxy could not produce this picture; there is nothing to wait for. */
   const [failed, setFailed] = useState(false);
+  /** Held in a ref so a caller's inline arrow never restarts the fetch. */
+  const missingRef = useRef(onMissing);
+  missingRef.current = onMissing;
   const placeholderRef = useRef<HTMLDivElement>(null);
   // Read at render: whatever is cached right now, or nothing.
   const lowRes = lowResPath !== undefined ? cache.get(lowResPath) : undefined;
@@ -215,7 +225,9 @@ export function AuthImage({
         // Gone: deleted in Immich since this page was built, most likely. The
         // placeholder stops breathing, so a tile that is never going to hold a
         // picture stops pretending one is on its way.
-        if (!cancelled) setFailed(true);
+        if (cancelled) return;
+        setFailed(true);
+        missingRef.current?.();
       });
     return () => {
       cancelled = true;

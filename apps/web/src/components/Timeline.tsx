@@ -138,8 +138,13 @@ export function Timeline({
         stops={stops}
         days={days.map(([day]) => day)}
         media={media}
-        renderThumb={(id) => (
-          <AuthImage path={`/media/${id}/thumbnail?size=thumbnail`} alt="" className="" />
+        renderThumb={(id, onMissing) => (
+          <AuthImage
+            path={`/media/${id}/thumbnail?size=thumbnail`}
+            alt=""
+            className=""
+            onMissing={onMissing}
+          />
         )}
       />
       <div className="timeline">

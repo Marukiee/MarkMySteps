@@ -662,7 +662,15 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
             stops={stops}
             days={entries.map((entry) => entry.date)}
             media={orderedMedia}
-            renderThumb={(id) => <img src={thumb(id)} alt="" loading="lazy" decoding="async" />}
+            renderThumb={(id, onMissing) => (
+              <img
+                src={thumb(id)}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                onError={onMissing}
+              />
+            )}
           />
           <div className="timeline">
             {entries.map((entry) => (
