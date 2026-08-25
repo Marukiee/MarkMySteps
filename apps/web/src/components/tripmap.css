@@ -175,6 +175,13 @@
   animation: pulse 1.4s ease-in-out infinite;
 }
 
+/* Nothing is coming: the photo is gone from Immich. A still square rather than
+   one that breathes, which reads as a picture still on its way. */
+.img-missing {
+  animation: none;
+  opacity: 0.7;
+}
+
 @keyframes pulse {
   50% {
     opacity: 0.55;

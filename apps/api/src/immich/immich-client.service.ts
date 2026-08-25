@@ -1,4 +1,4 @@
-import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
+import { BadGatewayException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 /** Subset of an Immich asset that MarkMySteps cares about. */
 export interface ImmichAsset {
@@ -185,6 +185,7 @@ export class ImmichClientService {
       serverUrl,
       apiKey,
       `/api/assets/${encodeURIComponent(assetId)}/thumbnail?size=${size}`,
+      { missingIsGone: true },
     );
   }
 
@@ -200,6 +201,7 @@ export class ImmichClientService {
       serverUrl,
       apiKey,
       `/api/assets/${encodeURIComponent(assetId)}/original`,
+      { missingIsGone: true },
     );
   }
 
@@ -238,7 +240,7 @@ export class ImmichClientService {
     serverUrl: string,
     apiKey: string,
     path: string,
-    options: { method?: string; body?: unknown } = {},
+    options: { method?: string; body?: unknown; missingIsGone?: boolean } = {},
   ): Promise<Response> {
     const url = new URL(path, ensureTrailingSlash(serverUrl));
     let res: Response;
@@ -260,6 +262,12 @@ export class ImmichClientService {
     }
 
     if (!res.ok) {
+      // A 404 on an asset is not a broken server: the photo was deleted in
+      // Immich and everything here that still points at it is out of date.
+      // Told apart from every other failure so the caller can act on it.
+      if (res.status === 404 && options.missingIsGone) {
+        throw new NotFoundException('Immich no longer has this asset');
+      }
       throw new BadGatewayException(`Immich responded with ${res.status}`);
     }
     return res;

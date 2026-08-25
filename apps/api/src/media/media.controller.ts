@@ -128,19 +128,28 @@ export class MediaController {
 
     // `?size=original` is the download: the file as it was uploaded, not a
     // rendition of it. Everything else on the page asks for a rendition.
-    const upstream =
-      size === 'original'
-        ? await this.immich.fetchOriginal(
-            credentials.serverUrl,
-            credentials.apiKey,
-            media.immichAssetId,
-          )
-        : await this.immich.fetchThumbnail(
-            credentials.serverUrl,
-            credentials.apiKey,
-            media.immichAssetId,
-            size === 'thumbnail' ? 'thumbnail' : 'preview',
-          );
+    let upstream: Awaited<ReturnType<typeof this.immich.fetchThumbnail>>;
+    try {
+      upstream =
+        size === 'original'
+          ? await this.immich.fetchOriginal(
+              credentials.serverUrl,
+              credentials.apiKey,
+              media.immichAssetId,
+            )
+          : await this.immich.fetchThumbnail(
+              credentials.serverUrl,
+              credentials.apiKey,
+              media.immichAssetId,
+              size === 'thumbnail' ? 'thumbnail' : 'preview',
+            );
+    } catch (err) {
+      // Gone from Immich: forget it here too, rather than serving a hole in
+      // the page on every visit until the next sync. A cover that pointed at
+      // it goes back to being unset, so the trip picks a photo again.
+      if (err instanceof NotFoundException) await this.media.forgetMissing(id);
+      throw err;
+    }
 
     res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'image/jpeg');
     // The original keeps the name it was uploaded under, so what lands in the

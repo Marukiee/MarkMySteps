@@ -157,6 +157,11 @@ export class ImmichSyncService {
       }
     }
 
+    // A cover is stored as a plain media id, not a relation, so a photo the
+    // reconcile above just dropped leaves the trip or the stop fronted by a
+    // picture nobody can fetch — a white tile that never finishes loading.
+    await this.clearDeadCovers(tripId);
+
     // Photos the camera never placed get their position from the trip's own
     // track. Runs after every traveller has been pulled in, so a photo can
     // borrow a companion's fixes when its own owner tracked nothing.
@@ -169,6 +174,46 @@ export class ImmichSyncService {
     }
 
     return result;
+  }
+
+  /**
+   * Unsets covers that point at a photo this trip no longer has.
+   *
+   * The cover then falls back to whatever the timeline would have picked
+   * itself, which is the same thing that happens when no cover was ever
+   * chosen — rather than nothing at all.
+   */
+  private async clearDeadCovers(tripId: string): Promise<void> {
+    const trip = await this.prisma.trip.findUnique({
+      where: { id: tripId },
+      select: { coverMediaId: true },
+    });
+    const stops = await this.prisma.stop.findMany({
+      where: { tripId, coverMediaId: { not: null } },
+      select: { id: true, coverMediaId: true },
+    });
+    const ids = [trip?.coverMediaId, ...stops.map((s) => s.coverMediaId)].filter(
+      (id): id is string => id !== null && id !== undefined,
+    );
+    if (ids.length === 0) return;
+    const alive = new Set(
+      (
+        await this.prisma.mediaRef.findMany({
+          where: { id: { in: ids } },
+          select: { id: true },
+        })
+      ).map((row) => row.id),
+    );
+    if (trip?.coverMediaId && !alive.has(trip.coverMediaId)) {
+      await this.prisma.trip.update({ where: { id: tripId }, data: { coverMediaId: null } });
+    }
+    const dead = stops.filter((s) => !alive.has(s.coverMediaId!)).map((s) => s.id);
+    if (dead.length > 0) {
+      await this.prisma.stop.updateMany({
+        where: { id: { in: dead } },
+        data: { coverMediaId: null },
+      });
+    }
   }
 
   /**

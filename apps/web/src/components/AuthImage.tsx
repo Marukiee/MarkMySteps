@@ -162,6 +162,8 @@ export function AuthImage({
   // picture moving, not a blank rectangle counting down. Starting at "not
   // loaded" is what made the viewer look like it had lost its animation.
   const [loaded, setLoaded] = useState(() => bestCached(path, lowResPath) !== undefined);
+  /** The proxy could not produce this picture; there is nothing to wait for. */
+  const [failed, setFailed] = useState(false);
   const placeholderRef = useRef<HTMLDivElement>(null);
   // Read at render: whatever is cached right now, or nothing.
   const lowRes = lowResPath !== undefined ? cache.get(lowResPath) : undefined;
@@ -174,6 +176,7 @@ export function AuthImage({
     setSrc(cache.get(path));
     setVisible(eager || bestCached(path, lowResPath) !== undefined);
     setLoaded(bestCached(path, lowResPath) !== undefined);
+    setFailed(false);
   }, [path, lowResPath, eager]);
 
   // Claim the path while this image is mounted, so the cache never revokes a
@@ -208,7 +211,12 @@ export function AuthImage({
         remember(path, url);
         if (!cancelled) setSrc(url);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        // Gone: deleted in Immich since this page was built, most likely. The
+        // placeholder stops breathing, so a tile that is never going to hold a
+        // picture stops pretending one is on its way.
+        if (!cancelled) setFailed(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -218,7 +226,7 @@ export function AuthImage({
     return (
       <div
         ref={placeholderRef}
-        className={`${className ?? ''} img-placeholder`}
+        className={`${className ?? ''} img-placeholder ${failed ? 'img-missing' : ''}`}
         style={style}
         aria-label={alt}
       />

@@ -174,9 +174,17 @@ export class SharePublicController {
         select: { latitude: true, longitude: true, parentStopId: true },
       }),
     ]);
+    // A cover is a plain media id, not a relation: a photo deleted in Immich
+    // leaves the trip pointing at one nobody can fetch, and the header card
+    // came up blank. Gone means never chosen, so the first photo stands in.
+    const coverAlive =
+      coverMediaId !== null &&
+      (await this.prisma.mediaRef.count({
+        where: { id: coverMediaId, tripId: session.tripId },
+      })) > 0;
     return {
       ...rest,
-      resolvedCoverId: coverMediaId ?? mediaRefs[0]?.id ?? null,
+      resolvedCoverId: (coverAlive ? coverMediaId : null) ?? mediaRefs[0]?.id ?? null,
       stats: { ...stats, stops: countStopPlaces(planned) },
     };
   }

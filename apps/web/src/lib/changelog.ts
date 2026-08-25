@@ -66,6 +66,8 @@ export const CHANGELOG: ChangeEntry[] = [
       'Menu\u2019s sluiten zoals ze opengaan, in plaats van zomaar te verdwijnen',
     ],
     fixed: [
+      'Een omslagfoto die je in Immich verwijdert wordt vervangen: de reis en de stop kiezen zelf weer een foto, in plaats van een wit vlak te laten staan',
+      'De knop \u201cBekijken\u201d bij de melding over nieuwe foto\u2019s op een deel-link springt nu ook echt naar die dag',
       'De eerste stop-tegel houdt zijn marge links; de rij schoof die zelf weg',
       'De pijl van de knop terug naar boven heeft hetzelfde grijs als de snelscroll-greep, in plaats van fel wit in donkere modus',
       'Het datumballonnetje van de snelscroll-greep is donker in donkere modus, in plaats van een wit vlak',

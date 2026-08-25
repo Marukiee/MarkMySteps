@@ -174,5 +174,34 @@ export function jumpToDay(day: string) {
   if (!el) return;
   // The grip is for aiming by hand; it has no part in a jump it did not make.
   window.dispatchEvent(new Event('mms:fastscroll-hide'));
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Where the section wants to land, in the scroller's own coordinates.
+  const margin = Number.parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+  const box = el.getBoundingClientRect();
+  const scroller = scrollParent(el);
+  if (scroller) {
+    const top = box.top - scroller.getBoundingClientRect().top + scroller.scrollTop - margin;
+    scroller.scrollTo({ top, behavior: 'smooth' });
+    return;
+  }
+  /*
+   * The page itself is the scroller. Not scrollIntoView: on a share link the
+   * body is the scrolling box (`overflow-x: hidden` computes its overflow-y to
+   * `auto`), the document element is not, and the jump from the "new photos"
+   * notice landed nowhere at all. Both are told where to go — only one of them
+   * is really scrolling, and the other is already at zero.
+   */
+  const top = box.top + document.body.scrollTop + (document.scrollingElement?.scrollTop ?? 0) - margin;
+  document.body.scrollTo({ top, behavior: 'smooth' });
+  document.scrollingElement?.scrollTo({ top, behavior: 'smooth' });
+}
+
+/** The nearest ancestor that is actually scrolling, or nothing for the page. */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    if (node === document.body || node === document.documentElement) break;
+    const overflow = getComputedStyle(node).overflowY;
+    const scrolls = overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay';
+    if (scrolls && node.scrollHeight > node.clientHeight + 4) return node;
+  }
+  return null;
 }

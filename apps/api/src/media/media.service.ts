@@ -51,6 +51,31 @@ export class MediaService {
   }
 
   /** Returns the MediaRef if the requester shares the trip; 404 otherwise. */
+  /**
+   * Drops a reference to a photo Immich no longer has, and anything pointing
+   * at it.
+   *
+   * A cover is stored as a plain media id rather than a relation, so a photo
+   * deleted in Immich left the trip (or the stop) fronted by a picture nobody
+   * can fetch: a white rectangle that never finished loading, and no way back
+   * to a working cover short of picking a new one by hand. The next sync would
+   * drop the reference anyway; this does it the moment the gap is discovered,
+   * so the cover falls back to the trip's own first photo straight away.
+   */
+  async forgetMissing(mediaRefId: string): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.trip.updateMany({
+        where: { coverMediaId: mediaRefId },
+        data: { coverMediaId: null },
+      }),
+      this.prisma.stop.updateMany({
+        where: { coverMediaId: mediaRefId },
+        data: { coverMediaId: null },
+      }),
+      this.prisma.mediaRef.deleteMany({ where: { id: mediaRefId } }),
+    ]);
+  }
+
   async getForRequester(mediaRefId: string, requesterId: string): Promise<MediaRef> {
     const media = await this.prisma.mediaRef.findFirst({
       where: {

@@ -145,8 +145,26 @@ type RawTripRow = Trip & {
   stops: RawStop[];
 };
 
-/** Maps Prisma rows (avatarMime, mediaRefs, stops) to the API shape. */
-function mapMembers(trip: RawTripRow): TripWithMembers {
+/** The chosen cover while it still exists, else whatever the fallback is. */
+function pickCover(
+  chosen: string | null,
+  fallback: string | null,
+  live?: Set<string>,
+): string | null {
+  if (chosen && (live === undefined || live.has(chosen))) return chosen;
+  return fallback;
+}
+
+/**
+ * Maps Prisma rows (avatarMime, mediaRefs, stops) to the API shape.
+ *
+ * `liveCovers` is the set of chosen cover ids that still resolve to a photo.
+ * A cover is stored as a plain id rather than a relation, so deleting the
+ * picture in Immich left the trip pointing at nothing and the card came up
+ * blank. Told which ids are real, a trip whose cover has gone falls back to
+ * its first photo, the same as one that never had a cover chosen.
+ */
+function mapMembers(trip: RawTripRow, liveCovers?: Set<string>): TripWithMembers {
   const { mediaRefs, stops, members, ...rest } = trip;
   // The globe frames a trip on its anchor and hangs the name card off it, so it
   // has to land ON the trip. The first stop is usually the outbound leg, which
@@ -176,7 +194,7 @@ function mapMembers(trip: RawTripRow): TripWithMembers {
     .map((s) => [s.longitude!, s.latitude!] as [number, number]);
   return {
     ...rest,
-    resolvedCoverId: trip.coverMediaId ?? mediaRefs[0]?.id ?? null,
+    resolvedCoverId: pickCover(trip.coverMediaId, mediaRefs[0]?.id ?? null, liveCovers),
     anchor,
     stopPoints,
     members: members.map((m) => ({
@@ -510,8 +528,9 @@ export class TripsService {
       photosByTrip.set(tripId, trimOutlierEnds(stripHomeCountry(line)));
     }
 
+    const live = await this.liveCovers(trips);
     return trips.map((t) => {
-      const base = mapMembers(t);
+      const base = mapMembers(t, live);
       const tracked = routeByTrip.get(t.id);
       const planned = stopsByTrip.get(t.id);
       const photoLine = photosByTrip.get(t.id);
@@ -552,7 +571,23 @@ export class TripsService {
     if (!trip) {
       throw new NotFoundException('Trip not found');
     }
-    return mapMembers(trip);
+    return mapMembers(trip, await this.liveCovers([trip]));
+  }
+
+  /**
+   * Which of these trips' chosen covers still point at a photo that exists.
+   *
+   * One query for the whole list: the alternative is a card showing a white
+   * rectangle for as long as it takes somebody to notice and pick a new one.
+   */
+  private async liveCovers(trips: { coverMediaId: string | null }[]): Promise<Set<string>> {
+    const ids = [...new Set(trips.map((t) => t.coverMediaId).filter((id) => id !== null))];
+    if (ids.length === 0) return new Set();
+    const rows = await this.prisma.mediaRef.findMany({
+      where: { id: { in: ids } },
+      select: { id: true },
+    });
+    return new Set(rows.map((r) => r.id));
   }
 
   async update(tripId: string, userId: string, dto: UpdateTripDto): Promise<TripWithMembers> {
@@ -780,11 +815,12 @@ export class TripsService {
       orderBy: { joinedAt: 'desc' },
       take: 20,
     });
+    const live = await this.liveCovers(rows.map((r) => r.trip));
     return rows.map((r) => ({
       id: r.trip.id,
       title: r.trip.title,
       ownerName: r.trip.owner.displayName,
-      coverId: r.trip.coverMediaId ?? r.trip.mediaRefs[0]?.id ?? null,
+      coverId: pickCover(r.trip.coverMediaId, r.trip.mediaRefs[0]?.id ?? null, live),
     }));
   }
 
