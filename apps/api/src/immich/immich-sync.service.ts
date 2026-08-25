@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { TripRole } from '@prisma/client';
+import { coverSuccessor, DeadRef } from '../media/cover-succession';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImmichAsset, ImmichClientService } from './immich-client.service';
 import { ImmichConnectionService } from './immich-connection.service';
@@ -85,6 +86,10 @@ export class ImmichSyncService {
     const from = trip.startDate;
     const to = new Date(trip.endDate.getTime() + DAY_MS);
 
+    // References this sync takes away, kept so a cover that pointed at one can
+    // be handed to the photo that replaced it.
+    const dropped: DeadRef[] = [];
+
     const result: SyncResult = {
       tripId,
       usersSynced: 0,
@@ -139,12 +144,19 @@ export class ImmichSyncService {
         // (searchAssets caps at MAX_PAGES; the guard prevents mass-deletion
         // on a truncated result.)
         if (assets.length < 250 * 40) {
-          const { count: removed } = await this.prisma.mediaRef.deleteMany({
+          // Read before dropping: a cover pointing at one of these needs to
+          // know when the photo was taken to recognise its replacement.
+          const doomed = await this.prisma.mediaRef.findMany({
             where: {
               tripId,
               userId,
               immichAssetId: { notIn: assets.map((a) => a.id) },
             },
+            select: { id: true, tripId: true, userId: true, takenAt: true, assetType: true },
+          });
+          dropped.push(...doomed);
+          const { count: removed } = await this.prisma.mediaRef.deleteMany({
+            where: { id: { in: doomed.map((d) => d.id) } },
           });
           result.assetsRemoved += removed;
         }
@@ -160,7 +172,7 @@ export class ImmichSyncService {
     // A cover is stored as a plain media id, not a relation, so a photo the
     // reconcile above just dropped leaves the trip or the stop fronted by a
     // picture nobody can fetch — a white tile that never finishes loading.
-    await this.clearDeadCovers(tripId);
+    await this.clearDeadCovers(tripId, dropped);
 
     // Photos the camera never placed get their position from the trip's own
     // track. Runs after every traveller has been pulled in, so a photo can
@@ -177,13 +189,16 @@ export class ImmichSyncService {
   }
 
   /**
-   * Unsets covers that point at a photo this trip no longer has.
+   * Moves covers off photos this trip no longer has.
    *
-   * The cover then falls back to whatever the timeline would have picked
-   * itself, which is the same thing that happens when no cover was ever
-   * chosen — rather than nothing at all.
+   * A photo that was re-edited and put back is the same photograph with a new
+   * id, and `dropped` is what the reconcile just took away — enough to
+   * recognise the replacement and hand the cover over to it. Failing that the
+   * cover is unset, and falls back to whatever the timeline would have picked
+   * itself: the same thing that happens when no cover was ever chosen, rather
+   * than nothing at all.
    */
-  private async clearDeadCovers(tripId: string): Promise<void> {
+  private async clearDeadCovers(tripId: string, dropped: DeadRef[]): Promise<void> {
     const trip = await this.prisma.trip.findUnique({
       where: { id: tripId },
       select: { coverMediaId: true },
@@ -204,14 +219,25 @@ export class ImmichSyncService {
         })
       ).map((row) => row.id),
     );
-    if (trip?.coverMediaId && !alive.has(trip.coverMediaId)) {
-      await this.prisma.trip.update({ where: { id: tripId }, data: { coverMediaId: null } });
+    // Where each lost cover should go: its replacement, or nowhere.
+    const byId = new Map(dropped.map((d) => [d.id, d]));
+    const heirs = new Map<string, string | null>();
+    for (const id of ids) {
+      if (alive.has(id)) continue;
+      const was = byId.get(id);
+      heirs.set(id, was ? await coverSuccessor(this.prisma, was) : null);
     }
-    const dead = stops.filter((s) => !alive.has(s.coverMediaId!)).map((s) => s.id);
-    if (dead.length > 0) {
-      await this.prisma.stop.updateMany({
-        where: { id: { in: dead } },
-        data: { coverMediaId: null },
+    if (trip?.coverMediaId && heirs.has(trip.coverMediaId)) {
+      await this.prisma.trip.update({
+        where: { id: tripId },
+        data: { coverMediaId: heirs.get(trip.coverMediaId) ?? null },
+      });
+    }
+    for (const stop of stops) {
+      if (!heirs.has(stop.coverMediaId!)) continue;
+      await this.prisma.stop.update({
+        where: { id: stop.id },
+        data: { coverMediaId: heirs.get(stop.coverMediaId!) ?? null },
       });
     }
   }

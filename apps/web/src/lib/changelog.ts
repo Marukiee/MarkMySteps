@@ -66,6 +66,8 @@ export const CHANGELOG: ChangeEntry[] = [
       'Menu\u2019s sluiten zoals ze opengaan, in plaats van zomaar te verdwijnen',
     ],
     fixed: [
+      'Een tegel van een dagtrip brengt je naar de eerste foto die je daar maakte, niet naar de bovenkant van die dag: twee dagtrips op \u00e9\u00e9n datum kwamen allebei op dezelfde plek uit',
+      'Bewerk je een foto opnieuw in Immich en verwijder je het origineel, dan verhuist de omslag mee naar de nieuwe versie in plaats van leeg te blijven',
       'Een omslagfoto die je in Immich verwijdert wordt vervangen: de reis en de stop kiezen zelf weer een foto, in plaats van een wit vlak te laten staan',
       'De knop \u201cBekijken\u201d bij de melding over nieuwe foto\u2019s op een deel-link springt nu ook echt naar die dag',
       'De eerste stop-tegel houdt zijn marge links; de rij schoof die zelf weg',

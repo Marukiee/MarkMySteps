@@ -31,6 +31,15 @@ interface Target {
   day: string;
   /** A photo from that place, as the face of the tile. */
   photoId: string | null;
+  /**
+   * The photo to land on, when one of them was actually taken there.
+   *
+   * A day trip shares its day with the stop it hangs off, and often with a
+   * second day trip: three places, one date, one day section. Landing at the
+   * top of that section puts you at the waterfalls you saw in the morning
+   * when you asked for the natural bridge you saw after it.
+   */
+  anchorId: string | null;
 }
 
 /**
@@ -140,6 +149,9 @@ export function StopJump({
         name: stop.name,
         day,
         photoId: cover ?? face?.id ?? null,
+        // Taken there beats chosen for it: `faceOf` hands back the earliest
+        // photo within reach of the stop, which is the moment you arrived.
+        anchorId: face?.near ? face.id : cover,
       });
     }
     return out.sort((a, b) => a.day.localeCompare(b.day));
@@ -159,7 +171,7 @@ export function StopJump({
             key={`${target.day}-${target.name}`}
             type="button"
             className={`stop-jump-tile ${target.photoId ? 'has-photo' : ''}`}
-            onClick={() => jumpToDay(target.day)}
+            onClick={() => jumpToDay(target.day, target.anchorId)}
           >
             {target.photoId && renderThumb && (
               <span className="stop-jump-photo">
@@ -180,19 +192,32 @@ export function StopJump({
 }
 
 /**
- * Puts the day section at the top of whatever is doing the scrolling.
+ * Puts a day, or one photo of it, at the top of whatever is doing the
+ * scrolling.
  *
  * Where that lands is CSS's business (`scroll-margin-top` on the section): on a
  * phone the map is pinned over the top of the list, and a day scrolled to the
- * literal top of the page arrives behind it.
+ * literal top of the page arrives behind it. A photo is measured against its
+ * own day for that, since the margin belongs to the section.
+ *
+ * `photoId` is for the places that share a date: two day trips off the same
+ * stop are three tiles landing on one day section, and the top of it is only
+ * the right answer for the first of them.
  */
-export function jumpToDay(day: string) {
-  const el = document.querySelector<HTMLElement>(`.timeline-day[data-day="${day}"]`);
+export function jumpToDay(day: string, photoId?: string | null) {
+  const section = document.querySelector<HTMLElement>(`.timeline-day[data-day="${day}"]`);
+  // Not on screen (a day filter is on, or the grid has not laid it out yet):
+  // the day it belongs to is still the right neighbourhood.
+  const photo = photoId
+    ? document.querySelector<HTMLElement>(`[data-media-id="${photoId}"]`)
+    : null;
+  const el = photo ?? section;
   if (!el) return;
   // The grip is for aiming by hand; it has no part in a jump it did not make.
   window.dispatchEvent(new Event('mms:fastscroll-hide'));
   // Where the section wants to land, in the scroller's own coordinates.
-  const margin = Number.parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+  const measured = photo?.closest<HTMLElement>('.timeline-day') ?? section ?? el;
+  const margin = Number.parseFloat(getComputedStyle(measured).scrollMarginTop) || 0;
   const box = el.getBoundingClientRect();
   const scroller = scrollParent(el);
   if (scroller) {

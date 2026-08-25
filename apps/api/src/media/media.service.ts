@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { MediaRef } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TripsService } from '../trips/trips.service';
+import { coverSuccessor } from './cover-succession';
 
 export type MediaItem = Pick<
   MediaRef,
@@ -60,17 +61,23 @@ export class MediaService {
    * can fetch: a white rectangle that never finished loading, and no way back
    * to a working cover short of picking a new one by hand. The next sync would
    * drop the reference anyway; this does it the moment the gap is discovered,
-   * so the cover falls back to the trip's own first photo straight away.
+   * so the cover moves on to the replacement photo, or failing that falls back
+   * to the trip's own first photo, straight away.
    */
   async forgetMissing(mediaRefId: string): Promise<void> {
+    const dead = await this.prisma.mediaRef.findUnique({ where: { id: mediaRefId } });
+    if (!dead) return;
+    // A photo that was re-edited and re-added is the same photograph under a
+    // new id, and a cover that pointed at the old one follows it there.
+    const heir = await coverSuccessor(this.prisma, dead);
     await this.prisma.$transaction([
       this.prisma.trip.updateMany({
         where: { coverMediaId: mediaRefId },
-        data: { coverMediaId: null },
+        data: { coverMediaId: heir },
       }),
       this.prisma.stop.updateMany({
         where: { coverMediaId: mediaRefId },
-        data: { coverMediaId: null },
+        data: { coverMediaId: heir },
       }),
       this.prisma.mediaRef.deleteMany({ where: { id: mediaRefId } }),
     ]);

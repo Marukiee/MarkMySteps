@@ -708,6 +708,9 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                   {(item) => (
                     <figure
                       className="timeline-photo"
+                      // Named so a jump from the places rail can land on this
+                      // photo rather than on the top of the day it is in.
+                      data-media-id={item.id}
                       role="button"
                       onClick={() => setLightboxIndex(indexOf.get(item.id) ?? 0)}
                     >
