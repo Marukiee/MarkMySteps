@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { searchStations } from '../lib/geocode';
-import type { PlaceSuggestion } from '../lib/geocode';
+import type { StationSuggestion } from '../lib/geocode';
 import { useSheetDismiss } from '../lib/useSheetDismiss';
 import './trainroute.css';
 
@@ -76,16 +76,18 @@ export function TrainRouteSheet({
         </p>
 
         <StationField
+          id="train-from"
           label="Vertrekstation"
           placeholder="Madrid Atocha"
-          initialQuery={prefill?.from}
+          city={prefill?.from}
           value={from}
           onPick={setFrom}
         />
         <StationField
+          id="train-to"
           label="Aankomststation"
           placeholder="Barcelona Sants"
-          initialQuery={prefill?.to}
+          city={prefill?.to}
           value={to}
           onPick={setTo}
         />
@@ -110,119 +112,174 @@ export function TrainRouteSheet({
   );
 }
 
-/** One station box: type, pick from the list, and it stays picked. */
+/**
+ * One station box.
+ *
+ * Opened from a train leg, it does not hand you the name of a city and leave
+ * you to look its station up: it looks it up itself and arrives filled in,
+ * with the rest of that city's stations one tap away underneath.
+ *
+ * The list hangs over what is below it rather than pushing it down, and it
+ * keeps whatever it last found while the next answer is on its way. A row of
+ * suggestions that jumps as you type is a row you cannot hit.
+ */
 function StationField({
+  id,
   label,
   placeholder,
-  initialQuery,
+  city,
   value,
   onPick,
 }: {
+  id: string;
   label: string;
   placeholder: string;
-  initialQuery?: string;
+  /** Looked up on open, and the best station of it is picked straight away. */
+  city?: string;
   value: Station | null;
   onPick: (station: Station | null) => void;
 }) {
-  // Opened from a train leg, the box starts on the city the leg runs between,
-  // so the stations of that city are already listed.
-  const [query, setQuery] = useState(initialQuery ?? '');
-  const [results, setResults] = useState<PlaceSuggestion[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<StationSuggestion[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
   const abort = useRef<AbortController | null>(null);
+  const box = useRef<HTMLDivElement | null>(null);
+
+  // The station the leg already implies, found and picked before anybody types
+  // anything. Runs once: after that the field belongs to whoever is using it.
+  useEffect(() => {
+    if (!city) return;
+    let live = true;
+    setBusy(true);
+    searchStations(city)
+      .then((found) => {
+        if (!live) return;
+        setResults(found);
+        const best = found[0];
+        if (best) {
+          onPick({
+            name: best.name,
+            region: best.region,
+            latitude: best.latitude,
+            longitude: best.longitude,
+          });
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (live) setBusy(false);
+      });
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [city]);
 
   // Typed a letter at a time, asked for once the typing stops: the geocoder is
-  // somebody else's server and every keystroke is not a question.
+  // somebody else's server and every keystroke is not a question. What it found
+  // last time stays up until the new answer arrives.
   useEffect(() => {
-    if (value || query.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    setLoading(true);
+    if (query.trim().length < 2) return;
+    setBusy(true);
     const timer = window.setTimeout(() => {
       abort.current?.abort();
       const controller = new AbortController();
       abort.current = controller;
       searchStations(query, controller.signal)
-        .then((found) => setResults(found))
+        .then((found) => {
+          setResults(found);
+          setOpen(true);
+        })
         .catch(() => undefined)
-        .finally(() => setLoading(false));
+        .finally(() => setBusy(false));
     }, 320);
-    return () => {
-      window.clearTimeout(timer);
-      setLoading(false);
-    };
-  }, [query, value]);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => () => abort.current?.abort(), []);
 
-  if (value) {
-    return (
-      <div className="train-field">
-        <span className="train-label">{label}</span>
-        <div className="train-picked">
-          <Icon name="train" size={16} />
-          <span className="train-picked-name">
-            {value.name}
-            {value.region && <span className="train-picked-region">{value.region}</span>}
-          </span>
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label="Ander station kiezen"
-            onClick={() => {
-              onPick(null);
-              setQuery('');
-            }}
-          >
-            <Icon name="close" size={16} />
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // A tap anywhere else closes the list, the way every other picker does.
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener('mousedown', away);
+    return () => window.removeEventListener('mousedown', away);
+  }, [open]);
 
   return (
-    <div className="train-field">
-      <label className="train-label" htmlFor={`station-${label}`}>
-        {label}
-      </label>
-      <input
-        id={`station-${label}`}
-        type="text"
-        autoComplete="off"
-        placeholder={placeholder}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-      {loading && <p className="train-hint muted">Zoeken…</p>}
-      {!loading && query.trim().length >= 2 && results.length === 0 && (
-        <p className="train-hint muted">Geen station gevonden.</p>
+    <div className="field train-field" ref={box}>
+      <label htmlFor={id}>{label}</label>
+
+      {value ? (
+        // Picked: the box reads back as the station, and one tap changes it.
+        <button type="button" className="train-picked" onClick={() => onPick(null)}>
+          <Icon name="train" size={16} />
+          <span className="train-picked-name">
+            <strong>
+              {value.name}
+              {isMainStation(value.name) && <em className="train-main">hoofdstation</em>}
+            </strong>
+            {value.region && <small>{value.region}</small>}
+          </span>
+          <span className="train-change">Wijzig</span>
+        </button>
+      ) : (
+        <div className="train-input">
+          <input
+            id={id}
+            type="text"
+            autoComplete="off"
+            placeholder={placeholder}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => results.length > 0 && setOpen(true)}
+          />
+          {/* Inside the box, so nothing below it moves while it thinks. */}
+          {busy && <span className="train-spinner" aria-hidden="true" />}
+        </div>
       )}
-      {results.length > 0 && (
-        <ul className="train-results">
+
+      {!value && open && results.length > 0 && (
+        <ul className="train-results card">
           {results.map((r) => (
             <li key={`${r.name}-${r.latitude}-${r.longitude}`}>
               <button
                 type="button"
-                className="train-result"
-                onClick={() =>
+                onClick={() => {
                   onPick({
                     name: r.name,
                     region: r.region,
                     latitude: r.latitude,
                     longitude: r.longitude,
-                  })
-                }
+                  });
+                  setOpen(false);
+                }}
               >
                 <Icon name="train" size={15} />
-                <span className="train-result-name">{r.name}</span>
-                {r.region && <span className="train-result-region">{r.region}</span>}
+                <span>
+                  <strong>
+                    {r.name}
+                    {r.main && <em className="train-main">hoofdstation</em>}
+                  </strong>
+                  {r.region && <small>{r.region}</small>}
+                </span>
               </button>
             </li>
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+/** The same reading of a name the search does, for a station already picked
+ *  (which no longer carries the search's own answer). */
+function isMainStation(name: string): boolean {
+  const lower = name.toLowerCase();
+  return ['centraal', 'central', 'centrale', 'hauptbahnhof', 'hbf', 'termini'].some((w) =>
+    lower.includes(w),
   );
 }

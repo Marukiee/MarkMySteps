@@ -1,104 +1,161 @@
 /* Drawing a train ride: two station boxes and the list each one searches. */
 .train-field {
-  display: grid;
-  gap: 0.3rem;
+  position: relative;
   padding-top: 0.7rem;
 }
 
-.train-label {
-  font-size: 0.78rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
+/* The input sits in a box of its own so the spinner can live inside it. */
+.train-input {
+  position: relative;
+  display: grid;
 }
 
-/* Picked: the box becomes the answer, so the sheet reads back as a journey. */
+.train-input input {
+  width: 100%;
+  padding-right: 2.2rem;
+}
+
+/* Thinking, without moving anything: a ring turning inside the box. */
+.train-spinner {
+  position: absolute;
+  top: 50%;
+  right: 0.8rem;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border: 2px solid var(--line);
+  border-top-color: var(--ink-faint);
+  border-radius: 50%;
+  animation: trainSpin 0.7s linear infinite;
+}
+
+@keyframes trainSpin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* Picked: the box reads back as the station, in the shape of the input it
+   replaces, and the whole thing is the button that changes it. */
 .train-picked {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.5rem 0.5rem 0.5rem 0.7rem;
-  border: 1px solid var(--line);
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.6rem 0.55rem 0.85rem;
+  border: 1.5px solid var(--line);
   border-radius: var(--radius-s);
-  background: var(--paper-sunken);
+  background: var(--paper-raised);
   color: var(--ink-soft);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease);
+}
+
+.train-picked:hover {
+  border-color: var(--ink-faint);
+}
+
+.train-picked > svg {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
 }
 
 .train-picked-name {
   flex: 1;
   min-width: 0;
   display: grid;
-  line-height: 1.2;
-  color: var(--ink);
-  font-weight: 600;
+  line-height: 1.25;
 }
 
-.train-picked-region {
+.train-picked-name strong {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.train-picked-name small,
+.train-results small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ink-faint);
   font-size: 0.76rem;
-  font-weight: 500;
 }
 
-.train-hint {
-  margin: 0;
-  font-size: 0.8rem;
+.train-change {
+  flex: 0 0 auto;
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--ink-faint);
 }
 
+/* "hoofdstation": a word, not a badge. A filled pill in the accent colour
+   disappears against the sunken paper these rows use on hover. */
+.train-main {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+
+/* Over what is below it, never pushing it down: the row you were aiming at
+   stays where it was while the next answer arrives. */
 .train-results {
-  display: grid;
-  gap: 0.1rem;
-  margin: 0.15rem 0 0;
-  padding: 0;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 4px 0 0;
+  padding: 0.3rem;
   list-style: none;
-  /* Eight stations is a long list on a phone; the sheet keeps its shape and
-     the list scrolls inside it. */
-  max-height: 13rem;
+  display: grid;
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-m);
+  /* The sheet scrolls; a list taller than this would need scrolling inside
+     something that is already scrolling. */
+  max-height: 190px;
   overflow-y: auto;
 }
 
-.train-result {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
+.train-results button {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   padding: 0.5rem 0.6rem;
-  border: none;
-  border-radius: var(--radius-s);
-  background: none;
-  color: var(--ink);
-  font-size: 0.9rem;
+  border-radius: 7px;
   text-align: left;
-  cursor: pointer;
-  transition: background 0.15s var(--ease);
 }
 
-.train-result:hover {
+.train-results button:hover {
   background: var(--paper-sunken);
 }
 
-.train-result svg {
+.train-results button > svg {
   flex: 0 0 auto;
-  align-self: center;
   color: var(--ink-faint);
 }
 
-.train-result-name {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.train-result-region {
-  flex: 1;
+.train-results button > span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--ink-faint);
-  font-size: 0.78rem;
+  display: grid;
+  line-height: 1.25;
+}
+
+.train-results strong {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  font-weight: 650;
 }
 
 .train-error {

@@ -510,20 +510,28 @@ export function TripDetailPage() {
         `/trips/${tripId}/route-fill/near?lng=${lngLat.lng}&lat=${lngLat.lat}`,
       ).catch(() => ({ near: false }));
       const leg = nearestLeg(stops, lngLat);
+      // What the plan says this leg was decides which way of drawing it is the
+      // obvious one. On a train leg the road router is the wrong tool, and
+      // offering it first sent people down the motorway alongside the rails.
+      const byTrain = leg?.travelMode === 'TRAIN';
 
       const choices: ChoiceOption[] = [];
       if (!onDrawn.near) {
-        choices.push({
+        const draw: ChoiceOption = {
           id: 'draw',
           label: 'Route via wegen tekenen',
           hint: 'Vult het dichtstbijzijnde rechte stuk aan via de snelste weg.',
-          primary: true,
-        });
-        choices.push({
+          primary: !byTrain,
+        };
+        const train: ChoiceOption = {
           id: 'train',
           label: 'Treinroute tekenen',
-          hint: 'Voor een treinreis zonder signaal: kies je begin- en eindstation.',
-        });
+          hint: byTrain
+            ? `De leg naar ${leg!.name} gaat met de trein. Kies je begin- en eindstation.`
+            : 'Voor een treinreis zonder signaal: kies je begin- en eindstation.',
+          primary: byTrain,
+        };
+        choices.push(...(byTrain ? [train, draw] : [draw, train]));
       }
       if (onDrawn.near) {
         choices.push({
@@ -562,7 +570,13 @@ export function TripDetailPage() {
       // the sheet that asks for them instead of doing the work here.
       if (picked === 'train') {
         trainGapRef.current = lngLat;
-        trainPrefillRef.current = undefined;
+        // The two places the leg runs between, so the station boxes can look
+        // them up themselves instead of being handed an empty form.
+        const route = stops.filter((s) => !s.parentStopId);
+        const at = leg ? route.findIndex((s) => s.id === leg.id) : -1;
+        const before = at > 0 ? route[at - 1] : null;
+        trainPrefillRef.current =
+          leg && before ? { from: before.name, to: leg.name } : undefined;
         setTrainOpen(true);
         return;
       }

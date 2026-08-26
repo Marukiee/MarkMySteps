@@ -475,17 +475,17 @@ export function TripMap({
             id: `${fid}-line`,
             type: 'line',
             source: fid,
-            // The traveller's own colour, dashed: the same journey as the line
-            // either side of it, with nothing recorded in between. A grey bow
-            // means a flight, and a train in a tunnel is not one.
+            // Drawn exactly like the line either side of it. A journey that
+            // happened is a solid line whether or not the tracker was awake for
+            // it; dashes are for what has not happened yet. A grey bow means a
+            // flight, and a train in a tunnel is not one.
             paint: {
               'line-color': colorForUser(userId),
               'line-width': 2.5,
-              'line-dasharray': [2, 2],
               'line-opacity': arriving ? 0 : 1,
               'line-opacity-transition': { duration: FADE_MS, delay: 0 },
             },
-            layout: { 'line-cap': 'round' },
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
           });
           if (arriving) fadeUp(map, `${fid}-line`);
         }

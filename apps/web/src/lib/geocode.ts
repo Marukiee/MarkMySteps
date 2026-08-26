@@ -62,6 +62,30 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   return suggestions;
 }
 
+export interface StationSuggestion extends PlaceSuggestion {
+  /** A city's main station, as far as its name gives it away. */
+  main: boolean;
+}
+
+/**
+ * What a city calls its main station, in the languages a European trip runs
+ * through. Nothing clever: OSM has no tag that says "this is the big one", and
+ * the name is what a traveller reads off the ticket anyway.
+ */
+const MAIN_STATION_WORDS = [
+  'centraal',
+  'central',
+  'centrale',
+  'hauptbahnhof',
+  'hbf',
+  'hovedbanegård',
+  'hlavní nádraží',
+  'termini',
+  'kolodvor',
+  'główny',
+  'principal',
+];
+
 /**
  * Railway stations by name, for drawing a train ride.
  *
@@ -69,11 +93,14 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
  * station or a halt, so "Barcelona" offers Sants and França rather than the
  * city itself. The city would put the drawn rails a few kilometres off the
  * platform they actually left from.
+ *
+ * Main stations come first and say so, because that is the one somebody means
+ * nine times out of ten and reading eight names to find it is work.
  */
 export async function searchStations(
   query: string,
   signal?: AbortSignal,
-): Promise<PlaceSuggestion[]> {
+): Promise<StationSuggestion[]> {
   if (query.trim().length < 2) return [];
   const url = new URL('https://photon.komoot.io/api/');
   url.searchParams.set('q', query);
@@ -87,7 +114,7 @@ export async function searchStations(
   const data = (await res.json()) as { features: PhotonFeature[] };
 
   const seen = new Set<string>();
-  const suggestions: PlaceSuggestion[] = [];
+  const suggestions: StationSuggestion[] = [];
   for (const feature of data.features) {
     const p = feature.properties;
     if (!p.name) continue;
@@ -97,15 +124,19 @@ export async function searchStations(
     const key = `${p.name}|${region}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    const lower = p.name.toLowerCase();
     suggestions.push({
       name: p.name,
       region,
       countryCode: p.countrycode?.toUpperCase(),
       latitude: feature.geometry.coordinates[1],
       longitude: feature.geometry.coordinates[0],
+      main: MAIN_STATION_WORDS.some((w) => lower.includes(w)),
     });
   }
-  return suggestions;
+  // Photon's own order is kept within each group, so the most likely station
+  // stays first among equals.
+  return suggestions.sort((a, b) => Number(b.main) - Number(a.main));
 }
 
 /**

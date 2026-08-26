@@ -32,10 +32,17 @@ export const CHANGELOG: ChangeEntry[] = [
     highlight: true,
     new: [
       'Treinroute tekenen: zeg van welk station naar welk station je ging, en de kaart tekent het spoor ertussen, vast aan je route ervoor en erna',
-      'Een treinleg in de routeplanner heeft een knop \u201cSpoor tekenen\u201d, met de twee plaatsen van die leg alvast ingevuld',
+      'Een treinleg in de routeplanner heeft een knop \u201cSpoor tekenen\u201d',
+      'De stations vullen zichzelf in als je vanuit een treinleg tekent, en hoofdstations staan bovenaan met een label erbij',
+    ],
+    better: [
+      'Houd je een treinleg ingedrukt, dan is \u201cTreinroute tekenen\u201d meteen de voorgestelde keuze in plaats van de route over de weg',
+      'De stationvelden zien eruit als de andere invulvelden, en de suggesties hangen erover heen in plaats van de rest naar beneden te duwen',
     ],
     fixed: [
       'Een gestippelde boog komt er alleen nog als er in de route ook echt een vlucht staat; een lang stuk zonder signaal, zoals een sneltrein of een tunnel, blijft een gewone lijn over de grond',
+      'Een stuk route zonder signaal is een gewone doorgetrokken lijn; gestippeld is alleen nog wat nog moet komen',
+      '\u00c9\u00e9n losse gps-fix midden in een treinreis liet de helft van die reis als rechte lijn staan; het hele stuk tussen de twee stations wordt nu getekend',
     ],
   },
   {

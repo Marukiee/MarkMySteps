@@ -702,16 +702,24 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
   const to = req.body.to as { lng: number; lat: number };
 
   // Everything that sits on the timeline: the fixes, the photos, and the
-  // planned stops, which are the only anchors a trip nobody tracked has.
+  // planned stops, which are the only anchors a trip nobody tracked has. Which
+  // is which matters: a planned stop is a date at midnight, not a moment a
+  // train went past.
   const points = await dbByTrip<StoredPoint>('points', tripId);
-  const anchors: { t: number; lng: number; lat: number }[] = points.map((p) => ({
+  const anchors: { t: number; lng: number; lat: number; real: boolean }[] = points.map((p) => ({
     t: new Date(p.recordedAt).getTime(),
     lng: p.longitude,
     lat: p.latitude,
+    real: true,
   }));
   for (const m of await dbByTrip<StoredMedia>('media', tripId)) {
     if (m.latitude === null || m.longitude === null) continue;
-    anchors.push({ t: new Date(m.takenAt).getTime(), lng: m.longitude, lat: m.latitude });
+    anchors.push({
+      t: new Date(m.takenAt).getTime(),
+      lng: m.longitude,
+      lat: m.latitude,
+      real: true,
+    });
   }
   for (const stop of await dbByTrip<PlannedStop>('stops', tripId)) {
     if (stop.parentStopId || stop.latitude === null || stop.longitude === null) continue;
@@ -719,32 +727,60 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
       t: new Date(stop.arrivalDate).getTime(),
       lng: stop.longitude,
       lat: stop.latitude,
+      real: false,
     });
   }
   anchors.sort((a, b) => a.t - b.t);
   if (anchors.length < 2) throw new LocalNotFound('Er is nog geen route om aan te vullen');
 
+  const reach = (p: { lng: number; lat: number }, q: { lng: number; lat: number }) =>
+    haversineKm([p.lng, p.lat], [q.lng, q.lat]);
+
   // The gap that was pressed: the nearest consecutive pair that is a real
   // stretch of line rather than two fixes on the same street corner.
-  let best: { a: (typeof anchors)[number]; b: (typeof anchors)[number]; d: number } | null = null;
+  let cut = -1;
+  let nearest = Number.POSITIVE_INFINITY;
   for (let i = 1; i < anchors.length; i++) {
     const a = anchors[i - 1]!;
     const b = anchors[i]!;
-    if (haversineKm([a.lng, a.lat], [b.lng, b.lat]) < 2) continue;
-    const mid: [number, number] = [(a.lng + b.lng) / 2, (a.lat + b.lat) / 2];
-    const d = haversineKm([lng, lat], mid);
-    if (!best || d < best.d) best = { a, b, d };
+    if (reach(a, b) < 2) continue;
+    const d = reach({ lng, lat }, { lng: (a.lng + b.lng) / 2, lat: (a.lat + b.lat) / 2 });
+    if (d < nearest) {
+      nearest = d;
+      cut = i;
+    }
   }
-  if (!best) throw new LocalNotFound('Geen recht stuk in de buurt om aan te vullen');
+  if (cut === -1) throw new LocalNotFound('Geen recht stuk in de buurt om aan te vullen');
 
   // Which station it left from follows from the gap, not from the order the
   // two boxes were filled in.
-  const reach = (p: { lng: number; lat: number }, q: { lng: number; lat: number }) =>
-    haversineKm([p.lng, p.lat], [q.lng, q.lat]);
   const straight =
-    reach(best.a, from) + reach(best.b, to) <= reach(best.a, to) + reach(best.b, from);
+    reach(anchors[cut - 1]!, from) + reach(anchors[cut]!, to) <=
+    reach(anchors[cut - 1]!, to) + reach(anchors[cut]!, from);
   const dep = straight ? from : to;
   const arr = straight ? to : from;
+
+  // The whole ride, not the half of it that was pressed: a phone in a train is
+  // not perfectly silent, and one fix caught halfway cuts the journey into two
+  // straight stretches. The ends come from the stations instead, and whatever
+  // was caught in between is swallowed by the ride.
+  const span = Math.min(100, Math.max(35, reach(dep, arr) * 0.1));
+  let start = cut - 1;
+  for (let i = cut - 1; i >= 0; i--) {
+    if (reach(anchors[i]!, dep) <= span) {
+      start = i;
+      break;
+    }
+  }
+  let end = cut;
+  for (let i = cut; i < anchors.length; i++) {
+    if (reach(anchors[i]!, arr) <= span) {
+      end = i;
+      break;
+    }
+  }
+  const gapA = anchors[start]!;
+  const gapB = anchors[end]!;
 
   const url =
     `https://signal.eu.org/osm/eu/route/v1/train/` +
@@ -768,20 +804,52 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
   for (let i = 0; i < Math.min(150, rails.length); i++) inner.push(rails[Math.floor(i * step)]!);
   const line: [number, number][] = [[dep.lng, dep.lat], ...inner, [arr.lng, arr.lat]];
 
-  const drawn: StoredPoint[] = line.map((c, i) => ({
-    id: crypto.randomUUID(),
-    clientId: null,
-    tripId,
-    userId: LOCAL_USER.id,
-    recordedAt: new Date(
-      best!.a.t + ((i + 1) / (line.length + 1)) * (best!.b.t - best!.a.t),
-    ).toISOString(),
-    latitude: c[1],
-    longitude: c[0],
-    accuracy: null,
-    altitude: null,
-    source: 'ROUTE_FILL',
-  }));
+  // Spread along the line's own length, and pinned to any real fix caught
+  // inside the ride, so the drawn route passes that place at the hour the
+  // phone says it did.
+  const cum = [0];
+  for (let i = 1; i < line.length; i++) {
+    cum.push(cum[i - 1]! + haversineKm(line[i - 1]!, line[i]!));
+  }
+  const total = cum[cum.length - 1] || 1;
+  const pins: { at: number; t: number }[] = [{ at: 0, t: gapA.t }];
+  for (const fix of anchors.slice(start + 1, end).filter((p) => p.real)) {
+    let bestAt = 0;
+    let bestD = Number.POSITIVE_INFINITY;
+    line.forEach((c, i) => {
+      const d = haversineKm(c, [fix.lng, fix.lat]);
+      if (d < bestD) {
+        bestD = d;
+        bestAt = cum[i]!;
+      }
+    });
+    const last = pins[pins.length - 1]!;
+    if (bestAt > last.at && fix.t > last.t) pins.push({ at: bestAt, t: fix.t });
+  }
+  while (pins.length > 1 && pins[pins.length - 1]!.t >= gapB.t) pins.pop();
+  pins.push({ at: total, t: gapB.t });
+
+  const drawn: StoredPoint[] = line.map((c, i) => {
+    let k = 0;
+    while (k < pins.length - 2 && pins[k + 1]!.at < cum[i]!) k += 1;
+    const lo = pins[k]!;
+    const hi = pins[k + 1]!;
+    const t = lo.t + ((cum[i]! - lo.at) / (hi.at - lo.at || 1)) * (hi.t - lo.t);
+    return {
+      id: crypto.randomUUID(),
+      clientId: null,
+      tripId,
+      userId: LOCAL_USER.id,
+      recordedAt: new Date(
+        Math.min(gapB.t - 1, Math.max(gapA.t + 1, t)),
+      ).toISOString(),
+      latitude: c[1],
+      longitude: c[0],
+      accuracy: null,
+      altitude: null,
+      source: 'ROUTE_FILL',
+    };
+  });
   await dbPutMany('points', drawn);
   return { added: drawn.length };
 });

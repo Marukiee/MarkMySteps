@@ -328,14 +328,11 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
           id: `${fid}-line`,
           type: 'line',
           source: fid,
-          // The traveller's colour, dashed: travelled, but not recorded. Only
-          // a leg the plan calls a flight gets a grey bow.
-          paint: {
-            'line-color': colorForUser(userId),
-            'line-width': 2.5,
-            'line-dasharray': [2, 2],
-          },
-          layout: { 'line-cap': 'round' },
+          // Drawn like the line either side of it: a journey that happened is
+          // solid, whether or not the tracker was awake for it. Dashes are for
+          // what is still to come.
+          paint: { 'line-color': colorForUser(userId), 'line-width': 3 },
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
         });
       }
       if (flights.length > 0) {

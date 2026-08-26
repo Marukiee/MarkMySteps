@@ -322,7 +322,9 @@ export class TrackingService {
     lat: number,
   ): Promise<{ added: number }> {
     await this.trips.getForEditor(tripId, userId);
-    const gap = await this.findGap(tripId, userId, lng, lat);
+    const merged = await this.anchors(tripId, userId);
+    const cut = nearestGap(merged, lng, lat);
+    const gap = { a: merged[cut - 1]!, b: merged[cut]!, inner: [] as Anchor[] };
 
     const road = await osrmRoute([gap.a.lng, gap.a.lat], [gap.b.lng, gap.b.lat]);
     if (road.length < 3) {
@@ -357,15 +359,18 @@ export class TrackingService {
     to: { lng: number; lat: number },
   ): Promise<{ added: number }> {
     await this.trips.getForEditor(tripId, userId);
-    const gap = await this.findGap(tripId, userId, lng, lat);
+    const merged = await this.anchors(tripId, userId);
+    const cut = nearestGap(merged, lng, lat);
 
     // Which station the journey left from follows from the gap, not from which
     // box they were typed into: entering them the other way round would
     // otherwise cross the line over itself.
-    const straight =
-      segLenKm(gap.a, from) + segLenKm(gap.b, to) <= segLenKm(gap.a, to) + segLenKm(gap.b, from);
+    const a = merged[cut - 1]!;
+    const b = merged[cut]!;
+    const straight = segLenKm(a, from) + segLenKm(b, to) <= segLenKm(a, to) + segLenKm(b, from);
     const dep = straight ? from : to;
     const arr = straight ? to : from;
+    const gap = stationSpan(merged, cut, dep, arr);
 
     const rails = await railRoute([dep.lng, dep.lat], [arr.lng, arr.lat]);
     if (rails.length < 3) {
@@ -386,20 +391,15 @@ export class TrackingService {
   }
 
   /**
-   * The nearest real gap in the caller's own line to where they pressed.
+   * Everything of this traveller's that sits on the timeline, in order.
    *
-   * Both drawing gestures work the same way: find the straight stretch that
-   * was pressed, and hand back the two fixes that bracket it along with their
-   * times, so whatever is drawn in between lands on the timeline where the
-   * journey actually happened.
+   * The fixes and the geotagged photos are what actually happened; the planned
+   * stops are there so a trip nobody tracked still has two ends to draw
+   * between. Which is which matters later — a planned stop is a date, not a
+   * moment, and it must not be trusted to say when a train passed a place.
    */
-  private async findGap(
-    tripId: string,
-    userId: string,
-    lng: number,
-    lat: number,
-  ): Promise<{ a: Anchor; b: Anchor }> {
-    const rows = await this.prisma.$queryRaw<Anchor[]>`
+  private async anchors(tripId: string, userId: string): Promise<Anchor[]> {
+    const rows = await this.prisma.$queryRaw<{ t: Date; lat: number; lng: number }[]>`
       SELECT t, ST_Y(geom::geometry) AS lat, ST_X(geom::geometry) AS lng
       FROM (
         SELECT "recordedAt" AS t, geom FROM location_points
@@ -418,24 +418,14 @@ export class TrackingService {
     // start plus the nights before them — the same arithmetic the planner
     // shows — so they slot into the sequence where they belong.
     const planned = await this.plannedAnchors(tripId);
-    const merged = [...rows, ...planned].sort((a, b) => a.t.getTime() - b.t.getTime());
+    const merged: Anchor[] = [
+      ...rows.map((r) => ({ ...r, real: true })),
+      ...planned.map((p) => ({ ...p, real: false })),
+    ].sort((a, b) => a.t.getTime() - b.t.getTime());
     if (merged.length < 2) {
       throw new BadRequestException('Er is nog geen route om aan te vullen.');
     }
-
-    // Nearest consecutive pair whose segment is a real gap (> 1.5 km).
-    let best: { a: Anchor; b: Anchor; d: number } | null = null;
-    for (let i = 1; i < merged.length; i++) {
-      const a = merged[i - 1]!;
-      const b = merged[i]!;
-      if (segLenKm(a, b) < 1.5) continue;
-      const d = pointToSegKm({ lat, lng }, a, b);
-      if (!best || d < best.d) best = { a, b, d };
-    }
-    if (!best || best.d > 60) {
-      throw new BadRequestException('Geen recht stuk in de buurt om aan te vullen.');
-    }
-    return { a: best.a, b: best.b };
+    return merged;
   }
 
   /** Stores a drawn line as the stretch between two anchors, spread over the
@@ -443,16 +433,15 @@ export class TrackingService {
   private async storeFill(
     tripId: string,
     userId: string,
-    gap: { a: Anchor; b: Anchor },
+    gap: { a: Anchor; b: Anchor; inner: Anchor[] },
     line: [number, number][],
   ): Promise<{ added: number }> {
-    const tA = gap.a.t.getTime();
-    const tB = gap.b.t.getTime();
+    const times = spreadTimes(line, gap);
     const data = line.map((c, i) => ({
       tripId,
       userId,
       clientId: randomUUID(),
-      recordedAt: new Date(tA + ((i + 1) / (line.length + 1)) * (tB - tA)),
+      recordedAt: new Date(times[i]!),
       latitude: c[1],
       longitude: c[0],
       // Its own source so it can be removed separately, without touching real
@@ -770,7 +759,136 @@ function perpDistanceDeg(
 type Pt = { lat: number; lng: number };
 
 /** A point on the timeline a drawn stretch can hang off. */
-type Anchor = { t: Date; lat: number; lng: number };
+type Anchor = { t: Date; lat: number; lng: number; real: boolean };
+
+/** The stretch a drawing fills in: its two ends, and the real fixes inside it. */
+type Gap = { a: Anchor; b: Anchor; inner: Anchor[] };
+
+/**
+ * Which straight stretch of the line was pressed.
+ *
+ * Returns the index of the far end, so the pair is (merged[i - 1], merged[i]).
+ * Two fixes on the same street corner are not a stretch anybody means, so a
+ * gap has to be at least a kilometre and a half long to be offered.
+ */
+function nearestGap(merged: Anchor[], lng: number, lat: number): number {
+  let best: { i: number; d: number } | null = null;
+  for (let i = 1; i < merged.length; i++) {
+    const a = merged[i - 1]!;
+    const b = merged[i]!;
+    if (segLenKm(a, b) < 1.5) continue;
+    const d = pointToSegKm({ lat, lng }, a, b);
+    if (!best || d < best.d) best = { i, d };
+  }
+  if (!best || best.d > 60) {
+    throw new BadRequestException('Geen recht stuk in de buurt om aan te vullen.');
+  }
+  return best.i;
+}
+
+/**
+ * The whole train ride, not the half of it that was pressed.
+ *
+ * A phone in a train is not perfectly silent: somewhere past Zaragoza it
+ * catches one fix, and that single point cuts the journey into two straight
+ * stretches. Filling in the one that was pressed left the other standing, a
+ * long line running off to a spot in the middle of Aragon.
+ *
+ * So the ends are found from the stations instead: the last thing recorded
+ * near the platform you left from, and the first thing recorded near the one
+ * you got out at. Whatever the tracker caught in between belongs to the ride
+ * and is swallowed by it — kept, because it is real and it says when the train
+ * passed that place, but no longer an end of anything.
+ */
+function stationSpan(
+  merged: Anchor[],
+  cut: number,
+  dep: { lng: number; lat: number },
+  arr: { lng: number; lat: number },
+): Gap {
+  // City-sized, and a little more on a long ride: a station can sit well
+  // outside the centre, and the last fix before boarding is somewhere in town.
+  const reach = Math.min(100, Math.max(35, segLenKm(dep, arr) * 0.1));
+
+  let start = cut - 1;
+  for (let i = cut - 1; i >= 0; i--) {
+    if (segLenKm(merged[i]!, dep) <= reach) {
+      start = i;
+      break;
+    }
+  }
+  let end = cut;
+  for (let i = cut; i < merged.length; i++) {
+    if (segLenKm(merged[i]!, arr) <= reach) {
+      end = i;
+      break;
+    }
+  }
+  return {
+    a: merged[start]!,
+    b: merged[end]!,
+    // Only what was really recorded. A planned stop is a date at midnight, not
+    // a moment a train went past, and using it to time the drawn line would
+    // bunch the whole ride into the wrong half of the afternoon.
+    inner: merged.slice(start + 1, end).filter((p) => p.real),
+  };
+}
+
+/**
+ * When each point of a drawn line was passed.
+ *
+ * Spread along the line's own length rather than by counting points, so a
+ * stretch the router drew in fine detail does not appear to have taken longer
+ * than a straight one. Any real fix caught inside the stretch is a moment that
+ * is actually known, so the line is pinned to it: the times before it and
+ * after it are worked out separately, and the drawn route passes that place at
+ * the hour the phone says it did.
+ */
+function spreadTimes(line: [number, number][], gap: Gap): number[] {
+  const cum = [0];
+  for (let i = 1; i < line.length; i++) {
+    cum.push(cum[i - 1]! + segLenKm(pt(line[i - 1]!), pt(line[i]!)));
+  }
+  const total = cum[cum.length - 1] || 1;
+
+  // The moments that are known, in order along the line: the two ends, plus
+  // every real fix inside, placed where it comes closest to the drawn route.
+  const pins: { at: number; t: number }[] = [{ at: 0, t: gap.a.t.getTime() }];
+  for (const fix of gap.inner) {
+    let best = { i: 0, d: Number.POSITIVE_INFINITY };
+    for (let i = 0; i < line.length; i++) {
+      const d = segLenKm(pt(line[i]!), fix);
+      if (d < best.d) best = { i, d };
+    }
+    const at = cum[best.i]!;
+    const t = fix.t.getTime();
+    const last = pins[pins.length - 1]!;
+    // Only if it moves both the place and the clock forward — a fix that says
+    // the train was in two places at once is not something to pin to.
+    if (at > last.at && t > last.t) pins.push({ at, t });
+  }
+  const endT = gap.b.t.getTime();
+  while (pins.length > 1 && pins[pins.length - 1]!.t >= endT) pins.pop();
+  pins.push({ at: total, t: endT });
+
+  const first = gap.a.t.getTime();
+  return cum.map((at) => {
+    let k = 0;
+    while (k < pins.length - 2 && pins[k + 1]!.at < at) k += 1;
+    const lo = pins[k]!;
+    const hi = pins[k + 1]!;
+    const span = hi.at - lo.at || 1;
+    const t = lo.t + ((at - lo.at) / span) * (hi.t - lo.t);
+    // Strictly between the two ends: a drawn point sharing a timestamp with the
+    // fix it hangs off leaves the order of the two of them to chance.
+    return Math.min(endT - 1, Math.max(first + 1, t));
+  });
+}
+
+/** A drawn [lng,lat] as the {lat,lng} the distance helpers speak. */
+function pt(c: [number, number]): Pt {
+  return { lng: c[0], lat: c[1] };
+}
 
 /** Local equirectangular scale (km per degree) around a latitude. */
 function scale(lat: number): [number, number] {
