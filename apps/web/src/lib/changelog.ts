@@ -36,6 +36,7 @@ export const CHANGELOG: ChangeEntry[] = [
       'De stations vullen zichzelf in als je vanuit een treinleg tekent, en hoofdstations staan bovenaan met een label erbij',
     ],
     better: [
+      'Een lijn ingedrukt houden geeft nu meteen een tikje en het menu komt direct; de optie om een getekend stuk te wissen valt erbij zodra de server antwoordt, in plaats van dat het hele menu erop wacht',
       'Houd je een treinleg ingedrukt, dan is \u201cTreinroute tekenen\u201d meteen de voorgestelde keuze in plaats van de route over de weg',
       'De stationvelden zien eruit als de andere invulvelden, en de suggesties hangen erover heen in plaats van de rest naar beneden te duwen',
       'Tik je een gevonden station aan om het te veranderen, dan staat de cursor er meteen in met de naam geselecteerd; je hoefde er eerst twee keer op te drukken',

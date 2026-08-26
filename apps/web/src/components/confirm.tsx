@@ -127,6 +127,15 @@ export function chooseModal(options: {
   title: string;
   body?: string;
   choices: ChoiceOption[];
+  /**
+   * Choices that depend on an answer from the server.
+   *
+   * The dialog opens on what is already known and these drop in underneath
+   * when they arrive. Waiting for the round trip before showing anything made
+   * a long press feel like a press that had not registered, and people pressed
+   * again.
+   */
+  more?: Promise<ChoiceOption[]>;
   cancelLabel?: string;
 }): Promise<string | null> {
   return new Promise((resolve) => {
@@ -150,11 +159,21 @@ function ChoiceDialog({
     title: string;
     body?: string;
     choices: ChoiceOption[];
+    more?: Promise<ChoiceOption[]>;
     cancelLabel?: string;
   };
   onDone: (r: string | null) => void;
 }) {
   const [closing, setClosing] = useState(false);
+  const [late, setLate] = useState<ChoiceOption[]>([]);
+
+  useEffect(() => {
+    let live = true;
+    options.more?.then((extra) => live && setLate(extra)).catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [options.more]);
 
   const close = (result: string | null) => {
     setClosing(true);
@@ -181,13 +200,13 @@ function ChoiceDialog({
         <h3>{options.title}</h3>
         {options.body && <p className="muted">{options.body}</p>}
         <div className="choice-list">
-          {options.choices.map((choice) => (
+          {[...options.choices, ...late].map((choice) => (
             <button
               key={choice.id}
               type="button"
               className={`choice-btn ${choice.primary ? 'primary' : ''} ${
                 choice.danger ? 'danger' : ''
-              }`}
+              } ${late.includes(choice) ? 'late' : ''}`}
               onClick={() => close(choice.id)}
             >
               <span className="choice-label">{choice.label}</span>

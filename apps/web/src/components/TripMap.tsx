@@ -14,6 +14,7 @@ import {
   groundRuns,
 } from '../lib/mapRoute';
 import { colorForUser, formatDate, formatDateRange } from '../lib/colors';
+import { haptic } from '../lib/haptics';
 import { useNow } from '../lib/lastSeen';
 import './tripmap.css';
 import { paintMarker } from './Flag';
@@ -289,8 +290,12 @@ export function TripMap({
       lpTimer = window.setTimeout(() => {
         const rect = container.getBoundingClientRect();
         const p = map.unproject([t.clientX - rect.left, t.clientY - rect.top]);
+        // The press landed, said with a buzz before anything is fetched. What
+        // opens next may have to wait on the network, and without this the
+        // wait reads as a press that did not take.
+        haptic('long-press');
         longPressRef.current?.({ lng: p.lng, lat: p.lat });
-      }, 600);
+      }, 420);
     };
     const onTouchMove = (ev: TouchEvent) => {
       if (!lpStart) return;

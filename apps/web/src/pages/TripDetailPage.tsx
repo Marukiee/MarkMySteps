@@ -506,7 +506,10 @@ export function TripDetailPage() {
   const handleLongPress = useCallback(
     async (lngLat: { lng: number; lat: number }) => {
       if (!tripId || tab === 'plan' || !canEdit) return;
-      const onDrawn = await api<{ near: boolean }>(
+      // Asked for, not waited for. Whether an auto-drawn stretch sits here is
+      // the one thing only the server knows, and holding the menu shut until
+      // it answered made a long press feel like it had not registered.
+      const onDrawn = api<{ near: boolean }>(
         `/trips/${tripId}/route-fill/near?lng=${lngLat.lng}&lat=${lngLat.lat}`,
       ).catch(() => ({ near: false }));
       const leg = nearestLeg(stops, lngLat);
@@ -516,31 +519,35 @@ export function TripDetailPage() {
       const byTrain = leg?.travelMode === 'TRAIN';
 
       const choices: ChoiceOption[] = [];
-      if (!onDrawn.near) {
-        const draw: ChoiceOption = {
-          id: 'draw',
-          label: 'Route via wegen tekenen',
-          hint: 'Vult het dichtstbijzijnde rechte stuk aan via de snelste weg.',
-          primary: !byTrain,
-        };
-        const train: ChoiceOption = {
-          id: 'train',
-          label: 'Treinroute tekenen',
-          hint: byTrain
-            ? `De leg naar ${leg!.name} gaat met de trein. Kies je begin- en eindstation.`
-            : 'Voor een treinreis zonder signaal: kies je begin- en eindstation.',
-          primary: byTrain,
-        };
-        choices.push(...(byTrain ? [train, draw] : [draw, train]));
-      }
-      if (onDrawn.near) {
-        choices.push({
-          id: 'undraw',
-          label: 'Getekende route wissen',
-          hint: 'Alleen dit automatisch getekende stuk. Je eigen GPS blijft staan.',
-          danger: true,
-        });
-      }
+      const draw: ChoiceOption = {
+        id: 'draw',
+        label: 'Route via wegen tekenen',
+        hint: 'Vult het dichtstbijzijnde rechte stuk aan via de snelste weg.',
+        primary: !byTrain,
+      };
+      const train: ChoiceOption = {
+        id: 'train',
+        label: 'Treinroute tekenen',
+        hint: byTrain
+          ? `De leg naar ${leg!.name} gaat met de trein. Kies je begin- en eindstation.`
+          : 'Voor een treinreis zonder signaal: kies je begin- en eindstation.',
+        primary: byTrain,
+      };
+      choices.push(...(byTrain ? [train, draw] : [draw, train]));
+      // Only offered where there is something to wipe, so it comes in with the
+      // server's answer rather than holding the whole menu up for it.
+      const more = onDrawn.then(({ near }) =>
+        near
+          ? [
+              {
+                id: 'undraw',
+                label: 'Getekende route wissen',
+                hint: 'Alleen dit automatisch getekende stuk. Je eigen GPS blijft staan.',
+                danger: true,
+              },
+            ]
+          : [],
+      );
       if (leg) {
         choices.push(
           leg.hideLeg
@@ -563,6 +570,7 @@ export function TripDetailPage() {
         title: 'Deze lijn',
         body: 'Wat wil je met het stuk route dat je ingedrukt hield?',
         choices,
+        more,
       });
       if (!picked) return;
 
