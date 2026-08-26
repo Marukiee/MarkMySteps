@@ -38,6 +38,7 @@ export const CHANGELOG: ChangeEntry[] = [
     better: [
       'Houd je een treinleg ingedrukt, dan is \u201cTreinroute tekenen\u201d meteen de voorgestelde keuze in plaats van de route over de weg',
       'De stationvelden zien eruit als de andere invulvelden, en de suggesties hangen erover heen in plaats van de rest naar beneden te duwen',
+      'Tik je een gevonden station aan om het te veranderen, dan staat de cursor er meteen in met de naam geselecteerd; je hoefde er eerst twee keer op te drukken',
     ],
     fixed: [
       'Een gestippelde boog komt er alleen nog als er in de route ook echt een vlucht staat; een lang stuk zonder signaal, zoals een sneltrein of een tunnel, blijft een gewone lijn over de grond',

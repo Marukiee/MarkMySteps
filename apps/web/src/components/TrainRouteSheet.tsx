@@ -178,6 +178,20 @@ function StationField({
   const [open, setOpen] = useState(false);
   const abort = useRef<AbortController | null>(null);
   const box = useRef<HTMLDivElement | null>(null);
+  const input = useRef<HTMLInputElement | null>(null);
+  // Set when the picked station is cleared, so the box that takes its place is
+  // ready to type in. One press to change it, not two.
+  const [grabFocus, setGrabFocus] = useState(false);
+
+  useEffect(() => {
+    if (value || !grabFocus) return;
+    input.current?.focus();
+    input.current?.select();
+    // Whatever was found for this field is still worth showing: the other
+    // stations of that city are usually what you are reaching for.
+    if (results.length > 0) setOpen(true);
+    setGrabFocus(false);
+  }, [value, grabFocus, results.length]);
 
   // The station the leg already implies, found and picked before anybody types
   // anything. Runs once: after that the field belongs to whoever is using it.
@@ -254,7 +268,18 @@ function StationField({
 
       {value ? (
         // Picked: the box reads back as the station, and one tap changes it.
-        <button type="button" className="train-picked" onClick={() => onPick(null)}>
+        <button
+          type="button"
+          className="train-picked"
+          onClick={() => {
+            // The name it had, selected: type over it, or edit it. An empty box
+            // would throw away the one thing you already had.
+            setQuery(value.name);
+            onType(value.name);
+            onPick(null);
+            setGrabFocus(true);
+          }}
+        >
           <Icon name="train" size={16} />
           <span className="train-picked-name">
             <strong>
@@ -269,6 +294,7 @@ function StationField({
         <div className="train-input">
           <input
             id={id}
+            ref={input}
             type="text"
             autoComplete="off"
             /* The label again, not an example station: a grey "Madrid Atocha"
