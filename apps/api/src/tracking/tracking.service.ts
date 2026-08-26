@@ -817,11 +817,16 @@ function nearestGap(merged: Anchor[], lng: number, lat: number): number {
  * stretches. Filling in the one that was pressed left the other standing, a
  * long line running off to a spot in the middle of Aragon.
  *
- * So the ends are found from the stations instead: the last thing recorded
- * near the platform you left from, and the first thing recorded near the one
- * you got out at. Whatever the tracker caught in between belongs to the ride
- * and is swallowed by it — kept, because it is real and it says when the train
- * passed that place, but no longer an end of anything.
+ * So the ends are found from the stations instead. From the press, the line is
+ * walked outwards for as long as each step gets closer to the platform it is
+ * heading for, and stopped where it starts moving away again. That point is
+ * the last moment you were at the station, and everything past it is the ride.
+ *
+ * It is done by getting warmer rather than by a radius, because a radius has to
+ * be guessed and guesses it wrong both ways: too small and the last fix before
+ * boarding falls outside it, leaving half the straight line standing; too big
+ * and it reaches back into the day before. Getting warmer needs no number, and
+ * it stops of its own accord at the right place.
  */
 function stationSpan(
   merged: Anchor[],
@@ -829,23 +834,19 @@ function stationSpan(
   dep: { lng: number; lat: number },
   arr: { lng: number; lat: number },
 ): Gap {
-  // City-sized, and a little more on a long ride: a station can sit well
-  // outside the centre, and the last fix before boarding is somewhere in town.
-  const reach = Math.min(100, Math.max(35, segLenKm(dep, arr) * 0.1));
+  // A step has to be a real improvement; without this, GPS noise around one
+  // spot decides the answer.
+  const CLOSER_KM = 0.5;
 
   let start = cut - 1;
-  for (let i = cut - 1; i >= 0; i--) {
-    if (segLenKm(merged[i]!, dep) <= reach) {
-      start = i;
-      break;
-    }
+  for (let i = start - 1; i >= 0; i--) {
+    if (segLenKm(merged[i]!, dep) > segLenKm(merged[start]!, dep) - CLOSER_KM) break;
+    start = i;
   }
   let end = cut;
-  for (let i = cut; i < merged.length; i++) {
-    if (segLenKm(merged[i]!, arr) <= reach) {
-      end = i;
-      break;
-    }
+  for (let i = end + 1; i < merged.length; i++) {
+    if (segLenKm(merged[i]!, arr) > segLenKm(merged[end]!, arr) - CLOSER_KM) break;
+    end = i;
   }
   return { a: merged[start]!, b: merged[end]!, inner: merged.slice(start + 1, end) };
 }

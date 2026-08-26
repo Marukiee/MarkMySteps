@@ -55,8 +55,11 @@ export function legIsRecorded(
     Math.hypot((a[0] - b[0]) * kx, (a[1] - b[1]) * ky);
   // City-sized: a fix anywhere in or around the place counts as "you were
   // here", and on a long leg a little more slack, because a stop's coordinate
-  // is the city centre and the station may be well outside it.
-  const reachKm = Math.min(35, Math.max(12, distKm(from, to) * 0.12));
+  // is the city centre and the station may be well outside it. The ceiling used
+  // to be 35 km, which is smaller than that slack was ever allowed to grow —
+  // and on a leg drawn over the rails it left the planned line lying on top of
+  // the route that had just replaced it.
+  const reachKm = Math.min(60, Math.max(12, distKm(from, to) * 0.12));
 
   let atFrom = false;
   let atTo = false;

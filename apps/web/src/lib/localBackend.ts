@@ -763,22 +763,20 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
 
   // The whole ride, not the half of it that was pressed: a phone in a train is
   // not perfectly silent, and one fix caught halfway cuts the journey into two
-  // straight stretches. The ends come from the stations instead, and whatever
-  // was caught in between is swallowed by the ride.
-  const span = Math.min(100, Math.max(35, reach(dep, arr) * 0.1));
+  // straight stretches. From the press the line is walked outwards for as long
+  // as each step gets closer to the platform it is heading for, and stopped
+  // where it starts moving away again — the last moment you were at the
+  // station. Everything past that belongs to the ride.
+  const CLOSER_KM = 0.5;
   let start = cut - 1;
-  for (let i = cut - 1; i >= 0; i--) {
-    if (reach(anchors[i]!, dep) <= span) {
-      start = i;
-      break;
-    }
+  for (let i = start - 1; i >= 0; i--) {
+    if (reach(anchors[i]!, dep) > reach(anchors[start]!, dep) - CLOSER_KM) break;
+    start = i;
   }
   let end = cut;
-  for (let i = cut; i < anchors.length; i++) {
-    if (reach(anchors[i]!, arr) <= span) {
-      end = i;
-      break;
-    }
+  for (let i = end + 1; i < anchors.length; i++) {
+    if (reach(anchors[i]!, arr) > reach(anchors[end]!, arr) - CLOSER_KM) break;
+    end = i;
   }
   const gapA = anchors[start]!;
   const gapB = anchors[end]!;

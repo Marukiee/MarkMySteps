@@ -45,6 +45,7 @@ export const CHANGELOG: ChangeEntry[] = [
       'Een stuk route zonder signaal is een gewone doorgetrokken lijn; gestippeld is alleen nog wat nog moet komen',
       '\u00c9\u00e9n losse gps-fix midden in een treinreis liet de helft van die reis als rechte lijn staan; het hele stuk tussen de twee stations wordt nu getekend, en die losse fix maakt plaats voor het spoor in plaats van er een piek in te trekken',
       'De knop \u201cRoute tekenen\u201d werkt ook als je de gevonden stations niet zelf uit de lijst hebt aangetikt',
+      'Na het tekenen van een treinroute bleef soms een stuk van de oude rechte lijn staan; het hele stuk tussen de twee stations wordt nu vervangen',
       'De grijze tekst in de stationvelden zegt nu \u201cVertrekstation\u201d en \u201cAankomststation\u201d, in plaats van een voorbeeldstation dat eruitzag alsof het al ingevuld was',
     ],
   },
