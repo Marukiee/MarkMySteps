@@ -387,6 +387,20 @@ export class TrackingService {
       ...downsample(rails, 150),
       [arr.lng, arr.lat],
     ];
+    // Whatever the tracker caught mid-ride goes.
+    //
+    // It used to be kept and used to time the drawn line, on the grounds that
+    // it is real. But one fix out of a tunnel is nowhere near the track the
+    // router draws, and a line ordered by time then runs out to it and back: a
+    // spike across half a province, which is the thing this gesture exists to
+    // get rid of. The rails are the better answer for that stretch, so the
+    // stretch is theirs. Photos are never touched — a picture out of the window
+    // is a place somebody stood, and the drawn line is timed to pass it.
+    if (gap.inner.some((p) => p.kind === 'fix')) {
+      await this.prisma.locationPoint.deleteMany({
+        where: { tripId, userId, recordedAt: { gt: gap.a.t, lt: gap.b.t } },
+      });
+    }
     return this.storeFill(tripId, userId, gap, line);
   }
 
@@ -399,13 +413,15 @@ export class TrackingService {
    * moment, and it must not be trusted to say when a train passed a place.
    */
   private async anchors(tripId: string, userId: string): Promise<Anchor[]> {
-    const rows = await this.prisma.$queryRaw<{ t: Date; lat: number; lng: number }[]>`
-      SELECT t, ST_Y(geom::geometry) AS lat, ST_X(geom::geometry) AS lng
+    const rows = await this.prisma.$queryRaw<
+      { t: Date; lat: number; lng: number; kind: 'fix' | 'photo' }[]
+    >`
+      SELECT t, kind, ST_Y(geom::geometry) AS lat, ST_X(geom::geometry) AS lng
       FROM (
-        SELECT "recordedAt" AS t, geom FROM location_points
+        SELECT "recordedAt" AS t, geom, 'fix' AS kind FROM location_points
         WHERE "tripId" = ${tripId}::uuid AND "userId" = ${userId}::uuid
         UNION ALL
-        SELECT "takenAt" AS t, geom FROM media_refs
+        SELECT "takenAt" AS t, geom, 'photo' AS kind FROM media_refs
         WHERE "tripId" = ${tripId}::uuid AND "userId" = ${userId}::uuid AND geom IS NOT NULL
       ) x
       ORDER BY t
@@ -419,8 +435,8 @@ export class TrackingService {
     // shows — so they slot into the sequence where they belong.
     const planned = await this.plannedAnchors(tripId);
     const merged: Anchor[] = [
-      ...rows.map((r) => ({ ...r, real: true })),
-      ...planned.map((p) => ({ ...p, real: false })),
+      ...rows,
+      ...planned.map((p) => ({ ...p, kind: 'plan' as const })),
     ].sort((a, b) => a.t.getTime() - b.t.getTime());
     if (merged.length < 2) {
       throw new BadRequestException('Er is nog geen route om aan te vullen.');
@@ -758,8 +774,15 @@ function perpDistanceDeg(
 
 type Pt = { lat: number; lng: number };
 
-/** A point on the timeline a drawn stretch can hang off. */
-type Anchor = { t: Date; lat: number; lng: number; real: boolean };
+/**
+ * A point on the timeline a drawn stretch can hang off.
+ *
+ * Which kind it is decides what may be done with it. A `fix` is a moment the
+ * tracker recorded and a drawing may replace it; a `photo` is a place somebody
+ * stood and is never touched; a `plan` is a date at midnight, not a moment, and
+ * must not be trusted to say when a train passed anywhere.
+ */
+type Anchor = { t: Date; lat: number; lng: number; kind: 'fix' | 'photo' | 'plan' };
 
 /** The stretch a drawing fills in: its two ends, and the real fixes inside it. */
 type Gap = { a: Anchor; b: Anchor; inner: Anchor[] };
@@ -824,14 +847,7 @@ function stationSpan(
       break;
     }
   }
-  return {
-    a: merged[start]!,
-    b: merged[end]!,
-    // Only what was really recorded. A planned stop is a date at midnight, not
-    // a moment a train went past, and using it to time the drawn line would
-    // bunch the whole ride into the wrong half of the afternoon.
-    inner: merged.slice(start + 1, end).filter((p) => p.real),
-  };
+  return { a: merged[start]!, b: merged[end]!, inner: merged.slice(start + 1, end) };
 }
 
 /**
@@ -839,10 +855,10 @@ function stationSpan(
  *
  * Spread along the line's own length rather than by counting points, so a
  * stretch the router drew in fine detail does not appear to have taken longer
- * than a straight one. Any real fix caught inside the stretch is a moment that
- * is actually known, so the line is pinned to it: the times before it and
- * after it are worked out separately, and the drawn route passes that place at
- * the hour the phone says it did.
+ * than a straight one. A photograph taken inside the stretch is a place and a
+ * moment that are both known, so the line is pinned to it: the times before it
+ * and after it are worked out separately, and the drawn route passes that place
+ * at the hour the picture says it did.
  */
 function spreadTimes(line: [number, number][], gap: Gap): number[] {
   const cum = [0];
@@ -854,7 +870,7 @@ function spreadTimes(line: [number, number][], gap: Gap): number[] {
   // The moments that are known, in order along the line: the two ends, plus
   // every real fix inside, placed where it comes closest to the drawn route.
   const pins: { at: number; t: number }[] = [{ at: 0, t: gap.a.t.getTime() }];
-  for (const fix of gap.inner) {
+  for (const fix of gap.inner.filter((p) => p.kind === 'photo')) {
     let best = { i: 0, d: Number.POSITIVE_INFINITY };
     for (let i = 0; i < line.length; i++) {
       const d = segLenKm(pt(line[i]!), fix);

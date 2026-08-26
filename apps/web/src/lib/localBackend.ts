@@ -706,19 +706,20 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
   // is which matters: a planned stop is a date at midnight, not a moment a
   // train went past.
   const points = await dbByTrip<StoredPoint>('points', tripId);
-  const anchors: { t: number; lng: number; lat: number; real: boolean }[] = points.map((p) => ({
-    t: new Date(p.recordedAt).getTime(),
-    lng: p.longitude,
-    lat: p.latitude,
-    real: true,
-  }));
+  const anchors: { t: number; lng: number; lat: number; kind: 'fix' | 'photo' | 'plan' }[] =
+    points.map((p) => ({
+      t: new Date(p.recordedAt).getTime(),
+      lng: p.longitude,
+      lat: p.latitude,
+      kind: 'fix' as const,
+    }));
   for (const m of await dbByTrip<StoredMedia>('media', tripId)) {
     if (m.latitude === null || m.longitude === null) continue;
     anchors.push({
       t: new Date(m.takenAt).getTime(),
       lng: m.longitude,
       lat: m.latitude,
-      real: true,
+      kind: 'photo',
     });
   }
   for (const stop of await dbByTrip<PlannedStop>('stops', tripId)) {
@@ -727,7 +728,7 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
       t: new Date(stop.arrivalDate).getTime(),
       lng: stop.longitude,
       lat: stop.latitude,
-      real: false,
+      kind: 'plan',
     });
   }
   anchors.sort((a, b) => a.t - b.t);
@@ -782,6 +783,7 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
   const gapA = anchors[start]!;
   const gapB = anchors[end]!;
 
+
   const url =
     `https://signal.eu.org/osm/eu/route/v1/train/` +
     `${dep.lng},${dep.lat};${arr.lng},${arr.lat}?overview=full&geometries=geojson`;
@@ -795,6 +797,16 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
       'Kon geen spoorroute tussen die stations vinden. Buiten Europa kent de spoorkaart geen route.',
     );
   }
+
+  // Whatever the tracker caught mid-ride goes: one fix out of a tunnel sits
+  // nowhere near the track, and a line ordered by time runs out to it and back.
+  // Photos stay — a picture out of the window is a place somebody stood. Only
+  // once there is a route to put there instead.
+  const swallowed = points.filter((p) => {
+    const t = new Date(p.recordedAt).getTime();
+    return t > gapA.t && t < gapB.t;
+  });
+  if (swallowed.length > 0) await dbDeleteMany('points', swallowed.map((p) => p.id));
 
   // Thinned out, and with the stations themselves on either end so the drawn
   // stretch joins the line before and after the train instead of floating
@@ -813,7 +825,7 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
   }
   const total = cum[cum.length - 1] || 1;
   const pins: { at: number; t: number }[] = [{ at: 0, t: gapA.t }];
-  for (const fix of anchors.slice(start + 1, end).filter((p) => p.real)) {
+  for (const fix of anchors.slice(start + 1, end).filter((p) => p.kind === 'photo')) {
     let bestAt = 0;
     let bestD = Number.POSITIVE_INFINITY;
     line.forEach((c, i) => {

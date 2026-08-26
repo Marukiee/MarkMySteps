@@ -40,15 +40,41 @@ export function TrainRouteSheet({
   const sheet = useSheetDismiss(onClose);
   const [from, setFrom] = useState<Station | null>(null);
   const [to, setTo] = useState<Station | null>(null);
+  // What is typed in a box that has not been picked from yet, so pressing the
+  // button can still make sense of it.
+  const [fromText, setFromText] = useState('');
+  const [toText, setToText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Pressing the button means what it says.
+   *
+   * It used to sit there greyed out until both boxes had been picked from a
+   * list, which reads as a button that does not work — especially when a box
+   * looks filled in already. So: whatever is typed and not yet picked is looked
+   * up now, and if a box is genuinely empty the sheet says which one instead of
+   * saying nothing at all.
+   */
   const draw = async () => {
-    if (!from || !to || busy) return;
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
-      await onDraw(from, to);
+      const dep = from ?? (await resolve(fromText));
+      const arr = to ?? (await resolve(toText));
+      if (!dep || !arr) {
+        setError(
+          !dep && !arr
+            ? 'Vul allebei de stations in.'
+            : `Vul nog een ${!dep ? 'vertrekstation' : 'aankomststation'} in.`,
+        );
+        setBusy(false);
+        return;
+      }
+      if (!from) setFrom(dep);
+      if (!to) setTo(arr);
+      await onDraw(dep, arr);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Dat lukte niet');
       setBusy(false);
@@ -73,23 +99,25 @@ export function TrainRouteSheet({
         <p className="muted layer-hint">
           In de trein heeft je telefoon vaak geen signaal. Zeg van welk station naar welk station je
           ging, dan tekent hij het spoor ertussen en sluit hij het aan op je route ervoor en erna.
+          Losse fixes die je onderweg toch opving, maken plaats voor het spoor. Je foto&apos;s
+          blijven staan.
         </p>
 
         <StationField
           id="train-from"
           label="Vertrekstation"
-          placeholder="Madrid Atocha"
           city={prefill?.from}
           value={from}
           onPick={setFrom}
+          onType={setFromText}
         />
         <StationField
           id="train-to"
           label="Aankomststation"
-          placeholder="Barcelona Sants"
           city={prefill?.to}
           value={to}
           onPick={setTo}
+          onType={setToText}
         />
 
         {error && <p className="error-text train-error">{error}</p>}
@@ -98,18 +126,22 @@ export function TrainRouteSheet({
           <button type="button" className="btn btn-ghost" onClick={onClose}>
             Annuleren
           </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!from || !to || busy}
-            onClick={draw}
-          >
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={draw}>
             {busy ? 'Tekenen…' : 'Route tekenen'}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+/** The best station for a typed name, for a box that was never picked from. */
+async function resolve(text: string): Promise<Station | null> {
+  if (text.trim().length < 2) return null;
+  const [best] = await searchStations(text).catch(() => []);
+  return best
+    ? { name: best.name, region: best.region, latitude: best.latitude, longitude: best.longitude }
+    : null;
 }
 
 /**
@@ -126,18 +158,19 @@ export function TrainRouteSheet({
 function StationField({
   id,
   label,
-  placeholder,
   city,
   value,
   onPick,
+  onType,
 }: {
   id: string;
   label: string;
-  placeholder: string;
   /** Looked up on open, and the best station of it is picked straight away. */
   city?: string;
   value: Station | null;
   onPick: (station: Station | null) => void;
+  /** What is typed here, so the button can look it up if it was never picked. */
+  onType: (text: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<StationSuggestion[]>([]);
@@ -164,6 +197,12 @@ function StationField({
             latitude: best.latitude,
             longitude: best.longitude,
           });
+        } else {
+          // No station under that name. The place itself is still the best
+          // start anybody has, so it goes in the box rather than leaving it
+          // empty and the search to be typed out from scratch.
+          setQuery(city);
+          onType(city);
         }
       })
       .catch(() => undefined)
@@ -232,9 +271,14 @@ function StationField({
             id={id}
             type="text"
             autoComplete="off"
-            placeholder={placeholder}
+            /* The label again, not an example station: a grey "Madrid Atocha"
+               reads as something already filled in rather than as a hint. */
+            placeholder={label}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              onType(e.target.value);
+            }}
             onFocus={() => results.length > 0 && setOpen(true)}
           />
           {/* Inside the box, so nothing below it moves while it thinks. */}
