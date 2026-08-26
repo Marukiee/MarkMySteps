@@ -322,8 +322,84 @@ export class TrackingService {
     lat: number,
   ): Promise<{ added: number }> {
     await this.trips.getForEditor(tripId, userId);
+    const gap = await this.findGap(tripId, userId, lng, lat);
 
-    const rows = await this.prisma.$queryRaw<{ t: Date; lat: number; lng: number }[]>`
+    const road = await osrmRoute([gap.a.lng, gap.a.lat], [gap.b.lng, gap.b.lat]);
+    if (road.length < 3) {
+      throw new BadRequestException('Kon geen route over de weg vinden.');
+    }
+
+    // Keep only the intermediate vertices, and cap them so a long motorway
+    // route never inserts thousands of points (which would choke the map).
+    return this.storeFill(tripId, userId, gap, downsample(road.slice(1, -1), 120));
+  }
+
+  /**
+   * The same gesture, over rails.
+   *
+   * A train is where the tracker gives up: a tunnel under the Pyrenees, a
+   * steel carriage at three hundred an hour, and the line comes back an hour
+   * later half a country away. The road router is no use — it would send the
+   * route down the motorway alongside — so the two stations are asked for by
+   * hand and the stretch between them is routed over real track.
+   *
+   * The stations are drawn into the line themselves, so the result runs from
+   * the last fix before the train straight to the platform, along the rails,
+   * and out of the far station to wherever the tracker picked up again. One
+   * connected line, not a rail line floating loose beside the journey.
+   */
+  async fillTrainRoute(
+    tripId: string,
+    userId: string,
+    lng: number,
+    lat: number,
+    from: { lng: number; lat: number },
+    to: { lng: number; lat: number },
+  ): Promise<{ added: number }> {
+    await this.trips.getForEditor(tripId, userId);
+    const gap = await this.findGap(tripId, userId, lng, lat);
+
+    // Which station the journey left from follows from the gap, not from which
+    // box they were typed into: entering them the other way round would
+    // otherwise cross the line over itself.
+    const straight =
+      segLenKm(gap.a, from) + segLenKm(gap.b, to) <= segLenKm(gap.a, to) + segLenKm(gap.b, from);
+    const dep = straight ? from : to;
+    const arr = straight ? to : from;
+
+    const rails = await railRoute([dep.lng, dep.lat], [arr.lng, arr.lat]);
+    if (rails.length < 3) {
+      throw new BadRequestException(
+        'Kon geen spoorroute tussen die stations vinden. Buiten Europa kent de spoorkaart geen route.',
+      );
+    }
+
+    // The stations themselves bracket the rails, so the line joins the track
+    // either side of the gap instead of starting at whatever bit of rail the
+    // router snapped to.
+    const line: [number, number][] = [
+      [dep.lng, dep.lat],
+      ...downsample(rails, 150),
+      [arr.lng, arr.lat],
+    ];
+    return this.storeFill(tripId, userId, gap, line);
+  }
+
+  /**
+   * The nearest real gap in the caller's own line to where they pressed.
+   *
+   * Both drawing gestures work the same way: find the straight stretch that
+   * was pressed, and hand back the two fixes that bracket it along with their
+   * times, so whatever is drawn in between lands on the timeline where the
+   * journey actually happened.
+   */
+  private async findGap(
+    tripId: string,
+    userId: string,
+    lng: number,
+    lat: number,
+  ): Promise<{ a: Anchor; b: Anchor }> {
+    const rows = await this.prisma.$queryRaw<Anchor[]>`
       SELECT t, ST_Y(geom::geometry) AS lat, ST_X(geom::geometry) AS lng
       FROM (
         SELECT "recordedAt" AS t, geom FROM location_points
@@ -348,7 +424,7 @@ export class TrackingService {
     }
 
     // Nearest consecutive pair whose segment is a real gap (> 1.5 km).
-    let best: { a: (typeof merged)[number]; b: (typeof merged)[number]; d: number } | null = null;
+    let best: { a: Anchor; b: Anchor; d: number } | null = null;
     for (let i = 1; i < merged.length; i++) {
       const a = merged[i - 1]!;
       const b = merged[i]!;
@@ -359,22 +435,24 @@ export class TrackingService {
     if (!best || best.d > 60) {
       throw new BadRequestException('Geen recht stuk in de buurt om aan te vullen.');
     }
+    return { a: best.a, b: best.b };
+  }
 
-    const road = await osrmRoute([best.a.lng, best.a.lat], [best.b.lng, best.b.lat]);
-    if (road.length < 3) {
-      throw new BadRequestException('Kon geen route over de weg vinden.');
-    }
-
-    // Keep only the intermediate vertices, and cap them so a long motorway
-    // route never inserts thousands of points (which would choke the map).
-    const tA = best.a.t.getTime();
-    const tB = best.b.t.getTime();
-    const inner = downsample(road.slice(1, -1), 120);
-    const data = inner.map((c, i) => ({
+  /** Stores a drawn line as the stretch between two anchors, spread over the
+   *  time the journey took. */
+  private async storeFill(
+    tripId: string,
+    userId: string,
+    gap: { a: Anchor; b: Anchor },
+    line: [number, number][],
+  ): Promise<{ added: number }> {
+    const tA = gap.a.t.getTime();
+    const tB = gap.b.t.getTime();
+    const data = line.map((c, i) => ({
       tripId,
       userId,
       clientId: randomUUID(),
-      recordedAt: new Date(tA + ((i + 1) / (inner.length + 1)) * (tB - tA)),
+      recordedAt: new Date(tA + ((i + 1) / (line.length + 1)) * (tB - tA)),
       latitude: c[1],
       longitude: c[0],
       // Its own source so it can be removed separately, without touching real
@@ -691,6 +769,9 @@ function perpDistanceDeg(
 
 type Pt = { lat: number; lng: number };
 
+/** A point on the timeline a drawn stretch can hang off. */
+type Anchor = { t: Date; lat: number; lng: number };
+
 /** Local equirectangular scale (km per degree) around a latitude. */
 function scale(lat: number): [number, number] {
   return [111.32 * Math.cos((lat * Math.PI) / 180), 110.57];
@@ -727,6 +808,29 @@ async function osrmRoute(
     `${a[0]},${a[1]};${b[0]},${b[1]}?overview=simplified&geometries=geojson`;
   const res = await fetch(url, { signal: AbortSignal.timeout(12_000) });
   if (!res.ok) return [];
+  const json = (await res.json()) as {
+    routes?: { geometry?: { coordinates?: [number, number][] } }[];
+  };
+  return json.routes?.[0]?.geometry?.coordinates ?? [];
+}
+
+/**
+ * Keyless rail routing over the OSM track network (public train-profile OSRM
+ * at signal.eu.org). Returns the rail polyline as [lng,lat][].
+ *
+ * Europe only — that is the only region the service publishes — so anything
+ * outside it comes back empty and the caller says so rather than drawing a
+ * line down a motorway and calling it a train.
+ */
+async function railRoute(
+  a: [number, number],
+  b: [number, number],
+): Promise<[number, number][]> {
+  const url =
+    `https://signal.eu.org/osm/eu/route/v1/train/` +
+    `${a[0]},${a[1]};${b[0]},${b[1]}?overview=full&geometries=geojson`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) }).catch(() => null);
+  if (!res?.ok) return [];
   const json = (await res.json()) as {
     routes?: { geometry?: { coordinates?: [number, number][] } }[];
   };

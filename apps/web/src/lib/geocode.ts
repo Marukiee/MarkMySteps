@@ -63,6 +63,52 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
 }
 
 /**
+ * Railway stations by name, for drawing a train ride.
+ *
+ * The same geocoder, asked a narrower question: only things OSM tags as a
+ * station or a halt, so "Barcelona" offers Sants and França rather than the
+ * city itself. The city would put the drawn rails a few kilometres off the
+ * platform they actually left from.
+ */
+export async function searchStations(
+  query: string,
+  signal?: AbortSignal,
+): Promise<PlaceSuggestion[]> {
+  if (query.trim().length < 2) return [];
+  const url = new URL('https://photon.komoot.io/api/');
+  url.searchParams.set('q', query);
+  url.searchParams.set('limit', '8');
+  url.searchParams.set('lang', 'en');
+  url.searchParams.append('osm_tag', 'railway:station');
+  url.searchParams.append('osm_tag', 'railway:halt');
+
+  const res = await fetch(url, { signal });
+  if (!res.ok) return [];
+  const data = (await res.json()) as { features: PhotonFeature[] };
+
+  const seen = new Set<string>();
+  const suggestions: PlaceSuggestion[] = [];
+  for (const feature of data.features) {
+    const p = feature.properties;
+    if (!p.name) continue;
+    // Where a station sits says more than which province it is in: two
+    // "Centraal"s are told apart by their city, not by their country.
+    const region = [p.city ?? p.county, p.country].filter(Boolean).join(', ');
+    const key = `${p.name}|${region}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    suggestions.push({
+      name: p.name,
+      region,
+      countryCode: p.countrycode?.toUpperCase(),
+      latitude: feature.geometry.coordinates[1],
+      longitude: feature.geometry.coordinates[0],
+    });
+  }
+  return suggestions;
+}
+
+/**
  * Cached reverse lookups, so paging through a photo album doesn't hammer the
  * geocoder with the same coordinates. Keyed to ~1 km.
  *

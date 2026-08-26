@@ -90,3 +90,27 @@ export class RouteFillDto {
   @Max(180)
   lng: number;
 }
+
+/** One end of a train ride: the station itself, as picked from the search. */
+export class StationDto {
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  lat: number;
+
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  lng: number;
+}
+
+/** Drawing a train ride: the gap that was pressed, and the two stations. */
+export class TrainFillDto extends RouteFillDto {
+  @ValidateNested()
+  @Type(() => StationDto)
+  from: StationDto;
+
+  @ValidateNested()
+  @Type(() => StationDto)
+  to: StationDto;
+}

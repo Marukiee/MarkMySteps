@@ -12,8 +12,19 @@ import { buildLegs, flightArc, haversineKm, StopPoint, trimOutlierEnds } from '.
  * map the app shows.
  */
 
-/** A single-hop jump longer than this in a route line is treated as a flight. */
+/** A single-hop jump longer than this in a route line is a hole the tracker
+ *  left, whatever it was that made it. */
 export const FLIGHT_KM = 400;
+
+/**
+ * And this far is a hole nothing on the ground could have made.
+ *
+ * The plan says which legs were flown, and that is the answer wherever there is
+ * one. This is the backstop for a trip with no plan at all: no train or car
+ * covers eighteen hundred kilometres in a single unrecorded hop, so that one
+ * gets its arc without being asked.
+ */
+const INTERCONTINENTAL_KM = 1800;
 
 /**
  * Was this leg part of a journey that was actually recorded?
@@ -74,37 +85,58 @@ export function flightEndpoints(stops: StopPoint[]): { from: [number, number]; t
  * A tracker leaves a gap whenever it was off, and a flight leaves the biggest
  * gap of all. Drawn as one line, every one of those is a straight coloured
  * stripe across the map that says a journey happened where none was recorded.
+ *
+ * What bridges the gap depends on the plan, not on its length. Only a leg the
+ * route itself calls a flight gets an arc; a high-speed train through a tunnel
+ * leaves the same three-hundred-kilometre hole in the track and is still a
+ * journey over the ground, so it gets a straight dashed line instead of a bow
+ * over Spain.
  */
 export function splitTrack(
   coords: [number, number][],
   isFlightHop: (a: [number, number], b: [number, number]) => boolean,
-): { ground: [number, number][][]; flights: [number, number][][] } {
+): { ground: [number, number][][]; gaps: [number, number][][]; flights: [number, number][][] } {
   const ground: [number, number][][] = [];
+  const gaps: [number, number][][] = [];
   const flights: [number, number][][] = [];
   let run: [number, number][] = coords.length ? [coords[0]!] : [];
   for (let i = 1; i < coords.length; i++) {
     const a = coords[i - 1]!;
     const b = coords[i]!;
-    const longJump = haversineKm(a, b) > FLIGHT_KM;
+    const km = haversineKm(a, b);
     const explicit = isFlightHop(a, b);
-    if (longJump || explicit) {
+    if (km > FLIGHT_KM || explicit) {
       if (run.length >= 2) ground.push(run);
-      // A jump the plan already draws an arc over does not need a second one.
-      if (longJump && !explicit) flights.push(flightArc(a, b));
+      // A flight the plan knows about already has its arc drawn over it. A hole
+      // too big to be anything but a flight gets one here. Everything else is
+      // ground that nobody recorded: shown as it is, straight and dashed, so
+      // the line still runs from one end to the other.
+      if (explicit) {
+        // Nothing: the plan draws this one.
+      } else if (km > INTERCONTINENTAL_KM) {
+        flights.push(flightArc(a, b));
+      } else {
+        gaps.push([a, b]);
+      }
       run = [b];
     } else {
       run.push(b);
     }
   }
   if (run.length >= 2) ground.push(run);
-  return { ground, flights };
+  return { ground, gaps, flights };
 }
 
 /** The recorded track of one traveller, ready to draw. */
 export function groundRuns(
   coords: [number, number][],
   stops: StopPoint[],
-): { ground: [number, number][][]; flights: [number, number][][]; trimmed: [number, number][] } {
+): {
+  ground: [number, number][][];
+  gaps: [number, number][][];
+  flights: [number, number][][];
+  trimmed: [number, number][];
+} {
   // Trim a few stray home snaps (before leaving / after returning) so the route
   // doesn't run a long line from home to the first real stop.
   const trimmed = trimOutlierEnds(coords);

@@ -969,6 +969,35 @@
   min-width: 0;
 }
 
+/* "Draw the rails" on a train leg. Quiet by default: it is an offer, not the
+   thing the row is for, and it sits at the end of the line where the metric
+   leaves off. */
+.leg-rail-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+
+.leg-rail-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink-faint);
+}
+
+.leg-rail-btn svg {
+  color: var(--ink-faint);
+}
+
 /* Origin/destination picker on a standalone heen-/terugreis leg. */
 .leg-loc-pill {
   display: inline-flex;

@@ -1,0 +1,106 @@
+/* Drawing a train ride: two station boxes and the list each one searches. */
+.train-field {
+  display: grid;
+  gap: 0.3rem;
+  padding-top: 0.7rem;
+}
+
+.train-label {
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* Picked: the box becomes the answer, so the sheet reads back as a journey. */
+.train-picked {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+}
+
+.train-picked-name {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  line-height: 1.2;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.train-picked-region {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-faint);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.train-hint {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.train-results {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  list-style: none;
+  /* Eight stations is a long list on a phone; the sheet keeps its shape and
+     the list scrolls inside it. */
+  max-height: 13rem;
+  overflow-y: auto;
+}
+
+.train-result {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--ink);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+
+.train-result:hover {
+  background: var(--paper-sunken);
+}
+
+.train-result svg {
+  flex: 0 0 auto;
+  align-self: center;
+  color: var(--ink-faint);
+}
+
+.train-result-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.train-result-region {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+}
+
+.train-error {
+  margin: 0.7rem 0 0;
+}

@@ -11,6 +11,7 @@ import { Icon } from '../components/Icon';
 import { FastScroll } from '../components/FastScroll';
 import { Lightbox } from '../components/Lightbox';
 import { MapLayersSheet } from '../components/MapLayersSheet';
+import { TrainRouteSheet, type Station } from '../components/TrainRouteSheet';
 import { MembersPanel } from '../components/MembersPanel';
 import { PhotoBook } from '../components/PhotoBook';
 import { SharePanel } from '../components/SharePanel';
@@ -86,6 +87,13 @@ export function TripDetailPage() {
   const peopleSheet = useSheetDismiss(() => closePeople());
   const [layersOpen, setLayersOpen] = useState(false);
   const [layersShown, layersClosing] = useExit(layersOpen, 240);
+  // Where on the line the train sheet was opened from, so the rails it draws
+  // land in the gap that was actually pressed. Held in a ref, not state:
+  // the sheet has to keep its coordinates while it animates back out.
+  const trainGapRef = useRef<{ lng: number; lat: number } | null>(null);
+  const trainPrefillRef = useRef<{ from: string; to: string } | undefined>(undefined);
+  const [trainOpen, setTrainOpen] = useState(false);
+  const [trainShown, trainClosing] = useExit(trainOpen, 240);
   /**
    * Whose photos sit on the map, which is not the same question as whose route
    * does. Kept per trip in this browser: it is how you like to look at this
@@ -511,6 +519,11 @@ export function TripDetailPage() {
           hint: 'Vult het dichtstbijzijnde rechte stuk aan via de snelste weg.',
           primary: true,
         });
+        choices.push({
+          id: 'train',
+          label: 'Treinroute tekenen',
+          hint: 'Voor een treinreis zonder signaal: kies je begin- en eindstation.',
+        });
       }
       if (onDrawn.near) {
         choices.push({
@@ -544,6 +557,15 @@ export function TripDetailPage() {
         choices,
       });
       if (!picked) return;
+
+      // The train needs two stations before anything can be drawn, so it opens
+      // the sheet that asks for them instead of doing the work here.
+      if (picked === 'train') {
+        trainGapRef.current = lngLat;
+        trainPrefillRef.current = undefined;
+        setTrainOpen(true);
+        return;
+      }
 
       try {
         if (picked === 'draw') {
@@ -1166,6 +1188,11 @@ export function TripDetailPage() {
             onPickConsumed={() => setPlanPick(null)}
             onFlyTo={(lng, lat) => mapApiRef.current?.flyTo(lng, lat)}
             readOnly={!canEdit}
+            onDrawTrain={(leg) => {
+              trainGapRef.current = leg.at;
+              trainPrefillRef.current = { from: leg.from, to: leg.to };
+              setTrainOpen(true);
+            }}
           />
         )}
       </aside>
@@ -1188,6 +1215,29 @@ export function TripDetailPage() {
           onNoPhotos={() => setAllPhotoUsers([])}
           onClose={() => setLayersOpen(false)}
           closing={layersClosing}
+        />
+      )}
+
+      {trainShown && (
+        <TrainRouteSheet
+          prefill={trainPrefillRef.current}
+          onDraw={async (from: Station, to: Station) => {
+            const gap = trainGapRef.current;
+            if (!tripId || !gap) return;
+            await api(`/trips/${tripId}/route-fill/train`, {
+              method: 'POST',
+              body: {
+                lng: gap.lng,
+                lat: gap.lat,
+                from: { lng: from.longitude, lat: from.latitude },
+                to: { lng: to.longitude, lat: to.latitude },
+              },
+            });
+            setTrainOpen(false);
+            reloadRoutes();
+          }}
+          onClose={() => setTrainOpen(false)}
+          closing={trainClosing}
         />
       )}
 

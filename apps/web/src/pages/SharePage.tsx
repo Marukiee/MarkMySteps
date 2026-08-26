@@ -265,10 +265,11 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
   /**
    * The route, drawn the way the app draws it.
    *
-   * The recorded line cut at every long jump, a dashed arc over each gap, and
-   * the plan itself underneath: a pin per place, a line to each one nothing
-   * recorded, dashed where the day is still to come. It used to be one line
-   * layer over the raw track, and everything else was simply missing.
+   * The recorded line cut at every long jump, a dashed line over each gap (a
+   * bow only where the plan says a flight), and the plan itself underneath: a
+   * pin per place, a line to each one nothing recorded, dashed where the day
+   * is still to come. It used to be one line layer over the raw track, and
+   * everything else was simply missing.
    */
   useEffect(() => {
     const map = mapRef.current;
@@ -293,7 +294,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     for (const feature of routes?.features ?? []) {
       const { userId } = feature.properties;
       const id = `share-route-${userId}`;
-      const { ground, flights, trimmed } = groundRuns(
+      const { ground, gaps, flights, trimmed } = groundRuns(
         feature.geometry.coordinates as [number, number][],
         stops,
       );
@@ -313,6 +314,30 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
         paint: { 'line-color': colorForUser(userId), 'line-width': 3 },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       });
+      if (gaps.length > 0) {
+        const fid = `${id}-gaps`;
+        map.addSource(fid, {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            geometry: { type: 'MultiLineString', coordinates: gaps },
+            properties: {},
+          },
+        });
+        map.addLayer({
+          id: `${fid}-line`,
+          type: 'line',
+          source: fid,
+          // The traveller's colour, dashed: travelled, but not recorded. Only
+          // a leg the plan calls a flight gets a grey bow.
+          paint: {
+            'line-color': colorForUser(userId),
+            'line-width': 2.5,
+            'line-dasharray': [2, 2],
+          },
+          layout: { 'line-cap': 'round' },
+        });
+      }
       if (flights.length > 0) {
         const fid = `${id}-flights`;
         map.addSource(fid, {

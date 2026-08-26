@@ -1,6 +1,13 @@
 import { fetchBlobUrl } from '../api/client';
 import type { MediaItem, RouteCollection, Trip } from '../api/types';
-import { buildLegs, haversineKm, MODE_LABEL, splitOnGaps, type PlannedStop } from './arc';
+import {
+  buildLegs,
+  haversineKm,
+  MODE_LABEL,
+  splitAtFlights,
+  splitOnGaps,
+  type PlannedStop,
+} from './arc';
 import { buildPdf, type PdfPage } from './pdf';
 import {
   DARK,
@@ -40,8 +47,15 @@ const A4_W_IN = 8.27;
 const A4_H_IN = 11.69;
 /** Photographs per page. Rows are justified, so this is a target, not a grid. */
 const PER_PAGE = 6;
-/** A jump longer than this in the tracked line was flown, not driven. */
-const FLIGHT_KM = 500;
+/**
+ * A jump longer than this can only have been flown.
+ *
+ * Deliberately far beyond any train or drive: a leg is called a flight because
+ * the plan says so, and this is only the backstop for a trip that has no plan
+ * to ask. Madrid to Barcelona by rail is five hundred kilometres of tunnel and
+ * lost signal, and it is not a flight.
+ */
+const INTERCONTINENTAL_KM = 1800;
 /** How many photos are fetched at once while a page is being drawn. */
 const PREFETCH = 6;
 
@@ -1111,7 +1125,15 @@ function lineKm(line: [number, number][]): number {
   return total;
 }
 
-/** Ground runs and the flown jumps between them, from the tracked route. */
+/**
+ * Ground runs and the flown jumps between them, from the tracked route.
+ *
+ * The line is cut where the plan says a flight happened, not wherever it makes
+ * a long jump. A tracker loses its fix in a tunnel or a steel train carriage
+ * and comes back hundreds of kilometres later; that is still a journey over
+ * the ground, and cutting it there both broke the line in two and drew a bow
+ * over a country nobody flew across.
+ */
 function splitTrack(
   routes: RouteCollection | null,
   stops: PlannedStop[],
@@ -1119,15 +1141,34 @@ function splitTrack(
   const ground: [number, number][][] = [];
   const flights: [number, number][][] = [];
 
+  // Planned flights, as the pairs of ends the tracked line jumps between.
+  const flown = buildLegs(stops)
+    .filter((leg) => leg.isFlight)
+    .map((leg) => {
+      const c = leg.feature.geometry.coordinates as [number, number][];
+      return { from: c[0]!, to: c[c.length - 1]! };
+    });
+
   for (const feature of routes?.features ?? []) {
     const coords = feature.geometry.coordinates as [number, number][];
-    const runs = splitOnGaps(coords, FLIGHT_KM);
+    // Cut at the flights the plan knows about, and — as a backstop for a trip
+    // with no plan at all — at a jump too long for any ground journey.
+    const runs = splitAtFlights(coords, flown).flatMap((run) =>
+      splitOnGaps(run, INTERCONTINENTAL_KM),
+    );
     for (const run of runs) if (run.length >= 2) ground.push(run);
-    // The gap between two runs is the flight that made it.
+    // Only the backstop's own cuts need an arc of their own: a cut the plan
+    // made already has a flight drawn over it below.
     for (let i = 1; i < runs.length; i++) {
       const a = runs[i - 1]![runs[i - 1]!.length - 1]!;
       const b = runs[i]![0]!;
-      flights.push(bow(a, b));
+      if (haversineKm(a, b) <= INTERCONTINENTAL_KM) continue;
+      const planned = flown.some(
+        (f) =>
+          (haversineKm(a, f.from) <= 250 && haversineKm(b, f.to) <= 250) ||
+          (haversineKm(a, f.to) <= 250 && haversineKm(b, f.from) <= 250),
+      );
+      if (!planned) flights.push(bow(a, b));
     }
   }
 

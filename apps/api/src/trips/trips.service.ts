@@ -241,11 +241,13 @@ function kmLngLat(a: [number, number], b: [number, number]): number {
 }
 
 /**
- * A jump this big inside a recorded route is a flight, not a drive.
+ * A jump this big inside a recorded route is a hole the tracker left, not a
+ * stretch it recorded.
  *
  * Mirrors the globe's own FLIGHT_DEG (6°), which is what turns such a jump into
- * a dashed bow instead of a straight coloured line. The two have to agree, or
- * the light would fly a leg that was drawn as a road.
+ * its own leg instead of a straight coloured line through the middle of the
+ * track. Whether that leg is a flight is a separate question, and only the plan
+ * answers it: a train through a tunnel leaves the same hole and did not fly.
  */
 const FLIGHT_GAP_KM = 660;
 
@@ -257,10 +259,11 @@ const FLIGHT_MATCH_KM = 120;
  *
  * The line comes out of PostGIS as ST_MakeLine(geom ORDER BY "recordedAt"), so
  * it is already the trip in the order it happened — no dates needed. Where the
- * tracker went quiet for a flight there is a jump; that jump IS the flight, and
- * everything either side of it is ground. Each gap takes the planned flight
- * whose endpoints match it, so its layovers still show; a gap with no planned
- * flight behind it becomes a plain hop between the two points.
+ * tracker went quiet there is a jump. Each gap takes the planned flight whose
+ * endpoints match it, so its layovers still show and the light flies it; a gap
+ * with no planned flight behind it stays on the ground as a plain hop between
+ * the two points, because a jump on its own says nothing about how it was
+ * travelled. A tunnel and a steel carriage leave the same hole as an aeroplane.
  *
  * A phone that kept a fix through the flight leaves no gap, and then the light
  * simply follows the real path it recorded — which is the truth of it anyway.
@@ -287,7 +290,7 @@ function trackedJourney(line: [number, number][], flights: [number, number][][])
         kmLngLat(start, from) < FLIGHT_MATCH_KM && kmLngLat(end, to) < FLIGHT_MATCH_KM
       );
     });
-    journey.push({ flight: true, points: planned ?? [from, to] });
+    journey.push({ flight: !!planned, points: planned ?? [from, to] });
     run = [to];
   }
   closeRun();

@@ -629,9 +629,13 @@ export function GlobeBackdrop({
         return [discX + (pr[0] - discX) * lift, discY + (pr[1] - discY) * lift];
       };
 
-      // A jump longer than this within a route line is treated as an (unmarked)
-      // flight, so photos NL→Rome draw a flight bow, not a straight blue line.
+      // A jump longer than this within a route line is a hole the tracker left
+      // rather than ground it recorded. Whether it was flown is the plan's
+      // answer, not the distance's: a tunnel and a fast train leave the same
+      // hole, and bowing those put aeroplanes over half of Spain.
       const FLIGHT_DEG = 6; // ~660 km
+      // Except this far, which nothing on rails or roads covers in one hop.
+      const INTERCONTINENTAL_DEG = 16; // ~1800 km
       const flightCenter = projection.invert!([w / 2, h / 2]);
 
       // --- Trip routes: keep the real vertices (corners), just split off any
@@ -694,22 +698,39 @@ export function GlobeBackdrop({
             ctx!.stroke();
           };
           for (let i = 1; i < seg.length; i++) {
-            if (distance(seg[i - 1]!, seg[i]!) > FLIGHT_DEG) {
+            const a = seg[i - 1]!;
+            const b = seg[i]!;
+            // A gap the trip's own flights already span: it has a bow of its
+            // own, so the ground line stops here. Any other gap is ground
+            // nobody recorded, and the line simply runs straight across it.
+            const flown = (trip.flights ?? []).some((f) => {
+              const start = f[0]!;
+              const end = f[f.length - 1]!;
+              return (
+                (distance(start, a) < 1.2 && distance(end, b) < 1.2) ||
+                (distance(start, b) < 1.2 && distance(end, a) < 1.2)
+              );
+            });
+            const gap = distance(a, b);
+            if (gap > FLIGHT_DEG && flown) {
               flushRun();
-              // Inferred from a gap in the route rather than planned, so it has
-              // no stopovers of its own: one hop, drawn with the trip.
+              run = [b];
+            } else if (gap > INTERCONTINENTAL_DEG) {
+              // No plan to ask, and no way to have driven it: a bow of its own,
+              // with no stopovers, drawn with the trip.
+              flushRun();
               flightPairs.push({
-                a: seg[i - 1]!,
-                b: seg[i]!,
+                a,
+                b,
                 up: trip.upcoming,
                 tripId: trip.id,
                 hop: 0,
                 hops: 1,
               });
-              airportPoints.push(seg[i - 1]!, seg[i]!);
-              run = [seg[i]!];
+              airportPoints.push(a, b);
+              run = [b];
             } else {
-              run.push(seg[i]!);
+              run.push(b);
             }
           }
           flushRun();

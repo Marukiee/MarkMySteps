@@ -58,6 +58,16 @@ interface TripPlannerProps {
   onFlyTo: (lng: number, lat: number) => void;
   /** Guest view: the same itinerary, with nothing to press. */
   readOnly?: boolean;
+  /**
+   * Draw the rails of a train leg. A train is the one mode the tracker cannot
+   * follow — tunnels, cuttings, a steel carriage — so the planner offers to
+   * fill the leg in from the two stations instead.
+   */
+  onDrawTrain?: (leg: {
+    from: string;
+    to: string;
+    at: { lng: number; lat: number };
+  }) => void;
 }
 
 /**
@@ -74,6 +84,7 @@ export function TripPlanner({
   onPickConsumed,
   onFlyTo,
   readOnly = false,
+  onDrawTrain,
 }: TripPlannerProps) {
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
@@ -749,6 +760,36 @@ export function TripPlanner({
                       />
                     )}
                     {legKm !== null && <AltMetric km={legKm} mode={stop.travelMode} />}
+                    {/* A train leg the tracker slept through: offer to draw the
+                        rails. The point handed over is the middle of the leg,
+                        which is the stretch of straight line the drawing looks
+                        for. */}
+                    {stop.travelMode === 'TRAIN' &&
+                      !readOnly &&
+                      onDrawTrain &&
+                      prev &&
+                      prev.latitude !== null &&
+                      prev.longitude !== null &&
+                      stop.latitude !== null &&
+                      stop.longitude !== null && (
+                        <button
+                          type="button"
+                          className="leg-rail-btn"
+                          onClick={() =>
+                            onDrawTrain({
+                              from: prev.name,
+                              to: stop.name,
+                              at: {
+                                lng: (prev.longitude! + stop.longitude!) / 2,
+                                lat: (prev.latitude! + stop.latitude!) / 2,
+                              },
+                            })
+                          }
+                        >
+                          <Icon name="route" size={13} />
+                          Spoor tekenen
+                        </button>
+                      )}
                   </div>
                 </div>
               )}

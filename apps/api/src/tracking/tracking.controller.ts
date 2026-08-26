@@ -25,7 +25,13 @@ import { LocationPoint } from '@prisma/client';
 import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ManualPointDto, MovePointDto, RouteFillDto, TrackBatchDto } from './dto/track-points.dto';
+import {
+  ManualPointDto,
+  MovePointDto,
+  RouteFillDto,
+  TrackBatchDto,
+  TrainFillDto,
+} from './dto/track-points.dto';
 import { TrackFileService, TrackImportResult } from './track-file.service';
 import {
   BatchResult,
@@ -224,6 +230,17 @@ export class TrackingController {
     @Body() dto: RouteFillDto,
   ): Promise<{ added: number }> {
     return this.tracking.fillRoute(tripId, user.sub, dto.lng, dto.lat);
+  }
+
+  /** Draw the stretch between two stations over real track (keyless OSM). */
+  @Post('route-fill/train')
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  fillTrainRoute(
+    @CurrentUser() user: JwtPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Body() dto: TrainFillDto,
+  ): Promise<{ added: number }> {
+    return this.tracking.fillTrainRoute(tripId, user.sub, dto.lng, dto.lat, dto.from, dto.to);
   }
 
   /** Whether an auto-drawn stretch sits near this point, so a long press can

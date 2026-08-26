@@ -27,9 +27,20 @@ export interface ChangeEntry {
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    title: 'De trein',
+    date: '2026-08-26',
+    highlight: true,
+    new: [
+      'Treinroute tekenen: zeg van welk station naar welk station je ging, en de kaart tekent het spoor ertussen, vast aan je route ervoor en erna',
+      'Een treinleg in de routeplanner heeft een knop \u201cSpoor tekenen\u201d, met de twee plaatsen van die leg alvast ingevuld',
+    ],
+    fixed: [
+      'Een gestippelde boog komt er alleen nog als er in de route ook echt een vlucht staat; een lang stuk zonder signaal, zoals een sneltrein of een tunnel, blijft een gewone lijn over de grond',
+    ],
+  },
+  {
     title: 'De kaart, en wat erop staat',
     date: '2026-08-24',
-    highlight: true,
     new: [
       'Een knop op de kaart van een deel-link zet de kaart terug op de hele reis',
       'De kaart in een deel-link beweegt op mobiel met twee vingers, zodat je met \u00e9\u00e9n vinger langs de kaart kunt scrollen',

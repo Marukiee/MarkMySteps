@@ -686,6 +686,106 @@ route('GET', '/trips/:id/route-fill/near', async (req, [id]) => {
   return { near };
 });
 
+/**
+ * Drawing a train ride, offline mode's own copy.
+ *
+ * The same two questions as the server's: where is the gap in the line, and
+ * what do the rails between those two stations look like. The router is a
+ * public one and answers the browser directly, so this needs nothing the app
+ * does not already have.
+ */
+route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
+  const tripId = id!;
+  const lng = Number(req.body.lng);
+  const lat = Number(req.body.lat);
+  const from = req.body.from as { lng: number; lat: number };
+  const to = req.body.to as { lng: number; lat: number };
+
+  // Everything that sits on the timeline: the fixes, the photos, and the
+  // planned stops, which are the only anchors a trip nobody tracked has.
+  const points = await dbByTrip<StoredPoint>('points', tripId);
+  const anchors: { t: number; lng: number; lat: number }[] = points.map((p) => ({
+    t: new Date(p.recordedAt).getTime(),
+    lng: p.longitude,
+    lat: p.latitude,
+  }));
+  for (const m of await dbByTrip<StoredMedia>('media', tripId)) {
+    if (m.latitude === null || m.longitude === null) continue;
+    anchors.push({ t: new Date(m.takenAt).getTime(), lng: m.longitude, lat: m.latitude });
+  }
+  for (const stop of await dbByTrip<PlannedStop>('stops', tripId)) {
+    if (stop.parentStopId || stop.latitude === null || stop.longitude === null) continue;
+    anchors.push({
+      t: new Date(stop.arrivalDate).getTime(),
+      lng: stop.longitude,
+      lat: stop.latitude,
+    });
+  }
+  anchors.sort((a, b) => a.t - b.t);
+  if (anchors.length < 2) throw new LocalNotFound('Er is nog geen route om aan te vullen');
+
+  // The gap that was pressed: the nearest consecutive pair that is a real
+  // stretch of line rather than two fixes on the same street corner.
+  let best: { a: (typeof anchors)[number]; b: (typeof anchors)[number]; d: number } | null = null;
+  for (let i = 1; i < anchors.length; i++) {
+    const a = anchors[i - 1]!;
+    const b = anchors[i]!;
+    if (haversineKm([a.lng, a.lat], [b.lng, b.lat]) < 2) continue;
+    const mid: [number, number] = [(a.lng + b.lng) / 2, (a.lat + b.lat) / 2];
+    const d = haversineKm([lng, lat], mid);
+    if (!best || d < best.d) best = { a, b, d };
+  }
+  if (!best) throw new LocalNotFound('Geen recht stuk in de buurt om aan te vullen');
+
+  // Which station it left from follows from the gap, not from the order the
+  // two boxes were filled in.
+  const reach = (p: { lng: number; lat: number }, q: { lng: number; lat: number }) =>
+    haversineKm([p.lng, p.lat], [q.lng, q.lat]);
+  const straight =
+    reach(best.a, from) + reach(best.b, to) <= reach(best.a, to) + reach(best.b, from);
+  const dep = straight ? from : to;
+  const arr = straight ? to : from;
+
+  const url =
+    `https://signal.eu.org/osm/eu/route/v1/train/` +
+    `${dep.lng},${dep.lat};${arr.lng},${arr.lat}?overview=full&geometries=geojson`;
+  const res = await fetch(url).catch(() => null);
+  const json = res?.ok
+    ? ((await res.json()) as { routes?: { geometry?: { coordinates?: [number, number][] } }[] })
+    : null;
+  const rails = json?.routes?.[0]?.geometry?.coordinates ?? [];
+  if (rails.length < 3) {
+    throw new LocalNotFound(
+      'Kon geen spoorroute tussen die stations vinden. Buiten Europa kent de spoorkaart geen route.',
+    );
+  }
+
+  // Thinned out, and with the stations themselves on either end so the drawn
+  // stretch joins the line before and after the train instead of floating
+  // beside it.
+  const step = rails.length / 150;
+  const inner: [number, number][] = [];
+  for (let i = 0; i < Math.min(150, rails.length); i++) inner.push(rails[Math.floor(i * step)]!);
+  const line: [number, number][] = [[dep.lng, dep.lat], ...inner, [arr.lng, arr.lat]];
+
+  const drawn: StoredPoint[] = line.map((c, i) => ({
+    id: crypto.randomUUID(),
+    clientId: null,
+    tripId,
+    userId: LOCAL_USER.id,
+    recordedAt: new Date(
+      best!.a.t + ((i + 1) / (line.length + 1)) * (best!.b.t - best!.a.t),
+    ).toISOString(),
+    latitude: c[1],
+    longitude: c[0],
+    accuracy: null,
+    altitude: null,
+    source: 'ROUTE_FILL',
+  }));
+  await dbPutMany('points', drawn);
+  return { added: drawn.length };
+});
+
 route('DELETE', '/trips/:id/route-fill', async (req, [id]) => {
   const points = (await dbByTrip<StoredPoint>('points', id!)).sort((a, b) =>
     a.recordedAt.localeCompare(b.recordedAt),

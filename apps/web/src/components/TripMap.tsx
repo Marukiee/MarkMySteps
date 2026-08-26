@@ -437,7 +437,8 @@ export function TripMap({
         // hundreds of kilometres, is never a straight coloured line.
         const {
           ground,
-          flights: implicitFlights,
+          gaps,
+          flights: unplannedFlights,
           trimmed: coords,
         } = groundRuns(feature.geometry.coordinates as [number, number][], stops ?? []);
 
@@ -460,13 +461,42 @@ export function TripMap({
         });
         if (arriving) fadeUp(map, `${id}-line`);
 
-        if (implicitFlights.length > 0) {
+        if (gaps.length > 0) {
+          const fid = `route-${userId}-gaps`;
+          map.addSource(fid, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              geometry: { type: 'MultiLineString', coordinates: gaps },
+              properties: {},
+            },
+          });
+          map.addLayer({
+            id: `${fid}-line`,
+            type: 'line',
+            source: fid,
+            // The traveller's own colour, dashed: the same journey as the line
+            // either side of it, with nothing recorded in between. A grey bow
+            // means a flight, and a train in a tunnel is not one.
+            paint: {
+              'line-color': colorForUser(userId),
+              'line-width': 2.5,
+              'line-dasharray': [2, 2],
+              'line-opacity': arriving ? 0 : 1,
+              'line-opacity-transition': { duration: FADE_MS, delay: 0 },
+            },
+            layout: { 'line-cap': 'round' },
+          });
+          if (arriving) fadeUp(map, `${fid}-line`);
+        }
+
+        if (unplannedFlights.length > 0) {
           const fid = `route-${userId}-flights`;
           map.addSource(fid, {
             type: 'geojson',
             data: {
               type: 'Feature',
-              geometry: { type: 'MultiLineString', coordinates: implicitFlights },
+              geometry: { type: 'MultiLineString', coordinates: unplannedFlights },
               properties: {},
             },
           });
