@@ -14,6 +14,16 @@
   background: var(--glass);
   backdrop-filter: blur(16px) saturate(1.1);
   border-bottom: 1px solid var(--line);
+  /*
+   * One height for everything on this row.
+   *
+   * The nav pill is as tall as an icon and a label at 0.9rem make it; the
+   * theme switch was sized from its own 30px buttons and came out a few
+   * pixels shorter, which read as a thinner control sitting next to a fatter
+   * one. This is the inside height they all use, with the 3px of paper around
+   * the switches on top of it.
+   */
+  --topbar-pill: 34px;
 }
 
 .topbar-brand {
@@ -55,7 +65,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  padding: 0.4rem 1rem;
+  min-height: var(--topbar-pill);
+  padding: 0 1rem;
   border-radius: 999px;
   font-weight: 600;
   font-size: 0.9rem;
@@ -106,7 +117,7 @@
 /* Light / system / dark segmented control. */
 .topbar-theme {
   display: inline-grid;
-  grid-template-columns: repeat(3, 30px);
+  grid-template-columns: repeat(3, var(--topbar-pill));
   gap: 2px;
   --pill-gap: 2px;
   --pill-pad: 3px;
@@ -118,8 +129,8 @@
 .topbar-theme button {
   display: grid;
   place-content: center;
-  width: 30px;
-  height: 30px;
+  width: var(--topbar-pill);
+  height: var(--topbar-pill);
   border-radius: 999px;
   color: var(--ink-faint);
   transition: all 0.18s var(--ease);
@@ -151,6 +162,10 @@
   display: grid;
   line-height: 0;
   overflow: hidden;
+  /* The pill's full height, paper ring included, so the face beside the
+     switches is the same size as they are rather than a smaller dot. */
+  width: calc(var(--topbar-pill) + 6px);
+  height: calc(var(--topbar-pill) + 6px);
   transition: transform 0.15s var(--ease), box-shadow 0.2s;
 }
 

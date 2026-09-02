@@ -117,7 +117,7 @@ export function TopBar() {
                 userId={user.id}
                 displayName={user.displayName}
                 hasAvatar={user.hasAvatar}
-                size={34}
+                size={40}
               />
             )}
           </button>

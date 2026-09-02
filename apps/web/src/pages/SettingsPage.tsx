@@ -2,7 +2,8 @@ import { CSSProperties, FormEvent, ReactNode, useEffect, useRef, useState } from
 import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { isNativeApp, openExternal } from '../lib/native';
+import { downloadAndInstall } from '../lib/appUpdate';
+import { isNativeApp } from '../lib/native';
 import { api, ApiError, fetchBlobUrl, getServerBase, setServerBase } from '../api/client';
 import { CHANGELOG } from '../lib/changelog';
 import { AirportPrefs } from '../components/AirportPrefs';
@@ -1575,6 +1576,8 @@ function ChangelogPanel({ onBack }: { onBack: () => void }) {
 function UpdateCheck() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ text: string; url?: string } | null>(null);
+  /** Download progress, once "installeren" has been pressed. */
+  const [percent, setPercent] = useState<number | null>(null);
   const [shown, closing] = useExit(result !== null, 240);
   const lastRef = useRef<{ text: string; url?: string } | null>(null);
   if (result) lastRef.current = result;
@@ -1597,6 +1600,22 @@ function UpdateCheck() {
     }
   }
 
+  /**
+   * The same one press the banner offers: fetch the APK and hand it to
+   * Android's installer, rather than sending somebody to a browser and hoping
+   * they find the file again afterwards.
+   */
+  async function install(url: string) {
+    setPercent(0);
+    const outcome = await downloadAndInstall(url, setPercent);
+    setPercent(null);
+    if (outcome === 'permission') {
+      setResult({ text: 'Zet "installeren van onbekende apps" aan en druk opnieuw.', url });
+    } else if (outcome === 'failed') {
+      setResult({ text: 'Downloaden mislukt. Ben je online?', url });
+    }
+  }
+
   return (
     <div className="update-check">
       <button className="btn btn-ghost" disabled={busy} onClick={() => void run()}>
@@ -1605,11 +1624,14 @@ function UpdateCheck() {
       {shown && last && (
         <p className={`muted update-check-result ${closing ? 'leaving' : ''}`}>
           {last.text}
-          {last.url && (
-            <button className="ext-link" onClick={() => openExternal(last.url!)}>
-              Downloaden <Icon name="chevron-right" size={13} />
-            </button>
-          )}
+          {last.url &&
+            (percent === null ? (
+              <button className="ext-link" onClick={() => void install(last.url!)}>
+                Installeren <Icon name="chevron-right" size={13} />
+              </button>
+            ) : (
+              <span className="update-check-progress">{percent}%</span>
+            ))}
         </p>
       )}
     </div>
@@ -1716,7 +1738,7 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
       <section className="card settings-card">
         <h2>Update-melding</h2>
         <p className="muted">
-          Toont de balk alsof er een nieuwe versie klaarstaat. Downloaden doet niets.
+          Toont de balk alsof er een nieuwe versie klaarstaat. Installeren doet niets.
         </p>
         <button
           type="button"
@@ -2287,21 +2309,28 @@ function ImmichSection() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The placeholder fades out over the answer instead of being cut away.
+  const [skeletonShown, skeletonClosing] = useExit(!loaded, 280);
 
   useEffect(() => {
     api<ConnectionStatus>('/immich/connection')
       .then((s) => {
+        // `loaded` is set here rather than in a `.finally`, which is a callback
+        // of its own and so a render of its own: for one frame the answer had
+        // arrived while the placeholder was still being told to hold its space,
+        // and the panel and the grey block were both on screen at once.
         setStatus(s);
         setServerUrl(s.serverUrl);
         setPublicUrl(s.publicUrl ?? '');
+        setLoaded(true);
       })
       .catch((err: unknown) => {
         // 404 simply means: not configured yet.
         if (!(err instanceof ApiError && err.status === 404)) {
           setError('Kon Immich-status niet laden');
         }
-      })
-      .finally(() => setLoaded(true));
+        setLoaded(true);
+      });
   }, []);
 
   async function save(event: FormEvent) {
@@ -2358,15 +2387,26 @@ function ImmichSection() {
         </HelpTip>
       </h2>
 
-      {!loaded && <div className="immich-status-skeleton" aria-hidden="true" />}
-      {status && (
-        <div className="immich-status">
-          <span className="immich-status-ok">● Verbonden</span>
-          <span className="muted">
-            {status.serverUrl} · key {status.apiKeyPreview}
-            {status.lastSyncAt && ` · laatste sync ${formatDate(status.lastSyncAt)}`}
-          </span>
-          {status.lastSyncError && <span className="error-text">{status.lastSyncError}</span>}
+      {/* Placeholder and answer share one cell, so the swap is a cross-fade in
+          place rather than one box being taken away and another put down. */}
+      {(skeletonShown || status) && (
+        <div className="immich-status-slot">
+          {status && (
+            <div className="immich-status">
+              <span className="immich-status-ok">● Verbonden</span>
+              <span className="muted">
+                {status.serverUrl} · key {status.apiKeyPreview}
+                {status.lastSyncAt && ` · laatste sync ${formatDate(status.lastSyncAt)}`}
+              </span>
+              {status.lastSyncError && <span className="error-text">{status.lastSyncError}</span>}
+            </div>
+          )}
+          {skeletonShown && (
+            <div
+              className={`immich-status-skeleton ${skeletonClosing ? 'leaving' : ''}`}
+              aria-hidden="true"
+            />
+          )}
         </div>
       )}
 
@@ -2383,7 +2423,15 @@ function ImmichSection() {
           />
         </div>
         <div className="field">
-          <label htmlFor="im-key">API-key</label>
+          <label htmlFor="im-key">
+            API-key
+            <HelpTip>
+              Een sleutel die MarkMySteps namens jou bij Immich naar binnen laat, zonder dat je
+              wachtwoord hier terechtkomt. Je maakt hem aan in Immich zelf en plakt hem hieronder;
+              hij wordt versleuteld opgeslagen en is daarna nooit meer uit te lezen, alleen te
+              vervangen. Trek je hem in Immich in, dan werkt de koppeling meteen niet meer.
+            </HelpTip>
+          </label>
           <input
             id="im-key"
             type="password"

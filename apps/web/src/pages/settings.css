@@ -1106,6 +1106,22 @@
   display: block;
 }
 
+/*
+ * One cell for the placeholder and the panel that replaces it.
+ *
+ * They used to be two boxes in a row, so the answer landing meant taking one
+ * away and putting the other down: a frame where both were on screen, then a
+ * frame where the card was a different height. Stacked, the grey block fades
+ * out over the real thing and nothing moves.
+ */
+.immich-status-slot {
+  display: grid;
+}
+
+.immich-status-slot > * {
+  grid-area: 1 / 1;
+}
+
 /* Placeholder with the connection panel's height, so the card is already the
    right size before the request comes back. */
 .immich-status-skeleton {
@@ -1119,6 +1135,27 @@
   );
   background-size: 220% 100%;
   animation: skeletonSweep 1.3s linear infinite;
+}
+
+/* On the way out it collapses as well as fades: with nothing connected there
+   is no panel underneath to hold the cell open, and a block that only faded
+   would leave its 92px behind and then drop them all at once. */
+.immich-status-skeleton.leaving {
+  animation:
+    skeletonSweep 1.3s linear infinite,
+    immichSkeletonOut 0.28s var(--ease) forwards;
+}
+
+@keyframes immichSkeletonOut {
+  to {
+    opacity: 0;
+    height: 0;
+  }
+}
+
+/* The answer arrives the way the rest of the async content on this page does. */
+.immich-status {
+  animation: settingsAsyncIn 0.34s var(--ease) both;
 }
 
 @keyframes skeletonSweep {
@@ -1376,6 +1413,14 @@
 
 .update-check-result.leaving {
   animation: updateCheckOut 0.22s var(--ease) forwards;
+}
+
+/* Takes the "installeren" link's place while the APK comes down, so the line
+   does not change length halfway through. */
+.update-check-progress {
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 @keyframes updateCheckIn {
