@@ -8,10 +8,29 @@
     <link rel="icon" href="/favicon.svg" />
     <style>
       /*
-       * One file, no fonts to fetch, no scripts. This page is served while the
-       * app's own containers are being replaced, so anything it asks the
-       * network for is a request that may well go nowhere.
+       * The app's own two typefaces, served by this container itself.
+       *
+       * Nothing here reaches the network: the page is up precisely because the
+       * rest of the stack is not, so a request to a font CDN is one that may
+       * well go nowhere. These are the same two files the app ships, latin
+       * only, which is all this page has words in.
        */
+      @font-face {
+        font-family: 'Fraunces Variable';
+        font-style: normal;
+        font-display: swap;
+        font-weight: 100 900;
+        src: url(/fraunces.woff2) format('woff2-variations');
+      }
+
+      @font-face {
+        font-family: 'Inter Variable';
+        font-style: normal;
+        font-display: swap;
+        font-weight: 100 900;
+        src: url(/inter.woff2) format('woff2-variations');
+      }
+
       :root {
         --paper: #faf6ef;
         --paper-raised: #ffffff;
@@ -46,7 +65,9 @@
         padding: 2rem 1.25rem;
         background: var(--paper);
         color: var(--ink);
-        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-family: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-size: 15px;
+        line-height: 1.55;
         -webkit-font-smoothing: antialiased;
       }
 
@@ -117,12 +138,14 @@
         }
       }
 
+      /* The same heading the app draws: Fraunces at 560, tight. */
       h1 {
         margin: 0 0 0.5rem;
-        font-family: Georgia, 'Times New Roman', serif;
-        font-size: 1.75rem;
-        font-weight: 600;
+        font-family: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
+        font-size: 1.8rem;
+        font-weight: 560;
         letter-spacing: -0.015em;
+        line-height: 1.15;
       }
 
       p {
