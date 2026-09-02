@@ -91,6 +91,29 @@
   background: rgb(255 255 255 / 0.3);
 }
 
+/* While it downloads the button IS the progress bar: it keeps its size and its
+   place, and a lighter fill runs across it. Swapping in a bar of its own moved
+   everything beside it at the moment you pressed. */
+.update-banner-dl:disabled {
+  position: relative;
+  overflow: hidden;
+  min-width: 6.5rem;
+  justify-content: center;
+  cursor: default;
+}
+
+.update-banner-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgb(255 255 255 / 0.32);
+  transition: width 0.2s linear;
+}
+
+.update-banner-dl-text {
+  position: relative;
+  font-variant-numeric: tabular-nums;
+}
+
 .update-banner-close {
   display: grid;
   place-content: center;

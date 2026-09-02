@@ -46,6 +46,13 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Installing a new version from inside the app. There is no Play Store on
+         the target phones, so the alternative is a browser download the user has
+         to find again in Downloads and open by hand. Android still shows its own
+         installer screen, and still requires the per-app "install unknown apps"
+         switch, so this permission only makes the offer possible. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <!-- Background location tracking (AOSP LocationManager — no Google Play Services).
          ACCESS_BACKGROUND_LOCATION must be granted manually by the user via
          "Allow all the time" in the app's location permission settings. -->

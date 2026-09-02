@@ -1,7 +1,8 @@
 import { App } from '@capacitor/app';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
-import { isNativeApp, openExternal, setStatusBarTint } from '../lib/native';
+import { downloadAndInstall } from '../lib/appUpdate';
+import { isNativeApp, setStatusBarTint } from '../lib/native';
 import { Icon } from './Icon';
 import './updatebanner.css';
 
@@ -70,6 +71,15 @@ export function UpdateBanner() {
   const [info, setInfo] = useState<LatestApp | null>(null);
   const [simulated, setSimulated] = useState(isUpdateBannerSimulated());
   const [closing, setClosing] = useState(false);
+  /*
+   * How far the download has got, or what went wrong.
+   *
+   * The banner keeps hold of this itself rather than routing it through a
+   * page: the whole point is that pressing the button once is the entire
+   * update, so the button is also where the progress belongs.
+   */
+  const [percent, setPercent] = useState<number | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
   const barRef = useRef<HTMLDivElement | null>(null);
 
   // The simulator works on the web build too, so the banner can be checked
@@ -151,6 +161,29 @@ export function UpdateBanner() {
     }, 280);
   };
 
+  const busy = percent !== null;
+
+  // Captured past the `if (!shown)` guard above: the closure below cannot see
+  // that narrowing on its own.
+  const release = shown;
+
+  async function install() {
+    if (busy) return;
+    if (simulated || !release.url) {
+      setProblem('Testmelding, er valt niets te installeren.');
+      return;
+    }
+    setProblem(null);
+    setPercent(0);
+    const outcome = await downloadAndInstall(release.url, setPercent);
+    setPercent(null);
+    if (outcome === 'permission') {
+      setProblem('Zet "installeren van onbekende apps" aan en druk opnieuw.');
+    } else if (outcome === 'failed') {
+      setProblem('Downloaden mislukt. Ben je online?');
+    }
+  }
+
   return (
     <div className={`update-banner-wrap ${closing ? 'closing' : ''}`}>
       <div className="update-banner" ref={barRef}>
@@ -159,11 +192,27 @@ export function UpdateBanner() {
             end of the first line with nothing after it. */}
         <span className="update-banner-text">
           <strong>Nieuwe versie beschikbaar</strong>
-          {shown.notes && <span className="update-banner-notes">{shown.notes}</span>}
+          {problem ? (
+            <span className="update-banner-notes">{problem}</span>
+          ) : (
+            shown.notes && <span className="update-banner-notes">{shown.notes}</span>
+          )}
         </span>
         <div className="update-banner-actions">
-          <button className="update-banner-dl" onClick={() => shown.url && openExternal(shown.url)}>
-            <Icon name="download" size={15} /> Downloaden
+          {/* One press is the whole update: the APK is fetched here and handed
+              to Android's own installer. The button becomes the progress bar
+              rather than being replaced by one, so nothing moves. */}
+          <button className="update-banner-dl" disabled={busy} onClick={() => void install()}>
+            {busy ? (
+              <>
+                <span className="update-banner-bar" style={{ width: `${percent}%` }} />
+                <span className="update-banner-dl-text">{percent}%</span>
+              </>
+            ) : (
+              <>
+                <Icon name="download" size={15} /> Installeren
+              </>
+            )}
           </button>
           <button className="update-banner-close" aria-label="Verbergen" onClick={dismiss}>
             <Icon name="close" size={16} />

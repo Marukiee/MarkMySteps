@@ -31,6 +31,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MmsExportPlugin.class);
         registerPlugin(MmsNotifyPlugin.class);
         registerPlugin(MmsDynamicColorPlugin.class);
+        registerPlugin(MmsUpdatePlugin.class);
         super.onCreate(savedInstanceState);
         remember(getIntent());
     }
