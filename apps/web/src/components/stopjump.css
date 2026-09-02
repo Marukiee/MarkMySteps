@@ -59,10 +59,44 @@
      line the tiles snap to onto the gutter. */
   scroll-padding-left: var(--stop-jump-inset);
   scrollbar-width: none;
+  /* See the fade below. */
+  --stop-jump-fade: 2.4rem;
+  -webkit-mask-image: var(--stop-jump-mask, none);
+  mask-image: var(--stop-jump-mask, none);
 }
 
 .stop-jump-rail::-webkit-scrollbar {
   display: none;
+}
+
+/*
+ * The ends of the rail, softened.
+ *
+ * A tile cut in half against the side of the column reads as something broken
+ * rather than as "there is more of this". Only the end that is actually
+ * hiding a tile is faded (the component works out which), so at rest the first
+ * tile is as solid as the rest of them and nothing is dimmed for decoration.
+ */
+.stop-jump-rail[data-edge='end'] {
+  --stop-jump-mask: linear-gradient(
+    to right,
+    #000 calc(100% - var(--stop-jump-fade)),
+    transparent 100%
+  );
+}
+
+.stop-jump-rail[data-edge='start'] {
+  --stop-jump-mask: linear-gradient(to right, transparent 0, #000 var(--stop-jump-fade));
+}
+
+.stop-jump-rail[data-edge='both'] {
+  --stop-jump-mask: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--stop-jump-fade),
+    #000 calc(100% - var(--stop-jump-fade)),
+    transparent 100%
+  );
 }
 
 /*
@@ -89,10 +123,42 @@
   cursor: pointer;
   isolation: isolate;
   transition: transform 0.16s var(--ease), border-color 0.2s var(--ease);
+  /*
+   * The row arrives rather than being there.
+   *
+   * It is the first thing at the top of the timeline, and it was the only
+   * thing on the page that was simply present the instant you switched to the
+   * tab. The tiles come up one after another, left to right, the way the days
+   * below them do.
+   */
+  animation: stopJumpIn 0.44s var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes stopJumpIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
 }
 
 .stop-jump-tile:active {
   transform: scale(0.95);
+}
+
+/* Room for a name and a photograph, in a window that has room for both. On a
+   phone the tile is as wide as it can be without the rail becoming a second
+   timeline; beside the map that limit is not the one that binds. */
+@media (min-width: 901px) {
+  .stop-jump-tile {
+    width: 124px;
+    height: 150px;
+  }
+
+  .stop-jump-label {
+    padding: 1.1rem 0.55rem 0.5rem;
+    font-size: 0.82rem;
+  }
 }
 
 @media (hover: hover) {
@@ -152,5 +218,9 @@
   .stop-jump-tile,
   .stop-jump-photo img {
     transition: none;
+  }
+
+  .stop-jump-tile {
+    animation: none;
   }
 }

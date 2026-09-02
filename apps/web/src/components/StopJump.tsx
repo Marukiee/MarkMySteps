@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useMemo, useState } from 'react';
+import { CSSProperties, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { haversineKm, STOP_NEAR_KM } from '../lib/arc';
 import './stopjump.css';
 
@@ -120,6 +120,9 @@ export function StopJump({
 }) {
   /** Chosen covers that turned out not to resolve to a picture any more. */
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  const railRef = useRef<HTMLDivElement>(null);
+  /** Which ends of the rail are hiding a tile; drives the fade mask in CSS. */
+  const [edge, setEdge] = useState<'none' | 'start' | 'end' | 'both'>('none');
   const markGone = useCallback((id: string) => {
     setGone((before) => (before.has(id) ? before : new Set(before).add(id)));
   }, []);
@@ -157,6 +160,35 @@ export function StopJump({
     return out.sort((a, b) => a.day.localeCompare(b.day));
   }, [stops, days, media, gone]);
 
+  /*
+   * Which ends of the rail have more behind them.
+   *
+   * A tile sliced in half at the edge of the column reads as a bug rather than
+   * as "there is more this way". The mask in CSS softens whichever end is
+   * actually hiding something, and neither when the whole row fits — a first
+   * tile faded away at rest would be the same mistake in the other direction.
+   */
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const measure = () => {
+      const room = rail.scrollWidth - rail.clientWidth;
+      if (room <= 1) return setEdge('none');
+      const atStart = rail.scrollLeft <= 1;
+      const atEnd = rail.scrollLeft >= room - 1;
+      setEdge(atStart ? 'end' : atEnd ? 'start' : 'both');
+    };
+    measure();
+    rail.addEventListener('scroll', measure, { passive: true });
+    const observer = new ResizeObserver(measure);
+    observer.observe(rail);
+    return () => {
+      rail.removeEventListener('scroll', measure);
+      observer.disconnect();
+    };
+    // Re-measured when the row itself changes length.
+  }, [targets.length]);
+
   // One tile is not a shortcut, it is a label for the thing you are looking at.
   if (targets.length < 2) return null;
 
@@ -165,12 +197,13 @@ export function StopJump({
       {/* A row of photographs with no word over it reads as the top of the
           timeline rather than as a way into it. */}
       <h3 className="stop-jump-title">Plaatsen</h3>
-      <div className="stop-jump-rail">
-        {targets.map((target) => (
+      <div className="stop-jump-rail" ref={railRef} data-edge={edge}>
+        {targets.map((target, i) => (
           <button
             key={`${target.day}-${target.name}`}
             type="button"
             className={`stop-jump-tile ${target.photoId ? 'has-photo' : ''}`}
+            style={{ '--i': i } as CSSProperties}
             onClick={() => jumpToDay(target.day, target.anchorId)}
           >
             {target.photoId && renderThumb && (

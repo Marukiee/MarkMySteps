@@ -47,11 +47,15 @@ function rememberedShape(): TripShape {
     const raw = localStorage.getItem(TRIP_SHAPE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<TripShape>;
-      const clamp = (n: unknown) => (Number.isFinite(n) ? Math.min(6, Math.max(0, Number(n))) : 0);
+      // The real counts, not a number of placeholders: the tab pill puts these
+      // straight on its badges, so a list of twelve must not read as six until
+      // the server answers. The placeholder grid does its own capping.
+      const count = (n: unknown) =>
+        Number.isFinite(n) ? Math.min(999, Math.max(0, Math.round(Number(n)))) : 0;
       return {
-        upcoming: clamp(parsed.upcoming),
-        past: clamp(parsed.past),
-        friends: clamp(parsed.friends),
+        upcoming: count(parsed.upcoming),
+        past: count(parsed.past),
+        friends: count(parsed.friends),
       };
     }
     // Nothing that detailed remembered yet, but the old count still tells us
@@ -277,6 +281,15 @@ export function TripsPage() {
    * appears.
    */
   const loading = trips === null && !error;
+  /*
+   * Whether the "+ nieuwe reis" tile still earns its place.
+   *
+   * With a handful of trips it fills the gap at the end of the row and is the
+   * obvious next thing to do. Past six it is a full-size card at the bottom of
+   * a long list, in the way of the trips you actually came for; the button in
+   * the header does the same job without taking a slot.
+   */
+  const roomForGhost = mine.length < 6;
   const showUpcoming = loading ? shape.upcoming > 0 : upcoming.length > 0;
   const showLower = loading ? shape.past > 0 || shape.friends > 0 : hasPast || hasFriends;
   useEffect(() => {
@@ -329,7 +342,7 @@ export function TripsPage() {
             compact={isTripCompact(trip.id, wide ? i >= LEAD_LARGE : true)}
           />
         ))}
-        {which === 'past' && upcoming.length === 0 && (
+        {which === 'past' && upcoming.length === 0 && roomForGhost && (
           <button className="trip-ghost" onClick={() => setShowNew(true)} aria-label="Nieuwe reis">
             <span>+ Nieuwe reis</span>
           </button>
@@ -393,7 +406,7 @@ export function TripsPage() {
         <>
           <h2 className="trips-section-title">Aankomend &amp; onderweg</h2>
           {loading ? (
-            <SkeletonGrid count={shape.upcoming} offset={0} />
+            <SkeletonGrid count={Math.min(6, shape.upcoming)} offset={0} />
           ) : (
           <div className="trips-grid">
             {upcoming.map((trip, i) => {
@@ -410,9 +423,15 @@ export function TripsPage() {
                 />
               );
             })}
-            <button className="trip-ghost" onClick={() => setShowNew(true)} aria-label="Nieuwe reis">
-              <span>+ Nieuwe reis</span>
-            </button>
+            {roomForGhost && (
+              <button
+                className="trip-ghost"
+                onClick={() => setShowNew(true)}
+                aria-label="Nieuwe reis"
+              >
+                <span>+ Nieuwe reis</span>
+              </button>
+            )}
           </div>
           )}
         </>
@@ -434,7 +453,11 @@ export function TripsPage() {
               onClick={() => switchTab('past')}
             >
               Afgelopen reizen
-              {hasPast && <small>{past.length}</small>}
+              {/* Last time's count while the list is on its way, so the badge
+                  is not a box that appears out of nothing and shoves the label
+                  sideways. It is a number this browser has actually seen; if
+                  it has changed, it changes in place when the trips land. */}
+              <small>{(loading ? shape.past : past.length) || ''}</small>
             </button>
             <button
               role="tab"
@@ -444,7 +467,7 @@ export function TripsPage() {
               onClick={() => switchTab('friends')}
             >
               Gedeeld
-              {hasFriends && <small>{friendTrips.length}</small>}
+              <small>{(loading ? shape.friends : friendTrips.length) || ''}</small>
             </button>
           </div>
 
@@ -455,8 +478,8 @@ export function TripsPage() {
           <div className="trips-switch" style={paneHeight ? { height: paneHeight } : undefined}>
             {loading ? (
               <SkeletonGrid
-                count={Math.max(1, shape.past || shape.friends)}
-                offset={shape.upcoming}
+                count={Math.min(6, Math.max(1, shape.past || shape.friends))}
+                offset={Math.min(6, shape.upcoming)}
               />
             ) : (
             <div className="trips-track" data-tab={tab}>
@@ -589,11 +612,22 @@ function TripCard({
   }
 
   function setSize(v: 'large' | 'compact' | null) {
-    // And then it goes. The menu hangs against the viewport rather than inside
-    // the card, so a card that changes shape slides out from under it and
-    // leaves the ⋯ floating over whatever moved up into its place.
-    onResize(trip.id, v);
-    closeMenu();
+    /*
+     * The menu fades out first, and the card changes shape once it has gone.
+     *
+     * It hangs against the viewport rather than inside the card, so a card
+     * that resizes underneath it leaves the ⋯ floating over its neighbour.
+     * Resizing straight away fixed that but took the menu with it in one
+     * frame: the card re-renders into a different shape, which throws away the
+     * element the closing animation was running on. So the animation goes
+     * first, and the resize rides on its tail.
+     */
+    setMenuClosing(true);
+    window.setTimeout(() => {
+      setMenuOpen(false);
+      setMenuClosing(false);
+      onResize(trip.id, v);
+    }, 150);
   }
 
   const month = new Date(trip.startDate).toLocaleDateString('nl-NL', { month: 'long' });

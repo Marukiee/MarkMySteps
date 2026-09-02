@@ -812,15 +812,6 @@
   background: var(--paper-sunken);
 }
 
-/* A two-way switch does not get wider because the window did. Across a desktop
-   window it was a metre of empty pill with two words in it; this is the width
-   the words actually need, at the left-hand edge the cards start on. */
-@media (min-width: 721px) {
-  .trips-tabs {
-    max-width: 420px;
-  }
-}
-
 .trips-tabs-thumb {
   position: absolute;
   top: 4px;
@@ -863,7 +854,13 @@
   cursor: default;
 }
 
-/* The count rides along, and only carries weight on the open tab. */
+/*
+ * The count rides along, and only carries weight on the open tab.
+ *
+ * Its room is held from the first paint (see the empty span in TripsPage):
+ * the number lands a moment after the words, and without a space kept for it
+ * the label slid sideways to make one.
+ */
 .trips-tabs button small {
   min-width: 1.35em;
   padding: 0.05rem 0.34rem;
@@ -880,12 +877,29 @@
   color: var(--accent-ink);
 }
 
+/* The placeholder: the same box, with nothing in it and nothing behind it. */
+.trips-tabs button small:empty {
+  background: none;
+  min-height: 1.1em;
+}
+
 /* One track carrying both lists. Nothing unmounts when you switch: the track
    slides, the panes stay built, and the covers already on screen keep their
    decoded photos (rebuilding them is what made the top card flash a dark
    square while its image came back). */
 .trips-switch {
+  /*
+   * `clip` rather than `hidden`, for the margin.
+   *
+   * The track slides sideways inside this box, so it has to be clipped. But a
+   * card lifts on hover, and the top row's lift was being sliced off at the
+   * line the pill above it ends on. The clip margin gives the lift (and the
+   * shadow under it) somewhere to happen while the pane beside it, a full
+   * width away, stays out of sight.
+   */
   overflow: hidden;
+  overflow: clip;
+  overflow-clip-margin: 16px;
   transition: height 0.38s var(--ease);
   /* Clip at the window's edge, not at the cards': the page's own padding is
      borrowed back so a card's shadow (and its rounded corner) has somewhere to
