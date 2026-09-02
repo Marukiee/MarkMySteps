@@ -441,12 +441,52 @@
 .trip-side {
   overflow-y: auto;
   /* Same gutter on both sides of the column: the timeline's rail hangs its day
-     dot into the left one, so it cannot be zero. */
-  --page-pad: 0.5rem;
+     dot into the left one, so it cannot be zero. The same gutter the phone
+     uses, so the rail has the same room on both. */
+  --page-pad: 0.85rem;
   padding-inline: var(--page-pad);
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  /*
+   * No scrollbar of its own.
+   *
+   * The column's scrollport stops where the scrollbar starts, and everything
+   * that runs to the edge of the column — the row of places above the
+   * timeline, most of all — was being cut off a finger's width short of it on
+   * the right while running clean off the screen on the left. The page's own
+   * scroll is what you reach for here anyway.
+   */
+  scrollbar-width: none;
+}
+
+.trip-side::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * Desktop: the rail hangs in the column's gutter rather than standing on the
+ * line the page starts on.
+ *
+ * On a phone the gutter is the whole margin and the rail lives on its inside
+ * edge. In a column beside the map there is a header card, a tab pill and a
+ * row of places all starting on one line, and a rail standing on that same
+ * line pushed every day and every photo one gutter to the right of it — the
+ * timeline read as indented from its own page. Out in the gutter, the days
+ * line up with everything above them.
+ */
+@media (min-width: 901px) {
+  .trip-side .timeline::before {
+    left: calc(var(--page-pad) * -1 + 2px);
+  }
+
+  .trip-side .timeline-dot {
+    margin-left: calc(var(--page-pad) * -1);
+  }
+
+  .trip-side .timeline-grid {
+    margin-left: 0;
+  }
 }
 
 .trip-side h1 {

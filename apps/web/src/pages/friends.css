@@ -288,3 +288,24 @@
   display: grid;
   gap: 1rem;
 }
+
+/*
+ * A wide window gets two columns, not two-metre rows.
+ *
+ * Every block on this page is a list of short lines — a trip and its month, a
+ * name and its handle — and stretched across a desktop window each of them
+ * was a strip of empty paper with a word at either end, with the next one
+ * pushed below the fold. Side by side, the whole page is one screen you can
+ * read across instead of scroll through.
+ */
+@media (min-width: 1000px) {
+  .friends-page,
+  .traveller-page {
+    max-width: 960px;
+  }
+
+  .friends-grid,
+  .recent-trips ul {
+    grid-template-columns: 1fr 1fr;
+  }
+}

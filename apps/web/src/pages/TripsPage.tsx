@@ -65,20 +65,48 @@ function rememberedShape(): TripShape {
 }
 
 /**
+ * How many trips lead a wide window as full cards.
+ *
+ * A phone reads a finished trip as a small card in a stack; a desktop window
+ * reads the same card as a full-width row, which is anything but small. So on
+ * a wide window the top of every list is photographs, and the tail folds into
+ * rows.
+ */
+const LEAD_LARGE = 6;
+
+/**
+ * Whether the window is wide enough for the grid to lay trips side by side.
+ *
+ * Kept in state rather than read per render, so a window being dragged wider
+ * re-lays the cards instead of waiting for the next thing to change.
+ */
+function useWideWindow(): boolean {
+  const query = '(min-width: 721px)';
+  const [wide, setWide] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setWide(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return wide;
+}
+
+/**
  * The shape of the list, before the list.
  *
  * Deliberately the trip card's own geometry — the same grid, the same aspect,
  * the same rounded corner — so what arrives lands in the space that was being
  * held for it instead of pushing a "nothing here" message out of the way.
  *
- * Including the words. The cards were being held a place and the headings over
- * them were not, so the moment the trips landed a row of text appeared above
- * them and pushed everything down a notch. The page it is standing in for has
- * a heading, then cards, then the tabs — so this does too.
+ * Only the cards. The headings and the tab pill over them are the real ones
+ * from the first paint onward: rebuilding those meant the whole "afgelopen /
+ * gedeeld" row was thrown away and drawn again the moment the trips landed,
+ * when the only thing that had changed about it was the count on the pill.
  */
-function TripsSkeleton({ shape }: { shape: TripShape }) {
-  const cards = (count: number, offset: number) => (
-    <div className="trips-grid trips-skeleton">
+function SkeletonGrid({ count, offset }: { count: number; offset: number }) {
+  return (
+    <div className="trips-grid trips-skeleton" aria-hidden="true">
       {Array.from({ length: count }, (_, i) => (
         <div className="trip-skel" key={i} style={{ animationDelay: `${(i + offset) * 90}ms` }}>
           <div className="trip-skel-shine" />
@@ -93,29 +121,6 @@ function TripsSkeleton({ shape }: { shape: TripShape }) {
           </div>
         </div>
       ))}
-    </div>
-  );
-
-  return (
-    <div aria-hidden="true">
-      {shape.upcoming > 0 && (
-        <>
-          <h2 className="trips-section-title">Aankomend &amp; onderweg</h2>
-          {cards(shape.upcoming, 0)}
-        </>
-      )}
-      {(shape.past > 0 || shape.friends > 0) && (
-        <>
-          {/* The same pill row, minus the ability to press it: it is the rest
-              of the height the real page is about to need. */}
-          <div className="trips-tabs" role="presentation" data-tab="past">
-            <span className="trips-tabs-thumb" />
-            <span className="trips-tab-skel active">Afgelopen reizen</span>
-            <span className="trips-tab-skel">Gedeeld</span>
-          </div>
-          {cards(Math.max(1, shape.past || shape.friends), shape.upcoming)}
-        </>
-      )}
     </div>
   );
 }
@@ -153,6 +158,11 @@ export function TripsPage() {
   };
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'past' | 'friends'>('past');
+  // Wide enough to lay cards side by side, which is what decides whether a
+  // finished trip leads as a photo or as a row.
+  const wide = useWideWindow();
+  // Read once: the placeholders must not change shape underneath themselves.
+  const [shape] = useState(rememberedShape);
   const pastPaneRef = useRef<HTMLDivElement>(null);
   const friendPaneRef = useRef<HTMLDivElement>(null);
   const switchTab = (next: 'past' | 'friends') => setTab(next);
@@ -185,13 +195,13 @@ export function TripsPage() {
         try {
           const today = new Date().toISOString().slice(0, 10);
           const mine = list.filter((t) => canEditTrip(t, user?.id));
-          const shape: TripShape = {
+          const seen: TripShape = {
             upcoming: mine.filter((t) => t.endDate.slice(0, 10) >= today).length,
             past: mine.filter((t) => t.endDate.slice(0, 10) < today).length,
             friends: list.length - mine.length,
           };
           localStorage.setItem(TRIP_COUNT_KEY, String(list.length));
-          localStorage.setItem(TRIP_SHAPE_KEY, JSON.stringify(shape));
+          localStorage.setItem(TRIP_SHAPE_KEY, JSON.stringify(seen));
         } catch {
           /* storage off: the placeholder count falls back to a guess */
         }
@@ -257,6 +267,18 @@ export function TripsPage() {
   // section is never an empty panel under a pill you have to find first.
   const hasPast = past.length > 0;
   const hasFriends = friendTrips.length > 0;
+  /*
+   * Which sections are on the page, whether or not their trips have arrived.
+   *
+   * While the list is still on its way the answer comes from what this browser
+   * saw last time, so the headings and the tab pill are already the real ones.
+   * Nothing about them is rebuilt when the trips land: the count on the pill is
+   * the only thing that was missing, and the count is the only thing that
+   * appears.
+   */
+  const loading = trips === null && !error;
+  const showUpcoming = loading ? shape.upcoming > 0 : upcoming.length > 0;
+  const showLower = loading ? shape.past > 0 || shape.friends > 0 : hasPast || hasFriends;
   useEffect(() => {
     if (!hasPast && hasFriends) setTab('friends');
   }, [hasPast, hasFriends]);
@@ -303,7 +325,8 @@ export function TripsPage() {
             index={i}
             onChanged={load}
             onResize={applySize}
-            compact={isTripCompact(trip.id, true)}
+            wide={wide}
+            compact={isTripCompact(trip.id, wide ? i >= LEAD_LARGE : true)}
           />
         ))}
         {which === 'past' && upcoming.length === 0 && (
@@ -357,11 +380,6 @@ export function TripsPage() {
 
       {error && <p className="error-text">{error}</p>}
 
-      {/* On a slow connection the page used to sit here empty, which reads as
-          "you have no trips" rather than "still loading". These are the cards
-          that are on their way, in the number this browser saw last time. */}
-      {trips === null && !error && <TripsSkeleton shape={rememberedShape()} />}
-
       {trips?.length === 0 && (
         <div className="card trips-empty">
           <h2>Nog geen reizen</h2>
@@ -371,9 +389,12 @@ export function TripsPage() {
         </div>
       )}
 
-      {upcoming.length > 0 && (
+      {showUpcoming && (
         <>
           <h2 className="trips-section-title">Aankomend &amp; onderweg</h2>
+          {loading ? (
+            <SkeletonGrid count={shape.upcoming} offset={0} />
+          ) : (
           <div className="trips-grid">
             {upcoming.map((trip, i) => {
               const c = isTripCompact(trip.id, false);
@@ -384,6 +405,7 @@ export function TripsPage() {
                   index={i}
                   onChanged={load}
                   onResize={applySize}
+                  wide={wide}
                   compact={c}
                 />
               );
@@ -392,10 +414,11 @@ export function TripsPage() {
               <span>+ Nieuwe reis</span>
             </button>
           </div>
+          )}
         </>
       )}
 
-      {(past.length > 0 || friendTrips.length > 0) && (
+      {showLower && (
         <>
           {/* The heading was a heading; now it is the choice between your own
               finished trips and the ones you were invited to watch. One pill
@@ -407,19 +430,21 @@ export function TripsPage() {
               role="tab"
               aria-selected={tab === 'past'}
               className={tab === 'past' ? 'active' : ''}
+              disabled={loading}
               onClick={() => switchTab('past')}
             >
               Afgelopen reizen
-              {past.length > 0 && <small>{past.length}</small>}
+              {hasPast && <small>{past.length}</small>}
             </button>
             <button
               role="tab"
               aria-selected={tab === 'friends'}
               className={tab === 'friends' ? 'active' : ''}
+              disabled={loading}
               onClick={() => switchTab('friends')}
             >
               Gedeeld
-              {friendTrips.length > 0 && <small>{friendTrips.length}</small>}
+              {hasFriends && <small>{friendTrips.length}</small>}
             </button>
           </div>
 
@@ -428,6 +453,12 @@ export function TripsPage() {
               again on every switch — which is what made the top cover flash a
               dark, square block while its photo decoded a second time. */}
           <div className="trips-switch" style={paneHeight ? { height: paneHeight } : undefined}>
+            {loading ? (
+              <SkeletonGrid
+                count={Math.max(1, shape.past || shape.friends)}
+                offset={shape.upcoming}
+              />
+            ) : (
             <div className="trips-track" data-tab={tab}>
               <div className="trips-pane" ref={pastPaneRef} aria-hidden={tab !== 'past'}>
                 {renderPane('past')}
@@ -436,6 +467,7 @@ export function TripsPage() {
                 {renderPane('friends')}
               </div>
             </div>
+            )}
           </div>
         </>
       )}
@@ -449,12 +481,15 @@ function TripCard({
   onChanged,
   onResize,
   compact = false,
+  wide = false,
 }: {
   trip: Trip;
   index: number;
   onChanged: () => void;
   onResize: (id: string, value: 'large' | 'compact' | null) => void;
   compact?: boolean;
+  /** Wide window: the size menu is naming two shapes, not two sizes. */
+  wide?: boolean;
 }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -554,9 +589,11 @@ function TripCard({
   }
 
   function setSize(v: 'large' | 'compact' | null) {
-    // The menu stays open: you are looking at three sizes and you may well want
-    // to see the other two. It closes when you click away, like any menu.
+    // And then it goes. The menu hangs against the viewport rather than inside
+    // the card, so a card that changes shape slides out from under it and
+    // leaves the ⋯ floating over whatever moved up into its place.
     onResize(trip.id, v);
+    closeMenu();
   }
 
   const month = new Date(trip.startDate).toLocaleDateString('nl-NL', { month: 'long' });
@@ -662,7 +699,19 @@ function TripCard({
                     setSize(opt === 'auto' ? null : opt);
                   }}
                 >
-                  {opt === 'auto' ? 'Auto' : opt === 'large' ? 'Groot' : 'Klein'}
+                  {/* On a phone the two shapes really are a big card and a
+                      small one. In a window wide enough to stand cards beside
+                      each other the "small" one is a row across the full
+                      width, so it is named for what it looks like instead. */}
+                  {opt === 'auto'
+                    ? 'Auto'
+                    : opt === 'large'
+                      ? wide
+                        ? 'Kaart'
+                        : 'Groot'
+                      : wide
+                        ? 'Rij'
+                        : 'Klein'}
                 </button>
               );
             })}

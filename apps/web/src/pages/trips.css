@@ -812,6 +812,15 @@
   background: var(--paper-sunken);
 }
 
+/* A two-way switch does not get wider because the window did. Across a desktop
+   window it was a metre of empty pill with two words in it; this is the width
+   the words actually need, at the left-hand edge the cards start on. */
+@media (min-width: 721px) {
+  .trips-tabs {
+    max-width: 420px;
+  }
+}
+
 .trips-tabs-thumb {
   position: absolute;
   top: 4px;
@@ -847,24 +856,11 @@
   color: var(--ink);
 }
 
-/* The placeholder row wears the same pill as the real one, so the tabs do not
-   arrive a beat after the cards they belong to. Text, not buttons: there is
-   nothing here to press yet. */
-.trips-tab-skel {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 0.4rem;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.92rem;
-  color: var(--ink-faint);
-}
-
-.trips-tab-skel.active {
-  color: var(--ink);
+/* While the trips are still on their way the pill is the real one, with its
+   buttons switched off. Nothing about it is rebuilt when they land: only the
+   count appears. */
+.trips-tabs button:disabled {
+  cursor: default;
 }
 
 /* The count rides along, and only carries weight on the open tab. */
