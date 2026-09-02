@@ -458,11 +458,18 @@ export function TripSettingsPage() {
       {canEdit && (
       <section className="ts-sync">
         <div>
-          <strong>{isLocalMode() ? "Foto's koppelen" : "Foto's syncen"}</strong>
+          <strong>
+            {isLocalMode() ? "Foto's koppelen" : "Foto's syncen"}
+            <HelpTip>
+              Kijkt {isLocalMode() ? 'in je fotobibliotheek' : 'in Immich'} welke foto&apos;s op de
+              dagen van deze reis genomen zijn en zet die in de tijdlijn. Heeft een foto een
+              locatie, dan komt hij ook op de kaart te staan.
+            </HelpTip>
+          </strong>
           <span className="muted">
             {isLocalMode()
-              ? "Zoekt in je fotobibliotheek naar foto's van deze reisdagen en zet ze met hun GPS op de kaart."
-              : "Haal nieuwe foto's met GPS uit Immich op voor deze reis."}
+              ? "Zoekt in je fotobibliotheek naar foto's van deze reisdagen."
+              : "Haal nieuwe foto's uit Immich op voor deze reis."}
           </span>
         </div>
         <button className="btn btn-ghost" onClick={runSync} disabled={syncing}>
@@ -609,66 +616,86 @@ export function TripSettingsPage() {
           </p>
         </div>
 
-        {canEdit && (
-        <div className="ts-track-box ts-track-danger">
-          <div>
-            <strong>Getrackte data wissen</strong>
-            <span className="muted">
-              Verwijdert jouw GPS-route (de reis en foto's blijven). Kies een dag, of wis alles.
-            </span>
-            <div className="ts-wipe-day">
-              <DateField
-                value={clearDay}
-                onChange={setClearDay}
-                allowClear
-                placeholder="Kies een dag"
-              />
-              <button
-                className="btn btn-ghost"
-                disabled={!clearDay || wiping}
-                onClick={() => void wipeTracked(clearDay)}
-              >
-                Wis dag
-              </button>
-            </div>
-          </div>
-          <button className="btn btn-danger" disabled={wiping} onClick={() => void wipeTracked()}>
-            Alles wissen
-          </button>
-        </div>
-        )}
-
-        {canEdit && (
-        <div className="ts-track-box">
-          <div>
-            <strong>Automatisch getekende routes wissen</strong>
-            <span className="muted">
-              Verwijdert alleen de routes die je hebt getekend via{' '}
-              <span className="inline-path">
-                Ingedrukt houden <Icon name="chevron-right" size={12} /> Route via wegen
-              </span>
-              . Je eigen getrackte GPS blijft staan.
-            </span>
-          </div>
-          <button className="btn btn-ghost" disabled={wiping} onClick={() => void wipeRouteFills()}>
-            Wissen
-          </button>
-        </div>
-        )}
-        {clearMsg && <p className="muted">{clearMsg}</p>}
       </section>
 
 
       {trip && <MembersPanel trip={trip} onChanged={load} />}
 
-      {isOwner && (
-        <div className="ts-actions ts-actions-bottom">
-          {/* Full width now that there is no save button beside it — the page
-              saves itself, and the header says so. */}
-          <button className="btn btn-danger ts-delete" onClick={remove}>
-            <Icon name="trash" size={17} /> Reis verwijderen
-          </button>
-        </div>
+      {/* Everything that throws something away, in one place at the bottom of
+          the page. Wiping a route used to sit between two settings you change
+          every day, which is not where a button that deletes a week of
+          tracking belongs. */}
+      {(canEdit || isOwner) && (
+        <section className="ts-danger">
+          <h2 className="ts-section-title">Verwijderen</h2>
+
+          {canEdit && (
+            <div className="ts-track-box ts-track-danger">
+              <div>
+                <strong>Getrackte data wissen</strong>
+                <span className="muted">
+                  Verwijdert jouw GPS-route (de reis en foto's blijven). Kies een dag, of wis
+                  alles.
+                </span>
+                <div className="ts-wipe-day">
+                  <DateField
+                    value={clearDay}
+                    onChange={setClearDay}
+                    allowClear
+                    placeholder="Kies een dag"
+                  />
+                  <button
+                    className="btn btn-ghost"
+                    disabled={!clearDay || wiping}
+                    onClick={() => void wipeTracked(clearDay)}
+                  >
+                    Wis dag
+                  </button>
+                </div>
+              </div>
+              <button
+                className="btn btn-danger"
+                disabled={wiping}
+                onClick={() => void wipeTracked()}
+              >
+                Alles wissen
+              </button>
+            </div>
+          )}
+
+          {canEdit && (
+            <div className="ts-track-box ts-track-danger">
+              <div>
+                <strong>Automatisch getekende routes wissen</strong>
+                <span className="muted">
+                  Verwijdert alleen de routes die je hebt getekend via{' '}
+                  <span className="inline-path">
+                    Ingedrukt houden <Icon name="chevron-right" size={12} /> Route via wegen
+                  </span>
+                  . Je eigen getrackte GPS blijft staan.
+                </span>
+              </div>
+              <button
+                className="btn btn-ghost"
+                disabled={wiping}
+                onClick={() => void wipeRouteFills()}
+              >
+                Wissen
+              </button>
+            </div>
+          )}
+          {clearMsg && <p className="muted">{clearMsg}</p>}
+
+          {isOwner && (
+            <div className="ts-actions ts-actions-bottom">
+              {/* Full width now that there is no save button beside it — the page
+                  saves itself, and the header says so. */}
+              <button className="btn btn-danger ts-delete" onClick={remove}>
+                <Icon name="trash" size={17} /> Reis verwijderen
+              </button>
+            </div>
+          )}
+        </section>
       )}
     </main>
   );

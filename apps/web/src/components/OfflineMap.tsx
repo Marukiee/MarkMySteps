@@ -36,9 +36,11 @@ export function OfflineMap({ tripId }: { tripId: string }) {
   }, [tripId]);
 
   const bbox = boundsOf(routes, stops);
-  const zoom = bbox ? zoomThatFits(bbox) : 0;
   const tiles = bbox
-    ? Array.from({ length: zoom + 1 }, (_, z) => tileCount(bbox, z)).reduce((a, b) => a + b, 0)
+    ? Array.from({ length: zoomThatFits(bbox) + 1 }, (_, z) => tileCount(bbox, z)).reduce(
+        (a, b) => a + b,
+        0,
+      )
     : 0;
 
   async function download() {
@@ -76,9 +78,9 @@ export function OfflineMap({ tripId }: { tripId: string }) {
         <strong>Kaart offline bewaren</strong>
         <span className="muted">
           {region
-            ? `${megabytes(region.bytes)} bewaard, tot zoomniveau ${region.zoom}. De kaart van deze reis werkt nu zonder verbinding.`
+            ? `${megabytes(region.bytes)} bewaard. De kaart van deze reis werkt nu zonder internet.`
             : bbox
-              ? `Het gebied van deze reis, ongeveer ${tiles.toLocaleString('nl-NL')} tegels tot zoomniveau ${zoom}.`
+              ? 'Bewaart de kaart van het gebied waar je geweest bent, zodat hij het ook zonder internet doet.'
               : 'Zodra deze reis een route of stops met een locatie heeft, kan het gebied bewaard worden.'}
         </span>
       </div>

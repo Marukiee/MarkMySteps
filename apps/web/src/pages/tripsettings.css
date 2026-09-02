@@ -635,3 +635,47 @@
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
+
+/* ---------------------------------------------------------------------------
+   The bottom of the page: everything that throws something away
+   --------------------------------------------------------------------------- */
+
+/* Framed and set apart, so a button that wipes a week of tracking is never one
+   you land on while you are changing a title. */
+.ts-danger {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.4rem;
+  padding: 1.1rem 1.15rem 1.25rem;
+  border: 1px solid #ecc5ba;
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, #b3402a 4%, var(--paper));
+}
+
+:root[data-theme='dark'] .ts-danger {
+  border-color: #5a3129;
+  background: color-mix(in srgb, #b3402a 12%, var(--paper));
+}
+
+.ts-danger > .ts-section-title {
+  color: #b3402a;
+}
+
+:root[data-theme='dark'] .ts-danger > .ts-section-title {
+  color: #e8836a;
+}
+
+/* The boxes inside stand on their own paper; a red border around each of them
+   as well would be a frame inside a frame. */
+.ts-danger .ts-track-box {
+  background: var(--paper-raised);
+  border-color: var(--line);
+}
+
+.ts-danger .ts-actions-bottom {
+  border-top-color: #ecc5ba;
+}
+
+:root[data-theme='dark'] .ts-danger .ts-actions-bottom {
+  border-top-color: #5a3129;
+}
