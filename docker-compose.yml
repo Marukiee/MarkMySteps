@@ -79,6 +79,25 @@ services:
           cpus: '0.5'
           memory: 128M
 
+  # The page people see while `web` and `api` are being replaced.
+  #
+  # Bound to the very same host port, which is exactly why it can only run
+  # while `web` is stopped — install.sh swaps one for the other. Behind a
+  # profile so a plain `docker compose up -d` never starts it.
+  maintenance:
+    profiles: ['maintenance']
+    build:
+      context: .
+      dockerfile: docker/maintenance.Dockerfile
+    restart: 'no'
+    ports:
+      - '${WEB_BIND:-127.0.0.1}:${WEB_PORT:-18790}:80'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M
+
 networks:
   internal:
     driver: bridge

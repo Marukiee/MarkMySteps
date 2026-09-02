@@ -42,11 +42,50 @@ else
   WEB_PORT="${WEB_PORT:-18790}"
 fi
 
-echo "→ containers bouwen en starten…"
-docker compose up -d --build
+# The images are built BEFORE anything is stopped, so a build that fails (or
+# takes ten minutes) never costs a second of uptime: the old containers keep
+# serving the whole time.
+echo "→ nieuwe images bouwen (de site blijft ondertussen draaien)…"
+docker compose build
+docker compose --profile maintenance build maintenance
 
+# From here the app really is going down, so put a page in its place. The
+# maintenance container binds the same port, which is why web has to go first.
+echo "→ onderhoudspagina online zetten…"
+docker compose stop web >/dev/null 2>&1 || true
+docker compose --profile maintenance up -d maintenance
+
+echo "→ database en API vervangen…"
+docker compose up -d --remove-orphans db api
+
+# The API has no host port of its own, and its usual way in is answering 503
+# right now, so the container's own healthcheck is what gets asked.
 echo "→ wachten tot de API gezond is…"
+API_OK=false
 for _ in $(seq 1 60); do
+  API_CID=$(docker compose ps -q api || true)
+  STATUS=$(docker inspect --format '{{.State.Health.Status}}' "$API_CID" 2>/dev/null || echo starting)
+  if [[ "$STATUS" == healthy ]]; then
+    API_OK=true
+    break
+  fi
+  sleep 2
+done
+
+if [[ "$API_OK" != true ]]; then
+  echo "✗ API niet gezond na 2 minuten — check: docker compose logs api" >&2
+  echo "  De onderhoudspagina blijft staan tot dit opgelost is." >&2
+  exit 1
+fi
+
+# Hand the port back. `rm -f` as well as `stop`: a container that is only
+# stopped still holds its port binding when web comes back up.
+echo "→ site weer online zetten…"
+docker compose --profile maintenance stop maintenance
+docker compose --profile maintenance rm -f maintenance
+docker compose up -d web
+
+for _ in $(seq 1 30); do
   if curl -fsS "http://127.0.0.1:${WEB_PORT}/api/health" >/dev/null 2>&1; then
     echo
     echo "✔ MarkMySteps draait op http://127.0.0.1:${WEB_PORT}"
@@ -64,5 +103,5 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 
-echo "✗ API niet gezond na 2 minuten — check: docker compose logs api" >&2
+echo "✗ Web-container niet bereikbaar. Check: docker compose logs web" >&2
 exit 1

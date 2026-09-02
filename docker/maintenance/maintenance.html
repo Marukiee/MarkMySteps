@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <title>MarkMySteps is zo terug</title>
+    <link rel="icon" href="/favicon.svg" />
+    <style>
+      /*
+       * One file, no fonts to fetch, no scripts. This page is served while the
+       * app's own containers are being replaced, so anything it asks the
+       * network for is a request that may well go nowhere.
+       */
+      :root {
+        --paper: #faf6ef;
+        --paper-raised: #ffffff;
+        --ink: #1e2a35;
+        --ink-soft: #51616f;
+        --line: #e4dcce;
+        --accent: #e8613c;
+        --shadow: 0 18px 48px rgb(30 42 53 / 0.14);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #14181d;
+          --paper-raised: #1d242c;
+          --ink: #eef1f4;
+          --ink-soft: #a7b2bd;
+          --line: #2b333d;
+          --accent: #f0714d;
+          --shadow: 0 18px 48px rgb(0 0 0 / 0.6);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 2rem 1.25rem;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 30rem;
+        padding: 2.6rem 2rem 2.2rem;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: var(--paper-raised);
+        box-shadow: var(--shadow);
+        text-align: center;
+        animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+      }
+
+      svg {
+        display: block;
+        margin: 0 auto 1.4rem;
+      }
+
+      /* The mark is already a compass, so it is the spinner too: the same
+         wind-up-and-ease sweep the app's own waiting screen uses. */
+      .needle {
+        transform-box: view-box;
+        transform-origin: 12px 12px;
+        animation: sweep 2.8s linear infinite;
+      }
+
+      @keyframes sweep {
+        0% { transform: rotate(0deg); }
+        4% { transform: rotate(3.7deg); }
+        8% { transform: rotate(13.7deg); }
+        12% { transform: rotate(34.5deg); }
+        16% { transform: rotate(68.1deg); }
+        20% { transform: rotate(113.4deg); }
+        24% { transform: rotate(166.3deg); }
+        28% { transform: rotate(220.7deg); }
+        32% { transform: rotate(270.5deg); }
+        36% { transform: rotate(310.3deg); }
+        40% { transform: rotate(337.5deg); }
+        44% { transform: rotate(352.4deg); }
+        48% { transform: rotate(358.5deg); }
+        52% { transform: rotate(361.5deg); }
+        56% { transform: rotate(367.6deg); }
+        60% { transform: rotate(382.5deg); }
+        64% { transform: rotate(409.7deg); }
+        68% { transform: rotate(449.5deg); }
+        72% { transform: rotate(499.3deg); }
+        76% { transform: rotate(553.7deg); }
+        80% { transform: rotate(606.6deg); }
+        84% { transform: rotate(651.9deg); }
+        88% { transform: rotate(685.5deg); }
+        92% { transform: rotate(706.3deg); }
+        96% { transform: rotate(716.3deg); }
+        100% { transform: rotate(720deg); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .needle {
+          animation: none;
+        }
+      }
+
+      h1 {
+        margin: 0 0 0.5rem;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: 1.75rem;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+      }
+
+      p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 1rem;
+        line-height: 1.55;
+      }
+
+      .fine {
+        margin-top: 1.6rem;
+        padding-top: 1.2rem;
+        border-top: 1px solid var(--line);
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <g
+          stroke="var(--accent)"
+          stroke-width="2.1"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none"
+        >
+          <circle cx="12" cy="12" r="9.4" />
+          <path class="needle" d="m16.4 7.6-2.5 6.3-6.3 2.5 2.5-6.3Z" />
+        </g>
+      </svg>
+      <h1>MarkMySteps is zo terug</h1>
+      <p>Even onderhoud. Er wordt een nieuwe versie geïnstalleerd, dat duurt meestal een minuut of twee.</p>
+      <p class="fine">Deze pagina ververst zichzelf, dus je kunt hem gewoon open laten staan.</p>
+    </main>
+    <script>
+      /*
+       * Come back on its own, without hammering: the page reloads on a timer,
+       * and the nginx behind it answers 503 for as long as the real site is
+       * still being replaced. Once it is back, this reload lands on the app.
+       */
+      setTimeout(function () {
+        location.reload();
+      }, 15000);
+    </script>
+  </body>
+</html>

@@ -158,7 +158,21 @@ gaat versleuteld de database in met de sleutel uit `.env`.
 ```bash
 cd ~/MarkMySteps
 git pull
-docker compose up -d --build     # migraties draaien automatisch bij start
+./install.sh                     # migraties draaien automatisch bij start
+```
+
+`install.sh` bouwt eerst de nieuwe images terwijl de oude site gewoon blijft
+draaien. Pas als dat gelukt is gaat de app even uit, en zolang dat duurt komen
+bezoekers op een onderhoudspagina ("MarkMySteps is zo terug") in plaats van op
+een browserfoutmelding. Mislukt de nieuwe versie, dan blijft die pagina staan
+tot je het opgelost hebt.
+
+Ga je zelf iets aan de server doen, dan kun je die pagina ook met de hand
+aan- en uitzetten:
+
+```bash
+./maintenance.sh aan
+./maintenance.sh uit
 ```
 
 ## Back-up (database = alle data)
