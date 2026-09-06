@@ -1,5 +1,5 @@
 import { CSSProperties, FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
-import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
+import maplibregl, { Map as MapLibreMap } from '../lib/mapgl';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { downloadAndInstall } from '../lib/appUpdate';

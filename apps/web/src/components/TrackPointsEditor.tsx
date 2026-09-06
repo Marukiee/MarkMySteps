@@ -1,5 +1,4 @@
-import maplibregl, { LngLatBounds, Map as MapLibreMap } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import maplibregl, { LngLatBounds, Map as MapLibreMap } from '../lib/mapgl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client';

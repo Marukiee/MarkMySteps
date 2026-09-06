@@ -1,9 +1,9 @@
+// Only what the app actually sets: body, display, and the wordmark. Plus
+// Jakarta Sans and Darker Grotesque were tried against --font-brand and lost,
+// but stayed behind in the bundle - four extra font files on every launch for
+// a face nothing asks for.
 import '@fontsource-variable/fraunces';
-// Wordmark candidates - see --font-brand in global.css.
 import '@fontsource-variable/outfit';
-import '@fontsource-variable/plus-jakarta-sans';
-import '@fontsource/darker-grotesque/600.css';
-import '@fontsource/darker-grotesque/700.css';
 import '@fontsource-variable/inter';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -19,16 +19,12 @@ import {
   isNativeApp,
 } from './lib/native';
 import { initDynamicAccent } from './lib/dynamicColor';
-import { registerMapCache } from './lib/mapCache';
 import { applyTheme, getThemeId } from './lib/prefs';
 import { enforceThumbBudget } from './lib/offlineCache';
 import { initPendingWrites } from './lib/pendingWrites';
 import { captureCurrentLocation, resumeIfTracking } from './tracking/tracker';
 import './styles/global.css';
 
-// Maps answer their own requests from storage where a region was saved. Must
-// run before any map is built, or its style is fetched over the bare scheme.
-registerMapCache();
 // Theme before first paint; keep following the OS when set to "system".
 applyTheme();
 // Optional: borrow the accent from the wallpaper. Fire-and-forget, because the

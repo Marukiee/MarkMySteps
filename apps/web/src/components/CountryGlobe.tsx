@@ -199,8 +199,41 @@ export function CountryGlobe({ countries, size = 200 }: { countries: string[]; s
       raf = requestAnimationFrame(draw);
     }
 
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
+    /**
+     * Only turns while it is being looked at. Same redraw-everything cost as
+     * the big globe, on a canvas that sits well down a stats page and keeps
+     * spinning after the app is put away. Stopping and starting is invisible:
+     * the rotation resumes from the angle it held.
+     */
+    let onScreen = true;
+    let awake = document.visibilityState !== 'hidden';
+    const sync = () => {
+      if (onScreen && awake) {
+        if (!raf) raf = requestAnimationFrame(draw);
+      } else {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+    };
+    const onVisibility = () => {
+      awake = document.visibilityState !== 'hidden';
+      sync();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    const io = new IntersectionObserver(
+      (entries) => {
+        onScreen = entries.some((e) => e.isIntersecting);
+        sync();
+      },
+      { rootMargin: '120px' },
+    );
+    io.observe(canvas);
+    sync();
+    return () => {
+      cancelAnimationFrame(raf);
+      io.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [visited, size]);
 
   return (

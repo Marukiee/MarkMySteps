@@ -6,7 +6,6 @@
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SERVER_URL } from '../config';
 import { mediaSrc } from '../lib/gallery';
-import { localRequest } from '../lib/localBackend';
 import { isLocalMode } from '../lib/localMode';
 import {
   cacheGetJson,
@@ -171,7 +170,12 @@ export async function api<T>(
   // Without a server every request is answered on the device, using the same
   // paths and the same shapes — so nothing above this line knows the
   // difference. See localBackend.
-  if (isLocalMode()) return localRequest<T>(path, options);
+  if (isLocalMode()) {
+    // Loaded on demand: the on-device backend is a whole second implementation
+    // of the API, and a session that talks to a server never touches it.
+    const { localRequest } = await import('../lib/localBackend');
+    return localRequest<T>(path, options);
+  }
 
   const token = getAccessToken();
   const method = options.method ?? 'GET';

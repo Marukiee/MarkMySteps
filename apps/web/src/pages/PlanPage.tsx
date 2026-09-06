@@ -1,5 +1,4 @@
-import maplibregl, { LngLatBounds, Map as MapLibreMap } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import maplibregl, { LngLatBounds, Map as MapLibreMap } from '../lib/mapgl';
 import { DragEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';

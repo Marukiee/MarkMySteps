@@ -262,6 +262,10 @@ export function AuthImage({
       className={`${className ?? ''} auth-img ${loaded ? 'loaded' : ''}`}
       style={style}
       loading={eager ? 'eager' : 'lazy'}
+      // Off the main thread. Decoding a full-size photo synchronously is
+      // several frames of nothing happening on a slow phone, and a grid
+      // decodes a screenful of them at once.
+      decoding="async"
       onLoad={() => setLoaded(true)}
       onError={() => setLoaded(true)}
     />

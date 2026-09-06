@@ -1,5 +1,4 @@
-import maplibregl, { LngLatBounds, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import maplibregl, { LngLatBounds, Map as MapLibreMap, StyleSpecification } from '../lib/mapgl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchBlobUrl } from '../api/client';
 import type { LiveFix } from '../api/types';

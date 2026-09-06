@@ -1,4 +1,4 @@
-import maplibregl, { type StyleSpecification } from 'maplibre-gl';
+import type { StyleSpecification, addProtocol } from 'maplibre-gl';
 import { dbAll, dbDelete, dbGet, dbPut } from './localDb';
 
 /**
@@ -47,6 +47,16 @@ let registered = false;
  * thread for each one. Until a region is saved, requests go straight out.
  */
 let hasRegions = false;
+/**
+ * Resolves once the answer above is known.
+ *
+ * This used to be settled at launch, with a whole app-start between it and the
+ * first tile. Registration now happens the moment the first map is built, so
+ * the first screenful of tiles can arrive before the lookup comes back - and
+ * offline, with a saved region, "not yet known" reads exactly like "nothing
+ * stored" and the map stays blank. Awaited once, then dropped.
+ */
+let regionsKnown: Promise<void> | null = null;
 /** One handle, opened once: `caches.open` per tile is not free either. */
 let cachePromise: Promise<Cache> | null = null;
 
@@ -55,21 +65,33 @@ function mapCache(): Promise<Cache> {
   return cachePromise;
 }
 
-/** Installs the protocol MapLibre asks cached resources over. Idempotent. */
-export function registerMapCache(): void {
+/**
+ * Installs the protocol MapLibre asks cached resources over. Idempotent.
+ *
+ * MapLibre is handed in rather than imported: this module is reached from
+ * `prefs`, which the whole app reaches, and a static import here dragged the
+ * megabyte of map code into the very first chunk — downloaded and parsed on
+ * the login screen of a phone that may never open a map. `lib/mapgl` is the
+ * one place that loads MapLibre, and it registers this on the way past.
+ */
+export function registerMapCache(gl: { addProtocol: typeof addProtocol }): void {
   if (registered) return;
   registered = true;
   // Cheap and once: which trips have a saved region decides whether every
   // later tile request needs to look in storage at all.
-  void dbAll<{ tripId?: string; urls?: string[] }>('meta')
+  regionsKnown = dbAll<{ tripId?: string; urls?: string[] }>('meta')
     .then((rows) => {
       hasRegions = rows.some((row) => Array.isArray(row?.urls) && row.urls.length > 0);
     })
     .catch(() => undefined);
 
-  maplibregl.addProtocol(CACHE_SCHEME, async (params, abortController) => {
+  gl.addProtocol(CACHE_SCHEME, async (params, abortController) => {
     const target = params.url.slice(PREFIX.length);
 
+    if (regionsKnown) {
+      await regionsKnown;
+      regionsKnown = null;
+    }
     const cached = hasRegions ? await matchCache(target) : null;
     const response = cached ?? (await fetch(target, { signal: abortController.signal }));
     if (!response.ok) {

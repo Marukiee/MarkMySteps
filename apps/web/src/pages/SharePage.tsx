@@ -1,5 +1,4 @@
-import maplibregl, { LngLatBounds, Map as MapLibreMap } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import maplibregl, { LngLatBounds, Map as MapLibreMap } from '../lib/mapgl';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import type { MediaItem, RouteCollection } from '../api/types';

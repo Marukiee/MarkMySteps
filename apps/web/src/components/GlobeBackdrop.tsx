@@ -1677,7 +1677,46 @@ export function GlobeBackdrop({
 
       raf = requestAnimationFrame(draw);
     }
-    draw();
+
+    /**
+     * The loop runs only while somebody can see it.
+     *
+     * A frame here is a full redraw: coastlines reprojected, every route
+     * re-stroked, every label measured and placed. It is the most expensive
+     * thing this app does per second, and on a slow phone it was doing it
+     * while scrolled far down the trips list, and while the app sat in the
+     * background. Nothing about the animation changes - it picks up exactly
+     * where it stopped, and `dt` is clamped, so the sweep does not jump.
+     */
+    let onScreen = true;
+    let awake = document.visibilityState !== 'hidden';
+    const sync = () => {
+      if (onScreen && awake) {
+        if (raf) return;
+        lastFrame = performance.now();
+        raf = requestAnimationFrame(draw);
+      } else {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+    };
+    const onVisibility = () => {
+      awake = document.visibilityState !== 'hidden';
+      sync();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    // The globe scrolls with the page, so a long trips list leaves it behind.
+    const io = new IntersectionObserver(
+      (entries) => {
+        onScreen = entries.some((e) => e.isIntersecting);
+        sync();
+      },
+      // A little early on either side: it is already turning by the time it
+      // comes back into view, never caught standing still.
+      { rootMargin: '120px' },
+    );
+    io.observe(canvas);
+    sync();
 
     // --- Interaction: drag to spin/tilt, pinch or wheel to zoom, tap a marker
     // to open the trip. After you let go it eases back to the auto-sweep. ---
@@ -1774,6 +1813,8 @@ export function GlobeBackdrop({
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      io.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('mms-globe-stops', onStopsMode);
       canvas.removeEventListener('pointerdown', onDown);

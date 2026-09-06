@@ -6,7 +6,7 @@ import {
   notifyPermitted,
   showJobProgress,
 } from './notify';
-import { renderPhotoBook, type BookSource } from './photobook';
+import type { BookSource } from './photobook';
 
 export interface BookJob {
   status: 'idle' | 'running' | 'done' | 'failed';
@@ -99,6 +99,10 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
   let lastAt = 0;
 
   try {
+    // The whole book renderer - layout, the PDF writer, the map drawing - is
+    // pulled in the moment somebody asks for a book, not on every launch. It
+    // is the largest thing in the app and most sessions never make one.
+    const { renderPhotoBook } = await import('./photobook');
     const pdf = await renderPhotoBook(source, { dpi }, (done, total) => {
       // Thrown from inside the renderer, which is exactly where it has to
       // stop: between two pages, with nothing half-drawn.

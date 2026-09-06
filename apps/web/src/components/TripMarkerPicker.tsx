@@ -1,5 +1,4 @@
-import maplibregl, { LngLatBounds, Map as MapLibreMap } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import maplibregl, { LngLatBounds, Map as MapLibreMap } from '../lib/mapgl';
 import { useEffect, useRef } from 'react';
 import { api } from '../api/client';
 import type { RouteCollection } from '../api/types';
