@@ -660,8 +660,8 @@ function PreferencesSection() {
         <h2>
           Standaard vliegvelden
           <HelpTip>
-            Voeg er zoveel toe als je wilt. Tik een vliegveld aan om het je standaard te maken. Dat
-            is degene die vooraf ingevuld wordt als vertrek bij een nieuwe vlucht.
+            Tik een vliegveld aan om het je standaard te maken: dat is het vliegveld dat alvast
+            als vertrek ingevuld staat bij een nieuwe vlucht. Toevoegen mag zoveel je wilt.
           </HelpTip>
         </h2>
         <p className="muted">Je thuis-vliegvelden, voor het invullen van vluchten.</p>
@@ -716,8 +716,9 @@ function NotifySection() {
       <h2>
         Meldingen op je telefoon
         <HelpTip>
-          Zonder Google-pushdienst kan de app niets toegestuurd krijgen, dus kijkt hij zelf. Vier
-          verzoekjes per uur, en een bericht kan een kwartier oud zijn.
+          Je toestel heeft geen Google-pushdienst, dus niemand kan iets naar de app sturen. In
+          plaats daarvan kijkt de app zelf: elk kwartier vraagt hij of er iets voor je is. Een
+          melding kan daardoor tot een kwartier later binnenkomen dan hij bedoeld was.
         </HelpTip>
       </h2>
       <label className="ts-toggle settings-toggle">
@@ -752,8 +753,9 @@ function GlobeSection() {
       <h2>
         Globe
         <HelpTip>
-          Elke stop uit de routeplanner krijgt een bolletje op de globe. De reis die op dat moment
-          uitgelicht is laat ze sowieso zien: hier kies je of de andere reizen dat ook doen.
+          Elke stop uit je routeplanner krijgt een bolletje op de globe. Bij de reis die op dat
+          moment uitgelicht is gebeurt dat altijd. Met &ldquo;Altijd&rdquo; laten ook alle andere
+          reizen hun stops zien.
         </HelpTip>
       </h2>
       <p className="muted">Tussenstops op de globe van de homepage.</p>
@@ -1649,12 +1651,10 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
         <h2>
           Schermen bekijken
           <HelpTip>
-            Dit zijn de echte schermen, niet een kopie: wat je hier ziet is wat een nieuwe
-            gebruiker ziet. De tweede knop toont de versie zonder server, met de vragen over je
-            naam en je fotobibliotheek erbij; je naam wordt dan niet bewaard. Een preview zet de
-            rondleiding nooit op &ldquo;gezien&rdquo;, dus je kunt hem zo vaak openen als je wilt.
-            In het inlogscherm doet &ldquo;Zonder server beginnen&rdquo; niets, zodat je je eigen
-            server niet kwijtraakt.
+            De echte schermen, niet een kopie: dit is wat een nieuwe gebruiker ziet. Een preview
+            verandert niets aan je eigen app, dus je kunt hem zo vaak openen als je wilt: de
+            rondleiding gaat niet op &ldquo;gezien&rdquo;, je naam wordt niet bewaard, en
+            &ldquo;Zonder server beginnen&rdquo; doet in het inlogscherm niets.
           </HelpTip>
         </h2>
         <p className="muted">Verborgen opties om dingen te testen.</p>
@@ -2256,8 +2256,8 @@ function ServerSection() {
       <h2>
         Server
         <HelpTip>
-          Het adres waarop jouw MarkMySteps draait. Dit is wat de app nu gebruikt; als je hem
-          verandert log je uit en log je op de nieuwe server opnieuw in.
+          Het adres waarop jouw MarkMySteps draait. Verander je het, dan word je uitgelogd en log
+          je op de nieuwe server opnieuw in.
         </HelpTip>
       </h2>
       <p className="muted">De server waarmee deze sessie praat.</p>
@@ -2426,10 +2426,10 @@ function ImmichSection() {
           <label htmlFor="im-key">
             API-key
             <HelpTip>
-              Een sleutel die MarkMySteps namens jou bij Immich naar binnen laat, zonder dat je
-              wachtwoord hier terechtkomt. Je maakt hem aan in Immich zelf en plakt hem hieronder;
-              hij wordt versleuteld opgeslagen en is daarna nooit meer uit te lezen, alleen te
-              vervangen. Trek je hem in Immich in, dan werkt de koppeling meteen niet meer.
+              Een sleutel die MarkMySteps namens jou bij Immich naar binnen laat, zodat je
+              wachtwoord hier niet terechtkomt. Eenmaal opgeslagen is hij niet meer uit te lezen,
+              alleen te vervangen. Trek je hem in Immich in, dan werkt de koppeling meteen niet
+              meer.
             </HelpTip>
           </label>
           <input
@@ -2452,8 +2452,9 @@ function ImmichSection() {
           <label htmlFor="im-public">
             Publieke URL (optioneel)
             <HelpTip>
-              Voor de “Openen in Immich”-knop. De server-URL hierboven mag een intern LAN-adres
-              zijn; deze is het adres waarmee jij Immich in je browser/app opent.
+              Alleen voor de knop &ldquo;Openen in Immich&rdquo;. Het adres hierboven mag een
+              intern adres op je eigen netwerk zijn; dit is het adres waarop jij Immich zelf
+              opent.
             </HelpTip>
           </label>
           <input

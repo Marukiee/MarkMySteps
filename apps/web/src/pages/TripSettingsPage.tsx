@@ -521,9 +521,10 @@ export function TripSettingsPage() {
           <h2 className="ts-section-title">
             Bolletje op de globe
             <HelpTip>
-              Handig bij een rondreis (bv. interrail) waar begin en eind bijna gelijk zijn: zet het
-              ene bolletje en naamkaartje op een plek langs de route die het beste uitkomt.
-              Standaard staat het automatisch op begin/eind.
+              Op de globe staat deze reis met een bolletje op het begin en het eind. Hier zet je in
+              plaats daarvan één bolletje op een plek die je zelf kiest, met het naamkaartje
+              eraan. Handig bij een rondreis, waar begin en eind zo dicht bij elkaar liggen dat ze
+              niets zeggen.
             </HelpTip>
           </h2>
           {trip?.markerLng != null && trip.markerLat != null ? (
@@ -754,8 +755,8 @@ function FactPicker({ tripId, trip }: { tripId: string; trip: Trip | null }) {
       <h2 className="ts-section-title">
         Feitjes op de cover
         <HelpTip>
-          Er is plek voor vier. Zonder eigen keuze pakt de app automatisch de eerste vier die deze
-          reis heeft: afstand, dagen, stops, foto's, reisgenoten.
+          Er is plek voor vier. Kies je zelf niets, dan neemt de app de eerste vier die deze reis
+          heeft, in deze volgorde: afstand, dagen, stops, foto's, reisgenoten.
         </HelpTip>
       </h2>
 
