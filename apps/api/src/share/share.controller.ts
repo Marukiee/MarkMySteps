@@ -220,6 +220,28 @@ export class SharePublicController {
     return this.stops.listUnchecked(session.tripId);
   }
 
+  /**
+   * The day stories, read-only. Scoped to the trip the session was issued
+   * for, never to anything in the request. Only the words and the author's
+   * display name go out: no author id, no e-mail, nothing else about the
+   * account behind them.
+   */
+  @Get(':slug/notes')
+  async notes(@Param('slug') slug: string, @Headers('x-share-token') token: string) {
+    const session = await this.requireSession(slug, token);
+    const notes = await this.prisma.tripNote.findMany({
+      where: { tripId: session.tripId },
+      orderBy: [{ day: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, day: true, body: true, author: { select: { displayName: true } } },
+    });
+    return notes.map((n) => ({
+      id: n.id,
+      day: n.day.toISOString().slice(0, 10),
+      body: n.body,
+      authorName: n.author.displayName,
+    }));
+  }
+
   @Get(':slug/media')
   async media(@Param('slug') slug: string, @Headers('x-share-token') token: string) {
     const session = await this.requireSession(slug, token);
