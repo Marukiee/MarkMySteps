@@ -1,7 +1,8 @@
 .trip-detail {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 400px;
+  /* --side-width is set by the grip between the two (SideResizer). */
+  grid-template-columns: minmax(0, 1fr) var(--side-width, 400px);
   gap: 1.25rem;
   padding: 1.25rem;
   height: calc(100vh - 57px); /* minus topbar */
@@ -9,6 +10,60 @@
 
 .sheet-grab {
   display: none;
+}
+
+/* The grip between map and timeline: centred in the gap, out of the grid
+   (absolute), so the two columns stay the only grid items. */
+.side-resizer {
+  position: absolute;
+  top: 1.25rem;
+  bottom: 1.25rem;
+  right: calc(1.25rem + var(--side-width, 400px) + 0.625rem - 8px);
+  width: 16px;
+  z-index: 50;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+/* A thin line that shows itself only when you are near it or using it. */
+.side-resizer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--line);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition:
+    opacity 0.15s var(--ease),
+    height 0.2s var(--ease),
+    background 0.15s var(--ease);
+}
+
+.side-resizer:hover::after,
+.side-resizer:focus-visible::after,
+body.side-resizing .side-resizer::after {
+  opacity: 1;
+  height: 72px;
+  background: var(--accent);
+}
+
+.side-resizer:focus-visible {
+  outline: none;
+}
+
+/* While dragging, the whole page is the grip: no text selection, no hover
+   effects under the pointer, and the map does not pan. */
+body.side-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.side-resizing .trip-detail > :not(.side-resizer) {
+  pointer-events: none;
 }
 
 /* --- Mobile / app: the page scrolls; a fixed map on top shrinks as you scroll
@@ -22,6 +77,11 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: 0;
+  }
+
+  /* No columns on a phone, so nothing to drag. */
+  .side-resizer {
+    display: none;
   }
 
   .trip-detail .trip-map-panel {

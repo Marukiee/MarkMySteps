@@ -15,6 +15,7 @@ import { TrainRouteSheet, type Station } from '../components/TrainRouteSheet';
 import { MembersPanel } from '../components/MembersPanel';
 import { PhotoBook } from '../components/PhotoBook';
 import { SharePanel } from '../components/SharePanel';
+import { SideResizer } from '../components/SideResizer';
 import { SummaryPanel } from '../components/SummaryPanel';
 import { Timeline } from '../components/Timeline';
 import { TrackPointsEditor } from '../components/TrackPointsEditor';
@@ -1055,6 +1056,9 @@ export function TripDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Laptop only: drag to share the width between map and timeline. */}
+      <SideResizer host={scrollRef} />
 
       <aside className="trip-side" ref={sideRef}>
         <div className="sheet-grab" aria-hidden="true" />
