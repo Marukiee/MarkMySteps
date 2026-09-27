@@ -19,7 +19,6 @@ import { WeatherBadge } from '../components/WeatherBadge';
 import { resolveFacts } from '../lib/tripFacts';
 import '../components/timeline.css'; // the shared timeline IS the app's timeline
 import '../components/tripmap.css'; // photo markers on the shared map
-import '../components/daynote.css'; // the day stories, read-only here
 import './share-page.css';
 import { Flag } from '../components/Flag';
 

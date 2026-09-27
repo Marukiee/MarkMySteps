@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import './daynote.css';
 
 export interface TripNote {
   id: string;
