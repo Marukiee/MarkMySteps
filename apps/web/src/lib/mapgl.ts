@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import maplibregl, { LngLatBounds } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { registerMapCache } from './mapCache';
 
@@ -16,4 +16,11 @@ import { registerMapCache } from './mapCache';
 registerMapCache(maplibregl);
 
 export * from 'maplibre-gl';
+// MapLibre ships as a UMD bundle. The production build fills in the star
+// export above, but the dev server hands a pre-bundled CommonJS package to the
+// browser as a default export only, so `export *` carried no values there and
+// every map screen died on "does not provide an export named 'LngLatBounds'".
+// A named import is rewritten properly in both, so the values the app imports
+// by name are re-exported by name. Types still come through the star.
+export { LngLatBounds };
 export default maplibregl;
