@@ -75,6 +75,12 @@ interface LightboxProps {
   videoSrcFor?: (item: MediaItem) => string;
 }
 
+/**
+ * The history step a closing lightbox still owes, for one tick. See the
+ * back-gesture effect in Lightbox.
+ */
+let pendingBack: number | null = null;
+
 export function Lightbox({
   items,
   index,
@@ -332,7 +338,16 @@ export function Lightbox({
 
   // A back gesture should close the photo, not walk out of the trip.
   useEffect(() => {
-    window.history.pushState({ mmsLightbox: true }, '');
+    // Mounted again within the same tick (React's development double-mount):
+    // the entry the last mount pushed is still there, so it is kept rather than
+    // stepped back over and pushed anew. That step and that push used to race,
+    // the step won, and every photo shut itself a moment after it opened.
+    if (pendingBack !== null) {
+      window.clearTimeout(pendingBack);
+      pendingBack = null;
+    } else {
+      window.history.pushState({ mmsLightbox: true }, '');
+    }
     let popped = false;
     const onPop = () => {
       popped = true;
@@ -343,7 +358,11 @@ export function Lightbox({
     window.addEventListener('popstate', onPop);
     return () => {
       window.removeEventListener('popstate', onPop);
-      if (!popped) window.history.back();
+      if (popped) return;
+      pendingBack = window.setTimeout(() => {
+        pendingBack = null;
+        window.history.back();
+      }, 0);
     };
     // Mounted once per lightbox session; navigating between photos must not
     // push another entry.
