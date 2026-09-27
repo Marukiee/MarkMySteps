@@ -167,6 +167,16 @@ export function Timeline({
                 {/* The "write something about today" pencil is gone — existing
                     notes still show and stay editable. */}
                 {formatDay(items[0]?.takenAt ?? day)}
+                {canEditNotes && onSaveNote && editingDay !== day && !(notesByDay.get(day)?.length) && (
+                  <button
+                    type="button"
+                    aria-label="Schrijf iets over deze dag"
+                    onClick={() => setEditingDay(day)}
+                    style={{ marginLeft: 8, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '0.9em', opacity: 0.7 }}
+                  >
+                    ✎
+                  </button>
+                )}
               </span>
               {loc && (
                 <span className="timeline-day-meta">
