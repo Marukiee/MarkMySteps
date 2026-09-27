@@ -311,3 +311,18 @@ export function isTripCompact(tripId: string, isPast: boolean): boolean {
   if (size === 'large') return false;
   return isPast; // auto
 }
+
+/* ---------- Trip page column width (desktop) ---------- */
+
+const SIDE_WIDTH_KEY = 'mms.trip.sideWidth';
+
+/** The timeline column's width next to the map, in px; null means the default. */
+export function getTripSideWidth(): number | null {
+  const v = Number(localStorage.getItem(SIDE_WIDTH_KEY));
+  return v > 0 ? v : null;
+}
+
+export function setTripSideWidth(px: number | null): void {
+  if (px === null) localStorage.removeItem(SIDE_WIDTH_KEY);
+  else localStorage.setItem(SIDE_WIDTH_KEY, String(Math.round(px)));
+}
