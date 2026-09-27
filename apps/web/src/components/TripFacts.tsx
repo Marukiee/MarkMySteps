@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Fact } from '../lib/tripFacts';
+import './tripfacts.css';
 
 /**
  * The row of fact chips on a trip header. Always one line, never scrollable:

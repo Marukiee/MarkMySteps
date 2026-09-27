@@ -608,65 +608,6 @@
   color: rgb(255 255 255 / 0.85);
 }
 
-/* Numbers as inline chips: "1.240 km · 12 dagen · 3 landen · 84 foto's".
-   Centred, and wrapping is deliberate rather than accidental: rows stay centred
-   so a long number simply starts a new, equally centred row. */
-/* Always exactly one centred row. TripFacts shortens the labels and, as a last
-   resort, drops a chip — nothing is ever clipped or scrolled. */
-.trip-headcard-stats {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: center;
-  gap: 0.35rem;
-  margin-top: 0.6rem;
-  width: 100%;
-  overflow: hidden;
-  /* Reserved height: the chips arrive a beat after the page, and an empty row
-     that suddenly gains height made the whole cover jump. */
-  min-height: 30px;
-}
-
-.trip-headcard-stats .tstat {
-  flex: 0 0 auto;
-}
-
-.tstat {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.28rem;
-  white-space: nowrap;
-  padding: 0.28rem 0.62rem;
-  border-radius: 999px;
-  background: var(--paper-sunken);
-  color: var(--ink-soft);
-  font-size: 0.78rem;
-  font-weight: 600;
-  animation: statIn 0.45s var(--ease) both;
-}
-
-.trip-headcard-stats .tstat:nth-child(2) {
-  animation-delay: 0.06s;
-}
-.trip-headcard-stats .tstat:nth-child(3) {
-  animation-delay: 0.12s;
-}
-.trip-headcard-stats .tstat:nth-child(4) {
-  animation-delay: 0.18s;
-}
-.trip-headcard-stats .tstat:nth-child(5) {
-  animation-delay: 0.24s;
-}
-.trip-headcard-stats .tstat:nth-child(n + 6) {
-  animation-delay: 0.3s;
-}
-
-.tstat strong {
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 640;
-  color: var(--ink);
-}
-
 .trip-headcard.has-cover .tstat {
   background: rgb(255 255 255 / 0.16);
   color: rgb(255 255 255 / 0.9);
@@ -675,17 +616,6 @@
 
 .trip-headcard.has-cover .tstat strong {
   color: #fff;
-}
-
-@keyframes statIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 .trip-back-hero {

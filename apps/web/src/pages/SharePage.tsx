@@ -9,6 +9,7 @@ import { getMapStyle } from '../lib/prefs';
 import { FastScroll } from '../components/FastScroll';
 import { useExit } from '../lib/useExit';
 import { Icon } from '../components/Icon';
+import { DayNote, TripNote } from '../components/DayNote';
 import { Lightbox } from '../components/Lightbox';
 import { LogoMark } from '../components/Logo';
 import { PhotoGrid } from '../components/PhotoGrid';
@@ -18,6 +19,7 @@ import { WeatherBadge } from '../components/WeatherBadge';
 import { resolveFacts } from '../lib/tripFacts';
 import '../components/timeline.css'; // the shared timeline IS the app's timeline
 import '../components/tripmap.css'; // photo markers on the shared map
+import '../components/daynote.css'; // the day stories, read-only here
 import './share-page.css';
 import { Flag } from '../components/Flag';
 
@@ -154,6 +156,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
   const [trip, setTrip] = useState<SharedTrip | null>(null);
   const [stops, setStops] = useState<SharedStop[]>([]);
   const [media, setMedia] = useState<SharedMedia[]>([]);
+  const [notes, setNotes] = useState<TripNote[]>([]);
   const [routes, setRoutes] = useState<RouteCollection | null>(null);
   const [mapReady, setMapReady] = useState(false);
   /** The frame the whole trip was given, for the recentre button. */
@@ -212,6 +215,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     get<SharedTrip>('trip').then(setTrip).catch(() => undefined);
     get<SharedStop[]>('stops').then(setStops).catch(() => undefined);
     get<SharedMedia[]>('media').then(setMedia).catch(() => undefined);
+    get<TripNote[]>('notes').then(setNotes).catch(() => undefined);
     get<RouteCollection>('route').then(setRoutes).catch(() => undefined);
 
     if (!mapContainerRef.current || mapRef.current) return;
@@ -567,6 +571,10 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       const day = item.takenAt.slice(0, 10);
       days.set(day, [...(days.get(day) ?? []), item]);
     }
+    // A day with only a story and no photos still gets its section, as in the app.
+    for (const note of notes) {
+      if (!days.has(note.day)) days.set(note.day, []);
+    }
 
     // Every place that day covers, in itinerary order. A day trip is stored
     // with zero nights (arrival === departure), so it has to be matched on its
@@ -591,7 +599,13 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     return [...days.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, items]) => ({ date, items, ...placeFor(date) }));
-  }, [stops, orderedMedia]);
+  }, [stops, orderedMedia, notes]);
+
+  const notesByDay = useMemo(() => {
+    const map = new Map<string, TripNote[]>();
+    for (const note of notes) map.set(note.day, [...(map.get(note.day) ?? []), note]);
+    return map;
+  }, [notes]);
 
   const placeByDay = useMemo(() => {
     const map = new Map<string, string>();
@@ -707,7 +721,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                   <span className="timeline-dot" />
                   <span className="timeline-day-label">
                     <span className="timeline-day-top">
-                      {formatDay(entry.items[0]!.takenAt)}
+                      {formatDay(entry.items[0]?.takenAt ?? entry.date)}
                     </span>
                     {(entry.place || entry.lat !== null) && (
                       <span className="timeline-day-meta">
@@ -723,6 +737,9 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                     )}
                   </span>
                 </h3>
+                {notesByDay.has(entry.date) && (
+                  <DayNote day={entry.date} notes={notesByDay.get(entry.date)!} canEdit={false} />
+                )}
                 {/* Justified rows, same as the app: each photo keeps its own
                     shape instead of being cropped into a square. */}
                 <PhotoGrid items={entry.items} className="timeline-grid">
