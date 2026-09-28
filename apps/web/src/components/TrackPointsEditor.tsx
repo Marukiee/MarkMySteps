@@ -2,6 +2,7 @@ import maplibregl, { LngLatBounds, Map as MapLibreMap } from '../lib/mapgl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client';
+import { useBackToClose } from '../lib/backStack';
 import { getMapStyle } from '../lib/prefs';
 import { useExit } from '../lib/useExit';
 import { Icon } from './Icon';
@@ -93,19 +94,9 @@ export function TrackPointsEditor({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current();
     document.addEventListener('keydown', onKey);
-    window.history.pushState({ mmsTrackEdit: true }, '');
-    let popped = false;
-    const onPop = () => {
-      popped = true;
-      closeRef.current();
-    };
-    window.addEventListener('popstate', onPop);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      window.removeEventListener('popstate', onPop);
-      if (!popped) window.history.back();
-    };
+    return () => document.removeEventListener('keydown', onKey);
   }, []);
+  useBackToClose('mmsTrackEdit', () => closeRef.current());
 
   const load = useCallback(
     async (which: string) => {

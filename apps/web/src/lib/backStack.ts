@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 /**
  * Who owns the next `popstate`.
  *
@@ -33,4 +35,49 @@ export function skipNextPop(): void {
 /** True when this pop belongs to a layer above, which has already handled it. */
 export function popWasOurs(): boolean {
   return skipping;
+}
+
+/** The history step a just-closed sheet still owes, per sheet, for one tick. */
+const pendingBack = new Map<string, number>();
+
+/**
+ * A back gesture closes this sheet instead of leaving the page under it.
+ *
+ * The sheet pushes a history entry when it mounts and steps back over it when
+ * it is closed some other way. That step waits one tick: React's StrictMode
+ * mounts every effect twice in development, and a step back taken straight
+ * away raced the second mount's push, won, and its pop closed the sheet a
+ * moment after it opened. Mounted again within that tick, the entry already
+ * there is simply kept. The Lightbox does the same for the same reason.
+ */
+export function useBackToClose(tag: string, onBack: () => void): void {
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
+
+  useEffect(() => {
+    const waiting = pendingBack.get(tag);
+    if (waiting !== undefined) {
+      window.clearTimeout(waiting);
+      pendingBack.delete(tag);
+    } else {
+      window.history.pushState({ [tag]: true }, '');
+    }
+    let popped = false;
+    const onPop = () => {
+      popped = true;
+      onBackRef.current();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      if (popped) return;
+      pendingBack.set(
+        tag,
+        window.setTimeout(() => {
+          pendingBack.delete(tag);
+          window.history.back();
+        }, 0),
+      );
+    };
+  }, [tag]);
 }
