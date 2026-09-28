@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client';
+import { useBackToClose } from '../lib/backStack';
 import type { Trip } from '../api/types';
 import { CityThumb } from './CityThumb';
 import { DateField } from './DatePicker';
@@ -1598,21 +1599,11 @@ function PlaceSheet({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
     document.addEventListener('keydown', onKey);
-    // Back closes the sheet rather than leaving the planner.
-    window.history.pushState({ mmsPlace: true }, '');
-    let popped = false;
-    const onPop = () => {
-      popped = true;
-      close();
-    };
-    window.addEventListener('popstate', onPop);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      window.removeEventListener('popstate', onPop);
-      if (!popped) window.history.back();
-    };
+    return () => document.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Back closes the sheet rather than leaving the planner.
+  useBackToClose('mmsPlace', close);
 
   function onInput(v: string) {
     setQuery(v);

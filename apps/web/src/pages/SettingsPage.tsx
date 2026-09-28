@@ -45,7 +45,7 @@ import {
 } from '../lib/notify';
 import { applyDynamicAccent, dynamicAccentAvailable } from '../lib/dynamicColor';
 import { MapStylePicker } from '../components/MapStylePicker';
-import { skipNextPop } from '../lib/backStack';
+import { skipNextPop, useBackToClose } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
 import {
   GlobeStopsMode,
@@ -1345,21 +1345,11 @@ function TrackingLogSheet({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
     document.addEventListener('keydown', onKey);
-    // Back closes the sheet rather than leaving the settings page.
-    window.history.pushState({ mmsLog: true }, '');
-    let popped = false;
-    const onPop = () => {
-      popped = true;
-      close();
-    };
-    window.addEventListener('popstate', onPop);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      window.removeEventListener('popstate', onPop);
-      if (!popped) window.history.back();
-    };
+    return () => document.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Back closes the sheet rather than leaving the settings page.
+  useBackToClose('mmsLog', close);
 
   return createPortal(
     <div className={`log-layer ${closing ? 'closing' : ''}`}>

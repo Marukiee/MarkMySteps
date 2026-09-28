@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Airport, airportByCode, nearestAirport, searchAirports } from '../lib/airports';
+import { useBackToClose } from '../lib/backStack';
 import { getDefaultAirports } from '../lib/prefs';
 import { Icon } from './Icon';
 import './flighteditor.css';
@@ -149,20 +150,7 @@ function FlightSheet({
   };
 
   // A back gesture should close this sheet, not walk out of the planner.
-  useEffect(() => {
-    window.history.pushState({ mmsFlight: true }, '');
-    let popped = false;
-    const onPop = () => {
-      popped = true;
-      close();
-    };
-    window.addEventListener('popstate', onPop);
-    return () => {
-      window.removeEventListener('popstate', onPop);
-      if (!popped) window.history.back();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useBackToClose('mmsFlight', close);
 
   // Esc closes the picker first, then the sheet.
   useEffect(() => {
