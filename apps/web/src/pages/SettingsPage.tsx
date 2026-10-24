@@ -3,7 +3,7 @@ import maplibregl, { Map as MapLibreMap } from '../lib/mapgl';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { downloadAndInstall } from '../lib/appUpdate';
-import { isNativeApp } from '../lib/native';
+import { alwaysLabel, isAndroidApp, isIosApp, isNativeApp } from '../lib/native';
 import { api, ApiError, fetchBlobUrl, getServerBase, setServerBase } from '../api/client';
 import { CHANGELOG } from '../lib/changelog';
 import { AirportPrefs } from '../components/AirportPrefs';
@@ -558,7 +558,8 @@ function BackupSection() {
         </HelpTip>
       </h2>
       <p className="muted">
-        Zet alles in één bestand in je Downloads-map, met daarna de deel-knop zodat je het meteen
+        Zet alles in één bestand {isIosApp() ? 'in de Bestanden-app' : 'in je Downloads-map'}, met
+        daarna de deel-knop zodat je het meteen
         ergens veilig kunt neerzetten. Terugzetten voegt toe wat je nog niet hebt en laat
         bestaande reizen met rust.
       </p>
@@ -700,7 +701,7 @@ function NotifySection() {
       } else {
         setMessage(
           result.reason === 'denied'
-            ? 'Android laat meldingen niet toe voor deze app. Zet ze aan bij de app-instellingen van je toestel.'
+            ? 'Je telefoon laat meldingen niet toe voor deze app. Zet ze aan bij de app-instellingen van je toestel.'
             : 'Aanzetten lukte niet. Probeer het zo nog eens.',
         );
       }
@@ -876,7 +877,7 @@ function TrackingSection() {
           uit; daartussen kost tracking niets. Blijf je op dezelfde plek, dan worden die metingen
           samengevoegd tot één punt in plaats van een wirwar van stipjes. Een groter interval
           scheelt dus flink batterij. Offline wordt alles gebufferd en later geüpload. Vereist
-          locatie op “Altijd toestaan”.
+          locatie op “{alwaysLabel()}”.
         </HelpTip>
       </h2>
       <p className="muted">Houdt je route bij tijdens een reis, ook met het scherm uit.</p>
@@ -1470,7 +1471,7 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
       {/* Without a server, this is also the answer to "how do I get back?" —
           so it lives where you would go looking for it. */}
       {isLocalMode() && <ServerSteps />}
-      {isNativeApp() && <UpdateCheck />}
+      {isAndroidApp() && <UpdateCheck />}
       {hint && <span className="muted">{hint}</span>}
     </section>
   );

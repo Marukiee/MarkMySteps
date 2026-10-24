@@ -9,6 +9,7 @@ import {
   stopTracking,
 } from '../tracking/tracker';
 import { Icon } from './Icon';
+import { alwaysLabel, whileUsingLabel } from '../lib/native';
 
 export function TrackButton({ tripId }: { tripId: string }) {
   const [tracker, setTracker] = useState<TrackerState>({
@@ -80,8 +81,8 @@ export function TrackButton({ tripId }: { tripId: string }) {
             </button>
           </div>
           <span className="track-perm-text">
-            Locatie staat op “Alleen tijdens gebruik van de app”. Zet hem op{' '}
-            <b>Altijd toestaan</b> om je route ook met het scherm uit bij te houden.
+            Locatie staat op “{whileUsingLabel()}”. Zet hem op <b>{alwaysLabel()}</b> om je route
+            ook met het scherm uit bij te houden.
           </span>
           <button
             type="button"

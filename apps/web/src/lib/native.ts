@@ -7,6 +7,80 @@ export function isNativeApp(): boolean {
   return Capacitor.isNativePlatform();
 }
 
+/** The APK: the only build that can update itself, and the only one with Android's wording. */
+export function isAndroidApp(): boolean {
+  return Capacitor.getPlatform() === 'android';
+}
+
+export function isIosApp(): boolean {
+  return Capacitor.getPlatform() === 'ios';
+}
+
+/**
+ * The iPhone app does not zoom as a whole screen, like any other iOS app: the
+ * map, the photos and the gallery pinch on their own. Without this, iOS also
+ * zooms the page in when a field gets focus and leaves it zoomed afterwards.
+ */
+export function initIosViewport(): void {
+  if (!isIosApp()) return;
+  document.documentElement.classList.add('ios-app');
+  initStatusBarScrim();
+  document
+    .querySelector('meta[name="viewport"]')
+    ?.setAttribute(
+      'content',
+      'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover',
+    );
+}
+
+/**
+ * iOS: a frosted band behind the clock and battery once content scrolls under
+ * them, the way a native navigation bar behaves. At the top of a page it is
+ * not there, so the globe and the map still run to the top of the screen.
+ */
+function initStatusBarScrim(): void {
+  const scrim = document.createElement('div');
+  scrim.className = 'statusbar-scrim';
+  scrim.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(scrim);
+  let last: Element | null = null;
+  const show = (el: Element | null) => {
+    const top = el ? el.scrollTop : 0;
+    scrim.classList.toggle('visible', top > 4);
+  };
+  document.addEventListener(
+    'scroll',
+    (event) => {
+      const target = event.target === document ? document.scrollingElement : (event.target as Element);
+      // A sheet scrolling inside a dialog is not the page going under the clock.
+      if (target && target.closest?.('[role="dialog"], .people-sheet, .lightbox')) return;
+      last = target;
+      show(target);
+    },
+    { capture: true, passive: true },
+  );
+  // A new page starts at its own top.
+  const recheck = () => window.setTimeout(() => show(last && last.isConnected ? last : null), 60);
+  window.addEventListener('popstate', recheck);
+  for (const method of ['pushState', 'replaceState'] as const) {
+    const original = window.history[method].bind(window.history);
+    window.history[method] = (...args: Parameters<History['pushState']>) => {
+      original(...args);
+      recheck();
+    };
+  }
+}
+
+/** What the location setting that keeps tracking alive is called on this phone. */
+export function alwaysLabel(): string {
+  return isIosApp() ? 'Altijd' : 'Altijd toestaan';
+}
+
+/** And the setting that stops tracking when the app is closed. */
+export function whileUsingLabel(): string {
+  return isIosApp() ? 'Bij gebruik van app' : 'Alleen tijdens gebruik van de app';
+}
+
 /**
  * Public web origin for building shareable links. In the APK
  * `window.location.origin` is the WebView's internal scheme (localhost), so

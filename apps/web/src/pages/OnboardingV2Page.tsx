@@ -28,7 +28,7 @@ import {
   requestGalleryPermission,
 } from '../lib/gallery';
 import { getLocalName, isLocalMode, setLocalName } from '../lib/localMode';
-import { isNativeApp, markOnboarded } from '../lib/native';
+import { alwaysLabel, isIosApp, isNativeApp, markOnboarded } from '../lib/native';
 import { getThemeId, setThemeId, ThemeId } from '../lib/prefs';
 import { PLAN_ROUTE, PLAN_TRIP, SAMPLE_TRIPS } from './onboardingSamples';
 import './onboarding.css';
@@ -298,11 +298,14 @@ export function OnboardingV2Page() {
             </span>
             <h1>Locatie altijd toestaan</h1>
             <p className="muted">
-              Tracking met het scherm uit kan alleen als locatie op “Altijd toestaan” staat. Vraag
-              het hier aan; stuurt Android je door naar de instellingen, volg dan dit pad:
+              Tracking met het scherm uit kan alleen als locatie op “{alwaysLabel()}” staat. Vraag
+              het hier aan; stuurt je telefoon je door naar de instellingen, volg dan dit pad:
             </p>
             <div className="onb-path">
-              {['Apps', 'MarkMySteps', 'Rechten', 'Locatie', 'Altijd toestaan'].map((p, i) => (
+              {(isIosApp()
+                ? ['Instellingen', 'Apps', 'MarkMySteps', 'Locatie', 'Altijd']
+                : ['Apps', 'MarkMySteps', 'Rechten', 'Locatie', 'Altijd toestaan']
+              ).map((p, i) => (
                 <span key={p} className="onb-path-step">
                   {i > 0 && <Icon name="chevron-right" size={13} />}
                   <span>{p}</span>
