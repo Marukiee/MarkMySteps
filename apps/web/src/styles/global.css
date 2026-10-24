@@ -36,8 +36,10 @@
   --font-brand: 'Outfit Variable', var(--font-body);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  /* Frosted surfaces (nav bar, top bar, floating buttons). */
-  --glass: rgb(255 255 255 / 0.92);
+  /* Bars and floating buttons over the page. Solid: they carried a blur, and
+     redrawing it on every scrolled frame is what made Android stutter; without
+     it, any see-through let the text passing underneath show through sharp. */
+  --glass: rgb(255 255 255);
   --glass-border: var(--line);
   color-scheme: light;
 }
@@ -184,7 +186,7 @@ input[type='checkbox']:checked::after {
   --shadow-m: 0 6px 24px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.35);
   --shadow-l: 0 18px 48px rgb(0 0 0 / 0.6);
 
-  --glass: rgb(24 30 37 / 0.9);
+  --glass: rgb(24 30 37);
   --glass-border: #2b333d;
   color-scheme: dark;
 }
