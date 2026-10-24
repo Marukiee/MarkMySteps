@@ -123,7 +123,7 @@ Dat zie je terug in de grenzen die vastliggen:
 | Wat | Grens |
 | --- | --- |
 | Alle verzoeken samen | 300 per minuut, per sessie (per IP zonder login) |
-| Inloggen, registreren, wachtwoord wijzigen | 5 per minuut |
+| Inloggen, registreren, wachtwoord wijzigen | 5 per minuut, per bezoeker |
 | Deel-link openen met wachtwoord | 10 per minuut |
 | Deel-link aanmaken | 10 per minuut |
 | Foto's synchroniseren | 6 per minuut per reis |
@@ -132,7 +132,9 @@ Dat zie je terug in de grenzen die vastliggen:
 | Video's | 120 per minuut |
 | Openstaande registratieverzoeken | 15 tegelijk |
 | Profielfoto | 2 MB |
-| Polarsteps-zip | 100 MB |
+| Polarsteps-zip | 100 MB, en hoogstens 128 MB uitgepakt (64 MB per bestand) |
+| Foute wachtwoorden voor één account | 10 per kwartier, daarna 15 minuten dicht |
+| Foute codes (tweede stap) voor één account | 5 per kwartier, daarna 15 minuten dicht |
 | Toegangstoken | 15 minuten (ververst zichzelf) |
 | Onthoud-mij | 30 dagen |
 | Deel-link-sessie | 7 dagen, en meteen weg als je de link intrekt |
@@ -140,6 +142,30 @@ Dat zie je terug in de grenzen die vastliggen:
 Verder: de database heeft geen poort naar buiten, foto's blijven op je
 Immich-server (MarkMySteps bewaart alleen verwijzingen), en je Immich-API-key
 gaat versleuteld de database in met de sleutel uit `.env`.
+
+## Tweestapsverificatie en beveiligingsmeldingen
+
+Elk account kan zichzelf extra beveiligen met een code uit een
+authenticator-app (Proton Authenticator, Aegis, Google Authenticator, …):
+**Instellingen → Profiel → Tweestapsverificatie**. Bij het aanzetten scan je
+een QR-code en krijg je tien herstelcodes die je één keer te zien krijgt. Elke
+herstelcode werkt één keer, voor als je je telefoon kwijt bent. Uitzetten en
+nieuwe herstelcodes maken vragen het wachtwoord én een code.
+
+- Een code werkt één keer: dezelfde code binnen de dertig seconden nog eens
+  gebruiken wordt geweigerd.
+- Heeft iemand zijn telefoon én herstelcodes kwijt, dan kan een admin 2FA van
+  dat account uitzetten (**Instellingen → Accounts → Reset 2FA**). Diegene wordt
+  daarbij overal uitgelogd.
+- Een oudere versie van de Android-app kent de tweede stap niet. Wie 2FA aanzet
+  moet dus eerst de app bijwerken.
+
+Wie een account blijft proberen, wordt buitengesloten, ongeacht van welk adres:
+na 10 foute wachtwoorden of 5 foute codes is dat account een kwartier dicht. Dat
+geldt ook voor namen die niet bestaan, zodat het niemand verklapt wie een account
+heeft. Op dat moment krijgen alle admins een melding onder het belletje (en op
+hun telefoon) dat iemand probeert in te breken. De teller staat in het geheugen
+van de API; een herstart wist hem.
 
 ## Daarna in de app (eerste gebruik)
 
