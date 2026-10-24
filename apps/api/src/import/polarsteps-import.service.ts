@@ -49,6 +49,19 @@ interface PolarstepsLocation {
 const MAX_POINTS_PER_TRIP = 200_000;
 
 /**
+ * How much the two files we read may unpack to.
+ *
+ * A zip states, for every file in it, how large it becomes once unpacked, and
+ * a file of zeros that unpacks to gigabytes is a few kilobytes on the wire. The
+ * upload limit says nothing about that, and the API runs with a fixed amount of
+ * memory: unpacking is the moment it would be spent. A real export's trip.json
+ * and locations.json are a few megabytes each, so the ceilings are generous
+ * and the decision is taken from the stated size, before anything is unpacked.
+ */
+const MAX_ENTRY_BYTES = 64 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 128 * 1024 * 1024;
+
+/**
  * Imports trips from a Polarsteps GDPR export ("Download my data" zip).
  * Each trip folder contains trip.json (metadata) and locations.json
  * (raw GPS track). Points are stored with source = IMPORTED.
@@ -70,13 +83,30 @@ export class PolarstepsImportService {
     // Group entries by their containing folder; a trip folder is one that
     // holds a trip.json. locations.json in the same folder has the track.
     const folders = new Map<string, { trip?: Buffer; locations?: Buffer }>();
+    let unpacked = 0;
     for (const entry of zip.getEntries()) {
       const name = entry.entryName;
       const base = name.split('/').pop() ?? '';
       if (base !== 'trip.json' && base !== 'locations.json') continue;
+
+      unpacked += entry.header.size;
+      if (entry.header.size > MAX_ENTRY_BYTES || unpacked > MAX_TOTAL_BYTES) {
+        throw new BadRequestException(
+          'This zip unpacks to far more than a Polarsteps export does — it is too large to import',
+        );
+      }
+      let data: Buffer;
+      try {
+        // Unpacking stops at the size the zip stated, so a file that holds more
+        // than it claims fails here instead of growing.
+        data = entry.getData();
+      } catch {
+        throw new BadRequestException(`"${base}" in this zip is damaged and could not be read`);
+      }
+
       const folder = name.slice(0, name.length - base.length);
       const bucket = folders.get(folder) ?? {};
-      bucket[base === 'trip.json' ? 'trip' : 'locations'] = entry.getData();
+      bucket[base === 'trip.json' ? 'trip' : 'locations'] = data;
       folders.set(folder, bucket);
     }
 
