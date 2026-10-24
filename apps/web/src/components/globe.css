@@ -105,8 +105,8 @@
   width: 100%;
   height: 100%;
   cursor: grab;
-  /* A mouse spins it; a finger scrolls the page past it (see onDown). */
-  touch-action: pan-y;
+  /* The globe consumes drag + pinch gestures itself. */
+  touch-action: none;
 }
 
 .globe-backdrop canvas:active {

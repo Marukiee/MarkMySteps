@@ -1753,15 +1753,6 @@ export function GlobeBackdrop({
     };
 
     function onDown(e: PointerEvent) {
-      // A finger scrolls the page (touch-action: pan-y) and a sideways swipe
-      // does nothing; spinning and pinching are for a mouse or trackpad. On a
-      // phone the globe fills the top of the screen, so it swallowed the
-      // scroll, and a sideways swipe turned and zoomed it as if the page warped.
-      // A tap still picks a trip (onClick).
-      if (e.pointerType === 'touch') {
-        moved = 0;
-        return;
-      }
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       dragging = true;
       moved = 0;
