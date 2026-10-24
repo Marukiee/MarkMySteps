@@ -321,6 +321,8 @@ function kindIcon(kind: NotificationItem['kind']) {
       return 'check' as const;
     case 'ACCESS_DENIED':
       return 'close' as const;
+    case 'SECURITY_LOGIN_ATTEMPTS':
+      return 'shield' as const;
     default:
       return 'compass' as const;
   }
@@ -338,6 +340,8 @@ function describe(item: NotificationItem): string {
       return `${who} heeft je toegelaten tot ${trip}.`;
     case 'ACCESS_DENIED':
       return `${who} heeft je verzoek voor ${trip} afgewezen.`;
+    case 'SECURITY_LOGIN_ATTEMPTS':
+      return item.detail ?? 'Er zijn veel mislukte inlogpogingen geweest.';
     default:
       return `${who} · ${trip}`;
   }

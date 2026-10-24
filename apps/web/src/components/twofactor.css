@@ -1,0 +1,88 @@
+.tf-state {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.tf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+}
+
+.tf-badge.on {
+  background: #dff3e7;
+  color: #176c3b;
+}
+
+:root[data-theme='dark'] .tf-badge.on {
+  background: #17382a;
+  color: #7fd6a2;
+}
+
+.tf-scan {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+}
+
+.qr-code {
+  width: min(240px, 100%);
+  height: auto;
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-s);
+}
+
+.tf-secret {
+  display: grid;
+  gap: 0.3rem;
+  width: 100%;
+}
+
+.tf-secret code {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-s);
+  background: var(--paper-sunken);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  word-break: break-all;
+  user-select: all;
+}
+
+.tf-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 0.75rem;
+  margin: 0;
+  padding: 0.9rem 1rem;
+  list-style: none;
+  border-radius: var(--radius-s);
+  background: var(--paper-sunken);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+}
+
+.tf-codes li {
+  user-select: all;
+}
+
+.tf-warn {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.tf-code-input {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  font-size: 1.15rem;
+}

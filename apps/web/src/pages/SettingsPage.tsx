@@ -15,6 +15,7 @@ import { DEFAULT_SERVER_URL } from '../config';
 import { Avatar, bumpAvatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
 import { TrackFiles } from '../components/TrackFiles';
+import { TwoFactorSection } from '../components/TwoFactorSection';
 import { HelpTip } from '../components/HelpTip';
 import { previewInvitePopup } from '../components/InvitePopup';
 import { Icon } from '../components/Icon';
@@ -2195,6 +2196,8 @@ function ProfileSection() {
         </form>
       </section>
 
+      <TwoFactorSection />
+
       {/* One feedback line for the three panels: whichever form you just
           submitted, its answer belongs at the end of the page rather than
           repeated under each. */}
@@ -2493,6 +2496,8 @@ interface AdminUserRow {
   mustChangePassword: boolean;
   createdAt: string;
   tripCount: number;
+  /** Signs in with an authenticator app as well as a password. */
+  twoFactor: boolean;
 }
 
 /**
@@ -2656,6 +2661,23 @@ function AccountsSection() {
     }
   }
 
+  async function resetTwoFactor(row: AdminUserRow) {
+    const ok = await confirmModal({
+      title: '2FA resetten?',
+      body: `@${row.username} kan daarna weer inloggen met alleen een wachtwoord en wordt overal uitgelogd. Doe dit alleen als diegene telefoon én herstelcodes kwijt is, en weet zeker dat jij met die persoon te maken hebt.`,
+      confirmLabel: 'Resetten',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api(`/admin/users/${row.id}/reset-2fa`, { method: 'POST' });
+      setMessage(`2FA van @${row.username} is uitgezet. Alle sessies zijn uitgelogd.`);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Reset mislukt');
+    }
+  }
+
   async function removeAccount(row: AdminUserRow) {
     const ok = await confirmModal({
       title: 'Account verwijderen?',
@@ -2795,6 +2817,7 @@ function AccountsSection() {
                   {row.role === 'ADMIN' && ' · admin'}
                   {row.status === 'REJECTED' && ' · afgewezen'}
                   {row.mustChangePassword && ' · tijdelijk wachtwoord'}
+                  {row.twoFactor && ' · 2FA'}
                 </span>
               </div>
               {row.id !== me?.id && (
@@ -2802,6 +2825,11 @@ function AccountsSection() {
                   <button className="btn btn-ghost" onClick={() => void resetPassword(row)}>
                     Reset
                   </button>
+                  {row.twoFactor && (
+                    <button className="btn btn-ghost" onClick={() => void resetTwoFactor(row)}>
+                      Reset 2FA
+                    </button>
+                  )}
                   <button className="btn btn-ghost" onClick={() => void toggleRole(row)}>
                     {row.role === 'ADMIN' ? 'Demoveer' : 'Maak admin'}
                   </button>
