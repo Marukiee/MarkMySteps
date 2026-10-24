@@ -13,6 +13,8 @@ interface aanroept:
 | `MmsExport` | Back-ups in de map van de app (zichtbaar in de Bestanden-app), met het deelscherm erbij. |
 | `MmsHaptics` | De trillingen bij lang drukken, vastklikken en drempels. |
 | `MmsDynamicColor` | Antwoordt "niet beschikbaar": iOS heeft geen achtergrondkleuren om te lenen. |
+| `MmsTabBar` | Alleen iOS: de tabbalk is die van het systeem (UITabBar), in Liquid Glass. De tabbalk van de pagina blijft onzichtbaar in de layout en bepaalt welk tabblad aan staat en of de balk er is (`nativeTabBar.ts`). |
+| `MmsGlass` | Alleen iOS 26 en later: de vaste zwevende knoppen (terug, de knoppen van de reis, terug naar boven) in echt glas, verwante knoppen samen in één capsule (`nativeGlass.ts`). Knoppen die met de pagina meeschuiven blijven van de pagina zelf. |
 
 De update-banner en "Check op updates" zijn er alleen voor de APK.
 

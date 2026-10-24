@@ -1239,3 +1239,9 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
     transition: none;
   }
 }
+
+/* iPhone: these buttons are drawn natively in Liquid Glass on top of their
+   places (nativeGlass.ts); the page's own stay there, unseen, to be pressed. */
+.ios-app .glass-mirrored {
+  opacity: 0;
+}
