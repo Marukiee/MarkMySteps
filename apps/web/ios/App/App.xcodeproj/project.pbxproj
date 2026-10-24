@@ -11,6 +11,8 @@
 		1E4E5DC4D79B34E72D2080F4 /* MmsDynamicColorPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B8BDEE00E4FDC1DA1DD7FE2 /* MmsDynamicColorPlugin.swift */; };
 		1D871EEED4CD04F9C99CC343 /* MmsExportPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33607EFEEABABAD593BA4798 /* MmsExportPlugin.swift */; };
 		A69A9FC99AD39048A97CC321 /* MmsHapticsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E25851C4B111CC6178AA240 /* MmsHapticsPlugin.swift */; };
+		067D66778C31E2EA527DD64C /* MmsGlassPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 938E331843274BA7108347BE /* MmsGlassPlugin.swift */; };
+		06F8603A00C48217FF7EC539 /* MmsTabBarPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3623AFE3E772DC39A986BEB3 /* MmsTabBarPlugin.swift */; };
 		2630F7BB00C993DEA0C423F0 /* MmsNotifyPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A7DEF089B41D1A58B03A31A /* MmsNotifyPlugin.swift */; };
 		099845B9EED0C84A1BE2996F /* PhotoSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C16278B663902D78DA2C85 /* PhotoSchemeHandler.swift */; };
 		223BB5691BB4FF7B12C65895 /* MmsGalleryPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41E85DA073E8ADB52ABF843 /* MmsGalleryPlugin.swift */; };
@@ -31,6 +33,8 @@
 		1B8BDEE00E4FDC1DA1DD7FE2 /* MmsDynamicColorPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsDynamicColorPlugin.swift; sourceTree = "<group>"; };
 		33607EFEEABABAD593BA4798 /* MmsExportPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsExportPlugin.swift; sourceTree = "<group>"; };
 		2E25851C4B111CC6178AA240 /* MmsHapticsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsHapticsPlugin.swift; sourceTree = "<group>"; };
+		938E331843274BA7108347BE /* MmsGlassPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsGlassPlugin.swift; sourceTree = "<group>"; };
+		3623AFE3E772DC39A986BEB3 /* MmsTabBarPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsTabBarPlugin.swift; sourceTree = "<group>"; };
 		6A7DEF089B41D1A58B03A31A /* MmsNotifyPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsNotifyPlugin.swift; sourceTree = "<group>"; };
 		B2C16278B663902D78DA2C85 /* PhotoSchemeHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoSchemeHandler.swift; sourceTree = "<group>"; };
 		C41E85DA073E8ADB52ABF843 /* MmsGalleryPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsGalleryPlugin.swift; sourceTree = "<group>"; };
@@ -86,6 +90,8 @@
 				1B8BDEE00E4FDC1DA1DD7FE2 /* MmsDynamicColorPlugin.swift */,
 				33607EFEEABABAD593BA4798 /* MmsExportPlugin.swift */,
 				2E25851C4B111CC6178AA240 /* MmsHapticsPlugin.swift */,
+				938E331843274BA7108347BE /* MmsGlassPlugin.swift */,
+				3623AFE3E772DC39A986BEB3 /* MmsTabBarPlugin.swift */,
 				6A7DEF089B41D1A58B03A31A /* MmsNotifyPlugin.swift */,
 				B2C16278B663902D78DA2C85 /* PhotoSchemeHandler.swift */,
 				C41E85DA073E8ADB52ABF843 /* MmsGalleryPlugin.swift */,
@@ -187,6 +193,8 @@
 				1E4E5DC4D79B34E72D2080F4 /* MmsDynamicColorPlugin.swift in Sources */,
 				1D871EEED4CD04F9C99CC343 /* MmsExportPlugin.swift in Sources */,
 				A69A9FC99AD39048A97CC321 /* MmsHapticsPlugin.swift in Sources */,
+				067D66778C31E2EA527DD64C /* MmsGlassPlugin.swift in Sources */,
+				06F8603A00C48217FF7EC539 /* MmsTabBarPlugin.swift in Sources */,
 				2630F7BB00C993DEA0C423F0 /* MmsNotifyPlugin.swift in Sources */,
 				099845B9EED0C84A1BE2996F /* PhotoSchemeHandler.swift in Sources */,
 				223BB5691BB4FF7B12C65895 /* MmsGalleryPlugin.swift in Sources */,

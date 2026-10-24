@@ -271,16 +271,23 @@ textarea {
 }
 
 /* iPhone app: frosted band under the status bar, only while content is under it. */
+/* No hard line under it: like the scroll edge of iOS itself, the blur fades
+   out into the page over the last stretch. */
 .statusbar-scrim {
   position: fixed;
   inset: 0 0 auto;
-  height: env(safe-area-inset-top, 0px);
+  height: calc(env(safe-area-inset-top, 0px) + 1.25rem);
   z-index: 55;
   pointer-events: none;
-  background: color-mix(in srgb, var(--paper) 78%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(1.5);
-  backdrop-filter: blur(18px) saturate(1.5);
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--paper) 80%, transparent) 50%,
+    transparent
+  );
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  backdrop-filter: blur(12px) saturate(1.5);
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
   opacity: 0;
   transition: opacity 0.2s var(--ease);
 }

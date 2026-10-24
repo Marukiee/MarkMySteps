@@ -421,6 +421,8 @@ export function Icon({ name, size = 20, ...rest }: IconProps) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
+      // Which icon this is, for the iPhone's native glass buttons (nativeGlass.ts).
+      data-icon={name}
       {...rest}
     >
       {PATHS[name]}

@@ -127,3 +127,15 @@ body.nav-tucked {
 .nav-tucked.native-app .page {
   padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
 }
+
+/* iPhone: the system tab bar is drawn over this one (nativeTabBar.ts), in
+   Liquid Glass like every other app's. This one stays in the layout, unseen and
+   exactly as tall, so every page still clears it; the system bar takes its
+   state from it. */
+.native-tabbar .bottomnav {
+  opacity: 0;
+  height: var(--native-tabbar-h, calc(49px + env(safe-area-inset-bottom)));
+  padding: 0;
+  overflow: hidden;
+  backdrop-filter: none;
+}

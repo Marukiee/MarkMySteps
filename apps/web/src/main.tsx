@@ -19,6 +19,8 @@ import {
   initStatusBar,
   isNativeApp,
 } from './lib/native';
+import { initNativeGlass } from './lib/nativeGlass';
+import { initNativeTabBar } from './lib/nativeTabBar';
 import { initDynamicAccent } from './lib/dynamicColor';
 import { applyTheme, getThemeId } from './lib/prefs';
 import { enforceThumbBudget } from './lib/offlineCache';
@@ -52,6 +54,9 @@ initBackButton();
 initStatusBar();
 // The iPhone app keeps its scale, as native apps do.
 initIosViewport();
+// And has the system's own tab bar, in Liquid Glass, and glass floating buttons.
+initNativeTabBar();
+void initNativeGlass();
 // Keyboard-proof viewport height (--vh-stable) for the map panels.
 initStableViewport();
 // Centres a focused field above the keyboard once it has finished opening.

@@ -27,11 +27,20 @@ class MainViewController: CAPBridgeViewController {
         webView?.allowsBackForwardNavigationGestures = true
         // A long press on a photo or link is the app's own gesture, not a preview.
         webView?.allowsLinkPreview = false
+        if #available(iOS 26.0, *) {
+            // The page scrolls inside itself and draws its own band behind the
+            // clock once it does (statusbar-scrim); the web view's own scroll
+            // edge never moves and only left a grey haze up there in dark mode.
+            webView?.scrollView.topEdgeEffect.isHidden = true
+            webView?.scrollView.bottomEdgeEffect.isHidden = true
+        }
         bridge?.registerPluginInstance(MmsLocationPlugin())
         bridge?.registerPluginInstance(MmsGalleryPlugin())
         bridge?.registerPluginInstance(MmsNotifyPlugin())
         bridge?.registerPluginInstance(MmsHapticsPlugin())
         bridge?.registerPluginInstance(MmsExportPlugin())
         bridge?.registerPluginInstance(MmsDynamicColorPlugin())
+        bridge?.registerPluginInstance(MmsTabBarPlugin())
+        bridge?.registerPluginInstance(MmsGlassPlugin())
     }
 }
