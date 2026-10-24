@@ -31,22 +31,22 @@ enum AccountStatus {
 }
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique
+  id                 String        @id @default(uuid()) @db.Uuid
+  email              String        @unique
   /// Unique handle for adding friends to trips (never exposes the email).
-  username     String   @unique
-  displayName  String
-  passwordHash String
-  role         UserRole @default(USER)
+  username           String        @unique
+  displayName        String
+  passwordHash       String
+  role               UserRole      @default(USER)
   /// New sign-ups wait for an admin. The very first account of a fresh server
   /// approves itself — otherwise there would be nobody able to approve anyone.
-  status       AccountStatus @default(PENDING)
+  status             AccountStatus @default(PENDING)
   /// When the decision was made, and by whom (kept for the accounts list).
-  decidedAt    DateTime?
-  decidedById  String?   @db.Uuid
+  decidedAt          DateTime?
+  decidedById        String?       @db.Uuid
   /// Set once the app has told this user they were let in, so the message is
   /// shown once rather than on every launch.
-  approvalSeen Boolean   @default(false)
+  approvalSeen       Boolean       @default(false)
   /// Set on admin-created accounts with a temporary password; cleared when
   /// the user picks their own. UI nags until then.
   mustChangePassword Boolean @default(false)
@@ -59,10 +59,10 @@ model User {
   /// used again inside the half minute it would still be valid.
   totpLastStep  Int?
   /// Small avatar image, stored inline (kept tiny by client-side resize).
-  avatar     Bytes?
-  avatarMime String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  avatar             Bytes?
+  avatarMime         String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   refreshTokens    RefreshToken[]
   immichConnection ImmichConnection?
@@ -78,6 +78,7 @@ model User {
   accessDecisions  TripAccessRequest[] @relation("AccessDecider")
   tripSummaries    TripSummary[]
   recoveryCodes    RecoveryCode[]
+  photoComments    PhotoComment[]
 
   @@map("users")
 }
@@ -103,35 +104,38 @@ model ImmichConnection {
 }
 
 model Trip {
-  id          String   @id @default(uuid()) @db.Uuid
-  title       String
-  description String?
-  startDate   DateTime @db.Date
-  endDate     DateTime @db.Date
+  id           String   @id @default(uuid()) @db.Uuid
+  title        String
+  description  String?
+  startDate    DateTime @db.Date
+  endDate      DateTime @db.Date
   /// MediaRef used as the card/hero cover; falls back to a gradient.
-  coverMediaId String? @db.Uuid
+  coverMediaId String?  @db.Uuid
   /// Auto-start route tracking (native app) once the trip has begun.
-  autoTrack    Boolean @default(false)
+  autoTrack    Boolean  @default(false)
   /// Custom trip colour (hex) for the globe/map; null = auto-assigned.
   color        String?
   /// Manual globe-marker position ([lng,lat]); null = auto (route start/end).
   /// Lets a loop trip (interrail) place its single dot + name where it fits.
   markerLng    Float?
   markerLat    Float?
-  ownerId     String   @db.Uuid
-  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  ownerId      String   @db.Uuid
+  owner        User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  members        TripMember[]
-  mediaRefs      MediaRef[]
-  locationPoints LocationPoint[]
-  stops          Stop[]
-  shareLinks     ShareLink[]
-  notes          TripNote[]
-  accessRequests TripAccessRequest[]
-  notifications  Notification[]
-  summaries      TripSummary[]
+  members          TripMember[]
+  mediaRefs        MediaRef[]
+  locationPoints   LocationPoint[]
+  stops            Stop[]
+  shareLinks       ShareLink[]
+  notes            TripNote[]
+  accessRequests   TripAccessRequest[]
+  notifications    Notification[]
+  summaries        TripSummary[]
+  photoComments    PhotoComment[]
+  reactions        PhotoReaction[]
+  commentReactions CommentReaction[]
 
   @@map("trips")
 }
@@ -191,21 +195,21 @@ enum AccessRequestStatus {
 }
 
 model TripAccessRequest {
-  id         String              @id @default(uuid()) @db.Uuid
-  tripId     String              @db.Uuid
-  trip       Trip                @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  id          String              @id @default(uuid()) @db.Uuid
+  tripId      String              @db.Uuid
+  trip        Trip                @relation(fields: [tripId], references: [id], onDelete: Cascade)
   /// Who is asking.
-  userId     String              @db.Uuid
-  user       User                @relation("AccessRequester", fields: [userId], references: [id], onDelete: Cascade)
-  status     AccessRequestStatus @default(PENDING)
+  userId      String              @db.Uuid
+  user        User                @relation("AccessRequester", fields: [userId], references: [id], onDelete: Cascade)
+  status      AccessRequestStatus @default(PENDING)
   /// What they were let in as, once approved.
   grantedRole TripRole?
   /// A line they may add to say who they are / why.
-  message    String?
-  createdAt  DateTime            @default(now())
-  decidedAt  DateTime?
-  decidedById String?            @db.Uuid
-  decidedBy  User?               @relation("AccessDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  message     String?
+  createdAt   DateTime            @default(now())
+  decidedAt   DateTime?
+  decidedById String?             @db.Uuid
+  decidedBy   User?               @relation("AccessDecider", fields: [decidedById], references: [id], onDelete: SetNull)
 
   notifications Notification[]
 
@@ -245,7 +249,6 @@ enum NotificationKind {
 
 /**
  * A phone that may ask "is there anything new?" on its own.
- *
  * The target phones have no Play Services, so there is no push service to
  * deliver anything to them. Instead the app wakes itself every quarter of an
  * hour and asks — from a background worker that lives outside the WebView and
@@ -255,39 +258,39 @@ enum NotificationKind {
  * its SHA-256 is stored.
  */
 model NotificationDevice {
-  id           String   @id @default(uuid()) @db.Uuid
-  userId       String   @db.Uuid
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash    String   @unique
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @db.Uuid
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String    @unique
   /// The last notification this phone was told about, so it never says the
   /// same thing twice.
-  lastSeenId   String?  @db.Uuid
+  lastSeenId   String?   @db.Uuid
   lastPolledAt DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   @@index([userId])
   @@map("notification_devices")
 }
 
 model Notification {
-  id        String           @id @default(uuid()) @db.Uuid
+  id        String             @id @default(uuid()) @db.Uuid
   /// Who sees it.
-  userId    String           @db.Uuid
-  user      User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  userId    String             @db.Uuid
+  user      User               @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
   kind      NotificationKind
   /// Who caused it (the person who added you, or who is asking).
-  actorId   String?          @db.Uuid
-  actor     User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
-  tripId    String?          @db.Uuid
-  trip      Trip?            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  actorId   String?            @db.Uuid
+  actor     User?              @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  tripId    String?            @db.Uuid
+  trip      Trip?              @relation(fields: [tripId], references: [id], onDelete: Cascade)
   /// Set on the ones you can answer from the list.
-  requestId String?          @db.Uuid
+  requestId String?            @db.Uuid
   request   TripAccessRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
   /// A sentence of its own, for the kinds that have nothing else to point at
   /// (a security alert is about an account, not a trip).
   detail    String?
   readAt    DateTime?
-  createdAt DateTime         @default(now())
+  createdAt DateTime           @default(now())
 
   @@index([userId, createdAt])
   @@map("notifications")
@@ -319,17 +322,17 @@ model TripMember {
 /// Public, read-only share link for a trip. The slug is a high-entropy
 /// random token (unguessable URL); optionally protected with a password.
 model ShareLink {
-  id           String    @id @default(uuid()) @db.Uuid
-  tripId       String    @db.Uuid
-  trip         Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  slug         String    @unique
+  id           String   @id @default(uuid()) @db.Uuid
+  tripId       String   @db.Uuid
+  trip         Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  slug         String   @unique
   passwordHash String?
   /// The same password, encrypted (AES-256-GCM, master key) so the owner and
   /// their travel companions can look it up again instead of resetting a link
   /// that is already going round. The hash above stays the thing that is
   /// checked; this is only ever read back to the people already on the trip.
   passwordEnc  String?
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime @default(now())
 
   @@index([tripId])
   @@map("share_links")
@@ -339,45 +342,45 @@ model ShareLink {
 /// the trip start date plus the cumulative nights of all preceding stops, so
 /// changing one stop's nights automatically shifts everything after it.
 model Stop {
-  id         String   @id @default(uuid()) @db.Uuid
-  tripId     String   @db.Uuid
-  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  name       String
-  notes      String?
-  nights     Int      @default(1)
-  orderIndex Int
-  latitude   Float?
-  longitude  Float?
+  id           String     @id @default(uuid()) @db.Uuid
+  tripId       String     @db.Uuid
+  trip         Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  name         String
+  notes        String?
+  nights       Int        @default(1)
+  orderIndex   Int
+  latitude     Float?
+  longitude    Float?
   /// How you travelled TO this stop from the previous one. FLIGHT draws a
   /// great-circle arc; GROUND follows a straight/route line.
-  travelMode TravelMode @default(GROUND)
+  travelMode   TravelMode @default(GROUND)
   /// Flight details for a FLIGHT leg (all optional / manual).
   flightNumber String?
-  fromAirport  String? @db.VarChar(4) // IATA code
-  toAirport    String? @db.VarChar(4)
+  fromAirport  String?    @db.VarChar(4) // IATA code
+  toAirport    String?    @db.VarChar(4)
   /// Layover airport IATA codes, in order (e.g. ["KEF"] for AMS→KEF→JFK).
-  viaAirports  String[] @default([])
+  viaAirports  String[]   @default([])
   /// ISO 3166-1 alpha-2, e.g. "VN" — drives the flag on the map.
-  countryCode String? @db.VarChar(2)
+  countryCode  String?    @db.VarChar(2)
   /// Day trip: an excursion made FROM another stop and back the same day
   /// (Saltsjöbaden → Stockholm). It is not a leg of the route — it never shifts
   /// the nights of the stops after it — but it does count as a place visited.
-  parentStopId String? @db.Uuid
-  parent       Stop?   @relation("StopDayTrips", fields: [parentStopId], references: [id], onDelete: Cascade)
-  dayTrips     Stop[]  @relation("StopDayTrips")
+  parentStopId String?    @db.Uuid
+  parent       Stop?      @relation("StopDayTrips", fields: [parentStopId], references: [id], onDelete: Cascade)
+  dayTrips     Stop[]     @relation("StopDayTrips")
   /// The single day a day trip took place. Null on a normal stop, whose dates
   /// are derived from the trip start plus the nights before it.
-  dayTripDate DateTime? @db.Date
+  dayTripDate  DateTime?  @db.Date
   /// Draw no line to this stop from the one before it. For a leg that is real
   /// but has nothing to draw — a stretch nobody tracked and nobody wants a
   /// straight line across either. The stop keeps its place in the route.
-  hideLeg     Boolean  @default(false)
+  hideLeg      Boolean    @default(false)
   /// The photo that fronts this stop's tile in the timeline rail, chosen from
   /// the viewer. Not a relation: losing the photo must not take the stop with
   /// it, and the rail falls back to its own pick.
-  coverMediaId String? @db.Uuid
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  coverMediaId String?    @db.Uuid
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   @@unique([tripId, orderIndex])
   @@index([tripId])
@@ -427,23 +430,23 @@ enum PointSource {
 /// tracker (offline buffer → idempotent upload via clientId), by hand,
 /// or by an importer.
 model LocationPoint {
-  id         String      @id @default(uuid()) @db.Uuid
+  id         String                                @id @default(uuid()) @db.Uuid
   /// Client-generated id; makes offline batch uploads idempotent.
   clientId   String?
-  tripId     String      @db.Uuid
-  trip       Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  userId     String      @db.Uuid
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tripId     String                                @db.Uuid
+  trip       Trip                                  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId     String                                @db.Uuid
+  user       User                                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   recordedAt DateTime
   latitude   Float
   longitude  Float
   /// Horizontal accuracy in meters, if the device reported it.
   accuracy   Float?
   altitude   Float?
-  source     PointSource @default(TRACKED)
+  source     PointSource                           @default(TRACKED)
   /// Generated column (see migration): ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
   geom       Unsupported("geometry(Point, 4326)")?
-  createdAt  DateTime    @default(now())
+  createdAt  DateTime                              @default(now())
 
   @@unique([tripId, userId, clientId])
   @@index([tripId, recordedAt])
@@ -455,11 +458,11 @@ model LocationPoint {
 /// the actual media file — only the asset id plus the metadata needed to
 /// place it on the map and timeline.
 model MediaRef {
-  id            String   @id @default(uuid()) @db.Uuid
-  tripId        String   @db.Uuid
-  trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  userId        String   @db.Uuid
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String                                @id @default(uuid()) @db.Uuid
+  tripId        String                                @db.Uuid
+  trip          Trip                                  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId        String                                @db.Uuid
+  user          User                                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   immichAssetId String
   assetType     String // IMAGE | VIDEO
   takenAt       DateTime
@@ -472,13 +475,16 @@ model MediaRef {
   height        Int?
   /// True when the position did not come from the photo's own EXIF but was
   /// worked out from the trip's tracked route by matching capture time.
-  geoDerived    Boolean  @default(false)
+  geoDerived    Boolean                               @default(false)
   /// When the derived position was written back into Immich, so the photo has
   /// a place there too. Null means "not pushed (yet)".
   geoPushedAt   DateTime?
   /// Generated column (see migration): ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
   geom          Unsupported("geometry(Point, 4326)")?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime                              @default(now())
+
+  comments  PhotoComment[]
+  reactions PhotoReaction[]
 
   @@unique([tripId, userId, immichAssetId])
   @@index([tripId, takenAt])
@@ -486,14 +492,87 @@ model MediaRef {
   @@map("media_refs")
 }
 
+/// A reaction on one photo, or on one day's story. Written from the share page by whoever has the
+/// link (no account, just the name they type) or from the app by somebody on
+/// the trip, who answers under their own name. Goes when the photo goes.
+model PhotoComment {
+  id         String            @id @default(uuid()) @db.Uuid
+  tripId     String            @db.Uuid
+  trip       Trip              @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  /// The photo it is about, or null when it is about a day's story.
+  mediaId    String?           @db.Uuid
+  media      MediaRef?         @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  /// The day whose story it is about (exactly one of mediaId and day is set).
+  /// Keyed on the day rather than on a note: a day can carry notes from
+  /// several travellers, and rewriting one must not lose the conversation.
+  day        DateTime?         @db.Date
+  /// Set when somebody on the trip wrote it from the app; null for a visitor
+  /// on the share page. Losing the account keeps the words.
+  userId     String?           @db.Uuid
+  user       User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// The name as it is shown: typed by the visitor, or the traveller's
+  /// display name at the time of writing.
+  authorName String
+  body       String
+  reactions  CommentReaction[]
+  createdAt  DateTime          @default(now())
+
+  @@index([tripId])
+  @@index([mediaId, createdAt])
+  @@index([tripId, day])
+  @@map("photo_comments")
+}
+
+/// One emoji on one photo, one per person per photo (picking another swaps
+/// it). A visitor on the share page needs no account or number for this: their
+/// browser keeps a random key, and that key is who they are here.
+model PhotoReaction {
+  id         String   @id @default(uuid()) @db.Uuid
+  tripId     String   @db.Uuid
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  mediaId    String   @db.Uuid
+  media      MediaRef @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  /// heart | laugh | wow | love | clap; the page draws the emoji.
+  kind       String
+  /// "user:<id>" for somebody on the trip, else the visitor's browser key.
+  reactorKey String
+  /// The name, when known (a traveller, or a visitor who signed up).
+  name       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([mediaId, reactorKey])
+  @@index([tripId])
+  @@map("photo_reactions")
+}
+
+/// The same five emoji, on a comment instead of a photo. Same rules: one per
+/// person, a visitor known by their browser's key.
+model CommentReaction {
+  id         String       @id @default(uuid()) @db.Uuid
+  tripId     String       @db.Uuid
+  trip       Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  commentId  String       @db.Uuid
+  comment    PhotoComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  kind       String
+  reactorKey String
+  name       String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([commentId, reactorKey])
+  @@index([tripId])
+  @@map("comment_reactions")
+}
+
 model RefreshToken {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String    @id @default(uuid()) @db.Uuid
   // SHA-256 hash of the opaque token; the raw value is only ever held by the client.
-  tokenHash String   @unique
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   // Set when the token is used or explicitly revoked (logout); enables reuse detection.
   revokedAt DateTime?
   // Set only when the token was swapped for a new one (a refresh). A token revoked

@@ -1,0 +1,201 @@
+/* On a grid photo: in the top-right corner next to the comment flag, in the
+   same small dark pill, so liked and talked-about read as one system. */
+.photo-flags {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.photo-flags:empty {
+  display: none;
+}
+
+/* With more than one traveller the owner's dot keeps the corner, and the flags
+   line up to its left, centred on it, so nothing changes place between photos. */
+.photo-flags.beside-owner {
+  top: 2.5px;
+  right: 25px;
+}
+
+.photo-flags .comment-flag {
+  position: static;
+}
+
+.reaction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.15rem 0.45rem 0.15rem 0.35rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.reaction-badge-count {
+  margin-left: 0.15rem;
+}
+
+/* In the viewer: bottom left, opposite the comments button. */
+.reaction-bar {
+  position: fixed;
+  left: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 201;
+}
+
+.reaction-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 40px;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(6px);
+  color: rgb(255 255 255 / 0.92);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.reaction-toggle.has {
+  background: rgb(255 255 255 / 0.18);
+}
+
+.reaction-toggle-emoji {
+  font-size: 1.25rem;
+  line-height: 1;
+  animation: iconPop 0.32s var(--ease);
+}
+
+.reaction-toggle-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.reaction-picker {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 0.5rem);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  padding: 0.35rem;
+  border-radius: 999px;
+  background: rgb(20 24 29 / 0.92);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.35);
+  transform-origin: 1.4rem 100%;
+  animation: reactionPop 0.2s var(--ease);
+}
+
+/* Back into the button it came out of. */
+.reaction-picker.closing {
+  animation: reactionPopOut 0.18s var(--ease) forwards;
+  pointer-events: none;
+}
+
+.reaction-picker button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 1.6rem;
+  line-height: 1;
+  transition: transform 0.12s ease;
+}
+
+.reaction-picker button:hover,
+.reaction-picker button:focus-visible {
+  transform: scale(1.18);
+}
+
+.reaction-picker button.on {
+  background: rgb(255 255 255 / 0.18);
+}
+
+/* Who gave what, for the people on the trip. */
+.reaction-names {
+  flex-basis: 100%;
+  margin: 0.2rem 0.5rem 0.3rem;
+  max-width: 17rem;
+  color: rgb(255 255 255 / 0.7);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.reaction-picker:has(.reaction-names) {
+  border-radius: 20px;
+}
+
+@keyframes reactionPop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.92);
+  }
+}
+
+@keyframes reactionPopOut {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reaction-picker,
+  .reaction-picker.closing,
+  .reaction-toggle-emoji,
+  .comment-like.on svg {
+    animation: none;
+  }
+}
+
+/* Under a comment: one like. Works on the dark sheet in the viewer and on the
+   light thread under a day alike, so its colours come from the text around it. */
+.comment-reactions {
+  display: flex;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.comment-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.7rem;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgb(127 127 127 / 0.35);
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.85;
+  transition: border-color 0.18s var(--ease), background 0.18s var(--ease), opacity 0.18s var(--ease);
+}
+
+.comment-like:hover {
+  opacity: 1;
+}
+
+.comment-like.on {
+  border-color: var(--accent);
+  background: rgb(232 97 60 / 0.15);
+  opacity: 1;
+}
+
+.comment-like.on svg {
+  color: var(--accent);
+  fill: currentColor;
+  animation: iconPop 0.32s var(--ease);
+}

@@ -281,7 +281,7 @@ function usePinchZoom(hostRef: React.RefObject<HTMLDivElement | null>) {
 
       const midX = (e.touches[0]!.clientX + e.touches[1]!.clientX) / 2;
       const midY = (e.touches[0]!.clientY + e.touches[1]!.clientY) / 2;
-      // The photo between the fingers — or, when they land on a gap or on the
+      // The photo between the fingers, or, when they land on a gap or on the
       // sticky day header over the grid, the first one below that point.
       const anchor =
         document.elementFromPoint(midX, midY)?.closest<HTMLElement>('.photo-grid-cell') ??

@@ -45,6 +45,8 @@ export type IconName =
   | 'people'
   | 'person'
   | 'bell'
+  | 'comment'
+  | 'heart'
   | 'shield'
   | 'help'
   | 'question'
@@ -266,6 +268,8 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M10 20a2 2 0 0 0 4 0" />
     </>
   ),
+  comment: <path d="M20 15a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2Z" />,
+  heart: <path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20Z" />,
   shield: (
     <>
       <path d="M12 3 5 6v6c0 4 3 6.5 7 9 4-2.5 7-5 7-9V6l-7-3Z" />

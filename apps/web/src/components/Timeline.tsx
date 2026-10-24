@@ -5,6 +5,8 @@ import { GRID_ZOOM_PREVIEW, useGridZoom } from '../lib/gridZoom';
 import { AuthImage } from './AuthImage';
 import { DayNote, TripNote } from './DayNote';
 import { Icon } from './Icon';
+import { CommentFlag, DayComments, PhotoCommentsAdapter } from './PhotoComments';
+import { ReactionBadge } from './PhotoReactions';
 import { isPanorama, PhotoGrid } from './PhotoGrid';
 import { StopJump } from './StopJump';
 import { WeatherBadge } from './WeatherBadge';
@@ -28,6 +30,16 @@ interface TimelineProps {
   media: MediaItem[];
   visibleUsers: Set<string>;
   onPhotoClick?: (item: MediaItem) => void;
+  /** Comments per photo id; a photo with any wears a flag. */
+  commentCounts?: Map<string, unknown[]>;
+  /** The flag opens the photo on its comments. */
+  onCommentsClick?: (item: MediaItem) => void;
+  /** Comments on the days' stories: a "Reageer" under each one. */
+  dayComments?: PhotoCommentsAdapter;
+  /** A day whose comments start open (a link to that day). */
+  openDay?: string | null;
+  /** Likes per photo, for the badge on the grid. */
+  reactionSummary?: (mediaId: string) => { kind: string; count: number }[];
   /** Owner-color dot only makes sense with multiple travellers. */
   showOwner?: boolean;
   notes?: TripNote[];
@@ -44,6 +56,11 @@ export function Timeline({
   media,
   visibleUsers,
   onPhotoClick,
+  commentCounts,
+  onCommentsClick,
+  dayComments,
+  openDay,
+  reactionSummary,
   showOwner = false,
   notes = [],
   canEditNotes = false,
@@ -208,6 +225,10 @@ export function Timeline({
                 onDelete={onDeleteNote}
               />
             )}
+          {/* Comments on the day's story, from home and from the trip. */}
+          {dayComments && (notesByDay.get(day)?.length ?? 0) > 0 && editingDay !== day && (
+            <DayComments day={day} adapter={dayComments} startOpen={openDay === day} />
+          )}
           {/* Justified rows rather than a grid of squares: a portrait stays a
               portrait and a panorama stays wide, the way the photos were taken. */}
           <PhotoGrid items={items} className="timeline-grid">
@@ -236,6 +257,15 @@ export function Timeline({
                   alt=""
                   className="timeline-img"
                 />
+                {/* Top right, side by side: liked, and talked about. The owner's
+                    dot keeps its own corner and the flags line up beside it. */}
+                <span className={`photo-flags ${showOwner && manyOwners ? 'beside-owner' : ''}`}>
+                  {reactionSummary && <ReactionBadge summary={reactionSummary(item.id)} />}
+                  <CommentFlag
+                    count={commentCounts?.get(item.id)?.length ?? 0}
+                    onOpen={() => onCommentsClick?.(item)}
+                  />
+                </span>
                 {showOwner && manyOwners && (
                   <span
                     className="timeline-owner"

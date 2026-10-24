@@ -19,6 +19,9 @@ import { isNativeApp, openExternal } from '../lib/native';
 import { savePhoto } from '../lib/photoSave';
 import { cachedImage, decoded, loadImage, preloadImage, retainImage } from './AuthImage';
 import { Icon, IconName } from './Icon';
+import { PhotoCommentsAdapter, PhotoCommentsPanel } from './PhotoComments';
+import { useExit } from '../lib/useExit';
+import { ReactionBar, ReactionsAdapter } from './PhotoReactions';
 import './lightbox.css';
 
 /** How the photo is currently framed: a scale plus a translation in CSS pixels. */
@@ -73,6 +76,12 @@ interface LightboxProps {
   srcFor?: (item: MediaItem, size: 'thumbnail' | 'preview' | 'original') => string;
   /** Playback URL for a video, for those same viewers. */
   videoSrcFor?: (item: MediaItem) => string;
+  /** Comments under each photo, when this viewer shows them. */
+  comments?: PhotoCommentsAdapter;
+  /** Open on the comments rather than on the bare photo (the grid's flag). */
+  startWithComments?: boolean;
+  /** Emoji on each photo, when this viewer shows them. */
+  reactions?: ReactionsAdapter;
 }
 
 /**
@@ -93,6 +102,9 @@ export function Lightbox({
   placeFallbackFor,
   srcFor,
   videoSrcFor,
+  comments,
+  startWithComments = false,
+  reactions,
 }: LightboxProps) {
   const { user } = useAuth();
   const isPublic = Boolean(srcFor);
@@ -115,6 +127,15 @@ export function Lightbox({
   const fallbackRef = useRef(placeFallbackFor);
   fallbackRef.current = placeFallbackFor;
   const [closing, setClosing] = useState(false);
+  // Stays open while paging: reading what people said about a run of photos
+  // should not take a tap per photo to bring back.
+  const [commentsOpen, setCommentsOpen] = useState(startWithComments);
+  // The comments slide back down before they unmount, as they came up.
+  const [commentsShown, commentsClosing] = useExit(commentsOpen, 220);
+  const [reactionsOpen, setReactionsOpen] = useState(false);
+  // Read by the back gesture below, which is registered once per session.
+  const layersRef = useRef({ comments: false, reactions: false });
+  layersRef.current = { comments: commentsOpen, reactions: reactionsOpen };
 
   // ---- Zoom ------------------------------------------------------------
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -350,6 +371,14 @@ export function Lightbox({
     }
     let popped = false;
     const onPop = () => {
+      // A layer on top of the photo closes first, and the photo keeps its
+      // own history entry for the next back.
+      if (layersRef.current.reactions || layersRef.current.comments) {
+        setReactionsOpen(false);
+        setCommentsOpen(false);
+        window.history.pushState({ mmsLightbox: true }, '');
+        return;
+      }
       popped = true;
       // Down and out with its animation, the same as the ✕ and the swipe. A
       // back gesture used to take the photo off the screen in one frame.
@@ -383,17 +412,29 @@ export function Lightbox({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+      // Typing a comment: the arrows move the cursor, not the album.
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('input, textarea')) {
+        if (e.key === 'Escape') setCommentsOpen(false);
+        return;
+      }
+      if (e.key === 'Escape') {
+        if (reactionsOpen) setReactionsOpen(false);
+        else if (commentsOpen) setCommentsOpen(false);
+        else close();
+        return;
+      }
       if (e.key === 'ArrowLeft' && index > 0) onNavigate(index - 1);
       if (e.key === 'ArrowRight' && index < items.length - 1) onNavigate(index + 1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [index, items.length, onClose, onNavigate]);
+  }, [index, items.length, onClose, onNavigate, commentsOpen, reactionsOpen]);
 
   if (!item) return null;
   const isOwn = !isPublic && item.userId === user?.id;
   const onDevice = isDeviceMediaId(item.id);
+  const commentCount = comments?.list({ mediaId: item.id }).length ?? 0;
 
   const actions: { label: string; icon: IconName; run: () => void }[] = [];
   if (coverTripId && !onDevice) {
@@ -815,6 +856,38 @@ export function Lightbox({
           </span>
         </figcaption>
       </figure>
+
+      {comments && !onDevice && !commentsShown && (
+        <button
+          type="button"
+          className={`lightbox-comments-btn ${commentCount > 0 ? 'has' : ''}`}
+          aria-label="Reacties"
+          onClick={(e) => {
+            e.stopPropagation();
+            closeMenu();
+            setCommentsOpen(true);
+          }}
+        >
+          <Icon name="comment" size={18} />
+          {commentCount > 0 ? commentCount : 'Reageer'}
+        </button>
+      )}
+      {reactions && !onDevice && !commentsShown && (
+        <ReactionBar
+          mediaId={item.id}
+          adapter={reactions}
+          open={reactionsOpen}
+          onOpenChange={setReactionsOpen}
+        />
+      )}
+      {comments && !onDevice && commentsShown && (
+        <PhotoCommentsPanel
+          closing={commentsClosing}
+          target={{ mediaId: item.id }}
+          adapter={comments}
+          onClose={() => setCommentsOpen(false)}
+        />
+      )}
     </div>,
     document.body,
   );
