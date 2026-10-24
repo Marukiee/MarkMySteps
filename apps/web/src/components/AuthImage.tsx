@@ -238,7 +238,10 @@ export function AuthImage({
     return (
       <div
         ref={placeholderRef}
-        className={`${className ?? ''} img-placeholder ${failed ? 'img-missing' : ''}`}
+        // Breathes only while its photo is actually on the way. A long trip
+        // had dozens of placeholders far down the page pulsing at once, each
+        // its own layer redrawn every frame, under the photo viewer too.
+        className={`${className ?? ''} img-placeholder ${failed ? 'img-missing' : visible ? 'img-loading' : ''}`}
         style={style}
         aria-label={alt}
       />

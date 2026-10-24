@@ -172,6 +172,11 @@
 
 .img-placeholder {
   background: var(--paper-sunken);
+}
+
+/* Only while the photo is being fetched; one still waiting its turn further
+   down the page holds still (see AuthImage). */
+.img-placeholder.img-loading {
   animation: pulse 1.4s ease-in-out infinite;
 }
 

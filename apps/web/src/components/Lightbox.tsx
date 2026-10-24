@@ -972,7 +972,7 @@ function LightboxPhoto({
   if (!frame) {
     return (
       <div
-        className={`${className ?? ''} ${shape.className} img-placeholder`}
+        className={`${className ?? ''} ${shape.className} img-placeholder img-loading`}
         style={shape.style}
         aria-hidden="true"
       />
