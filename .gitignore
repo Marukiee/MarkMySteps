@@ -31,3 +31,6 @@ apps/mobile/android/.gradle/
 
 # Docker volumes (local dev)
 docker/data/
+
+# iOS simulator builds (xcodebuild -derivedDataPath)
+apps/web/build-ios/

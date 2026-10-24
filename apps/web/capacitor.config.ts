@@ -14,6 +14,10 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: false,
   },
+  ios: {
+    // The paper colour, so the first frame is not a white flash.
+    backgroundColor: '#faf6ef',
+  },
 };
 
 export default config;
