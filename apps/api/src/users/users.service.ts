@@ -7,6 +7,7 @@ import {
 import { AccountStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { assertStrongPassword } from '../auth/password-strength';
+import { revokeAllSessions } from '../auth/sessions';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface PublicUser {
@@ -177,10 +178,7 @@ export class UsersService {
       },
     });
     // Changing the password invalidates every other session.
-    await this.prisma.refreshToken.updateMany({
-      where: { userId: id, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    await revokeAllSessions(this.prisma, id);
   }
 
   /** Everyone you share at least one trip with. Never exposes their email. */
