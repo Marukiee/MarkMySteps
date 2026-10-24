@@ -32,19 +32,6 @@
   color: var(--accent-soft);
 }
 
-.day-note-body cite {
-  display: inline-flex;
-  align-items: center;
-  margin-top: 0.5rem;
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  font-style: normal;
-  font-size: 0.74rem;
-  font-weight: 600;
-  color: var(--accent-ink);
-  font-family: var(--font-body);
-}
 
 .day-note-add {
   justify-self: start;

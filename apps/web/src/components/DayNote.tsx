@@ -69,8 +69,8 @@ export function DayNote({
     <div className="day-note">
       {others.map((n) => (
         <blockquote key={n.id} className="day-note-body">
+          {/* No name under the story: whose trip it is, the page already says. */}
           {n.body}
-          <cite>{n.authorName}</cite>
         </blockquote>
       ))}
 
