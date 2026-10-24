@@ -900,6 +900,10 @@
   overflow: hidden;
   overflow: clip;
   overflow-clip-margin: 16px;
+  /* Measured from the cards, not from the window's edge: from there the margin
+     reached 16px past the screen, made the page that much wider than the phone
+     and let it be pushed sideways. */
+  overflow-clip-margin: content-box 16px;
   transition: height 0.38s var(--ease);
   /* Clip at the window's edge, not at the cards': the page's own padding is
      borrowed back so a card's shadow (and its rounded corner) has somewhere to
