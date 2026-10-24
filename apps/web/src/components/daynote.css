@@ -1,6 +1,6 @@
 .day-note {
-  /* Line up with the photo grid so the timeline rail on the left stays clear. */
-  margin: 0.15rem 0 0.6rem 1.7rem;
+  /* On the same left edge as the photos under it (see .timeline-grid). */
+  margin: 0.15rem 0 0.6rem calc(var(--page-pad, 0px) + 2px);
   display: grid;
   gap: 0.5rem;
 }
@@ -70,38 +70,15 @@
 
 .day-note-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.55rem;
 }
 
-.day-note-actions button {
+/* The app's own buttons, a size down to sit inside the card. The card's text is
+   set in the display face; the buttons keep the body face like everywhere else. */
+.day-note-actions .btn {
+  padding: 0.38rem 0.85rem;
+  font-family: var(--font-body);
   font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--ink-soft);
-  padding: 0.35rem 0.85rem;
-  border-radius: 999px;
-  background: var(--paper-sunken);
-  transition: all 0.15s var(--ease);
-}
-
-.day-note-actions button:hover {
-  background: var(--line);
-}
-
-.day-note-actions button.primary {
-  background: var(--accent);
-  color: #fff;
-}
-
-.day-note-actions button.primary:hover {
-  filter: brightness(1.05);
-}
-
-.day-note-actions button.danger {
-  color: #b3402a;
-  background: transparent;
-}
-
-.day-note-actions button.danger:hover {
-  background: rgb(179 64 42 / 0.1);
 }
