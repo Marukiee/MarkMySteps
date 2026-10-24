@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { MediaItem } from '../api/types';
 import { colorForUser, formatDay } from '../lib/colors';
+import { GRID_ZOOM_PREVIEW, useGridZoom } from '../lib/gridZoom';
 import { AuthImage } from './AuthImage';
 import { DayNote, TripNote } from './DayNote';
 import { Icon } from './Icon';
@@ -52,6 +53,8 @@ export function Timeline({
   onDeleteNote,
   stops = [],
 }: TimelineProps) {
+  // Pinched in far enough, every photo wants the sharper rendition a panorama gets.
+  const sharp = useGridZoom() >= GRID_ZOOM_PREVIEW;
   // Resolve a day's location: prefer the planned stop covering that day,
   // else the coordinates of the first photo taken that day.
   const locationForDay = (day: string, dayMedia: MediaItem[]) => {
@@ -221,12 +224,14 @@ export function Timeline({
                   // pixels stretched across all of it. It gets the preview,
                   // with the small one held up in front until that arrives.
                   path={
-                    isPanorama(item)
+                    sharp || isPanorama(item)
                       ? `/media/${item.id}/thumbnail`
                       : `/media/${item.id}/thumbnail?size=thumbnail`
                   }
                   lowResPath={
-                    isPanorama(item) ? `/media/${item.id}/thumbnail?size=thumbnail` : undefined
+                    sharp || isPanorama(item)
+                      ? `/media/${item.id}/thumbnail?size=thumbnail`
+                      : undefined
                   }
                   alt=""
                   className="timeline-img"
