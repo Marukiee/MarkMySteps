@@ -10,6 +10,9 @@
      every row used to run off the right edge. A block box already fills what
      is left over. */
   min-width: 0;
+  /* Scrolling stays the browser's; a pinch here is the gallery's own zoom
+     (see usePinchZoom), not the whole page growing. */
+  touch-action: pan-x pan-y;
 }
 
 .photo-grid-row {

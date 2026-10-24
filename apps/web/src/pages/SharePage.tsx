@@ -13,6 +13,7 @@ import { DayNote, TripNote } from '../components/DayNote';
 import { Lightbox } from '../components/Lightbox';
 import { LogoMark } from '../components/Logo';
 import { PhotoGrid } from '../components/PhotoGrid';
+import { GRID_ZOOM_PREVIEW, useGridZoom } from '../lib/gridZoom';
 import { jumpToDay, StopJump } from '../components/StopJump';
 import { TripFacts } from '../components/TripFacts';
 import { WeatherBadge } from '../components/WeatherBadge';
@@ -182,6 +183,8 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       `/api/share/${slug}/media/${id}/thumbnail?size=${size}&t=${encodeURIComponent(token)}`,
     [slug, token],
   );
+  // Pinched in far enough, the small rendition is a blur at the size it is shown.
+  const gridSize = useGridZoom() >= GRID_ZOOM_PREVIEW ? 'preview' : 'thumbnail';
   const videoSrc = useCallback(
     (id: string) => `/api/share/${slug}/media/${id}/video?t=${encodeURIComponent(token)}`,
     [slug, token],
@@ -752,7 +755,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                       onClick={() => setLightboxIndex(indexOf.get(item.id) ?? 0)}
                     >
                       <img
-                        src={thumb(item.id)}
+                        src={thumb(item.id, gridSize)}
                         alt=""
                         className="timeline-img"
                         loading="lazy"
