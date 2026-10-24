@@ -52,7 +52,9 @@
   border-radius: 999px;
   font-weight: 600;
   font-size: 0.85rem;
-  color: rgb(255 255 255 / 0.7);
+  /* The prompt is the page's colours turned around, so in dark mode it is a
+     light card: a fixed white made "Later" disappear into it. */
+  color: color-mix(in srgb, var(--paper) 72%, transparent);
 }
 
 .track-prompt-actions button.primary {
