@@ -38,11 +38,11 @@
 }
 
 /* On a phone the map is pinned across the top of the page and shrinks to a
-   third of the screen as you scroll — a day taken to the literal top of the
+   quarter of the screen as you scroll, so a day taken to the literal top of the
    page arrives behind it. */
 @media (max-width: 900px) {
   .trip-side .timeline-day {
-    scroll-margin-top: calc(var(--vh-stable, 100vh) * 0.32 + 0.7rem);
+    scroll-margin-top: calc(var(--vh-stable, 100vh) * 0.24 + 0.7rem);
   }
 }
 
