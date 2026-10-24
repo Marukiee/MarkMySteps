@@ -3,6 +3,27 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+/**
+ * What signing in answers when the account has an authenticator app: the
+ * password was right, now the code. The token is only good for sending it back.
+ */
+export interface MfaChallenge {
+  mfaRequired: true;
+  mfaToken: string;
+}
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  recoveryCodesLeft: number;
+}
+
+export interface TwoFactorSetup {
+  /** The secret as text, for an app that cannot scan. */
+  secret: string;
+  /** What the QR code holds. */
+  otpauthUri: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -140,7 +161,8 @@ export type NotificationKind =
   | 'TRIP_ADDED'
   | 'ACCESS_REQUESTED'
   | 'ACCESS_APPROVED'
-  | 'ACCESS_DENIED';
+  | 'ACCESS_DENIED'
+  | 'SECURITY_LOGIN_ATTEMPTS';
 
 export type AccessRequestStatus = 'PENDING' | 'APPROVED' | 'DENIED';
 
@@ -153,6 +175,8 @@ export interface NotificationItem {
   trip: { id: string; title: string } | null;
   /** Present on ACCESS_REQUESTED — the question you can answer from the list. */
   request: { id: string; status: AccessRequestStatus; message: string | null } | null;
+  /** The whole sentence, for the kinds that are not about a trip. */
+  detail?: string | null;
 }
 
 /** All a trip you cannot open will say about itself. */

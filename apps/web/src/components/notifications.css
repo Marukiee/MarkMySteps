@@ -308,6 +308,10 @@
   background: #b3402a;
 }
 
+.notif-kind.kind-SECURITY_LOGIN_ATTEMPTS {
+  background: #b3402a;
+}
+
 .notif-kind.kind-ACCESS_REQUESTED {
   background: var(--accent);
 }
