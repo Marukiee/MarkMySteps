@@ -12,7 +12,6 @@
      the centred nav a scrollbar's width to the left of the page under it. */
   padding: 0.5rem max(1.5rem, calc((100% - 1080px) / 2));
   background: var(--glass);
-  backdrop-filter: blur(16px) saturate(1.1);
   border-bottom: 1px solid var(--line);
   /*
    * One height for everything on this row.

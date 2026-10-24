@@ -7,7 +7,6 @@
   display: none;
   grid-template-columns: repeat(3, 1fr);
   background: var(--glass);
-  backdrop-filter: blur(16px);
   border-top: 1px solid var(--glass-border);
   padding: 0.35rem 0;
   transition: transform 0.2s ease;

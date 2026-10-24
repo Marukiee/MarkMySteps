@@ -63,6 +63,8 @@ initStableViewport();
 initKeyboardScroll();
 // Lets CSS style the APK differently (no topbar, tab bar always on).
 if (isNativeApp()) document.documentElement.classList.add('native-app');
+// Android, app or browser: no frosted layers (see the end of global.css).
+if (/Android/i.test(navigator.userAgent)) document.documentElement.classList.add('android');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

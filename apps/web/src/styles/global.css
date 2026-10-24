@@ -550,3 +550,36 @@ textarea {
 .sheet-swiping {
   animation: none !important;
 }
+
+/* ---------- Android: flat instead of frosted ---------- */
+
+/* Android's WebView redraws a blur for every frame in which anything under it
+   moves: the globe turning, the map easing, a list scrolling, a sheet sliding
+   in. That is what made the app stutter even on a fast phone. Scrims and
+   chips are drawn flat there instead, a shade darker where the blur helped
+   them stand out. */
+.android *,
+.android *::before,
+.android *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.android .reaction-badge,
+.android .comment-flag {
+  background: rgb(0 0 0 / 0.62);
+}
+
+.android .lightbox-close,
+.android .lightbox-menu-btn,
+.android .lightbox-comments-btn:not(.has),
+.android .reaction-toggle:not(.has) {
+  background: rgb(0 0 0 / 0.48);
+}
+
+.android .trip-headcard.has-cover .tstat,
+.android .share-headcard.has-cover .tstat,
+.android .ts-facts-preview.has-cover .tstat {
+  background: rgb(255 255 255 / 0.2);
+}
+

@@ -301,7 +301,6 @@
   border-radius: 999px;
   background: rgb(255 255 255 / 0.92);
   color: var(--accent-ink);
-  backdrop-filter: blur(4px);
 }
 
 /* On a compact card it sits under the meta line as an accent chip. */
@@ -688,7 +687,6 @@
 
 .trip-card-dates {
   background: rgb(255 255 255 / 0.85);
-  backdrop-filter: blur(4px);
   padding: 0.25rem 0.7rem;
   border-radius: 999px;
   font-size: 0.78rem;

@@ -206,7 +206,6 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
   place-content: center;
   border-radius: 50%;
   background: var(--glass);
-  backdrop-filter: blur(8px);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-m);
   color: var(--ink-faint);
@@ -248,7 +247,6 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
   padding: 0.45rem 0.8rem;
   border-radius: 999px;
   background: var(--glass);
-  backdrop-filter: blur(8px);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-s);
   font-weight: 600;
@@ -455,7 +453,6 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
   padding: 0.4rem 0.85rem;
   border-radius: 999px;
   background: var(--glass);
-  backdrop-filter: blur(8px);
   border: 1px solid var(--line);
   font-weight: 600;
   font-size: 0.85rem;
@@ -727,7 +724,6 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
   place-content: center;
   border-radius: 50%;
   background: var(--glass);
-  backdrop-filter: blur(8px);
   color: var(--ink);
   box-shadow: var(--shadow-m);
   transition: background 0.18s var(--ease), box-shadow 0.18s var(--ease);
@@ -1049,7 +1045,6 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
   height: 40px;
   border-radius: 50%;
   background: var(--glass);
-  backdrop-filter: blur(8px);
   border: 1px solid var(--glass-border);
   /* The same grey as the fast-scroll grip's chevrons. Full ink made the arrow
      a bright white disc in dark mode, next to a grip that stayed quiet. */
@@ -1177,7 +1172,6 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
     place-content: center;
     border-radius: 50%;
     background: var(--glass);
-    backdrop-filter: blur(8px);
     border: 1px solid var(--line);
     box-shadow: var(--shadow-m);
     color: var(--ink);

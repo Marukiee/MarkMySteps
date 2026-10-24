@@ -109,7 +109,6 @@
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--glass);
-  backdrop-filter: blur(8px);
   box-shadow: var(--shadow-s);
   font-size: 0.76rem;
   font-weight: 600;

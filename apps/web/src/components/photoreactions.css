@@ -92,7 +92,6 @@
   padding: 0.35rem;
   border-radius: 999px;
   background: rgb(20 24 29 / 0.92);
-  backdrop-filter: blur(14px);
   box-shadow: 0 8px 30px rgb(0 0 0 / 0.35);
   transform-origin: 1.4rem 100%;
   animation: reactionPop 0.2s var(--ease);

@@ -36,7 +36,6 @@
   padding: 0.6rem 1rem calc(0.8rem + env(safe-area-inset-bottom));
   border-radius: 18px 18px 0 0;
   background: rgb(20 24 29 / 0.92);
-  backdrop-filter: blur(14px);
   color: rgb(255 255 255 / 0.92);
   box-shadow: 0 -8px 30px rgb(0 0 0 / 0.35);
   animation: photoCommentsUp 0.24s cubic-bezier(0.22, 1, 0.36, 1);

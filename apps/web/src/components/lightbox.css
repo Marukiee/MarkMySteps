@@ -2,8 +2,10 @@
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgb(10 13 18 / 0.94);
-  backdrop-filter: blur(6px);
+  /* Solid, as a photo viewer is. It used to let the page show through under a
+     blur, which was redrawn on every frame something moved under it; without
+     the blur the page behind only read as clutter. */
+  background: rgb(10 13 18);
   display: grid;
   place-content: center;
   padding: clamp(1rem, 4vw, 2.5rem);
@@ -17,14 +19,12 @@
 @keyframes lightboxIn {
   from {
     opacity: 0;
-    backdrop-filter: blur(0);
   }
 }
 
 @keyframes lightboxOut {
   to {
     opacity: 0;
-    backdrop-filter: blur(0);
   }
 }
 
@@ -148,7 +148,6 @@
   gap: 2px;
   border-radius: var(--radius-m);
   background: rgb(22 26 32 / 0.96);
-  backdrop-filter: blur(10px);
   box-shadow: 0 12px 34px rgb(0 0 0 / 0.5);
   animation: lightboxMenuIn 0.16s var(--ease);
 }
