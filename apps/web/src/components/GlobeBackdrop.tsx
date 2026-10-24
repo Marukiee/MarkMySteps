@@ -9,6 +9,12 @@ import { airportByCode } from '../lib/airports';
 import { getDefaultAirports, getGlobeStops, type GlobeStopsMode } from '../lib/prefs';
 import './globe.css';
 
+/** The globe draws at most 60 frames a second, whatever the screen's rate. */
+const MIN_FRAME_MS = 1000 / 60 - 3;
+/** Resampling tolerance in device pixels: d3's default for routes, coarser for land. */
+const ROUTE_PRECISION = Math.SQRT1_2;
+const LAND_PRECISION = 0;
+
 // Minimal shape of the TopoJSON we consume (avoids a types-only dep).
 type LandTopology = Parameters<typeof topojson.feature>[0] & {
   objects: { land: Parameters<typeof topojson.feature>[1] };
@@ -72,7 +78,7 @@ export function GlobeBackdrop({
     if (!ctx) return;
 
     const topo = land110m as unknown as LandTopology;
-    const land = topojson.feature(topo, topo.objects.land) as unknown as GeoPermissibleObjects;
+    const land = prepareLand(topo);
 
     let raf = 0;
     let rotation = -14; // start centred on Europe (positive lon)
@@ -184,6 +190,8 @@ export function GlobeBackdrop({
     let tiltV = 0;
     let rotV = 0;
     let lastFrame = performance.now();
+    const LABEL_FONT = `${11 * dpr}px 'Inter Variable', sans-serif`;
+    const labelWidths = new Map<string, number>();
     // Screen rects of the drawn labels, so tapping a name opens its trip.
     let labelRects: { id: string; x: number; y: number; w: number; h: number }[] = [];
     /**
@@ -386,11 +394,18 @@ export function GlobeBackdrop({
     const CENTER_LAT = 38;
 
     function draw() {
+      const now = performance.now();
+      // At most 60 frames a second. A 120 Hz phone called this twice as often,
+      // and every call is a full redraw: the sweep is just as smooth at 60, and
+      // `dt` below keeps its speed the same.
+      if (now - lastFrame < MIN_FRAME_MS) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
       const w = canvas!.width;
       const h = canvas!.height;
       const trips = globeTrips();
 
-      const now = performance.now();
       // Clamped: a backgrounded tab hands back a huge gap on its first frame.
       const dt = Math.min(0.05, Math.max(0.001, (now - lastFrame) / 1000));
       lastFrame = now;
@@ -609,7 +624,14 @@ export function GlobeBackdrop({
       ctx!.fill();
 
       ctx!.beginPath();
-      path(land);
+      // The coastlines were most of the cost of every frame. Only the land that
+      // can be on the near side goes through the projection, without the
+      // resampling the routes get: between two coastline points that bend is
+      // a twentieth of a pixel. The routes keep it, so a long flight still
+      // follows its great circle.
+      projection.precision(LAND_PRECISION);
+      path(land.facing(-rotation, CENTER_LAT + tilt));
+      projection.precision(ROUTE_PRECISION);
       ctx!.fillStyle = dark ? '#2d3742' : '#d8c9ad';
       ctx!.fill();
 
@@ -1601,6 +1623,7 @@ export function GlobeBackdrop({
           ? new Set(frontFacing.slice(0, maxLabels).map((t) => t.id))
           : new Set(activeId ? [activeId] : []);
       labelRects = [];
+      ctx!.font = LABEL_FONT;
       // Rects already drawn this frame — bigger trips (drawn first) win; a name
       // that would overlap one is suppressed so labels never pile up unreadably.
       const placed: { x: number; y: number; w: number; h: number }[] = [];
@@ -1632,8 +1655,12 @@ export function GlobeBackdrop({
         if (!projected) continue;
         if (center && distance(center, base) > 90) continue;
         const label = trip.title;
-        ctx!.font = `${11 * dpr}px 'Inter Variable', sans-serif`;
-        const tw = ctx!.measureText(label).width;
+        // Measured once per name, not on every frame.
+        let tw = labelWidths.get(label);
+        if (tw === undefined) {
+          tw = ctx!.measureText(label).width;
+          labelWidths.set(label, tw);
+        }
         const pw = tw + 12 * dpr;
         const ph = 18 * dpr;
         // Sits to the right of the dot; flips to the left when that would run
@@ -1726,6 +1753,15 @@ export function GlobeBackdrop({
     };
 
     function onDown(e: PointerEvent) {
+      // A finger scrolls the page (touch-action: pan-y) and a sideways swipe
+      // does nothing; spinning and pinching are for a mouse or trackpad. On a
+      // phone the globe fills the top of the screen, so it swallowed the
+      // scroll, and a sideways swipe turned and zoomed it as if the page warped.
+      // A tap still picks a trip (onClick).
+      if (e.pointerType === 'touch') {
+        moved = 0;
+        return;
+      }
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       dragging = true;
       moved = 0;
@@ -2254,4 +2290,98 @@ function distance(a: [number, number], b: [number, number]): number {
   const h =
     Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
   return (2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))) / toRad;
+}
+
+/**
+ * The land, ready to be drawn often: each coastline thinned once to a tenth of
+ * a degree (a fifth of the points go, no island does), with for every polygon
+ * the cap around it on the sphere. `facing` hands back only the polygons that
+ * can be on the near side of a globe looking at that point; the rest would only
+ * be projected to be clipped away again.
+ */
+function prepareLand(topo: LandTopology) {
+  const all = topojson.feature(topo, topo.objects.land) as unknown as {
+    features: { geometry: { type: string; coordinates: unknown } }[];
+  };
+  const polygons: { rings: [number, number][][]; v: [number, number, number]; reach: number }[] = [];
+  for (const f of all.features) {
+    const g = f.geometry;
+    const list = (g.type === 'Polygon' ? [g.coordinates] : g.coordinates) as [number, number][][][];
+    for (const rings of list) {
+      const thin = rings.map((r) => thinRing(r, 0.1));
+      const outer = thin[0]!;
+      let x = 0, y = 0, z = 0;
+      for (const p of outer) {
+        const u = unit(p);
+        x += u[0]; y += u[1]; z += u[2];
+      }
+      const len = Math.hypot(x, y, z) || 1;
+      const v: [number, number, number] = [x / len, y / len, z / len];
+      let reach = 0;
+      for (const p of outer) {
+        const u = unit(p);
+        reach = Math.max(reach, Math.acos(Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1] + u[2] * v[2]))));
+      }
+      polygons.push({ rings: thin, v, reach });
+    }
+  }
+  return {
+    facing(lon: number, lat: number): GeoPermissibleObjects {
+      const c = unit([lon, lat]);
+      const coordinates = polygons
+        // Visible when some of it is within 90 degrees of the centre; two
+        // degrees spare for the thinning.
+        .filter((p) => p.v[0] * c[0] + p.v[1] * c[1] + p.v[2] * c[2] > -Math.sin(p.reach + 0.035))
+        .map((p) => p.rings);
+      return { type: 'MultiPolygon', coordinates } as GeoPermissibleObjects;
+    },
+  };
+}
+
+function unit([lon, lat]: [number, number]): [number, number, number] {
+  const l = (lon * Math.PI) / 180;
+  const p = (lat * Math.PI) / 180;
+  return [Math.cos(p) * Math.cos(l), Math.cos(p) * Math.sin(l), Math.sin(p)];
+}
+
+/** Douglas-Peucker on a closed ring, in degrees; keeps at least the shape's corners. */
+function thinRing(ring: [number, number][], tolerance: number): [number, number][] {
+  const n = ring.length;
+  if (n < 8) return ring;
+  const keep = new Uint8Array(n);
+  let far = 1;
+  let farD = -1;
+  for (let i = 1; i < n - 1; i++) {
+    const d = Math.hypot(ring[i]![0] - ring[0]![0], ring[i]![1] - ring[0]![1]);
+    if (d > farD) {
+      farD = d;
+      far = i;
+    }
+  }
+  keep[0] = keep[far] = keep[n - 1] = 1;
+  const stack: [number, number][] = [[0, far], [far, n - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop()!;
+    const [ax, ay] = ring[a]!;
+    const [bx, by] = ring[b]!;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len = Math.hypot(dx, dy);
+    let maxD = 0;
+    let at = -1;
+    for (let i = a + 1; i < b; i++) {
+      const [px, py] = ring[i]!;
+      const d = len > 0 ? Math.abs(dy * (px - ax) - dx * (py - ay)) / len : Math.hypot(px - ax, py - ay);
+      if (d > maxD) {
+        maxD = d;
+        at = i;
+      }
+    }
+    if (maxD > tolerance) {
+      keep[at] = 1;
+      stack.push([a, at], [at, b]);
+    }
+  }
+  const out = ring.filter((_, i) => keep[i]);
+  return out.length >= 4 ? out : ring;
 }
