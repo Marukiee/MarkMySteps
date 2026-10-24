@@ -66,4 +66,8 @@ gaat. Opgeschreven uit Marks keuzes bij de aanpassingen uit Simons fork
 - **Elk platform zijn eigen woorden.** iOS heet het "Altijd" en "Bestanden",
   Android "Altijd toestaan" en "Downloads". Zie `alwaysLabel()` in `native.ts`.
 - **iOS-velden zijn 16 px**, anders zoomt iOS bij het tikken de hele pagina in.
+- **Op de iPhone echt glas, van het systeem.** De tabbalk is die van iOS, en
+  knoppen die vast op het scherm zweven zijn echt Liquid Glass, verwante knoppen
+  samen in één capsule (`MmsTabBar`, `MmsGlass`). Inhoud staat op gewone vlakken,
+  nooit glas op glas, en geen nagemaakt glas in CSS.
 - **Nieuwe teksten gaan door de vertaling** zodra de i18n er is.
