@@ -39,16 +39,15 @@
   opacity: 0;
   transition:
     opacity 0.15s var(--ease),
-    height 0.2s var(--ease),
-    background 0.15s var(--ease);
+    height 0.2s var(--ease);
 }
 
-.side-resizer:hover::after,
-.side-resizer:focus-visible::after,
-body.side-resizing .side-resizer::after {
+/* No line on hover or while dragging: the cursor already says what this is.
+   Only a keyboard focus gets a mark, because there is no cursor then. */
+.side-resizer:focus-visible::after {
   opacity: 1;
   height: 72px;
-  background: var(--accent);
+  background: var(--ink-faint);
 }
 
 .side-resizer:focus-visible {
