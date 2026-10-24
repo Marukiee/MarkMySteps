@@ -50,6 +50,14 @@ model User {
   /// Set on admin-created accounts with a temporary password; cleared when
   /// the user picks their own. UI nags until then.
   mustChangePassword Boolean @default(false)
+  /// Second step at sign-in: a code from an authenticator app (TOTP). The secret
+  /// is encrypted like the Immich keys. It is only trusted once `totpEnabledAt`
+  /// is set — setup stores it before the first code has shown that the app has it.
+  totpSecretEnc String?
+  totpEnabledAt DateTime?
+  /// Newest time step already accepted, so a code that was just used cannot be
+  /// used again inside the half minute it would still be valid.
+  totpLastStep  Int?
   /// Small avatar image, stored inline (kept tiny by client-side resize).
   avatar     Bytes?
   avatarMime String?
@@ -69,6 +77,7 @@ model User {
   accessRequests   TripAccessRequest[] @relation("AccessRequester")
   accessDecisions  TripAccessRequest[] @relation("AccessDecider")
   tripSummaries    TripSummary[]
+  recoveryCodes    RecoveryCode[]
 
   @@map("users")
 }
@@ -207,6 +216,20 @@ model TripAccessRequest {
 
 /// What the app shows under the bell. A notification stays until its owner
 /// deals with it — reads it away, or answers the request it carries.
+/// One-time codes for getting in without the authenticator app. Only a hash is
+/// kept; the codes themselves are shown once, when they are made.
+model RecoveryCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, codeHash])
+  @@map("recovery_codes")
+}
+
 enum NotificationKind {
   /// You were added to somebody's trip.
   TRIP_ADDED
@@ -216,6 +239,8 @@ enum NotificationKind {
   ACCESS_APPROVED
   /// Your request was turned down.
   ACCESS_DENIED
+  /// Somebody keeps getting an account's password or code wrong (admins only).
+  SECURITY_LOGIN_ATTEMPTS
 }
 
 /**
@@ -258,6 +283,9 @@ model Notification {
   /// Set on the ones you can answer from the list.
   requestId String?          @db.Uuid
   request   TripAccessRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  /// A sentence of its own, for the kinds that have nothing else to point at
+  /// (a security alert is about an account, not a trip).
+  detail    String?
   readAt    DateTime?
   createdAt DateTime         @default(now())
 
@@ -468,6 +496,10 @@ model RefreshToken {
   createdAt DateTime @default(now())
   // Set when the token is used or explicitly revoked (logout); enables reuse detection.
   revokedAt DateTime?
+  // Set only when the token was swapped for a new one (a refresh). A token revoked
+  // on purpose — logout, password change, an admin — leaves this empty and gets no
+  // second chance; see AuthService.refresh.
+  rotatedAt DateTime?
 
   @@index([userId])
   @@map("refresh_tokens")

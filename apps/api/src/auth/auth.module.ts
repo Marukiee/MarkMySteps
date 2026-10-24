@@ -4,6 +4,9 @@ import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LoginAttemptsService } from './login-attempts.service';
+import { SecurityAlertsService } from './security-alerts.service';
+import { TwoFactorService } from './two-factor.service';
 
 @Module({
   imports: [
@@ -20,7 +23,13 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard],
-  exports: [JwtAuthGuard],
+  providers: [
+    AuthService,
+    JwtAuthGuard,
+    LoginAttemptsService,
+    SecurityAlertsService,
+    TwoFactorService,
+  ],
+  exports: [JwtAuthGuard, TwoFactorService],
 })
 export class AuthModule {}

@@ -91,6 +91,12 @@ export class AdminController {
     await this.admin.resetPassword(id, dto.tempPassword);
   }
 
+  @Post(':id/reset-2fa')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async resetTwoFactor(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.admin.resetTwoFactor(id);
+  }
+
   @Post(':id/role')
   @HttpCode(HttpStatus.NO_CONTENT)
   async setRole(

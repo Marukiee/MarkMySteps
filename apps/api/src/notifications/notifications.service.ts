@@ -23,6 +23,8 @@ export interface NotificationView {
   trip: { id: string; title: string } | null;
   /** Present on ACCESS_REQUESTED; null once the request has been answered. */
   request: { id: string; status: AccessRequestStatus; message: string | null } | null;
+  /** The whole sentence, for the kinds that are not about a trip. */
+  detail: string | null;
 }
 
 /** What the "no access" screen is allowed to say about a trip you can't open. */
@@ -416,6 +418,8 @@ function titleFor(row: NotificationRow): string {
       return 'Je mag meekijken';
     case NotificationKind.ACCESS_DENIED:
       return 'Verzoek afgewezen';
+    case NotificationKind.SECURITY_LOGIN_ATTEMPTS:
+      return 'Verdachte inlogpogingen';
     default:
       return 'Toegevoegd aan een reis';
   }
@@ -432,6 +436,8 @@ function bodyFor(row: NotificationRow): string {
       return `${who} heeft je toegelaten tot ${trip}.`;
     case NotificationKind.ACCESS_DENIED:
       return `${who} heeft je verzoek voor ${trip} afgewezen.`;
+    case NotificationKind.SECURITY_LOGIN_ATTEMPTS:
+      return row.detail ?? 'Er zijn veel mislukte inlogpogingen geweest.';
     default:
       return `${who} heeft je toegevoegd aan ${trip}.`;
   }
@@ -469,5 +475,6 @@ function toView(row: NotificationRow): NotificationView {
     request: row.request
       ? { id: row.request.id, status: row.request.status, message: row.request.message }
       : null,
+    detail: row.detail,
   };
 }
