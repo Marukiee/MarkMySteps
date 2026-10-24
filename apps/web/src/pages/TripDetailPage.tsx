@@ -64,6 +64,9 @@ export function TripDetailPage() {
   const [noAccess, setNoAccess] = useState(false);
   const [addPointMode, setAddPointMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  /** Read by the scroll handler, which is set up once per trip. */
+  const lightboxOpenRef = useRef(false);
+  lightboxOpenRef.current = lightboxIndex !== null;
   /** Opened from a photo's comment flag: straight onto the conversation. */
   const [lightboxComments, setLightboxComments] = useState(false);
   // Arriving from a trip card's avatars means "let me manage who is on this",
@@ -188,6 +191,10 @@ export function TripDetailPage() {
       // past would each pull the camera to themselves and the map would end up
       // wherever the scroll happened to finish.
       if (!api || suppressFocus.current > Date.now()) return;
+      // Behind the photo viewer the grid scrolls along with the photo you are
+      // on, and the map followed it: camera moves and fading markers on a map
+      // nobody could see. It catches up once, when the viewer closes.
+      if (lightboxOpenRef.current) return;
       // The top of the page belongs to the whole trip. Scrolling back up
       // resets the camera to it, and this used to immediately steal it back
       // for whichever photos happened to be under the fold — visible now that
@@ -362,6 +369,14 @@ export function TripDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapFull]);
+
+  // The viewer closed: the map catches up with the photos now in view.
+  const lightboxWasOpen = useRef(false);
+  useEffect(() => {
+    const open = lightboxIndex !== null;
+    if (lightboxWasOpen.current && !open) refocusRef.current();
+    lightboxWasOpen.current = open;
+  }, [lightboxIndex]);
 
   // The planner needs the map where it is, under its form.
   useEffect(() => {
