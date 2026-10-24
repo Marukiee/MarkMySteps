@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AccountStatus, UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { revokeAllSessions } from '../auth/sessions';
+import { TwoFactorService } from '../auth/two-factor.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface AdminUserRow {
@@ -14,6 +16,8 @@ export interface AdminUserRow {
   createdAt: Date;
   decidedAt: Date | null;
   tripCount: number;
+  /** Signs in with an authenticator app as well as a password. */
+  twoFactor: boolean;
 }
 
 const ROW_SELECT = {
@@ -26,12 +30,16 @@ const ROW_SELECT = {
   mustChangePassword: true,
   createdAt: true,
   decidedAt: true,
+  totpEnabledAt: true,
   _count: { select: { tripMemberships: true } },
 } as const;
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly twoFactor: TwoFactorService,
+  ) {}
 
   async listUsers(): Promise<AdminUserRow[]> {
     const users = await this.prisma.user.findMany({
@@ -84,10 +92,7 @@ export class AdminService {
       },
     });
     // Kick every session of that account.
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    await revokeAllSessions(this.prisma, userId);
   }
 
   /**
@@ -125,10 +130,12 @@ export class AdminService {
       where: { id: userId },
       data: { status: AccountStatus.REJECTED, decidedAt: new Date(), decidedById: adminId },
     });
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    await revokeAllSessions(this.prisma, userId);
+  }
+
+  /** For somebody who lost their phone and their recovery codes. */
+  async resetTwoFactor(userId: string): Promise<void> {
+    await this.twoFactor.resetForUser(userId);
   }
 
   async setRole(userId: string, role: UserRole, actingAdminId: string): Promise<void> {
@@ -165,8 +172,9 @@ function toRow(user: {
   mustChangePassword: boolean;
   createdAt: Date;
   decidedAt: Date | null;
+  totpEnabledAt: Date | null;
   _count: { tripMemberships: number };
 }): AdminUserRow {
-  const { _count, ...rest } = user;
-  return { ...rest, tripCount: _count.tripMemberships };
+  const { _count, totpEnabledAt, ...rest } = user;
+  return { ...rest, tripCount: _count.tripMemberships, twoFactor: totpEnabledAt !== null };
 }

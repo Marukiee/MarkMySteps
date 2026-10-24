@@ -10,7 +10,11 @@ import { AccountStatus, UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { CODE_ATTEMPTS, LoginAttemptsService, PASSWORD_ATTEMPTS } from './login-attempts.service';
 import { assertStrongPassword } from './password-strength';
+import { SecurityAlertsService } from './security-alerts.service';
+import { revokeAllSessions } from './sessions';
+import { mfaKey, tooManyAttempts, TwoFactorService } from './two-factor.service';
 
 export interface AuthTokens {
   accessToken: string;
@@ -29,6 +33,16 @@ export interface JwtPayload {
    * a new endpoint leaves it closed, not open.
    */
   pending?: true;
+}
+
+/**
+ * What sign-in answers when the password was right but the account has a second
+ * step. The token proves the password, can do nothing else (the guard refuses
+ * anything carrying a scope), and expires in a few minutes.
+ */
+export interface MfaChallenge {
+  mfaRequired: true;
+  mfaToken: string;
 }
 
 export interface RegisterResult extends AuthTokens {
@@ -54,6 +68,9 @@ const MAX_PENDING_REQUESTS = 15;
  */
 const REFRESH_REPLAY_GRACE_MS = 60_000;
 
+/** How long somebody has to type the code once the password was accepted. */
+const MFA_TOKEN_TTL = '5m';
+
 @Injectable()
 export class AuthService {
   private readonly refreshTtlMs: number;
@@ -61,6 +78,9 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly attempts: LoginAttemptsService,
+    private readonly alerts: SecurityAlertsService,
+    private readonly twoFactor: TwoFactorService,
     config: ConfigService,
   ) {
     this.refreshTtlMs = parseDuration(config.get<string>('REFRESH_TOKEN_EXPIRES_IN') ?? '30d');
@@ -158,9 +178,20 @@ export class AuthService {
     return { status: user.status, justApproved };
   }
 
-  /** `identifier` is an email address or a username. */
-  async login(identifier: string, password: string): Promise<AuthTokens> {
+  /**
+   * `identifier` is an email address or a username.
+   *
+   * Answers with tokens, or, when the account has a second step, with a
+   * challenge to be answered at `loginMfa`.
+   */
+  async login(identifier: string, password: string): Promise<AuthTokens | MfaChallenge> {
     const normalized = identifier.trim().toLowerCase();
+
+    // Before anything is looked up, so a locked name costs the same whether or
+    // not the account exists.
+    const locked = this.attempts.lockedForMs(normalized);
+    if (locked > 0) throw tooManyAttempts(locked);
+
     const user = await this.prisma.user.findFirst({
       where: normalized.includes('@') ? { email: normalized } : { username: normalized },
     });
@@ -171,15 +202,63 @@ export class AuthService {
     const valid = await argon2.verify(hash, password).catch(() => false);
 
     if (!user || !valid) {
+      const { justLocked, failures } = this.attempts.recordFailure(normalized, PASSWORD_ATTEMPTS);
+      if (justLocked && user) {
+        await this.alerts.loginTrouble(user, 'password', failures, PASSWORD_ATTEMPTS.lockMs / 60_000);
+      }
       throw new UnauthorizedException('Invalid email or password');
     }
+    this.attempts.recordSuccess(normalized);
     if (user.status === AccountStatus.REJECTED) {
       throw new ForbiddenException('This account has not been approved');
+    }
+
+    // The password alone is not enough for this account: hand back a token that
+    // proves it was right, and wait for the code.
+    if (user.totpEnabledAt) {
+      const mfaToken = await this.jwt.signAsync(
+        { scope: 'mfa', sub: user.id },
+        { expiresIn: MFA_TOKEN_TTL },
+      );
+      return { mfaRequired: true, mfaToken };
     }
 
     // A pending account may sign in — it just gets a token that can do nothing
     // but ask whether it is still pending. Refusing the login outright would
     // leave the app with no way to find out it had been approved.
+    return this.issueTokens(user.id, user.email, user.status);
+  }
+
+  /** The second half of sign-in: the code from the app (or a recovery code). */
+  async loginMfa(mfaToken: string, code: string): Promise<AuthTokens> {
+    let payload: { scope?: unknown; sub?: unknown };
+    try {
+      payload = await this.jwt.verifyAsync(mfaToken);
+    } catch {
+      throw new UnauthorizedException('Sign in again');
+    }
+    if (payload.scope !== 'mfa' || typeof payload.sub !== 'string') {
+      throw new UnauthorizedException('Sign in again');
+    }
+
+    const key = mfaKey(payload.sub);
+    const locked = this.attempts.lockedForMs(key);
+    if (locked > 0) throw tooManyAttempts(locked);
+
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user || !user.totpEnabledAt) throw new UnauthorizedException('Sign in again');
+
+    if (!(await this.twoFactor.verifySecondFactor(user, code))) {
+      const { justLocked, failures } = this.attempts.recordFailure(key, CODE_ATTEMPTS);
+      if (justLocked) {
+        await this.alerts.loginTrouble(user, 'code', failures, CODE_ATTEMPTS.lockMs / 60_000);
+      }
+      throw new UnauthorizedException('That code is not right');
+    }
+    this.attempts.recordSuccess(key);
+    if (user.status === AccountStatus.REJECTED) {
+      throw new ForbiddenException('This account has not been approved');
+    }
     return this.issueTokens(user.id, user.email, user.status);
   }
 
@@ -205,12 +284,15 @@ export class AuthService {
       // a killed WebView, a dropped connection. Treating that as replay logged
       // people out of a perfectly good session. Outside the window the old
       // behaviour stands: revoke every token this user has.
-      const rotatedRecently = Date.now() - stored.revokedAt.getTime() < REFRESH_REPLAY_GRACE_MS;
+      //
+      // Only a token that was swapped for a new one gets this. One revoked on
+      // purpose (logout, a password change, an admin) must stop working at once:
+      // a grace period there is a minute in which whoever stole it can still
+      // trade it for a fresh pair, and the new one is as good as the old.
+      const rotatedRecently =
+        stored.rotatedAt !== null && Date.now() - stored.rotatedAt.getTime() < REFRESH_REPLAY_GRACE_MS;
       if (!rotatedRecently) {
-        await this.prisma.refreshToken.updateMany({
-          where: { userId: stored.userId, revokedAt: null },
-          data: { revokedAt: new Date() },
-        });
+        await revokeAllSessions(this.prisma, stored.userId);
         throw new UnauthorizedException('Invalid refresh token');
       }
       if (stored.user.status === AccountStatus.REJECTED) {
@@ -219,9 +301,10 @@ export class AuthService {
       return this.issueTokens(stored.user.id, stored.user.email, stored.user.status);
     }
 
+    const rotatedAt = new Date();
     await this.prisma.refreshToken.update({
       where: { id: stored.id },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: rotatedAt, rotatedAt },
     });
 
     if (stored.user.status === AccountStatus.REJECTED) {
