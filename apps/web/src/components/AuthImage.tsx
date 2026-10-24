@@ -202,7 +202,15 @@ export function AuthImage({
           observer.disconnect();
         }
       },
-      { rootMargin: '400px' }, // start loading slightly before it scrolls in
+      {
+        // Measured from what actually scrolls. The pages scroll inside an
+        // element, not the window, and a margin on the window was cut off by
+        // that element's edge: photos only started loading once they were on
+        // screen, so scrolling down a list showed its placeholders.
+        root: scrollParent(placeholderRef.current),
+        // A screen and a half ahead, and half a screen to the sides for strips.
+        rootMargin: '150% 50%',
+      },
     );
     observer.observe(placeholderRef.current);
     return () => observer.disconnect();
@@ -274,3 +282,20 @@ export function AuthImage({
     />
   );
 }
+
+/**
+ * The nearest ancestor that really scrolls (the body counts), or the window.
+ * Allowed to scroll is not enough: on a phone the timeline column may scroll
+ * but is as tall as its photos, and measured from there all of them counted
+ * as near and loaded at once.
+ */
+function scrollParent(el: Element): Element | null {
+  for (let node = el.parentElement; node && node !== document.documentElement; node = node.parentElement) {
+    const { overflowY, overflowX } = getComputedStyle(node);
+    const down = /(auto|scroll|overlay)/.test(overflowY) && node.scrollHeight > node.clientHeight + 1;
+    const across = /(auto|scroll|overlay)/.test(overflowX) && node.scrollWidth > node.clientWidth + 1;
+    if (down || across) return node;
+  }
+  return null;
+}
+
