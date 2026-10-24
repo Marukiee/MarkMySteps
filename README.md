@@ -31,7 +31,9 @@ Je foto's blijven waar ze staan: in de galerij van je telefoon, of op je eigen
   privélink voor het thuisfront zonder dat die een account nodig heeft
 - 🔒 **Van jou**: de database heeft geen poorten naar buiten, er is één
   web-poort die alleen op localhost luistert (bedoeld achter een Cloudflare
-  Tunnel), en Immich-sleutels staan versleuteld opgeslagen (AES-256-GCM)
+  Tunnel), en Immich-sleutels staan versleuteld opgeslagen (AES-256-GCM).
+  Inloggen kan met een tweede stap uit je authenticator-app, en admins krijgen
+  een melding als iemand een account blijft proberen
 
 ## Zonder server gebruiken
 
