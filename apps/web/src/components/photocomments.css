@@ -1,0 +1,353 @@
+/* The flag on a grid photo that has comments: top right, over the veil. */
+.comment-flag {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.45rem 0.15rem 0.35rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.comment-flag:hover {
+  background: var(--accent);
+}
+
+/* The panel under the photo in the viewer. Dark glass, like the rest of it. */
+.photo-comments {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  z-index: 202;
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100vw);
+  max-height: min(60vh, 520px);
+  padding: 0.6rem 1rem calc(0.8rem + env(safe-area-inset-bottom));
+  border-radius: 18px 18px 0 0;
+  background: rgb(20 24 29 / 0.92);
+  backdrop-filter: blur(14px);
+  color: rgb(255 255 255 / 0.92);
+  box-shadow: 0 -8px 30px rgb(0 0 0 / 0.35);
+  animation: photoCommentsUp 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes photoCommentsUp {
+  from {
+    transform: translate(-50%, 100%);
+  }
+}
+
+/* Back down the way it came, like the app's sheets. */
+.photo-comments.closing {
+  animation: photoCommentsDown 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes photoCommentsDown {
+  to {
+    transform: translate(-50%, 100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-comments,
+  .photo-comments.closing {
+    animation: none;
+  }
+}
+
+.photo-comments-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.4rem;
+  font-size: 0.95rem;
+}
+
+.photo-comments-head button {
+  display: inline-flex;
+  padding: 0.3rem;
+  color: rgb(255 255 255 / 0.75);
+}
+
+.photo-comments-empty {
+  margin: 0.4rem 0 0.8rem;
+  color: rgb(255 255 255 / 0.6);
+  font-size: 0.88rem;
+}
+
+.photo-comments-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.photo-comments-list li {
+  padding: 0.5rem 0;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.photo-comments-list li:first-child {
+  border-top: 0;
+}
+
+.photo-comments-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  color: rgb(255 255 255 / 0.55);
+}
+
+.photo-comments-name {
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.photo-comments-badge {
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.photo-comments-delete {
+  margin-left: auto;
+  display: inline-flex;
+  padding: 0.2rem;
+  color: rgb(255 255 255 / 0.5);
+}
+
+.photo-comments-delete:hover {
+  color: #ff8a7a;
+}
+
+.photo-comments-body {
+  margin: 0.2rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.photo-comments-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.photo-comments-form input,
+.photo-comments-form textarea {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.07);
+  color: #fff;
+  /* 16px keeps iOS from zooming the page in on focus. */
+  font: inherit;
+  font-size: 16px;
+}
+
+.photo-comments-form input::placeholder,
+.photo-comments-form textarea::placeholder {
+  color: rgb(255 255 255 / 0.45);
+}
+
+.photo-comments-compose {
+  display: flex;
+  gap: 0.45rem;
+  align-items: flex-end;
+}
+
+.photo-comments-compose textarea {
+  flex: 1;
+  min-height: 2.6rem;
+  max-height: 8rem;
+  resize: none;
+  field-sizing: content;
+}
+
+.photo-comments-compose button {
+  flex: none;
+  height: 2.6rem;
+  padding: 0 1rem;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.photo-comments-compose button:disabled {
+  opacity: 0.45;
+}
+
+.photo-comments-error {
+  margin: 0;
+  color: #ffb4a8;
+  font-size: 0.82rem;
+}
+
+/* The button that opens the panel: bottom right in the viewer, where a thumb
+   finds it and where it is clear of the date and the menus at the top. */
+.lightbox-comments-btn {
+  position: fixed;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  right: 1rem;
+  z-index: 201;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(6px);
+  color: rgb(255 255 255 / 0.9);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* Back in view once the comments have gone down again, not in one frame. */
+.lightbox-comments-btn,
+.reaction-bar {
+  animation: fadeIn 0.2s var(--ease);
+}
+
+.lightbox-comments-btn.has {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* The same thread, under a day's story on the page: light, in the flow. */
+.photo-comments.inline {
+  position: static;
+  transform: none;
+  width: auto;
+  max-height: none;
+  margin-top: 0.5rem;
+  padding: 0.7rem 0.9rem 0.85rem;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunken);
+  backdrop-filter: none;
+  color: var(--ink);
+  box-shadow: none;
+  transform-origin: top center;
+  animation: dayCommentsIn 0.24s var(--ease);
+}
+
+.photo-comments.inline.closing {
+  animation: dayCommentsOut 0.2s var(--ease) forwards;
+}
+
+@keyframes dayCommentsIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+@keyframes dayCommentsOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.photo-comments.inline .photo-comments-head button {
+  color: var(--ink-soft);
+}
+
+.photo-comments.inline .photo-comments-list {
+  max-height: 22rem;
+}
+
+.photo-comments.inline .photo-comments-list li {
+  border-top-color: var(--line);
+}
+
+.photo-comments.inline .photo-comments-meta {
+  color: var(--ink-faint);
+}
+
+.photo-comments.inline .photo-comments-name {
+  color: var(--ink);
+}
+
+.photo-comments.inline .photo-comments-delete {
+  color: var(--ink-faint);
+}
+
+.photo-comments.inline .photo-comments-form input,
+.photo-comments.inline .photo-comments-form textarea {
+  border-color: var(--line);
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.photo-comments.inline .photo-comments-form input::placeholder,
+.photo-comments.inline .photo-comments-form textarea::placeholder {
+  color: var(--ink-faint);
+}
+
+.photo-comments.inline .photo-comments-error {
+  color: var(--accent-ink);
+}
+
+/* "Reageer" under a day's story: the app's ghost button, a size down, with
+   the count in the accent so a conversation stands out. */
+.day-comment-btn {
+  margin-top: 0.5rem;
+  padding: 0.38rem 0.85rem;
+  font-size: 0.82rem;
+  animation: fadeIn 0.2s var(--ease);
+}
+
+.day-comment-btn .day-comment-count {
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+/* Who said what, in short, before the thread is opened. */
+.day-comment-preview {
+  margin: 0.45rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.day-comment-preview strong {
+  color: var(--ink);
+}
+
+/* On the same left edge as the story above it and the photos below. */
+.day-comments {
+  margin: -0.2rem 0 0.9rem calc(var(--page-pad, 0px) + 2px);
+}
+
+.day-comments .day-comment-preview {
+  margin-top: 0;
+}

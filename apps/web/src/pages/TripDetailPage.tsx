@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
-import type { LiveFix, MediaItem, RouteCollection, Trip } from '../api/types';
+import type { LiveFix, MediaItem, PhotoComment, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
 import { ChoiceOption, chooseModal, confirmModal } from '../components/confirm';
@@ -10,6 +10,8 @@ import { DayFilter, type TripDay } from '../components/DayFilter';
 import { Icon } from '../components/Icon';
 import { FastScroll } from '../components/FastScroll';
 import { Lightbox } from '../components/Lightbox';
+import { groupComments, type PhotoCommentsAdapter } from '../components/PhotoComments';
+import { useReactions, type ReactionsView } from '../components/PhotoReactions';
 import { MapLayersSheet } from '../components/MapLayersSheet';
 import { TrainRouteSheet, type Station } from '../components/TrainRouteSheet';
 import { MembersPanel } from '../components/MembersPanel';
@@ -62,6 +64,8 @@ export function TripDetailPage() {
   const [noAccess, setNoAccess] = useState(false);
   const [addPointMode, setAddPointMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  /** Opened from a photo's comment flag: straight onto the conversation. */
+  const [lightboxComments, setLightboxComments] = useState(false);
   // Arriving from a trip card's avatars means "let me manage who is on this",
   // so the sheet is already open when the page paints. The flag is consumed
   // straight away, or closing it and reloading would just open it again.
@@ -121,6 +125,7 @@ export function TripDetailPage() {
   const [planPick, setPlanPick] = useState<{ lat: number; lng: number } | null>(null);
   const [stats, setStats] = useState<TripStats | null>(null);
   const [notes, setNotes] = useState<TripNote[]>([]);
+  const [comments, setComments] = useState<PhotoComment[]>([]);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   // Tapping your own dot on the map opens today's raw fixes.
   const [pointsOpen, setPointsOpen] = useState(false);
@@ -384,6 +389,7 @@ export function TripDetailPage() {
     api<PlannedStop[]>(`/trips/${tripId}/stops`).then(setStops).catch(() => undefined);
     api<TripStats>(`/trips/${tripId}/stats`).then(setStats).catch(() => undefined);
     api<TripNote[]>(`/trips/${tripId}/notes`).then(setNotes).catch(() => undefined);
+    api<PhotoComment[]>(`/trips/${tripId}/comments`).then(setComments).catch(() => undefined);
     api<Waypoint[]>(`/trips/${tripId}/points`).then(setWaypoints).catch(() => undefined);
     api<TripDay[]>(`/trips/${tripId}/days`).then(setDays).catch(() => undefined);
   }, [tripId, reloadRoutes]);
@@ -452,6 +458,46 @@ export function TripDetailPage() {
       setNotes((cur) => cur.filter((n) => n.id !== noteId));
     },
     [tripId],
+  );
+
+  const grouped = useMemo(() => groupComments(comments), [comments]);
+
+  const putReaction = useCallback(
+    async (target: string, kind: string | null) => {
+      if (!tripId) return;
+      const path = target.startsWith('c:') ? `comments/${target.slice(2)}` : `media/${target}`;
+      await api(`/trips/${tripId}/${path}/reaction`, { method: 'PUT', body: { kind } });
+    },
+    [tripId],
+  );
+  const reactions = useReactions(
+    () =>
+      tripId ? api<ReactionsView>(`/trips/${tripId}/reactions`) : Promise.reject(new Error('no trip')),
+    putReaction,
+  );
+
+  // In the app you answer under your own name, and may tidy up after visitors.
+  const commentsAdapter = useMemo<PhotoCommentsAdapter>(
+    () => ({
+      list: grouped.list,
+      askName: false,
+      reactions,
+      post: async (target, body) => {
+        if (!tripId) return;
+        const path = 'mediaId' in target ? `media/${target.mediaId}` : `days/${target.day}`;
+        const added = await api<PhotoComment>(`/trips/${tripId}/${path}/comments`, {
+          method: 'POST',
+          body: { body },
+        });
+        setComments((list) => [...list, added]);
+      },
+      remove: async (comment) => {
+        if (!tripId) return;
+        await api(`/trips/${tripId}/comments/${comment.id}`, { method: 'DELETE' });
+        setComments((list) => list.filter((c) => c.id !== comment.id));
+      },
+    }),
+    [grouped, tripId, reactions],
   );
 
   useEffect(loadData, [loadData]);
@@ -1181,7 +1227,17 @@ export function TripDetailPage() {
             media={visibleMedia}
             visibleUsers={visibleUsers}
             showOwner={(trip?.members.length ?? 0) > 1}
-            onPhotoClick={(item) => setLightboxIndex(visibleMedia.indexOf(item))}
+            onPhotoClick={(item) => {
+              setLightboxComments(false);
+              setLightboxIndex(visibleMedia.indexOf(item));
+            }}
+            commentCounts={grouped.byMedia}
+            dayComments={commentsAdapter}
+            reactionSummary={reactions.summary}
+            onCommentsClick={(item) => {
+              setLightboxComments(true);
+              setLightboxIndex(visibleMedia.indexOf(item));
+            }}
             notes={notes}
             canEditNotes={canEdit}
             emptyOwnerName={
@@ -1326,6 +1382,9 @@ export function TripDetailPage() {
           index={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onNavigate={setLightboxIndex}
+          comments={commentsAdapter}
+          startWithComments={lightboxComments}
+          reactions={reactions}
           coverTripId={trip?.ownerId === user?.id ? tripId : undefined}
           onCoverSet={loadData}
           stopCoverFor={trip?.ownerId === user?.id ? stopForPhoto : undefined}

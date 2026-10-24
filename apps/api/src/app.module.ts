@@ -6,9 +6,11 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
 import { AppInfoModule } from './appinfo/appinfo.module';
 import { AuthModule } from './auth/auth.module';
+import { CommentsModule } from './comments/comments.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { SessionThrottlerGuard } from './common/throttler/session-throttler.guard';
 import { validateEnv } from './config/env.validation';
+import { ReactionsModule } from './reactions/reactions.module';
 import { HealthModule } from './health/health.module';
 import { ImmichModule } from './immich/immich.module';
 import { ImportModule } from './import/import.module';
@@ -50,6 +52,8 @@ import { UsersModule } from './users/users.module';
     StopsModule,
     SearchModule,
     ShareModule,
+    CommentsModule,
+    ReactionsModule,
     SummariesModule,
     AdminModule,
     NotesModule,

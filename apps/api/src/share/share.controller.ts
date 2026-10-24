@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Patch,
+  Put,
   Headers,
   HttpCode,
   HttpStatus,
@@ -23,6 +24,10 @@ import { Readable } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { PublicCommentDto } from '../comments/comments.controller';
+import { CommentsService, PublicPhotoComment } from '../comments/comments.service';
+import { SetReactionDto } from '../reactions/reactions.controller';
+import { ReactionsService, ReactionsView } from '../reactions/reactions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ImmichClientService } from '../immich/immich-client.service';
 import { ImmichConnectionService } from '../immich/immich-connection.service';
@@ -135,6 +140,8 @@ export class SharePublicController {
     private readonly prisma: PrismaService,
     private readonly connections: ImmichConnectionService,
     private readonly immich: ImmichClientService,
+    private readonly comments: CommentsService,
+    private readonly reactions: ReactionsService,
   ) {}
 
   @Get(':slug/info')
@@ -364,6 +371,96 @@ export class SharePublicController {
     } else {
       res.end();
     }
+  }
+
+  /**
+   * Every comment on the trip's photos and stories, in one go: the page needs
+   * them all to flag the photos that have some, and a trip's worth is a few
+   * dozen lines.
+   */
+  @Get(':slug/comments')
+  async listComments(
+    @Param('slug') slug: string,
+    @Headers('x-share-token') token: string,
+  ): Promise<PublicPhotoComment[]> {
+    const session = await this.requireSession(slug, token);
+    return this.comments.listPublic(session.tripId);
+  }
+
+  /**
+   * A visitor's comment. No account behind it, only the name they typed, so
+   * it is held to a handful a minute; the trip owner can take any of them
+   * away again from the app.
+   */
+  @Post(':slug/media/:id/comments')
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  async addComment(
+    @Param('slug') slug: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('x-share-token') token: string,
+    @Body() dto: PublicCommentDto,
+  ): Promise<PublicPhotoComment> {
+    const session = await this.requireSession(slug, token);
+    return this.comments.addPublic(session.tripId, { mediaId: id }, dto.name, dto.body);
+  }
+
+  /** A visitor's comment on a day's story. Same rules as on a photo. */
+  @Post(':slug/days/:day/comments')
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  async addDayComment(
+    @Param('slug') slug: string,
+    @Param('day') day: string,
+    @Headers('x-share-token') token: string,
+    @Body() dto: PublicCommentDto,
+  ): Promise<PublicPhotoComment> {
+    const session = await this.requireSession(slug, token);
+    return this.comments.addPublic(session.tripId, { day }, dto.name, dto.body);
+  }
+
+  /**
+   * The likes on the trip's photos and comments, and which ones this browser
+   * gave. The browser's own random key (x-reactor) is who a visitor is here:
+   * no account needed to like a photo.
+   */
+  @Get(':slug/reactions')
+  async listReactions(
+    @Param('slug') slug: string,
+    @Headers('x-share-token') token: string,
+    @Headers('x-reactor') reactor: string | undefined,
+  ): Promise<ReactionsView> {
+    const session = await this.requireSession(slug, token);
+    return this.reactions.listPublic(session.tripId, reactor);
+  }
+
+  @Put(':slug/media/:id/reaction')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  async setReaction(
+    @Param('slug') slug: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('x-share-token') token: string,
+    @Headers('x-reactor') reactor: string | undefined,
+    @Body() dto: SetReactionDto,
+  ): Promise<void> {
+    const session = await this.requireSession(slug, token);
+    if (!reactor) throw new UnauthorizedException('Missing reactor key');
+    await this.reactions.setPublic(session.tripId, { mediaId: id }, reactor, dto.kind ?? null, null);
+  }
+
+  /** The same on a comment. */
+  @Put(':slug/comments/:id/reaction')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  async setCommentReaction(
+    @Param('slug') slug: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('x-share-token') token: string,
+    @Headers('x-reactor') reactor: string | undefined,
+    @Body() dto: SetReactionDto,
+  ): Promise<void> {
+    const session = await this.requireSession(slug, token);
+    if (!reactor) throw new UnauthorizedException('Missing reactor key');
+    await this.reactions.setPublic(session.tripId, { commentId: id }, reactor, dto.kind ?? null, null);
   }
 
   private async requireSession(slug: string, token?: string): Promise<ShareTokenPayload> {

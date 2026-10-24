@@ -34,7 +34,7 @@ export function getGridZoom(): number {
   return level;
 }
 
-/** Returns whether the level actually moved — the caller ticks a haptic on it. */
+/** Returns whether the level actually moved; the caller ticks a haptic on it. */
 export function setGridZoom(next: number): boolean {
   const clamped = clamp(next);
   if (clamped === level) return false;
@@ -43,7 +43,7 @@ export function setGridZoom(next: number): boolean {
     if (level === 0) localStorage.removeItem(KEY);
     else localStorage.setItem(KEY, String(level));
   } catch {
-    /* storage unavailable — the level just isn't remembered */
+    /* storage unavailable: the level just isn't remembered */
   }
   listeners.forEach((fn) => fn());
   return true;

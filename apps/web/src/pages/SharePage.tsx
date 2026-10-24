@@ -1,7 +1,7 @@
 import maplibregl, { LngLatBounds, Map as MapLibreMap } from '../lib/mapgl';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import type { MediaItem, RouteCollection } from '../api/types';
+import type { MediaItem, PhotoComment, RouteCollection } from '../api/types';
 import type { PlannedStop } from '../lib/arc';
 import { ArcOverlay, createArcOverlay, drawPlannedStops, groundRuns } from '../lib/mapRoute';
 import { colorForUser, formatDay } from '../lib/colors';
@@ -11,6 +11,13 @@ import { useExit } from '../lib/useExit';
 import { Icon } from '../components/Icon';
 import { DayNote, TripNote } from '../components/DayNote';
 import { Lightbox } from '../components/Lightbox';
+import {
+  CommentFlag,
+  DayComments,
+  groupComments,
+  type PhotoCommentsAdapter,
+} from '../components/PhotoComments';
+import { reactorKey, ReactionBadge, type ReactionsView, useReactions } from '../components/PhotoReactions';
 import { LogoMark } from '../components/Logo';
 import { PhotoGrid } from '../components/PhotoGrid';
 import { GRID_ZOOM_PREVIEW, useGridZoom } from '../lib/gridZoom';
@@ -166,6 +173,9 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
   const [freshOpen, setFreshOpen] = useState(false);
   const [freshShown, freshClosing] = useExit(freshOpen, 220);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  /** Opened from a photo's comment flag: straight onto the conversation. */
+  const [lightboxComments, setLightboxComments] = useState(false);
+  const [comments, setComments] = useState<PhotoComment[]>([]);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const arcsRef = useRef<ArcOverlay | null>(null);
@@ -209,6 +219,59 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     [orderedMedia],
   );
 
+  const grouped = useMemo(() => groupComments(comments), [comments]);
+
+  // Likes need no account: this browser's own random key is who a visitor is.
+  const [reactor] = useState(reactorKey);
+  const putReaction = useCallback(
+    async (target: string, kind: string | null) => {
+      // A comment is `c:<id>`, anything else is a photo.
+      const path = target.startsWith('c:') ? `comments/${target.slice(2)}` : `media/${target}`;
+      const res = await fetch(`/api/share/${slug}/${path}/reaction`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', 'x-share-token': token, 'x-reactor': reactor },
+        body: JSON.stringify({ kind }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+    },
+    [slug, token, reactor],
+  );
+  const reactions = useReactions(
+    () =>
+      fetch(`/api/share/${slug}/reactions`, {
+        headers: { 'x-share-token': token, 'x-reactor': reactor },
+      }).then((res) =>
+        res.ok ? (res.json() as Promise<ReactionsView>) : Promise.reject(new Error(String(res.status))),
+      ),
+    putReaction,
+  );
+
+  // Visitors have no account: they comment under the name they type.
+  const commentsAdapter = useMemo<PhotoCommentsAdapter>(
+    () => ({
+      list: grouped.list,
+      askName: true,
+      reactions,
+      post: async (target, body, name) => {
+        const path = 'mediaId' in target ? `media/${target.mediaId}` : `days/${target.day}`;
+        const res = await fetch(`/api/share/${slug}/${path}/comments`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-share-token': token },
+          body: JSON.stringify({ name, body }),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        const added = (await res.json()) as PhotoComment;
+        setComments((list) => [...list, added]);
+      },
+    }),
+    [grouped, slug, token, reactions],
+  );
+
+  const openPhoto = (id: string, withComments = false) => {
+    setLightboxComments(withComments);
+    setLightboxIndex(indexOf.get(id) ?? 0);
+  };
+
   useEffect(() => {
     const get = <T,>(path: string): Promise<T> =>
       fetch(`/api/share/${slug}/${path}`, { headers: { 'x-share-token': token } }).then((res) =>
@@ -218,6 +281,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     get<SharedStop[]>('stops').then(setStops).catch(() => undefined);
     get<SharedMedia[]>('media').then(setMedia).catch(() => undefined);
     get<TripNote[]>('notes').then(setNotes).catch(() => undefined);
+    get<PhotoComment[]>('comments').then(setComments).catch(() => undefined);
     get<RouteCollection>('route').then(setRoutes).catch(() => undefined);
 
     if (!mapContainerRef.current || mapRef.current) return;
@@ -528,6 +592,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
               zoom: Math.min(map.getZoom() + 2.5, 16),
             });
           } else {
+            setLightboxComments(false);
             setLightboxIndex(indexOf.get(rep.id) ?? 0);
           }
         });
@@ -740,7 +805,10 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                   </span>
                 </h3>
                 {notesByDay.has(entry.date) && (
-                  <DayNote day={entry.date} notes={notesByDay.get(entry.date)!} canEdit={false} />
+                  <>
+                    <DayNote day={entry.date} notes={notesByDay.get(entry.date)!} canEdit={false} />
+                    <DayComments day={entry.date} adapter={commentsAdapter} />
+                  </>
                 )}
                 {/* Justified rows, same as the app: each photo keeps its own
                     shape instead of being cropped into a square. */}
@@ -752,7 +820,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                       // photo rather than on the top of the day it is in.
                       data-media-id={item.id}
                       role="button"
-                      onClick={() => setLightboxIndex(indexOf.get(item.id) ?? 0)}
+                      onClick={() => openPhoto(item.id)}
                     >
                       <img
                         src={thumb(item.id, gridSize)}
@@ -776,6 +844,14 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                           <Icon name="play" size={22} />
                         </span>
                       )}
+                      {/* Top right, side by side: liked, and talked about. */}
+                      <span className="photo-flags">
+                        <ReactionBadge summary={reactions.summary(item.id)} />
+                        <CommentFlag
+                          count={grouped.byMedia.get(item.id)?.length ?? 0}
+                          onOpen={() => openPhoto(item.id, true)}
+                        />
+                      </span>
                     </figure>
                   )}
                 </PhotoGrid>
@@ -845,6 +921,9 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
           videoSrcFor={(item) => videoSrc(item.id)}
           onNavigate={setLightboxIndex}
           onClose={() => setLightboxIndex(null)}
+          comments={commentsAdapter}
+          startWithComments={lightboxComments}
+          reactions={reactions}
           // The day's own places, for a photo whose coordinate the map cannot
           // put a name to.
           placeFallbackFor={(item) => placeByDay.get(item.takenAt.slice(0, 10)) ?? null}

@@ -6,7 +6,7 @@
    Centred, and wrapping is deliberate rather than accidental: rows stay centred
    so a long number simply starts a new, equally centred row. */
 /* Always exactly one centred row. TripFacts shortens the labels and, as a last
-   resort, drops a chip — nothing is ever clipped or scrolled. */
+   resort, drops a chip: nothing is ever clipped or scrolled. */
 .trip-headcard-stats {
   display: flex;
   flex-wrap: nowrap;
