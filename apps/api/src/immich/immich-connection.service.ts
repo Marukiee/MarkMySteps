@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { CryptoService } from '../common/crypto/crypto.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImmichClientService } from './immich-client.service';
+import { assertImmichUrlAllowed } from './immich-url-policy';
 
 /** Connection info safe to return to the client — never includes the key. */
 export interface ConnectionStatus {
@@ -36,11 +37,15 @@ export class ImmichConnectionService {
     const normalizedUrl = serverUrl.replace(/\/+$/, '');
     const normalizedPublicUrl = publicUrl?.replace(/\/+$/, '') ?? null;
 
+    // One answer for every way this can fail, so the message cannot be used to
+    // find out which internal names and addresses exist.
     try {
+      await assertImmichUrlAllowed(normalizedUrl);
       await this.client.ping(normalizedUrl, apiKey);
     } catch {
       throw new BadRequestException(
-        'Could not authenticate with the Immich server — check the URL and API key',
+        'Could not authenticate with the Immich server — check the URL and API key. ' +
+          'An address on a private network has to be allowed by whoever runs this server.',
       );
     }
 

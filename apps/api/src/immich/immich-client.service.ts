@@ -1,4 +1,5 @@
 import { BadGatewayException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { guardedFetch } from './guarded-fetch';
 
 /** Subset of an Immich asset that MarkMySteps cares about. */
 export interface ImmichAsset {
@@ -218,13 +219,12 @@ export class ImmichClientService {
     );
     let res: Response;
     try {
-      res = await fetch(url, {
+      res = await guardedFetch(url, {
         headers: {
           'x-api-key': apiKey,
           ...(range ? { range } : {}),
         },
         signal: AbortSignal.timeout(60_000),
-        redirect: 'error',
       });
     } catch (err) {
       this.logger.warn(`Immich video request failed: ${String(err)}`);
@@ -245,7 +245,9 @@ export class ImmichClientService {
     const url = new URL(path, ensureTrailingSlash(serverUrl));
     let res: Response;
     try {
-      res = await fetch(url, {
+      // Never follows a redirect (an Immich API endpoint never sends one) and
+      // never connects to a private address that was not allowed on purpose.
+      res = await guardedFetch(url, {
         method: options.method ?? 'GET',
         headers: {
           'x-api-key': apiKey,
@@ -254,7 +256,6 @@ export class ImmichClientService {
         },
         body: options.body ? JSON.stringify(options.body) : undefined,
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        redirect: 'error', // an Immich API endpoint never redirects; fail closed
       });
     } catch (err) {
       this.logger.warn(`Immich request failed: ${String(err)}`);

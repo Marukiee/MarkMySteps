@@ -144,14 +144,36 @@ gaat versleuteld de database in met de sleutel uit `.env`.
 ## Daarna in de app (eerste gebruik)
 
 1. Open de site → **Account maken**.
-2. **Instellingen → Immich**: server-URL (interne URL mag, bijv.
-   `http://<server-ip>:2283`) + API-key (Immich → Accountinstellingen →
-   API-keys) → **Verbinden**.
+2. **Instellingen → Immich**: server-URL + API-key (Immich →
+   Accountinstellingen → API-keys) → **Verbinden**. Staat je Immich op een
+   intern adres (bijv. `http://<server-ip>:2283`), zet dan eerst dat adres in
+   `.env` (zie *Intern Immich-adres toestaan* hieronder).
 3. **Instellingen → Polarsteps importeren**: zip uploaden
    (polarsteps.com → Settings → Privacy → *Download my data*). Je krijgt je
    reis terug mét volledige GPS-route én stops.
 4. Reis openen → kaart, tijdlijn, **Planning** (stops slepen, nachten +/−),
    **Foto's syncen**, **Start tracking**.
+
+### Intern Immich-adres toestaan
+
+De server haalt foto's op bij het Immich-adres dat iemand invult. Zou dat elk
+adres mogen zijn, dan kan een ingelogd account de server laten praten met alles
+wat alleen vanaf de server bereikbaar is: de router, andere containers, beheer-
+pagina's op je netwerk. Daarom worden adressen op een privénetwerk geweigerd
+(`192.168.x.x`, `10.x.x.x`, `172.16–31.x.x`, Tailscale `100.64.x.x`,
+`localhost`), tenzij jij ze zelf toestaat. Een publiek adres
+(`https://fotos.example.com`) werkt zonder iets te doen.
+
+Draait jouw Immich op zo'n intern adres, zet dan de host (zonder poort) in
+`.env`, meerdere gescheiden door komma's:
+
+```bash
+IMMICH_ALLOWED_HOSTS=192.168.1.157
+```
+
+Daarna `docker compose up -d` (herstart de API). Zonder deze regel geeft
+*Verbinden* een fout, en mislukken foto's laden en synchroniseren vanaf een
+intern adres met "Could not reach the Immich server".
 
 ## Updaten naar een nieuwe versie
 
