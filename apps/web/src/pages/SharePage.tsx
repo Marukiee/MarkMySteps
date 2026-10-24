@@ -292,8 +292,6 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       center: [4.9, 52.37],
       zoom: 3,
       attributionControl: { compact: true },
-      // At most twice the CSS pixels, like the trip's own map.
-      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
       /*
        * The page scrolls, and the map is a panel in the middle of it. A thumb
        * dragged upwards over that panel was panning the map instead of the

@@ -251,11 +251,6 @@ export function TripMap({
       center: [4.9, 52.37],
       zoom: 3,
       attributionControl: { compact: true },
-      // At most twice the CSS pixels, as the globe on the home screen does. On a
-      // phone the canvas is a whole screen tall (the folded map shows the top of
-      // it), and at the screen's own 2.6 every camera move filled half again as
-      // many pixels for a sharpness nobody can see.
-      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
     });
     map.on('style.load', () => {
       // Globe projection: zoomed out shows a 3D globe, zooming in eases to a
