@@ -26,7 +26,7 @@ import { TripFacts } from '../components/TripFacts';
 import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
 import { countStopPlaces, haversineKm, STOP_NEAR_KM, type PlannedStop } from '../lib/arc';
-import { popWasOurs } from '../lib/backStack';
+import { popWasOurs, useBackToClose } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
 import { useSheetDismiss } from '../lib/useSheetDismiss';
 import { formatDate, tripCoverBg } from '../lib/colors';
@@ -121,6 +121,31 @@ export function TripDetailPage() {
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
   const [tab, setTab] = useState<'timeline' | 'plan'>('timeline');
+  /**
+   * Phone only: the map over the whole screen. Folded, it is a strip above the
+   * photos, because the photos are what the page is for; a tap opens it out.
+   */
+  const [mapFull, setMapFullNow] = useState(false);
+  /**
+   * True while the map opens out or folds back. Set in the same render as
+   * mapFull, so the browser never styles the new size without the transition
+   * (from an effect, a layout read in between made the panel jump).
+   */
+  const [mapMoving, setMapMoving] = useState(false);
+  const mapMoveTimer = useRef(0);
+  const setMapFull = useCallback((open: boolean) => {
+    window.clearTimeout(mapMoveTimer.current);
+    setMapMoving(true);
+    setMapFullNow(open);
+    mapMoveTimer.current = window.setTimeout(() => setMapMoving(false), MAP_OPEN_MS + 40);
+  }, []);
+  useEffect(() => () => window.clearTimeout(mapMoveTimer.current), []);
+  /** How far the folded map has been slid away by scrolling, in px. */
+  const mapShiftRef = useRef(0);
+  /** Re-applies the scroll position to the folded map (set by the effect below). */
+  const refoldRef = useRef<() => void>(() => undefined);
+  /** Points the camera at the photos in view again (set by the same effect). */
+  const refocusRef = useRef<() => void>(() => undefined);
   const planPushedRef = useRef(false);
   const [planPick, setPlanPick] = useState<{ lat: number; lng: number } | null>(null);
   const [stats, setStats] = useState<TripStats | null>(null);
@@ -168,11 +193,10 @@ export function TripDetailPage() {
       // for whichever photos happened to be under the fold — visible now that
       // the justified rows fit far more of the timeline on one screen.
       if (el.scrollTop < 40) return;
-      // On a phone the map covers the top of the screen; on desktop it's a
-      // separate column, so the whole viewport height counts.
-      const mapBottom = window.matchMedia('(max-width: 900px)').matches
-        ? window.innerHeight * 0.42
-        : 0;
+      // On a phone the map covers the top of the screen, as far down as it
+      // has folded to; on desktop it's a separate column, so the whole
+      // viewport height counts.
+      const mapBottom = mapBottomRef.current;
       const coords: [number, number][] = [];
       const seen = new Set<string>();
       for (const node of document.querySelectorAll<HTMLElement>('[data-media-id]')) {
@@ -210,8 +234,13 @@ export function TripDetailPage() {
     const isMobile = window.matchMedia('(max-width: 900px)').matches;
     // Keyboard-independent height, so focusing an input never resizes the map.
     const vh = stableViewportHeight() / 100;
-    const startH = 55 * vh;
-    const minH = 32 * vh;
+    // Kept low on purpose: the photos are the page, the map is the strip above
+    // them. Tapping it opens it over the whole screen (mapFull).
+    const startH = MAP_FOLDED * 100 * vh;
+    const minH = MAP_FOLDED_MIN * 100 * vh;
+    // The canvas is always a full screen tall and the panel only shows the top
+    // of it, so opening the map out never has to resize the map itself.
+    const fullH = 100 * vh;
     const maxShift = startH - minH;
     mapBottomRef.current = isMobile ? startH : 0;
     // Looked up once: a query per frame is the other half of the same problem.
@@ -226,11 +255,14 @@ export function TripDetailPage() {
       : [];
     let shift = -1;
     let raf = 0;
-    const shrinkMap = () => {
+    const shrinkMap = (force = false) => {
       if (!panel || !isMobile) return;
+      // Opened out, the panel is the screen and the scroll does not move it.
+      if (el.closest('.map-full') || el.classList.contains('map-full')) return;
       const next = Math.min(maxShift, Math.max(0, el.scrollTop));
-      if (next === shift) return;
+      if (next === shift && !force) return;
       shift = next;
+      mapShiftRef.current = next;
       panel.style.transform = `translate3d(0, ${-next}px, 0)`;
       // Slid back down by the same amount, so only the crop moves.
       const back = `translate3d(0, ${next}px, 0)`;
@@ -240,9 +272,14 @@ export function TripDetailPage() {
       // Tell the map how much of its canvas is hidden, so it frames photos in
       // the visible strip rather than behind the timeline. Applied on the next
       // camera move, so this stays a cheap assignment during the scroll.
-      mapApiRef.current?.setHiddenBottom(next);
+      mapApiRef.current?.setHiddenBottom(fullH - startH + next);
     };
     shrinkMap();
+    refoldRef.current = () => shrinkMap(true);
+    refocusRef.current = () => {
+      lastKey = '';
+      focusVisible();
+    };
 
     // The button back to the top belongs to a map that has finished shrinking:
     // offered before that, it sits over a map still folding itself away, and
@@ -279,7 +316,7 @@ export function TripDetailPage() {
         // scroll for that gives the last few pixels of the smooth scroll as a
         // hidden strip, and the camera pulls back to clear a sheet that is no
         // longer there.
-        mapApiRef.current?.setHiddenBottom(0);
+        mapApiRef.current?.setHiddenBottom(isMobile ? fullH - startH : 0);
         mapApiRef.current?.resetView();
       }
       window.clearTimeout(focusTimer);
@@ -293,7 +330,62 @@ export function TripDetailPage() {
     };
   }, [trip]);
 
-  // Live "you are here" dot, sourced ONLY from the tracker. The browser's
+  // Opening the map out and folding it back. The panel grows over the screen
+  // (CSS, on the compositor) while the camera frames the whole trip again for
+  // the size it is getting; the canvas underneath was full height all along.
+  const mapFullSeen = useRef(false);
+  useEffect(() => {
+    // Not on the first render: the map frames itself when it loads.
+    if (!mapFullSeen.current) {
+      mapFullSeen.current = true;
+      return;
+    }
+    const panel = mapPanelRef.current;
+    const map = mapApiRef.current;
+    if (!panel) return;
+    if (mapFull) {
+      for (const node of panel.querySelectorAll<HTMLElement>('.trip-map, .trip-fabs, .trip-fab-back')) {
+        node.style.transform = 'none';
+      }
+      panel.style.transform = 'none';
+      map?.setHiddenBottom(0);
+      // The whole trip is framed again for the whole screen. A day or the
+      // photos further down stay where they were, with more map around them.
+      if (mapShiftRef.current === 0 && day === null) map?.resetView();
+    } else {
+      refoldRef.current();
+      // Folded, the camera goes back to what the page is showing: the photos
+      // in view further down, the day when one is picked, else the trip.
+      if (mapShiftRef.current > 0) refocusRef.current();
+      else if (day !== null) map?.focusOn(dayCoords(routes, mediaRef.current, day));
+      else map?.resetView();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapFull]);
+
+  // The planner needs the map where it is, under its form.
+  useEffect(() => {
+    if (tab !== 'timeline') setMapFullNow(false);
+  }, [tab]);
+
+  /**
+   * A tap on the folded map: a photo on it opens that photo, anywhere else
+   * opens the map out. The strip itself does not pan, because on a strip this
+   * size a drag was nearly always a thumb that meant to scroll the photos.
+   */
+  const onFoldedTap = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const under = document
+      .elementsFromPoint(e.clientX, e.clientY)
+      .find((el) => el !== e.currentTarget && el.closest('.maplibregl-marker'));
+    const marker = under?.closest<HTMLElement>('.maplibregl-marker');
+    if (marker) {
+      (marker.querySelector<HTMLElement>('[role="button"], button') ?? marker).click();
+      return;
+    }
+    setMapFull(true);
+  };
+
+    // Live "you are here" dot, sourced ONLY from the tracker. The browser's
   // geolocation was previously used as a fallback, which made the website ask
   // for location permission on every trip page — it now never does.
   useEffect(() => {
@@ -416,17 +508,7 @@ export function TripDetailPage() {
         // A day is a much smaller thing than a trip, and looking at it on the
         // trip's own camera means a dot somewhere in a continent. Frame the
         // day first, then run the light along it once the camera has settled.
-        const coords: [number, number][] = [];
-        for (const feature of collection.features) {
-          for (const point of feature.geometry.coordinates as [number, number][]) {
-            coords.push(point);
-          }
-        }
-        for (const item of mediaRef.current) {
-          if (item.takenAt.slice(0, 10) !== day) continue;
-          if (item.latitude === null || item.longitude === null) continue;
-          coords.push([item.longitude, item.latitude]);
-        }
+        const coords = dayCoords(collection, mediaRef.current, day);
         if (coords.length > 0) mapApiRef.current?.focusOn(coords);
         window.setTimeout(() => mapApiRef.current?.glowRoutes(), coords.length > 0 ? 780 : 150);
       })
@@ -966,11 +1048,30 @@ export function TripDetailPage() {
   }
 
   return (
-    <main className="trip-detail fade-in" ref={scrollRef}>
+    <main
+      className={`trip-detail fade-in ${mapFull ? 'map-full' : ''} ${
+        mapMoving ? 'map-animating' : ''
+      } ${tab === 'timeline' ? 'map-foldable' : ''}`}
+      ref={scrollRef}
+    >
       <div className="trip-map-panel card" ref={mapPanelRef}>
-        <Link to="/" className="trip-fab trip-fab-back" aria-label="Alle reizen">
-          <Icon name="arrow-left" size={20} />
-        </Link>
+        {/* Opened out, the corner button folds the map back up rather than
+            leaving the trip; the back gesture does the same. */}
+        {mapFull ? (
+          <button
+            type="button"
+            className="trip-fab trip-fab-back"
+            aria-label="Kaart verkleinen"
+            onClick={() => setMapFull(false)}
+          >
+            <Icon name="chevron-up" size={20} />
+          </button>
+        ) : (
+          <Link to="/" className="trip-fab trip-fab-back" aria-label="Alle reizen">
+            <Icon name="arrow-left" size={20} />
+          </Link>
+        )}
+        {mapFull && <MapFullBack onBack={() => setMapFull(false)} />}
         {trip && (
           <div className="trip-fabs">
             <button
@@ -1030,8 +1131,37 @@ export function TripDetailPage() {
           currentLocation={canEdit && (liveTracking || tripActive) ? currentLoc : null}
           liveFixes={liveFixes}
           selfUserId={user?.id}
-          onReady={(api) => (mapApiRef.current = api)}
+          onReady={(api) => {
+            mapApiRef.current = api;
+            // Folded on a phone, all but the top of the canvas is hidden; the
+            // first framing has to know that already.
+            if (window.matchMedia('(max-width: 900px)').matches) {
+              api.setHiddenBottom(stableViewportHeight() * (1 - MAP_FOLDED));
+            }
+          }}
         />
+
+        {/* Phone, timeline: the folded map as one big tap target, and the same
+            thing said out loud in the corner. */}
+        {tab === 'timeline' && !mapFull && (
+          <>
+            <button
+              type="button"
+              className="map-expand-hit"
+              aria-label="Kaart volledig tonen"
+              onClick={onFoldedTap}
+            />
+            <button
+              type="button"
+              className="map-expand"
+              aria-label="Kaart volledig tonen"
+              title="Kaart volledig tonen"
+              onClick={() => setMapFull(true)}
+            >
+              <Icon name="frame" size={19} />
+            </button>
+          </>
+        )}
 
         {/* Where you are, in the corner nearest your thumb.
             This was a "LIVE" pill across the top of the map, which said little
@@ -1118,6 +1248,7 @@ export function TripDetailPage() {
             climb back out of, and the button sat over its controls. */}
         {backTopShown &&
           tab === 'timeline' &&
+          !mapFull &&
           !peopleOpen &&
           !layersOpen &&
           createPortal(
@@ -1465,4 +1596,32 @@ function defaultPointTime(trip: Trip | null): string {
   const base = trip ? new Date(trip.startDate) : new Date();
   base.setHours(12, 0, 0, 0);
   return base.toISOString().slice(0, 16);
+}
+
+/** Everything one day covers on the map: its route and its photos. */
+function dayCoords(routes: RouteCollection | null, media: MediaItem[], day: string): [number, number][] {
+  const coords: [number, number][] = [];
+  for (const feature of routes?.features ?? []) {
+    for (const point of feature.geometry.coordinates as [number, number][]) {
+      coords.push(point);
+    }
+  }
+  for (const item of media) {
+    if (item.takenAt.slice(0, 10) !== day) continue;
+    if (item.latitude === null || item.longitude === null) continue;
+    coords.push([item.longitude, item.latitude]);
+  }
+  return coords;
+}
+
+/** How much of a phone's screen the folded map takes, and the least it shrinks to. */
+const MAP_FOLDED = 0.4;
+const MAP_FOLDED_MIN = 0.24;
+/** How long opening the map out or folding it back takes (matches the CSS). */
+const MAP_OPEN_MS = 360;
+
+/** While the map is opened out, a back gesture folds it up instead of leaving. */
+function MapFullBack({ onBack }: { onBack: () => void }) {
+  useBackToClose('mmsMapFull', onBack);
+  return null;
 }

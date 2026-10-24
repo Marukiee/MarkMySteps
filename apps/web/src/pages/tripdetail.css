@@ -89,8 +89,9 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
     left: 0;
     right: 0;
     /* --vh-stable ignores the keyboard, so opening an input doesn't resize the
-       map (JS shrinks this toward 32% as you scroll). */
-    height: calc(var(--vh-stable, 100vh) * 0.55);
+       map (JS shrinks this toward 24% as you scroll). Kept to 40%: the photos
+       are the page; a tap opens the map out over the whole screen. */
+    height: calc(var(--vh-stable, 100vh) * 0.4);
     z-index: 1;
     overflow: hidden;
     border-radius: 0 0 var(--radius-l) var(--radius-l);
@@ -115,7 +116,9 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
     top: -1px;
     left: 0;
     width: 100%;
-    height: calc(var(--vh-stable, 100vh) * 0.55 + 1px);
+    /* A full screen tall, always: the panel shows the top of it folded and
+       all of it opened out, so the map is never resized on the way. */
+    height: calc(var(--vh-stable, 100vh) + 1px);
   }
 
   .trip-detail .trip-map-panel {
@@ -141,7 +144,7 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
   .trip-detail .trip-side {
     position: relative;
     z-index: 0;
-    margin-top: calc(var(--vh-stable, 100vh) * 0.55);
+    margin-top: calc(var(--vh-stable, 100vh) * 0.4);
     min-height: var(--vh-stable, 100vh);
     background: var(--paper);
     /* Narrow gutters: on a phone every millimetre spent on empty paper here is
@@ -1035,7 +1038,8 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
   /* One knob for both layouts, so the keyframes below work either way. */
   --backtop-x: -50%;
   position: fixed;
-  top: calc(32vh + 0.6rem);
+  /* Just under the folded map at its smallest (MAP_FOLDED_MIN). */
+  top: calc(var(--vh-stable, 100vh) * 0.24 + 0.6rem);
   left: 50%;
   /* Above the fixed map panel, which is its own layer. */
   z-index: 8;
@@ -1136,4 +1140,102 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
    flashing a map for a trip that may turn out to be closed to you. */
 .trip-detail-wait {
   min-height: 60vh;
+}
+
+/* ---------- Phone: the folded map, and opening it out ---------- */
+
+.map-expand,
+.map-expand-hit {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  /* The folded map as one big tap target: under the corner buttons and the
+     day filter, over the canvas and its markers (a tap on a photo is passed on
+     to it, see onFoldedTap). */
+  .map-foldable:not(.map-full) .map-expand-hit {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    border: none;
+    padding: 0;
+    background: transparent;
+    cursor: zoom-in;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Said out loud as well: a glass button like the locate button. */
+  .map-foldable:not(.map-full) .map-expand {
+    position: absolute;
+    right: 0.9rem;
+    bottom: 0.9rem;
+    z-index: 45;
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-content: center;
+    border-radius: 50%;
+    background: var(--glass);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-m);
+    color: var(--ink);
+    cursor: pointer;
+    animation: fadeIn 0.24s var(--ease);
+  }
+
+  .map-foldable:not(.map-full) .map-expand:active {
+    transform: scale(0.94);
+  }
+
+  /* Locate steps aside for it. */
+  .map-foldable:not(.map-full) .map-locate {
+    right: calc(0.9rem + 50px);
+  }
+
+  /* Opened out: the panel is the screen, and the page under it holds still. */
+  .trip-detail.map-full {
+    overflow: hidden;
+  }
+
+  .trip-detail.map-full .trip-map-panel {
+    height: var(--vh-stable, 100vh);
+    z-index: 50;
+    border-radius: 0;
+  }
+
+  .trip-detail.map-full .trip-map-panel::after {
+    opacity: 0;
+  }
+
+  /* Only while opening or folding: the panel grows or shrinks and slides back
+     into place in one movement. Outside it the scroll drives these directly,
+     and a transition would make the folding lag behind the finger. */
+  .trip-detail.map-animating .trip-map-panel {
+    transition:
+      height 0.36s var(--ease),
+      border-radius 0.36s var(--ease),
+      transform 0.36s var(--ease);
+  }
+
+  .trip-detail.map-animating .trip-map,
+  .trip-detail.map-animating .trip-fabs,
+  .trip-detail.map-animating .trip-fab-back {
+    transition: transform 0.36s var(--ease);
+  }
+
+  .trip-detail.map-full .map-locate,
+  .trip-detail.map-full .map-bottom-left {
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip-detail.map-animating .trip-map-panel,
+  .trip-detail.map-animating .trip-map,
+  .trip-detail.map-animating .trip-fabs,
+  .trip-detail.map-animating .trip-fab-back {
+    transition: none;
+  }
 }
