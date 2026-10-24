@@ -15,6 +15,7 @@ import {
   initKeyboardInset,
   initKeyboardScroll,
   initStableViewport,
+  initIosViewport,
   initStatusBar,
   isNativeApp,
 } from './lib/native';
@@ -49,6 +50,8 @@ initKeyboardInset();
 initBackButton();
 // Overlay + style the native status bar.
 initStatusBar();
+// The iPhone app keeps its scale, as native apps do.
+initIosViewport();
 // Keyboard-proof viewport height (--vh-stable) for the map panels.
 initStableViewport();
 // Centres a focused field above the keyboard once it has finished opening.

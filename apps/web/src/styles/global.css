@@ -270,6 +270,39 @@ textarea {
   font: inherit;
 }
 
+/* iPhone app: frosted band under the status bar, only while content is under it. */
+.statusbar-scrim {
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  z-index: 55;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  opacity: 0;
+  transition: opacity 0.2s var(--ease);
+}
+
+.statusbar-scrim.visible {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusbar-scrim {
+    transition: none;
+  }
+}
+
+/* iOS zooms in on any field under 16px the moment it gets focus. In the iPhone
+   app fields are 16px, which is also closer to the 17pt iOS uses itself. */
+.ios-app input:not([type='checkbox']):not([type='radio']),
+.ios-app select,
+.ios-app textarea {
+  font-size: max(16px, 1em);
+}
+
 ::selection {
   background: var(--accent-soft);
 }

@@ -2,7 +2,7 @@ import { App } from '@capacitor/app';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { downloadAndInstall } from '../lib/appUpdate';
-import { isNativeApp, setStatusBarTint } from '../lib/native';
+import { isAndroidApp, isNativeApp, setStatusBarTint } from '../lib/native';
 import { Icon } from './Icon';
 import './updatebanner.css';
 
@@ -91,7 +91,8 @@ export function UpdateBanner() {
   }, []);
 
   useEffect(() => {
-    if (!isNativeApp()) return;
+    // Only the APK installs a new version of itself; an iPhone has no APK to fetch.
+    if (!isAndroidApp()) return;
     let cancelled = false;
     const check = async () => {
       try {

@@ -37,7 +37,7 @@ const MmsUpdate = registerPlugin<MmsUpdatePlugin>('MmsUpdate');
 export type UpdateOutcome = 'installing' | 'permission' | 'browser' | 'failed';
 
 export function canInstallInApp(): boolean {
-  return Capacitor.isNativePlatform();
+  return Capacitor.getPlatform() === 'android';
 }
 
 /**
