@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 import { api, ApiError, clearTokens, isLoggedIn, setLogoutHandler, setTokens } from '../api/client';
-import type { AuthTokens, User } from '../api/types';
+import type { AuthTokens, MfaChallenge, User } from '../api/types';
 import { isLocalMode, localUser, setLocalMode } from '../lib/localMode';
 
 interface AuthState {
@@ -20,7 +20,14 @@ interface AuthState {
    * show.
    */
   pending: boolean;
-  login(identifier: string, password: string): Promise<void>;
+  /**
+   * Resolves with `{ mfaToken }` when the password was right but the account has
+   * an authenticator app: the sign-in is finished by `loginMfa`. Otherwise the
+   * user is signed in and this resolves with null.
+   */
+  login(identifier: string, password: string): Promise<{ mfaToken: string } | null>;
+  /** The second half: the code from the app, or a recovery code. */
+  loginMfa(mfaToken: string, code: string): Promise<void>;
   register(email: string, username: string, displayName: string, password: string): Promise<void>;
   logout(): void;
   /** Switch to the device-only mode: no account, no server, no login. */
@@ -130,9 +137,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (identifier: string, password: string) => {
-      const tokens = await api<AuthTokens>('/auth/login', {
+      const answer = await api<AuthTokens | MfaChallenge>('/auth/login', {
         method: 'POST',
         body: { identifier, password },
+      });
+      if ('mfaRequired' in answer) return { mfaToken: answer.mfaToken };
+      setTokens(answer.accessToken, answer.refreshToken);
+      await load();
+      return null;
+    },
+    [load],
+  );
+
+  const loginMfa = useCallback(
+    async (mfaToken: string, code: string) => {
+      const tokens = await api<AuthTokens>('/auth/login/mfa', {
+        method: 'POST',
+        body: { mfaToken, code },
       });
       setTokens(tokens.accessToken, tokens.refreshToken);
       await load();
@@ -188,8 +209,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [load, pending]);
 
   const value = useMemo(
-    () => ({ user, ready, pending, login, register, logout, startLocalMode, refresh }),
-    [user, ready, pending, login, register, logout, startLocalMode, refresh],
+    () => ({ user, ready, pending, login, loginMfa, register, logout, startLocalMode, refresh }),
+    [user, ready, pending, login, loginMfa, register, logout, startLocalMode, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

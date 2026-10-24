@@ -181,3 +181,15 @@
   line-height: 1.4;
   animation: loginFace 0.28s var(--ease);
 }
+
+/* The second step: the same card, asking for the code. */
+.login-code-title {
+  margin: 0;
+  font-family: var(--font-display);
+}
+.login-card #mfa-code {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  font-size: 1.25rem;
+  text-align: center;
+}

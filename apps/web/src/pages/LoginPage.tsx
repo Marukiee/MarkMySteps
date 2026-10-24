@@ -4,6 +4,7 @@ import { getServerBase, setServerBase } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_SERVER_URL } from '../config';
 import { isNative } from '../tracking/tracker';
+import { signInProblem } from '../lib/twoFactor';
 import { LocalModeSheet } from '../components/LocalModeSheet';
 import { LogoMark } from '../components/Logo';
 import { PasswordInput } from '../components/PasswordInput';
@@ -11,7 +12,7 @@ import { PasswordStrength } from '../components/PasswordStrength';
 import './login.css';
 
 export function LoginPage() {
-  const { login, register, startLocalMode } = useAuth();
+  const { login, loginMfa, register, startLocalMode } = useAuth();
   const navigate = useNavigate();
   // Opened from developer options to look at the screen. Everything on it works
   // except starting local mode, which would sign the tester out of the server
@@ -28,6 +29,11 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [localInfo, setLocalInfo] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // Set once the password was right for an account that also has an
+  // authenticator app: the screen then asks for the code instead.
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [code, setCode] = useState('');
+  const [recovery, setRecovery] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -36,16 +42,48 @@ export function LoginPage() {
     try {
       if (isNative()) setServerBase(server.trim() || DEFAULT_SERVER_URL);
       if (mode === 'login') {
-        await login(email, password);
+        const challenge = await login(email, password);
+        if (challenge) {
+          setMfaToken(challenge.mfaToken);
+          return;
+        }
       } else {
         await register(email, username, displayName, password);
       }
       navigate('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Er ging iets mis');
+      setError(signInProblem(err, 'Er ging iets mis'));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function submitCode(event?: FormEvent, value: string = code) {
+    event?.preventDefault();
+    if (!mfaToken || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await loginMfa(mfaToken, value.trim());
+      navigate('/');
+    } catch (err) {
+      // The token only lives a few minutes; once it is gone the password has to
+      // be given again, and staying on a screen that can no longer work helps nobody.
+      if (err instanceof Error && err.message === 'Sign in again') setMfaToken(null);
+      setError(signInProblem(err, 'Die code klopt niet'));
+      setCode('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function leaveCodeStep() {
+    setMfaToken(null);
+    setCode('');
+    setRecovery(false);
+    setError(null);
+    // The password is not kept around for the next person.
+    setPassword('');
   }
 
   return (
@@ -58,6 +96,57 @@ export function LoginPage() {
         <p>Leg vast waar je geweest bent, over de hele wereld.</p>
       </div>
 
+      {mfaToken ? (
+        <form className="card login-card fade-in" onSubmit={(e) => void submitCode(e)}>
+          <h2 className="login-code-title">Tweede stap</h2>
+          <p className="muted">
+            {recovery
+              ? 'Voer een van je herstelcodes in. Elke code werkt maar één keer.'
+              : 'Open je authenticator-app (bijvoorbeeld Proton Authenticator) en voer de code van 6 cijfers in.'}
+          </p>
+          <div className="field">
+            <label htmlFor="mfa-code">{recovery ? 'Herstelcode' : 'Code'}</label>
+            <input
+              id="mfa-code"
+              required
+              autoFocus
+              autoComplete="one-time-code"
+              inputMode={recovery ? 'text' : 'numeric'}
+              autoCapitalize="characters"
+              spellCheck={false}
+              maxLength={recovery ? 24 : 7}
+              placeholder={recovery ? 'XXXX-XXXX-XXXX-XXXX' : '123 456'}
+              value={code}
+              onChange={(e) => {
+                const value = e.target.value;
+                setCode(value);
+                // Six digits is a complete code: no need for another tap.
+                if (!recovery && /^\d{6}$/.test(value.replace(/\s/g, ''))) {
+                  void submitCode(undefined, value);
+                }
+              }}
+            />
+          </div>
+          {error && <p className="error-text">{error}</p>}
+          <button className="btn btn-primary" disabled={busy}>
+            {busy ? 'Even geduld…' : 'Doorgaan'}
+          </button>
+          <button
+            type="button"
+            className="login-nolink"
+            onClick={() => {
+              setRecovery((r) => !r);
+              setCode('');
+              setError(null);
+            }}
+          >
+            {recovery ? 'Toch een code uit de app gebruiken' : 'Ik heb mijn telefoon niet: herstelcode gebruiken'}
+          </button>
+          <button type="button" className="login-nolink" onClick={leaveCodeStep}>
+            Terug naar inloggen
+          </button>
+        </form>
+      ) : (
       <form className="card login-card fade-in" onSubmit={submit}>
         <div className="login-tabs" role="tablist" data-tab={mode}>
           {/* One pill that slides between the two, the way the trip's tabs do. */}
@@ -179,6 +268,7 @@ export function LoginPage() {
           Doorgaan zonder server
         </button>
       </form>
+      )}
 
       {localInfo && (
         <LocalModeSheet
