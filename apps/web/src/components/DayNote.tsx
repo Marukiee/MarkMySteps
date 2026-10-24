@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Icon } from './Icon';
 import './daynote.css';
 
 export interface TripNote {
@@ -79,9 +80,13 @@ export function DayNote({
           {own.body}
           {canEdit && (
             <div className="day-note-actions">
-              <button onClick={() => setEditing(true)}>Bewerken</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setEditing(true)}>
+                <Icon name="pencil" size={14} />
+                Bewerken
+              </button>
               {onDelete && (
-                <button className="danger" onClick={() => void onDelete(own.id)}>
+                <button type="button" className="btn btn-danger" onClick={() => void onDelete(own.id)}>
+                  <Icon name="trash" size={14} />
                   Verwijderen
                 </button>
               )}
@@ -100,8 +105,15 @@ export function DayNote({
             rows={3}
           />
           <div className="day-note-actions">
-            <button onClick={stopEditing}>Annuleren</button>
-            <button className="primary" disabled={busy || !draft.trim()} onClick={() => void save()}>
+            <button type="button" className="btn btn-ghost" onClick={stopEditing}>
+              Annuleren
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={busy || !draft.trim()}
+              onClick={() => void save()}
+            >
               Opslaan
             </button>
           </div>
