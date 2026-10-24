@@ -1245,3 +1245,12 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 .ios-app .glass-mirrored {
   opacity: 0;
 }
+
+/* And they sit where iOS puts the buttons of a navigation bar: straight under
+   the status bar. The extra 0.9rem left them hanging below it. */
+@media (max-width: 900px) {
+  .ios-app .trip-fabs,
+  .ios-app .trip-fab-back {
+    top: env(safe-area-inset-top);
+  }
+}
