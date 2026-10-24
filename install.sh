@@ -32,6 +32,8 @@ JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n')
 JWT_EXPIRES_IN=15m
 REFRESH_TOKEN_EXPIRES_IN=30d
 MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32 | tr -d '\n')
+# Immich on a private address (192.168.x.x, 10.x.x.x, ...)? Allow its host here:
+# IMMICH_ALLOWED_HOSTS=192.168.1.50
 EOF
   chmod 600 .env
   echo "→ .env aangemaakt met verse secrets (bewaar dit bestand goed!)"
