@@ -1,0 +1,102 @@
+/* The privacy statement: one readable column on the page's own paper, with
+   the same brand row as the share page above it. */
+
+.privacy-page {
+  min-height: 100%;
+  background: var(--paper);
+  padding: 0 max(1.25rem, env(safe-area-inset-right)) calc(3rem + env(safe-area-inset-bottom))
+    max(1.25rem, env(safe-area-inset-left));
+}
+
+.privacy-top,
+.privacy-body {
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+.privacy-top {
+  display: flex;
+  align-items: center;
+  padding: calc(1.1rem + env(safe-area-inset-top)) 0 0.2rem;
+}
+
+.privacy-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-brand);
+  font-weight: 620;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.privacy-body {
+  display: grid;
+  gap: 1.6rem;
+  padding-top: 1.6rem;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.privacy-body h1 {
+  font-size: clamp(2rem, 6vw, 2.6rem);
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.privacy-lede {
+  margin-top: -0.6rem;
+  font-size: 1.08rem;
+  color: var(--ink);
+}
+
+.privacy-date {
+  margin-top: -1rem;
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+}
+
+.privacy-body section {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.privacy-body h2 {
+  font-size: 1.3rem;
+  color: var(--ink);
+}
+
+.privacy-body ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.privacy-body strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.privacy-body a {
+  color: var(--accent-ink);
+  font-weight: 550;
+}
+
+/* The summary for readers without Dutch, set apart on its own quiet card. */
+.privacy-en {
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--paper-raised);
+}
+
+.privacy-en h2 {
+  font-size: 1.05rem;
+}
+
+.privacy-en p {
+  font-size: 0.92rem;
+}

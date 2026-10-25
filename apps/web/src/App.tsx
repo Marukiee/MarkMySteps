@@ -42,6 +42,7 @@ const OnboardingV2Page = lazyPage(() => import('./pages/OnboardingV2Page'), 'Onb
 const CoverPreviewPage = lazyPage(() => import('./pages/CoverPreviewPage'), 'CoverPreviewPage');
 const PendingPage = lazyPage(() => import('./pages/PendingPage'), 'PendingPage');
 const PlanPage = lazyPage(() => import('./pages/PlanPage'), 'PlanPage');
+const PrivacyPage = lazyPage(() => import('./pages/PrivacyPage'), 'PrivacyPage');
 const TripSettingsPage = lazyPage(() => import('./pages/TripSettingsPage'), 'TripSettingsPage');
 const SettingsPage = lazyPage(() => import('./pages/SettingsPage'), 'SettingsPage');
 const SharePage = lazyPage(() => import('./pages/SharePage'), 'SharePage');
@@ -161,6 +162,8 @@ export function App() {
               having to make an account and get it refused. */}
           <Route path="/preview/pending" element={<PendingPage />} />
           <Route path="/s/:slug" element={<SharePage />} />
+          {/* Public: linked from TestFlight and the App Store. */}
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route
             element={
               <RequireAuth>

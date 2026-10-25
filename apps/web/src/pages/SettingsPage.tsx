@@ -1,7 +1,7 @@
 import { CSSProperties, FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import maplibregl, { Map as MapLibreMap } from '../lib/mapgl';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { downloadAndInstall } from '../lib/appUpdate';
 import { alwaysLabel, isAndroidApp, isIosApp, isNativeApp } from '../lib/native';
 import { api, ApiError, fetchBlobUrl, getServerBase, setServerBase } from '../api/client';
@@ -1466,6 +1466,11 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
           <button type="button" className="ext-link" onClick={() => setShowLog(true)}>
             Wat is er nieuw <Icon name="chevron-right" size={14} />
           </button>
+        </li>
+        <li>
+          <Link to="/privacy" className="ext-link">
+            Privacy <Icon name="chevron-right" size={14} />
+          </Link>
         </li>
       </ul>
       {/* Without a server, this is also the answer to "how do I get back?" —
