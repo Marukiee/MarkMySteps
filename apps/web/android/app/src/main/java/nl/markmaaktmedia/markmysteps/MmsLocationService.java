@@ -62,6 +62,11 @@ public class MmsLocationService extends Service {
     static final String ACTION_TOGGLE = "nl.markmaaktmedia.markmysteps.TOGGLE_TRACKING";
     /** Scheduler action: time for the next single fix. */
     static final String ACTION_TICK = "nl.markmaaktmedia.markmysteps.TICK";
+    /** The app switched language: rewrite the notification and the channel in it. */
+    static final String ACTION_LANGUAGE = "nl.markmaaktmedia.markmysteps.LANGUAGE";
+
+    /** Whether the service is alive, so a language switch never starts it. */
+    private static volatile boolean running;
 
     static final String EXTRA_INTERVAL = "intervalMs";
     static final String EXTRA_TITLE = "title";
@@ -139,11 +144,32 @@ public class MmsLocationService extends Service {
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         createChannel();
+        running = true;
+    }
+
+    /**
+     * The page told AppLang a different language. The notification only gets
+     * rewritten at the next check, which can be a quarter of an hour away, so
+     * a running tracker is asked to do it now.
+     */
+    static void languageChanged(Context context) {
+        if (!running) return;
+        try {
+            context.startService(new Intent(context, MmsLocationService.class).setAction(ACTION_LANGUAGE));
+        } catch (IllegalStateException e) {
+            // Not allowed right now: the next check writes it in the new language.
+        }
     }
 
     @Override
     public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
         String action = intent != null ? intent.getAction() : null;
+
+        if (ACTION_LANGUAGE.equals(action)) {
+            createChannel();
+            updateNotification();
+            return START_STICKY;
+        }
 
         if (ACTION_TICK.equals(action)) {
             restoreConfig();
@@ -193,6 +219,7 @@ public class MmsLocationService extends Service {
 
     @Override
     public void onDestroy() {
+        running = false;
         cancelSchedule();
         abortFix();
         stopPassive();
@@ -588,7 +615,9 @@ public class MmsLocationService extends Service {
     private void createChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationManager manager = getSystemService(NotificationManager.class);
-        if (manager == null || manager.getNotificationChannel(CHANNEL_ID) != null) return;
+        if (manager == null) return;
+        // Also when it exists: creating it again only renames it, in the
+        // app's current language, and leaves what the user set alone.
         NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID, AppLang.text(this, R.string.channel_tracking), NotificationManager.IMPORTANCE_LOW);
         channel.setDescription(AppLang.text(this, R.string.channel_tracking_desc));

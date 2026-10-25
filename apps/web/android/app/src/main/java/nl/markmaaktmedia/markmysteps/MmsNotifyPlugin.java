@@ -105,7 +105,10 @@ public class MmsNotifyPlugin extends Plugin {
      */
     @PluginMethod
     public void setLanguage(PluginCall call) {
-        AppLang.set(getContext(), call.getString("lang", ""));
+        String lang = call.getString("lang", "");
+        boolean changed = !AppLang.get(getContext()).equals(lang);
+        AppLang.set(getContext(), lang);
+        if (changed) MmsLocationService.languageChanged(getContext());
         call.resolve();
     }
 
@@ -238,8 +241,8 @@ public class MmsNotifyPlugin extends Plugin {
             call.resolve();
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                && manager.getNotificationChannel(TASK_CHANNEL_ID) == null) {
+        // Created again each time: that renames it into the app's language.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     TASK_CHANNEL_ID, AppLang.text(getContext(), R.string.channel_task),
                     NotificationManager.IMPORTANCE_LOW);
@@ -319,8 +322,8 @@ public class MmsNotifyPlugin extends Plugin {
             call.resolve();
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                && manager.getNotificationChannel(CHANNEL_ID) == null) {
+        // Created again each time: that renames it into the app's language.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID, AppLang.text(getContext(), R.string.channel_account),
                     NotificationManager.IMPORTANCE_DEFAULT);
