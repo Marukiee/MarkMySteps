@@ -1324,7 +1324,7 @@ export function TripDetailPage() {
             <h1>{trip?.title ?? '…'}</h1>
             {trip && (
               <p className="trip-headcard-dates">
-                {formatDate(trip.startDate)} – {formatDate(trip.endDate)}
+                {formatDate(trip.startDate)} t/m {formatDate(trip.endDate)}
               </p>
             )}
             {(

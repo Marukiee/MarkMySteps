@@ -37,9 +37,9 @@ export function formatDateRange(from: string, to: string): string {
   const dayMonth = (d: Date) => d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
   const full = (d: Date) =>
     d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
-  if (a.getFullYear() !== b.getFullYear()) return `${full(a)} – ${full(b)}`;
-  if (a.getMonth() === b.getMonth()) return `${day(a)} – ${full(b)}`;
-  return `${dayMonth(a)} – ${full(b)}`;
+  if (a.getFullYear() !== b.getFullYear()) return `${full(a)} t/m ${full(b)}`;
+  if (a.getMonth() === b.getMonth()) return `${day(a)} t/m ${full(b)}`;
+  return `${dayMonth(a)} t/m ${full(b)}`;
 }
 
 export function formatDay(iso: string): string {

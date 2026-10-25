@@ -484,7 +484,7 @@ export function PlanPage() {
                   <strong>{stop.name}</strong>
                   <span className="muted">
                     {formatDate(stop.arrivalDate)}
-                    {stop.nights > 0 && ` – ${formatDate(stop.departureDate)}`}
+                    {stop.nights > 0 && ` t/m ${formatDate(stop.departureDate)}`}
                     {stop.latitude !== null && stop.longitude !== null && (
                       <WeatherBadge
                         lat={stop.latitude}

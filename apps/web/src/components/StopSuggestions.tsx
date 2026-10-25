@@ -182,7 +182,7 @@ function dateRange(from: string, to: string): string {
     });
   const sameMonth = start.getMonth() === end.getMonth();
   if (start.toDateString() === end.toDateString()) return day(start, true);
-  return `${day(start, !sameMonth)} – ${day(end, true)}`;
+  return `${day(start, !sameMonth)} t/m ${day(end, true)}`;
 }
 
 function placeLabel(stay: StaySuggestion): string {

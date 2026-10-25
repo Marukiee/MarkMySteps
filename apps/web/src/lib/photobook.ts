@@ -1359,7 +1359,7 @@ function dateRange(from: string, to: string): string {
       ...(month ? { month: 'long' } : {}),
       year: 'numeric',
     });
-  return `${fmt(start, start.getMonth() !== end.getMonth())} – ${fmt(end, true)}`;
+  return `${fmt(start, start.getMonth() !== end.getMonth())} t/m ${fmt(end, true)}`;
 }
 
 function capitalise(text: string): string {

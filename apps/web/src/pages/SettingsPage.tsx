@@ -1804,7 +1804,7 @@ function OptionPicker<T extends string | number | boolean>({
         aria-expanded={open}
         onClick={() => (open && !closing ? close() : setOpen(true))}
       >
-        <span>{chosen?.label ?? '–'}</span>
+        <span>{chosen?.label ?? 'Kies'}</span>
         <Icon
           name="chevron-down"
           size={16}

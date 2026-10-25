@@ -308,7 +308,7 @@ function AirportBox({
   return (
     <button type="button" className={`fe-airport ${code ? 'set' : ''}`} onClick={onPick}>
       <span className="fe-airport-label">{label}</span>
-      <strong className="fe-airport-code">{code || '–'}</strong>
+      <strong className="fe-airport-code">{code || '···'}</strong>
       <span className="fe-airport-city">{a ? a.city : 'Kies vliegveld'}</span>
     </button>
   );
