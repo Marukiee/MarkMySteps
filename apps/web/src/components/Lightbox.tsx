@@ -22,6 +22,7 @@ import { Icon, IconName } from './Icon';
 import { PhotoCommentsAdapter, PhotoCommentsPanel } from './PhotoComments';
 import { useExit } from '../lib/useExit';
 import { ReactionBar, ReactionsAdapter } from './PhotoReactions';
+import { t } from '../i18n';
 import './lightbox.css';
 
 /** How the photo is currently framed: a scale plus a translation in CSS pixels. */
@@ -705,7 +706,7 @@ export function Lightbox({
         <div className="lightbox-menu" onClick={(e) => e.stopPropagation()}>
           <button
             className="lightbox-menu-btn"
-            aria-label="Meer"
+            aria-label={t('common.more')}
             aria-expanded={menuOpen}
             onClick={() => setMenu((m) => (m === 'open' ? 'closing' : 'open'))}
           >
@@ -734,7 +735,7 @@ export function Lightbox({
         </div>
       )}
 
-      <button className="lightbox-close" aria-label="Sluiten" onClick={close}>
+      <button className="lightbox-close" aria-label={t('common.close')} onClick={close}>
         <Icon name="close" size={22} />
       </button>
 
@@ -819,7 +820,7 @@ export function Lightbox({
           {index > 0 && (
             <button
               className={`lightbox-nav lightbox-prev ${zoomed ? 'away' : ''}`}
-              aria-label="Vorige"
+              aria-label={t('common.previous')}
               onClick={(e) => {
                 e.stopPropagation();
                 onNavigate(index - 1);
@@ -833,7 +834,7 @@ export function Lightbox({
           {index < items.length - 1 && (
             <button
               className={`lightbox-nav lightbox-next ${zoomed ? 'away' : ''}`}
-              aria-label="Volgende"
+              aria-label={t('common.next')}
               onClick={(e) => {
                 e.stopPropagation();
                 onNavigate(index + 1);

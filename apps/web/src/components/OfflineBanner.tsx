@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { isServerReachable, onServerReachability } from '../api/client';
 import { useExit } from '../lib/useExit';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './offlinebanner.css';
 
 /**
@@ -49,7 +50,7 @@ export function OfflineBanner() {
       <button
         type="button"
         className="offline-banner-close"
-        aria-label="Verbergen"
+        aria-label={t('ui.offline.hide')}
         onClick={() => setDismissed(true)}
       >
         <Icon name="close" size={16} />

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import './bottomnav.css';
 import { travellersTabLabel } from '../lib/localMode';
 import { getNavBarMode, type NavBarMode } from '../lib/prefs';
+import { t } from '../i18n';
 
 const ICONS = {
   // The same compass the site's nav and the wordmark use: a pin said "a place",
@@ -67,7 +68,7 @@ export function BottomNav() {
     <nav className={`bottomnav ${tucked ? 'tucked' : ''}`} aria-hidden={tucked}>
       <Link to="/" className={tripsActive ? 'active' : ''}>
         {ICONS.trips}
-        <span>Reizen</span>
+        <span>{t('common.trips')}</span>
       </Link>
       <Link to="/friends" className={friendsActive ? 'active' : ''}>
         {ICONS.friends}
@@ -75,7 +76,7 @@ export function BottomNav() {
       </Link>
       <Link to="/settings" className={settingsActive ? 'active' : ''}>
         {ICONS.settings}
-        <span>Instellingen</span>
+        <span>{t('common.settings')}</span>
       </Link>
     </nav>
   );

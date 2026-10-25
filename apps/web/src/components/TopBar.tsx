@@ -7,11 +7,12 @@ import { ThemeId, getThemeId, setThemeId } from '../lib/prefs';
 import { Avatar } from './Avatar';
 import './topbar.css';
 import { travellersTabLabel } from '../lib/localMode';
+import { t } from '../i18n';
 
 const THEMES: { id: ThemeId; icon: IconName; label: string }[] = [
-  { id: 'light', icon: 'sun', label: 'Licht' },
-  { id: 'system', icon: 'monitor', label: 'Systeem' },
-  { id: 'dark', icon: 'moon', label: 'Donker' },
+  { id: 'light', icon: 'sun', label: t('ui.theme.light') },
+  { id: 'system', icon: 'monitor', label: t('common.system') },
+  { id: 'dark', icon: 'moon', label: t('ui.theme.dark') },
 ];
 
 /** Desktop-only chrome: brand, section nav, theme switch and the account menu. */
@@ -68,7 +69,7 @@ export function TopBar() {
       >
         <NavLink to="/" end className={tripsActive ? 'active' : ''}>
           <Icon name="compass" size={16} />
-          Reizen
+          {t('common.trips')}
         </NavLink>
         <NavLink to="/friends">
           <Icon name="people" size={16} />
@@ -76,7 +77,7 @@ export function TopBar() {
         </NavLink>
         <NavLink to="/settings">
           <Icon name="settings" size={16} />
-          Instellingen
+          {t('common.settings')}
         </NavLink>
       </nav>
 
@@ -85,7 +86,7 @@ export function TopBar() {
         <div
           className="topbar-theme pill-switch"
           role="group"
-          aria-label="Thema"
+          aria-label={t('ui.topBar.theme')}
           style={{ '--n': 3, '--i': Math.max(0, themeIndex) } as CSSProperties}
         >
           {THEMES.map((t) => (
@@ -110,7 +111,7 @@ export function TopBar() {
           <button
             className="topbar-avatar-btn"
             onClick={() => (menuOpen && !menuClosing ? closeMenu() : setMenuOpen(true))}
-            aria-label="Accountmenu"
+            aria-label={t('ui.topBar.accountMenu')}
           >
             {user && (
               <Avatar
@@ -134,10 +135,10 @@ export function TopBar() {
                   navigate('/settings');
                 }}
               >
-                Instellingen
+                {t('common.settings')}
               </button>
               <button className="topbar-menu-danger" onClick={logout}>
-                Uitloggen
+                {t('ui.topBar.logout')}
               </button>
             </div>
           )}

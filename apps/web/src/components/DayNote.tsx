@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './daynote.css';
 
 export interface TripNote {
@@ -82,12 +83,12 @@ export function DayNote({
             <div className="day-note-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setEditing(true)}>
                 <Icon name="pencil" size={14} />
-                Bewerken
+                {t('common.edit')}
               </button>
               {onDelete && (
                 <button type="button" className="btn btn-danger" onClick={() => void onDelete(own.id)}>
                   <Icon name="trash" size={14} />
-                  Verwijderen
+                  {t('common.delete')}
                 </button>
               )}
             </div>
@@ -106,7 +107,7 @@ export function DayNote({
           />
           <div className="day-note-actions">
             <button type="button" className="btn btn-ghost" onClick={stopEditing}>
-              Annuleren
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -114,7 +115,7 @@ export function DayNote({
               disabled={busy || !draft.trim()}
               onClick={() => void save()}
             >
-              Opslaan
+              {t('common.save')}
             </button>
           </div>
         </div>

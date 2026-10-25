@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './helptip.css';
 
 interface Placement {
@@ -17,7 +18,7 @@ interface Placement {
  * instead of pushing the layout apart; tapping anywhere else (or scrolling)
  * closes it again, with an animation in BOTH directions.
  */
-export function HelpTip({ children, label = 'Uitleg' }: { children: ReactNode; label?: string }) {
+export function HelpTip({ children, label = t('ui.helpTip.label') }: { children: ReactNode; label?: string }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [place, setPlace] = useState<Placement | null>(null);

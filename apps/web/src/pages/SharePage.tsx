@@ -29,6 +29,7 @@ import '../components/timeline.css'; // the shared timeline IS the app's timelin
 import '../components/tripmap.css'; // photo markers on the shared map
 import './share-page.css';
 import { Flag } from '../components/Flag';
+import { t } from '../i18n';
 
 interface SharedTrip {
   title: string;
@@ -126,7 +127,7 @@ export function SharePage() {
             <form className="card share-gate-card" onSubmit={unlock}>
               <p className="muted">Deze reis is beveiligd met een wachtwoord.</p>
               <div className="field">
-                <label htmlFor="sp-pw">Wachtwoord</label>
+                <label htmlFor="sp-pw">{t('share.link.password')}</label>
                 <input
                   id="sp-pw"
                   type="password"
@@ -139,7 +140,7 @@ export function SharePage() {
               <button className="btn btn-primary">Bekijken</button>
             </form>
           ) : (
-            <p className="muted share-gate-loading">Laden…</p>
+            <p className="muted share-gate-loading">{t('common.loading')}</p>
           )}
         </div>
       </div>
@@ -902,7 +903,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
           <button
             type="button"
             className="share-fresh-close"
-            aria-label="Sluiten"
+            aria-label={t('common.close')}
             onClick={() => setFreshOpen(false)}
           >
             <Icon name="close" size={16} />

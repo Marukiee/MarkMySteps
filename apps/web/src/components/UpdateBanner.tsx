@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { downloadAndInstall } from '../lib/appUpdate';
 import { isAndroidApp, isNativeApp, setStatusBarTint } from '../lib/native';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './updatebanner.css';
 
 interface LatestApp {
@@ -215,7 +216,7 @@ export function UpdateBanner() {
               </>
             )}
           </button>
-          <button className="update-banner-close" aria-label="Verbergen" onClick={dismiss}>
+          <button className="update-banner-close" aria-label={t('settings.update.banner.hide')} onClick={dismiss}>
             <Icon name="close" size={16} />
           </button>
         </div>

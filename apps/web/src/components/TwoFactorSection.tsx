@@ -6,6 +6,7 @@ import { signInProblem } from '../lib/twoFactor';
 import { Icon } from './Icon';
 import { PasswordInput } from './PasswordInput';
 import { QrCode } from './QrCode';
+import { t } from '../i18n';
 import './twofactor.css';
 
 type Step =
@@ -131,7 +132,7 @@ export function TwoFactorSection() {
           <div className="tf-state">
             <span className={`tf-badge ${status.enabled ? 'on' : ''}`}>
               <Icon name={status.enabled ? 'check' : 'lock'} size={13} />
-              {status.enabled ? 'Aan' : 'Uit'}
+              {status.enabled ? t('common.on') : t('common.off')}
             </span>
             {status.enabled && (
               <span className={low ? 'tf-warn' : 'muted'}>
@@ -189,7 +190,7 @@ export function TwoFactorSection() {
               {busy ? 'Even geduld…' : 'Verder'}
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => reset()}>
-              Annuleren
+              {t('common.cancel')}
             </button>
           </div>
         </form>
@@ -229,7 +230,7 @@ export function TwoFactorSection() {
               {busy ? 'Even geduld…' : 'Inschakelen'}
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => reset()}>
-              Annuleren
+              {t('common.cancel')}
             </button>
           </div>
         </form>
@@ -294,7 +295,7 @@ export function TwoFactorSection() {
               {busy ? 'Even geduld…' : step.name === 'disable' ? 'Uitschakelen' : 'Nieuwe codes maken'}
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => reset()}>
-              Annuleren
+              {t('common.cancel')}
             </button>
           </div>
         </form>

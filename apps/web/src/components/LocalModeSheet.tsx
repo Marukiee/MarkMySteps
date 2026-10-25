@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, IconName } from './Icon';
 import { LogoMark } from './Logo';
+import { t } from '../i18n';
 import './localmode.css';
 
 interface Feature {
@@ -15,22 +16,22 @@ const WORKS: Feature[] = [
   {
     icon: 'pin',
     title: 'Route-tracking',
-    body: 'Je locatie wordt op je toestel bewaard, ook als je geen internet hebt. De tracker draait volledig op je telefoon.',
+    body: t('settings.local.works.tracking'),
   },
   {
     icon: 'compass',
-    title: 'Reizen plannen',
-    body: 'Stops, nachten, vervoer, vluchten en dagtrips. Alles rekent gewoon door.',
+    title: t('settings.local.works.plan.title'),
+    body: t('settings.local.works.plan'),
   },
   {
     icon: 'camera',
-    title: "Foto's uit je galerij",
-    body: "Foto's van je toestel worden op datum aan een reis gekoppeld en met hun GPS op de kaart gezet.",
+    title: t('settings.local.works.photos.title'),
+    body: t('settings.local.works.photos'),
   },
   {
     icon: 'people',
-    title: 'Kaart, globe en tijdlijn',
-    body: 'De kaarten en de globe halen hun tegels rechtstreeks van OpenStreetMap. Geen account nodig.',
+    title: t('settings.local.works.maps.title'),
+    body: t('settings.local.works.maps'),
   },
 ];
 
@@ -38,23 +39,23 @@ const WORKS: Feature[] = [
 const NEEDS_SERVER: Feature[] = [
   {
     icon: 'people',
-    title: 'Reisgenoten',
-    body: 'Samen aan één reis werken en elkaars live positie zien. Daar zijn twee toestellen voor nodig die elkaar ergens kunnen vinden.',
+    title: t('settings.local.needs.companions.title'),
+    body: t('settings.local.needs.companions'),
   },
   {
     icon: 'share',
     title: 'Deel-links',
-    body: 'In plaats daarvan zet je een reis in één bestand dat je zelf doorstuurt.',
+    body: t('settings.local.needs.shareLinks'),
   },
   {
     icon: 'archive',
-    title: 'Automatische back-up',
-    body: 'Alles staat op je toestel. Maak zelf af en toe een back-up via Instellingen.',
+    title: t('settings.local.needs.backup.title'),
+    body: t('settings.local.needs.backup'),
   },
   {
     icon: 'camera',
-    title: 'Immich',
-    body: "Bewaar je je foto's al op een eigen Immich-server, dan kun je die later koppelen.",
+    title: t('settings.immich.title'),
+    body: t('settings.local.needs.immich'),
   },
 ];
 
@@ -70,36 +71,34 @@ export function ServerSteps({ defaultOpen = false }: { defaultOpen?: boolean }) 
     <section className={`lm-later ${open ? 'open' : ''}`}>
       <button type="button" className="lm-later-head" onClick={() => setOpen((v) => !v)}>
         <Icon name="external" size={16} />
-        <span>Later alsnog een server?</span>
+        <span>{t('settings.local.later.title')}</span>
         <Icon name="chevron-right" size={16} className="lm-later-caret" />
       </button>
       <div className="lm-later-body">
         <div>
           <p className="muted lm-note">
-            Een server is gewoon een computer die altijd aan staat. Een oude laptop met Linux en
-            Docker werkt prima; een Raspberry Pi of een NAS ook.
+            {t('settings.local.later.intro')}
           </p>
           <ol className="lm-steps">
             <li>
-              Installeer Docker op dat toestel en haal de code op:
+              {t('settings.local.later.step1')}
               <code>git clone https://github.com/Marukiee/MarkMySteps.git</code>
             </li>
             <li>
               Draai in die map <code>./install.sh</code>. Dat vraagt om het adres waarop je de app
               wilt bereiken en zet daarna alles zelf klaar.
             </li>
-            <li>Maak op dat adres een account aan. Vanaf dan kun je ook mensen uitnodigen.</li>
+            <li>{t('settings.local.later.step3')}</li>
             <li>
               Ga in de app naar
               <span className="lm-path">
-                Instellingen <Icon name="chevron-right" size={12} /> Profiel
+                {t('common.settings')} <Icon name="chevron-right" size={12} /> {t('settings.nav.profile')}
               </span>
-              , kies <strong>Server koppelen</strong> en vul dat adres in.
+              , kies <strong>{t('settings.local.connect')}</strong> en vul dat adres in.
             </li>
           </ol>
           <p className="muted lm-note">
-            Je reizen gaan in één keer mee. Je hoeft niets opnieuw in te voeren, en je kunt ook
-            weer terug: een server loskoppelen laat alles gewoon op je toestel staan.
+            {t('settings.local.later.outro')}
           </p>
         </div>
       </div>
@@ -155,24 +154,24 @@ export function LocalModeSheet({
   return createPortal(
     <div className={`lm-layer ${closing ? 'closing' : ''}`}>
       <div className="lm-scrim" onClick={close} />
-      <div className="lm-sheet" role="dialog" aria-modal="true" aria-label="Zonder server">
+      <div className="lm-sheet" role="dialog" aria-modal="true" aria-label={t('settings.local.title')}>
         <div className="lm-grab" aria-hidden="true" />
-        <button type="button" className="lm-close" aria-label="Sluiten" onClick={close}>
+        <button type="button" className="lm-close" aria-label={t('common.close')} onClick={close}>
           <Icon name="close" size={18} />
         </button>
 
         <div className="lm-scroll">
           <header className="lm-head">
             <LogoMark size={44} />
-            <h2>Zonder server</h2>
+            <h2>{t('settings.local.title')}</h2>
             <p className="muted">
-              Alles blijft op je toestel. Geen account, geen server, niets dat naar buiten gaat.
+              {t('settings.local.sheet.intro')}
             </p>
           </header>
 
           <section className="lm-group">
             <h3 className="lm-group-title lm-yes">
-              <Icon name="check" size={16} /> Werkt gewoon
+              <Icon name="check" size={16} /> {t('settings.local.sheet.works')}
             </h3>
             <ul className="lm-list">
               {WORKS.map((f) => (
@@ -191,7 +190,7 @@ export function LocalModeSheet({
 
           <section className="lm-group">
             <h3 className="lm-group-title lm-no">
-              <Icon name="cloud-off" size={16} /> Heeft een server nodig
+              <Icon name="cloud-off" size={16} /> {t('settings.local.sheet.needs')}
             </h3>
             <ul className="lm-list">
               {NEEDS_SERVER.map((f) => (
@@ -213,7 +212,7 @@ export function LocalModeSheet({
 
         <footer className="lm-actions">
           <button type="button" className="btn btn-ghost" onClick={close}>
-            Terug
+            {t('common.back')}
           </button>
           <button
             type="button"
@@ -226,7 +225,7 @@ export function LocalModeSheet({
               onContinue();
             }}
           >
-            Zonder server beginnen
+            {t('settings.local.sheet.start')}
           </button>
         </footer>
       </div>

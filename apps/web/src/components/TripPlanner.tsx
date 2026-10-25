@@ -40,6 +40,7 @@ import {
 } from '../lib/plannerLocal';
 import '../pages/plan.css';
 import { Flag } from './Flag';
+import { t } from '../i18n';
 
 // Names used for the standalone outbound/return legs (any travel mode).
 const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
@@ -668,7 +669,7 @@ export function TripPlanner({
                         Heenvlucht) is too long to keep the pills, the distance
                         and the mode menu on one row. */}
                     <strong className="flight-leg-name">
-                      {stop.name.startsWith('Heen') ? 'Heen' : 'Terug'}
+                      {stop.name.startsWith('Heen') ? 'Heen' : t('common.back')}
                     </strong>
                     {stop.travelMode === 'FLIGHT' ? (
                       <FlightEditor
@@ -1483,7 +1484,7 @@ function DayTrips({
             </div>
             <div className="daytrip-actions">
               <button type="button" className="btn btn-ghost" onClick={onClose}>
-                Annuleren
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -1491,7 +1492,7 @@ function DayTrips({
                 disabled={!picked || !day}
                 onClick={() => picked && onAdd(picked, day)}
               >
-                Toevoegen
+                {t('common.add')}
               </button>
             </div>
           </div>
@@ -1623,7 +1624,7 @@ function PlaceSheet({
         <div className="fe-grab" aria-hidden="true" />
         <header className="fe-head">
           <strong>{title}</strong>
-          <button type="button" className="fe-icon-btn" aria-label="Sluiten" onClick={close}>
+          <button type="button" className="fe-icon-btn" aria-label={t('common.close')} onClick={close}>
             <Icon name="close" size={18} />
           </button>
         </header>

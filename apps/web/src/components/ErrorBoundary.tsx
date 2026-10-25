@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { t } from '../i18n';
 import './errorboundary.css';
 
 interface State {
@@ -34,9 +35,9 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     return (
       <main className="crash">
         <div className="crash-card card">
-          <h1>Er ging iets mis</h1>
+          <h1>{t('common.errorGeneric')}</h1>
           <p className="muted">
-            Dit scherm liep vast. Wat je had opgeslagen is veilig; alleen deze weergave gaf het op.
+            {t('ui.crash.body')}
           </p>
           <pre className="crash-detail">
             {error.message}
@@ -47,10 +48,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
               className="btn btn-primary"
               onClick={() => this.setState({ error: null, where: null })}
             >
-              Opnieuw proberen
+              {t('common.retry')}
             </button>
             <button className="btn btn-ghost" onClick={() => window.location.reload()}>
-              App herladen
+              {t('ui.crash.reload')}
             </button>
           </div>
         </div>

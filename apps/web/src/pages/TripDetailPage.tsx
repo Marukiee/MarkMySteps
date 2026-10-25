@@ -39,6 +39,7 @@ import { getMapStyle, getTripFacts } from '../lib/prefs';
 import { FactId, resolveFacts } from '../lib/tripFacts';
 import { onTrackerChange } from '../tracking/tracker';
 import { TripAccessPage } from './TripAccessPage';
+import { t } from '../i18n';
 import './tripdetail.css';
 
 interface TripStats {
@@ -671,7 +672,7 @@ export function TripDetailPage() {
       };
       const train: ChoiceOption = {
         id: 'train',
-        label: 'Treinroute tekenen',
+        label: t('trip.train.title'),
         hint: byTrain
           ? `De leg naar ${leg!.name} gaat met de trein. Kies je begin- en eindstation.`
           : 'Voor een treinreis zonder signaal: kies je begin- en eindstation.',
@@ -753,7 +754,7 @@ export function TripDetailPage() {
         }
         reloadRoutes();
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Dat lukte niet');
+        setError(err instanceof Error ? err.message : t('trip.train.error.generic'));
       }
     },
     [tripId, tab, canEdit, stops],
@@ -1101,7 +1102,7 @@ export function TripDetailPage() {
                 the map. */}
             <button
               className="trip-fab"
-              aria-label="Kaartinstellingen"
+              aria-label={t('trip.layers.title')}
               onClick={() => setLayersOpen(true)}
             >
               <Icon name="map" size={20} />
@@ -1223,7 +1224,7 @@ export function TripDetailPage() {
 
         {pendingPoint && (
           <div className="add-point-panel card">
-            <strong>Punt toevoegen</strong>
+            <strong>{t('trip.trackEdit.addPoint')}</strong>
             <span className="muted">
               {pendingPoint.lat.toFixed(5)}, {pendingPoint.lng.toFixed(5)}
             </span>
@@ -1238,10 +1239,10 @@ export function TripDetailPage() {
             </div>
             <div className="add-point-actions">
               <button className="btn btn-ghost" onClick={() => setPendingPoint(null)}>
-                Annuleren
+                {t('common.cancel')}
               </button>
               <button className="btn btn-primary" onClick={savePoint} disabled={!pointTime}>
-                Opslaan
+                {t('common.save')}
               </button>
             </div>
           </div>
@@ -1484,7 +1485,7 @@ export function TripDetailPage() {
               <h2>Mensen &amp; delen</h2>
               <button
                 className="people-sheet-close"
-                aria-label="Sluiten"
+                aria-label={t('common.close')}
                 onClick={closePeople}
               >
                 <Icon name="close" size={18} />

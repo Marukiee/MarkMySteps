@@ -7,6 +7,7 @@ import { isLocalMode } from '../lib/localMode';
 import { isNativeApp } from '../lib/native';
 import { Icon } from './Icon';
 import { LogoMark } from './Logo';
+import { t } from '../i18n';
 import './invitepopup.css';
 
 interface Invite {
@@ -20,7 +21,7 @@ interface Invite {
 /** Developer options open the real thing with made-up trips on it. */
 export const INVITE_PREVIEW_EVENT = 'mms-invite-preview';
 
-const PREVIEW_TITLES = ['Interrail door Midden-Europa', 'Weekend Rome', 'Noorwegen met de auto'];
+const PREVIEW_TITLES = [t('social.invite.preview.trip1'), t('social.invite.preview.trip2'), t('social.invite.preview.trip3')];
 const PREVIEW_NAMES = ['Mark', 'Sanne', 'Joost'];
 
 /**
@@ -152,13 +153,13 @@ export function InvitePopup() {
         </ul>
         <div className="invite-actions">
           <button className="btn btn-ghost" onClick={() => close()}>
-            Later
+            {t('social.invite.later')}
           </button>
           <button
             className="btn btn-primary"
             onClick={() => close(single ? `/trips/${invites[0]!.id}` : '/')}
           >
-            {single ? 'Bekijk de reis' : 'Naar mijn reizen'}
+            {single ? t('social.invite.viewTrip') : t('social.myTrips')}
           </button>
         </div>
       </div>

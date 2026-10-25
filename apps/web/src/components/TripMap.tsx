@@ -17,6 +17,7 @@ import { haptic } from '../lib/haptics';
 import { useNow } from '../lib/lastSeen';
 import './tripmap.css';
 import { paintMarker } from './Flag';
+import { t } from '../i18n';
 
 /** How long a line takes to come up, or to go. */
 const FADE_MS = 260;
@@ -838,7 +839,7 @@ export function TripMap({
       el.innerHTML = '<span class="me-marker-pulse"></span><span class="me-marker-dot"></span>';
       // Tapping yourself opens today's raw fixes — the natural question to ask
       // of the dot that says where the tracker thinks you are.
-      el.title = 'Punten van vandaag';
+      el.title = t('trip.trackEdit.titleToday');
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         onSelfClickRef.current?.();

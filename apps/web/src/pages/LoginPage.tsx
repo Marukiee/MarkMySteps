@@ -130,7 +130,7 @@ export function LoginPage() {
           </div>
           {error && <p className="error-text">{error}</p>}
           <button className="btn btn-primary" disabled={busy}>
-            {busy ? 'Even geduld…' : 'Doorgaan'}
+            {busy ? t('auth.login.wait') : 'Doorgaan'}
           </button>
           <button
             type="button"
@@ -144,7 +144,7 @@ export function LoginPage() {
             {recovery ? 'Toch een code uit de app gebruiken' : 'Ik heb mijn telefoon niet: herstelcode gebruiken'}
           </button>
           <button type="button" className="login-nolink" onClick={leaveCodeStep}>
-            Terug naar inloggen
+            {t('auth.pending.rejected.back')}
           </button>
         </form>
       ) : (

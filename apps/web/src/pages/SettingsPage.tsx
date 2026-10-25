@@ -46,7 +46,8 @@ import {
 } from '../lib/notify';
 import { applyDynamicAccent, dynamicAccentAvailable } from '../lib/dynamicColor';
 import { MapStylePicker } from '../components/MapStylePicker';
-import { getLangSetting, LANGUAGES, LangSetting, setLangSetting, t } from '../i18n';
+import { tr } from '../i18n/rich';
+import { getLangSetting, intlLocale, LANGUAGES, LangSetting, setLangSetting, t } from '../i18n';
 import { skipNextPop, useBackToClose } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
 import {
@@ -110,19 +111,19 @@ export function SettingsPage() {
   const [devUnlocked, setDevUnlocked] = useState(localStorage.getItem('mms.dev') === '1');
 
   const sections: { id: SectionId; label: string; show: boolean }[] = [
-    { id: 'profile', label: 'Profiel', show: true },
-    { id: 'display', label: 'Weergave', show: true },
-    { id: 'preferences', label: 'Voorkeuren', show: true },
-    { id: 'immich', label: 'Diensten', show: true },
-    { id: 'import', label: 'Gegevens', show: true },
-    { id: 'accounts', label: 'Accounts', show: user?.role === 'ADMIN' },
-    { id: 'about', label: 'Over', show: true },
-    { id: 'developer', label: 'Ontwikkelaar', show: devUnlocked },
+    { id: 'profile', label: t('settings.nav.profile'), show: true },
+    { id: 'display', label: t('settings.nav.display'), show: true },
+    { id: 'preferences', label: t('settings.nav.preferences'), show: true },
+    { id: 'immich', label: t('settings.nav.services'), show: true },
+    { id: 'import', label: t('settings.nav.data'), show: true },
+    { id: 'accounts', label: t('settings.nav.accounts'), show: user?.role === 'ADMIN' },
+    { id: 'about', label: t('settings.nav.about'), show: true },
+    { id: 'developer', label: t('settings.nav.developer'), show: devUnlocked },
   ];
 
   return (
     <main className="page fade-in settings-page">
-      <h1>Instellingen</h1>
+      <h1>{t('common.settings')}</h1>
       <div className="settings-layout">
         <div className="settings-nav-scroll">
           <nav className="settings-nav">
@@ -233,27 +234,27 @@ function DisplaySection() {
   const [navBar, setNavBar] = useState<NavBarMode>(getNavBarMode());
 
   const themes: { id: ThemeId; label: string }[] = [
-    { id: 'system', label: 'Systeem' },
-    { id: 'light', label: 'Licht' },
-    { id: 'dark', label: 'Donker' },
+    { id: 'system', label: t('common.system') },
+    { id: 'light', label: t('settings.display.theme.light') },
+    { id: 'dark', label: t('settings.display.theme.dark') },
   ];
   const cardSizes: { id: TripCardSize; label: string }[] = [
     // "Automatisch" needs more room than a third of the switch, and wrapped to
     // two lines inside its own pill. The ⋯ menu on a card says "Auto" too.
-    { id: 'auto', label: 'Auto' },
-    { id: 'large', label: 'Groot' },
-    { id: 'compact', label: 'Klein' },
+    { id: 'auto', label: t('common.auto') },
+    { id: 'large', label: t('settings.display.cards.large') },
+    { id: 'compact', label: t('settings.display.cards.compact') },
   ];
   const navBars: { id: NavBarMode; label: string }[] = [
-    { id: 'auto', label: 'Automatisch' },
-    { id: 'always', label: 'Altijd' },
+    { id: 'auto', label: t('common.automatic') },
+    { id: 'always', label: t('common.always') },
   ];
 
   return (
     <>
       <LanguageCard />
       <section className="card settings-card">
-        <h2>Thema</h2>
+        <h2>{t('settings.display.theme.title')}</h2>
         <div
           className="theme-choice pill-switch"
           style={{ '--n': themes.length, '--i': Math.max(0, themes.findIndex((th) => th.id === theme)) } as CSSProperties}
@@ -272,14 +273,13 @@ function DisplaySection() {
             </button>
           ))}
         </div>
-        <span className="muted">“Systeem” volgt de licht/donker-stand van je toestel.</span>
+        <span className="muted">{t('settings.display.theme.hint')}</span>
         {isNative() && dynamicAccentAvailable() && (
           <label className="settings-toggle">
             <div>
-              <strong>Accentkleur van je achtergrond</strong>
+              <strong>{t('settings.display.wallpaperAccent.title')}</strong>
               <span className="muted">
-                Neemt de accentkleur over die Android uit je achtergrond haalt. De rest van de
-                app blijft zoals hij is.
+                {t('settings.display.wallpaperAccent.hint')}
               </span>
             </div>
             <input
@@ -295,7 +295,7 @@ function DisplaySection() {
         )}
       </section>
       <section className="card settings-card">
-        <h2>Reiskaarten op de homepage</h2>
+        <h2>{t('settings.display.cards.title')}</h2>
         <div
           className="theme-choice pill-switch"
           style={{ '--n': cardSizes.length, '--i': Math.max(0, cardSizes.findIndex((c) => c.id === cardSize)) } as CSSProperties}
@@ -316,8 +316,7 @@ function DisplaySection() {
           ))}
         </div>
         <span className="muted">
-          Standaardgrootte voor alle reizen. “Automatisch”: aankomende reizen groot, afgelopen
-          reizen compact. Per reis kun je dit overschrijven via het ⋯-menu op de kaart.
+          {t('settings.display.cards.hint')}
         </span>
         {hasOverrides && (
           <button
@@ -328,12 +327,12 @@ function DisplaySection() {
               setHasOverrides(false);
             }}
           >
-            Handmatige keuzes wissen
+            {t('settings.display.cards.reset')}
           </button>
         )}
       </section>
       <section className="card settings-card">
-        <h2>Navigatiebalk</h2>
+        <h2>{t('settings.display.navBar.title')}</h2>
         <div
           className="theme-choice pill-switch"
           style={{ '--n': navBars.length, '--i': Math.max(0, navBars.findIndex((n) => n.id === navBar)) } as CSSProperties}
@@ -353,16 +352,13 @@ function DisplaySection() {
           ))}
         </div>
         <span className="muted">
-          De balk onderin met Reizen, {travellersTabLabel()} en Instellingen. “Automatisch”
-          schuift hem weg zodra je een reis opent, inclusief de tijdlijn, de routeplanner en het
-          delen-scherm; de pijl linksboven op de kaart brengt je terug. “Altijd” houdt hem overal
-          in beeld.
+          {t('settings.display.navBar.hint', { travellers: travellersTabLabel() })}
         </span>
       </section>
       <section className="card settings-card">
-        <h2>Kaartstijl</h2>
+        <h2>{t('settings.display.mapStyle.title')}</h2>
         <MapStylePicker />
-        <span className="muted">Geldt voor alle kaarten op dit apparaat.</span>
+        <span className="muted">{t('settings.display.mapStyle.hint')}</span>
       </section>
     </>
   );
@@ -405,11 +401,9 @@ function PhotoCacheSection() {
   return (
     <section className="card settings-card">
       <h2>
-        Foto-cache
+        {t('settings.photoCache.title')}
         <HelpTip>
-          Foto's die je bekijkt worden bewaard, zodat je ze zonder internet terugziet. Zonder
-          grens groeit dat op een volle account door tot honderden megabytes; bereikt de cache de
-          grens, dan verdwijnen de foto's die je het langst niet hebt bekeken als eerste.
+          {t('settings.photoCache.help')}
         </HelpTip>
       </h2>
 
@@ -417,12 +411,16 @@ function PhotoCacheSection() {
         <div className="cache-meter-bar" style={{ width: `${Math.round(filled * 100)}%` }} />
       </div>
       <span className="muted cache-usage">
-        {formatBytes(usage)} in gebruik
-        {limit > 0 ? ` van ${limit >= 1000 ? `${limit / 1000} GB` : `${limit} MB`}` : ' (geen grens)'}
+        {limit > 0
+          ? t('settings.photoCache.usage', {
+              used: formatBytes(usage),
+              limit: limit >= 1000 ? `${limit / 1000} GB` : `${limit} MB`,
+            })
+          : t('settings.photoCache.usageNoLimit', { used: formatBytes(usage) })}
       </span>
 
       <div className="field">
-        <label>Maximale grootte</label>
+        <label>{t('settings.photoCache.maxSize')}</label>
         <div className="theme-choice theme-choice-wrap">
           {LIMITS.map((mb) => (
             <button
@@ -445,13 +443,13 @@ function PhotoCacheSection() {
               applyLimit(0);
             }}
           >
-            Geen grens
+            {t('settings.photoCache.noLimit')}
           </button>
           <button
             type="button"
             className={`theme-opt theme-opt-icon ${customOpen ? 'active' : ''}`}
-            title="Eigen grootte"
-            aria-label="Eigen grootte"
+            title={t('settings.photoCache.custom')}
+            aria-label={t('settings.photoCache.custom')}
             onClick={() => {
               setCustomValue(String(limit));
               setCustomOpen(true);
@@ -485,9 +483,9 @@ function PhotoCacheSection() {
         disabled={clearing || usage === 0}
         onClick={async () => {
           const ok = await confirmModal({
-            title: 'Cache leegmaken?',
-            body: "Bewaarde foto's worden gewist. Ze worden opnieuw opgehaald zodra je online bent. Er gaat niets van je reizen verloren.",
-            confirmLabel: 'Leegmaken',
+            title: t('settings.photoCache.clearConfirm.title'),
+            body: t('settings.photoCache.clearConfirm.body'),
+            confirmLabel: t('settings.photoCache.clearConfirm.confirm'),
             danger: true,
           });
           if (!ok) return;
@@ -497,7 +495,7 @@ function PhotoCacheSection() {
           setClearing(false);
         }}
       >
-        <Icon name="trash" size={15} /> Cache leegmaken
+        <Icon name="trash" size={15} /> {t('settings.photoCache.clear')}
       </button>
     </section>
   );
@@ -525,9 +523,9 @@ function BackupSection() {
         setProgress({ done, total, label }),
       );
       const where = await saveBackup(backup);
-      setResult(`Opgeslagen als ${where} · ${formatBytes(backupSize(backup))}`);
+      setResult(t('settings.backup.saved', { where, size: formatBytes(backupSize(backup)) }));
     } catch (err) {
-      setResult(err instanceof Error ? err.message : 'Back-up mislukt');
+      setResult(err instanceof Error ? err.message : t('settings.backup.failed'));
     } finally {
       setBusy(false);
       setProgress(null);
@@ -544,20 +542,18 @@ function BackupSection() {
     try {
       backup = await readBackupFile(file);
     } catch (err) {
-      setResult(err instanceof Error ? err.message : 'Bestand kon niet gelezen worden');
+      setResult(err instanceof Error ? err.message : t('settings.backup.readFailed'));
       return;
     }
-    const made = new Date(backup.createdAt).toLocaleDateString('nl-NL', {
+    const made = new Date(backup.createdAt).toLocaleDateString(intlLocale(), {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
     });
     const ok = await confirmModal({
-      title: 'Back-up terugzetten?',
-      body: `Deze back-up is van ${made} en bevat ${backup.trips.length} ${
-        backup.trips.length === 1 ? 'reis' : 'reizen'
-      }. Reizen die je al hebt blijven zoals ze zijn; de rest wordt toegevoegd.`,
-      confirmLabel: 'Terugzetten',
+      title: t('settings.backup.restoreConfirm.title'),
+      body: t('settings.backup.restoreConfirm.body', { date: made, count: backup.trips.length }),
+      confirmLabel: t('settings.backup.restore'),
     });
     if (!ok) return;
 
@@ -566,17 +562,19 @@ function BackupSection() {
       const restored = await restoreBackup(backup, { settings: true }, (done, total, label) =>
         setProgress({ done, total, label }),
       );
-      const parts = [
-        `${restored.tripsAdded} ${restored.tripsAdded === 1 ? 'reis' : 'reizen'} teruggezet`,
-      ];
-      if (restored.tripsSkipped > 0) parts.push(`${restored.tripsSkipped} overgeslagen`);
-      if (restored.points > 0) parts.push(`${restored.points} routepunten`);
-      if (restored.coversLost > 0) {
-        parts.push("covers komen terug zodra je foto's gekoppeld zijn");
+      const parts = [t('settings.backup.restored.trips', { count: restored.tripsAdded })];
+      if (restored.tripsSkipped > 0) {
+        parts.push(t('settings.backup.restored.skipped', { count: restored.tripsSkipped }));
       }
-      setResult(`${parts.join(' · ')}. Herlaad de app om alles te zien.`);
+      if (restored.points > 0) {
+        parts.push(t('settings.backup.restored.points', { count: restored.points }));
+      }
+      if (restored.coversLost > 0) {
+        parts.push(t('settings.backup.restored.coversLost'));
+      }
+      setResult(t('settings.backup.restored.summary', { parts: parts.join(' · ') }));
     } catch (err) {
-      setResult(err instanceof Error ? err.message : 'Terugzetten mislukt');
+      setResult(err instanceof Error ? err.message : t('settings.backup.restoreFailed'));
     } finally {
       setBusy(false);
       setProgress(null);
@@ -586,18 +584,15 @@ function BackupSection() {
   return (
     <section className="card settings-card">
       <h2>
-        Back-up
+        {t('settings.backup.title')}
         <HelpTip>
-          Eén bestand met al je reizen, stops, routepunten en notities, plus je instellingen.
-          Foto's zitten er als verwijzing in, niet als bestand: die staan al in je galerij of op
-          je Immich-server.
+          {t('settings.backup.help')}
         </HelpTip>
       </h2>
       <p className="muted">
-        Zet alles in één bestand {isIosApp() ? 'in de Bestanden-app' : 'in je Downloads-map'}, met
-        daarna de deel-knop zodat je het meteen
-        ergens veilig kunt neerzetten. Terugzetten voegt toe wat je nog niet hebt en laat
-        bestaande reizen met rust.
+        {t('settings.backup.intro', {
+          where: t(isIosApp() ? 'settings.backup.whereIos' : 'settings.backup.whereAndroid'),
+        })}
       </p>
 
       {/* Grows out of the button while it runs, so a long export shows where
@@ -615,21 +610,21 @@ function BackupSection() {
             />
           </div>
           <span className="muted">
-            {progress?.label ? `${progress.label}…` : 'Verzamelen…'}
+            {progress?.label ? `${progress.label}…` : t('settings.backup.collecting')}
           </span>
         </div>
       </div>
 
       <div className="backup-actions">
         <button className="btn btn-primary" disabled={busy} onClick={() => void runBackup()}>
-          <Icon name="download" size={16} /> {busy ? 'Bezig…' : 'Back-up maken'}
+          <Icon name="download" size={16} /> {busy ? t('settings.busy') : t('settings.backup.create')}
         </button>
         <button
           className="btn btn-ghost"
           disabled={busy}
           onClick={() => fileRef.current?.click()}
         >
-          <Icon name="archive" size={16} /> Terugzetten
+          <Icon name="archive" size={16} /> {t('settings.backup.restore')}
         </button>
       </div>
       {/* The system picker is enough here: a WebView handles <input type=file>
@@ -673,18 +668,16 @@ function LocalModeCard() {
   return (
     <section className="card settings-card local-card">
       <h2>
-        <Icon name="cloud-off" size={18} /> Zonder server
+        <Icon name="cloud-off" size={18} /> {t('settings.local.title')}
       </h2>
       <p className="muted">
-        Al je reizen, punten en notities staan op dit toestel. Er gaat niets naar buiten, en er is
-        geen account nodig.
+        {t('settings.local.card.stored')}
       </p>
       <p className="muted">
-        Reisgenoten, deel-links en automatische back-ups hebben wel een server nodig. Koppel je er
-        later een, dan wordt alles wat hier staat in één keer geüpload.
+        {t('settings.local.card.needsServer')}
       </p>
       <button className="btn btn-ghost" onClick={logout}>
-        Server koppelen
+        {t('settings.local.connect')}
       </button>
     </section>
   );
@@ -696,13 +689,12 @@ function PreferencesSection() {
     <>
       <section className="card settings-card">
         <h2>
-          Standaard vliegvelden
+          {t('settings.airports.title')}
           <HelpTip>
-            Tik een vliegveld aan om het je standaard te maken: dat is het vliegveld dat alvast
-            als vertrek ingevuld staat bij een nieuwe vlucht. Toevoegen mag zoveel je wilt.
+            {t('settings.airports.help')}
           </HelpTip>
         </h2>
-        <p className="muted">Je thuis-vliegvelden, voor het invullen van vluchten.</p>
+        <p className="muted">{t('settings.airports.hint')}</p>
         <AirportPrefs />
       </section>
       <GlobeSection />
@@ -733,12 +725,12 @@ function NotifySection() {
       const result = await enableBackgroundNotify();
       if (result.ok) {
         setOn(true);
-        setMessage('Aan. Je hoort het binnen een kwartier na een nieuw bericht.');
+        setMessage(t('settings.notify.on'));
       } else {
         setMessage(
           result.reason === 'denied'
-            ? 'Je telefoon laat meldingen niet toe voor deze app. Zet ze aan bij de app-instellingen van je toestel.'
-            : 'Aanzetten lukte niet. Probeer het zo nog eens.',
+            ? t('settings.notify.denied')
+            : t('settings.notify.failed'),
         );
       }
     } else {
@@ -752,19 +744,16 @@ function NotifySection() {
   return (
     <section className="card settings-card">
       <h2>
-        Meldingen op je telefoon
+        {t('settings.notify.title')}
         <HelpTip>
-          Je toestel heeft geen Google-pushdienst, dus niemand kan iets naar de app sturen. In
-          plaats daarvan kijkt de app zelf: elk kwartier vraagt hij of er iets voor je is. Een
-          melding kan daardoor tot een kwartier later binnenkomen dan hij bedoeld was.
+          {t('settings.notify.help')}
         </HelpTip>
       </h2>
       <label className="ts-toggle settings-toggle">
         <div>
-          <strong>Scan op nieuwe meldingen</strong>
+          <strong>{t('settings.notify.toggle')}</strong>
           <span className="muted">
-            Verzoeken om toegang en uitnodigingen komen als melding binnen, ook als de app dicht
-            is.
+            {t('settings.notify.toggleHint')}
           </span>
         </div>
         <input
@@ -789,14 +778,12 @@ function GlobeSection() {
   return (
     <section className="card settings-card">
       <h2>
-        Globe
+        {t('settings.globe.title')}
         <HelpTip>
-          Elke stop uit je routeplanner krijgt een bolletje op de globe. Bij de reis die op dat
-          moment uitgelicht is gebeurt dat altijd. Met &ldquo;Altijd&rdquo; laten ook alle andere
-          reizen hun stops zien.
+          {t('settings.globe.help')}
         </HelpTip>
       </h2>
-      <p className="muted">Tussenstops op de globe van de homepage.</p>
+      <p className="muted">{t('settings.globe.hint')}</p>
       <div className="settings-seg" role="tablist" data-on={mode}>
         {/* One pill that slides, the way the trip's tabs do. */}
         <span className="settings-seg-thumb" aria-hidden="true" />
@@ -806,7 +793,7 @@ function GlobeSection() {
           className={mode === 'highlight' ? 'active' : ''}
           onClick={() => pick('highlight')}
         >
-          Bij uitlichten
+          {t('settings.globe.highlight')}
         </button>
         <button
           role="tab"
@@ -814,7 +801,7 @@ function GlobeSection() {
           className={mode === 'always' ? 'active' : ''}
           onClick={() => pick('always')}
         >
-          Altijd
+          {t('common.always')}
         </button>
       </div>
     </section>
@@ -827,17 +814,16 @@ function SelfLocationSection() {
   return (
     <section className="card settings-card">
       <h2>
-        Eigen locatie
+        {t('settings.selfLocation.title')}
         <HelpTip>
-          Je positie komt van de route-tracking, dus je ziet jezelf alleen terwijl je een reis aan
-          het tracken bent. De app vraagt nooit apart je locatie op.
+          {t('settings.selfLocation.help')}
         </HelpTip>
       </h2>
-      <p className="muted">Op de kaart van een reis zie je jezelf altijd tijdens het tracken.</p>
+      <p className="muted">{t('settings.selfLocation.hint')}</p>
       <label className="settings-toggle">
         <div>
-          <strong>Ook op de homepage</strong>
-          <span className="muted">Zet je positie ook als stip op de globe.</span>
+          <strong>{t('settings.selfLocation.home')}</strong>
+          <span className="muted">{t('settings.selfLocation.homeHint')}</span>
         </div>
         <input
           type="checkbox"
@@ -907,19 +893,15 @@ function TrackingSection() {
   return (
     <section className="card settings-card">
       <h2>
-        Route-tracking
+        {t('settings.tracking.title')}
         <HelpTip>
-          Elk interval zet de app de GPS heel even aan voor precies één positie en daarna weer
-          uit; daartussen kost tracking niets. Blijf je op dezelfde plek, dan worden die metingen
-          samengevoegd tot één punt in plaats van een wirwar van stipjes. Een groter interval
-          scheelt dus flink batterij. Offline wordt alles gebufferd en later geüpload. Vereist
-          locatie op “{alwaysLabel()}”.
+          {t('settings.tracking.help', { always: alwaysLabel() })}
         </HelpTip>
       </h2>
-      <p className="muted">Houdt je route bij tijdens een reis, ook met het scherm uit.</p>
+      <p className="muted">{t('settings.tracking.hint')}</p>
 
       <div className="field">
-        <label>Locatie opslaan elke</label>
+        <label>{t('settings.tracking.interval')}</label>
         <div className="theme-choice theme-choice-wrap">
           {INTERVALS.map((m) => (
             <button
@@ -939,8 +921,8 @@ function TrackingSection() {
           <button
             type="button"
             className={`theme-opt theme-opt-icon ${customOpen ? 'active' : ''}`}
-            title="Eigen aantal minuten"
-            aria-label="Eigen aantal minuten"
+            title={t('settings.tracking.customInterval')}
+            aria-label={t('settings.tracking.customInterval')}
             onClick={() => {
               setCustomValue(String(interval));
               setCustomOpen(true);
@@ -956,7 +938,7 @@ function TrackingSection() {
               min={1}
               max={240}
               inputMode="numeric"
-              aria-label="Interval in minuten"
+              aria-label={t('settings.tracking.intervalLabel')}
               value={customValue}
               onChange={(e) => {
                 setCustomValue(e.target.value);
@@ -977,22 +959,26 @@ function TrackingSection() {
             className="btn btn-danger"
             onClick={async () => {
               const ok = await confirmModal({
-                title: 'Stoppen met tracken?',
-                body: `De route van "${activeTrip?.title ?? 'deze reis'}" wordt niet verder bijgehouden. Wat al opgenomen is blijft staan.`,
-                confirmLabel: 'Stoppen',
+                title: t('settings.tracking.stopConfirm.title'),
+                body: t('settings.tracking.stopConfirm.body', {
+                  title: activeTrip?.title ?? t('settings.tracking.stopConfirm.thisTrip'),
+                }),
+                confirmLabel: t('settings.tracking.stopConfirm.confirm'),
                 danger: true,
               });
               if (ok) void stopTracking();
             }}
           >
-            <Icon name="stop" size={15} /> Stop tracking
+            <Icon name="stop" size={15} /> {t('settings.tracking.stop')}
           </button>
           {tracker.lastError && <span className="error-text">{tracker.lastError}</span>}
 
           {/* The technical live-status bits are tucked behind an expander. */}
-          <Collapsible summary="Details" className="tracking-advanced">
+          <Collapsible summary={t('settings.tracking.details')} className="tracking-advanced">
             <div className="tracking-advanced-body">
-              <span className="settings-ok">● Actief: {activeTrip?.title ?? 'reis'}</span>
+              <span className="settings-ok">
+                ● {t('settings.tracking.active', { title: activeTrip?.title ?? t('settings.tripFallback') })}
+              </span>
               {tracker.lastFix ? (
                 <LastFix
                   fix={tracker.lastFix}
@@ -1002,7 +988,7 @@ function TrackingSection() {
                 />
               ) : (
                 <div className="tracking-live">
-                  <span className="muted">Wachten op eerste GPS-fix…</span>
+                  <span className="muted">{t('settings.tracking.waitingFix')}</span>
                 </div>
               )}
               {/* The trip page shows the same route with the photos mixed in;
@@ -1013,15 +999,15 @@ function TrackingSection() {
                 className="tracking-view-link"
                 onClick={() => setEditDay(true)}
               >
-                Punten van vandaag op de kaart
+                {t('settings.tracking.todayOnMap')}
               </button>
               {tracker.buffered > 0 && (
                 <span className="muted">
-                  {tracker.buffered} punten in buffer (wacht op netwerk)
+                  {t('settings.tracking.buffered', { count: tracker.buffered })}
                 </span>
               )}
               {tracker.lastStatus && (
-                <span className="muted">Service: {tracker.lastStatus}</span>
+                <span className="muted">{t('settings.tracking.service', { status: tracker.lastStatus })}</span>
               )}
               <TrackingLog now={now} />
             </div>
@@ -1030,7 +1016,7 @@ function TrackingSection() {
       ) : (
         <div className="settings-form tracking-swap">
           <div className="field">
-            <label>Reis</label>
+            <label>{t('common.trip')}</label>
             {/* Only trips you could still be travelling on: a finished trip has
                 nothing left to record. */}
             <TripPicker trips={trackableTrips} value={selected} onChange={setSelected} />
@@ -1042,7 +1028,7 @@ function TrackingSection() {
               disabled={!selected}
               onClick={() => void startTracking(selected)}
             >
-              <Icon name="play" size={15} /> Start tracking
+              <Icon name="play" size={15} /> {t('settings.tracking.start')}
             </button>
           </div>
         </div>
@@ -1103,7 +1089,7 @@ function TripPicker({
         aria-expanded={open}
         onClick={() => (open && !closing ? close() : setOpen(true))}
       >
-        <span className={chosen ? '' : 'muted'}>{chosen?.title ?? 'Kies een reis'}</span>
+        <span className={chosen ? '' : 'muted'}>{chosen?.title ?? t('settings.tracking.pickTrip')}</span>
         <Icon
           name="chevron-down"
           size={16}
@@ -1112,32 +1098,32 @@ function TripPicker({
       </button>
       {open && (
         <div className={`trip-picker-menu card ${closing ? 'closing' : ''}`}>
-          {trips.map((t, i) => (
+          {trips.map((trip, i) => (
             <button
-              key={t.id}
+              key={trip.id}
               type="button"
-              className={t.id === value ? 'active' : ''}
+              className={trip.id === value ? 'active' : ''}
               style={{ animationDelay: `${Math.min(i, 6) * 28}ms` }}
               onClick={() => {
-                onChange(t.id);
+                onChange(trip.id);
                 close();
               }}
             >
               <span className="trip-picker-name">
-                {t.title}
-                <small>{formatDate(t.startDate)}</small>
+                {trip.title}
+                <small>{formatDate(trip.startDate)}</small>
               </span>
-              {t.startDate.slice(0, 10) <= today && (
-                <span className="trip-picker-now">onderweg</span>
+              {trip.startDate.slice(0, 10) <= today && (
+                <span className="trip-picker-now">{t('settings.tracking.underway')}</span>
               )}
-              <span className={`person-check ${t.id === value ? 'on' : ''}`}>
+              <span className={`person-check ${trip.id === value ? 'on' : ''}`}>
                 <Icon name="check" size={15} />
               </span>
             </button>
           ))}
           {trips.length === 0 && (
             <span className="trip-picker-empty muted">
-              Geen lopende of komende reizen. Maak er eerst een aan.
+              {t('settings.tracking.noTrips')}
             </span>
           )}
         </div>
@@ -1160,11 +1146,11 @@ function TrackingLog({ now }: { now: number }) {
         defaultOpen
         summary={
           <>
-            Locatie-log · {log.length} checks
+            {t('settings.tracking.log.summary', { count: log.length })}
             <button
               type="button"
               className="log-expand"
-              aria-label="Log op volledig scherm"
+              aria-label={t('settings.tracking.log.fullscreen')}
               onClick={(e) => {
                 e.stopPropagation();
                 setFull(true);
@@ -1303,18 +1289,22 @@ function LastFix({
       <button
         type="button"
         className="last-fix-map"
-        aria-label="Punten van vandaag op de kaart"
+        aria-label={t('settings.tracking.todayOnMap')}
         ref={mapRef}
         onClick={onOpenMap}
       />
       <div className="last-fix-body">
         <strong className="last-fix-place">
           <span className="tracking-live-dot" />
-          <span>{place ?? 'Plaats opzoeken…'}</span>
+          <span>{place ?? t('settings.tracking.lastFix.place')}</span>
         </strong>
         <span className="muted">
-          laatste fix{' '}
-          {ageSeconds === null ? '' : ageSeconds < 2 ? 'zojuist' : `${ageSeconds}s geleden`}
+          {t('settings.tracking.lastFix.label')}{' '}
+          {ageSeconds === null
+            ? ''
+            : ageSeconds < 2
+              ? t('settings.tracking.lastFix.justNow')
+              : t('settings.tracking.lastFix.ago', { seconds: ageSeconds })}
           {fix.accuracy ? ` · ±${Math.round(fix.accuracy)} m` : ''}
         </span>
         <span className="muted last-fix-coords">
@@ -1339,18 +1329,18 @@ function LogRow({ entry, now }: { entry: FixLogEntry; now: number }) {
   return (
     <li className="log-row" data-stay={stayed}>
       <span className="log-time">
-        {new Date(entry.at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+        {new Date(entry.at).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })}
         <small>{ago < 3600 ? `${Math.max(0, Math.round(ago / 60))} min` : ''}</small>
       </span>
       <span className="log-what">
         <span className="log-moved">
-          {entry.movedM !== undefined ? `${entry.movedM} m` : 'start'}
+          {entry.movedM !== undefined ? `${entry.movedM} m` : t('settings.tracking.log.start')}
         </span>
         {entry.accuracyM !== undefined && (
           <span className="log-acc">±{entry.accuracyM} m</span>
         )}
         {stayed && (
-          <span className="log-stay" title={`Zelfde plek, ${entry.stayCount} metingen samengevoegd`}>
+          <span className="log-stay" title={t('settings.tracking.log.stay', { count: entry.stayCount ?? 0 })}>
             ×{entry.stayCount}
           </span>
         )}
@@ -1392,11 +1382,11 @@ function TrackingLogSheet({
   return createPortal(
     <div className={`log-layer ${closing ? 'closing' : ''}`}>
       <header className="log-head">
-        <button type="button" className="te-icon-btn" aria-label="Sluiten" onClick={close}>
+        <button type="button" className="te-icon-btn" aria-label={t('common.close')} onClick={close}>
           <Icon name="close" size={20} />
         </button>
         <div className="log-head-title">
-          <strong>Locatie-log</strong>
+          <strong>{t('settings.tracking.log.title')}</strong>
           <small>{log.length} checks</small>
         </div>
       </header>
@@ -1462,7 +1452,7 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
       setHint(null);
       onUnlockDev();
     } else if (left <= 4) {
-      setHint(`Nog ${left} keer tikken voor ontwikkelaarsopties…`);
+      setHint(t('settings.about.devHint', { count: left }));
     }
   };
 
@@ -1475,7 +1465,7 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
         <span className="about-brand-name">MarkMySteps</span>
       </button>
       <p className="muted">
-        Self-hosted reis-tracker over je eigen Immich-server. Open source (AGPL-3.0).
+        {t('settings.about.tagline')}
       </p>
       <ul className="about-list">
         <li>
@@ -1485,7 +1475,7 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
             rel="noreferrer"
             className="ext-link"
           >
-            Broncode op GitHub <Icon name="chevron-right" size={14} />
+            {t('settings.about.source')} <Icon name="chevron-right" size={14} />
           </a>
         </li>
         <li>
@@ -1495,17 +1485,17 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
             rel="noreferrer"
             className="ext-link"
           >
-            Android-app (APK) downloaden <Icon name="chevron-right" size={14} />
+            {t('settings.about.apk')} <Icon name="chevron-right" size={14} />
           </a>
         </li>
         <li>
           <button type="button" className="ext-link" onClick={() => setShowLog(true)}>
-            Wat is er nieuw <Icon name="chevron-right" size={14} />
+            {t('settings.about.whatsNew')} <Icon name="chevron-right" size={14} />
           </button>
         </li>
         <li>
           <Link to="/privacy" className="ext-link">
-            Privacy <Icon name="chevron-right" size={14} />
+            {t('settings.about.privacy')} <Icon name="chevron-right" size={14} />
           </Link>
         </li>
       </ul>
@@ -1520,9 +1510,9 @@ function AboutSection({ onUnlockDev }: { onUnlockDev: () => void }) {
 
 /** The three questions a release note answers, in the order you ask them. */
 const CHANGE_GROUPS: { key: 'new' | 'better' | 'fixed'; label: string; tone: string }[] = [
-  { key: 'new', label: 'Nieuw', tone: 'is-new' },
-  { key: 'better', label: 'Verbeteringen', tone: 'is-better' },
-  { key: 'fixed', label: 'Opgelost', tone: 'is-fixed' },
+  { key: 'new', label: t('settings.changelog.new'), tone: 'is-new' },
+  { key: 'better', label: t('settings.changelog.better'), tone: 'is-better' },
+  { key: 'fixed', label: t('settings.changelog.fixed'), tone: 'is-fixed' },
 ];
 
 /**
@@ -1560,18 +1550,18 @@ function ChangelogPanel({ onBack }: { onBack: () => void }) {
     <section className="card settings-card changelog settings-swap">
       <button type="button" className="changelog-back" onClick={onBack}>
         <Icon name="chevron-left" size={16} />
-        Over
+        {t('settings.nav.about')}
       </button>
-      <h2>Wat is er nieuw</h2>
+      <h2>{t('settings.about.whatsNew')}</h2>
       <ol className="changelog-list">
         {CHANGELOG.map((entry, i) => (
           <li key={entry.date + entry.title} style={{ animationDelay: `${i * 90}ms` }}>
             <span className="changelog-dot" aria-hidden="true" />
             <div className="changelog-head">
               <strong>{entry.title}</strong>
-              {entry.highlight && <span className="changelog-new">nieuw</span>}
+              {entry.highlight && <span className="changelog-new">{t('settings.changelog.badge')}</span>}
               <span className="muted changelog-date">
-                {new Date(entry.date).toLocaleDateString('nl-NL', {
+                {new Date(entry.date).toLocaleDateString(intlLocale(), {
                   day: 'numeric',
                   month: 'long',
                   year: 'numeric',
@@ -1624,12 +1614,12 @@ function UpdateCheck() {
     try {
       const { current, latest, newer } = await checkForUpdate(true, true);
       if (newer && latest?.url) {
-        setResult({ text: `Versie ${latest.version} is beschikbaar.`, url: latest.url });
+        setResult({ text: t('settings.update.available', { version: latest.version ?? '' }), url: latest.url });
       } else {
-        setResult({ text: `Je bent bij. Build ${current} is de nieuwste.` });
+        setResult({ text: t('settings.update.upToDate', { build: String(current) }) });
       }
     } catch {
-      setResult({ text: 'Kon niet controleren. Ben je online?' });
+      setResult({ text: t('settings.update.checkFailed') });
     } finally {
       setBusy(false);
     }
@@ -1645,16 +1635,16 @@ function UpdateCheck() {
     const outcome = await downloadAndInstall(url, setPercent);
     setPercent(null);
     if (outcome === 'permission') {
-      setResult({ text: 'Zet "installeren van onbekende apps" aan en druk opnieuw.', url });
+      setResult({ text: t('settings.update.permission'), url });
     } else if (outcome === 'failed') {
-      setResult({ text: 'Downloaden mislukt. Ben je online?', url });
+      setResult({ text: t('settings.update.downloadFailed'), url });
     }
   }
 
   return (
     <div className="update-check">
       <button className="btn btn-ghost" disabled={busy} onClick={() => void run()}>
-        <Icon name="download" size={15} /> {busy ? 'Controleren…' : 'Check op updates'}
+        <Icon name="download" size={15} /> {busy ? t('settings.update.checking') : t('settings.update.check')}
       </button>
       {shown && last && (
         <p className={`muted update-check-result ${closing ? 'leaving' : ''}`}>
@@ -1662,7 +1652,7 @@ function UpdateCheck() {
           {last.url &&
             (percent === null ? (
               <button className="ext-link" onClick={() => void install(last.url!)}>
-                Installeren <Icon name="chevron-right" size={13} />
+                {t('settings.update.install')} <Icon name="chevron-right" size={13} />
               </button>
             ) : (
               <span className="update-check-progress">{percent}%</span>
@@ -1682,96 +1672,91 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
     <>
       <section className="card settings-card">
         <h2>
-          Schermen bekijken
+          {t('settings.dev.screens.title')}
           <HelpTip>
-            De echte schermen, niet een kopie: dit is wat een nieuwe gebruiker ziet. Een preview
-            verandert niets aan je eigen app, dus je kunt hem zo vaak openen als je wilt: de
-            rondleiding gaat niet op &ldquo;gezien&rdquo;, je naam wordt niet bewaard, en
-            &ldquo;Zonder server beginnen&rdquo; doet in het inlogscherm niets.
+            {t('settings.dev.screens.help')}
           </HelpTip>
         </h2>
-        <p className="muted">Verborgen opties om dingen te testen.</p>
+        <p className="muted">{t('settings.dev.screens.hint')}</p>
         <div className="dev-buttons">
           <button
             type="button"
             className="btn btn-ghost"
             onClick={() => navigate('/onboarding?preview=1')}
           >
-            Onboarding
+            {t('settings.dev.screens.onboarding')}
           </button>
           <button
             type="button"
             className="btn btn-ghost"
             onClick={() => navigate('/onboarding?preview=1&local=1')}
           >
-            Onboarding zonder server
+            {t('settings.dev.screens.onboardingLocal')}
           </button>
           <button
             type="button"
             className="btn btn-ghost"
             onClick={() => navigate('/login?preview=1')}
           >
-            Inlogscherm
+            {t('settings.dev.screens.login')}
           </button>
           <button
             type="button"
             className="btn btn-ghost"
             onClick={() => navigate('/preview/pending')}
           >
-            Wachten op goedkeuring
+            {t('settings.dev.screens.pending')}
           </button>
         </div>
       </section>
 
       <section className="card settings-card">
-        <h2>Meldingen bekijken</h2>
+        <h2>{t('settings.dev.invite.title')}</h2>
         <p className="muted">
-          Opent een klein menu om te kiezen hoeveel reizen erin staan en of ze een foto hebben.
+          {t('settings.dev.invite.hint')}
         </p>
         <button
           type="button"
           className="btn btn-ghost settings-reset-sizes"
           onClick={() => setInvitePreview(true)}
         >
-          Toegevoegd aan een reis
+          {t('settings.dev.invite.button')}
         </button>
         {invitePreview && <InvitePreviewSheet onClose={() => setInvitePreview(false)} />}
       </section>
 
       <section className="card settings-card">
-        <h2>Covers zonder foto</h2>
+        <h2>{t('settings.dev.covers.title')}</h2>
         <p className="muted">
-          Elke reis zonder foto&apos;s krijgt zijn eigen kleur en een icoontje dat uit de naam
-          volgt.
+          {t('settings.dev.covers.hint')}
         </p>
         <button
           type="button"
           className="btn btn-ghost settings-reset-sizes"
           onClick={() => navigate('/preview/covers')}
         >
-          Bekijken
+          {t('settings.dev.covers.button')}
         </button>
       </section>
 
       <section className="card settings-card">
-        <h2>Meldingenlijst</h2>
+        <h2>{t('settings.dev.inbox.title')}</h2>
         <p className="muted">
-          Opent de bel op de reizigerspagina met een verzoek, een uitnodiging, een toelating en
-          een afwijzing erin. Antwoorden gaat nergens heen.
+          {t('settings.dev.inbox.hint')}
         </p>
         <button
           type="button"
           className="btn btn-ghost settings-reset-sizes"
           onClick={() => navigate('/friends?demo=meldingen')}
         >
-          Voorbeeld openen
+          {t('settings.dev.inbox.button')}
         </button>
       </section>
 
       <section className="card settings-card">
-        <h2>Update-melding</h2>
+        <h2>{t('settings.dev.updateBanner.title')}</h2>
         <p className="muted">
-          Toont de balk alsof er een nieuwe versie klaarstaat. Installeren doet niets.
+          {t('settings.dev.updateBanner.hint')}
         </p>
         <button
           type="button"
@@ -1781,17 +1766,17 @@ function DeveloperSection({ onLock }: { onLock: () => void }) {
             setSimulating(!simulating);
           }}
         >
-          {simulating ? 'Nepbanner uitzetten' : 'Nepbanner tonen'}
+          {simulating ? t('settings.dev.updateBanner.hide') : t('settings.dev.updateBanner.show')}
         </button>
       </section>
 
       <section className="card settings-card">
-        <h2>Ontwikkelaarsmodus</h2>
+        <h2>{t('settings.dev.mode.title')}</h2>
         <p className="muted">
-          Verbergt dit tabblad weer. Je krijgt het terug via de versie onderaan &ldquo;Over&rdquo;.
+          {t('settings.dev.mode.hint')}
         </p>
         <button type="button" className="btn btn-ghost settings-reset-sizes" onClick={onLock}>
-          Ontwikkelaarsmodus verbergen
+          {t('settings.dev.mode.hide')}
         </button>
       </section>
     </>
@@ -1845,7 +1830,7 @@ function OptionPicker<T extends string | number | boolean>({
         aria-expanded={open}
         onClick={() => (open && !closing ? close() : setOpen(true))}
       >
-        <span>{chosen?.label ?? 'Kies'}</span>
+        <span>{chosen?.label ?? t('settings.picker.choose')}</span>
         <Icon
           name="chevron-down"
           size={16}
@@ -1906,49 +1891,47 @@ function InvitePreviewSheet({ onClose }: { onClose: () => void }) {
     >
       <div className="dev-sheet card" onClick={(e) => e.stopPropagation()}>
         <div className="dev-sheet-head">
-          <h3>Toegevoegd aan een reis</h3>
-          <button className="dev-sheet-close" aria-label="Sluiten" onClick={() => close()}>
+          <h3>{t('settings.dev.invite.button')}</h3>
+          <button className="dev-sheet-close" aria-label={t('common.close')} onClick={() => close()}>
             <Icon name="close" size={18} />
           </button>
         </div>
         <p className="muted">
-          Toont de echte melding. Er verandert niets aan je account, en sluiten brengt je nergens
-          heen.
+          {t('settings.dev.invite.sheetHint')}
         </p>
         <div className="dev-pick">
-          <span>Aantal reizen</span>
+          <span>{t('settings.dev.invite.count')}</span>
           <OptionPicker
             value={count}
             onChange={setCount}
             options={[
-              { value: 1, label: '1 reis' },
-              { value: 2, label: '2 reizen' },
-              { value: 3, label: '3 reizen' },
-              { value: 5, label: '5 reizen' },
+              { value: 1, label: t('settings.dev.invite.trips', { count: 1 }) },
+              { value: 2, label: t('settings.dev.invite.trips', { count: 2 }) },
+              { value: 3, label: t('settings.dev.invite.trips', { count: 3 }) },
+              { value: 5, label: t('settings.dev.invite.trips', { count: 5 }) },
             ]}
           />
         </div>
         <div className="dev-pick">
-          <span>Afbeeldingen</span>
+          <span>{t('settings.dev.invite.images')}</span>
           <OptionPicker
             value={photos}
             onChange={setPhotos}
             options={[
-              { value: false, label: "Zonder foto's" },
-              { value: true, label: "Met foto's" },
+              { value: false, label: t('settings.dev.invite.withoutPhotos') },
+              { value: true, label: t('settings.dev.invite.withPhotos') },
             ]}
           />
         </div>
         <span className="muted dev-sheet-note">
-          Met foto&apos;s leent hij de covers van je eigen reizen: een verzonnen foto bestaat niet
-          en zou alleen als kapot kadertje verschijnen.
+          {t('settings.dev.invite.note')}
         </span>
         <button
           type="button"
           className="btn btn-primary dev-sheet-go"
           onClick={() => close(() => void previewInvitePopup(count, photos))}
         >
-          Melding tonen
+          {t('settings.dev.invite.show')}
         </button>
       </div>
     </div>,
@@ -1971,9 +1954,9 @@ function ProfileSection() {
     setError(null);
     try {
       await api('/users/me', { method: 'PATCH', body: { displayName, username } });
-      setMessage('Profiel bijgewerkt. Zichtbaar na opnieuw laden.');
+      setMessage(t('settings.profile.saved'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Opslaan mislukt');
+      setError(err instanceof Error ? err.message : t('settings.saveFailed'));
     }
   }
 
@@ -1986,12 +1969,12 @@ function ProfileSection() {
         method: 'POST',
         body: { currentPassword, newPassword },
       });
-      setMessage('Wachtwoord gewijzigd. Andere sessies zijn uitgelogd, log opnieuw in.');
+      setMessage(t('settings.profile.passwordChanged'));
       setCurrentPassword('');
       setNewPassword('');
       window.setTimeout(logout, 2500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Wijzigen mislukt');
+      setError(err instanceof Error ? err.message : t('settings.profile.changeFailed'));
     }
   }
 
@@ -2026,9 +2009,9 @@ function ProfileSection() {
       await api('/users/me/avatar', { method: 'POST', formData });
       await refresh(); // ensure hasAvatar is set
       if (user) bumpAvatar(user.id); // reload the image everywhere, now
-      setMessage('Profielfoto opgeslagen.');
+      setMessage(t('settings.profile.photoSaved'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload mislukt');
+      setError(err instanceof Error ? err.message : t('settings.profile.uploadFailed'));
     }
   }
 
@@ -2046,19 +2029,19 @@ function ProfileSection() {
     await api('/users/me/avatar', { method: 'DELETE' });
     await refresh();
     if (user) bumpAvatar(user.id);
-    setMessage('Profielfoto verwijderd.');
+    setMessage(t('settings.profile.photoRemoved'));
   }
 
   return (
     <>
       <section className="card settings-card">
-        <h2>Profielfoto</h2>
-        <p className="muted">Wat reisgenoten van je zien op kaarten en in tijdlijnen.</p>
+        <h2>{t('settings.profile.photo.title')}</h2>
+        <p className="muted">{t('settings.profile.photo.hint')}</p>
         <div className="avatar-row">
           <button
             type="button"
             className="avatar-edit"
-            title="Profielfoto"
+            title={t('settings.profile.photo.title')}
             onClick={(e) => {
               e.stopPropagation();
               if (photoMenu) closePhotoMenu();
@@ -2089,7 +2072,7 @@ function ProfileSection() {
                       setViewSrc(await currentAvatarUrl());
                     }}
                   >
-                    Foto bekijken
+                    {t('settings.profile.photo.view')}
                   </button>
                 )}
                 <button
@@ -2099,7 +2082,7 @@ function ProfileSection() {
                     fileRef.current?.click();
                   }}
                 >
-                  Andere foto kiezen
+                  {t('settings.profile.photo.choose')}
                 </button>
                 {user?.hasAvatar && (
                   <button
@@ -2110,7 +2093,7 @@ function ProfileSection() {
                       if (url) setCropSrc(url);
                     }}
                   >
-                    Foto bijsnijden
+                    {t('settings.profile.photo.crop')}
                   </button>
                 )}
                 {user?.hasAvatar && (
@@ -2122,7 +2105,7 @@ function ProfileSection() {
                       void removeAvatar();
                     }}
                   >
-                    Foto verwijderen
+                    {t('settings.profile.photo.remove')}
                   </button>
                 )}
               </div>
@@ -2157,16 +2140,16 @@ function ProfileSection() {
         )}
         {viewSrc && (
           <div className="avatar-view-backdrop" onClick={() => setViewSrc(null)}>
-            <img src={viewSrc} alt="Profielfoto" />
+            <img src={viewSrc} alt={t('settings.profile.photo.title')} />
           </div>
         )}
       </section>
 
       <section className="card settings-card">
-        <h2>Naam en gebruikersnaam</h2>
+        <h2>{t('settings.profile.name.title')}</h2>
         <form onSubmit={saveName} className="settings-form">
           <div className="field">
-            <label htmlFor="pr-name">Naam</label>
+            <label htmlFor="pr-name">{t('settings.profile.name.name')}</label>
             <input
               id="pr-name"
               required
@@ -2175,7 +2158,7 @@ function ProfileSection() {
             />
           </div>
           <div className="field">
-            <label htmlFor="pr-user">Gebruikersnaam</label>
+            <label htmlFor="pr-user">{t('settings.profile.name.username')}</label>
             <input
               id="pr-user"
               required
@@ -2183,20 +2166,20 @@ function ProfileSection() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
-            <span className="muted">Hiermee voegen vrienden je toe aan reizen</span>
+            <span className="muted">{t('settings.profile.name.usernameHint')}</span>
           </div>
           <div className="settings-actions">
-            <button className="btn btn-ghost">Profiel opslaan</button>
+            <button className="btn btn-ghost">{t('settings.profile.name.save')}</button>
           </div>
         </form>
       </section>
 
       <section className="card settings-card">
-        <h2>Wachtwoord</h2>
-        <p className="muted">Minimaal tien tekens. Je blijft op je andere toestellen ingelogd.</p>
+        <h2>{t('settings.profile.password.title')}</h2>
+        <p className="muted">{t('settings.profile.password.hint')}</p>
         <form onSubmit={savePassword} className="settings-form">
           <div className="field">
-            <label htmlFor="pr-cur">Huidig wachtwoord</label>
+            <label htmlFor="pr-cur">{t('settings.profile.password.current')}</label>
             <input
               id="pr-cur"
               type="password"
@@ -2207,7 +2190,7 @@ function ProfileSection() {
             />
           </div>
           <div className="field">
-            <label htmlFor="pr-new">Nieuw wachtwoord</label>
+            <label htmlFor="pr-new">{t('settings.profile.password.new')}</label>
             <input
               id="pr-new"
               type="password"
@@ -2223,7 +2206,7 @@ function ProfileSection() {
             />
           </div>
           <div className="settings-actions">
-            <button className="btn btn-primary">Wachtwoord wijzigen</button>
+            <button className="btn btn-primary">{t('settings.profile.password.submit')}</button>
           </div>
         </form>
       </section>
@@ -2265,20 +2248,20 @@ function ServerSection() {
     try {
       parsed = new URL(trimmed);
     } catch {
-      setError('Dat is geen geldig adres. Begin met https:// en vul een domein in.');
+      setError(t('settings.server.invalid'));
       return;
     }
     if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost') {
-      setError('Gebruik https, anders reist je wachtwoord onversleuteld mee.');
+      setError(t('settings.server.https'));
       return;
     }
     // Tokens belong to the server that issued them, so pointing the app
     // somewhere else always ends the session. Better to say so than to have
     // every request quietly start failing.
     const ok = await confirmModal({
-      title: 'Andere server gebruiken?',
-      body: `De app praat daarna met ${parsed.origin}. Je wordt uitgelogd en moet daar opnieuw inloggen. Reizen die alleen op de oude server staan blijven daar.`,
-      confirmLabel: 'Wisselen',
+      title: t('settings.server.confirm.title'),
+      body: t('settings.server.confirm.body', { origin: parsed.origin }),
+      confirmLabel: t('settings.server.confirm.confirm'),
       danger: true,
     });
     if (!ok) return;
@@ -2289,16 +2272,15 @@ function ServerSection() {
   return (
     <section className="card settings-card">
       <h2>
-        Server
+        {t('settings.server.title')}
         <HelpTip>
-          Het adres waarop jouw MarkMySteps draait. Verander je het, dan word je uitgelogd en log
-          je op de nieuwe server opnieuw in.
+          {t('settings.server.help')}
         </HelpTip>
       </h2>
-      <p className="muted">De server waarmee deze sessie praat.</p>
+      <p className="muted">{t('settings.server.hint')}</p>
       <form onSubmit={save} className="settings-form">
         <div className="field">
-          <label htmlFor="sv-url">Adres</label>
+          <label htmlFor="sv-url">{t('settings.server.address')}</label>
           <input
             id="sv-url"
             type="url"
@@ -2312,7 +2294,7 @@ function ServerSection() {
         </div>
         <div className="settings-actions">
           <button className="btn btn-ghost" disabled={!changed || !trimmed}>
-            Server wijzigen
+            {t('settings.server.change')}
           </button>
           {changed && (
             <button
@@ -2323,7 +2305,7 @@ function ServerSection() {
                 setError(null);
               }}
             >
-              Herstellen
+              {t('settings.server.reset')}
             </button>
           )}
         </div>
@@ -2362,7 +2344,7 @@ function ImmichSection() {
       .catch((err: unknown) => {
         // 404 simply means: not configured yet.
         if (!(err instanceof ApiError && err.status === 404)) {
-          setError('Kon Immich-status niet laden');
+          setError(t('settings.immich.loadFailed'));
         }
         setLoaded(true);
       });
@@ -2380,9 +2362,9 @@ function ImmichSection() {
       });
       setStatus(s);
       setApiKey('');
-      setMessage('Verbonden met Immich. API-key gevalideerd en versleuteld opgeslagen.');
+      setMessage(t('settings.immich.connected'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Opslaan mislukt');
+      setError(err instanceof Error ? err.message : t('settings.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -2392,22 +2374,18 @@ function ImmichSection() {
     await api('/immich/connection', { method: 'DELETE' });
     setStatus(null);
     setServerUrl('');
-    setMessage('Verbinding verwijderd.');
+    setMessage(t('settings.immich.disconnected'));
   }
 
   return (
     <section className="card settings-card">
       <h2>
-        Immich
+        {t('settings.immich.title')}
         <HelpTip>
-          Immich is een gratis, open-source fotobibliotheek die je zelf draait: je eigen Google
-          Photos, maar op je eigen server. Heb je die niet, dan hoef je hier niets in te vullen.
-          MarkMySteps gebruikt dan de galerij van je toestel.
+          {t('settings.immich.help.what')}
           <br />
           <br />
-          Koppel je 'm wel, dan blijven je foto's dáár staan. MarkMySteps bewaart alleen
-          verwijzingen: het asset-id, het tijdstip en de GPS uit de EXIF. Je API-sleutel gaat
-          versleuteld de database in.
+          {t('settings.immich.help.stored')}
           <br />
           <br />
           <a
@@ -2428,10 +2406,11 @@ function ImmichSection() {
         <div className="immich-status-slot">
           {status && (
             <div className="immich-status">
-              <span className="immich-status-ok">● Verbonden</span>
+              <span className="immich-status-ok">● {t('settings.immich.status.connected')}</span>
               <span className="muted">
-                {status.serverUrl} · key {status.apiKeyPreview}
-                {status.lastSyncAt && ` · laatste sync ${formatDate(status.lastSyncAt)}`}
+                {status.serverUrl} · {t('settings.immich.status.key', { preview: status.apiKeyPreview })}
+                {status.lastSyncAt &&
+                  ` · ${t('settings.immich.status.lastSync', { date: formatDate(status.lastSyncAt) })}`}
               </span>
               {status.lastSyncError && <span className="error-text">{status.lastSyncError}</span>}
             </div>
@@ -2447,7 +2426,7 @@ function ImmichSection() {
 
       <form onSubmit={save} className="settings-form">
         <div className="field">
-          <label htmlFor="im-url">Server-URL</label>
+          <label htmlFor="im-url">{t('settings.immich.url')}</label>
           <input
             id="im-url"
             type="url"
@@ -2459,37 +2438,32 @@ function ImmichSection() {
         </div>
         <div className="field">
           <label htmlFor="im-key">
-            API-key
+            {t('settings.immich.key.label')}
             <HelpTip>
-              Een sleutel die MarkMySteps namens jou bij Immich naar binnen laat, zodat je
-              wachtwoord hier niet terechtkomt. Eenmaal opgeslagen is hij niet meer uit te lezen,
-              alleen te vervangen. Trek je hem in Immich in, dan werkt de koppeling meteen niet
-              meer.
+              {t('settings.immich.key.help')}
             </HelpTip>
           </label>
           <input
             id="im-key"
             type="password"
             required
-            placeholder={status ? 'Nieuwe key invoeren om te vervangen' : 'Immich API-key'}
+            placeholder={status ? t('settings.immich.key.replace') : t('settings.immich.key.placeholder')}
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
           />
           <span className="muted">
             <span className="inline-path">
-              Immich <Icon name="chevron-right" size={12} /> Accountinstellingen{' '}
-              <Icon name="chevron-right" size={12} /> API-keys
+              Immich <Icon name="chevron-right" size={12} /> {t('settings.immich.key.pathAccount')}{' '}
+              <Icon name="chevron-right" size={12} /> {t('settings.immich.key.pathKeys')}
             </span>
-            . Wordt AES-256 versleuteld opgeslagen.
+            . {t('settings.immich.key.encrypted')}
           </span>
         </div>
         <div className="field">
           <label htmlFor="im-public">
-            Publieke URL (optioneel)
+            {t('settings.immich.public.label')}
             <HelpTip>
-              Alleen voor de knop &ldquo;Openen in Immich&rdquo;. Het adres hierboven mag een
-              intern adres op je eigen netwerk zijn; dit is het adres waarop jij Immich zelf
-              opent.
+              {t('settings.immich.public.help')}
             </HelpTip>
           </label>
           <input
@@ -2502,11 +2476,11 @@ function ImmichSection() {
         </div>
         <div className="settings-actions">
           <button className="btn btn-primary" disabled={busy}>
-            {busy ? 'Valideren…' : status ? 'Bijwerken' : 'Verbinden'}
+            {busy ? t('settings.immich.validating') : status ? t('settings.immich.update') : t('settings.immich.connect')}
           </button>
           {status && (
             <button type="button" className="btn btn-danger" onClick={disconnect}>
-              Verbinding verwijderen
+              {t('settings.immich.disconnect')}
             </button>
           )}
         </div>
@@ -2556,11 +2530,10 @@ function PendingRequests({
     <section className={`card settings-card admin-pending ${closing ? 'leaving' : ''}`}>
       <h2>
         <Icon name="people" size={18} />
-        {lastRows.current.length === 1 ? '1 aanvraag' : `${lastRows.current.length} aanvragen`}
+        {t('settings.accounts.requests', { count: lastRows.current.length })}
       </h2>
       <p className="muted">
-        Deze mensen hebben zich aangemeld op je server. Tot je ze toelaat kunnen ze niets: hun
-        sessie wordt overal geweigerd.
+        {t('settings.accounts.pending.hint')}
       </p>
       <ul className="admin-users">
         {lastRows.current.map((row) => (
@@ -2570,7 +2543,7 @@ function PendingRequests({
                 {row.displayName} <small className="muted">@{row.username}</small>
               </strong>
               <span className="muted">
-                {row.email} · aangemeld {formatDate(row.createdAt)}
+                {row.email} · {t('settings.accounts.pending.signedUp', { date: formatDate(row.createdAt) })}
               </span>
             </div>
             <div className="admin-user-actions">
@@ -2583,7 +2556,7 @@ function PendingRequests({
                   setBusy(null);
                 }}
               >
-                Afwijzen
+                {t('settings.accounts.pending.reject')}
               </button>
               <button
                 className="btn btn-primary"
@@ -2594,7 +2567,7 @@ function PendingRequests({
                   setBusy(null);
                 }}
               >
-                <Icon name="check" size={15} /> Toelaten
+                <Icon name="check" size={15} /> {t('settings.accounts.pending.approve')}
               </button>
             </div>
           </li>
@@ -2641,7 +2614,7 @@ function AccountsSection() {
         body: { email, username, displayName, tempPassword },
       });
       setMessage(
-        `Account @${username} aangemaakt. Geef het tijdelijke wachtwoord door: ${tempPassword}`,
+        t('settings.accounts.created', { username, password: tempPassword }),
       );
       setEmail('');
       setUsername('');
@@ -2649,7 +2622,7 @@ function AccountsSection() {
       setTempPassword('');
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Aanmaken mislukt');
+      setError(err instanceof Error ? err.message : t('settings.accounts.createFailed'));
     }
   }
 
@@ -2658,9 +2631,9 @@ function AccountsSection() {
     setMessage(null);
     if (!approve) {
       const ok = await confirmModal({
-        title: `Aanvraag van ${row.displayName} afwijzen?`,
-        body: 'Diegene kan niet inloggen. Het account blijft bestaan, zodat dezelfde naam en e-mail niet meteen opnieuw gebruikt kunnen worden.',
-        confirmLabel: 'Afwijzen',
+        title: t('settings.accounts.rejectConfirm.title', { name: row.displayName }),
+        body: t('settings.accounts.rejectConfirm.body'),
+        confirmLabel: t('settings.accounts.pending.reject'),
         danger: true,
       });
       if (!ok) return;
@@ -2669,52 +2642,52 @@ function AccountsSection() {
       await api(`/admin/users/${row.id}/${approve ? 'approve' : 'reject'}`, { method: 'POST' });
       setMessage(
         approve
-          ? `${row.displayName} is toegelaten. Diegene krijgt bericht zodra de app kijkt.`
-          : `Aanvraag van ${row.displayName} afgewezen.`,
+          ? t('settings.accounts.approved', { name: row.displayName })
+          : t('settings.accounts.rejected', { name: row.displayName }),
       );
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Mislukt');
+      setError(err instanceof Error ? err.message : t('settings.accounts.failed'));
     }
   }
 
   async function resetPassword(row: AdminUserRow) {
-    const temp = window.prompt(`Nieuw tijdelijk wachtwoord voor @${row.username} (min. 10 tekens):`);
+    const temp = window.prompt(t('settings.accounts.resetPrompt', { username: row.username }));
     if (!temp) return;
     try {
       await api(`/admin/users/${row.id}/reset-password`, {
         method: 'POST',
         body: { tempPassword: temp },
       });
-      setMessage(`Wachtwoord van @${row.username} gereset. Alle sessies uitgelogd.`);
+      setMessage(t('settings.accounts.resetDone', { username: row.username }));
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Reset mislukt');
+      setError(err instanceof Error ? err.message : t('settings.accounts.resetFailed'));
     }
   }
 
   async function resetTwoFactor(row: AdminUserRow) {
     const ok = await confirmModal({
-      title: '2FA resetten?',
-      body: `@${row.username} kan daarna weer inloggen met alleen een wachtwoord en wordt overal uitgelogd. Doe dit alleen als diegene telefoon én herstelcodes kwijt is, en weet zeker dat jij met die persoon te maken hebt.`,
-      confirmLabel: 'Resetten',
+      title: t('settings.accounts.twoFactorConfirm.title'),
+      body: t('settings.accounts.twoFactorConfirm.body', { username: row.username }),
+      confirmLabel: t('settings.accounts.twoFactorConfirm.confirm'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api(`/admin/users/${row.id}/reset-2fa`, { method: 'POST' });
-      setMessage(`2FA van @${row.username} is uitgezet. Alle sessies zijn uitgelogd.`);
+      setMessage(t('settings.accounts.twoFactorDone', { username: row.username }));
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Reset mislukt');
+      setError(err instanceof Error ? err.message : t('settings.accounts.resetFailed'));
     }
   }
 
   async function removeAccount(row: AdminUserRow) {
     const ok = await confirmModal({
-      title: 'Account verwijderen?',
-      body: `Account @${row.username} wordt verwijderd, samen met hun eigen reizen en routes.`,
-      confirmLabel: 'Verwijderen',
+      title: t('settings.accounts.removeConfirm.title'),
+      body: t('settings.accounts.removeConfirm.body', { username: row.username }),
+      confirmLabel: t('common.delete'),
       danger: true,
     });
     if (!ok) return;
@@ -2746,19 +2719,18 @@ function AccountsSection() {
       <PendingRequests rows={requests} onDecide={decideRequest} />
 
       <section className="card settings-card">
-        <h2>Account aanmaken</h2>
+        <h2>{t('settings.accounts.create.title')}</h2>
         <p className="muted">
-          Maak een account voor een reisgenoot met een tijdelijk wachtwoord. Bij de eerste login
-          kiezen ze zelf iets anders.
+          {t('settings.accounts.create.hint')}
         </p>
         <form onSubmit={createAccount} className="settings-form">
           <div className="admin-create-grid">
             <div className="field">
-              <label htmlFor="ac-name">Naam</label>
+              <label htmlFor="ac-name">{t('settings.profile.name.name')}</label>
               <input id="ac-name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
             </div>
             <div className="field">
-              <label htmlFor="ac-user">Gebruikersnaam</label>
+              <label htmlFor="ac-user">{t('settings.profile.name.username')}</label>
               <input
                 id="ac-user"
                 required
@@ -2768,11 +2740,11 @@ function AccountsSection() {
               />
             </div>
             <div className="field">
-              <label htmlFor="ac-mail">E-mail</label>
+              <label htmlFor="ac-mail">{t('settings.accounts.create.email')}</label>
               <input id="ac-mail" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="field">
-              <label htmlFor="ac-pass">Tijdelijk wachtwoord</label>
+              <label htmlFor="ac-pass">{t('settings.accounts.create.tempPassword')}</label>
               <div className="admin-pass-row">
                 <input
                   id="ac-pass"
@@ -2782,13 +2754,13 @@ function AccountsSection() {
                   onChange={(e) => setTempPassword(e.target.value)}
                 />
                 <button type="button" className="btn btn-ghost" onClick={generatePassword}>
-                  Genereer
+                  {t('settings.accounts.create.generate')}
                 </button>
               </div>
             </div>
           </div>
           <div className="settings-actions">
-            <button className="btn btn-primary">Account aanmaken</button>
+            <button className="btn btn-primary">{t('settings.accounts.create.title')}</button>
           </div>
         </form>
 
@@ -2798,21 +2770,18 @@ function AccountsSection() {
 
       <section className="card settings-card">
         <h2>
-          Accounts
+          {t('settings.nav.accounts')}
           <HelpTip>
-            Wie zich aanmeldt komt eerst in de wachtrij: pas als jij die aanvraag toelaat kan
-            diegene iets. Maak je hier zelf een account aan, dan is dat meteen goedgekeurd. Bij de
-            eerste login kiezen ze een eigen wachtwoord; overslaan kan, dan blijven ze een
-            herinnering zien.
+            {t('settings.accounts.list.help')}
           </HelpTip>
         </h2>
-        <p className="muted">Iedereen die op deze server een account heeft.</p>
+        <p className="muted">{t('settings.accounts.list.hint')}</p>
         <div className="admin-search">
           <Icon name="search" size={16} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Zoek op naam, gebruikersnaam of e-mail"
+            placeholder={t('settings.accounts.list.search')}
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
@@ -2822,7 +2791,7 @@ function AccountsSection() {
               type="button"
               className="admin-search-clear"
               onClick={() => setQuery('')}
-              aria-label="Wissen"
+              aria-label={t('settings.clear')}
             >
               <Icon name="close" size={14} />
             </button>
@@ -2845,29 +2814,29 @@ function AccountsSection() {
                   {row.displayName} <small className="muted">@{row.username}</small>
                 </strong>
                 <span className="muted">
-                  {row.email} · {row.tripCount} {row.tripCount === 1 ? 'reis' : 'reizen'}
-                  {row.role === 'ADMIN' && ' · admin'}
-                  {row.status === 'REJECTED' && ' · afgewezen'}
-                  {row.mustChangePassword && ' · tijdelijk wachtwoord'}
-                  {row.twoFactor && ' · 2FA'}
+                  {row.email} · {t('common.trips', { count: row.tripCount })}
+                  {row.role === 'ADMIN' && ` · ${t('settings.accounts.row.admin')}`}
+                  {row.status === 'REJECTED' && ` · ${t('settings.accounts.row.rejected')}`}
+                  {row.mustChangePassword && ` · ${t('settings.accounts.row.tempPassword')}`}
+                  {row.twoFactor && ` · ${t('settings.accounts.row.twoFactor')}`}
                 </span>
               </div>
               {row.id !== me?.id && (
                 <div className="admin-user-actions">
                   <button className="btn btn-ghost" onClick={() => void resetPassword(row)}>
-                    Reset
+                    {t('settings.accounts.row.reset')}
                   </button>
                   {row.twoFactor && (
                     <button className="btn btn-ghost" onClick={() => void resetTwoFactor(row)}>
-                      Reset 2FA
+                      {t('settings.accounts.row.resetTwoFactor')}
                     </button>
                   )}
                   <button className="btn btn-ghost" onClick={() => void toggleRole(row)}>
-                    {row.role === 'ADMIN' ? 'Demoveer' : 'Maak admin'}
+                    {row.role === 'ADMIN' ? t('settings.accounts.row.demote') : t('settings.accounts.row.makeAdmin')}
                   </button>
                   <button
                     className="btn btn-danger btn-icon-sm"
-                    aria-label="Account verwijderen"
+                    aria-label={t('settings.accounts.row.delete')}
                     onClick={() => void removeAccount(row)}
                   >
                     <Icon name="trash" size={16} />
@@ -2878,7 +2847,7 @@ function AccountsSection() {
           ))}
         </ul>
         {loaded && shown.length === 0 && (
-          <p className="muted">Geen account gevonden met die naam.</p>
+          <p className="muted">{t('settings.accounts.list.empty')}</p>
         )}
       </section>
 
@@ -2905,7 +2874,7 @@ function PolarstepsSection() {
         await api<ImportedTripSummary[]>('/import/polarsteps', { method: 'POST', formData }),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Import mislukt');
+      setError(err instanceof Error ? err.message : t('settings.polarsteps.failed'));
     } finally {
       setBusy(false);
     }
@@ -2913,15 +2882,18 @@ function PolarstepsSection() {
 
   return (
     <section className="card settings-card">
-      <h2>Polarsteps importeren</h2>
+      <h2>{t('settings.polarsteps.title')}</h2>
       <p className="muted">
-        Vraag je export op via{' '}
-        <span className="inline-path">
-          polarsteps.com <Icon name="chevron-right" size={12} /> Settings{' '}
-          <Icon name="chevron-right" size={12} /> Privacy <Icon name="chevron-right" size={12} />
-          “Download my data”
-        </span>{' '}
-        en upload de zip hier. Elke reis in de export wordt aangemaakt met de volledige GPS-route.
+        {tr('settings.polarsteps.hint', {
+          // Polarsteps itself is in English, so its menu path is the same in every language.
+          path: (site) => (
+            <span className="inline-path">
+              {site} <Icon name="chevron-right" size={12} /> Settings{' '}
+              <Icon name="chevron-right" size={12} /> Privacy <Icon name="chevron-right" size={12} />
+              “Download my data”
+            </span>
+          ),
+        })}
       </p>
 
       <form onSubmit={upload} className="settings-form">
@@ -2935,11 +2907,11 @@ function PolarstepsSection() {
           <span className="file-drop-icon">
             <Icon name="archive" size={26} />
           </span>
-          <span>{file ? file.name : 'Kies je Polarsteps-zip'}</span>
+          <span>{file ? file.name : t('settings.polarsteps.pick')}</span>
         </label>
         <div className="settings-actions">
           <button className="btn btn-primary" disabled={!file || busy}>
-            {busy ? 'Importeren…' : 'Importeren'}
+            {busy ? t('settings.polarsteps.importing') : t('settings.polarsteps.import')}
           </button>
         </div>
       </form>
@@ -2948,8 +2920,17 @@ function PolarstepsSection() {
         <ul className="import-result">
           {result.map((trip) => (
             <li key={trip.tripId}>
-              <strong>{trip.title}</strong> · {formatDate(trip.startDate)} t/m{' '}
-              {formatDate(trip.endDate)}, {trip.pointsImported.toLocaleString('nl-NL')} routepunten
+              {tr(
+                'settings.polarsteps.result',
+                { b: (s) => <strong>{s}</strong> },
+                {
+                  count: trip.pointsImported,
+                  title: trip.title,
+                  start: formatDate(trip.startDate),
+                  end: formatDate(trip.endDate),
+                  points: trip.pointsImported.toLocaleString(intlLocale()),
+                },
+              )}
             </li>
           ))}
         </ul>

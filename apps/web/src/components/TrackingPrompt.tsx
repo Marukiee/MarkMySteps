@@ -5,6 +5,7 @@ import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { isNative } from '../tracking/tracker';
 import { onTrackerChange, startTracking, TrackerState } from '../tracking/tracker';
+import { t } from '../i18n';
 import './tracking-prompt.css';
 
 const DISMISS_KEY = 'mms.trackprompt.dismissed';
@@ -113,7 +114,7 @@ export function TrackingPrompt() {
         <strong>{trip.title}</strong> is bezig. Route bijhouden?
       </div>
       <div className="track-prompt-actions">
-        <button onClick={dismiss}>Later</button>
+        <button onClick={dismiss}>{t('ui.trackingPrompt.later')}</button>
         <button
           className="primary"
           onClick={() => {
@@ -123,7 +124,7 @@ export function TrackingPrompt() {
             void startTracking(trip.id);
           }}
         >
-          Start tracking
+          {t('ui.trackingPrompt.start')}
         </button>
       </div>
     </div>
