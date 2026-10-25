@@ -74,6 +74,7 @@
   "settings.local.sheet.works": "Werkt gewoon",
   "settings.local.sheet.needs": "Heeft een server nodig",
   "settings.local.sheet.start": "Zonder server beginnen",
+  "settings.local.works.tracking.title": "Route-tracking",
   "settings.local.works.tracking": "Je locatie wordt op je toestel bewaard, ook als je geen internet hebt. De tracker draait volledig op je telefoon.",
   "settings.local.works.plan.title": "Reizen plannen",
   "settings.local.works.plan": "Stops, nachten, vervoer, vluchten en dagtrips. Alles rekent gewoon door.",

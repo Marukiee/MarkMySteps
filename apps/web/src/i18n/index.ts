@@ -51,10 +51,13 @@ function readSetting(): LangSetting {
     if (stored === 'system' || isLang(stored)) return stored;
     // Everyone who used the app before it had a second language read it in
     // Dutch, whatever their phone is set to. They keep Dutch until they
-    // choose otherwise; a fresh install follows the phone.
-    if (stored === null && hasUsedAppBefore()) {
-      localStorage.setItem(LANG_KEY, 'nl');
-      return 'nl';
+    // choose otherwise; a fresh install follows the phone. The answer is
+    // saved at once: by the next launch a fresh install has keys of its own
+    // and would otherwise look like one from before.
+    if (stored === null) {
+      const first: LangSetting = hasUsedAppBefore() ? 'nl' : 'system';
+      localStorage.setItem(LANG_KEY, first);
+      return first;
     }
   } catch {
     /* storage blocked: follow the phone */

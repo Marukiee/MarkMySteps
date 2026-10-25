@@ -479,10 +479,11 @@ export function PlanPage() {
               >
                 <CityThumb name={stop.name} index={index} countryCode={stop.countryCode} />
                 <div className="stop-info">
-                  <strong>{stop.name}</strong>
+                  <strong>{legTitle(stop.name)}</strong>
                   <span className="muted">
-                    {formatDate(stop.arrivalDate)}
-                    {stop.nights > 0 && ` t/m ${formatDate(stop.departureDate)}`}
+                    {stop.nights > 0
+                      ? t('common.dateRange', { from: formatDate(stop.arrivalDate), to: formatDate(stop.departureDate) })
+                      : formatDate(stop.arrivalDate)}
                     {stop.latitude !== null && stop.longitude !== null && (
                       <WeatherBadge
                         lat={stop.latitude}

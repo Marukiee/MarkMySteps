@@ -707,7 +707,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
           <h1>{trip?.title ?? ' '}</h1>
           {trip && (
             <p className="share-headcard-dates">
-              {formatDay(trip.startDate)} t/m {formatDay(trip.endDate)}
+              {t('common.dateRange', { from: formatDay(trip.startDate), to: formatDay(trip.endDate) })}
             </p>
           )}
           <TripFacts

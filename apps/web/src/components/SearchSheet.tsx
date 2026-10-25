@@ -9,6 +9,7 @@ import { tr } from '../i18n/rich';
 import { AuthImage } from './AuthImage';
 import { Flag } from './Flag';
 import { Icon } from './Icon';
+import { legTitle } from '../lib/legs';
 import './searchsheet.css';
 
 export interface SearchFacets {
@@ -304,7 +305,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
                 {stop.countryCode ? <Flag code={stop.countryCode} size={16} /> : <Icon name="pin" size={16} />}
               </span>
               <span className="search-row-text">
-                <strong>{stop.name}</strong>
+                <strong>{legTitle(stop.name)}</strong>
                 <small>{stop.tripTitle}</small>
               </span>
             </button>

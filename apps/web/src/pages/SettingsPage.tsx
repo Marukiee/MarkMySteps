@@ -206,10 +206,9 @@ function LanguageCard() {
   return (
     <section className="card settings-card">
       <h2>{t('app.language.title')}</h2>
-      <div
-        className="theme-choice pill-switch"
-        style={{ '--n': options.length, '--i': Math.max(0, options.findIndex((o) => o.id === current)) } as CSSProperties}
-      >
+      {/* The wrapping kind, not the sliding pill: a language's own name is as
+          long as it is, and three equal columns of them do not fit on a phone. */}
+      <div className="theme-choice theme-choice-wrap">
         {options.map((o) => (
           <button
             key={o.id}

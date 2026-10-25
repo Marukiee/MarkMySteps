@@ -146,7 +146,7 @@ export function InvitePopup() {
               )}
               <span>
                 {invite.title}
-                <small>door {invite.ownerName}</small>
+                <small>{t('social.invite.by', { name: invite.ownerName })}</small>
               </span>
             </li>
           ))}

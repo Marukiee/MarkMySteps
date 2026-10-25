@@ -170,7 +170,7 @@ export function StopSuggestions({
   );
 }
 
-/** "12 – 14 aug", or one date when the stay began and ended on the same day. */
+/** "12 t/m 14 aug", or one date when the stay began and ended on the same day. */
 function dateRange(from: string, to: string): string {
   const start = new Date(from);
   const end = new Date(to);
@@ -181,7 +181,7 @@ function dateRange(from: string, to: string): string {
     });
   const sameMonth = start.getMonth() === end.getMonth();
   if (start.toDateString() === end.toDateString()) return day(start, true);
-  return `${day(start, !sameMonth)} t/m ${day(end, true)}`;
+  return t('common.dateRange', { from: day(start, !sameMonth), to: day(end, true) });
 }
 
 function placeLabel(stay: StaySuggestion): string {

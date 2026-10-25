@@ -829,7 +829,7 @@ export function TripPlanner({
                 <div className="stop-main">
                   <CityThumb name={stop.name} index={index} countryCode={stop.countryCode} />
                   <div className="stop-info">
-                    <strong>{stop.name}</strong>
+                    <strong>{legTitle(stop.name)}</strong>
                     {/* One line: shortening the range is what keeps the weather
                         beside the dates, so the separator dot is never left
                         dangling at the start of a wrapped line. */}
@@ -963,7 +963,7 @@ export function TripPlanner({
                 lat: effectivePick.lat.toFixed(4),
                 lng: effectivePick.lng.toFixed(4),
               })
-            : t('planner.add.locationHint')}
+            : t('planner.add.locationHintTap')}
         </span>
         <button className="btn btn-primary">{t('planner.add.submit')}</button>
       </form>

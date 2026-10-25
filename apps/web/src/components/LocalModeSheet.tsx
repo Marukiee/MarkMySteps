@@ -16,7 +16,7 @@ interface Feature {
 const WORKS: Feature[] = [
   {
     icon: 'pin',
-    title: 'Route-tracking',
+    title: t('settings.local.works.tracking.title'),
     body: t('settings.local.works.tracking'),
   },
   {
@@ -45,7 +45,7 @@ const NEEDS_SERVER: Feature[] = [
   },
   {
     icon: 'share',
-    title: 'Deel-links',
+    title: t('settings.local.needs.shareLinks.title'),
     body: t('settings.local.needs.shareLinks'),
   },
   {

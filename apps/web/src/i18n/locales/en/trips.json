@@ -56,7 +56,7 @@
   "trips.members.removeTitle": "Remove travel companion?",
   "trips.members.removeBody": "{name} will be removed from the trip.",
   "trips.members.addFailed": "Couldn't add them",
-  "trips.members.add.placeholder": "Search by name or @username",
+  "trips.members.add.placeholder": "Name or @username",
   "trips.members.add.clear": "Clear",
   "trips.members.add.unpick": "Don't add {name}",
   "trips.members.add.searching": "Searching…",

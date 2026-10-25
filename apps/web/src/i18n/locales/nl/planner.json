@@ -19,6 +19,7 @@
   "planner.add.nights": "Nachten",
   "planner.add.location": "Locatie: {lat}, {lng}",
   "planner.add.locationHint": "Klik op de kaart voor de locatie (optioneel)",
+  "planner.add.locationHintTap": "Tik op de kaart voor de locatie (optioneel)",
   "planner.add.submit": "Stop toevoegen",
   "planner.mode.ground": "Auto",
   "planner.mode.train": "Trein",
