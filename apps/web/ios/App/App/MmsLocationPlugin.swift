@@ -37,7 +37,7 @@ public class MmsLocationPlugin: CAPPlugin, CAPBridgedPlugin, MmsTrackerSink {
         DispatchQueue.main.async {
             self.tracker.askForeground { granted in
                 guard granted else {
-                    call.reject("Locatietoestemming geweigerd")
+                    call.reject(AppLang.text("location.denied"))
                     return
                 }
                 // "Always" is a second, separate question. Saying no to it only
@@ -68,7 +68,7 @@ public class MmsLocationPlugin: CAPPlugin, CAPBridgedPlugin, MmsTrackerSink {
             switch type {
             case "background":
                 guard self.tracker.hasForeground else {
-                    call.reject("Vraag eerst de gewone locatietoestemming")
+                    call.reject(AppLang.text("location.askFirst"))
                     return
                 }
                 self.tracker.askAlways { self.resolvePermissions(call) }
@@ -95,14 +95,14 @@ public class MmsLocationPlugin: CAPPlugin, CAPBridgedPlugin, MmsTrackerSink {
     @objc func currentPosition(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             guard self.tracker.hasForeground else {
-                call.reject("Geen locatietoestemming")
+                call.reject(AppLang.text("location.none"))
                 return
             }
             self.tracker.oneFix { location in
                 if let location {
                     call.resolve(MmsTracker.toResult(location))
                 } else {
-                    call.reject("Geen positie gevonden")
+                    call.reject(AppLang.text("location.noFix"))
                 }
             }
         }
@@ -248,7 +248,7 @@ final class MmsTracker: NSObject, CLLocationManagerDelegate {
         authWaiters = []
         waiters.forEach { $0() }
         if UserDefaults.standard.bool(forKey: Self.runningKey) && !hasForeground {
-            sink?.trackerStatus("permission", "Locatietoestemming ontbreekt")
+            sink?.trackerStatus("permission", AppLang.text("location.missing"))
         }
     }
 
@@ -264,7 +264,7 @@ final class MmsTracker: NSObject, CLLocationManagerDelegate {
         defaults.set(true, forKey: Self.runningKey)
         defaults.set(seconds, forKey: Self.intervalKey)
         if unchanged {
-            sink?.trackerStatus("running", "Eén meting per \(Int(seconds / 60)) min")
+            sink?.trackerStatus("running", AppLang.text("location.running", Int(seconds / 60)))
             return
         }
         active = true
@@ -273,7 +273,7 @@ final class MmsTracker: NSObject, CLLocationManagerDelegate {
         idle()
         manager.startUpdatingLocation()
         manager.startMonitoringSignificantLocationChanges()
-        sink?.trackerStatus("running", "Eén meting per \(Int(seconds / 60)) min")
+        sink?.trackerStatus("running", AppLang.text("location.running", Int(seconds / 60)))
         tick()
     }
 
@@ -328,7 +328,7 @@ final class MmsTracker: NSObject, CLLocationManagerDelegate {
         if let fix = windowBest {
             accept(fix)
         } else {
-            sink?.trackerStatus("nofix", "Geen positie binnen \(Int(Self.maxWindow)) s")
+            sink?.trackerStatus("nofix", AppLang.text("location.noFixWithin", Int(Self.maxWindow)))
         }
         let next = Timer(timeInterval: currentInterval, repeats: false) { [weak self] _ in self?.tick() }
         RunLoop.main.add(next, forMode: .common)
@@ -362,7 +362,7 @@ final class MmsTracker: NSObject, CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         if (error as? CLError)?.code == .denied {
-            sink?.trackerStatus("permission", "Locatietoestemming ontbreekt")
+            sink?.trackerStatus("permission", AppLang.text("location.missing"))
         }
         if !fixWaiters.isEmpty && (error as? CLError)?.code != .locationUnknown {
             finishOneFix(nil)

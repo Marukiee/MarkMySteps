@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="channel_tracking">Route-tracking</string>
+    <string name="channel_tracking_desc">Toont dat je route wordt bijgehouden</string>
+    <string name="channel_task">Bezig</string>
+    <string name="channel_task_desc">Voortgang van iets dat de app aan het maken is</string>
+    <string name="channel_account">Account</string>
+    <string name="channel_account_desc">Bericht over je account</string>
+    <string name="channel_news">Meldingen</string>
+    <string name="channel_news_desc">Verzoeken en uitnodigingen van reisgenoten</string>
+    <string name="tracking_pause">Pauzeren</string>
+    <string name="tracking_resume">Hervatten</string>
+    <string name="tracking_paused">Gepauzeerd</string>
+    <string name="tracking_last_check">Laatste check %1$s</string>
+    <string name="tracking_locating">Positie bepalen…</string>
+    <string name="tracking_no_fix_yet">Nog geen positie</string>
+    <string name="tracking_next">" · volgende %1$s"</string>
+    <string name="tracking_every">Elke %1$s</string>
+    <string name="tracking_moving">" (onderweg)"</string>
+    <string name="tracking_set_to">" van %1$s"</string>
+    <string name="tracking_one_minute">minuut</string>
+    <string name="tracking_minutes">%1$d min</string>
+    <string name="error_no_location_permission">Geen locatietoestemming</string>
+    <string name="error_location_permission_missing">Locatietoestemming ontbreekt</string>
+    <string name="error_location_denied">Locatietoestemming geweigerd</string>
+    <string name="error_no_provider">Geen locatieprovider beschikbaar</string>
+    <string name="error_no_fix">Geen positie gevonden</string>
+    <string name="error_ask_location_first">Vraag eerst de gewone locatietoestemming</string>
+    <string name="error_tracking_start">Tracking-service kon niet starten: %1$s</string>
+    <string name="error_read_file">Kon het bestand niet lezen</string>
+    <string name="error_write_downloads">Kon niet naar Downloads schrijven</string>
+    <string name="error_save_failed">Opslaan mislukt: %1$s</string>
+    <string name="share_backup">Back-up delen</string>
+    <string name="error_no_library_access">Geen toegang tot je fotobibliotheek</string>
+    <string name="error_read_library">Kon de fotobibliotheek niet lezen</string>
+    <string name="error_read_library_detail">Kon de fotobibliotheek niet lezen: %1$s</string>
+    <string name="error_open_settings">Kon het instellingenscherm niet openen</string>
+    <string name="error_no_download_url">Geen download-adres</string>
+    <string name="error_download_status">Download mislukt (%1$s)</string>
+    <string name="error_download">Download mislukt</string>
+    <string name="error_no_file">Geen bestand</string>
+    <string name="error_download_gone">Het gedownloade bestand is weg</string>
+    <string name="error_no_installer">Geen installatieprogramma op dit toestel</string>
+    <string name="error_nothing_to_save">Niets om op te slaan</string>
+    <string name="error_cancelled">Geannuleerd</string>
+</resources>

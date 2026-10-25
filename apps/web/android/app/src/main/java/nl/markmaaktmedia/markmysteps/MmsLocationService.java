@@ -346,7 +346,7 @@ public class MmsLocationService extends Service {
                 any = true;
             } catch (SecurityException e) {
                 stopListening(holder[0]);
-                notifyStatus("permission", "Locatietoestemming ontbreekt");
+                notifyStatus("permission", AppLang.text(this, R.string.error_location_permission_missing));
                 finishTick(null);
                 return;
             } catch (IllegalArgumentException e) {
@@ -356,7 +356,7 @@ public class MmsLocationService extends Service {
 
         if (!any) {
             activeListener = null;
-            notifyStatus("error", "Geen locatieprovider beschikbaar");
+            notifyStatus("error", AppLang.text(this, R.string.error_no_provider));
             finishTick(null);
             return;
         }
@@ -408,7 +408,7 @@ public class MmsLocationService extends Service {
         if (location != null) {
             recordFix(location);
         } else {
-            notifyStatus("nofix", "Geen positie gevonden");
+            notifyStatus("nofix", AppLang.text(this, R.string.error_no_fix));
         }
 
         scheduleNext();
@@ -590,8 +590,8 @@ public class MmsLocationService extends Service {
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager == null || manager.getNotificationChannel(CHANNEL_ID) != null) return;
         NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID, "Route-tracking", NotificationManager.IMPORTANCE_LOW);
-        channel.setDescription("Toont dat je route wordt bijgehouden");
+                CHANNEL_ID, AppLang.text(this, R.string.channel_tracking), NotificationManager.IMPORTANCE_LOW);
+        channel.setDescription(AppLang.text(this, R.string.channel_tracking_desc));
         channel.setShowBadge(false);
         manager.createNotificationChannel(channel);
     }
@@ -618,36 +618,38 @@ public class MmsLocationService extends Service {
                 .setSilent(true)
                 .setShowWhen(false)
                 .setContentIntent(pending)
-                .addAction(0, paused ? "Hervatten" : "Pauzeren", togglePending)
+                .addAction(0, AppLang.text(this, paused ? R.string.tracking_resume : R.string.tracking_pause), togglePending)
                 .build();
     }
 
     /** What the notification tells you: when the last check was, and when the
      *  next one is due. Without it there is no way to see the tracker is alive. */
     private String statusLine() {
-        if (paused) return "Gepauzeerd";
+        if (paused) return AppLang.text(this, R.string.tracking_paused);
         StringBuilder out = new StringBuilder();
         if (lastFix != null) {
-            out.append("Laatste check ").append(clock(lastFixAt));
+            out.append(AppLang.text(this, R.string.tracking_last_check, clock(lastFixAt)));
             if (lastFix.hasAccuracy()) {
                 out.append(" · ±").append(Math.round(lastFix.getAccuracy())).append(" m");
             }
         } else {
-            out.append(fixInFlight ? "Positie bepalen…" : "Nog geen positie");
+            out.append(AppLang.text(this, fixInFlight ? R.string.tracking_locating : R.string.tracking_no_fix_yet));
         }
-        if (nextTickAt > 0) out.append(" · volgende ").append(clock(nextTickAt));
+        if (nextTickAt > 0) out.append(AppLang.text(this, R.string.tracking_next, clock(nextTickAt)));
         // Spelling out the cadence makes a wrong interval visible immediately
         // instead of having to work it out from two clock times.
-        out.append("\nElke ").append(minutes(currentIntervalMs()));
-        if (moving) out.append(" (onderweg)");
-        else if (currentIntervalMs() != intervalMs) out.append(" van ").append(minutes(intervalMs));
+        out.append("\n").append(AppLang.text(this, R.string.tracking_every, minutes(currentIntervalMs())));
+        if (moving) out.append(AppLang.text(this, R.string.tracking_moving));
+        else if (currentIntervalMs() != intervalMs) {
+            out.append(AppLang.text(this, R.string.tracking_set_to, minutes(intervalMs)));
+        }
         return out.toString();
     }
 
-    private static String minutes(long ms) {
+    private String minutes(long ms) {
         long min = Math.round(ms / 60_000.0);
-        if (min <= 1) return "minuut";
-        return min + " min";
+        if (min <= 1) return AppLang.text(this, R.string.tracking_one_minute);
+        return AppLang.text(this, R.string.tracking_minutes, min);
     }
 
     private static String clock(long at) {

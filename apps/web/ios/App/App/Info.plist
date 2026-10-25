@@ -9,7 +9,7 @@
 	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>nl</string>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>MarkMySteps</string>
 	<key>CFBundleExecutable</key>

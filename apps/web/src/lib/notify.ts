@@ -1,5 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { api, getServerBase } from '../api/client';
+import { getLang } from '../i18n';
 
 /**
  * A one-off notification from the app itself (MmsNotifyPlugin).
@@ -29,6 +30,8 @@ interface MmsNotifyPlugin {
   requestPermission(): Promise<{ granted: boolean }>;
   /** Where a tapped notification wants the app to go, once. */
   takePendingPath(): Promise<{ path: string | null }>;
+  /** The language the app speaks, for the texts the native side writes itself. */
+  setLanguage(options: { lang: string }): Promise<void>;
 }
 
 const MmsNotify = registerPlugin<MmsNotifyPlugin>('MmsNotify');
@@ -92,7 +95,11 @@ export async function disableBackgroundNotify(): Promise<void> {
  * runs on every start and is cheap when nothing has changed.
  */
 export async function resumeBackgroundNotify(): Promise<void> {
-  if (!Capacitor.isNativePlatform() || !backgroundNotifyOn()) return;
+  if (!Capacitor.isNativePlatform()) return;
+  // Settings may speak another language than the phone. The tracking
+  // notification, the channels and the background check follow the app.
+  await MmsNotify.setLanguage({ lang: getLang() }).catch(() => undefined);
+  if (!backgroundNotifyOn()) return;
   const token = localStorage.getItem(TOKEN_KEY);
   if (!token) {
     await enableBackgroundNotify();

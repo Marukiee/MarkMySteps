@@ -41,14 +41,14 @@ public class MmsExportPlugin extends Plugin {
         String mimeType = call.getString("mimeType", "application/json");
         String base64 = call.getString("base64");
         if (base64 == null) {
-            call.reject("Niets om op te slaan");
+            call.reject(AppLang.text(getContext(), R.string.error_nothing_to_save));
             return;
         }
         byte[] bytes;
         try {
             bytes = Base64.decode(base64, Base64.DEFAULT);
         } catch (IllegalArgumentException e) {
-            call.reject("Kon het bestand niet lezen");
+            call.reject(AppLang.text(getContext(), R.string.error_read_file));
             return;
         }
 
@@ -64,12 +64,12 @@ public class MmsExportPlugin extends Plugin {
                         .getContentResolver()
                         .insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
                 if (uri == null) {
-                    call.reject("Kon niet naar Downloads schrijven");
+                    call.reject(AppLang.text(getContext(), R.string.error_write_downloads));
                     return;
                 }
                 try (OutputStream out = getContext().getContentResolver().openOutputStream(uri)) {
                     if (out == null) {
-                        call.reject("Kon niet naar Downloads schrijven");
+                        call.reject(AppLang.text(getContext(), R.string.error_write_downloads));
                         return;
                     }
                     out.write(bytes);
@@ -83,7 +83,7 @@ public class MmsExportPlugin extends Plugin {
                 File dir = Environment.getExternalStoragePublicDirectory(
                         Environment.DIRECTORY_DOWNLOADS);
                 if (!dir.exists() && !dir.mkdirs()) {
-                    call.reject("Kon niet naar Downloads schrijven");
+                    call.reject(AppLang.text(getContext(), R.string.error_write_downloads));
                     return;
                 }
                 File file = new File(dir, filename);
@@ -100,7 +100,7 @@ public class MmsExportPlugin extends Plugin {
                 send.setType(mimeType);
                 send.putExtra(Intent.EXTRA_STREAM, uri);
                 send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                Intent chooser = Intent.createChooser(send, "Back-up delen");
+                Intent chooser = Intent.createChooser(send, AppLang.text(getContext(), R.string.share_backup));
                 chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 getContext().startActivity(chooser);
             }
@@ -110,7 +110,7 @@ public class MmsExportPlugin extends Plugin {
             result.put("uri", uri.toString());
             call.resolve(result);
         } catch (Exception e) {
-            call.reject("Opslaan mislukt: " + e.getMessage());
+            call.reject(AppLang.text(getContext(), R.string.error_save_failed, e.getMessage()));
         }
     }
 }

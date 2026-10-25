@@ -22,7 +22,7 @@ public class MmsExportPlugin: CAPPlugin, CAPBridgedPlugin {
         guard let filename = call.getString("filename"),
               let base64 = call.getString("base64"),
               let data = Data(base64Encoded: base64) else {
-            call.reject("Ongeldige export")
+            call.reject(AppLang.text("export.invalid"))
             return
         }
         let share = call.getBool("share") ?? true
@@ -33,11 +33,11 @@ public class MmsExportPlugin: CAPPlugin, CAPBridgedPlugin {
         do {
             try data.write(to: url, options: .atomic)
         } catch {
-            call.reject("Opslaan mislukt: \(error.localizedDescription)")
+            call.reject(AppLang.text("export.failed", error.localizedDescription))
             return
         }
         let result: [String: Any] = [
-            "path": "Bestanden › Op mijn iPhone › MarkMySteps › \(safeName)",
+            "path": AppLang.text("export.path", safeName),
             "uri": url.absoluteString,
         ]
         guard share else {

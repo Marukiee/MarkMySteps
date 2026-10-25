@@ -37,7 +37,7 @@ public class MmsGalleryPlugin: CAPPlugin, CAPBridgedPlugin {
     /** Every photo and video taken between two instants (milliseconds). */
     @objc func query(_ call: CAPPluginCall) {
         guard hasLibrary() else {
-            call.reject("Geen toegang tot je fotobibliotheek")
+            call.reject(AppLang.text("gallery.noAccess"))
             return
         }
         let from = Date(timeIntervalSince1970: (call.getDouble("fromMs") ?? 0) / 1000)

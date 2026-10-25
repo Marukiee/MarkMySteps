@@ -4,4 +4,50 @@
     <string name="title_activity_main">MarkMySteps</string>
     <string name="package_name">nl.markmaaktmedia.markmysteps</string>
     <string name="custom_url_scheme">nl.markmaaktmedia.markmysteps</string>
+
+    <!-- Texts the native side writes itself. English here, Dutch in values-nl.
+         AppLang picks the language the app speaks. -->
+    <string name="channel_tracking">Route tracking</string>
+    <string name="channel_tracking_desc">Shows that your route is being recorded</string>
+    <string name="channel_task">In progress</string>
+    <string name="channel_task_desc">Progress of something the app is making</string>
+    <string name="channel_account">Account</string>
+    <string name="channel_account_desc">Messages about your account</string>
+    <string name="channel_news">Notifications</string>
+    <string name="channel_news_desc">Requests and invitations from travel companions</string>
+    <string name="tracking_pause">Pause</string>
+    <string name="tracking_resume">Resume</string>
+    <string name="tracking_paused">Paused</string>
+    <string name="tracking_last_check">Last check %1$s</string>
+    <string name="tracking_locating">Finding position…</string>
+    <string name="tracking_no_fix_yet">No position yet</string>
+    <string name="tracking_next">" · next %1$s"</string>
+    <string name="tracking_every">Every %1$s</string>
+    <string name="tracking_moving">" (on the move)"</string>
+    <string name="tracking_set_to">" (set to %1$s)"</string>
+    <string name="tracking_one_minute">minute</string>
+    <string name="tracking_minutes">%1$d min</string>
+    <string name="error_no_location_permission">No location permission</string>
+    <string name="error_location_permission_missing">Location permission is missing</string>
+    <string name="error_location_denied">Location permission denied</string>
+    <string name="error_no_provider">No location provider available</string>
+    <string name="error_no_fix">No position found</string>
+    <string name="error_ask_location_first">Ask for the normal location permission first</string>
+    <string name="error_tracking_start">The tracking service couldn\'t start: %1$s</string>
+    <string name="error_read_file">Couldn\'t read the file</string>
+    <string name="error_write_downloads">Couldn\'t write to Downloads</string>
+    <string name="error_save_failed">Saving failed: %1$s</string>
+    <string name="share_backup">Share backup</string>
+    <string name="error_no_library_access">No access to your photo library</string>
+    <string name="error_read_library">Couldn\'t read the photo library</string>
+    <string name="error_read_library_detail">Couldn\'t read the photo library: %1$s</string>
+    <string name="error_open_settings">Couldn\'t open the settings screen</string>
+    <string name="error_no_download_url">No download address</string>
+    <string name="error_download_status">Download failed (%1$s)</string>
+    <string name="error_download">Download failed</string>
+    <string name="error_no_file">No file</string>
+    <string name="error_download_gone">The downloaded file is gone</string>
+    <string name="error_no_installer">No installer on this device</string>
+    <string name="error_nothing_to_save">Nothing to save</string>
+    <string name="error_cancelled">Cancelled</string>
 </resources>

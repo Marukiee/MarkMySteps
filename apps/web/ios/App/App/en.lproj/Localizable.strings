@@ -1,0 +1,12 @@
+/* Texts the native side writes itself. AppLang picks the app's language. */
+"export.invalid" = "Invalid export";
+"export.failed" = "Saving failed: %@";
+"export.path" = "Files › On My iPhone › MarkMySteps › %@";
+"gallery.noAccess" = "No access to your photo library";
+"location.denied" = "Location permission denied";
+"location.askFirst" = "Ask for the normal location permission first";
+"location.none" = "No location permission";
+"location.noFix" = "No position found";
+"location.missing" = "Location permission is missing";
+"location.running" = "One reading every %d min";
+"location.noFixWithin" = "No position within %d s";
