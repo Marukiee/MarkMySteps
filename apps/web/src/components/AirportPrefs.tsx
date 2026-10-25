@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { airportByCode, searchAirports } from '../lib/airports';
 import { getDefaultAirports, setDefaultAirports } from '../lib/prefs';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './airportprefs.css';
 
 /**
@@ -45,7 +46,9 @@ export function AirportPrefs({ onChange }: { onChange?: (codes: string[]) => voi
                 type="button"
                 className="airport-chip-main"
                 aria-label={
-                  primary ? `${c} wordt vooraf ingevuld` : `${c} vooraf laten invullen`
+                  primary
+                    ? t('settings.airports.primary', { code: c })
+                    : t('settings.airports.makePrimary', { code: c })
                 }
                 aria-pressed={primary}
                 onClick={() => !primary && update([c, ...codes.filter((x) => x !== c)])}
@@ -56,7 +59,7 @@ export function AirportPrefs({ onChange }: { onChange?: (codes: string[]) => voi
               <button
                 type="button"
                 className="airport-chip-remove"
-                aria-label={`${c} verwijderen`}
+                aria-label={t('settings.airports.remove', { code: c })}
                 onClick={() => update(codes.filter((x) => x !== c))}
               >
                 <Icon name="close" size={13} />
@@ -68,7 +71,7 @@ export function AirportPrefs({ onChange }: { onChange?: (codes: string[]) => voi
       <div className="airport-pref-search">
         <input
           value={query}
-          placeholder="Vliegveld toevoegen (bv. Eindhoven)"
+          placeholder={t('settings.airports.add')}
           onChange={(e) => setQuery(e.target.value)}
         />
         {results.length > 0 && (

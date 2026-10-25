@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { t } from '../i18n';
 
 export interface LastSeen {
   /** Compact label: "nu", "40 s", "4 min", "3 uur", "2 d". */
@@ -10,13 +11,13 @@ export interface LastSeen {
 /** How long ago a position was recorded, in as few characters as possible. */
 export function lastSeenLabel(iso: string, now: number = Date.now()): LastSeen {
   const secs = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
-  if (secs < 10) return { text: 'nu', fresh: true };
-  if (secs < 60) return { text: `${secs} s`, fresh: false };
+  if (secs < 10) return { text: t('ui.lastSeen.now'), fresh: true };
+  if (secs < 60) return { text: t('ui.lastSeen.seconds', { n: secs }), fresh: false };
   const mins = Math.round(secs / 60);
-  if (mins < 60) return { text: `${mins} min`, fresh: false };
+  if (mins < 60) return { text: t('ui.lastSeen.minutes', { n: mins }), fresh: false };
   const hours = Math.round(mins / 60);
-  if (hours < 24) return { text: `${hours} uur`, fresh: false };
-  return { text: `${Math.round(hours / 24)} d`, fresh: false };
+  if (hours < 24) return { text: t('ui.lastSeen.hours', { n: hours }), fresh: false };
+  return { text: t('ui.lastSeen.days', { n: Math.round(hours / 24) }), fresh: false };
 }
 
 /**

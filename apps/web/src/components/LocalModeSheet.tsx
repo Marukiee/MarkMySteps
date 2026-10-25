@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Icon, IconName } from './Icon';
 import { LogoMark } from './Logo';
 import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 import './localmode.css';
 
 interface Feature {
@@ -84,17 +85,18 @@ export function ServerSteps({ defaultOpen = false }: { defaultOpen?: boolean }) 
               {t('settings.local.later.step1')}
               <code>git clone https://github.com/Marukiee/MarkMySteps.git</code>
             </li>
-            <li>
-              Draai in die map <code>./install.sh</code>. Dat vraagt om het adres waarop je de app
-              wilt bereiken en zet daarna alles zelf klaar.
-            </li>
+            <li>{tr('settings.local.later.step2', { code: (s) => <code>{s}</code> })}</li>
             <li>{t('settings.local.later.step3')}</li>
             <li>
-              Ga in de app naar
-              <span className="lm-path">
-                {t('common.settings')} <Icon name="chevron-right" size={12} /> {t('settings.nav.profile')}
-              </span>
-              , kies <strong>{t('settings.local.connect')}</strong> en vul dat adres in.
+              {tr('settings.local.later.step4', {
+                path: () => (
+                  <span className="lm-path">
+                    {t('common.settings')} <Icon name="chevron-right" size={12} />{' '}
+                    {t('settings.nav.profile')}
+                  </span>
+                ),
+                b: (s) => <strong>{s}</strong>,
+              })}
             </li>
           </ol>
           <p className="muted lm-note">

@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
 import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 import './confirm.css';
 
 interface ConfirmOptions {
@@ -73,7 +74,11 @@ function ConfirmDialog({ options, onDone }: { options: ConfirmOptions; onDone: (
         {needsTyping && (
           <div className="field confirm-type">
             <label htmlFor="confirm-type">
-              Typ <strong>{options.typeToConfirm}</strong> om te bevestigen
+              {tr(
+                'ui.confirm.typeToConfirm',
+                { b: (s) => <strong>{s}</strong> },
+                { text: options.typeToConfirm ?? '' },
+              )}
             </label>
             <input
               id="confirm-type"

@@ -23,6 +23,7 @@ import { PhotoCommentsAdapter, PhotoCommentsPanel } from './PhotoComments';
 import { useExit } from '../lib/useExit';
 import { ReactionBar, ReactionsAdapter } from './PhotoReactions';
 import { t } from '../i18n';
+import { legTitle } from '../lib/legs';
 import './lightbox.css';
 
 /** How the photo is currently framed: a scale plus a translation in CSS pixels. */
@@ -314,14 +315,14 @@ export function Lightbox({
   async function saveToDevice() {
     if (!item || saving) return;
     setSaving(true);
-    setNote('Downloaden…');
+    setNote(t('trip.viewer.downloading'));
     const outcome = await savePhoto(item, srcFor);
     setSaving(false);
     // A share sheet the user waved away is not a failure, and it has already
     // told them what happened — say nothing.
     if (outcome === 'cancelled') setNote(null);
-    else if (outcome === 'failed') setNote('Downloaden lukte niet');
-    else setNote(outcome === 'shared' ? 'Opgeslagen' : 'Bewaard in je downloads');
+    else if (outcome === 'failed') setNote(t('trip.viewer.downloadFailed'));
+    else setNote(outcome === 'shared' ? t('trip.viewer.saved') : t('settings.trackFiles.saved'));
   }
 
   // The note clears itself; a photo you page away from takes it with you.
@@ -440,7 +441,7 @@ export function Lightbox({
   const actions: { label: string; icon: IconName; run: () => void }[] = [];
   if (coverTripId && !onDevice) {
     actions.push({
-      label: coverSaved ? 'Cover ingesteld' : 'Als cover',
+      label: coverSaved ? t('trip.viewer.coverSet') : t('trip.viewer.asCover'),
       icon: coverSaved ? 'check' : 'camera',
       run: () => void setAsCover(),
     });
@@ -450,7 +451,9 @@ export function Lightbox({
   const stopForCover = stopCoverFor && !onDevice ? stopCoverFor(item) : null;
   if (stopForCover && onSetStopCover) {
     actions.push({
-      label: stopCoverSaved ? 'Stop-omslag ingesteld' : `Omslag van ${stopForCover.name}`,
+      label: stopCoverSaved
+        ? t('trip.viewer.stopCoverSet')
+        : t('trip.viewer.stopCover', { name: legTitle(stopForCover.name) }),
       icon: stopCoverSaved ? 'check' : 'pin',
       run: () => void setAsStopCover(stopForCover.id),
     });
@@ -460,14 +463,18 @@ export function Lightbox({
   // phone is already in its gallery, so there is nothing to download.
   if (!onDevice) {
     actions.push({
-      label: saving ? 'Downloaden…' : item.assetType === 'VIDEO' ? 'Video downloaden' : 'Foto downloaden',
+      label: saving
+        ? t('trip.viewer.downloading')
+        : item.assetType === 'VIDEO'
+          ? t('trip.viewer.downloadVideo')
+          : t('trip.viewer.downloadPhoto'),
       icon: 'download',
       run: () => void saveToDevice(),
     });
   }
   if (isOwn && immichUrl && !onDevice) {
     actions.push({
-      label: 'Openen in Immich',
+      label: t('trip.viewer.openInImmich'),
       icon: 'external',
       run: () => openExternal(`${immichUrl}/photos/${item.immichAssetId}`),
     });
@@ -810,7 +817,7 @@ export function Lightbox({
             )}
           </div>
           {item.assetType === 'VIDEO' && !videoUrl && (
-            <p className="lightbox-videohint">Video laden…</p>
+            <p className="lightbox-videohint">{t('trip.viewer.videoLoading')}</p>
           )}
           {/* Arrows sit at the vertical centre of the image, not the screen.
               Zoomed in they are in the way of the part you zoomed in on, and
@@ -862,7 +869,7 @@ export function Lightbox({
         <button
           type="button"
           className={`lightbox-comments-btn ${commentCount > 0 ? 'has' : ''}`}
-          aria-label="Reacties"
+          aria-label={t('trip.viewer.comments')}
           onClick={(e) => {
             e.stopPropagation();
             closeMenu();
@@ -870,7 +877,7 @@ export function Lightbox({
           }}
         >
           <Icon name="comment" size={18} />
-          {commentCount > 0 ? commentCount : 'Reageer'}
+          {commentCount > 0 ? commentCount : t('trip.viewer.comment')}
         </button>
       )}
       {reactions && !onDevice && !commentsShown && (

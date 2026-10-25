@@ -24,5 +24,19 @@
   "share.link.revokeBody": "Wie de link heeft kan de reis daarna niet meer bekijken.",
   "share.link.revokeConfirm": "Intrekken",
   "share.link.saveFailed": "Opslaan mislukt",
-  "share.link.fetchFailed": "Ophalen mislukt"
+  "share.link.fetchFailed": "Ophalen mislukt",
+  "share.page.gone": "Link bestaat niet meer",
+  "share.page.wrongPassword": "Verkeerd wachtwoord",
+  "share.page.openFailed": "Kon link niet openen",
+  "share.page.notWorking": "Deze link werkt niet meer",
+  "share.page.sharedTrip": "Gedeelde reis",
+  "share.page.protected": "Deze reis is beveiligd met een wachtwoord.",
+  "share.page.view": "Bekijken",
+  "share.page.twoFingers": "Gebruik twee vingers om de kaart te verplaatsen",
+  "share.page.ctrlScroll": "Gebruik Ctrl + scrollen om te zoomen",
+  "share.page.cmdScroll": "Gebruik ⌘ + scrollen om te zoomen",
+  "share.page.recenter": "Terug naar de hele reis",
+  "share.page.sharedWith": "Gedeeld met <brand></brand>",
+  "share.page.fresh_one": "Er staat {count} nieuwe foto sinds je laatste bezoek",
+  "share.page.fresh_other": "Er staan {count} nieuwe foto's sinds je laatste bezoek"
 }

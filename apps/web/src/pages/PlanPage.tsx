@@ -23,6 +23,7 @@ import { getMapStyle } from '../lib/prefs';
 import { t, intlLocale } from '../i18n';
 import './plan.css';
 import { Flag, paintMarker } from '../components/Flag';
+import { legTitle } from '../lib/legs';
 
 interface PlannedStop {
   id: string;
@@ -40,13 +41,6 @@ interface PlannedStop {
   viaAirports: string[];
   arrivalDate: string;
   departureDate: string;
-}
-
-/** The stored names of the two flight legs are data; this is what they are called on screen. */
-function legTitle(name: string): string {
-  if (name === 'Heenvlucht') return t('planner.outboundFlight');
-  if (name === 'Terugvlucht') return t('planner.returnFlight');
-  return name;
 }
 
 export function PlanPage() {

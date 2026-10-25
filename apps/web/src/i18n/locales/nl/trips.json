@@ -15,7 +15,7 @@
   "trips.delete.title": "Reis verwijderen?",
   "trips.delete.body": "\"{title}\" wordt definitief verwijderd, samen met de route, de notities en de foto-koppelingen. Dit kan niet ongedaan gemaakt worden.",
   "trips.leave.title": "Reis verlaten?",
-  "trips.leave.body": "Je verlaat \"{title}\".",
+  "trips.leave.body": "Je verlaat \"{title}\". Je kunt er altijd opnieuw op gezet worden.",
   "trips.leave.confirm": "Verlaten",
   "trips.card.startsToday": "vandaag van start",
   "trips.card.startsTomorrow": "morgen van start",

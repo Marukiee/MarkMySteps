@@ -3,6 +3,7 @@ import { isServerReachable, onServerReachability } from '../api/client';
 import { useExit } from '../lib/useExit';
 import { Icon } from './Icon';
 import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 import './offlinebanner.css';
 
 /**
@@ -44,8 +45,7 @@ export function OfflineBanner() {
     <div className={`offline-banner ${closing ? 'closing' : ''}`}>
       <Icon name="cloud-off" size={16} />
       <span>
-        <strong>Geen verbinding met de server.</strong> Je ziet opgeslagen gegevens. Je locatie
-        wordt lokaal bewaard en later verstuurd; andere wijzigingen en nieuwe foto's nog niet.
+        {tr('ui.offline.banner', { b: (s) => <strong>{s}</strong> })}
       </span>
       <button
         type="button"

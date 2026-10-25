@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { isNative } from '../tracking/tracker';
 import { onTrackerChange, startTracking, TrackerState } from '../tracking/tracker';
 import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 import './tracking-prompt.css';
 
 const DISMISS_KEY = 'mms.trackprompt.dismissed';
@@ -111,7 +112,7 @@ export function TrackingPrompt() {
   return (
     <div className={`track-prompt ${leaving ? 'leaving' : ''}`}>
       <div>
-        <strong>{trip.title}</strong> is bezig. Route bijhouden?
+        {tr('ui.trackingPrompt.question', { b: (s) => <strong>{s}</strong> }, { title: trip.title })}
       </div>
       <div className="track-prompt-actions">
         <button onClick={dismiss}>{t('ui.trackingPrompt.later')}</button>

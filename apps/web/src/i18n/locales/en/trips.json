@@ -15,7 +15,7 @@
   "trips.delete.title": "Delete trip?",
   "trips.delete.body": "\"{title}\" will be deleted for good, along with its route, notes and photo links. This can't be undone.",
   "trips.leave.title": "Leave trip?",
-  "trips.leave.body": "You're leaving \"{title}\".",
+  "trips.leave.body": "You're leaving \"{title}\". You can always be added to it again.",
   "trips.leave.confirm": "Leave",
   "trips.card.startsToday": "starts today",
   "trips.card.startsTomorrow": "starts tomorrow",

@@ -40,6 +40,7 @@ import { FactId, resolveFacts } from '../lib/tripFacts';
 import { onTrackerChange } from '../tracking/tracker';
 import { TripAccessPage } from './TripAccessPage';
 import { t } from '../i18n';
+import { legTitle } from '../lib/legs';
 import './tripdetail.css';
 
 interface TripStats {
@@ -666,16 +667,16 @@ export function TripDetailPage() {
       const choices: ChoiceOption[] = [];
       const draw: ChoiceOption = {
         id: 'draw',
-        label: 'Route via wegen tekenen',
-        hint: 'Vult het dichtstbijzijnde rechte stuk aan via de snelste weg.',
+        label: t('trip.line.draw'),
+        hint: t('trip.line.drawHint'),
         primary: !byTrain,
       };
       const train: ChoiceOption = {
         id: 'train',
         label: t('trip.train.title'),
         hint: byTrain
-          ? `De leg naar ${leg!.name} gaat met de trein. Kies je begin- en eindstation.`
-          : 'Voor een treinreis zonder signaal: kies je begin- en eindstation.',
+          ? t('trip.line.trainHintLeg', { name: legTitle(leg!.name) })
+          : t('trip.line.trainHint'),
         primary: byTrain,
       };
       choices.push(...(byTrain ? [train, draw] : [draw, train]));
@@ -686,8 +687,8 @@ export function TripDetailPage() {
           ? [
               {
                 id: 'undraw',
-                label: 'Getekende route wissen',
-                hint: 'Alleen dit automatisch getekende stuk. Je eigen GPS blijft staan.',
+                label: t('trip.line.undraw'),
+                hint: t('trip.line.undrawHint'),
                 danger: true,
               },
             ]
@@ -698,13 +699,13 @@ export function TripDetailPage() {
           leg.hideLeg
             ? {
                 id: 'show',
-                label: `Lijn naar ${leg.name} terugzetten`,
-                hint: 'De rechte lijn tussen deze twee stops komt terug.',
+                label: t('trip.line.show', { name: legTitle(leg.name) }),
+                hint: t('trip.line.showHint'),
               }
             : {
                 id: 'hide',
-                label: `Lijn naar ${leg.name} verwijderen`,
-                hint: 'De stop blijft staan; alleen de lijn ernaartoe verdwijnt.',
+                label: t('trip.line.hide', { name: legTitle(leg.name) }),
+                hint: t('trip.line.hideHint'),
                 danger: true,
               },
         );
@@ -712,8 +713,8 @@ export function TripDetailPage() {
       if (choices.length === 0) return;
 
       const picked = await chooseModal({
-        title: 'Deze lijn',
-        body: 'Wat wil je met het stuk route dat je ingedrukt hield?',
+        title: t('trip.line.title'),
+        body: t('trip.line.body'),
         choices,
         more,
       });
@@ -775,16 +776,16 @@ export function TripDetailPage() {
       reloadRoutes();
       api<Waypoint[]>(`/trips/${tripId}/points`).then(setWaypoints).catch(() => undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Punt opslaan mislukt');
+      setError(err instanceof Error ? err.message : t('trip.point.saveFailed'));
     }
   }
 
   async function leaveTrip() {
     if (!trip || !user) return;
     const ok = await confirmModal({
-      title: 'Reis verlaten?',
-      body: `Je verlaat "${trip.title}". Je kunt er altijd opnieuw op gezet worden.`,
-      confirmLabel: 'Verlaten',
+      title: t('trips.leave.title'),
+      body: t('trips.leave.body', { title: trip.title }),
+      confirmLabel: t('trips.leave.confirm'),
       danger: true,
     });
     if (!ok) return;
@@ -1057,7 +1058,7 @@ export function TripDetailPage() {
       <main className="page">
         <p className="error-text">{error}</p>
         <Link to="/" className="btn btn-ghost">
-          <Icon name="arrow-left" size={16} /> Terug naar reizen
+          <Icon name="arrow-left" size={16} /> {t('trip.backToTrips')}
         </Link>
       </main>
     );
@@ -1077,13 +1078,13 @@ export function TripDetailPage() {
           <button
             type="button"
             className="trip-fab trip-fab-back"
-            aria-label="Kaart verkleinen"
+            aria-label={t('trip.map.shrink')}
             onClick={() => setMapFull(false)}
           >
             <Icon name="chevron-up" size={20} />
           </button>
         ) : (
-          <Link to="/" className="trip-fab trip-fab-back" aria-label="Alle reizen">
+          <Link to="/" className="trip-fab trip-fab-back" aria-label={t('trip.map.allTrips')}>
             <Icon name="arrow-left" size={20} />
           </Link>
         )}
@@ -1092,7 +1093,7 @@ export function TripDetailPage() {
           <div className="trip-fabs">
             <button
               className="trip-fab"
-              aria-label="Mensen & delen"
+              aria-label={t('trip.people')}
               onClick={() => setPeopleOpen(true)}
             >
               <Icon name="share" size={20} />
@@ -1111,7 +1112,7 @@ export function TripDetailPage() {
               <Link
                 to={`/trips/${tripId}/settings`}
                 className="trip-fab"
-                aria-label="Reisinstellingen"
+                aria-label={t('tripSettings.title')}
               >
                 <Icon name="gear" size={20} />
               </Link>
@@ -1164,14 +1165,14 @@ export function TripDetailPage() {
             <button
               type="button"
               className="map-expand-hit"
-              aria-label="Kaart volledig tonen"
+              aria-label={t('trip.map.expand')}
               onClick={onFoldedTap}
             />
             <button
               type="button"
               className="map-expand"
-              aria-label="Kaart volledig tonen"
-              title="Kaart volledig tonen"
+              aria-label={t('trip.map.expand')}
+              title={t('trip.map.expand')}
               onClick={() => setMapFull(true)}
             >
               <Icon name="frame" size={19} />
@@ -1193,8 +1194,8 @@ export function TripDetailPage() {
             onClick={() =>
               currentLoc && mapApiRef.current?.flyTo(currentLoc.lng, currentLoc.lat, 13)
             }
-            aria-label="Ga naar mijn huidige locatie"
-            title="Ga naar mijn huidige locatie"
+            aria-label={t('trip.map.locate')}
+            title={t('trip.map.locate')}
           >
             <Icon name="locate" size={20} />
           </button>
@@ -1217,7 +1218,7 @@ export function TripDetailPage() {
             onClick={() => setLayersOpen(true)}
           >
             <Icon name="camera" size={13} />
-            Foto&apos;s staan uit op de kaart
+            {t('trip.map.photosOff')}
           </button>
         )}
         </div>
@@ -1229,7 +1230,7 @@ export function TripDetailPage() {
               {pendingPoint.lat.toFixed(5)}, {pendingPoint.lng.toFixed(5)}
             </span>
             <div className="field">
-              <label htmlFor="pt-time">Tijdstip op de route</label>
+              <label htmlFor="pt-time">{t('trip.point.time')}</label>
               <input
                 id="pt-time"
                 type="datetime-local"
@@ -1271,7 +1272,7 @@ export function TripDetailPage() {
           <button
             type="button"
             className={`trip-backtop ${backTopClosing ? 'leaving' : ''}`}
-            aria-label="Terug naar boven"
+            aria-label={t('trip.backToTop')}
             onClick={() => {
               // Long enough for the smooth scroll to land; the camera is set
               // once, at the end, so it actually stays on the whole trip.
@@ -1357,7 +1358,7 @@ export function TripDetailPage() {
             aria-selected={tab === 'timeline'}
             onClick={() => setTab('timeline')}
           >
-            Tijdlijn
+            {t('trip.tab.timeline')}
           </button>
           <button
             className={tab === 'plan' ? 'active' : ''}
@@ -1365,7 +1366,7 @@ export function TripDetailPage() {
             aria-selected={tab === 'plan'}
             onClick={() => setTab('plan')}
           >
-            {canEdit ? 'Routeplanner' : 'Route'}
+            {canEdit ? t('planner.title') : t('trip.tab.route')}
           </button>
         </div>
 
@@ -1482,7 +1483,7 @@ export function TripDetailPage() {
             {...peopleSheet.handlers}
           >
             <div className="people-sheet-head">
-              <h2>Mensen &amp; delen</h2>
+              <h2>{t('trip.people')}</h2>
               <button
                 className="people-sheet-close"
                 aria-label={t('common.close')}
@@ -1508,7 +1509,7 @@ export function TripDetailPage() {
                 where the rest of "who is on this trip" lives. */}
             {trip.ownerId !== user?.id && (
               <button type="button" className="people-leave" onClick={leaveTrip}>
-                Reis verlaten
+                {t('trip.leave')}
               </button>
             )}
           </div>

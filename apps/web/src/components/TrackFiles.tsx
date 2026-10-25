@@ -124,10 +124,14 @@ export function TrackFiles() {
         <p className="track-files-result">
           <Icon name="check" size={15} />
           <span>
-            {imported.added} van {imported.found} punten toegevoegd
-            {imported.outsideTrip > 0 && `, ${imported.outsideTrip} buiten de reisdagen`}
-            {imported.undated > 0 && `, ${imported.undated} zonder tijd`}
-            {imported.added === 0 && imported.found > 0 && t('settings.trackFiles.result.already')}
+            {t('settings.trackFiles.result.added', { added: imported.added, found: imported.found })}
+            {imported.outsideTrip > 0 &&
+              `, ${t('settings.trackFiles.result.outside', { count: imported.outsideTrip })}`}
+            {imported.undated > 0 &&
+              `, ${t('settings.trackFiles.result.undated', { count: imported.undated })}`}
+            {imported.added === 0 &&
+              imported.found > 0 &&
+              ` ${t('settings.trackFiles.result.already')}`}
           </span>
         </p>
       )}

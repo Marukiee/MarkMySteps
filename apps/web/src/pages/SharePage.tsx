@@ -30,6 +30,7 @@ import '../components/tripmap.css'; // photo markers on the shared map
 import './share-page.css';
 import { Flag } from '../components/Flag';
 import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 
 interface SharedTrip {
   title: string;
@@ -72,7 +73,7 @@ export function SharePage() {
   useEffect(() => {
     if (!slug || token) return;
     fetch(`/api/share/${slug}/info`)
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Link bestaat niet meer'))))
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(t('share.page.gone')))))
       .then((info: { title: string; hasPassword: boolean }) => {
         setTitle(info.title);
         if (info.hasPassword) setNeedsPassword(true);
@@ -91,7 +92,7 @@ export function SharePage() {
       body: JSON.stringify(password ? { password } : {}),
     });
     if (!res.ok) {
-      setError(res.status === 401 ? 'Verkeerd wachtwoord' : 'Kon link niet openen');
+      setError(res.status === 401 ? t('share.page.wrongPassword') : t('share.page.openFailed'));
       return;
     }
     const data = (await res.json()) as { token: string };
@@ -107,7 +108,7 @@ export function SharePage() {
             <LogoMark size={38} />
             MarkMySteps
           </span>
-          <h1>Deze link werkt niet meer</h1>
+          <h1>{t('share.page.notWorking')}</h1>
           <p className="muted">{error}</p>
         </div>
       </div>
@@ -122,10 +123,10 @@ export function SharePage() {
             <LogoMark size={38} />
             MarkMySteps
           </span>
-          <h1>{title || 'Gedeelde reis'}</h1>
+          <h1>{title || t('share.page.sharedTrip')}</h1>
           {needsPassword ? (
             <form className="card share-gate-card" onSubmit={unlock}>
-              <p className="muted">Deze reis is beveiligd met een wachtwoord.</p>
+              <p className="muted">{t('share.page.protected')}</p>
               <div className="field">
                 <label htmlFor="sp-pw">{t('share.link.password')}</label>
                 <input
@@ -137,7 +138,7 @@ export function SharePage() {
                 />
               </div>
               {error && <p className="error-text">{error}</p>}
-              <button className="btn btn-primary">Bekijken</button>
+              <button className="btn btn-primary">{t('share.page.view')}</button>
             </form>
           ) : (
             <p className="muted share-gate-loading">{t('common.loading')}</p>
@@ -302,10 +303,9 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
        */
       cooperativeGestures: true,
       locale: {
-        'CooperativeGesturesHandler.MobileHelpText':
-          'Gebruik twee vingers om de kaart te verplaatsen',
-        'CooperativeGesturesHandler.WindowsHelpText': 'Gebruik Ctrl + scrollen om te zoomen',
-        'CooperativeGesturesHandler.MacHelpText': 'Gebruik \u2318 + scrollen om te zoomen',
+        'CooperativeGesturesHandler.MobileHelpText': t('share.page.twoFingers'),
+        'CooperativeGesturesHandler.WindowsHelpText': t('share.page.ctrlScroll'),
+        'CooperativeGesturesHandler.MacHelpText': t('share.page.cmdScroll'),
       },
     });
     mapRef.current = map;
@@ -741,8 +741,8 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
           <button
             type="button"
             className="share-map-recenter"
-            aria-label="Terug naar de hele reis"
-            title="Terug naar de hele reis"
+            aria-label={t('share.page.recenter')}
+            title={t('share.page.recenter')}
             onClick={() => {
               const bounds = homeBoundsRef.current;
               if (bounds && mapRef.current) {
@@ -757,7 +757,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
 
       {entries.length > 0 && (
         <section className="share-section">
-          <h2 className="share-section-title">Tijdlijn</h2>
+          <h2 className="share-section-title">{t('trip.tab.timeline')}</h2>
           {/* Same markup and classes as the app's timeline, so the shared page
               reads identically: one row per day with its places and weather. */}
           {/* Straight to a city, the same row of pills the app's timeline has. */}
@@ -863,7 +863,13 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       )}
 
       <footer className="share-footer">
-        Gedeeld met <LogoMark size={18} /> <strong>MarkMySteps</strong>
+        {tr('share.page.sharedWith', {
+          brand: () => (
+            <>
+              <LogoMark size={18} /> <strong>MarkMySteps</strong>
+            </>
+          ),
+        })}
       </footer>
 
       {/* The same grip the app has: a trip of three months is a very long page
@@ -876,7 +882,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
         <button
           type="button"
           className="share-backtop"
-          aria-label="Terug naar boven"
+          aria-label={t('trip.backToTop')}
           onClick={scrollPageToTop}
         >
           <Icon name="chevron-up" size={20} />
@@ -887,8 +893,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
       {freshShown && fresh && (
         <div className={`share-fresh ${freshClosing ? 'closing' : ''}`} role="status">
           <span className="share-fresh-text">
-            {fresh.count === 1 ? 'Er staat 1 nieuwe foto' : `Er staan ${fresh.count} nieuwe foto's`}{' '}
-            sinds je laatste bezoek
+            {t('share.page.fresh', { count: fresh.count })}
           </span>
           <button
             type="button"
@@ -898,7 +903,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
               setFreshOpen(false);
             }}
           >
-            Bekijken
+            {t('share.page.view')}
           </button>
           <button
             type="button"

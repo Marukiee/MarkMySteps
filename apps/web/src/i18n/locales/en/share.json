@@ -24,5 +24,19 @@
   "share.link.revokeBody": "Anyone with the link won’t be able to see the trip any more.",
   "share.link.revokeConfirm": "Revoke",
   "share.link.saveFailed": "Couldn’t save",
-  "share.link.fetchFailed": "Couldn’t fetch it"
+  "share.link.fetchFailed": "Couldn’t fetch it",
+  "share.page.gone": "This link no longer exists",
+  "share.page.wrongPassword": "Wrong password",
+  "share.page.openFailed": "Couldn't open the link",
+  "share.page.notWorking": "This link no longer works",
+  "share.page.sharedTrip": "Shared trip",
+  "share.page.protected": "This trip is protected with a password.",
+  "share.page.view": "View",
+  "share.page.twoFingers": "Use two fingers to move the map",
+  "share.page.ctrlScroll": "Use Ctrl + scroll to zoom",
+  "share.page.cmdScroll": "Use ⌘ + scroll to zoom",
+  "share.page.recenter": "Back to the whole trip",
+  "share.page.sharedWith": "Shared with <brand></brand>",
+  "share.page.fresh_one": "There is {count} new photo since your last visit",
+  "share.page.fresh_other": "There are {count} new photos since your last visit"
 }

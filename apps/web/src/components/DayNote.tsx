@@ -100,7 +100,7 @@ export function DayNote({
         <div className="day-note-edit">
           <textarea
             autoFocus
-            placeholder="Schrijf iets over deze dag…"
+            placeholder={t('trip.note.placeholder')}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             rows={3}

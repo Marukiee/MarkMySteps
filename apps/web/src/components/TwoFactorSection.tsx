@@ -7,6 +7,7 @@ import { Icon } from './Icon';
 import { PasswordInput } from './PasswordInput';
 import { QrCode } from './QrCode';
 import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 import './twofactor.css';
 
 type Step =
@@ -58,7 +59,7 @@ export function TwoFactorSection() {
     try {
       await action();
     } catch (err) {
-      setError(signInProblem(err, 'Dat lukte niet'));
+      setError(signInProblem(err, t('settings.twoFactor.failed')));
     } finally {
       setBusy(false);
     }
@@ -93,7 +94,7 @@ export function TwoFactorSection() {
       await api('/auth/2fa/disable', { method: 'POST', body: { password, code } });
       loadStatus();
       reset();
-      setMessage('Tweestapsverificatie staat uit.');
+      setMessage(t('settings.twoFactor.off'));
     });
   };
 
@@ -124,7 +125,7 @@ export function TwoFactorSection() {
   return (
     <section className="card settings-card">
       <h2>
-        <Icon name="shield" size={18} /> Tweestapsverificatie
+        <Icon name="shield" size={18} /> {t('settings.twoFactor.title')}
       </h2>
 
       {step.name === 'idle' && (
@@ -137,31 +138,29 @@ export function TwoFactorSection() {
             {status.enabled && (
               <span className={low ? 'tf-warn' : 'muted'}>
                 {status.recoveryCodesLeft === 0
-                  ? 'Geen herstelcodes meer'
-                  : `${status.recoveryCodesLeft} ${
-                      status.recoveryCodesLeft === 1 ? 'herstelcode' : 'herstelcodes'
-                    } over`}
+                  ? t('settings.twoFactor.noCodesLeft')
+                  : t('settings.twoFactor.codesLeft', { count: status.recoveryCodesLeft })}
               </span>
             )}
           </div>
           <p className="muted">
             {status.enabled
-              ? 'Bij het inloggen vragen we naast je wachtwoord om een code uit je authenticator-app. Verlies je je telefoon, dan kom je erin met een herstelcode.'
-              : 'Een gestolen of geraden wachtwoord is dan niet genoeg: wie inlogt heeft ook de code uit je authenticator-app nodig, zoals Proton Authenticator.'}
+              ? t('settings.twoFactor.onHint')
+              : t('settings.twoFactor.offHint')}
           </p>
           <div className="settings-actions">
             {status.enabled ? (
               <>
                 <button className="btn btn-ghost" onClick={() => reset({ name: 'renew' })}>
-                  Nieuwe herstelcodes
+                  {t('settings.twoFactor.newCodes')}
                 </button>
                 <button className="btn btn-ghost" onClick={() => reset({ name: 'disable' })}>
-                  Uitschakelen
+                  {t('settings.twoFactor.disable')}
                 </button>
               </>
             ) : (
               <button className="btn btn-primary" onClick={() => reset({ name: 'password' })}>
-                Inschakelen
+                {t('settings.twoFactor.enable')}
               </button>
             )}
           </div>
@@ -171,11 +170,10 @@ export function TwoFactorSection() {
       {step.name === 'password' && (
         <form onSubmit={startSetup} className="settings-form">
           <p className="muted">
-            Eerst je wachtwoord, om te laten zien dat jij het bent en niet iemand met je
-            telefoon in handen.
+            {t('settings.twoFactor.passwordFirst')}
           </p>
           <div className="field">
-            <label htmlFor="tf-pw">Wachtwoord</label>
+            <label htmlFor="tf-pw">{t('settings.twoFactor.password')}</label>
             <PasswordInput
               id="tf-pw"
               required
@@ -187,7 +185,7 @@ export function TwoFactorSection() {
           </div>
           <div className="settings-actions">
             <button className="btn btn-primary" disabled={busy}>
-              {busy ? 'Even geduld…' : 'Verder'}
+              {busy ? t('settings.twoFactor.wait') : t('settings.twoFactor.next')}
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => reset()}>
               {t('common.cancel')}
@@ -199,19 +197,19 @@ export function TwoFactorSection() {
       {step.name === 'scan' && (
         <form onSubmit={finishSetup} className="settings-form">
           <ol className="muted tf-steps">
-            <li>Open je authenticator-app en kies een nieuw account toevoegen.</li>
-            <li>Scan deze QR-code, of typ de sleutel eronder over.</li>
-            <li>Voer hieronder de code in die de app laat zien.</li>
+            <li>{t('settings.twoFactor.step1')}</li>
+            <li>{t('settings.twoFactor.step2')}</li>
+            <li>{t('settings.twoFactor.step3')}</li>
           </ol>
           <div className="tf-scan">
-            <QrCode value={step.setup.otpauthUri} label="QR-code voor je authenticator-app" />
+            <QrCode value={step.setup.otpauthUri} label={t('settings.twoFactor.qr')} />
             <div className="tf-secret">
-              <span className="muted">Lukt scannen niet? Typ deze sleutel over:</span>
+              <span className="muted">{t('settings.twoFactor.typeKey')}</span>
               <code>{step.setup.secret.match(/.{1,4}/g)?.join(' ')}</code>
             </div>
           </div>
           <div className="field">
-            <label htmlFor="tf-code">Code uit de app</label>
+            <label htmlFor="tf-code">{t('settings.twoFactor.appCode')}</label>
             <input
               id="tf-code"
               className="tf-code-input"
@@ -227,7 +225,7 @@ export function TwoFactorSection() {
           {error && <p className="error-text">{error}</p>}
           <div className="settings-actions">
             <button className="btn btn-primary" disabled={busy}>
-              {busy ? 'Even geduld…' : 'Inschakelen'}
+              {busy ? t('settings.twoFactor.wait') : t('settings.twoFactor.enable')}
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => reset()}>
               {t('common.cancel')}
@@ -239,9 +237,7 @@ export function TwoFactorSection() {
       {step.name === 'codes' && (
         <div className="settings-form">
           <p>
-            <strong>Bewaar deze herstelcodes nu.</strong> Je ziet ze maar één keer. Elke code
-            werkt één keer en brengt je binnen als je je telefoon kwijt bent. Bewaar ze ergens
-            anders dan op die telefoon, bijvoorbeeld in je wachtwoordmanager.
+            {tr('settings.twoFactor.saveCodes', { b: (s) => <strong>{s}</strong> })}
           </p>
           <ul className="tf-codes">
             {step.codes.map((c) => (
@@ -250,10 +246,10 @@ export function TwoFactorSection() {
           </ul>
           <div className="settings-actions">
             <button className="btn btn-ghost" onClick={() => void copy(step.codes.join('\n'))}>
-              {copied ? 'Gekopieerd' : 'Kopiëren'}
+              {copied ? t('settings.twoFactor.copied') : t('settings.twoFactor.copy')}
             </button>
             <button className="btn btn-primary" onClick={() => reset()}>
-              Ik heb ze bewaard
+              {t('settings.twoFactor.saved')}
             </button>
           </div>
         </div>
@@ -263,11 +259,11 @@ export function TwoFactorSection() {
         <form onSubmit={step.name === 'disable' ? disable : renew} className="settings-form">
           <p className="muted">
             {step.name === 'disable'
-              ? 'Uitzetten vraagt je wachtwoord én een code, zodat een open sessie niet genoeg is.'
-              : 'De oude herstelcodes werken daarna niet meer. Dit vraagt je wachtwoord én een code.'}
+              ? t('settings.twoFactor.disableHint')
+              : t('settings.twoFactor.renewHint')}
           </p>
           <div className="field">
-            <label htmlFor="tf-pw2">Wachtwoord</label>
+            <label htmlFor="tf-pw2">{t('settings.twoFactor.password')}</label>
             <PasswordInput
               id="tf-pw2"
               required
@@ -278,7 +274,7 @@ export function TwoFactorSection() {
             />
           </div>
           <div className="field">
-            <label htmlFor="tf-code2">Code uit de app, of een herstelcode</label>
+            <label htmlFor="tf-code2">{t('settings.twoFactor.codeOrRecovery')}</label>
             <input
               id="tf-code2"
               className="tf-code-input"
@@ -292,7 +288,11 @@ export function TwoFactorSection() {
           {error && <p className="error-text">{error}</p>}
           <div className="settings-actions">
             <button className="btn btn-primary" disabled={busy}>
-              {busy ? 'Even geduld…' : step.name === 'disable' ? 'Uitschakelen' : 'Nieuwe codes maken'}
+              {busy
+                ? t('settings.twoFactor.wait')
+                : step.name === 'disable'
+                  ? t('settings.twoFactor.disable')
+                  : t('settings.twoFactor.makeCodes')}
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => reset()}>
               {t('common.cancel')}

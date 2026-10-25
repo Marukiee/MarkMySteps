@@ -71,7 +71,7 @@ export function LoginPage() {
       // The token only lives a few minutes; once it is gone the password has to
       // be given again, and staying on a screen that can no longer work helps nobody.
       if (err instanceof Error && err.message === 'Sign in again') setMfaToken(null);
-      setError(signInProblem(err, 'Die code klopt niet'));
+      setError(signInProblem(err, t('auth.mfa.wrong')));
       setCode('');
     } finally {
       setBusy(false);
@@ -99,14 +99,14 @@ export function LoginPage() {
 
       {mfaToken ? (
         <form className="card login-card fade-in" onSubmit={(e) => void submitCode(e)}>
-          <h2 className="login-code-title">Tweede stap</h2>
+          <h2 className="login-code-title">{t('auth.mfa.title')}</h2>
           <p className="muted">
             {recovery
-              ? 'Voer een van je herstelcodes in. Elke code werkt maar één keer.'
-              : 'Open je authenticator-app (bijvoorbeeld Proton Authenticator) en voer de code van 6 cijfers in.'}
+              ? t('auth.mfa.recoveryHint')
+              : t('auth.mfa.appHint')}
           </p>
           <div className="field">
-            <label htmlFor="mfa-code">{recovery ? 'Herstelcode' : 'Code'}</label>
+            <label htmlFor="mfa-code">{recovery ? t('auth.mfa.recoveryLabel') : t('auth.mfa.codeLabel')}</label>
             <input
               id="mfa-code"
               required
@@ -130,7 +130,7 @@ export function LoginPage() {
           </div>
           {error && <p className="error-text">{error}</p>}
           <button className="btn btn-primary" disabled={busy}>
-            {busy ? t('auth.login.wait') : 'Doorgaan'}
+            {busy ? t('auth.login.wait') : t('auth.mfa.continue')}
           </button>
           <button
             type="button"
@@ -141,7 +141,7 @@ export function LoginPage() {
               setError(null);
             }}
           >
-            {recovery ? 'Toch een code uit de app gebruiken' : 'Ik heb mijn telefoon niet: herstelcode gebruiken'}
+            {recovery ? t('auth.mfa.useApp') : t('auth.mfa.useRecovery')}
           </button>
           <button type="button" className="login-nolink" onClick={leaveCodeStep}>
             {t('auth.pending.rejected.back')}

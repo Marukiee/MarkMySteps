@@ -3,6 +3,7 @@ import { useExit } from '../lib/useExit';
 import type { PhotoComment } from '../api/types';
 import { Icon } from './Icon';
 import { CommentReactions, commentTarget, ReactionsAdapter } from './PhotoReactions';
+import { intlLocale, t } from '../i18n';
 import './photocomments.css';
 
 /**
@@ -61,7 +62,7 @@ function rememberName(name: string): void {
   }
 }
 
-const when = new Intl.DateTimeFormat('nl-NL', {
+const when = new Intl.DateTimeFormat(intlLocale(), {
   day: 'numeric',
   month: 'short',
   hour: '2-digit',
@@ -75,7 +76,7 @@ export function CommentFlag({ count, onOpen }: { count: number; onOpen?: () => v
     <button
       type="button"
       className="comment-flag"
-      aria-label={count === 1 ? '1 reactie' : `${count} reacties`}
+      aria-label={t('social.comments.count', { count })}
       onClick={(e) => {
         // Straight to the conversation, not just to the photo.
         e.stopPropagation();
@@ -142,8 +143,8 @@ export function PhotoCommentsPanel({
     } catch (err) {
       setError(
         err instanceof Error && err.message === '429'
-          ? 'Even geduld, je reageert wat snel. Probeer het zo opnieuw.'
-          : 'Je reactie is niet verstuurd. Probeer het opnieuw.',
+          ? t('social.comments.tooFast')
+          : t('social.comments.sendFailed'),
       );
     } finally {
       setBusy(false);
@@ -155,14 +156,14 @@ export function PhotoCommentsPanel({
     try {
       await adapter.remove(comment);
     } catch {
-      setError('Verwijderen is niet gelukt.');
+      setError(t('social.comments.deleteFailed'));
     }
   }
 
   return (
     <section
       className={`photo-comments ${variant === 'inline' ? 'inline' : ''} ${closing ? 'closing' : ''}`}
-      aria-label="Reacties"
+      aria-label={t('social.comments.title')}
       // The viewer closes on a tap anywhere outside the photo; this is not
       // outside the photo as far as anybody reading it is concerned.
       onClick={(e) => e.stopPropagation()}
@@ -171,19 +172,17 @@ export function PhotoCommentsPanel({
       <header className="photo-comments-head">
         <strong>
           {comments.length === 0
-            ? 'Reacties'
-            : comments.length === 1
-              ? '1 reactie'
-              : `${comments.length} reacties`}
+            ? t('social.comments.title')
+            : t('social.comments.count', { count: comments.length })}
         </strong>
-        <button type="button" aria-label="Reacties sluiten" onClick={onClose}>
+        <button type="button" aria-label={t('social.comments.close')} onClick={onClose}>
           <Icon name={variant === 'inline' ? 'chevron-up' : 'chevron-down'} size={20} />
         </button>
       </header>
 
       {comments.length === 0 ? (
         variant === 'sheet' && (
-          <p className="photo-comments-empty">Nog geen reacties. Schrijf de eerste.</p>
+          <p className="photo-comments-empty">{t('social.comments.empty')}</p>
         )
       ) : (
         <ol className="photo-comments-list" ref={listRef}>
@@ -191,13 +190,13 @@ export function PhotoCommentsPanel({
             <li key={c.id}>
               <div className="photo-comments-meta">
                 <span className="photo-comments-name">{c.authorName}</span>
-                {c.traveller && <span className="photo-comments-badge">reiziger</span>}
+                {c.traveller && <span className="photo-comments-badge">{t('social.comments.traveller')}</span>}
                 <time dateTime={c.createdAt}>{when.format(new Date(c.createdAt))}</time>
                 {c.canDelete && adapter.remove && (
                   <button
                     type="button"
                     className="photo-comments-delete"
-                    aria-label="Reactie verwijderen"
+                    aria-label={t('social.comments.delete')}
                     onClick={() => void remove(c)}
                   >
                     <Icon name="trash" size={14} />
@@ -218,7 +217,7 @@ export function PhotoCommentsPanel({
           <input
             type="text"
             className="photo-comments-name-input"
-            placeholder="Je naam"
+            placeholder={t('social.comments.yourName')}
             autoComplete="name"
             maxLength={60}
             value={name}
@@ -227,7 +226,7 @@ export function PhotoCommentsPanel({
         )}
         <div className="photo-comments-compose">
           <textarea
-            placeholder="Schrijf een reactie…"
+            placeholder={t('social.comments.placeholder')}
             rows={1}
             maxLength={2000}
             value={body}
@@ -240,8 +239,8 @@ export function PhotoCommentsPanel({
               }
             }}
           />
-          <button type="submit" disabled={!canSend} aria-label="Versturen">
-            {busy ? '…' : 'Plaats'}
+          <button type="submit" disabled={!canSend} aria-label={t('social.comments.send')}>
+            {busy ? '…' : t('social.comments.post')}
           </button>
         </div>
         {error && (
@@ -298,7 +297,7 @@ export function DayComments({
           )}
           <button type="button" className="btn btn-ghost day-comment-btn" onClick={() => setOpen(true)}>
             <Icon name="comment" size={14} />
-            Reageer
+            {t('social.comments.reply')}
             {comments.length > 0 && <span className="day-comment-count">{comments.length}</span>}
           </button>
         </>

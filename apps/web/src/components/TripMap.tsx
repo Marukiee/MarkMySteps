@@ -18,6 +18,7 @@ import { useNow } from '../lib/lastSeen';
 import './tripmap.css';
 import { paintMarker } from './Flag';
 import { t } from '../i18n';
+import { legTitle } from '../lib/legs';
 
 /** How long a line takes to come up, or to go. */
 const FADE_MS = 260;
@@ -186,12 +187,12 @@ export function TripMap({
 
     const name = document.createElement('strong');
     name.className = 'stop-popup-name';
-    name.textContent = stop.name;
+    name.textContent = legTitle(stop.name);
     body.appendChild(name);
 
     const day = stop.dayTripDate ?? stop.arrivalDate;
     const when = stop.parentStopId
-      ? `Dagtrip · ${formatDate(day)}`
+      ? t('trip.map.dayTrip', { date: formatDate(day) })
       : stop.arrivalDate.slice(0, 10) === stop.departureDate.slice(0, 10)
         ? formatDate(stop.arrivalDate)
         : formatDateRange(stop.arrivalDate, stop.departureDate);
@@ -874,7 +875,7 @@ export function TripMap({
       el.className = 'waypoint-dot';
       if (waypointDeleteRef.current) {
         el.classList.add('deletable');
-        el.title = 'Klik om te verwijderen';
+        el.title = t('trip.map.tapToDelete');
         el.addEventListener('click', (e) => {
           e.stopPropagation();
           waypointDeleteRef.current?.(wp.id);

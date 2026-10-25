@@ -31,7 +31,7 @@ export function setUpdateBannerSimulated(on: boolean): void {
 const FAKE: LatestApp = {
   version: 9999,
   url: null,
-  notes: 'Testmelding uit ontwikkelaarsopties',
+  notes: t('settings.update.banner.fakeNotes'),
 };
 
 /**
@@ -172,7 +172,7 @@ export function UpdateBanner() {
   async function install() {
     if (busy) return;
     if (simulated || !release.url) {
-      setProblem('Testmelding, er valt niets te installeren.');
+      setProblem(t('settings.update.banner.fakeInstall'));
       return;
     }
     setProblem(null);
@@ -180,9 +180,9 @@ export function UpdateBanner() {
     const outcome = await downloadAndInstall(release.url, setPercent);
     setPercent(null);
     if (outcome === 'permission') {
-      setProblem('Zet "installeren van onbekende apps" aan en druk opnieuw.');
+      setProblem(t('settings.update.permission'));
     } else if (outcome === 'failed') {
-      setProblem('Downloaden mislukt. Ben je online?');
+      setProblem(t('settings.update.downloadFailed'));
     }
   }
 
@@ -193,7 +193,7 @@ export function UpdateBanner() {
             phone either way, and the separator was then left stranded at the
             end of the first line with nothing after it. */}
         <span className="update-banner-text">
-          <strong>Nieuwe versie beschikbaar</strong>
+          <strong>{t('settings.update.banner.title')}</strong>
           {problem ? (
             <span className="update-banner-notes">{problem}</span>
           ) : (
@@ -212,7 +212,7 @@ export function UpdateBanner() {
               </>
             ) : (
               <>
-                <Icon name="download" size={15} /> Installeren
+                <Icon name="download" size={15} /> {t('settings.update.install')}
               </>
             )}
           </button>

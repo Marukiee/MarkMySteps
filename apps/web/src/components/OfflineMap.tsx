@@ -12,6 +12,7 @@ import {
 } from '../lib/mapCache';
 import { rawMapStyle } from '../lib/prefs';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './offlinemap.css';
 
 /**
@@ -50,7 +51,7 @@ export function OfflineMap({ tripId }: { tripId: string }) {
     try {
       const style = rawMapStyle();
       if (typeof style !== 'string') {
-        setError('Satellietkaart kan niet offline bewaard worden. Kies een andere kaartstijl.');
+        setError(t('settings.offlineMap.satellite'));
         setProgress(null);
         return;
       }
@@ -59,7 +60,7 @@ export function OfflineMap({ tripId }: { tripId: string }) {
       );
       setRegion(saved);
     } catch {
-      setError('Downloaden mislukt');
+      setError(t('settings.offlineMap.failed'));
     } finally {
       setProgress(null);
     }
@@ -75,13 +76,13 @@ export function OfflineMap({ tripId }: { tripId: string }) {
   return (
     <section className="ts-sync ts-sync-stacked offline-map">
       <div>
-        <strong>Kaart offline bewaren</strong>
+        <strong>{t('settings.offlineMap.title')}</strong>
         <span className="muted">
           {region
-            ? `${megabytes(region.bytes)} bewaard. De kaart van deze reis werkt nu zonder internet.`
+            ? t('settings.offlineMap.saved', { size: megabytes(region.bytes) })
             : bbox
-              ? 'Bewaart de kaart van het gebied waar je geweest bent, zodat hij het ook zonder internet doet.'
-              : 'Zodra deze reis een route of stops met een locatie heeft, kan het gebied bewaard worden.'}
+              ? t('settings.offlineMap.ready')
+              : t('settings.offlineMap.empty')}
         </span>
       </div>
 
@@ -96,11 +97,11 @@ export function OfflineMap({ tripId }: { tripId: string }) {
         <div className="offline-map-actions">
           {region && (
             <button className="btn btn-ghost offline-map-clear" onClick={() => void remove()}>
-              <Icon name="trash" size={15} /> Wissen
+              <Icon name="trash" size={15} /> {t('settings.clear')}
             </button>
           )}
           <button className="btn btn-ghost" disabled={!bbox} onClick={() => void download()}>
-            <Icon name="download" size={15} /> {region ? 'Opnieuw ophalen' : 'Downloaden'}
+            <Icon name="download" size={15} /> {region ? t('settings.offlineMap.refetch') : t('settings.offlineMap.download')}
           </button>
         </div>
       )}

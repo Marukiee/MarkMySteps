@@ -127,7 +127,7 @@ export function InvitePopup() {
           <LogoMark size={40} />
         </span>
         <h3>
-          Je bent toegevoegd aan {single ? '1 reis' : `${invites.length} reizen`}!
+          {t('social.invite.title', { count: invites.length })}
         </h3>
         <ul className="invite-list">
           {invites.map((invite) => (
