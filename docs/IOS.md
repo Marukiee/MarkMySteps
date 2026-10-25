@@ -54,8 +54,10 @@ Eenmalig:
    je Apple ID, als particulier (99 dollar per jaar). Je **Team ID** staat daarna
    onder Account, Membership details.
 2. **App aanmaken** in App Store Connect (appstoreconnect.apple.com), Apps, het
-   plusteken: platform iOS, bundle-ID `nl.markmaaktmedia.markmysteps` (staat die
-   er nog niet tussen, registreer hem onder Certificates, Identifiers & Profiles).
+   plusteken: platform iOS, naam MarkMySteps, taal Dutch, bundle-ID
+   `nl.markmaaktmedia.markmysteps`, SKU markmysteps. Gedaan op 25 oktober 2026;
+   het team (`X8Y2M32MNQ`) staat in het Xcode-project. De handelaarsstatus voor
+   de EU (DSA) is voor TestFlight niet nodig, alleen voor de openbare App Store.
 3. **API-sleutel**: App Store Connect, Users and Access, Integrations, App Store
    Connect API, Team Keys. Maak een sleutel met de rol **Admin** (daarmee mag
    Xcode in de workflow zelf de certificaten regelen). Download het `.p8`-bestand
@@ -86,6 +88,28 @@ Nieuwe builds komen als update binnen. Een build werkt 90 dagen.
 Het buildnummer is het nummer van de workflow-run; de versie staat in Xcode
 (`MARKETING_VERSION`). Het privacy-manifest dat Apple bij elke upload eist, is
 `App/PrivacyInfo.xcprivacy`.
+
+### Uploaden vanaf de Mac, zonder API-sleutel
+
+Met het Apple ID in Xcode (Settings, Accounts) kan het ook met de hand:
+
+```bash
+cd apps/web/ios/App
+xcodebuild archive -project App.xcodeproj -scheme App -configuration Release \
+  -destination 'generic/platform=iOS' -archivePath /tmp/App.xcarchive \
+  CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=<hoger dan de vorige>
+xcodebuild -exportArchive -archivePath /tmp/App.xcarchive \
+  -exportOptionsPlist ExportOptions.plist -exportPath /tmp/export -allowProvisioningUpdates
+```
+
+met in `ExportOptions.plist` dezelfde sleutels als in de workflow (`method`
+app-store-connect, `destination` upload, `teamID`, `signingStyle` automatic).
+Het archief is ongetekend; Xcode ondertekent het pas bij de export voor de App
+Store. Ondertekenen bij het archiveren vraagt om een ontwikkelprofiel, en dat
+maakt Apple alleen voor een team met een geregistreerde iPhone.
+
+Build 1 is zo op 25 oktober 2026 geüpload; de workflow begint daarna bij een
+hoger run-nummer.
 
 Zonder betaald account kan de app alleen op je eigen iPhone, via een kabel en
 Xcode, en dan werkt hij zeven dagen.
