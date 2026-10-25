@@ -3,6 +3,7 @@ import { MapStylePicker } from './MapStylePicker';
 import { colorForUser } from '../lib/colors';
 import { lastSeenLabel } from '../lib/lastSeen';
 import { useSheetDismiss } from '../lib/useSheetDismiss';
+import { t } from '../i18n';
 import './maplayers.css';
 
 export interface LayerMember {
@@ -69,7 +70,7 @@ export function MapLayersSheet({
       <span className="layer-dot" style={{ background: colorForUser(member.userId) }} />
       <span className="layer-name">
         {member.user.displayName}
-        {member.userId === ownUserId && ' (ik)'}
+        {member.userId === ownUserId && ` ${t('trip.layers.me')}`}
       </span>
       {seen && <span className={`layer-seen ${seen.fresh ? 'fresh' : ''}`}>{seen.text}</span>}
       <span className={`layer-check ${on ? 'on' : ''}`}>
@@ -87,15 +88,15 @@ export function MapLayersSheet({
         {...sheet.handlers}
       >
         <div className="people-sheet-head">
-          <h2>Kaartinstellingen</h2>
-          <button className="icon-btn" aria-label="Sluiten" onClick={onClose}>
+          <h2>{t('trip.layers.title')}</h2>
+          <button className="icon-btn" aria-label={t('common.close')} onClick={onClose}>
             <Icon name="close" size={20} />
           </button>
         </div>
 
         <section className="layer-group">
-          <h3 className="trip-side-heading">Routes op de kaart</h3>
-          <p className="muted layer-hint">Wiens gevolgde route je ziet.</p>
+          <h3 className="trip-side-heading">{t('trip.layers.routes')}</h3>
+          <p className="muted layer-hint">{t('trip.layers.routesHint')}</p>
           {members.map((member) => {
             const fix = liveFixes?.find((f) => f.userId === member.userId);
             const seen = fix ? lastSeenLabel(fix.recordedAt, liveTick ?? 0) : null;
@@ -104,18 +105,15 @@ export function MapLayersSheet({
         </section>
 
         <section className="layer-group">
-          <h3 className="trip-side-heading">Foto&apos;s op de kaart</h3>
-          <p className="muted layer-hint">
-            Wiens foto&apos;s als bolletjes op de kaart staan. Zet ze allemaal uit om alleen de
-            route te zien.
-          </p>
+          <h3 className="trip-side-heading">{t('trip.layers.photos')}</h3>
+          <p className="muted layer-hint">{t('trip.layers.photosHint')}</p>
           {members.map((member) => row(member, photoUsers.has(member.userId), onTogglePhoto))}
           <div className="layer-actions">
             <button type="button" className="btn btn-ghost" onClick={onAllPhotos}>
-              Allemaal aan
+              {t('trip.layers.allOn')}
             </button>
             <button type="button" className="btn btn-ghost" onClick={onNoPhotos}>
-              Allemaal uit
+              {t('trip.layers.allOff')}
             </button>
           </div>
         </section>
@@ -124,8 +122,8 @@ export function MapLayersSheet({
             looking at is a thing you decide while looking at it. The same grid
             of painted previews, one size down. */}
         <section className="layer-group">
-          <h3 className="trip-side-heading">Kaartstijl</h3>
-          <p className="muted layer-hint">Geldt voor alle kaarten op dit apparaat.</p>
+          <h3 className="trip-side-heading">{t('trip.layers.style')}</h3>
+          <p className="muted layer-hint">{t('trip.layers.styleHint')}</p>
           <MapStylePicker compact />
         </section>
       </div>

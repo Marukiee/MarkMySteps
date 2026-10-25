@@ -1,0 +1,14 @@
+{
+  "app.language.title": "Language",
+  "app.language.hint": "“System” follows the language of your device. The app restarts briefly when you switch.",
+  "app.tempPassword": "You are still using a temporary password. Choose your own in <link>Settings</link>.",
+  "app.error.sessionExpired": "Session expired, please sign in again",
+  "app.error.serverUnreachable": "The server cannot be reached right now",
+  "app.error.status": "Error {status}",
+  "app.error.noImage": "No image",
+  "app.error.imageFailed": "Could not load the image",
+  "app.mapStyle.positron": "Light & minimal",
+  "app.mapStyle.bright": "Bright & colourful",
+  "app.mapStyle.liberty": "Classic",
+  "app.mapStyle.satellite": "Satellite"
+}

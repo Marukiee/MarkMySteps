@@ -20,6 +20,7 @@ import {
 import { formatDate } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
+import { t, intlLocale } from '../i18n';
 import './plan.css';
 import { Flag, paintMarker } from '../components/Flag';
 
@@ -39,6 +40,13 @@ interface PlannedStop {
   viaAirports: string[];
   arrivalDate: string;
   departureDate: string;
+}
+
+/** The stored names of the two flight legs are data; this is what they are called on screen. */
+function legTitle(name: string): string {
+  if (name === 'Heenvlucht') return t('planner.outboundFlight');
+  if (name === 'Terugvlucht') return t('planner.returnFlight');
+  return name;
 }
 
 export function PlanPage() {
@@ -220,7 +228,7 @@ export function PlanPage() {
       setPendingCoords(null);
       pendingMarkerRef.current?.remove();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Stop toevoegen mislukt');
+      setError(err instanceof Error ? err.message : t('planner.error.addStop'));
     }
   }
 
@@ -337,9 +345,9 @@ export function PlanPage() {
       <aside className="plan-side">
         <div className="plan-head">
           <Link to={`/trips/${tripId}`} className="muted plan-back">
-            <Icon name="arrow-left" size={16} /> Terug naar de reis
+            <Icon name="arrow-left" size={16} /> {t('planner.backToTrip')}
           </Link>
-          <h1>Routeplanner</h1>
+          <h1>{t('planner.title')}</h1>
           {trip && (
             <p className="muted plan-daterange">
               {trip.title} · {formatDate(trip.startDate)}
@@ -352,7 +360,7 @@ export function PlanPage() {
               <span className="nights-ring" data-full={plannedNights >= tripNights}>
                 ●
               </span>
-              {plannedNights}/{tripNights} nachten gepland
+              {t('planner.nightsPlanned', { planned: plannedNights, total: tripNights })}
             </div>
           )}
         </div>
@@ -363,17 +371,13 @@ export function PlanPage() {
             <span className="plan-empty-icon">
               <Icon name="compass" size={30} />
             </span>
-            <p className="muted">
-              Nog geen stops. Zoek hieronder een stad en bouw je route op. Versleep om te
-              herordenen. Tik het vervoer-pilletje bij een stop om te wisselen tussen auto, trein,
-              bus, boot of vlucht.
-            </p>
+            <p className="muted">{t('planner.empty')}</p>
           </div>
         )}
 
         {stops.length > 0 && !hasOutbound && (
           <button type="button" className="add-flight-leg" onClick={() => void addOutboundFlight()}>
-            <Icon name="plane" size={16} /> Heenvlucht
+            <Icon name="plane" size={16} /> {t('planner.outboundFlight')}
           </button>
         )}
 
@@ -391,7 +395,7 @@ export function PlanPage() {
                       <Icon name="plane" size={18} />
                     </span>
                     <div className="flight-leg-main">
-                      <strong>{stop.name}</strong>
+                      <strong>{legTitle(stop.name)}</strong>
                       <FlightEditor
                         flightNumber={stop.flightNumber}
                         fromAirport={stop.fromAirport}
@@ -403,7 +407,7 @@ export function PlanPage() {
                     <button
                       className="stop-delete"
                       onClick={() => removeStop(stop)}
-                      aria-label="Vlucht verwijderen"
+                      aria-label={t('planner.deleteFlight')}
                     >
                       <Icon name="close" size={15} />
                     </button>
@@ -439,7 +443,7 @@ export function PlanPage() {
                 <button
                   className="leg-toggle"
                   onClick={() => cycleMode(stop)}
-                  title="Tik om te wisselen: auto, trein, bus, boot, vlucht"
+                  title={t('planner.modeToggleHint')}
                 >
                   <span className="leg-icon">
                     <Icon name={MODE_ICON[stop.travelMode] ?? 'car'} size={16} />
@@ -447,7 +451,7 @@ export function PlanPage() {
                   <span className="leg-mode">{MODE_LABEL[stop.travelMode]}</span>
                   {legKm !== null && (
                     <span className="leg-dur">
-                      · {legKm.toLocaleString('nl-NL')} km ·{' '}
+                      · {legKm.toLocaleString(intlLocale())} {t('common.km')} ·{' '}
                       {estimateDuration(legKm, stop.travelMode)}
                     </span>
                   )}
@@ -459,9 +463,9 @@ export function PlanPage() {
                   <button
                     className="leg-flight-revert"
                     onClick={() => cycleMode(stop)}
-                    title="Terug naar vervoer over land"
+                    title={t('planner.backToGround')}
                   >
-                    <Icon name="plane" size={15} /> Vlucht
+                    <Icon name="plane" size={15} /> {t('planner.mode.flight')}
                   </button>
                   <FlightEditor
                     flightNumber={stop.flightNumber}
@@ -500,18 +504,18 @@ export function PlanPage() {
                     <button
                       className="nights-btn"
                       onClick={() => changeNights(stop, -1)}
-                      aria-label="Minder nachten"
+                      aria-label={t('planner.fewerNights')}
                     >
                       <Icon name="minus" size={16} />
                     </button>
                     <span className="nights-count">
                       {stop.nights}
-                      <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
+                      <small>{t('planner.nightsUnit', { count: stop.nights })}</small>
                     </span>
                     <button
                       className="nights-btn"
                       onClick={() => changeNights(stop, 1)}
-                      aria-label="Meer nachten"
+                      aria-label={t('planner.moreNights')}
                     >
                       <Icon name="plus" size={16} />
                     </button>
@@ -520,7 +524,7 @@ export function PlanPage() {
                 <button
                   className="stop-delete"
                   onClick={() => removeStop(stop)}
-                  aria-label="Stop verwijderen"
+                  aria-label={t('planner.deleteStop')}
                 >
                   <Icon name="close" size={15} />
                 </button>
@@ -532,18 +536,18 @@ export function PlanPage() {
 
         {stops.length > 0 && !hasReturn && (
           <button type="button" className="add-flight-leg" onClick={() => void addFlightLeg()}>
-            <Icon name="plane" size={16} /> Terugvlucht
+            <Icon name="plane" size={16} /> {t('planner.returnFlight')}
           </button>
         )}
 
         <form className="card stop-add" onSubmit={addStop}>
           <div className="field stop-search">
-            <label htmlFor="st-name">Nieuwe stop</label>
+            <label htmlFor="st-name">{t('planner.add.label')}</label>
             <input
               id="st-name"
               required
               autoComplete="off"
-              placeholder="Zoek een stad, bijv. Hanoi"
+              placeholder={t('planner.add.placeholder')}
               value={newName}
               onChange={(e) => onNameInput(e.target.value)}
             />
@@ -564,7 +568,7 @@ export function PlanPage() {
             )}
           </div>
           <div className="field">
-            <label htmlFor="st-nights">Nachten</label>
+            <label htmlFor="st-nights">{t('planner.add.nights')}</label>
             <input
               id="st-nights"
               type="number"
@@ -576,10 +580,13 @@ export function PlanPage() {
           </div>
           <span className="muted">
             {pendingCoords
-              ? `Locatie: ${pendingCoords.lat.toFixed(4)}, ${pendingCoords.lng.toFixed(4)}`
-              : 'Klik op de kaart voor de locatie (optioneel)'}
+              ? t('planner.add.location', {
+                  lat: pendingCoords.lat.toFixed(4),
+                  lng: pendingCoords.lng.toFixed(4),
+                })
+              : t('planner.add.locationHint')}
           </span>
-          <button className="btn btn-primary">Stop toevoegen</button>
+          <button className="btn btn-primary">{t('planner.add.submit')}</button>
         </form>
       </aside>
 

@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import type { ShareLinkInfo } from '../api/types';
 import { webBase } from '../lib/native';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './share.css';
 
 /**
@@ -69,7 +70,7 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
       setLinks((current) => [link, ...(current ?? [])]);
       setPassword('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Aanmaken mislukt');
+      setError(err instanceof Error ? err.message : t('share.panel.createFailed'));
     }
   }
 
@@ -121,11 +122,11 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
 
   return (
     <section className="share-panel">
-      <h2 className="trip-side-heading">Delen</h2>
+      <h2 className="trip-side-heading">{t('common.share')}</h2>
       <p className="muted share-hint">
         {ownerView
-          ? 'Publieke, alleen-lezen link voor thuisblijvers, zonder account.'
-          : 'De link die de beheerder maakte. Doorsturen mag; wijzigen doet de beheerder.'}
+          ? t('share.panel.hintOwner')
+          : t('share.panel.hintCompanion')}
       </p>
 
       {loading &&
@@ -155,7 +156,7 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
           <div className="share-create-field">
             <input
               type="text"
-              placeholder="wachtwoord (optioneel)"
+              placeholder={t('share.panel.passwordPlaceholder')}
               autoComplete="off"
               autoCapitalize="none"
               autoCorrect="off"
@@ -169,7 +170,7 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
               <button
                 type="button"
                 className="share-clear"
-                aria-label="Wachtwoord wissen"
+                aria-label={t('share.panel.clearPassword')}
                 onClick={() => setPassword('')}
               >
                 <Icon name="close" size={14} />
@@ -177,7 +178,7 @@ export function SharePanel({ tripId, ownerView }: { tripId: string; ownerView: b
             )}
           </div>
           <button className="btn btn-ghost">
-            <Icon name="plus" size={16} /> Deellink
+            <Icon name="plus" size={16} /> {t('share.panel.newLink')}
           </button>
         </form>
       )}
@@ -265,7 +266,7 @@ function ShareLinkRow({
       await onSavePassword(value);
       closeMenu();
     } catch (err) {
-      setFailed(err instanceof Error ? err.message : 'Opslaan mislukt');
+      setFailed(err instanceof Error ? err.message : t('share.link.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -277,7 +278,7 @@ function ShareLinkRow({
       await onSavePassword(null);
       closeMenu();
     } catch (err) {
-      setFailed(err instanceof Error ? err.message : 'Opslaan mislukt');
+      setFailed(err instanceof Error ? err.message : t('share.link.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -290,7 +291,7 @@ function ShareLinkRow({
       const answer = await onReveal();
       setSecret({ password: answer.recoverable ? answer.password : null });
     } catch (err) {
-      setFailed(err instanceof Error ? err.message : 'Ophalen mislukt');
+      setFailed(err instanceof Error ? err.message : t('share.link.fetchFailed'));
     } finally {
       setBusy(false);
     }
@@ -311,9 +312,9 @@ function ShareLinkRow({
   async function revoke() {
     closeMenu();
     const ok = await confirmModal({
-      title: 'Link intrekken?',
-      body: 'Wie de link heeft kan de reis daarna niet meer bekijken.',
-      confirmLabel: 'Intrekken',
+      title: t('share.link.revokeTitle'),
+      body: t('share.link.revokeBody'),
+      confirmLabel: t('share.link.revokeConfirm'),
       danger: true,
     });
     if (ok) await onRemove();
@@ -333,23 +334,23 @@ function ShareLinkRow({
         {shown}
       </a>
       {link.hasPassword && (
-        <span className="share-lock" title="Met wachtwoord">
+        <span className="share-lock" title={t('share.link.hasPassword')}>
           <Icon name="lock" size={13} />
         </span>
       )}
       <button className="btn btn-primary share-btn" onClick={onCopy}>
         {copied ? (
           <>
-            <Icon name="check" size={15} /> Gekopieerd
+            <Icon name="check" size={15} /> {t('share.link.copied')}
           </>
         ) : (
-          'Kopieer'
+          t('share.link.copy')
         )}
       </button>
       <button
         type="button"
         className={`share-cog ${menu && !menuClosing ? 'open' : ''}`}
-        aria-label="Instellingen van deze link"
+        aria-label={t('share.link.settings')}
         aria-expanded={menu && !menuClosing}
         onClick={() => (menu ? closeMenu() : setMenu(true))}
       >
@@ -361,7 +362,7 @@ function ShareLinkRow({
           {editing ? (
             <form className="share-menu-form" onSubmit={submitPassword}>
               <label htmlFor={`sp-${link.id}`}>
-                {link.hasPassword ? 'Nieuw wachtwoord' : 'Wachtwoord'}
+                {link.hasPassword ? t('share.link.newPassword') : t('share.link.password')}
               </label>
               <div className="share-menu-pw">
                 <input
@@ -381,7 +382,7 @@ function ShareLinkRow({
                   <button
                     type="button"
                     className="share-clear share-clear-inline"
-                    aria-label="Wissen"
+                    aria-label={t('share.link.clear')}
                     onClick={() => setValue('')}
                   >
                     <Icon name="close" size={14} />
@@ -390,10 +391,10 @@ function ShareLinkRow({
               </div>
               <div className="share-menu-actions">
                 <button type="button" className="btn btn-ghost" onClick={() => setEditing(false)}>
-                  Terug
+                  {t('common.back')}
                 </button>
                 <button className="btn btn-primary" disabled={busy}>
-                  Opslaan
+                  {t('common.save')}
                 </button>
               </div>
               {failed && <p className="error-text">{failed}</p>}
@@ -408,14 +409,14 @@ function ShareLinkRow({
                   <div className="share-secret">
                     {secret.password === null ? (
                       <p className="share-secret-gone">
-                        Dit wachtwoord is van voor deze functie en niet meer terug te lezen.
-                        {link.canManage ? ' Stel een nieuw wachtwoord in.' : ''}
+                        {t('share.link.passwordGone')}
+                        {link.canManage ? ` ${t('share.link.passwordGoneSetNew')}` : ''}
                       </p>
                     ) : (
                       <button
                         type="button"
                         className="share-secret-value"
-                        title="Kopieer wachtwoord"
+                        title={t('share.link.copyPassword')}
                         onClick={() => copySecret(secret.password!)}
                       >
                         <code>{secret.password}</code>
@@ -426,24 +427,24 @@ function ShareLinkRow({
                 ) : (
                   <button type="button" disabled={busy} onClick={() => void reveal()}>
                     <Icon name="eye" size={15} />
-                    Wachtwoord bekijken
+                    {t('share.link.showPassword')}
                   </button>
                 ))}
               {link.canManage && (
                 <>
                   <button type="button" onClick={() => setEditing(true)}>
                     <Icon name="lock" size={15} />
-                    {link.hasPassword ? 'Wachtwoord wijzigen' : 'Wachtwoord instellen'}
+                    {link.hasPassword ? t('share.link.changePassword') : t('share.link.setPassword')}
                   </button>
                   {link.hasPassword && (
                     <button type="button" disabled={busy} onClick={() => void clearPassword()}>
                       <Icon name="close" size={15} />
-                      Wachtwoord verwijderen
+                      {t('share.link.removePassword')}
                     </button>
                   )}
                   <button type="button" className="share-menu-danger" onClick={() => void revoke()}>
                     <Icon name="trash" size={15} />
-                    Link intrekken
+                    {t('share.link.revoke')}
                   </button>
                 </>
               )}

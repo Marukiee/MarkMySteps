@@ -18,6 +18,7 @@ import {
   setFont,
 } from './canvas';
 import type { PageData } from './types';
+import { t } from '../../i18n';
 
 /**
  * The four layouts.
@@ -244,7 +245,7 @@ function drawStopList(
   const names = page.stops.map((s) => s.name);
   const shown = names.length > room ? names.slice(0, room - 1) : names.slice();
   const trimmed = names.length > room;
-  if (trimmed) shown.push(`+${names.length - shown.length} meer`);
+  if (trimmed) shown.push(t('summary.stopList.more', { n: names.length - shown.length }));
 
   setFont(ctx, size, 700, FONT_BODY);
   const textW = Math.min(

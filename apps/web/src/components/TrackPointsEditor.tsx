@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { api } from '../api/client';
 import { useBackToClose } from '../lib/backStack';
 import { getMapStyle } from '../lib/prefs';
+import { t, intlLocale } from '../i18n';
 import { useExit } from '../lib/useExit';
 import { Icon } from './Icon';
 import './trackedit.css';
@@ -24,9 +25,9 @@ interface TrackedDay {
 
 const SOURCE_LABEL: Record<TrackedPoint['source'], string> = {
   TRACKED: 'GPS',
-  MANUAL: 'Handmatig',
-  ROUTE_FILL: 'Wegroute',
-  IMPORTED: 'Import',
+  MANUAL: t('trip.trackEdit.source.manual'),
+  ROUTE_FILL: t('trip.trackEdit.source.routeFill'),
+  IMPORTED: t('trip.trackEdit.source.imported'),
 };
 
 function todayIso(): string {
@@ -34,7 +35,7 @@ function todayIso(): string {
 }
 
 function clock(iso: string): string {
-  return new Date(iso).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 /**
@@ -107,7 +108,7 @@ export function TrackPointsEditor({
         setPoints(list);
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Punten laden mislukt');
+        setError(err instanceof Error ? err.message : t('trip.trackEdit.error.load'));
       }
     },
     [tripId],
@@ -231,7 +232,7 @@ export function TrackPointsEditor({
         body: { latitude: lat, longitude: lng },
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Punt verplaatsen mislukt');
+      setError(err instanceof Error ? err.message : t('trip.trackEdit.error.move'));
       void load(day);
     }
   }
@@ -270,7 +271,7 @@ export function TrackPointsEditor({
       await load(day);
       setAdding(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Punt toevoegen mislukt');
+      setError(err instanceof Error ? err.message : t('trip.trackEdit.error.add'));
     } finally {
       setBusy(false);
     }
@@ -284,7 +285,7 @@ export function TrackPointsEditor({
       setSelected(null);
       await load(day);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Punt verwijderen mislukt');
+      setError(err instanceof Error ? err.message : t('trip.trackEdit.error.delete'));
     } finally {
       setBusy(false);
     }
@@ -297,14 +298,16 @@ export function TrackPointsEditor({
   return createPortal(
     <div className={`te-layer ${closing ? 'closing' : ''}`}>
       <header className="te-head">
-        <button type="button" className="te-icon-btn" aria-label="Sluiten" onClick={close}>
+        <button type="button" className="te-icon-btn" aria-label={t('common.close')} onClick={close}>
           <Icon name="close" size={20} />
         </button>
         <div className="te-title">
-          <strong>Punten van {day === todayIso() ? 'vandaag' : day}</strong>
-          <small>
-            {points.length} {points.length === 1 ? 'punt' : 'punten'}
-          </small>
+          <strong>
+            {day === todayIso()
+              ? t('trip.trackEdit.titleToday')
+              : t('trip.trackEdit.titleDay', { day })}
+          </strong>
+          <small>{t('trip.trackEdit.points', { count: points.length })}</small>
         </div>
       </header>
 
@@ -316,7 +319,7 @@ export function TrackPointsEditor({
             className={`te-day ${d.day === day ? 'active' : ''}`}
             onClick={() => setDay(d.day)}
           >
-            {d.day === todayIso() ? 'Vandaag' : d.day.slice(8) + '-' + d.day.slice(5, 7)}
+            {d.day === todayIso() ? t('common.today') : d.day.slice(8) + '-' + d.day.slice(5, 7)}
             <small>{d.count}</small>
           </button>
         ))}
@@ -326,7 +329,7 @@ export function TrackPointsEditor({
         <div ref={containerRef} className="te-map-inner" />
         {hintShown && (
           <div className={`te-hint ${hintClosing ? 'leaving' : ''}`}>
-            Tik op de kaart om een punt toe te voegen
+            {t('trip.trackEdit.hintAdd')}
           </div>
         )}
       </div>
@@ -344,8 +347,8 @@ export function TrackPointsEditor({
         <div className="te-bar-tools">
           <span className="te-legend" key={adding ? 'adding' : 'idle'}>
             {adding
-              ? 'Tik op de kaart waar het punt moet komen.'
-              : 'Sleep een punt om de route te corrigeren.'}
+              ? t('trip.trackEdit.legendAdding')
+              : t('trip.trackEdit.legendIdle')}
           </span>
           <button
             type="button"
@@ -356,7 +359,7 @@ export function TrackPointsEditor({
             <span className="te-add-icon">
               <Icon name="plus" size={17} />
             </span>
-            {adding ? 'Klaar' : 'Punt toevoegen'}
+            {adding ? t('common.done') : t('trip.trackEdit.addPoint')}
           </button>
         </div>
         <div className="te-bar-point">
@@ -370,7 +373,7 @@ export function TrackPointsEditor({
                 </small>
               </span>
               <button type="button" className="btn btn-ghost" onClick={() => setSelected(null)}>
-                Sluiten
+                {t('common.close')}
               </button>
               <button
                 type="button"
@@ -378,7 +381,7 @@ export function TrackPointsEditor({
                 disabled={busy}
                 onClick={() => void removeSelected()}
               >
-                <Icon name="trash" size={15} /> Verwijderen
+                <Icon name="trash" size={15} /> {t('common.delete')}
               </button>
             </>
           )}
@@ -400,7 +403,7 @@ function pointToSegment(
   const dy = b[1] - a[1];
   const len2 = dx * dx + dy * dy;
   if (len2 === 0) return Math.hypot(p[0] - a[0], p[1] - a[1]);
-  let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+  let frac = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2;
+  frac = Math.max(0, Math.min(1, frac));
+  return Math.hypot(p[0] - (a[0] + frac * dx), p[1] - (a[1] + frac * dy));
 }

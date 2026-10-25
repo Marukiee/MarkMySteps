@@ -5,6 +5,8 @@
 import '@fontsource-variable/fraunces';
 import '@fontsource-variable/outfit';
 import '@fontsource-variable/inter';
+// First, so the language is known before any other module is evaluated.
+import './i18n';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';

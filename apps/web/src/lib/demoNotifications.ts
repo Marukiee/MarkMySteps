@@ -1,4 +1,5 @@
 import type { NotificationItem } from '../api/types';
+import { t } from '../i18n';
 
 /**
  * A bell's worth of examples, for developer options.
@@ -15,8 +16,8 @@ export const DEMO_NOTIFICATIONS: NotificationItem[] = [
     createdAt: new Date(Date.now() - 20 * 60_000).toISOString(),
     read: false,
     actor: { id: 'demo-1', displayName: 'Ties', username: 'ties', hasAvatar: false },
-    trip: { id: 'demo-trip-1', title: 'Roadtrip' },
-    request: { id: 'demo-req-1', status: 'PENDING', message: 'Hoi! Mag ik meekijken?' },
+    trip: { id: 'demo-trip-1', title: t('social.demo.trip.roadtrip') },
+    request: { id: 'demo-req-1', status: 'PENDING', message: t('social.demo.message') },
   },
   {
     id: 'demo-added',
@@ -24,7 +25,7 @@ export const DEMO_NOTIFICATIONS: NotificationItem[] = [
     createdAt: new Date(Date.now() - 5 * 3_600_000).toISOString(),
     read: false,
     actor: { id: 'demo-2', displayName: 'Sanne', username: 'sanne', hasAvatar: false },
-    trip: { id: 'demo-trip-2', title: 'Interrail 2026' },
+    trip: { id: 'demo-trip-2', title: t('social.demo.trip.interrail') },
     request: null,
   },
   {
@@ -33,7 +34,7 @@ export const DEMO_NOTIFICATIONS: NotificationItem[] = [
     createdAt: new Date(Date.now() - 30 * 3_600_000).toISOString(),
     read: true,
     actor: { id: 'demo-3', displayName: 'Joris', username: 'joris', hasAvatar: false },
-    trip: { id: 'demo-trip-3', title: 'Noorwegen' },
+    trip: { id: 'demo-trip-3', title: t('social.demo.trip.norway') },
     request: null,
   },
   {
@@ -42,7 +43,7 @@ export const DEMO_NOTIFICATIONS: NotificationItem[] = [
     createdAt: new Date(Date.now() - 4 * 86_400_000).toISOString(),
     read: true,
     actor: { id: 'demo-4', displayName: 'Eva', username: 'eva', hasAvatar: false },
-    trip: { id: 'demo-trip-4', title: 'Marokko' },
+    trip: { id: 'demo-trip-4', title: t('social.demo.trip.morocco') },
     request: null,
   },
 ];

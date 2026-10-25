@@ -1,5 +1,6 @@
 import { cachedStyle } from './mapCache';
 import type { StyleSpecification } from 'maplibre-gl';
+import { t } from '../i18n';
 
 /** Local display preferences (device-scoped, no server round-trip). */
 
@@ -8,10 +9,10 @@ export type MapStyleId = 'positron' | 'bright' | 'liberty' | 'satellite';
 const MAP_STYLE_KEY = 'mms.mapstyle';
 
 export const MAP_STYLES: { id: MapStyleId; label: string }[] = [
-  { id: 'positron', label: 'Licht & minimaal' },
-  { id: 'bright', label: 'Helder & kleurrijk' },
-  { id: 'liberty', label: 'Klassiek' },
-  { id: 'satellite', label: 'Satelliet' },
+  { id: 'positron', label: t('app.mapStyle.positron') },
+  { id: 'bright', label: t('app.mapStyle.bright') },
+  { id: 'liberty', label: t('app.mapStyle.liberty') },
+  { id: 'satellite', label: t('app.mapStyle.satellite') },
 ];
 
 // Keyless satellite raster (Esri World Imagery). No Google, no API key.

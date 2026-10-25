@@ -7,6 +7,7 @@ import {
   showJobProgress,
 } from './notify';
 import type { BookSource } from './photobook';
+import { t } from '../i18n';
 
 export interface BookJob {
   status: 'idle' | 'running' | 'done' | 'failed';
@@ -68,7 +69,7 @@ let cancelling = false;
 export function cancelBook(): void {
   if (job.status !== 'running') return;
   cancelling = true;
-  set({ note: 'Annuleren…' });
+  set({ note: t('book.job.cancelling') });
 }
 
 export async function startBook(source: BookSource, dpi: number): Promise<void> {
@@ -90,7 +91,11 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
   // reason to stop — the pill in the app says the same thing.
   const mayNotify = await notifyPermitted();
   if (mayNotify) {
-    await showJobProgress(`Fotoboek · ${source.trip.title}`, 'Voorbereiden…', 0);
+    await showJobProgress(
+      t('book.job.notifyTitle', { title: source.trip.title }),
+      t('book.job.preparing'),
+      0,
+    );
   }
 
   // The shade is updated on the way past whole percentages rather than on
@@ -120,8 +125,8 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
         lastPercent = percent;
         lastAt = now;
         void showJobProgress(
-          `Fotoboek · ${source.trip.title}`,
-          `Pagina ${done} van ${total}`,
+          t('book.job.notifyTitle', { title: source.trip.title }),
+          t('book.progress', { done, total }),
           percent,
         );
       }
@@ -134,7 +139,7 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
     // not.
     void clearJobProgress();
     if (mayNotify) {
-      notify('Fotoboek klaar', `${source.trip.title} · open de app om te bewaren`);
+      notify(t('book.done.title'), t('book.job.notifyDone', { title: source.trip.title }));
     }
   } catch (err) {
     void clearJobProgress();
@@ -143,7 +148,7 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
       dismissBook();
       return;
     }
-    set({ status: 'failed', note: 'Maken mislukt' });
+    set({ status: 'failed', note: t('book.job.failed') });
   } finally {
     cancelling = false;
   }
@@ -154,7 +159,7 @@ export async function saveBook(): Promise<void> {
   if (!job.file) return;
   const outcome = await shareOrSaveFiles([job.file], job.title);
   if (outcome === 'cancelled') return;
-  set({ note: outcome === 'downloaded' ? 'Bewaard in je downloads' : null });
+  set({ note: outcome === 'downloaded' ? t('book.job.savedToDownloads') : null });
   if (outcome !== 'failed') dismissBook();
 }
 
@@ -175,6 +180,6 @@ function slug(text: string): string {
       .replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
-      .slice(0, 60) || 'reis'
+      .slice(0, 60) || t('book.fileName')
   );
 }

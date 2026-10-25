@@ -5,6 +5,7 @@ import * as topojson from 'topojson-client';
 import countries110m from 'world-atlas/countries-110m.json';
 import { COUNTRY_COLOR } from '../lib/countryColors';
 import { COUNTRY_ID } from '../lib/countryShapes';
+import { t } from '../i18n';
 import './countryglobe.css';
 
 type Topology = Parameters<typeof topojson.feature>[0] & {
@@ -242,7 +243,7 @@ export function CountryGlobe({ countries, size = 200 }: { countries: string[]; s
       className="country-globe"
       style={{ width: size, height: size }}
       role="img"
-      aria-label={`Globe met ${countries.length} bezochte landen`}
+      aria-label={t('trips.globe.label', { count: countries.length })}
     />
   );
 }

@@ -1,5 +1,6 @@
 import { CSSProperties, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { haversineKm, STOP_NEAR_KM } from '../lib/arc';
+import { t } from '../i18n';
 import './stopjump.css';
 
 export interface JumpStop {
@@ -138,7 +139,7 @@ export function StopJump({
       if (!day) continue;
       // The same city twice in a row (a stop split over two entries) is one
       // pill, not two that land on the spot.
-      if (out.some((t) => t.day === day && t.name === stop.name)) continue;
+      if (out.some((item) => item.day === day && item.name === stop.name)) continue;
       // The organiser's own choice first, otherwise a photo taken there. A
       // choice that no longer loads counts as no choice.
       const cover = stop.coverMediaId && !gone.has(stop.coverMediaId) ? stop.coverMediaId : null;
@@ -193,10 +194,10 @@ export function StopJump({
   if (targets.length < 2) return null;
 
   return (
-    <nav className="stop-jump" aria-label="Naar een stop">
+    <nav className="stop-jump" aria-label={t('trip.stopJump.label')}>
       {/* A row of photographs with no word over it reads as the top of the
           timeline rather than as a way into it. */}
-      <h3 className="stop-jump-title">Plaatsen</h3>
+      <h3 className="stop-jump-title">{t('trip.stopJump.title')}</h3>
       <div className="stop-jump-rail" ref={railRef} data-edge={edge}>
         {targets.map((target, i) => (
           <button

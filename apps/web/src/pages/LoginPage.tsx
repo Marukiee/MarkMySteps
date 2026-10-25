@@ -9,6 +9,7 @@ import { LocalModeSheet } from '../components/LocalModeSheet';
 import { LogoMark } from '../components/Logo';
 import { PasswordInput } from '../components/PasswordInput';
 import { PasswordStrength } from '../components/PasswordStrength';
+import { LANGUAGES, getLang, setLangSetting, t } from '../i18n';
 import './login.css';
 
 export function LoginPage() {
@@ -52,7 +53,7 @@ export function LoginPage() {
       }
       navigate('/');
     } catch (err) {
-      setError(signInProblem(err, 'Er ging iets mis'));
+      setError(signInProblem(err, t('common.errorGeneric')));
     } finally {
       setBusy(false);
     }
@@ -93,7 +94,7 @@ export function LoginPage() {
             app still has to say what it is. */}
         <LogoMark size={58} />
         <h1>MarkMySteps</h1>
-        <p>Leg vast waar je geweest bent, over de hele wereld.</p>
+        <p>{t('auth.login.tagline')}</p>
       </div>
 
       {mfaToken ? (
@@ -156,20 +157,20 @@ export function LoginPage() {
             className={mode === 'login' ? 'active' : ''}
             onClick={() => setMode('login')}
           >
-            Inloggen
+            {t('auth.login.signIn')}
           </button>
           <button
             type="button"
             className={mode === 'register' ? 'active' : ''}
             onClick={() => setMode('register')}
           >
-            Account maken
+            {t('auth.login.createAccount')}
           </button>
         </div>
 
         {isNative() && (
           <div className="field">
-            <label htmlFor="server">Server-URL</label>
+            <label htmlFor="server">{t('auth.login.server')}</label>
             <input
               id="server"
               type="url"
@@ -177,7 +178,7 @@ export function LoginPage() {
               value={server}
               onChange={(e) => setServer(e.target.value)}
             />
-            <span className="muted">Leeg laten = standaard server</span>
+            <span className="muted">{t('auth.login.serverHint')}</span>
           </div>
         )}
 
@@ -186,7 +187,7 @@ export function LoginPage() {
               asks for the name separately. The label changed in one frame,
               which read as a glitch — the two swap over instead. */}
           <label htmlFor="email" className="login-label-swap">
-            <span key={mode}>{mode === 'login' ? 'E-mail of gebruikersnaam' : 'E-mail'}</span>
+            <span key={mode}>{mode === 'login' ? t('auth.login.identifier') : t('auth.login.email')}</span>
           </label>
           <input
             id="email"
@@ -203,21 +204,21 @@ export function LoginPage() {
         <div className="login-extra" data-open={mode === 'register'}>
           <div className="login-extra-inner">
             <div className="field">
-              <label htmlFor="username">Gebruikersnaam</label>
+              <label htmlFor="username">{t('auth.login.username')}</label>
               <input
                 id="username"
                 required={mode === 'register'}
                 disabled={mode !== 'register'}
                 pattern="[a-zA-Z0-9._\-]{3,30}"
                 autoComplete="username"
-                placeholder="bijv. mark"
+                placeholder={t('auth.login.usernamePlaceholder')}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
-              <span className="muted">Hiermee voegen vrienden je toe aan reizen</span>
+              <span className="muted">{t('auth.login.usernameHint')}</span>
             </div>
             <div className="field">
-              <label htmlFor="name">Naam</label>
+              <label htmlFor="name">{t('auth.login.name')}</label>
               <input
                 id="name"
                 required={mode === 'register'}
@@ -231,7 +232,7 @@ export function LoginPage() {
         </div>
 
         <div className="field">
-          <label htmlFor="password">Wachtwoord</label>
+          <label htmlFor="password">{t('auth.login.password')}</label>
           <PasswordInput
             id="password"
             required
@@ -248,7 +249,7 @@ export function LoginPage() {
             open={mode === 'register'}
           />
           <span className="login-hint" data-open={mode === 'register'}>
-            <span>Minimaal 10 tekens</span>
+            <span>{t('auth.login.passwordHint')}</span>
           </span>
         </div>
 
@@ -256,7 +257,11 @@ export function LoginPage() {
 
         <button className="btn btn-primary" disabled={busy}>
           <span key={mode} className="login-submit-face">
-            {busy ? 'Even geduld…' : mode === 'login' ? 'Inloggen' : 'Account maken'}
+            {busy
+              ? t('auth.login.wait')
+              : mode === 'login'
+                ? t('auth.login.signIn')
+                : t('auth.login.createAccount')}
           </span>
         </button>
 
@@ -265,10 +270,28 @@ export function LoginPage() {
         {/* The app is usable with nothing but the phone; saying so here is the
             only place anyone would look for it. */}
         <button type="button" className="login-nolink" onClick={() => setLocalInfo(true)}>
-          Doorgaan zonder server
+          {t('auth.login.noServer')}
         </button>
       </form>
       )}
+
+      {/* Someone the phone's language guessed wrong for has to be able to put
+          it right before signing in, so the two names stay out of the way
+          under the card instead of being tucked inside settings. */}
+      <div className="login-lang" role="group" aria-label={t('app.language.title')}>
+        {LANGUAGES.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            lang={l.id}
+            className={l.id === getLang() ? 'active' : ''}
+            aria-pressed={l.id === getLang()}
+            onClick={() => l.id !== getLang() && setLangSetting(l.id)}
+          >
+            {l.name}
+          </button>
+        ))}
+      </div>
 
       {localInfo && (
         <LocalModeSheet
@@ -276,7 +299,7 @@ export function LoginPage() {
           onContinue={() => {
             setLocalInfo(false);
             if (preview) {
-              setNote('Test: hier zou de app zonder server starten. Er is niets veranderd.');
+              setNote(t('auth.login.previewNote'));
               return;
             }
             startLocalMode();

@@ -8,6 +8,8 @@ import {
   startTracking,
   stopTracking,
 } from '../tracking/tracker';
+import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 import { Icon } from './Icon';
 import { alwaysLabel, whileUsingLabel } from '../lib/native';
 
@@ -52,16 +54,16 @@ export function TrackButton({ tripId }: { tripId: string }) {
       >
         {activeHere ? (
           <>
-            <Icon key="stop" name="stop" size={15} className="track-btn-icon" /> Stop tracking
+            <Icon key="stop" name="stop" size={15} className="track-btn-icon" /> {t('trip.tracking.stop')}
           </>
         ) : (
           <>
-            <Icon key="play" name="play" size={15} className="track-btn-icon" /> Start tracking
+            <Icon key="play" name="play" size={15} className="track-btn-icon" /> {t('trip.tracking.start')}
           </>
         )}
       </button>
       {activeHere && !isNative() && (
-        <p className="muted">Browser: alleen met scherm aan.</p>
+        <p className="muted">{t('trip.tracking.browserOnly')}</p>
       )}
       {activeHere && tracker.lastError && <p className="error-text">{tracker.lastError}</p>}
       {activeHere && isNative() && needsBackground && !tipDismissed && (
@@ -70,26 +72,29 @@ export function TrackButton({ tripId }: { tripId: string }) {
             <span className="track-perm-icon">
               <Icon name="shield" size={17} />
             </span>
-            <strong>Tracken stopt zodra je de app sluit</strong>
+            <strong>{t('trip.tracking.permTitle')}</strong>
             <button
               type="button"
               className="track-perm-close"
-              aria-label="Sluiten"
+              aria-label={t('common.close')}
               onClick={dismissTip}
             >
               <Icon name="close" size={16} />
             </button>
           </div>
           <span className="track-perm-text">
-            Locatie staat op “{whileUsingLabel()}”. Zet hem op <b>{alwaysLabel()}</b> om je route
-            ook met het scherm uit bij te houden.
+            {tr(
+              'trip.tracking.permText',
+              { b: (s) => <b>{s}</b> },
+              { whileUsing: whileUsingLabel(), always: alwaysLabel() },
+            )}
           </span>
           <button
             type="button"
             className="track-perm-open"
             onClick={() => void openLocationSettings()}
           >
-            Locatie-instellingen openen
+            {t('trip.tracking.openLocationSettings')}
           </button>
         </div>
       )}

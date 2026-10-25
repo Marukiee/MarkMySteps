@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { t, intlLocale } from '../i18n';
 import { useExit } from '../lib/useExit';
 import { Icon } from './Icon';
 import './dayfilter.css';
@@ -131,7 +132,7 @@ export function DayFilter({
         onClick={() => setOpen((o) => !o)}
       >
         <Icon name="calendar" size={14} />
-        <span className="day-filter-label">{value ? longDay(value) : 'Hele reis'}</span>
+        <span className="day-filter-label">{value ? longDay(value) : t('trip.dayFilter.wholeTrip')}</span>
         <Icon name="chevron-down" size={14} className="day-filter-caret" />
       </button>
 
@@ -156,8 +157,8 @@ export function DayFilter({
               className={`day-filter-item ${value === null ? 'active' : ''}`}
               onClick={() => pick(null)}
             >
-              <span className="day-filter-item-name">Hele reis</span>
-              <span className="day-filter-count">{days.length} dagen</span>
+              <span className="day-filter-item-name">{t('trip.dayFilter.wholeTrip')}</span>
+              <span className="day-filter-count">{t('common.days', { count: days.length })}</span>
             </button>
             <div className="day-filter-rule" />
             {days.map((day, index) => (
@@ -188,7 +189,7 @@ export function DayFilter({
 /** "di 12 aug" — short enough for the pill, unambiguous in a list. */
 function longDay(day: string): string {
   const date = new Date(`${day}T12:00:00Z`);
-  return date.toLocaleDateString('nl-NL', {
+  return date.toLocaleDateString(intlLocale(), {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

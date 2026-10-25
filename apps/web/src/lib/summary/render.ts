@@ -2,6 +2,7 @@ import { PALETTES, readyFonts } from './canvas';
 import { buildPages, templateForPage } from './data';
 import { TEMPLATES } from './templates';
 import { FORMATS, type PageData, type SummarySource, type SummarySpec } from './types';
+import { t } from '../../i18n';
 
 export interface RenderedPage {
   blob: Blob;
@@ -34,7 +35,7 @@ export async function renderSummary(
     canvas.width = format.width;
     canvas.height = format.height;
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Deze browser kan geen afbeeldingen tekenen');
+    if (!ctx) throw new Error(t('summary.error.noCanvas'));
 
     const template = templateForPage(spec, i, data.length);
     const render = TEMPLATES[template] ?? TEMPLATES.route!;
@@ -50,7 +51,7 @@ export async function renderSummary(
       // the size for no visible gain.
       canvas.toBlob(resolve, 'image/jpeg', 0.92),
     );
-    if (!blob) throw new Error('Renderen mislukt');
+    if (!blob) throw new Error(t('summary.error.render'));
     out.push({
       blob,
       url: URL.createObjectURL(blob),

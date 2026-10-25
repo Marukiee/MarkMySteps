@@ -46,6 +46,7 @@ import {
 } from '../lib/notify';
 import { applyDynamicAccent, dynamicAccentAvailable } from '../lib/dynamicColor';
 import { MapStylePicker } from '../components/MapStylePicker';
+import { getLangSetting, LANGUAGES, LangSetting, setLangSetting, t } from '../i18n';
 import { skipNextPop, useBackToClose } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
 import {
@@ -190,6 +191,40 @@ export function SettingsPage() {
   );
 }
 
+/**
+ * Which language the app speaks. The names of the languages are always in
+ * their own language, so someone who cannot read the current one still finds
+ * theirs.
+ */
+function LanguageCard() {
+  const current = getLangSetting();
+  const options: { id: LangSetting; label: string }[] = [
+    { id: 'system', label: t('common.system') },
+    ...LANGUAGES.map((l) => ({ id: l.id, label: l.name })),
+  ];
+  return (
+    <section className="card settings-card">
+      <h2>{t('app.language.title')}</h2>
+      <div
+        className="theme-choice pill-switch"
+        style={{ '--n': options.length, '--i': Math.max(0, options.findIndex((o) => o.id === current)) } as CSSProperties}
+      >
+        {options.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            className={`theme-opt ${current === o.id ? 'active' : ''}`}
+            onClick={() => setLangSetting(o.id)}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <span className="muted">{t('app.language.hint')}</span>
+    </section>
+  );
+}
+
 function DisplaySection() {
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
   const [wallpaperAccent, setWallpaperAccent] = useState(isDynamicAccent());
@@ -216,23 +251,24 @@ function DisplaySection() {
 
   return (
     <>
+      <LanguageCard />
       <section className="card settings-card">
         <h2>Thema</h2>
         <div
           className="theme-choice pill-switch"
-          style={{ '--n': themes.length, '--i': Math.max(0, themes.findIndex((t) => t.id === theme)) } as CSSProperties}
+          style={{ '--n': themes.length, '--i': Math.max(0, themes.findIndex((th) => th.id === theme)) } as CSSProperties}
         >
-          {themes.map((t) => (
+          {themes.map((th) => (
             <button
-              key={t.id}
+              key={th.id}
               type="button"
-              className={`theme-opt ${theme === t.id ? 'active' : ''}`}
+              className={`theme-opt ${theme === th.id ? 'active' : ''}`}
               onClick={() => {
-                setTheme(t.id);
-                setThemeId(t.id);
+                setTheme(th.id);
+                setThemeId(th.id);
               }}
             >
-              {t.label}
+              {th.label}
             </button>
           ))}
         </div>

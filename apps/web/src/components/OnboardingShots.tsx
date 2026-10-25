@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { Icon, IconName } from './Icon';
 import './onboardingshots.css';
 
@@ -37,7 +38,7 @@ export function PlanItinerary({
         >
           <span className="onb-plan-num">{i + 1}</span>
           <span className="onb-plan-name">{stop.name}</span>
-          <span className="onb-plan-nights">{stop.nights} nachten</span>
+          <span className="onb-plan-nights">{t('common.nights', { count: stop.nights })}</span>
           <span className="onb-plan-mode">
             <Icon name={stop.mode as IconName} size={13} />
           </span>
@@ -224,7 +225,7 @@ export function VisualStart() {
   return (
     <span className="onb-shot onb-shot-start" aria-hidden="true">
       <span className="shot-field">
-        <span className="shot-field-label">Naam</span>
+        <span className="shot-field-label">{t('onboarding.shot.name')}</span>
         <span className="shot-field-box">
           <span className="shot-typed">Interrail</span>
           <span className="shot-caret" />
@@ -232,15 +233,15 @@ export function VisualStart() {
       </span>
       <span className="shot-dates">
         <span className="shot-field">
-          <span className="shot-field-label">Van</span>
+          <span className="shot-field-label">{t('onboarding.shot.from')}</span>
           <span className="shot-field-box shot-field-fill shot-fill-1" />
         </span>
         <span className="shot-field">
-          <span className="shot-field-label">Tot</span>
+          <span className="shot-field-label">{t('onboarding.shot.to')}</span>
           <span className="shot-field-box shot-field-fill shot-fill-2" />
         </span>
       </span>
-      <span className="shot-submit">Aanmaken</span>
+      <span className="shot-submit">{t('onboarding.shot.create')}</span>
     </span>
   );
 }

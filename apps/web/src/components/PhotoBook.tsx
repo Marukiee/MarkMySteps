@@ -5,6 +5,7 @@ import type { PlannedStop } from '../lib/arc';
 import { bookJob, cancelBook, onBookJob, startBook } from '../lib/bookJob';
 import { countBookPages, type BookNote } from '../lib/photobook';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './photobook.css';
 
 /**
@@ -55,24 +56,22 @@ export function PhotoBook({
   return (
     <section className="photo-book">
       <h2 className="trip-side-heading">
-        Fotoboek <span className="summary-beta">(bèta)</span>
+        {t('book.title')} <span className="summary-beta">{t('book.beta')}</span>
       </h2>
       <p className="muted photo-book-hint">
         {pages > 0
-          ? `Een PDF van ${pages} pagina's: omslag, de route, per dag je notitie met de foto's van die dag, en een kaartje bij elke verplaatsing.`
-          : 'Zodra deze reis foto’s heeft, kun je er een boek van maken.'}
+          ? t('book.hint', { count: pages })
+          : t('book.hintEmpty')}
       </p>
 
       {running ? (
         <div className="photo-book-running">
           <div className="photo-book-progress">
             <div className="photo-book-bar" style={{ width: `${percent}%` }} />
-            <span>
-              Pagina {job.done} van {job.total || '…'}
-            </span>
+            <span>{t('book.progress', { done: job.done, total: job.total || '…' })}</span>
           </div>
           <button className="btn btn-ghost photo-book-cancel" onClick={cancelBook}>
-            Annuleren
+            {t('common.cancel')}
           </button>
         </div>
       ) : (
@@ -84,24 +83,24 @@ export function PhotoBook({
             disabled={pages === 0 || busy}
             onClick={() => make(120)}
           >
-            <Icon name="download" size={15} /> Snel
+            <Icon name="download" size={15} /> {t('book.quick')}
           </button>
           <button
             className="btn btn-ghost"
             disabled={pages === 0 || busy}
             onClick={() => make(150)}
           >
-            <Icon name="download" size={15} /> Print
+            <Icon name="download" size={15} /> {t('book.print')}
           </button>
         </div>
       )}
       {running && (
         <p className="muted photo-book-note">
-          Je kunt de app gewoon blijven gebruiken; hij zegt het als het boek klaar is.
+          {t('book.runningNote')}
         </p>
       )}
       {busy && !running && (
-        <p className="muted photo-book-note">Er wordt al een ander fotoboek gemaakt.</p>
+        <p className="muted photo-book-note">{t('book.busyOther')}</p>
       )}
     </section>
   );

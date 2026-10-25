@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { tripCoverBg } from '../lib/colors';
+import { t } from '../i18n';
 import {
   TRIP_GLYPH_RULES,
   tripGlyph,
@@ -25,27 +26,24 @@ export function CoverPreviewPage() {
   // matches nothing so the fallback is on the page too.
   const samples = [
     ...TRIP_GLYPH_RULES.map((rule) => sampleFor(rule.words[0]!)),
-    'Valencia in mei',
+    t('trips.coverPreview.fallbackSample'),
   ];
 
   return (
     <main className="page fade-in cover-preview">
       <button type="button" className="cp-back" onClick={() => navigate('/settings')}>
-        <Icon name="arrow-left" size={17} /> Terug
+        <Icon name="arrow-left" size={17} /> {t('common.back')}
       </button>
 
-      <h1>Covers zonder foto</h1>
-      <p className="muted cp-intro">
-        Heeft een reis nog geen foto&apos;s, dan krijgt hij zijn eigen kleur en een icoontje dat
-        uit de naam volgt. Wat niet herkend wordt houdt het kompas.
-      </p>
+      <h1>{t('trips.coverPreview.title')}</h1>
+      <p className="muted cp-intro">{t('trips.coverPreview.intro')}</p>
 
       <div className="field cp-try">
-        <label htmlFor="cp-name">Zelf proberen</label>
+        <label htmlFor="cp-name">{t('trips.coverPreview.try')}</label>
         <input
           id="cp-name"
           value={typed}
-          placeholder="Typ een reisnaam"
+          placeholder={t('trips.coverPreview.placeholder')}
           onChange={(e) => setTyped(e.target.value)}
         />
       </div>

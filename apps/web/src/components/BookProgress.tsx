@@ -3,6 +3,7 @@ import { bookJob, dismissBook, onBookJob, saveBook, type BookJob } from '../lib/
 import { useExit } from '../lib/useExit';
 import { AuthImage } from './AuthImage';
 import { Icon } from './Icon';
+import { intlLocale, t } from '../i18n';
 import './bookprogress.css';
 
 /**
@@ -27,7 +28,7 @@ export function BookProgress() {
   return (
     <div className={`book-done-layer ${closing ? 'closing' : ''}`} onClick={dismissBook}>
       <div className="book-done card" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="book-done-close" aria-label="Sluiten" onClick={dismissBook}>
+        <button type="button" className="book-done-close" aria-label={t('common.close')} onClick={dismissBook}>
           <Icon name="close" size={16} />
         </button>
 
@@ -48,16 +49,16 @@ export function BookProgress() {
           </div>
         </div>
 
-        <h3>{failed ? 'Fotoboek mislukt' : 'Fotoboek klaar'}</h3>
+        <h3>{failed ? t('book.done.failedTitle') : t('book.done.title')}</h3>
         <p className="muted">
           {failed
-            ? (job.note ?? 'Er ging iets mis tijdens het maken. Probeer het opnieuw.')
-            : `${job.title} · ${job.total} pagina's${job.file ? ` · ${megabytes(job.file.size)}` : ''}`}
+            ? (job.note ?? t('book.done.failedBody'))
+            : `${job.title} · ${t('book.pages', { count: job.total })}${job.file ? ` · ${megabytes(job.file.size)}` : ''}`}
         </p>
 
         {!failed && (
           <button className="btn btn-primary book-done-save" onClick={() => void saveBook()}>
-            <Icon name="download" size={16} /> Bewaren
+            <Icon name="download" size={16} /> {t('book.done.save')}
           </button>
         )}
         {job.note && !failed && <p className="muted book-done-note">{job.note}</p>}
@@ -67,5 +68,9 @@ export function BookProgress() {
 }
 
 function megabytes(bytes: number): string {
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  const mb = (bytes / 1024 / 1024).toLocaleString(intlLocale(), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+  return `${mb} MB`;
 }

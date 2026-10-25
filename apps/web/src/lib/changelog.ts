@@ -8,7 +8,12 @@
  * Three groups, because they answer different questions. `new` is what you can
  * now do, `better` is what you already did and now goes more smoothly, and
  * `fixed` is what was broken.
+ *
+ * One list per language, with the same entries in the same order. A new entry
+ * goes at the top of both: in Dutch in `NL`, in English in `EN`. The app shows
+ * the list for the language it speaks, and English for a language without one.
  */
+import { getLang, Lang } from '../i18n';
 
 export interface ChangeEntry {
   /** Shown as the heading. Free-form: a date, a version, a name. */
@@ -25,7 +30,8 @@ export interface ChangeEntry {
   highlight?: boolean;
 }
 
-export const CHANGELOG: ChangeEntry[] = [
+/** Dutch. */
+const NL: ChangeEntry[] = [
   {
     title: 'De trein',
     date: '2026-08-26',
@@ -232,3 +238,207 @@ export const CHANGELOG: ChangeEntry[] = [
     ],
   },
 ];
+
+/** English. */
+const EN: ChangeEntry[] = [
+  {
+    title: 'The train',
+    date: '2026-08-26',
+    highlight: true,
+    new: [
+      'Draw a train route: say which station you left from and which you arrived at, and the map draws the rails in between, joined to your route before and after',
+      'A train leg in the route planner has a “Draw the rails” button',
+      'The stations fill themselves in when you draw from a train leg, and main stations are at the top with a label',
+    ],
+    better: [
+      'Pressing and holding a line now gives a tick straight away and the menu comes at once; the option to erase a drawn part joins it as soon as the server answers, instead of the whole menu waiting for it',
+      'Press and hold a train leg and “Draw train route” is the suggested choice, instead of the route by road',
+      'The station fields look like the other fields, and the suggestions hang over the rest instead of pushing it down',
+      'Tap a station you found to change it and the cursor is in it straight away with the name selected; it used to take two taps',
+    ],
+    fixed: [
+      'A dotted arc only appears when the route really has a flight in it; a long stretch without signal, like a fast train or a tunnel, stays an ordinary line over the ground',
+      'A stretch of route without signal is an ordinary solid line; dotted is only for what is still to come',
+      'A single GPS fix in the middle of a train ride left half of that ride as a straight line; the whole stretch between the two stations is drawn now, and the lone fix makes way for the rails instead of pulling a spike into them',
+      'The “Draw route” button also works when you did not tap the stations you found in the list yourself',
+      'After drawing a train route, part of the old straight line sometimes stayed; the whole stretch between the two stations is replaced now',
+      'The grey text in the station fields now says “Departure station” and “Arrival station”, instead of a sample station that looked as if it was already filled in',
+    ],
+  },
+  {
+    title: 'The map, and what is on it',
+    date: '2026-08-24',
+    new: [
+      'A button on the map of a share link takes the map back to the whole trip',
+      'On a phone, the map in a share link moves with two fingers, so you can scroll past it with one',
+      'Map settings: choose whose route you see on the map, and whose photos, or no photos at all',
+      'The map style is in the map settings too, with the same previews as in Settings, and the map changes along with it',
+      'A button at the bottom right of the map takes it back to your location; green once a real fix is in, grey until then',
+      'Set a photo in the viewer as the cover of a stop, from the ⋯ menu (trip organiser only)',
+      'The stop tiles now carry a photo of that place',
+      'A share link tells you when there are new photos since your last visit, with a button to go there',
+      'A back to top button on a share link',
+      'A waiting screen with a compass when starting up takes a while',
+    ],
+    better: [
+      'The waiting screen at start-up comes later, so it does not flash by on a start that was already done',
+      'The stop tiles sit further left than the photos below them, so the row does not read as another row of the timeline',
+      'In the viewer on a phone, a portrait photo keeps its distance from the date and place at the top',
+      'Above the stop tiles it now says “Places”, so the row explains itself',
+      'The map style previews in the map settings are taller, so you can tell the four apart',
+      'The back to top button and the fast scroll grip only appear once the map has fully folded away, and leave as soon as you scroll back far enough for it to unfold, so they do not move along with the map',
+      'The back to top button is no longer in the route planner, where it only covered the buttons',
+      'The map of a share link now draws the same as the one in the app: the route you travelled, flights as arcs, and the planned stops dotted',
+      'Routes and photos you turn on or off in the map settings fade in and out, instead of suddenly being there or not',
+      'The stop tiles are wider and the flag in front is gone, so the name of the place now fits',
+      'A stop tile carries a photo that was really taken there, not just the first of that day: on a travel day that was often still the stop you left that morning',
+      'A day trip is back among the stop tiles, but only if you really took photos there',
+      'The LIVE pill above the map is gone; what it did is now in the button at the bottom right',
+      'The map no longer says “Imagery” in the corner; the credits are behind the small i button',
+      'Trips load under their own headings: “Upcoming & under way” and the tabs are there straight away, so the page no longer jumps down as soon as the trips arrive',
+      'The trip settings keep the space for the cover photo free while it loads',
+      'On a share link you see the route of the trip organiser, not those of all travel companions mixed together',
+      'The map shrinks smoothly while scrolling, and the fast scroll grip keeps up neatly',
+      'Trips and share links show how many are coming straight away, instead of an empty page',
+      'You can swipe the people & sharing card down to close it',
+      'Menus close the way they open, instead of simply disappearing',
+    ],
+    fixed: [
+      'A day trip tile takes you to the first photo you took there, not to the top of that day: two day trips on one date both ended up in the same place',
+      'If you edit a photo again in Immich and delete the original, the cover moves along to the new version instead of staying empty',
+      'A cover photo you delete in Immich is replaced: the trip and the stop pick a photo again themselves, instead of leaving a white space',
+      'The “View” button on the notice about new photos on a share link now really jumps to that day',
+      'The first stop tile keeps its margin on the left; the row used to push it away',
+      'The arrow of the back to top button has the same grey as the fast scroll grip, instead of bright white in dark mode',
+      'The date bubble of the fast scroll grip is dark in dark mode, instead of a white block',
+      'Swiping back from “What’s new” takes you back to About, not to the start screen',
+      'The back to top button no longer covers the map settings',
+      'Back to top puts the map back in its starting position instead of zooming out a lot further',
+      'The cover of a stop is taken from the stop where the photo was really taken, not the stop you happened to arrive at that day',
+      'Swiping a sheet away now drops it from where you let go, instead of first jumping back up',
+      'The buttons at the top right of the map stay put when you scroll',
+      'The arrows in the viewer no longer zoom in when you tap them quickly',
+      'Zooming in on a photo is as smooth as zooming out',
+      'The first stop tile no longer touches the edge of the screen',
+      'One pin per place on the map, even if you have been there three times',
+    ],
+  },
+  {
+    title: 'Faster through a long trip',
+    date: '2026-08-23',
+    new: [
+      'Pills above the timeline take you to a stop in one tap, in the app and in a share link',
+      'The fast scroll grip is now on a share link too',
+    ],
+    better: ['Besides the date, the grip also says which place you are in'],
+    fixed: [
+      'A share link draws the route you travelled, instead of a straight line across every gap',
+      'The days pill and the people pill close each other, and close as soon as you scroll',
+      'The photo in the viewer no longer jumps from small to large as soon as the large version is in',
+    ],
+  },
+  {
+    title: 'Photos in their own shape',
+    date: '2026-08-21',
+    new: ['Save a photo or video to your device, from the ⋯ menu in the viewer'],
+    better: [
+      'Photos sit in rows in their own shape, no longer cropped to little squares',
+      'A shared trip loads a lot faster: the timeline fetches small photos, only the viewer the large ones',
+      'The viewer in a share link is the same as in the app, with pinch and double tap to zoom',
+      'Videos in a share link play',
+      'Dragging and zooming on the map runs more smoothly',
+      'Set as cover and Open in Immich are in a menu at the top, in a fixed place',
+      'More photo and less empty border, in the app and on a share link',
+    ],
+    fixed: [
+      'The photo you tap is there straight away, instead of a grey block first',
+      'Black bars above and below a photo in the viewer',
+      'The coloured dot only shows when more than one person has photos',
+      'Scrolling back to the top brings the whole trip into view again',
+      'The fast scroll grip belongs to the timeline, not to the route planner',
+      'The place name in the viewer no longer flickers for every photo from the same city',
+      'A share link shows the newest version of the page, instead of an old one from your browser’s cache',
+    ],
+  },
+  {
+    title: 'Search, travel book and the map offline',
+    date: '2026-08-20',
+    new: [
+      'Search across all your trips: places, notes, people and photos, in one bar',
+      'A travel book of your whole trip as a PDF, with a page per day',
+      'Keep the map of a trip on your device, for when you have no signal',
+      'One day of the trip on the map, with a light that follows that day',
+      'Stops the app suggests itself, from your own route',
+      'Add a GPX or track file to a trip, and take it out again',
+      'Photos without GPS get their place from your route, and that place goes back to Immich',
+    ],
+    better: [
+      'A grip on the edge to scroll quickly through a long trip',
+      'You can dismiss the notice that there is no connection',
+    ],
+  },
+  {
+    title: 'Sharing, posters and a second look',
+    date: '2026-08-10',
+    new: [
+      'A share link with a page of its own, with a password if you want one',
+      'A poster of your trip, ready to send',
+      'A second look in the style of Material, which takes on the colour of your wallpaper',
+    ],
+    better: [
+      'Settings split into panels per subject',
+      'Sharing goes through your phone’s own share menu',
+    ],
+  },
+  {
+    title: 'Flights, guests and notifications',
+    date: '2026-08-02',
+    new: [
+      'Ask for access to a trip, and hear back about it',
+      'Add someone as a guest: they follow along, the trip stays yours',
+      'Notifications on your phone',
+      'A long press on the map asks what you meant',
+    ],
+    better: [
+      'Flights as an arc through the sky, on the map and on the globe',
+      'One dot per city, instead of a dot next to every flag',
+    ],
+  },
+  {
+    title: 'Tour and map',
+    date: '2026-08-01',
+    new: [
+      'A new tour, with the app itself on screen',
+      'This page: what’s new',
+      'Add someone as a travel companion or as a guest, in one go',
+    ],
+    better: [
+      'Dotted lines only where nothing was recorded',
+      'Tracking stops by itself when your trip is over, and says so',
+      'Photos lie on top of the stops on the map, not underneath',
+      'Planned trips do not count towards your numbers',
+    ],
+    fixed: [
+      'Share links gave away too much (closed after a security check)',
+      'On the mobile site you could no longer reach the bottom of a page',
+      'The buttons on a trip card hid behind your own photos',
+    ],
+  },
+  {
+    title: 'Photos from your device',
+    date: '2026-07-30',
+    new: ['Gallery photos with a trip, without uploading', 'An invitation with a photo from the trip'],
+    better: ['Flights follow their own arc on the globe'],
+  },
+  {
+    title: 'The globe follows your trip',
+    date: '2026-07-29',
+    new: ['A point of light runs along your route and stops at every place'],
+    better: ['A little plane that flies the arc and lands', 'More detail as soon as you zoom in'],
+  },
+];
+
+const LISTS: Partial<Record<Lang, ChangeEntry[]>> = { nl: NL, en: EN };
+
+/** The list in the language the app speaks. */
+export const CHANGELOG: ChangeEntry[] = LISTS[getLang()] ?? EN;

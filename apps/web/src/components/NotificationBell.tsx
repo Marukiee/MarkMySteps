@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { NotificationItem } from '../api/types';
+import { intlLocale, t } from '../i18n';
 import { DEMO_NOTIFICATIONS } from '../lib/demoNotifications';
 import { useExit } from '../lib/useExit';
 import { Avatar } from './Avatar';
@@ -94,7 +95,7 @@ export function NotificationBell({ demo = false }: { demo?: boolean }) {
       <button
         type="button"
         className={`notif-bell ${badge > 0 ? 'has-news' : ''}`}
-        aria-label={badge > 0 ? `Meldingen (${badge})` : 'Meldingen'}
+        aria-label={badge > 0 ? t('social.bell.labelCount', { n: badge }) : t('social.bell.label')}
         onClick={() => void openSheet()}
       >
         <Icon name="bell" size={20} />
@@ -167,7 +168,7 @@ export function NotificationSheet({
         delete next[requestId];
         return next;
       });
-      setError(err instanceof Error ? err.message : 'Dat lukte niet');
+      setError(err instanceof Error ? err.message : t('social.bell.failed'));
     } finally {
       setBusy(null);
     }
@@ -179,8 +180,13 @@ export function NotificationSheet({
     <div className={`notif-backdrop ${closing ? 'closing' : ''}`} onClick={onClose}>
       <div className="notif-sheet card" onClick={(e) => e.stopPropagation()}>
         <div className="notif-head">
-          <h2>Meldingen</h2>
-          <button type="button" className="notif-close" aria-label="Sluiten" onClick={onClose}>
+          <h2>{t('social.bell.label')}</h2>
+          <button
+            type="button"
+            className="notif-close"
+            aria-label={t('common.close')}
+            onClick={onClose}
+          >
             <Icon name="close" size={18} />
           </button>
         </div>
@@ -206,7 +212,7 @@ export function NotificationSheet({
             <span className="notif-empty-icon" aria-hidden="true">
               <Icon name="bell" size={26} />
             </span>
-            <p className="muted">Niets nieuws. Hier komen verzoeken en uitnodigingen.</p>
+            <p className="muted">{t('social.bell.empty')}</p>
           </div>
         ) : (
           <ul className="notif-list">
@@ -255,7 +261,7 @@ export function NotificationSheet({
                           disabled={busy === item.request!.id}
                           onClick={() => void answer(item.request!.id, true)}
                         >
-                          Toelaten
+                          {t('social.bell.approve')}
                         </button>
                         <button
                           type="button"
@@ -263,7 +269,7 @@ export function NotificationSheet({
                           disabled={busy === item.request!.id}
                           onClick={() => void answer(item.request!.id, false)}
                         >
-                          Afwijzen
+                          {t('social.bell.deny')}
                         </button>
                       </div>
                     )}
@@ -272,8 +278,10 @@ export function NotificationSheet({
                       <p className={`notif-outcome ${justAnswered === 'in' ? 'yes' : 'no'}`}>
                         <Icon name={justAnswered === 'in' ? 'check' : 'close'} size={13} />
                         {justAnswered === 'in'
-                          ? `${item.actor?.displayName ?? 'Toegelaten'} kijkt nu mee als gast.`
-                          : 'Afgewezen.'}
+                          ? t('social.bell.approved', {
+                              name: item.actor?.displayName ?? t('common.someone'),
+                            })
+                          : t('social.bell.denied')}
                       </p>
                     )}
 
@@ -286,7 +294,7 @@ export function NotificationSheet({
                           navigate(`/trips/${item.trip!.id}`);
                         }}
                       >
-                        Reis openen <Icon name="chevron-right" size={12} />
+                        {t('social.bell.openTrip')} <Icon name="chevron-right" size={12} />
                       </button>
                     )}
                   </div>
@@ -297,7 +305,7 @@ export function NotificationSheet({
                   <button
                     type="button"
                     className="notif-dismiss"
-                    aria-label={pending ? 'Verzoek negeren' : 'Melding weghalen'}
+                    aria-label={pending ? t('social.bell.ignore') : t('social.bell.remove')}
                     onClick={() => dismiss(item.id)}
                   >
                     <Icon name="close" size={14} />
@@ -329,19 +337,19 @@ function kindIcon(kind: NotificationItem['kind']) {
 }
 
 function describe(item: NotificationItem): string {
-  const who = item.actor?.displayName ?? 'Iemand';
-  const trip = item.trip?.title ?? 'een reis';
+  const who = item.actor?.displayName ?? t('common.someone');
+  const trip = item.trip?.title ?? t('common.aTrip');
   switch (item.kind) {
     case 'TRIP_ADDED':
-      return `${who} heeft je toegevoegd aan ${trip}.`;
+      return t('social.bell.tripAdded', { who, trip });
     case 'ACCESS_REQUESTED':
-      return `${who} vraagt toegang tot ${trip}.`;
+      return t('social.bell.accessRequested', { who, trip });
     case 'ACCESS_APPROVED':
-      return `${who} heeft je toegelaten tot ${trip}.`;
+      return t('social.bell.accessApproved', { who, trip });
     case 'ACCESS_DENIED':
-      return `${who} heeft je verzoek voor ${trip} afgewezen.`;
+      return t('social.bell.accessDenied', { who, trip });
     case 'SECURITY_LOGIN_ATTEMPTS':
-      return item.detail ?? 'Er zijn veel mislukte inlogpogingen geweest.';
+      return item.detail ?? t('social.bell.loginAttempts');
     default:
       return `${who} · ${trip}`;
   }
@@ -350,12 +358,12 @@ function describe(item: NotificationItem): string {
 /** "net", "3 uur", "gisteren", "12 jul" — the same scale the map markers use. */
 function ago(iso: string): string {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 2) return 'net';
-  if (minutes < 60) return `${minutes} min geleden`;
+  if (minutes < 2) return t('social.bell.ago.now');
+  if (minutes < 60) return t('social.bell.ago.minutes', { n: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} uur geleden`;
-  if (hours < 48) return 'gisteren';
+  if (hours < 24) return t('social.bell.ago.hours', { count: hours });
+  if (hours < 48) return t('social.bell.ago.yesterday');
   const days = Math.round(hours / 24);
-  if (days < 8) return `${days} dagen geleden`;
-  return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+  if (days < 8) return t('social.bell.ago.days', { count: days });
+  return new Date(iso).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short' });
 }

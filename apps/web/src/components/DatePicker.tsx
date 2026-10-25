@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
+import { t, intlLocale } from '../i18n';
 import './datepicker.css';
 
 interface DateFieldProps {
@@ -16,11 +17,19 @@ interface DateFieldProps {
   nearDate?: string;
 }
 
-const WEEKDAYS = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
+/** Short weekday names, Monday first. 1 January 2024 was a Monday. */
+const WEEKDAYS = Array.from({ length: 7 }, (_, i) =>
+  new Date(2024, 0, 1 + i).toLocaleDateString(intlLocale(), { weekday: 'short' }),
+);
+
+/** Short month names, January first. */
+const MONTHS = Array.from({ length: 12 }, (_, i) =>
+  new Date(2024, i, 1).toLocaleDateString(intlLocale(), { month: 'short' }),
+);
 
 function fmtLong(iso: string): string {
   const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'long' });
+  return d.toLocaleDateString(intlLocale(), { weekday: 'short', day: 'numeric', month: 'long' });
 }
 
 function toISO(d: Date): string {
@@ -47,7 +56,7 @@ export function DateField({
       <button id={id} type="button" className="date-field-btn" onClick={() => setOpen(true)}>
         <Icon name="pin" size={15} className="date-field-cal" />
         <span className={value ? '' : 'date-field-empty'}>
-          {value ? fmtLong(value) : placeholder ?? 'Kies een datum'}
+          {value ? fmtLong(value) : placeholder ?? t('planner.date.choose')}
         </span>
       </button>
       {open && (
@@ -125,11 +134,7 @@ function CalendarSheet({
       return { year: v.year + Math.floor(m / 12), month: ((m % 12) + 12) % 12 };
     });
 
-  const monthLabel = first.toLocaleDateString('nl-NL', { month: 'long' });
-  const MONTHS = [
-    'jan', 'feb', 'mrt', 'apr', 'mei', 'jun',
-    'jul', 'aug', 'sep', 'okt', 'nov', 'dec',
-  ];
+  const monthLabel = first.toLocaleDateString(intlLocale(), { month: 'long' });
   // A wide range, so an old trip is a scroll away rather than unreachable.
   const thisYear = new Date().getFullYear();
   const years: number[] = [];
@@ -145,14 +150,14 @@ function CalendarSheet({
       <div className="dp-sheet card" onClick={(e) => e.stopPropagation()}>
         <div className="dp-header">
           <span className="dp-header-year">{draft ? new Date(draft).getFullYear() : ''}</span>
-          <span className="dp-header-date">{draft ? fmtLong(draft) : 'Kies een datum'}</span>
+          <span className="dp-header-date">{draft ? fmtLong(draft) : t('planner.date.choose')}</span>
         </div>
 
         <div className="dp-nav">
           <button
             type="button"
             className="dp-nav-btn"
-            aria-label="Vorige maand"
+            aria-label={t('planner.date.prevMonth')}
             onClick={() => shift(-1)}
           >
             <Icon name="chevron-left" size={20} />
@@ -171,7 +176,7 @@ function CalendarSheet({
           <button
             type="button"
             className="dp-nav-btn"
-            aria-label="Volgende maand"
+            aria-label={t('planner.date.nextMonth')}
             onClick={() => shift(1)}
           >
             <Icon name="chevron-right" size={20} />
@@ -243,11 +248,11 @@ function CalendarSheet({
         <div className="dp-actions">
           {allowClear && (
             <button type="button" className="btn btn-ghost dp-clear" onClick={() => finish('')}>
-              Wissen
+              {t('planner.clear')}
             </button>
           )}
           <button type="button" className="btn btn-ghost" onClick={() => finish()}>
-            Annuleren
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -255,7 +260,7 @@ function CalendarSheet({
             disabled={!draft}
             onClick={() => finish(draft)}
           >
-            Selecteren
+            {t('planner.date.select')}
           </button>
         </div>
       </div>

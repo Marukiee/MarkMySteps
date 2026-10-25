@@ -6,6 +6,8 @@
  * Reisinstellingen); "auto" simply means "the first four that apply".
  */
 
+import { t, intlLocale } from '../i18n';
+
 export type FactId = 'km' | 'days' | 'stops' | 'photos' | 'travellers' | 'countries';
 
 export interface FactSource {
@@ -29,12 +31,12 @@ export interface Fact {
 export const FACT_ORDER: FactId[] = ['km', 'days', 'stops', 'photos', 'travellers', 'countries'];
 
 export const FACT_NAMES: Record<FactId, string> = {
-  km: 'Afstand',
-  days: 'Aantal dagen',
-  stops: 'Aantal stops',
-  photos: "Aantal foto's",
-  travellers: 'Reisgenoten',
-  countries: 'Aantal landen',
+  km: t('trip.facts.name.km'),
+  days: t('trip.facts.name.days'),
+  stops: t('trip.facts.name.stops'),
+  photos: t('trip.facts.name.photos'),
+  travellers: t('trip.facts.name.travellers'),
+  countries: t('trip.facts.name.countries'),
 };
 
 export const MAX_FACTS = 4;
@@ -44,35 +46,60 @@ function build(id: FactId, src: FactSource): Fact | null {
   switch (id) {
     case 'km':
       return src.distanceKm > 0
-        ? { id, value: src.distanceKm.toLocaleString('nl-NL'), label: 'km', shortLabel: 'km' }
+        ? {
+            id,
+            value: src.distanceKm.toLocaleString(intlLocale()),
+            label: t('common.km'),
+            shortLabel: t('common.km'),
+          }
         : null;
     case 'days':
       return src.days > 0
-        ? { id, value: String(src.days), label: 'dagen', shortLabel: 'dgn' }
+        ? {
+            id,
+            value: String(src.days),
+            label: t('trip.facts.days', { count: src.days }),
+            shortLabel: t('trip.facts.daysShort', { count: src.days }),
+          }
         : null;
     case 'stops':
       // A citytrip is one place, and "1 stops" is not a fact about it — it is
       // the trip. Two or more is a route, and worth a chip; the fourth slot
       // goes to whatever comes next in the order.
       return src.stops > 1
-        ? { id, value: String(src.stops), label: 'stops', shortLabel: 'stops' }
+        ? {
+            id,
+            value: String(src.stops),
+            label: t('trip.facts.stops'),
+            shortLabel: t('trip.facts.stops'),
+          }
         : null;
     case 'photos':
       return src.photoCount > 0
-        ? { id, value: String(src.photoCount), label: "foto's", shortLabel: "foto's" }
+        ? {
+            id,
+            value: String(src.photoCount),
+            label: t('trip.facts.photos', { count: src.photoCount }),
+            shortLabel: t('trip.facts.photos', { count: src.photoCount }),
+          }
         : null;
     case 'travellers':
       // You always travel with yourself, so one traveller isn't a fact.
       return src.travellers > 1
-        ? { id, value: String(src.travellers), label: 'reisgenoten', shortLabel: 'reizigers' }
+        ? {
+            id,
+            value: String(src.travellers),
+            label: t('trip.facts.travellers'),
+            shortLabel: t('trip.facts.travellersShort'),
+          }
         : null;
     case 'countries':
       return src.countries > 0
         ? {
             id,
             value: String(src.countries),
-            label: src.countries === 1 ? 'land' : 'landen',
-            shortLabel: src.countries === 1 ? 'land' : 'landen',
+            label: t('trip.facts.countries', { count: src.countries }),
+            shortLabel: t('trip.facts.countries', { count: src.countries }),
           }
         : null;
   }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { Avatar } from './Avatar';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './memberadd.css';
 
 export interface UserSuggestion {
@@ -51,7 +52,7 @@ export function MemberAdd({
   // Debounced, so typing doesn't fire a request per keystroke.
   useEffect(() => {
     setLoading(true);
-    const t = window.setTimeout(
+    const timer = window.setTimeout(
       () => {
         api<UserSuggestion[]>(
           `/users/suggestions?limit=25&q=${encodeURIComponent(query.trim())}`,
@@ -62,7 +63,7 @@ export function MemberAdd({
       },
       query ? 220 : 0,
     );
-    return () => window.clearTimeout(t);
+    return () => window.clearTimeout(timer);
   }, [query]);
 
   // Everyone who is on their way out is already unpicked as far as the rest of
@@ -120,13 +121,13 @@ export function MemberAdd({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Zoek op naam of @gebruikersnaam"
+          placeholder={t('trips.members.add.placeholder')}
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
         />
         {query && (
-          <button type="button" className="member-add-clear" onClick={() => setQuery('')} aria-label="Wissen">
+          <button type="button" className="member-add-clear" onClick={() => setQuery('')} aria-label={t('trips.members.add.clear')}>
             <Icon name="close" size={14} />
           </button>
         )}
@@ -146,7 +147,7 @@ export function MemberAdd({
               key={u.id}
               type="button"
               className={`member-add-chip ${leaving.includes(u.id) ? 'leaving' : ''}`}
-              aria-label={`${u.displayName} niet toevoegen`}
+              aria-label={t('trips.members.add.unpick', { name: u.displayName })}
               onClick={() => unpick(u.id)}
             >
               <Avatar userId={u.id} displayName={u.displayName} hasAvatar={u.hasAvatar} size={20} />
@@ -179,7 +180,7 @@ export function MemberAdd({
             </span>
             {u.sharedTrips > 0 && (
               <span className="member-add-tag">
-                {u.sharedTrips} {u.sharedTrips === 1 ? 'reis' : 'reizen'}
+                {t('common.trips', { count: u.sharedTrips })}
               </span>
             )}
           </button>
@@ -187,12 +188,12 @@ export function MemberAdd({
         {visible.length === 0 && (
           <p className="muted member-add-empty">
             {loading
-              ? 'Zoeken…'
+              ? t('trips.members.add.searching')
               : query
-                ? 'Niemand gevonden met die naam.'
+                ? t('trips.members.add.nobody')
                 : active.length > 0
-                  ? 'Zoek op naam om er meer toe te voegen.'
-                  : 'Zoek op naam of @gebruikersnaam om iemand toe te voegen.'}
+                  ? t('trips.members.add.searchMore')
+                  : t('trips.members.add.searchFirst')}
           </p>
         )}
       </div>
@@ -202,7 +203,9 @@ export function MemberAdd({
           above it. */}
       <div className="member-add-as">
         <span className="member-add-as-label">
-          {active.length > 1 ? `${active.length} mensen toevoegen als` : 'Toevoegen als'}
+          {active.length > 1
+            ? t('trips.members.add.manyAs', { count: active.length })
+            : t('trips.members.add.as')}
         </span>
         <div className="member-add-as-row">
           <button
@@ -212,7 +215,7 @@ export function MemberAdd({
             onClick={() => void submit('MEMBER')}
           >
             <Icon name="plus" size={16} />
-            Reisgenoot
+            {t('trips.members.companion')}
           </button>
           <button
             type="button"
@@ -221,7 +224,7 @@ export function MemberAdd({
             onClick={() => void submit('GUEST')}
           >
             <Icon name="plus" size={16} />
-            Gast
+            {t('trips.members.guest')}
           </button>
         </div>
       </div>

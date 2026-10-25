@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { popWasOurs, skipNextPop } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
+import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 import { AuthImage } from './AuthImage';
 import { Flag } from './Flag';
 import { Icon } from './Icon';
@@ -107,7 +109,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
       for (const code of countries) params.append('country', code);
       setResults(await api<SearchResults>(`/search?${params.toString()}`));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Zoeken mislukt');
+      setError(err instanceof Error ? err.message : t('planner.search.error'));
       setResults(EMPTY);
     } finally {
       setBusy(false);
@@ -122,9 +124,11 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
   const reading = useMemo(() => {
     if (!results) return [];
     return [
-      ...results.interpretation.people.map((p) => `foto's van ${p.name}`),
-      ...results.interpretation.places.map((p) => `in ${p}`),
-      results.interpretation.text ? `over “${results.interpretation.text}”` : null,
+      ...results.interpretation.people.map((p) => t('planner.search.reading.person', { name: p.name })),
+      ...results.interpretation.places.map((p) => t('planner.search.reading.place', { place: p })),
+      results.interpretation.text
+        ? t('planner.search.reading.text', { text: results.interpretation.text })
+        : null,
     ].filter(Boolean) as string[];
   }, [results]);
 
@@ -151,7 +155,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
               autoCapitalize="none"
               spellCheck={false}
               enterKeyHint="search"
-              placeholder="Plek, naam, of wat er op de foto staat"
+              placeholder={t('planner.search.placeholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -163,7 +167,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
               <button
                 type="button"
                 className="search-sheet-clear"
-                aria-label="Wissen"
+                aria-label={t('planner.clear')}
                 onClick={() => setQuery('')}
               >
                 <Icon name="close" size={14} />
@@ -171,9 +175,9 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
             )}
           </div>
           <button className="btn btn-primary search-sheet-go" disabled={!canSearch} onClick={() => void run()}>
-            {busy ? 'Bezig…' : 'Zoeken'}
+            {busy ? t('planner.search.busy') : t('common.search')}
           </button>
-          <button type="button" className="search-sheet-close" aria-label="Sluiten" onClick={close}>
+          <button type="button" className="search-sheet-close" aria-label={t('common.close')} onClick={close}>
             <Icon name="close" size={18} />
           </button>
         </div>
@@ -185,7 +189,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
           onClick={() => setFiltersOpen((o) => !o)}
         >
           <Icon name="settings" size={14} />
-          Filters
+          {t('planner.search.filters')}
           {activeFilters > 0 && <span className="search-filter-count">{activeFilters}</span>}
           <Icon name="chevron-down" size={14} className={`search-filter-caret ${filtersOpen ? 'on' : ''}`} />
         </button>
@@ -194,7 +198,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
           <div className={`search-filters ${filtersClosing ? 'closing' : ''}`}>
             {facets.people.length > 0 && (
               <>
-                <h3>Wie</h3>
+                <h3>{t('planner.search.who')}</h3>
                 <div className="search-chips">
                   {facets.people.map((person) => (
                     <button
@@ -218,7 +222,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
 
             {facets.countries.length > 0 && (
               <>
-                <h3>Waar</h3>
+                <h3>{t('planner.search.where')}</h3>
                 <div className="search-chips">
                   {facets.countries.map((country) => (
                     <button
@@ -242,10 +246,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
             )}
 
             {facets.people.length === 0 && facets.countries.length === 0 && (
-              <p className="muted search-empty">
-                Nog niets om op te filteren. Namen komen uit de gezichten die Immich herkent,
-                landen uit de stops van je reizen.
-              </p>
+              <p className="muted search-empty">{t('planner.search.noFilters')}</p>
             )}
           </div>
         )}
@@ -255,8 +256,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
 
           {!results && !busy && (
             <p className="search-empty">
-              Zoek op een plaats (“Zweden”), op wie er op staat (“Thijs”), of op wat er te zien is
-              (“strand”). Combineren mag: <em>Zweden Thijs</em>.
+              {tr('planner.search.intro', { em: (chunk) => <em>{chunk}</em> })}
             </p>
           )}
 
@@ -329,10 +329,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
           ))}
 
           {results && total === 0 && !busy && (
-            <p className="search-empty">
-              Niets gevonden. Probeer een andere plaats of naam, of laat het zoekveld leeg en kies
-              alleen een filter.
-            </p>
+            <p className="search-empty">{t('planner.search.noResults')}</p>
           )}
         </div>
       </div>

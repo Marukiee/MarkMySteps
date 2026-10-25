@@ -6,6 +6,7 @@ import { Avatar } from './Avatar';
 import { confirmModal } from './confirm';
 import { Icon } from './Icon';
 import { MemberAdd } from './MemberAdd';
+import { t } from '../i18n';
 import './members.css';
 
 export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () => void }) {
@@ -40,7 +41,7 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
       }
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Toevoegen mislukt');
+      setError(err instanceof Error ? err.message : t('trips.members.addFailed'));
     } finally {
       setBusy(false);
     }
@@ -55,9 +56,9 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
 
   async function removeMember(memberId: string, name: string) {
     const ok = await confirmModal({
-      title: 'Reisgenoot verwijderen?',
-      body: `${name} wordt uit de reis verwijderd.`,
-      confirmLabel: 'Verwijderen',
+      title: t('trips.members.removeTitle'),
+      body: t('trips.members.removeBody', { name }),
+      confirmLabel: t('trips.members.remove'),
       danger: true,
     });
     if (!ok) return;
@@ -67,13 +68,10 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
 
   return (
     <section className="members-panel">
-      <h2 className="trip-side-heading">Mensen</h2>
+      <h2 className="trip-side-heading">{t('trips.members.title')}</h2>
       {/* Said once, here, because the difference only matters when you are
           choosing between the two. */}
-      <p className="muted members-hint">
-        Reisgenoten waren erbij en tellen de reis mee in hun statistieken. Gasten kijken alleen
-        mee: voor hen telt deze reis niet.
-      </p>
+      <p className="muted members-hint">{t('trips.members.hint')}</p>
       <ul className="members-list">
         {trip.members.map((member) => (
           <li key={member.userId}>
@@ -86,15 +84,15 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
             <span className="members-name">
               {member.user.displayName}
               <small> @{member.user.username}</small>
-              {member.role === 'OWNER' && <small> · organisator</small>}
-              {member.role === 'GUEST' && <small> · gast</small>}
-              {member.role === 'MEMBER' && <small> · reisgenoot</small>}
+              {member.role === 'OWNER' && <small> · {t('trips.members.role.owner')}</small>}
+              {member.role === 'GUEST' && <small> · {t('trips.members.role.guest')}</small>}
+              {member.role === 'MEMBER' && <small> · {t('trips.members.role.member')}</small>}
             </span>
             {canRemove(member.userId) && (
               <button
                 className="members-remove"
                 onClick={() => void removeMember(member.userId, member.user.displayName)}
-                aria-label="Verwijderen"
+                aria-label={t('trips.members.remove')}
               >
                 <Icon name="close" size={15} />
               </button>
@@ -110,13 +108,13 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
                     className={member.role === 'MEMBER' ? 'active' : ''}
                     onClick={() => void setMember(member.userId, { role: 'MEMBER' })}
                   >
-                    Reisgenoot
+                    {t('trips.members.companion')}
                   </button>
                   <button
                     className={member.role === 'GUEST' ? 'active' : ''}
                     onClick={() => void setMember(member.userId, { role: 'GUEST' })}
                   >
-                    Gast
+                    {t('trips.members.guest')}
                   </button>
                 </div>
                 {/* A guest cannot track, so the option folds away rather than
@@ -132,7 +130,7 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
                           void setMember(member.userId, { canTrack: e.target.checked })
                         }
                       />
-                      mag tracken
+                      {t('trips.members.canTrack')}
                     </label>
                   </div>
                 </div>

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Airport, airportByCode, nearestAirport, searchAirports } from '../lib/airports';
 import { useBackToClose } from '../lib/backStack';
 import { getDefaultAirports } from '../lib/prefs';
+import { t } from '../i18n';
 import { Icon } from './Icon';
 import './flighteditor.css';
 
@@ -71,7 +72,7 @@ export function FlightEditor({
             ))}
           </span>
         ) : (
-          'Toevoegen'
+          t('common.add')
         )}
       </button>
       {open && (
@@ -187,20 +188,20 @@ function FlightSheet({
 
   const pickerTitle =
     picking?.kind === 'from'
-      ? 'Vertrek vanaf'
+      ? t('planner.flight.pickFrom')
       : picking?.kind === 'to'
-        ? 'Aankomst op'
-        : 'Overstap op';
+        ? t('planner.flight.pickTo')
+        : t('planner.flight.pickVia');
 
   return createPortal(
     <div className={`fe-layer ${closing ? 'closing' : ''}`}>
       <div className="fe-scrim" onClick={close} />
-      <div className="fe-sheet" role="dialog" aria-modal="true" aria-label="Vlucht bewerken">
+      <div className="fe-sheet" role="dialog" aria-modal="true" aria-label={t('planner.flight.edit')}>
         <div className="fe-grab" aria-hidden="true" />
 
         <header className="fe-head">
-          <strong>Vlucht</strong>
-          <button type="button" className="fe-icon-btn" aria-label="Sluiten" onClick={close}>
+          <strong>{t('planner.mode.flight')}</strong>
+          <button type="button" className="fe-icon-btn" aria-label={t('common.close')} onClick={close}>
             <Icon name="close" size={18} />
           </button>
         </header>
@@ -208,7 +209,7 @@ function FlightSheet({
         <div className="fe-body">
           <div className="fe-route">
             <AirportBox
-              label="Van"
+              label={t('planner.flight.from')}
               code={from}
               onPick={() => setPicking({ kind: 'from' })}
             />
@@ -217,12 +218,12 @@ function FlightSheet({
               <Icon name="plane" size={18} />
               <span className="fe-route-line" />
             </span>
-            <AirportBox label="Naar" code={to} onPick={() => setPicking({ kind: 'to' })} />
+            <AirportBox label={t('planner.flight.to')} code={to} onPick={() => setPicking({ kind: 'to' })} />
           </div>
 
           <section className="fe-vias">
-            <h4>Overstappen</h4>
-            {via.length === 0 && <p className="fe-hint">Directe vlucht.</p>}
+            <h4>{t('planner.flight.vias')}</h4>
+            {via.length === 0 && <p className="fe-hint">{t('planner.flight.direct')}</p>}
             {via.map((code, i) => {
               const a = airportByCode(code);
               return (
@@ -233,13 +234,13 @@ function FlightSheet({
                     onClick={() => setPicking({ kind: 'via', index: i })}
                   >
                     <Icon name="pin" size={13} />
-                    <strong>{code || 'Kies vliegveld'}</strong>
+                    <strong>{code || t('planner.flight.chooseAirport')}</strong>
                     {a && <small>{a.city}</small>}
                   </button>
                   <button
                     type="button"
                     className="fe-icon-btn fe-via-remove"
-                    aria-label="Overstap verwijderen"
+                    aria-label={t('planner.flight.removeVia')}
                     onClick={() => removeVia(i)}
                   >
                     <Icon name="close" size={16} />
@@ -255,15 +256,15 @@ function FlightSheet({
                 setPicking({ kind: 'via', index: via.length });
               }}
             >
-              <Icon name="plus" size={15} /> Overstap toevoegen
+              <Icon name="plus" size={15} /> {t('planner.flight.addVia')}
             </button>
           </section>
 
           <label className="fe-field">
-            <span>Vluchtnummer</span>
+            <span>{t('planner.flight.number')}</span>
             <input
               value={flight}
-              placeholder="bijv. KL1703"
+              placeholder={t('planner.flight.numberPlaceholder')}
               inputMode="text"
               autoCapitalize="characters"
               onChange={(e) => setFlight(e.target.value.toUpperCase())}
@@ -273,10 +274,10 @@ function FlightSheet({
 
         <footer className="fe-actions">
           <button type="button" className="btn btn-ghost" onClick={close}>
-            Annuleren
+            {t('common.cancel')}
           </button>
           <button type="button" className="btn btn-primary" onClick={save}>
-            Opslaan
+            {t('common.save')}
           </button>
         </footer>
 
@@ -309,7 +310,7 @@ function AirportBox({
     <button type="button" className={`fe-airport ${code ? 'set' : ''}`} onClick={onPick}>
       <span className="fe-airport-label">{label}</span>
       <strong className="fe-airport-code">{code || '···'}</strong>
-      <span className="fe-airport-city">{a ? a.city : 'Kies vliegveld'}</span>
+      <span className="fe-airport-city">{a ? a.city : t('planner.flight.chooseAirport')}</span>
     </button>
   );
 }
@@ -335,7 +336,7 @@ function AirportPicker({
   return (
     <div className={`fe-picker ${closing ? 'closing' : ''}`}>
       <header className="fe-head">
-        <button type="button" className="fe-icon-btn" aria-label="Terug" onClick={onBack}>
+        <button type="button" className="fe-icon-btn" aria-label={t('common.back')} onClick={onBack}>
           <Icon name="arrow-left" size={18} />
         </button>
         <strong>{title}</strong>
@@ -345,7 +346,7 @@ function AirportPicker({
         <input
           autoFocus
           value={query}
-          placeholder="Stad, vliegveld of code"
+          placeholder={t('planner.flight.searchPlaceholder')}
           onChange={(e) => setQuery(e.target.value)}
         />
         {/* A code that isn't in the bundled list can still be used as-is. */}
@@ -355,12 +356,12 @@ function AirportPicker({
             className="fe-use-raw"
             onClick={() => onPick(query.trim().toUpperCase())}
           >
-            Gebruik “{query.trim().toUpperCase()}”
+            {t('planner.flight.useRaw', { code: query.trim().toUpperCase() })}
           </button>
         )}
       </div>
       <ul className="fe-picker-list">
-        {!query.trim() && home.length > 0 && <li className="fe-picker-group">Jouw vliegvelden</li>}
+        {!query.trim() && home.length > 0 && <li className="fe-picker-group">{t('planner.flight.yourAirports')}</li>}
         {results.map((a) => (
           <li key={a.iata}>
             <button type="button" onClick={() => onPick(a.iata)}>
@@ -373,7 +374,7 @@ function AirportPicker({
           </li>
         ))}
         {query.trim() && results.length === 0 && (
-          <li className="fe-picker-empty">Niets gevonden.</li>
+          <li className="fe-picker-empty">{t('planner.noResults')}</li>
         )}
       </ul>
     </div>
