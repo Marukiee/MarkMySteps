@@ -37,6 +37,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Om een profielfoto te maken met je camera.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Met Altijd blijft MarkMySteps je route vastleggen terwijl je scherm uit staat: één meting per interval, zuinig met je batterij.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

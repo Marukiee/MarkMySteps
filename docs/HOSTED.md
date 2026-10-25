@@ -1,5 +1,9 @@
 # Plan: MarkMySteps zonder zelf te hosten
 
+**Status: in de ijskast** (Mark, 25 oktober 2026). Er zijn nog geen gebruikers
+buiten de eigen server; eerst testen met vrienden. Het plan blijft staan voor
+later.
+
 Plan van 25 oktober 2026. Doel: wie geen eigen server wil, kiest bij de start
 voor de server van MarkMySteps. Zelf hosten blijft kunnen, net als zonder
 server. Prijzen zijn een indicatie; check ze voor je iets afsluit.

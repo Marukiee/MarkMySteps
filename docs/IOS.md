@@ -108,8 +108,9 @@ Het archief is ongetekend; Xcode ondertekent het pas bij de export voor de App
 Store. Ondertekenen bij het archiveren vraagt om een ontwikkelprofiel, en dat
 maakt Apple alleen voor een team met een geregistreerde iPhone.
 
-Build 1 is zo op 25 oktober 2026 geüpload; de workflow begint daarna bij een
-hoger run-nummer.
+Build 1 en 2 zijn zo op 25 oktober 2026 geüpload (build 2 met de cameratekst
+voor de profielfoto). De workflow gebruikt hogere run-nummers; kies bij een
+handmatige upload een nummer boven de laatste build in TestFlight.
 
 Zonder betaald account kan de app alleen op je eigen iPhone, via een kabel en
 Xcode, en dan werkt hij zeven dagen.
