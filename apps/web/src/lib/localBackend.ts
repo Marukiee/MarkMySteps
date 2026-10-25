@@ -4,6 +4,7 @@ import { mediaSrc, queryGallery, requestGalleryPermission } from './gallery';
 import { dbAll, dbByTrip, dbDelete, dbDeleteMany, dbGet, dbPut, dbPutMany } from './localDb';
 import { LOCAL_USER, localUser, setLocalName } from './localMode';
 import { localCreate, localDelete, localReorder, localUpdate } from './plannerLocal';
+import { t } from '../i18n';
 
 /**
  * The API, served from the device.
@@ -21,14 +22,14 @@ export class LocalUnsupported extends Error {
   readonly status = 501;
 
   constructor(what: string) {
-    super(`${what} werkt alleen met een server.`);
+    super(t('local.unsupported', { what }));
   }
 }
 
 class LocalNotFound extends Error {
   readonly status = 404;
 
-  constructor(what = 'Niet gevonden') {
+  constructor(what = t('local.notFound')) {
     super(what);
   }
 }
@@ -217,7 +218,7 @@ async function stopsOf(tripId: string): Promise<PlannedStop[]> {
 
 async function requireTrip(tripId: string): Promise<StoredTrip> {
   const trip = await dbGet<StoredTrip>('trips', tripId);
-  if (!trip) throw new LocalNotFound('Reis niet gevonden');
+  if (!trip) throw new LocalNotFound(t('local.tripNotFound'));
   return trip;
 }
 
@@ -654,7 +655,7 @@ route('POST', '/trips/:id/points', async (req, [id]) => {
 
 route('PATCH', '/trips/:id/points/:pointId', async (req, [, pointId]) => {
   const point = await dbGet<StoredPoint>('points', pointId!);
-  if (!point) throw new LocalNotFound('Punt niet gevonden');
+  if (!point) throw new LocalNotFound(t('local.pointNotFound'));
   await dbPut('points', {
     ...point,
     latitude: req.body.latitude as number,
@@ -732,7 +733,7 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
     });
   }
   anchors.sort((a, b) => a.t - b.t);
-  if (anchors.length < 2) throw new LocalNotFound('Er is nog geen route om aan te vullen');
+  if (anchors.length < 2) throw new LocalNotFound(t('local.noRouteToFill'));
 
   const reach = (p: { lng: number; lat: number }, q: { lng: number; lat: number }) =>
     haversineKm([p.lng, p.lat], [q.lng, q.lat]);
@@ -751,7 +752,7 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
       cut = i;
     }
   }
-  if (cut === -1) throw new LocalNotFound('Geen recht stuk in de buurt om aan te vullen');
+  if (cut === -1) throw new LocalNotFound(t('local.noStraightNear'));
 
   // Which station it left from follows from the gap, not from the order the
   // two boxes were filled in.
@@ -791,9 +792,7 @@ route('POST', '/trips/:id/route-fill/train', async (req, [id]) => {
     : null;
   const rails = json?.routes?.[0]?.geometry?.coordinates ?? [];
   if (rails.length < 3) {
-    throw new LocalNotFound(
-      'Kon geen spoorroute tussen die stations vinden. Buiten Europa kent de spoorkaart geen route.',
-    );
+    throw new LocalNotFound(t('local.noRailRoute'));
   }
 
   // Whatever the tracker caught mid-ride goes: one fix out of a tunnel sits
@@ -885,7 +884,7 @@ route('DELETE', '/trips/:id/route-fill', async (req, [id]) => {
         nearest = i;
       }
     });
-    if (nearest === -1 || best > 25) throw new LocalNotFound('Geen getekende route in de buurt');
+    if (nearest === -1 || best > 25) throw new LocalNotFound(t('local.noDrawnNear'));
     let from = nearest;
     while (from > 0 && points[from - 1]!.source === 'ROUTE_FILL') from -= 1;
     let to = nearest;
@@ -962,11 +961,11 @@ route('DELETE', '/trips/:id/notes/:noteId', async (_req, [, noteId]) => {
 
 route('GET', '/trips/:id/share', async () => []);
 route('POST', '/trips/:id/share', async () => {
-  throw new LocalUnsupported('Een deel-link maken');
+  throw new LocalUnsupported(t('local.what.shareLink'));
 });
 route('GET', '/trips/:id/members', async () => [selfMember()]);
 route('POST', '/trips/:id/members', async () => {
-  throw new LocalUnsupported('Reisgenoten toevoegen');
+  throw new LocalUnsupported(t('local.what.companions'));
 });
 /**
  * Pulls the trip's photos out of the phone's own library.
@@ -980,7 +979,7 @@ route('POST', '/trips/:id/sync', async (_req, [id]) => {
   const trip = await requireTrip(id!);
   const permissions = await requestGalleryPermission();
   if (!permissions.library) {
-    throw new LocalUnsupported('Zonder toegang tot je fotobibliotheek koppelen');
+    throw new LocalUnsupported(t('local.what.noLibrary'));
   }
 
   const items = await queryGallery(trip.startDate, trip.endDate);
@@ -1021,7 +1020,7 @@ route('GET', '/media/:mediaId/video-url', async (_req, [mediaId]) => ({
 }));
 
 route('GET', '/immich/connection', async () => {
-  throw new LocalNotFound('Geen Immich-koppeling');
+  throw new LocalNotFound(t('local.noImmich'));
 });
 // An object, not null: the banner reads `.version` off whatever comes back.
 route('GET', '/app/latest', async () => ({}));

@@ -1,1 +1,14 @@
-{}
+{
+  "local.unsupported": "{what} werkt alleen met een server.",
+  "local.notFound": "Niet gevonden",
+  "local.tripNotFound": "Reis niet gevonden",
+  "local.pointNotFound": "Punt niet gevonden",
+  "local.noRouteToFill": "Er is nog geen route om aan te vullen",
+  "local.noStraightNear": "Geen recht stuk in de buurt om aan te vullen",
+  "local.noRailRoute": "Kon geen spoorroute tussen die stations vinden. Buiten Europa kent de spoorkaart geen route.",
+  "local.noDrawnNear": "Geen getekende route in de buurt",
+  "local.what.shareLink": "Een deel-link maken",
+  "local.what.companions": "Reisgenoten toevoegen",
+  "local.what.noLibrary": "Zonder toegang tot je fotobibliotheek koppelen",
+  "local.noImmich": "Geen Immich-koppeling"
+}

@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { airportCoord } from '../common/airports';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
+import { coded } from '../common/i18n';
 
 /**
  * One leg of a trip, in the order it was travelled.
@@ -764,10 +765,11 @@ export class TripsService {
     });
     const missing = wanted.filter((u) => !invitees.some((i) => i.username === u));
     if (missing.length > 0) {
+      const names = missing.map((m) => `@${m}`).join(', ');
       throw new NotFoundException(
         missing.length === 1
-          ? `Geen account met de naam @${missing[0]} op deze server`
-          : `Geen account gevonden voor: ${missing.map((m) => `@${m}`).join(', ')}`,
+          ? coded(`Geen account met de naam ${names} op deze server`, 'members.unknownOne', { name: names })
+          : coded(`Geen account gevonden voor: ${names}`, 'members.unknownMany', { names }),
       );
     }
 

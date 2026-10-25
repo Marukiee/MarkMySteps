@@ -1,5 +1,6 @@
 import type { StyleSpecification, addProtocol } from 'maplibre-gl';
 import { dbAll, dbDelete, dbGet, dbPut } from './localDb';
+import { t } from '../i18n';
 
 /**
  * Map tiles kept on the device, per trip.
@@ -269,7 +270,7 @@ async function matchCache(url: string): Promise<Response | null> {
 async function fetchJson(url: string): Promise<unknown> {
   const cached = await matchCache(url);
   const res = cached ?? (await fetch(url));
-  if (!res.ok) throw new Error(`Kon ${url} niet ophalen`);
+  if (!res.ok) throw new Error(t('app.error.fetchFailed', { url }));
   return res.json();
 }
 

@@ -1,1 +1,14 @@
-{}
+{
+  "local.unsupported": "{what} only works with a server.",
+  "local.notFound": "Not found",
+  "local.tripNotFound": "Trip not found",
+  "local.pointNotFound": "Point not found",
+  "local.noRouteToFill": "There is no route to fill in yet",
+  "local.noStraightNear": "No straight stretch nearby to fill in",
+  "local.noRailRoute": "Couldn't find a rail route between those stations. Outside Europe the rail map knows no routes.",
+  "local.noDrawnNear": "No drawn route nearby",
+  "local.what.shareLink": "Making a share link",
+  "local.what.companions": "Adding travel companions",
+  "local.what.noLibrary": "Linking photos without access to your photo library",
+  "local.noImmich": "No Immich connection"
+}

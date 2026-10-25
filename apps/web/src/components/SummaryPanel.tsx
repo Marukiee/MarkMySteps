@@ -373,7 +373,7 @@ function SummaryCard({
 function toBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error('kon het bestand niet lezen'));
+    reader.onerror = () => reject(new Error(t('app.error.fileRead')));
     reader.onload = () => {
       const result = String(reader.result);
       resolve(result.slice(result.indexOf(',') + 1));

@@ -2,6 +2,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { api } from '../api/client';
 import type { MediaItem, Trip } from '../api/types';
 import type { PlannedStop } from './arc';
+import { t } from '../i18n';
 
 /**
  * A full copy of everything the app knows about your trips, as one file.
@@ -172,14 +173,14 @@ export async function readBackupFile(file: File): Promise<Backup> {
   try {
     parsed = JSON.parse(await file.text());
   } catch {
-    throw new Error('Dit is geen leesbaar back-upbestand.');
+    throw new Error(t('settings.backup.error.unreadable'));
   }
   const backup = parsed as Partial<Backup>;
   if (backup.app !== 'MarkMySteps' || !Array.isArray(backup.trips)) {
-    throw new Error('Dit bestand komt niet van MarkMySteps.');
+    throw new Error(t('settings.backup.error.notOurs'));
   }
   if ((backup.version ?? 0) > BACKUP_VERSION) {
-    throw new Error('Deze back-up komt van een nieuwere versie van de app.');
+    throw new Error(t('settings.backup.error.newer'));
   }
   return backup as Backup;
 }

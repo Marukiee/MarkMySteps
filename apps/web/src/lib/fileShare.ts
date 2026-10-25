@@ -1,6 +1,7 @@
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { isNativeApp } from './native';
+import { t } from '../i18n';
 
 export type ShareOutcome = 'shared' | 'downloaded' | 'cancelled' | 'failed';
 
@@ -59,7 +60,7 @@ export async function shareOrSaveFiles(files: File[], title: string): Promise<Sh
 export function toBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error('kon het bestand niet lezen'));
+    reader.onerror = () => reject(new Error(t('app.error.fileRead')));
     reader.onload = () => {
       const result = String(reader.result);
       resolve(result.slice(result.indexOf(',') + 1));

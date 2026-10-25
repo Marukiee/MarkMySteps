@@ -115,5 +115,7 @@
   "trip.viewer.openInImmich": "Openen in Immich",
   "trip.viewer.videoLoading": "Video laden…",
   "trip.viewer.comments": "Reacties",
-  "trip.viewer.comment": "Reageer"
+  "trip.viewer.comment": "Reageer",
+  "trip.resizer.label": "Breedte van kaart en tijdlijn",
+  "trip.resizer.hint": "Sleep om de kaart breder of smaller te maken · dubbelklik voor standaard"
 }

@@ -115,5 +115,7 @@
   "trip.viewer.openInImmich": "Open in Immich",
   "trip.viewer.videoLoading": "Loading video…",
   "trip.viewer.comments": "Comments",
-  "trip.viewer.comment": "Comment"
+  "trip.viewer.comment": "Comment",
+  "trip.resizer.label": "Width of map and timeline",
+  "trip.resizer.hint": "Drag to make the map wider or narrower · double-click for the default"
 }

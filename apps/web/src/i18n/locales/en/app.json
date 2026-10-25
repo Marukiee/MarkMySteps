@@ -10,5 +10,7 @@
   "app.mapStyle.positron": "Light & minimal",
   "app.mapStyle.bright": "Bright & colourful",
   "app.mapStyle.liberty": "Classic",
-  "app.mapStyle.satellite": "Satellite"
+  "app.mapStyle.satellite": "Satellite",
+  "app.error.fetchFailed": "Couldn't fetch {url}",
+  "app.error.fileRead": "couldn't read the file"
 }

@@ -948,7 +948,7 @@ function TrackingSection() {
                 }
               }}
             />
-            <span>minuten</span>
+            <span>{t('settings.tracking.minutes')}</span>
           </div>
         )}
       </div>

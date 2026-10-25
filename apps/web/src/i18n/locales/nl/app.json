@@ -10,5 +10,7 @@
   "app.mapStyle.positron": "Licht & minimaal",
   "app.mapStyle.bright": "Helder & kleurrijk",
   "app.mapStyle.liberty": "Klassiek",
-  "app.mapStyle.satellite": "Satelliet"
+  "app.mapStyle.satellite": "Satelliet",
+  "app.error.fetchFailed": "Kon {url} niet ophalen",
+  "app.error.fileRead": "kon het bestand niet lezen"
 }

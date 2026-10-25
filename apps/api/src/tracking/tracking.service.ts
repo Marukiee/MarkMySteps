@@ -4,6 +4,7 @@ import { LocationPoint, PointSource, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TripsService } from '../trips/trips.service';
 import { ManualPointDto, TrackPointDto } from './dto/track-points.dto';
+import { coded } from '../common/i18n';
 
 export interface BatchResult {
   received: number;
@@ -236,7 +237,7 @@ export class TrackingService {
     const window = await this.tripWindow(tripId);
     const at = dto.recordedAt ? new Date(dto.recordedAt).getTime() : Date.now();
     if (!Number.isFinite(at) || at < window.from || at > window.to) {
-      throw new BadRequestException('Dat moment valt buiten deze reis.');
+      throw new BadRequestException(coded('Dat moment valt buiten deze reis.', 'point.outsideTrip'));
     }
     return this.prisma.locationPoint.create({
       data: {
@@ -328,7 +329,7 @@ export class TrackingService {
 
     const road = await osrmRoute([gap.a.lng, gap.a.lat], [gap.b.lng, gap.b.lat]);
     if (road.length < 3) {
-      throw new BadRequestException('Kon geen route over de weg vinden.');
+      throw new BadRequestException(coded('Kon geen route over de weg vinden.', 'route.noRoad'));
     }
 
     // Keep only the intermediate vertices, and cap them so a long motorway
@@ -375,7 +376,10 @@ export class TrackingService {
     const rails = await railRoute([dep.lng, dep.lat], [arr.lng, arr.lat]);
     if (rails.length < 3) {
       throw new BadRequestException(
-        'Kon geen spoorroute tussen die stations vinden. Buiten Europa kent de spoorkaart geen route.',
+        coded(
+          'Kon geen spoorroute tussen die stations vinden. Buiten Europa kent de spoorkaart geen route.',
+          'route.noRail',
+        ),
       );
     }
 
@@ -439,7 +443,7 @@ export class TrackingService {
       ...planned.map((p) => ({ ...p, kind: 'plan' as const })),
     ].sort((a, b) => a.t.getTime() - b.t.getTime());
     if (merged.length < 2) {
-      throw new BadRequestException('Er is nog geen route om aan te vullen.');
+      throw new BadRequestException(coded('Er is nog geen route om aan te vullen.', 'route.nothingToFill'));
     }
     return merged;
   }
@@ -549,7 +553,7 @@ export class TrackingService {
       }
     });
     if (nearest === -1 || best > 25) {
-      throw new BadRequestException('Geen getekende route in de buurt.');
+      throw new BadRequestException(coded('Geen getekende route in de buurt.', 'route.noDrawnNear'));
     }
 
     let from = nearest;
@@ -804,7 +808,9 @@ function nearestGap(merged: Anchor[], lng: number, lat: number): number {
     if (!best || d < best.d) best = { i, d };
   }
   if (!best || best.d > 60) {
-    throw new BadRequestException('Geen recht stuk in de buurt om aan te vullen.');
+    throw new BadRequestException(
+      coded('Geen recht stuk in de buurt om aan te vullen.', 'route.noStraightNear'),
+    );
   }
   return best.i;
 }

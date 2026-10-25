@@ -15,6 +15,7 @@ import { assertStrongPassword } from './password-strength';
 import { SecurityAlertsService } from './security-alerts.service';
 import { revokeAllSessions } from './sessions';
 import { mfaKey, tooManyAttempts, TwoFactorService } from './two-factor.service';
+import { coded } from '../common/i18n';
 
 export interface AuthTokens {
   accessToken: string;
@@ -131,7 +132,10 @@ export class AuthService {
       });
       if (waiting >= MAX_PENDING_REQUESTS) {
         throw new ForbiddenException(
-          'Er staan te veel aanvragen open op deze server. Probeer het later opnieuw.',
+          coded(
+            'Er staan te veel aanvragen open op deze server. Probeer het later opnieuw.',
+            'signup.tooManyPending',
+          ),
         );
       }
     }
