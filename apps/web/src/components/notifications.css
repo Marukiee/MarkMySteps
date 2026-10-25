@@ -312,7 +312,8 @@
   background: #b3402a;
 }
 
-.notif-kind.kind-ACCESS_REQUESTED {
+.notif-kind.kind-ACCESS_REQUESTED,
+.notif-kind.kind-ACCOUNT_REQUESTED {
   background: var(--accent);
 }
 

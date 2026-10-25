@@ -148,6 +148,7 @@ export class AuthService {
         decidedAt: first ? new Date() : null,
       },
     });
+    if (!first) await this.alerts.accountRequested(user.id);
 
     return {
       ...(await this.issueTokens(user.id, user.email, user.status)),

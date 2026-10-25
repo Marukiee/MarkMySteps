@@ -5,7 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 const ONE_HOUR_MS = 60 * 60_000;
 
 /**
- * Tells the admins, in the bell, when an account is under attack.
+ * Tells the admins, in the bell, when an account is under attack or when
+ * somebody is waiting to be let in.
  *
  * There is no mail server here, and the admins are the people who open the app
  * anyway. The same row feeds the phone's background poller, so it also shows up
@@ -16,6 +17,31 @@ export class SecurityAlertsService {
   private readonly logger = new Logger(SecurityAlertsService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Somebody has just signed up. Until an admin lets them in they can do
+   * nothing at all, and without a word in the bell the request sat in
+   * Settings until someone happened to look.
+   */
+  async accountRequested(newUserId: string): Promise<void> {
+    try {
+      const admins = await this.prisma.user.findMany({
+        where: { role: UserRole.ADMIN, status: AccountStatus.APPROVED },
+        select: { id: true },
+      });
+      await this.prisma.notification.createMany({
+        data: admins.map((admin) => ({
+          userId: admin.id,
+          kind: NotificationKind.ACCOUNT_REQUESTED,
+          actorId: newUserId,
+        })),
+      });
+    } catch (err) {
+      // The sign-up itself has gone through; a missing line in the bell must
+      // not turn it into an error for the person who just signed up.
+      this.logger.error(`Could not announce the sign-up: ${String(err)}`);
+    }
+  }
 
   /**
    * An account has just been locked because its password or code kept being

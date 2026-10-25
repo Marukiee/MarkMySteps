@@ -245,6 +245,8 @@ enum NotificationKind {
   ACCESS_DENIED
   /// Somebody keeps getting an account's password or code wrong (admins only).
   SECURITY_LOGIN_ATTEMPTS
+  /// Somebody signed up and waits to be let in (admins only; the actor is them).
+  ACCOUNT_REQUESTED
 }
 
 /**

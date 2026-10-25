@@ -277,6 +277,19 @@ export function NotificationSheet({
                       </p>
                     )}
 
+                    {item.kind === 'ACCOUNT_REQUESTED' && (
+                      <button
+                        type="button"
+                        className="notif-open"
+                        onClick={() => {
+                          onClose();
+                          navigate('/settings?section=accounts');
+                        }}
+                      >
+                        Aanvragen bekijken <Icon name="chevron-right" size={12} />
+                      </button>
+                    )}
+
                     {item.trip && item.kind !== 'ACCESS_DENIED' && !pending && (
                       <button
                         type="button"
@@ -323,6 +336,8 @@ function kindIcon(kind: NotificationItem['kind']) {
       return 'close' as const;
     case 'SECURITY_LOGIN_ATTEMPTS':
       return 'shield' as const;
+    case 'ACCOUNT_REQUESTED':
+      return 'person' as const;
     default:
       return 'compass' as const;
   }
@@ -342,6 +357,8 @@ function describe(item: NotificationItem): string {
       return `${who} heeft je verzoek voor ${trip} afgewezen.`;
     case 'SECURITY_LOGIN_ATTEMPTS':
       return item.detail ?? 'Er zijn veel mislukte inlogpogingen geweest.';
+    case 'ACCOUNT_REQUESTED':
+      return `${who} wil een account op je server.`;
     default:
       return `${who} · ${trip}`;
   }

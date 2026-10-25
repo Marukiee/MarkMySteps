@@ -162,7 +162,8 @@ export type NotificationKind =
   | 'ACCESS_REQUESTED'
   | 'ACCESS_APPROVED'
   | 'ACCESS_DENIED'
-  | 'SECURITY_LOGIN_ATTEMPTS';
+  | 'SECURITY_LOGIN_ATTEMPTS'
+  | 'ACCOUNT_REQUESTED';
 
 export type AccessRequestStatus = 'PENDING' | 'APPROVED' | 'DENIED';
 

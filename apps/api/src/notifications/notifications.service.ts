@@ -42,8 +42,17 @@ export interface TripAccessPreview {
 export interface DevicePoll {
   unread: number;
   pending: number;
-  /** The newest thing this phone has not been told about yet. */
-  latest: { id: string; title: string; body: string; tripId: string | null } | null;
+  /**
+   * The newest thing this phone has not been told about yet. `path` is where a
+   * tap should land when that is not the trip; older apps ignore it.
+   */
+  latest: {
+    id: string;
+    title: string;
+    body: string;
+    tripId: string | null;
+    path: string | null;
+  } | null;
 }
 
 const NOTIFICATION_INCLUDE = {
@@ -204,6 +213,7 @@ export class NotificationsService {
             title: titleFor(newest),
             body: bodyFor(newest),
             tripId: newest.tripId,
+            path: newest.kind === NotificationKind.ACCOUNT_REQUESTED ? ACCOUNTS_PATH : null,
           }
         : null,
     };
@@ -409,6 +419,9 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
+/** Settings, opened on the requests waiting for an admin. */
+const ACCOUNTS_PATH = '/settings?section=accounts';
+
 /** The heading on the phone's own notification. */
 function titleFor(row: NotificationRow): string {
   switch (row.kind) {
@@ -420,6 +433,8 @@ function titleFor(row: NotificationRow): string {
       return 'Verzoek afgewezen';
     case NotificationKind.SECURITY_LOGIN_ATTEMPTS:
       return 'Verdachte inlogpogingen';
+    case NotificationKind.ACCOUNT_REQUESTED:
+      return 'Nieuwe aanmelding';
     default:
       return 'Toegevoegd aan een reis';
   }
@@ -438,6 +453,8 @@ function bodyFor(row: NotificationRow): string {
       return `${who} heeft je verzoek voor ${trip} afgewezen.`;
     case NotificationKind.SECURITY_LOGIN_ATTEMPTS:
       return row.detail ?? 'Er zijn veel mislukte inlogpogingen geweest.';
+    case NotificationKind.ACCOUNT_REQUESTED:
+      return `${who} wil een account op je server.`;
     default:
       return `${who} heeft je toegevoegd aan ${trip}.`;
   }

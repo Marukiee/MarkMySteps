@@ -82,7 +82,8 @@ public class MmsNotifyWorker extends Worker {
         if (id.isEmpty() || id.equals(prefs.getString(KEY_LAST_ID, null))) return Result.success();
 
         post(latest.optString("title", "MarkMySteps"), latest.optString("body", ""),
-                latest.isNull("tripId") ? null : latest.optString("tripId", null));
+                latest.isNull("tripId") ? null : latest.optString("tripId", null),
+                latest.isNull("path") ? null : latest.optString("path", null));
         prefs.edit().putString(KEY_LAST_ID, id).apply();
         return Result.success();
     }
@@ -109,7 +110,7 @@ public class MmsNotifyWorker extends Worker {
         }
     }
 
-    private void post(String title, String body, String tripId) {
+    private void post(String title, String body, String tripId, String path) {
         Context context = getApplicationContext();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
@@ -130,8 +131,11 @@ public class MmsNotifyWorker extends Worker {
         Intent open = new Intent(context, MainActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         // Read back by MainActivity, which hands it to the web app so the tap
-        // lands on the trip the message is about rather than the home page.
-        open.putExtra("mmsPath", tripId != null ? "/trips/" + tripId : "/friends");
+        // lands on the trip the message is about rather than the home page. A
+        // message about something else says itself where it belongs.
+        String target = path != null && path.startsWith("/") ? path
+                : tripId != null ? "/trips/" + tripId : "/friends";
+        open.putExtra("mmsPath", target);
         open.setData(Uri.parse("mms://notify/" + (tripId != null ? tripId : "list")));
         PendingIntent pending = PendingIntent.getActivity(
                 context, 1, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
