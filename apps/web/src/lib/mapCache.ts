@@ -103,7 +103,7 @@ export function registerMapCache(gl: { addProtocol: typeof addProtocol }): void 
     // cached style would still be fetched from the network.
     if (isJson(params.type, response)) {
       const json = (await response.clone().json()) as unknown;
-      return { data: rewriteJson(json) };
+      return { data: rewriteJson(withoutFerries(json)) };
     }
     return { data: await response.arrayBuffer() };
   });
@@ -276,6 +276,21 @@ async function fetchJson(url: string): Promise<unknown> {
 function isJson(type: string | undefined, response: Response): boolean {
   if (type === 'Style' || type === 'Source' || type === 'SpriteJSON') return true;
   return (response.headers.get('content-type') ?? '').includes('json');
+}
+
+/**
+ * A style without its ferry lines. "Helder & kleurrijk" dashes every ferry
+ * across the sea, so a trip along a coast sat in a web of blue dashes that
+ * read as routes of its own, next to the one line on the map that is.
+ */
+function withoutFerries(value: unknown): unknown {
+  const style = value as { version?: unknown; layers?: unknown } | null;
+  if (!style || typeof style !== 'object' || style.version !== 8) return value;
+  if (!Array.isArray(style.layers)) return value;
+  const layers = (style.layers as { type?: string; filter?: unknown }[]).filter(
+    (layer) => !(layer.type === 'line' && JSON.stringify(layer.filter ?? null).includes('"ferry"')),
+  );
+  return { ...style, layers };
 }
 
 /** Every absolute http(s) URL inside a style/TileJSON, pointed back at us. */
