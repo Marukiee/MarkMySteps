@@ -86,7 +86,9 @@ final class PhotoSchemeHandler: NSObject, WKURLSchemeHandler {
                 return
             }
             defer { try? handle.close() }
-            let total = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int) ?? 0
+            // The length from the handle itself rather than the file's
+            // attributes, which Apple counts as reading file metadata.
+            let total = Int((try? handle.seekToEnd()) ?? 0)
             var start = 0
             var end = total - 1
             if let range, range.hasPrefix("bytes=") {

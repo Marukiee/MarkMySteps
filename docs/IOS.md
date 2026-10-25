@@ -41,12 +41,54 @@ xcodebuild -project App.xcodeproj -scheme App -sdk iphonesimulator \
   -derivedDataPath ../../build-ios build
 ```
 
-## Op een echte iPhone
+## Op een echte iPhone: TestFlight
 
-Zonder betaald Apple-account kan het alleen via Xcode en een kabel, met een
-gratis Apple ID, en dan werkt de app zeven dagen. Voor vrienden zonder kabel en
-zonder verlopen is een Apple Developer-account nodig (99 dollar per jaar), met
-TestFlight.
+Vrienden testen de app via TestFlight, de test-app van Apple. Elke push naar
+`main` die de app raakt, bouwt een nieuwe versie en zet die daar klaar
+(`.github/workflows/ios-testflight.yml`), zoals de Android-workflow een APK
+maakt. Zonder de geheimen hieronder slaat de workflow zichzelf over.
+
+Eenmalig:
+
+1. **Apple Developer Program**: aanmelden op developer.apple.com/programs met
+   je Apple ID, als particulier (99 dollar per jaar). Je **Team ID** staat daarna
+   onder Account, Membership details.
+2. **App aanmaken** in App Store Connect (appstoreconnect.apple.com), Apps, het
+   plusteken: platform iOS, bundle-ID `nl.markmaaktmedia.markmysteps` (staat die
+   er nog niet tussen, registreer hem onder Certificates, Identifiers & Profiles).
+3. **API-sleutel**: App Store Connect, Users and Access, Integrations, App Store
+   Connect API, Team Keys. Maak een sleutel met de rol **Admin** (daarmee mag
+   Xcode in de workflow zelf de certificaten regelen). Download het `.p8`-bestand
+   meteen: dat kan maar één keer. Noteer de **Key ID** en bovenaan de
+   **Issuer ID**.
+4. **Geheimen in GitHub**: repo, Settings, Secrets and variables, Actions:
+
+   | Naam | Waarde |
+   |---|---|
+   | `APPLE_TEAM_ID` | het Team ID uit stap 1 |
+   | `APPSTORE_API_KEY_ID` | de Key ID |
+   | `APPSTORE_API_ISSUER_ID` | de Issuer ID |
+   | `APPSTORE_API_KEY_P8` | de inhoud van het `.p8`-bestand (of base64 ervan) |
+
+5. **Eerste build**: Actions, iOS TestFlight, Run workflow (of een push naar
+   `main`). Na een kwartiertje verwerken staat hij in App Store Connect onder
+   TestFlight.
+6. **Testers**: TestFlight, External Testing, een groep maken, de build
+   toevoegen en **Public Link** aanzetten. De eerste build van een groep keurt
+   Apple kort (meestal binnen een dag). Vul daarvoor bij Test Information een
+   korte beschrijving en een e-mailadres in, en leg bij de review uit dat de app
+   je route vastlegt op de achtergrond, alleen tijdens een reis die je zelf
+   start.
+
+Vrienden installeren de app TestFlight, openen de link en krijgen MarkMySteps.
+Nieuwe builds komen als update binnen. Een build werkt 90 dagen.
+
+Het buildnummer is het nummer van de workflow-run; de versie staat in Xcode
+(`MARKETING_VERSION`). Het privacy-manifest dat Apple bij elke upload eist, is
+`App/PrivacyInfo.xcprivacy`.
+
+Zonder betaald account kan de app alleen op je eigen iPhone, via een kabel en
+Xcode, en dan werkt hij zeven dagen.
 
 ## Netwerk
 
