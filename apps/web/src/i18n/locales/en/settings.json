@@ -362,8 +362,6 @@
   "settings.password.tip.runs": "Avoid sequences like \"abc\" or \"111\".",
   "settings.backup.whereIos": "in the Files app",
   "settings.backup.whereAndroid": "in your Downloads folder",
-  "settings.tracking.log.minutes": "{count} min",
-  "settings.tracking.log.meters": "{count} m",
   "settings.about.privacy": "Privacy",
   "settings.picker.choose": "Choose",
   "settings.immich.title": "Immich",

@@ -362,8 +362,6 @@
   "settings.password.tip.runs": "Vermijd reeksen als \"abc\" of \"111\".",
   "settings.backup.whereIos": "in de Bestanden-app",
   "settings.backup.whereAndroid": "in je Downloads-map",
-  "settings.tracking.log.minutes": "{count} min",
-  "settings.tracking.log.meters": "{count} m",
   "settings.about.privacy": "Privacy",
   "settings.picker.choose": "Kies",
   "settings.immich.title": "Immich",
