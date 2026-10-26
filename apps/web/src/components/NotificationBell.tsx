@@ -285,6 +285,19 @@ export function NotificationSheet({
                       </p>
                     )}
 
+                    {item.kind === 'ACCOUNT_REQUESTED' && (
+                      <button
+                        type="button"
+                        className="notif-open"
+                        onClick={() => {
+                          onClose();
+                          navigate('/settings?section=accounts');
+                        }}
+                      >
+                        {t('social.bell.openRequests')} <Icon name="chevron-right" size={12} />
+                      </button>
+                    )}
+
                     {item.trip && item.kind !== 'ACCESS_DENIED' && !pending && (
                       <button
                         type="button"
@@ -331,6 +344,8 @@ function kindIcon(kind: NotificationItem['kind']) {
       return 'close' as const;
     case 'SECURITY_LOGIN_ATTEMPTS':
       return 'shield' as const;
+    case 'ACCOUNT_REQUESTED':
+      return 'person' as const;
     default:
       return 'compass' as const;
   }
@@ -350,6 +365,8 @@ function describe(item: NotificationItem): string {
       return t('social.bell.accessDenied', { who, trip });
     case 'SECURITY_LOGIN_ATTEMPTS':
       return item.detail ?? t('social.bell.loginAttempts');
+    case 'ACCOUNT_REQUESTED':
+      return t('social.bell.accountRequested', { who });
     default:
       return `${who} · ${trip}`;
   }

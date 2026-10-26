@@ -36,6 +36,7 @@ interface NotifyWords {
     accessApproved: string;
     accessDenied: string;
     loginAttempts: string;
+    accountRequested: string;
   };
   someone: string;
   aTrip: string;
@@ -44,6 +45,7 @@ interface NotifyWords {
   accessApproved: (who: string, trip: string) => string;
   accessDenied: (who: string, trip: string) => string;
   loginAttempts: string;
+  accountRequested: (who: string) => string;
 }
 
 /** The heading and the sentence of the phone's own notification. */
@@ -55,6 +57,7 @@ export const NOTIFY: Record<Lang, NotifyWords> = {
       accessApproved: 'Je mag meekijken',
       accessDenied: 'Verzoek afgewezen',
       loginAttempts: 'Verdachte inlogpogingen',
+      accountRequested: 'Nieuwe aanmelding',
     },
     someone: 'Iemand',
     aTrip: 'een reis',
@@ -63,6 +66,7 @@ export const NOTIFY: Record<Lang, NotifyWords> = {
     accessApproved: (who, trip) => `${who} heeft je toegelaten tot ${trip}.`,
     accessDenied: (who, trip) => `${who} heeft je verzoek voor ${trip} afgewezen.`,
     loginAttempts: 'Er zijn veel mislukte inlogpogingen geweest.',
+    accountRequested: (who) => `${who} wil een account op je server.`,
   },
   en: {
     title: {
@@ -71,6 +75,7 @@ export const NOTIFY: Record<Lang, NotifyWords> = {
       accessApproved: 'You can follow along',
       accessDenied: 'Request declined',
       loginAttempts: 'Suspicious sign-in attempts',
+      accountRequested: 'New sign-up',
     },
     someone: 'Someone',
     aTrip: 'a trip',
@@ -79,5 +84,6 @@ export const NOTIFY: Record<Lang, NotifyWords> = {
     accessApproved: (who, trip) => `${who} let you into ${trip}.`,
     accessDenied: (who, trip) => `${who} declined your request for ${trip}.`,
     loginAttempts: 'There have been many failed sign-in attempts.',
+    accountRequested: (who) => `${who} would like an account on your server.`,
   },
 };

@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { AccountStatus, UserRole } from '@prisma/client';
+import { AccountStatus, NotificationKind, UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { revokeAllSessions } from '../auth/sessions';
 import { TwoFactorService } from '../auth/two-factor.service';
@@ -115,6 +115,7 @@ export class AdminService {
         approvalSeen: false,
       },
     });
+    await this.requestSettled(userId);
   }
 
   /**
@@ -131,6 +132,18 @@ export class AdminService {
       data: { status: AccountStatus.REJECTED, decidedAt: new Date(), decidedById: adminId },
     });
     await revokeAllSessions(this.prisma, userId);
+    await this.requestSettled(userId);
+  }
+
+  /**
+   * One admin has decided, so the line about it is read for every admin: the
+   * bell should not keep counting a request nobody has to answer any more.
+   */
+  private async requestSettled(userId: string): Promise<void> {
+    await this.prisma.notification.updateMany({
+      where: { kind: NotificationKind.ACCOUNT_REQUESTED, actorId: userId, readAt: null },
+      data: { readAt: new Date() },
+    });
   }
 
   /** For somebody who lost their phone and their recovery codes. */

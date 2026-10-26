@@ -60,6 +60,8 @@
   "social.demo.trip.norway": "Norway",
   "social.demo.trip.morocco": "Morocco",
   "social.bell.loginAttempts": "There have been many failed sign-in attempts.",
+  "social.bell.accountRequested": "{who} would like an account on your server.",
+  "social.bell.openRequests": "View requests",
   "social.comments.title": "Comments",
   "social.comments.count_one": "{count} comment",
   "social.comments.count_other": "{count} comments",

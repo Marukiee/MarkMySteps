@@ -1,7 +1,7 @@
 import { CSSProperties, FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import maplibregl, { Map as MapLibreMap } from '../lib/mapgl';
 import { createPortal } from 'react-dom';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { downloadAndInstall } from '../lib/appUpdate';
 import { alwaysLabel, isAndroidApp, isIosApp, isNativeApp } from '../lib/native';
 import { api, ApiError, fetchBlobUrl, getServerBase, setServerBase } from '../api/client';
@@ -98,9 +98,27 @@ type SectionId =
   | 'about'
   | 'developer';
 
+/**
+ * The section a link asks for. Only the requests are linked to: the bell's line
+ * about a sign-up, and the phone notification behind it, land on them.
+ */
+function linkedSection(params: URLSearchParams): SectionId | null {
+  return params.get('section') === 'accounts' ? 'accounts' : null;
+}
+
 export function SettingsPage() {
   const { user } = useAuth();
-  const [section, setSection] = useState<SectionId>('profile');
+  const [params, setParams] = useSearchParams();
+  const [section, setSection] = useState<SectionId>(() => linkedSection(params) ?? 'profile');
+
+  // Also when Settings is already open behind the bell. The address is put
+  // back after, so a later visit opens on the profile as always.
+  useEffect(() => {
+    const linked = linkedSection(params);
+    if (!linked) return;
+    setSection(linked);
+    setParams({}, { replace: true });
+  }, [params, setParams]);
 
   // The app keeps the scroll position of the page you came from, which lands
   // you halfway down a settings page you have just opened.

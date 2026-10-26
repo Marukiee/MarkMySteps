@@ -60,6 +60,8 @@
   "social.demo.trip.norway": "Noorwegen",
   "social.demo.trip.morocco": "Marokko",
   "social.bell.loginAttempts": "Er zijn veel mislukte inlogpogingen geweest.",
+  "social.bell.accountRequested": "{who} wil een account op je server.",
+  "social.bell.openRequests": "Aanvragen bekijken",
   "social.comments.title": "Reacties",
   "social.comments.count_one": "{count} reactie",
   "social.comments.count_other": "{count} reacties",

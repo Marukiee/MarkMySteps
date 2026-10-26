@@ -43,8 +43,17 @@ export interface TripAccessPreview {
 export interface DevicePoll {
   unread: number;
   pending: number;
-  /** The newest thing this phone has not been told about yet. */
-  latest: { id: string; title: string; body: string; tripId: string | null } | null;
+  /**
+   * The newest thing this phone has not been told about yet. `path` is where a
+   * tap should land when that is not the trip; older apps ignore it.
+   */
+  latest: {
+    id: string;
+    title: string;
+    body: string;
+    tripId: string | null;
+    path: string | null;
+  } | null;
 }
 
 const NOTIFICATION_INCLUDE = {
@@ -205,6 +214,7 @@ export class NotificationsService {
             title: titleFor(newest, lang),
             body: bodyFor(newest, lang),
             tripId: newest.tripId,
+            path: newest.kind === NotificationKind.ACCOUNT_REQUESTED ? ACCOUNTS_PATH : null,
           }
         : null,
     };
@@ -410,6 +420,9 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
+/** Settings, opened on the requests waiting for an admin. */
+const ACCOUNTS_PATH = '/settings?section=accounts';
+
 /** The heading on the phone's own notification. */
 function titleFor(row: NotificationRow, lang: Lang): string {
   const words = NOTIFY[lang].title;
@@ -422,6 +435,8 @@ function titleFor(row: NotificationRow, lang: Lang): string {
       return words.accessDenied;
     case NotificationKind.SECURITY_LOGIN_ATTEMPTS:
       return words.loginAttempts;
+    case NotificationKind.ACCOUNT_REQUESTED:
+      return words.accountRequested;
     default:
       return words.added;
   }
@@ -442,6 +457,8 @@ function bodyFor(row: NotificationRow, lang: Lang): string {
     case NotificationKind.SECURITY_LOGIN_ATTEMPTS:
       // Written once for every admin when it happened, in Dutch.
       return row.detail ?? words.loginAttempts;
+    case NotificationKind.ACCOUNT_REQUESTED:
+      return words.accountRequested(who);
     default:
       return words.added(who, trip);
   }
