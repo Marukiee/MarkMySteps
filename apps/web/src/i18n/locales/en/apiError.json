@@ -4,6 +4,8 @@
   "apiError.members.unknownOne": "No account called {name} on this server",
   "apiError.members.unknownMany": "No account found for: {names}",
   "apiError.signup.tooManyPending": "There are too many open requests on this server. Try again later.",
+  "apiError.signup.emailTaken": "An account with this email already exists",
+  "apiError.signup.usernameTaken": "This username is taken",
   "apiError.password.tooShort": "Password must be at least {min} characters",
   "apiError.password.common": "This password is on every list that gets tried first. Choose something else.",
   "apiError.password.personal": "Don't use your name, username or email address in your password.",

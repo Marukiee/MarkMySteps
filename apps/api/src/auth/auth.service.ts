@@ -112,10 +112,11 @@ export class AuthService {
       where: { OR: [{ email: normalizedEmail }, { username: normalizedUsername }] },
     });
     if (existing) {
+      // The message stays as it was: the apps from before the translation show it.
       throw new ConflictException(
         existing.email === normalizedEmail
-          ? 'An account with this email already exists'
-          : 'This username is taken',
+          ? coded('An account with this email already exists', 'signup.emailTaken')
+          : coded('This username is taken', 'signup.usernameTaken'),
       );
     }
 
