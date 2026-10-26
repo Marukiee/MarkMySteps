@@ -28,6 +28,7 @@ import {
 } from '../lib/prefs';
 import { canEditTrip } from '../lib/perm';
 import { tripGlyph, tripGlyphSize, tripGlyphStroke } from '../lib/tripGlyph';
+import { intlLocale, t } from '../i18n';
 import { onTrackerChange } from '../tracking/tracker';
 import './trips.css';
 
@@ -186,7 +187,7 @@ export function TripsPage() {
   /** Switch one card between large and compact. */
   function applySize(id: string, value: 'large' | 'compact' | null) {
     setTripCardOverride(id, value);
-    setSizeTick((t) => t + 1);
+    setSizeTick((n) => n + 1);
   }
 
   function load() {
@@ -198,10 +199,10 @@ export function TripsPage() {
         // showing nothing at all.
         try {
           const today = new Date().toISOString().slice(0, 10);
-          const mine = list.filter((t) => canEditTrip(t, user?.id));
+          const mine = list.filter((trip) => canEditTrip(trip, user?.id));
           const seen: TripShape = {
-            upcoming: mine.filter((t) => t.endDate.slice(0, 10) >= today).length,
-            past: mine.filter((t) => t.endDate.slice(0, 10) < today).length,
+            upcoming: mine.filter((trip) => trip.endDate.slice(0, 10) >= today).length,
+            past: mine.filter((trip) => trip.endDate.slice(0, 10) < today).length,
             friends: list.length - mine.length,
           };
           localStorage.setItem(TRIP_COUNT_KEY, String(list.length));
@@ -244,8 +245,8 @@ export function TripsPage() {
   const today = new Date().toISOString().slice(0, 10);
   // Yours = the ones you travelled, as organiser or reisgenoot. A trip you were
   // invited to look at is somebody else's, and gets its own tab.
-  const mine = (trips ?? []).filter((t) => canEditTrip(t, user?.id));
-  const friends = (trips ?? []).filter((t) => !canEditTrip(t, user?.id));
+  const mine = (trips ?? []).filter((trip) => canEditTrip(trip, user?.id));
+  const friends = (trips ?? []).filter((trip) => !canEditTrip(trip, user?.id));
   const startedFirst = (a: Trip, b: Trip) => {
     const aStarted = a.startDate.slice(0, 10) <= today ? 0 : 1;
     const bStarted = b.startDate.slice(0, 10) <= today ? 0 : 1;
@@ -254,8 +255,8 @@ export function TripsPage() {
   };
   // Ongoing trips (already started, not finished) are the most relevant → they
   // sort above trips that haven't begun yet.
-  const upcoming = mine.filter((t) => t.endDate.slice(0, 10) >= today).sort(startedFirst);
-  const past = mine.filter((t) => t.endDate.slice(0, 10) < today);
+  const upcoming = mine.filter((trip) => trip.endDate.slice(0, 10) >= today).sort(startedFirst);
+  const past = mine.filter((trip) => trip.endDate.slice(0, 10) < today);
   // Somebody who is away right now is the reason you opened this tab.
   const friendTrips = [...friends].sort((a, b) => {
     const aOver = a.endDate.slice(0, 10) < today ? 1 : 0;
@@ -323,9 +324,7 @@ export function TripsPage() {
     if (list.length === 0) {
       return (
         <p className="muted trips-tab-empty">
-          {which === 'past'
-            ? 'Nog geen afgelopen reizen.'
-            : 'Nog niemand heeft een reis met je gedeeld.'}
+          {which === 'past' ? t('trips.tab.pastEmpty') : t('trips.tab.sharedEmpty')}
         </p>
       );
     }
@@ -343,8 +342,8 @@ export function TripsPage() {
           />
         ))}
         {which === 'past' && upcoming.length === 0 && roomForGhost && (
-          <button className="trip-ghost" onClick={() => setShowNew(true)} aria-label="Nieuwe reis">
-            <span>+ Nieuwe reis</span>
+          <button className="trip-ghost" onClick={() => setShowNew(true)} aria-label={t('trips.newTrip')}>
+            <span>{t('trips.newTripButton')}</span>
           </button>
         )}
       </div>
@@ -367,13 +366,13 @@ export function TripsPage() {
       </div>
 
       <div className="trips-head">
-        <h1>Reizen</h1>
+        <h1>{t('common.trips')}</h1>
         <div className="trips-head-actions">
           <button
             className="btn btn-primary"
             onClick={() => (showNew ? closeNew() : setShowNew(true))}
           >
-            {showNew && !newClosing ? 'Annuleren' : '+ Nieuwe reis'}
+            {showNew && !newClosing ? t('common.cancel') : t('trips.newTripButton')}
           </button>
         </div>
       </div>
@@ -395,16 +394,16 @@ export function TripsPage() {
 
       {trips?.length === 0 && (
         <div className="card trips-empty">
-          <h2>Nog geen reizen</h2>
+          <h2>{t('trips.none.title')}</h2>
           <p className="muted">
-            Maak je eerste reis aan, of importeer je Polarsteps-data via Instellingen.
+            {t('trips.none.body')}
           </p>
         </div>
       )}
 
       {showUpcoming && (
         <>
-          <h2 className="trips-section-title">Aankomend &amp; onderweg</h2>
+          <h2 className="trips-section-title">{t('trips.section.upcoming')}</h2>
           {loading ? (
             <SkeletonGrid count={Math.min(6, shape.upcoming)} offset={0} />
           ) : (
@@ -427,9 +426,9 @@ export function TripsPage() {
               <button
                 className="trip-ghost"
                 onClick={() => setShowNew(true)}
-                aria-label="Nieuwe reis"
+                aria-label={t('trips.newTrip')}
               >
-                <span>+ Nieuwe reis</span>
+                <span>{t('trips.newTripButton')}</span>
               </button>
             )}
           </div>
@@ -452,7 +451,7 @@ export function TripsPage() {
               disabled={loading}
               onClick={() => switchTab('past')}
             >
-              Afgelopen reizen
+              {t('trips.tab.past')}
               {/* Last time's count while the list is on its way, so the badge
                   is not a box that appears out of nothing and shoves the label
                   sideways. It is a number this browser has actually seen; if
@@ -466,7 +465,7 @@ export function TripsPage() {
               disabled={loading}
               onClick={() => switchTab('friends')}
             >
-              Gedeeld
+              {t('trips.tab.shared')}
               <small>{(loading ? shape.friends : friendTrips.length) || ''}</small>
             </button>
           </div>
@@ -588,9 +587,9 @@ function TripCard({
 
   async function remove() {
     const ok = await confirmModal({
-      title: 'Reis verwijderen?',
-      body: `"${trip.title}" wordt definitief verwijderd, samen met de route, de notities en de foto-koppelingen. Dit kan niet ongedaan gemaakt worden.`,
-      confirmLabel: 'Verwijderen',
+      title: t('trips.delete.title'),
+      body: t('trips.delete.body', { title: trip.title }),
+      confirmLabel: t('common.delete'),
       danger: true,
       typeToConfirm: trip.title,
     });
@@ -601,9 +600,9 @@ function TripCard({
 
   async function leave() {
     const ok = await confirmModal({
-      title: 'Reis verlaten?',
-      body: `Je verlaat "${trip.title}".`,
-      confirmLabel: 'Verlaten',
+      title: t('trips.leave.title'),
+      body: t('trips.leave.body', { title: trip.title }),
+      confirmLabel: t('trips.leave.confirm'),
       danger: true,
     });
     if (!ok) return;
@@ -630,7 +629,7 @@ function TripCard({
     }, 150);
   }
 
-  const month = new Date(trip.startDate).toLocaleDateString('nl-NL', { month: 'long' });
+  const month = new Date(trip.startDate).toLocaleDateString(intlLocale(), { month: 'long' });
   const year = new Date(trip.startDate).getFullYear();
   const days =
     Math.round(
@@ -644,10 +643,10 @@ function TripCard({
     startsInDays === null
       ? null
       : startsInDays === 0
-        ? 'vandaag van start'
+        ? t('trips.card.startsToday')
         : startsInDays === 1
-          ? 'morgen van start'
-          : `over ${startsInDays} dagen`;
+          ? t('trips.card.startsTomorrow')
+          : t('trips.card.startsIn', { count: startsInDays });
   // An ongoing trip (started, not finished) gets its own "onderweg" pill in the
   // same spot as the countdown — those are mutually exclusive.
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -662,7 +661,7 @@ function TripCard({
   const statusEl = ongoing ? (
     <span className="trip-countdown trip-ongoing">
       <span className="trip-ongoing-dot" />
-      {travellerName ? `${travellerName} is onderweg` : 'onderweg'}
+      {travellerName ? t('trips.card.ongoingWho', { name: travellerName }) : t('trips.card.ongoing')}
     </span>
   ) : (
     countdown && (
@@ -677,7 +676,7 @@ function TripCard({
     <div className="trip-card-menu" ref={menuRef} onClick={stop}>
       <button
         className="trip-menu-btn"
-        aria-label="Reis-opties"
+        aria-label={t('trips.card.menu.label')}
         onClick={(e) => {
           stop(e);
           if (menuOpen) closeMenu();
@@ -738,14 +737,14 @@ function TripCard({
                       each other the "small" one is a row across the full
                       width, so it is named for what it looks like instead. */}
                   {opt === 'auto'
-                    ? 'Auto'
+                    ? t('common.auto')
                     : opt === 'large'
                       ? wide
-                        ? 'Kaart'
-                        : 'Groot'
+                        ? t('trips.card.size.card')
+                        : t('trips.card.size.large')
                       : wide
-                        ? 'Rij'
-                        : 'Klein'}
+                        ? t('trips.card.size.row')
+                        : t('trips.card.size.small')}
                 </button>
               );
             })}
@@ -759,7 +758,7 @@ function TripCard({
                   navigate(`/trips/${trip.id}/settings`);
                 }}
               >
-                Instellingen
+                {t('common.settings')}
               </button>
               <button
                 onClick={(e) => {
@@ -768,7 +767,7 @@ function TripCard({
                   setRenaming(true);
                 }}
               >
-                Hernoemen
+                {t('trips.card.menu.rename')}
               </button>
               <button
                 className="trip-menu-danger"
@@ -778,7 +777,7 @@ function TripCard({
                   void remove();
                 }}
               >
-                Verwijderen
+                {t('common.delete')}
               </button>
             </>
           )}
@@ -791,7 +790,7 @@ function TripCard({
                 void leave();
               }}
             >
-              Reis verlaten
+              {t('trips.card.menu.leave')}
             </button>
           )}
         </div>,
@@ -845,7 +844,7 @@ function TripCard({
               <button
                 type="button"
                 className="trip-rename-cancel"
-                aria-label="Annuleren"
+                aria-label={t('common.cancel')}
                 onClick={(e) => {
                   stop(e);
                   cancelRename();
@@ -861,9 +860,9 @@ function TripCard({
             <h3>{trip.title}</h3>
           )}
           <span className="tcc-meta">
-            {month} {year} · {days} dagen
+            {month} {year} · {t('common.days', { count: days })}
             {trip.distanceKm != null && trip.distanceKm > 0 && (
-              <> · {trip.distanceKm.toLocaleString('nl-NL')} km</>
+              <> · {trip.distanceKm.toLocaleString(intlLocale())} {t('common.km')}</>
             )}
           </span>
           {statusEl}
@@ -923,7 +922,7 @@ function TripCard({
               }}
             />
             <button className="btn btn-primary" type="submit">
-              OK
+              {t('common.ok')}
             </button>
           </form>
         ) : (
@@ -937,13 +936,13 @@ function TripCard({
           </div>
           <div className="tcm">
             <strong>
-              {days} <small>dagen</small>
+              {days} <small>{t('trips.card.daysUnit', { count: days })}</small>
             </strong>
           </div>
           {trip.distanceKm != null && trip.distanceKm > 0 && (
             <div className="tcm">
               <strong>
-                {trip.distanceKm.toLocaleString('nl-NL')} <small>km</small>
+                {trip.distanceKm.toLocaleString(intlLocale())} <small>{t('common.km')}</small>
               </strong>
             </div>
           )}
@@ -971,7 +970,7 @@ function NewTripForm({ onCreated }: { onCreated: () => void }) {
       await api('/trips', { method: 'POST', body: { title, startDate, endDate } });
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Er ging iets mis');
+      setError(err instanceof Error ? err.message : t('common.errorGeneric'));
     } finally {
       setBusy(false);
     }
@@ -980,20 +979,20 @@ function NewTripForm({ onCreated }: { onCreated: () => void }) {
   return (
     <form className="card new-trip-form fade-in" onSubmit={submit}>
       <div className="field">
-        <label htmlFor="nt-title">Titel</label>
+        <label htmlFor="nt-title">{t('trips.new.title')}</label>
         <input id="nt-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
       </div>
-      <DateField id="nt-start" label="Van" value={startDate} onChange={setStartDate} />
+      <DateField id="nt-start" label={t('trips.new.from')} value={startDate} onChange={setStartDate} />
       <DateField
         id="nt-end"
-        label="Tot"
+        label={t('trips.new.to')}
         value={endDate}
         nearDate={startDate}
         onChange={setEndDate}
       />
       {error && <p className="error-text">{error}</p>}
       <button className="btn btn-primary" disabled={busy}>
-        Aanmaken
+        {t('trips.new.create')}
       </button>
     </form>
   );
@@ -1036,7 +1035,7 @@ function TripCardMembers({
     <button
       type="button"
       className="trip-card-members"
-      aria-label="Mensen en delen"
+      aria-label={t('trips.card.people')}
       onClick={(e) => {
         // The whole card is already a link to the trip; without this the card
         // wins and the sheet never opens.

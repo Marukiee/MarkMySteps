@@ -4,6 +4,9 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [react()],
   build: {
+    // The words of the app are loaded with a top-level await (src/i18n), which
+    // needs a 2021 browser; every WebView that runs the app is newer than that.
+    target: 'es2022',
     rollupOptions: {
       output: {
         manualChunks: {

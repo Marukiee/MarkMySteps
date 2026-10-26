@@ -1,5 +1,6 @@
 import { PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './avatarcrop.css';
 
 /**
@@ -91,7 +92,7 @@ export function AvatarCrop({
   return (
     <div className="avatar-crop-backdrop" onClick={onCancel}>
       <div className="avatar-crop card" onClick={(e) => e.stopPropagation()}>
-        <h3>Profielfoto bijsnijden</h3>
+        <h3>{t('ui.avatarCrop.title')}</h3>
         <div
           className="avatar-crop-view"
           style={{ width: VIEW, height: VIEW }}
@@ -121,14 +122,14 @@ export function AvatarCrop({
           step={0.01}
           value={zoom}
           onChange={(e) => changeZoom(Number(e.target.value))}
-          aria-label="Zoom"
+          aria-label={t('ui.avatarCrop.zoom')}
         />
         <div className="avatar-crop-actions">
           <button className="btn btn-ghost" onClick={onCancel}>
-            Annuleren
+            {t('common.cancel')}
           </button>
           <button className="btn btn-primary" onClick={apply} disabled={!ready}>
-            <Icon name="check" size={15} /> Opslaan
+            <Icon name="check" size={15} /> {t('common.save')}
           </button>
         </div>
       </div>

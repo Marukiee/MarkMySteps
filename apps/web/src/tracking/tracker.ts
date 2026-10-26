@@ -1,5 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { ApiError, api } from '../api/client';
+import { t } from '../i18n';
 import { notify } from '../lib/notify';
 import { getTrackingIntervalMin } from '../lib/prefs';
 import { BufferedPoint, bufferPoint, bufferedCount, peekPoints, removePoints } from './buffer';
@@ -340,7 +341,7 @@ export async function flush(): Promise<void> {
       await removePoints(ids);
       emit({ lastError: null });
     } catch (err) {
-      emit({ lastError: err instanceof Error ? err.message : 'Upload mislukt' });
+      emit({ lastError: err instanceof Error ? err.message : t('trip.tracking.error.upload') });
       return; // network problem — retry next flush
     }
   }
@@ -389,11 +390,11 @@ async function stopIfTripIsOver(): Promise<boolean> {
   const until = Number(localStorage.getItem(ACTIVE_UNTIL_KEY));
   if (!Number.isFinite(until) || until <= 0 || Date.now() <= until) return false;
   await stopTracking();
-  const message = 'Tracking is automatisch gestopt.';
+  const message = t('trip.tracking.autoStopped');
   emit({ lastStatus: message });
   // Said out loud too: the app is usually not the thing you are looking at when
   // a trip ends, and a tracker that stops silently looks like one that broke.
-  notify('Tracking gestopt', message);
+  notify(t('trip.tracking.stoppedTitle'), message);
   return true;
 }
 
@@ -423,10 +424,10 @@ export async function startTracking(tripId: string): Promise<void> {
       await MmsLocation.addListener('status', ({ state: s, message }) => {
         const label = message ? `${s}: ${message}` : s;
         if (s === 'permission') {
-          emit({ lastError: message ?? 'Locatietoestemming ontbreekt', lastStatus: label });
+          emit({ lastError: message ?? t('trip.tracking.error.permission'), lastStatus: label });
           void MmsLocation.openSettings();
         } else if (s === 'error') {
-          emit({ lastError: message ?? 'Locatiefout', lastStatus: label });
+          emit({ lastError: message ?? t('trip.tracking.error.location'), lastStatus: label });
         } else {
           // 'nofix' is a missed check, not a failure — the next one may work.
           emit({ lastStatus: label });
@@ -437,10 +438,10 @@ export async function startTracking(tripId: string): Promise<void> {
       await MmsLocation.start({
         // How often the service wakes for one single position.
         intervalMs: getTrackingIntervalMin() * 60_000,
-        title: 'MarkMySteps volgt je route',
+        title: t('trip.tracking.notification'),
       });
     } catch (err) {
-      emit({ lastError: err instanceof Error ? err.message : 'Tracking starten mislukt' });
+      emit({ lastError: err instanceof Error ? err.message : t('trip.tracking.error.start') });
       await stopTracking();
       return;
     }
@@ -458,7 +459,7 @@ export async function startTracking(tripId: string): Promise<void> {
     document.addEventListener('visibilitychange', onVisible);
   } else {
     if (!('geolocation' in navigator)) {
-      emit({ lastError: 'Geen GPS beschikbaar in deze browser' });
+      emit({ lastError: t('trip.tracking.error.noGps') });
       return;
     }
     webWatchId = navigator.geolocation.watchPosition(

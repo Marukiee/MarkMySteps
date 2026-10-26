@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
+import { t } from '../i18n';
 import { notify } from '../lib/notify';
 import './pending.css';
 
@@ -15,10 +16,10 @@ const POLL_MS = 20_000;
 
 /** "Net gecontroleerd" / "3 min geleden". */
 function lastChecked(at: number | null): string {
-  if (at === null) return 'Nog niet gecontroleerd';
+  if (at === null) return t('auth.pending.notChecked');
   const minutes = Math.floor((Date.now() - at) / 60_000);
-  if (minutes < 1) return 'Net gecontroleerd';
-  return `${minutes} min geleden gecontroleerd`;
+  if (minutes < 1) return t('auth.pending.justChecked');
+  return t('auth.pending.checkedAgo', { minutes });
 }
 
 /**
@@ -60,13 +61,13 @@ export function PendingPage() {
           // out `justApproved` exactly one time.
           if (result.justApproved && !notified.current) {
             notified.current = true;
-            notify('Je account is goedgekeurd', 'Je kunt MarkMySteps nu gebruiken.');
+            notify(t('auth.pending.approved.title'), t('auth.pending.approved.body'));
           }
           // The token still says "pending"; refreshing swaps it for a full one.
           await refresh();
         }
       } catch (err) {
-        if (alive) setError(err instanceof Error ? err.message : 'Kon de status niet ophalen');
+        if (alive) setError(err instanceof Error ? err.message : t('auth.pending.statusFailed'));
       } finally {
         if (alive) setChecking(false);
       }
@@ -95,13 +96,10 @@ export function PendingPage() {
           <span className="pending-icon pending-icon-no">
             <Icon name="close" size={30} />
           </span>
-          <h1>Niet goedgekeurd</h1>
-          <p className="muted">
-            De beheerder van deze server heeft je aanvraag afgewezen. Neem contact met diegene op als
-            je denkt dat dat niet klopt.
-          </p>
+          <h1>{t('auth.pending.rejected.title')}</h1>
+          <p className="muted">{t('auth.pending.rejected.body')}</p>
           <button className="btn btn-ghost" onClick={logout}>
-            Terug naar inloggen
+            {t('auth.pending.rejected.back')}
           </button>
         </div>
       </div>
@@ -116,21 +114,16 @@ export function PendingPage() {
         <span className="pending-brand">
           <LogoMark size={52} spin />
         </span>
-        <h1>Even wachten op goedkeuring</h1>
-        <p className="muted">
-          Je aanvraag staat klaar bij de beheerder van deze server. Zodra die je toelaat, ga je
-          vanzelf door naar de app.
-        </p>
-        <p className="muted pending-hint">
-          Je mag de app sluiten. Staat 'ie open of op de achtergrond, dan krijg je een melding.
-        </p>
+        <h1>{t('auth.pending.title')}</h1>
+        <p className="muted">{t('auth.pending.body')}</p>
+        <p className="muted pending-hint">{t('auth.pending.hint')}</p>
 
         <div className="pending-foot">
           <span className="muted pending-status" data-busy={checking}>
-            {error ? error : checking ? 'Controleren…' : lastChecked(checkedAt)}
+            {error ? error : checking ? t('auth.pending.checking') : lastChecked(checkedAt)}
           </span>
           <button className="btn btn-ghost" onClick={logout}>
-            Uitloggen
+            {t('auth.pending.logout')}
           </button>
         </div>
       </div>

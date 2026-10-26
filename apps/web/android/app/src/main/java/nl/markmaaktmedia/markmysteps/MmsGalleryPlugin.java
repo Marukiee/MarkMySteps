@@ -112,7 +112,7 @@ public class MmsGalleryPlugin extends Plugin {
     @PluginMethod
     public void query(PluginCall call) {
         if (!hasLibrary()) {
-            call.reject("Geen toegang tot je fotobibliotheek");
+            call.reject(AppLang.text(getContext(), R.string.error_no_library_access));
             return;
         }
         long from = call.getData().optLong("fromMs", 0L);
@@ -153,7 +153,7 @@ public class MmsGalleryPlugin extends Plugin {
                 "COALESCE(" + MediaStore.Files.FileColumns.DATE_TAKEN + ", "
                         + MediaStore.Files.FileColumns.DATE_MODIFIED + " * 1000) ASC")) {
             if (cursor == null) {
-                call.reject("Kon de fotobibliotheek niet lezen");
+                call.reject(AppLang.text(getContext(), R.string.error_read_library));
                 return;
             }
             int idCol = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID);
@@ -188,7 +188,7 @@ public class MmsGalleryPlugin extends Plugin {
                 items.put(item);
             }
         } catch (Exception e) {
-            call.reject("Kon de fotobibliotheek niet lezen: " + e.getMessage());
+            call.reject(AppLang.text(getContext(), R.string.error_read_library_detail, e.getMessage()));
             return;
         }
 

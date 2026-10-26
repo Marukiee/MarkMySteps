@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * "No server" mode: every request the app makes is answered on the device.
  *
@@ -35,7 +36,7 @@ export const LOCAL_USER = {
   id: '00000000-0000-4000-8000-000000000001',
   email: 'lokaal@markmysteps',
   username: 'ik',
-  displayName: 'Ik',
+  displayName: t('settings.local.userName'),
   // Not ADMIN: the account-management screens are server-only, and giving the
   // local account that role would show them just to have them fail.
   role: 'USER' as const,
@@ -58,5 +59,5 @@ export function localUser(): typeof LOCAL_USER {
  * numbers. Calling it "Reizigers" then names something that isn't there.
  */
 export function travellersTabLabel(): string {
-  return isLocalMode() ? 'Statistieken' : 'Reizigers';
+  return isLocalMode() ? t('settings.travellersTab.stats') : t('settings.travellersTab.travellers');
 }

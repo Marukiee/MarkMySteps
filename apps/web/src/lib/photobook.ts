@@ -28,6 +28,7 @@ import {
   FONT_DISPLAY,
   type Palette,
 } from './summary/canvas';
+import { intlLocale, t } from '../i18n';
 
 export interface BookNote {
   day: string;
@@ -114,7 +115,7 @@ export async function renderPhotoBook(
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d', { alpha: false });
-  if (!ctx) throw new Error('Deze browser kan geen afbeeldingen tekenen');
+  if (!ctx) throw new Error(t('book.error.noCanvas'));
 
   const out: PdfPage[] = [];
   let done = 0;
@@ -123,7 +124,7 @@ export async function renderPhotoBook(
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, 'image/jpeg', quality),
     );
-    if (!blob) throw new Error('Renderen mislukt');
+    if (!blob) throw new Error(t('book.error.render'));
     out.push({ jpeg: await blob.arrayBuffer(), width, height });
     onProgress?.(++done, total);
   };
@@ -391,7 +392,7 @@ async function drawRoutePage(
     ...stops.map((s) => [s.longitude, s.latitude] as [number, number]),
   ];
 
-  drawWrapped(ctx, 'De route', page.margin, page.margin, page.w - page.margin * 2, {
+  drawWrapped(ctx, t('book.route.title'), page.margin, page.margin, page.w - page.margin * 2, {
     size: Math.round(page.w * 0.052),
     weight: 700,
     family: FONT_DISPLAY,
@@ -421,7 +422,7 @@ async function drawRoutePage(
     ctx.fillText(stop.name, page.margin + line * 1.5, y);
     if (stop.nights > 0) {
       ctx.fillStyle = palette.inkSoft;
-      const nights = `${stop.nights} ${stop.nights === 1 ? 'nacht' : 'nachten'}`;
+      const nights = t('common.nights', { count: stop.nights });
       ctx.fillText(nights, page.w - page.margin - ctx.measureText(nights).width, y);
     }
     y += line;
@@ -453,7 +454,7 @@ function drawLegPage(
       to,
     ];
 
-  drawWrapped(ctx, 'Verder', page.margin, page.margin, page.w - page.margin * 2, {
+  drawWrapped(ctx, t('book.leg.kicker'), page.margin, page.margin, page.w - page.margin * 2, {
     size: Math.round(page.w * 0.04),
     weight: 700,
     family: FONT_DISPLAY,
@@ -474,12 +475,16 @@ function drawLegPage(
   // The distance along the way it was actually travelled where that is known,
   // and how it was travelled according to the plan — "Trein", not "over land".
   const km = Math.round(tracked ? lineKm(tracked) : haversineKm(from, to));
-  const mode = MODE_LABEL[leg.to.travelMode] ?? 'Onderweg';
+  const mode = MODE_LABEL[leg.to.travelMode] ?? t('book.leg.travelling');
   setFont(ctx, Math.round(page.w * 0.024), 600, FONT_BODY);
   ctx.fillStyle = palette.inkSoft;
   ctx.textBaseline = 'top';
   ctx.fillText(
-    `${mode} · ${km.toLocaleString('nl-NL')} km · ${formatDay(leg.to.arrivalDate)}`,
+    t('book.leg.details', {
+      mode,
+      km: km.toLocaleString(intlLocale()),
+      date: formatDay(leg.to.arrivalDate),
+    }),
     page.margin,
     bottom + Math.round(page.w * 0.02),
   );
@@ -1186,11 +1191,11 @@ function bow(from: [number, number], to: [number, number]): [number, number][] {
   const out: [number, number][] = [];
   const lift = Math.min(0.22, haversineKm(from, to) / 20000);
   for (let i = 0; i <= 32; i++) {
-    const t = i / 32;
-    const x = from[0] + (to[0] - from[0]) * t;
-    const y = from[1] + (to[1] - from[1]) * t;
+    const frac = i / 32;
+    const x = from[0] + (to[0] - from[0]) * frac;
+    const y = from[1] + (to[1] - from[1]) * frac;
     // A sine gives the highest point in the middle and none at the ends.
-    const rise = Math.sin(Math.PI * t) * lift * Math.hypot(to[0] - from[0], to[1] - from[1]);
+    const rise = Math.sin(Math.PI * frac) * lift * Math.hypot(to[0] - from[0], to[1] - from[1]);
     out.push([x, y + rise]);
   }
   return out;
@@ -1342,7 +1347,7 @@ function groupByDay(media: MediaItem[]): Map<string, MediaItem[]> {
 
 function formatDay(day: string, long = false): string {
   const date = new Date(`${day}T12:00:00Z`);
-  return date.toLocaleDateString('nl-NL', {
+  return date.toLocaleDateString(intlLocale(), {
     ...(long ? { weekday: 'long' } : {}),
     day: 'numeric',
     month: long ? 'long' : 'short',
@@ -1353,13 +1358,20 @@ function formatDay(day: string, long = false): string {
 function dateRange(from: string, to: string): string {
   const start = new Date(from);
   const end = new Date(to);
-  const fmt = (d: Date, month: boolean) =>
-    d.toLocaleDateString('nl-NL', {
-      day: 'numeric',
-      ...(month ? { month: 'long' } : {}),
-      year: 'numeric',
-    });
-  return `${fmt(start, start.getMonth() !== end.getMonth())} t/m ${fmt(end, true)}`;
+  // Within one month the start is just its day: a day and a year without the
+  // month in between comes out as "2025 (dag: 3)".
+  const sameMonth =
+    start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth();
+  const startText = start.toLocaleDateString(
+    intlLocale(),
+    sameMonth ? { day: 'numeric' } : { day: 'numeric', month: 'long', year: 'numeric' },
+  );
+  const endText = end.toLocaleDateString(intlLocale(), {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  return t('common.dateRange', { from: startText, to: endText });
 }
 
 function capitalise(text: string): string {

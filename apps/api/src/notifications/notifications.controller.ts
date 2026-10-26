@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -13,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { langOf } from '../common/i18n';
 import { AccessRequestStatus, TripRole } from '@prisma/client';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import type { JwtPayload } from '../auth/auth.service';
@@ -163,10 +165,13 @@ export class NotificationsDeviceController {
 
   @Get('poll')
   @Throttle({ default: { ttl: 3_600_000, limit: 120 } })
-  poll(@Query('token') token?: string): Promise<DevicePoll> {
+  poll(
+    @Query('token') token?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<DevicePoll> {
     if (!token || token.length < 20 || token.length > 200) {
       throw new NotFoundException('Unknown device');
     }
-    return this.notifications.pollDevice(token);
+    return this.notifications.pollDevice(token, langOf(acceptLanguage));
   }
 }

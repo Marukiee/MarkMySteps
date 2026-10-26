@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * How strong a password looks, for the meter under the field.
  *
@@ -55,7 +56,7 @@ function hasRun(value: string): boolean {
 }
 
 export function passwordStrength(password: string, personal: string[] = []): Strength {
-  if (!password) return { score: 0, label: 'Nog leeg', tip: null };
+  if (!password) return { score: 0, label: t('settings.password.strength.empty'), tip: null };
 
   const lower = password.toLowerCase();
   const classes =
@@ -65,22 +66,22 @@ export function passwordStrength(password: string, personal: string[] = []): Str
     Number(/[^a-zA-Z0-9]/.test(password));
   const distinct = new Set(password).size;
 
-  const weak = (tip: string): Strength => ({ score: 1, label: 'Zwak', tip });
+  const weak = (tip: string): Strength => ({ score: 1, label: t('settings.password.strength.weak'), tip });
 
   if (password.length < 10) {
-    return { score: 0, label: 'Te kort', tip: 'Minimaal 10 tekens.' };
+    return { score: 0, label: t('settings.password.strength.tooShort'), tip: t('settings.password.tip.minLength') };
   }
   if (COMMON.some((c) => lower.includes(c))) {
-    return weak('Dit staat in elke lijst die een inbreker als eerste probeert.');
+    return weak(t('settings.password.tip.common'));
   }
   for (const part of personal) {
     const clean = part.trim().toLowerCase();
     if (clean.length >= 4 && lower.includes(clean)) {
-      return weak('Je naam, gebruikersnaam of e-mailadres erin maakt het makkelijk te raden.');
+      return weak(t('settings.password.tip.personal'));
     }
   }
   if (distinct <= 4) {
-    return weak('Te weinig verschillende tekens.');
+    return weak(t('settings.password.tip.distinct'));
   }
 
   let score = 1;
@@ -91,13 +92,13 @@ export function passwordStrength(password: string, personal: string[] = []): Str
   if (classes === 1 && password.length < 18) score -= 1;
 
   const capped = Math.max(1, Math.min(4, score)) as 1 | 2 | 3 | 4;
-  const labels = { 1: 'Zwak', 2: 'Matig', 3: 'Sterk', 4: 'Zeer sterk' } as const;
+  const labels = { 1: t('settings.password.strength.weak'), 2: t('settings.password.strength.fair'), 3: t('settings.password.strength.strong'), 4: t('settings.password.strength.veryStrong') } as const;
 
   let tip: string | null = null;
   if (capped < 4) {
-    if (password.length < 14) tip = 'Langer helpt meer dan ingewikkelder: probeer een zin.';
-    else if (classes < 3) tip = 'Meng hoofdletters, cijfers of leestekens erdoor.';
-    else if (hasRun(password)) tip = 'Vermijd reeksen als "abc" of "111".';
+    if (password.length < 14) tip = t('settings.password.tip.longer');
+    else if (classes < 3) tip = t('settings.password.tip.mix');
+    else if (hasRun(password)) tip = t('settings.password.tip.runs');
   }
 
   return { score: capped, label: labels[capped], tip };

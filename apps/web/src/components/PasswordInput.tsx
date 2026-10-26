@@ -1,4 +1,5 @@
 import { InputHTMLAttributes, useState } from 'react';
+import { t } from '../i18n';
 import './password-input.css';
 
 /** Password field with a show/hide eye toggle. */
@@ -10,7 +11,7 @@ export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
       <button
         type="button"
         className="pw-eye"
-        aria-label={visible ? 'Verberg wachtwoord' : 'Toon wachtwoord'}
+        aria-label={visible ? t('settings.password.hide') : t('settings.password.show')}
         onClick={() => setVisible((v) => !v)}
       >
         {visible ? (

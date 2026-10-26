@@ -8,8 +8,8 @@ import {
   RecentTrips,
   StatGrid,
   TravelStats,
-  plural,
 } from '../components/TravelStatsView';
+import { t } from '../i18n';
 import './friends.css';
 
 /**
@@ -33,16 +33,14 @@ export function TravellerPage() {
     setError(null);
     api<TravelStats>(`/users/${userId}/stats`)
       .then(setStats)
-      .catch(() =>
-        setError('Deze reiziger bestaat niet, of je deelt geen reis met diegene.'),
-      );
+      .catch(() => setError(t('social.traveller.notFound')));
   }, [userId]);
 
   return (
     <main className="page fade-in traveller-page">
       <button type="button" className="traveller-back" onClick={() => navigate(-1)}>
         <Icon name="chevron-right" size={16} />
-        Terug
+        {t('common.back')}
       </button>
 
       {error && <p className="error-text">{error}</p>}
@@ -66,13 +64,13 @@ export function TravellerPage() {
         <div className="traveller-chips">
           {!!stats?.sharedTrips && (
             <span className="traveller-shared">
-              {plural(stats.sharedTrips, 'reis samen', 'reizen samen')}
+              {t('social.traveller.together', { count: stats.sharedTrips })}
             </span>
           )}
           {!!stats?.ongoing && (
             <span className="stats-ongoing">
               <span className="stats-ongoing-dot" />
-              {stats.ongoing === 1 ? 'onderweg' : `${stats.ongoing}× onderweg`}
+              {t('social.ongoing', { count: stats.ongoing })}
             </span>
           )}
         </div>

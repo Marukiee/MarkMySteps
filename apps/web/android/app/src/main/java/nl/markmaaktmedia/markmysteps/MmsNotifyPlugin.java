@@ -98,6 +98,20 @@ public class MmsNotifyPlugin extends Plugin {
         }
     }
 
+    /**
+     * The language the page speaks, for what the native side writes without it:
+     * the tracking notification, the channels, and the language the background
+     * check asks the server to write in.
+     */
+    @PluginMethod
+    public void setLanguage(PluginCall call) {
+        String lang = call.getString("lang", "");
+        boolean changed = !AppLang.get(getContext()).equals(lang);
+        AppLang.set(getContext(), lang);
+        if (changed) MmsLocationService.languageChanged(getContext());
+        call.resolve();
+    }
+
     /** Whether the notification's cancel button was pressed. Clears on read. */
     @PluginMethod
     public void takeCancel(PluginCall call) {
@@ -227,11 +241,12 @@ public class MmsNotifyPlugin extends Plugin {
             call.resolve();
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                && manager.getNotificationChannel(TASK_CHANNEL_ID) == null) {
+        // Created again each time: that renames it into the app's language.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
-                    TASK_CHANNEL_ID, "Bezig", NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription("Voortgang van iets dat de app aan het maken is");
+                    TASK_CHANNEL_ID, AppLang.text(getContext(), R.string.channel_task),
+                    NotificationManager.IMPORTANCE_LOW);
+            channel.setDescription(AppLang.text(getContext(), R.string.channel_task_desc));
             channel.setSound(null, null);
             manager.createNotificationChannel(channel);
         }
@@ -307,11 +322,12 @@ public class MmsNotifyPlugin extends Plugin {
             call.resolve();
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                && manager.getNotificationChannel(CHANNEL_ID) == null) {
+        // Created again each time: that renames it into the app's language.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID, "Account", NotificationManager.IMPORTANCE_DEFAULT);
-            channel.setDescription("Bericht over je account");
+                    CHANNEL_ID, AppLang.text(getContext(), R.string.channel_account),
+                    NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setDescription(AppLang.text(getContext(), R.string.channel_account_desc));
             manager.createNotificationChannel(channel);
         }
 

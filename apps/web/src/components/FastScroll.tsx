@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { t, intlLocale } from '../i18n';
 import { useExit } from '../lib/useExit';
 import { Icon } from './Icon';
 import './fastscroll.css';
@@ -331,7 +332,7 @@ export function FastScroll({
       <button
         type="button"
         className="fast-scroll-grip"
-        aria-label="Snel scrollen"
+        aria-label={t('trip.fastScroll.label')}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           draggingRef.current = true;
@@ -398,7 +399,7 @@ function formatDay(day: string | null): string | null {
   if (!day) return null;
   const date = new Date(`${day}T12:00:00Z`);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString('nl-NL', {
+  return date.toLocaleDateString(intlLocale(), {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

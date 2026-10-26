@@ -27,6 +27,7 @@ public class MmsNotifyPlugin: CAPPlugin, CAPBridgedPlugin, NotificationHandlerPr
         CAPPluginMethod(name: "permission", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestPermission", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "takePendingPath", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setLanguage", returnType: CAPPluginReturnPromise),
     ]
 
     private static let progressId = "mms-progress"
@@ -84,6 +85,12 @@ public class MmsNotifyPlugin: CAPPlugin, CAPBridgedPlugin, NotificationHandlerPr
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             call.resolve(["granted": granted])
         }
+    }
+
+    /// The language the page speaks, for what the native side writes without it.
+    @objc func setLanguage(_ call: CAPPluginCall) {
+        AppLang.set(call.getString("lang") ?? "")
+        call.resolve()
     }
 
     @objc func takePendingPath(_ call: CAPPluginCall) {
@@ -166,6 +173,8 @@ enum NotifyPoller {
               let url = URL(string: "\(base)/notifications/poll?token=\(encoded)") else { return }
         var request = URLRequest(url: url, timeoutInterval: 15)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        // The server writes the notification itself, in the language asked for here.
+        request.setValue(AppLang.header, forHTTPHeaderField: "Accept-Language")
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               (response as? HTTPURLResponse)?.statusCode == 200,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

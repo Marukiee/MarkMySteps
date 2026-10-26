@@ -1,0 +1,12 @@
+/* Texts the native side writes itself. AppLang picks the app's language. */
+"export.invalid" = "Ongeldige export";
+"export.failed" = "Opslaan mislukt: %@";
+"export.path" = "Bestanden › Op mijn iPhone › MarkMySteps › %@";
+"gallery.noAccess" = "Geen toegang tot je fotobibliotheek";
+"location.denied" = "Locatietoestemming geweigerd";
+"location.askFirst" = "Vraag eerst de gewone locatietoestemming";
+"location.none" = "Geen locatietoestemming";
+"location.noFix" = "Geen positie gevonden";
+"location.missing" = "Locatietoestemming ontbreekt";
+"location.running" = "Eén meting per %d min";
+"location.noFixWithin" = "Geen positie binnen %d s";

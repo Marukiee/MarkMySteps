@@ -7,6 +7,7 @@ import {
   useRef,
 } from 'react';
 import { getTripSideWidth, setTripSideWidth } from '../lib/prefs';
+import { t } from '../i18n';
 
 const DEFAULT_WIDTH = 400;
 const MIN_SIDE = 320;
@@ -125,8 +126,8 @@ export function SideResizer({ host }: { host: RefObject<HTMLElement | null> }) {
       className="side-resizer"
       role="separator"
       aria-orientation="vertical"
-      aria-label="Breedte van kaart en tijdlijn"
-      title="Sleep om de kaart breder of smaller te maken · dubbelklik voor standaard"
+      aria-label={t('trip.resizer.label')}
+      title={t('trip.resizer.hint')}
       tabIndex={0}
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}

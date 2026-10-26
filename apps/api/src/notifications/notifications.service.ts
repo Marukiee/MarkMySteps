@@ -11,6 +11,7 @@ import {
   TripRole,
 } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
+import { coded, Lang, NOTIFY } from '../common/i18n';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** One line under the bell, with everything the app needs to draw it. */
@@ -181,7 +182,7 @@ export class NotificationsService {
    * so the phone is never told the same thing twice. An unknown token is a
    * plain 404 — it says nothing about whether it was ever valid.
    */
-  async pollDevice(token: string): Promise<DevicePoll> {
+  async pollDevice(token: string, lang: Lang = 'nl'): Promise<DevicePoll> {
     const device = await this.prisma.notificationDevice.findUnique({
       where: { tokenHash: hashToken(token) },
       select: { id: true, userId: true, lastSeenId: true },
@@ -210,8 +211,8 @@ export class NotificationsService {
       latest: fresh
         ? {
             id: newest.id,
-            title: titleFor(newest),
-            body: bodyFor(newest),
+            title: titleFor(newest, lang),
+            body: bodyFor(newest, lang),
             tripId: newest.tripId,
             path: newest.kind === NotificationKind.ACCOUNT_REQUESTED ? ACCOUNTS_PATH : null,
           }
@@ -292,7 +293,7 @@ export class NotificationsService {
     });
     if (!trip) throw new NotFoundException('Trip not found');
     if (trip.members.some((m) => m.userId === userId)) {
-      throw new BadRequestException('Je zit al op deze reis');
+      throw new BadRequestException(coded('Je zit al op deze reis', 'trip.alreadyMember'));
     }
     await this.assertMaySee(trip.members, userId);
 
@@ -351,7 +352,7 @@ export class NotificationsService {
       throw new ForbiddenException('Only the trip owner can answer this');
     }
     if (request.status !== AccessRequestStatus.PENDING) {
-      throw new BadRequestException('Dit verzoek is al beantwoord');
+      throw new BadRequestException(coded('Dit verzoek is al beantwoord', 'access.alreadyAnswered'));
     }
     if (role === TripRole.OWNER) {
       throw new BadRequestException('A trip has one owner');
@@ -423,40 +424,43 @@ function hashToken(token: string): string {
 const ACCOUNTS_PATH = '/settings?section=accounts';
 
 /** The heading on the phone's own notification. */
-function titleFor(row: NotificationRow): string {
+function titleFor(row: NotificationRow, lang: Lang): string {
+  const words = NOTIFY[lang].title;
   switch (row.kind) {
     case NotificationKind.ACCESS_REQUESTED:
-      return 'Verzoek om toegang';
+      return words.accessRequested;
     case NotificationKind.ACCESS_APPROVED:
-      return 'Je mag meekijken';
+      return words.accessApproved;
     case NotificationKind.ACCESS_DENIED:
-      return 'Verzoek afgewezen';
+      return words.accessDenied;
     case NotificationKind.SECURITY_LOGIN_ATTEMPTS:
-      return 'Verdachte inlogpogingen';
+      return words.loginAttempts;
     case NotificationKind.ACCOUNT_REQUESTED:
-      return 'Nieuwe aanmelding';
+      return words.accountRequested;
     default:
-      return 'Toegevoegd aan een reis';
+      return words.added;
   }
 }
 
 /** The same sentence the bell shows, composed here so the phone needs no logic. */
-function bodyFor(row: NotificationRow): string {
-  const who = row.actor?.displayName ?? 'Iemand';
-  const trip = row.trip?.title ?? 'een reis';
+function bodyFor(row: NotificationRow, lang: Lang): string {
+  const words = NOTIFY[lang];
+  const who = row.actor?.displayName ?? words.someone;
+  const trip = row.trip?.title ?? words.aTrip;
   switch (row.kind) {
     case NotificationKind.ACCESS_REQUESTED:
-      return `${who} vraagt toegang tot ${trip}.`;
+      return words.accessRequested(who, trip);
     case NotificationKind.ACCESS_APPROVED:
-      return `${who} heeft je toegelaten tot ${trip}.`;
+      return words.accessApproved(who, trip);
     case NotificationKind.ACCESS_DENIED:
-      return `${who} heeft je verzoek voor ${trip} afgewezen.`;
+      return words.accessDenied(who, trip);
     case NotificationKind.SECURITY_LOGIN_ATTEMPTS:
-      return row.detail ?? 'Er zijn veel mislukte inlogpogingen geweest.';
+      // Written once for every admin when it happened, in Dutch.
+      return row.detail ?? words.loginAttempts;
     case NotificationKind.ACCOUNT_REQUESTED:
-      return `${who} wil een account op je server.`;
+      return words.accountRequested(who);
     default:
-      return `${who} heeft je toegevoegd aan ${trip}.`;
+      return words.added(who, trip);
   }
 }
 

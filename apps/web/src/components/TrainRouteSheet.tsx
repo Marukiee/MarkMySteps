@@ -3,6 +3,7 @@ import { Icon } from './Icon';
 import { searchStations } from '../lib/geocode';
 import type { StationSuggestion } from '../lib/geocode';
 import { useSheetDismiss } from '../lib/useSheetDismiss';
+import { t } from '../i18n';
 import './trainroute.css';
 
 export interface Station {
@@ -66,8 +67,10 @@ export function TrainRouteSheet({
       if (!dep || !arr) {
         setError(
           !dep && !arr
-            ? 'Vul allebei de stations in.'
-            : `Vul nog een ${!dep ? 'vertrekstation' : 'aankomststation'} in.`,
+            ? t('trip.train.error.both')
+            : !dep
+              ? t('trip.train.error.from')
+              : t('trip.train.error.to'),
         );
         setBusy(false);
         return;
@@ -76,7 +79,7 @@ export function TrainRouteSheet({
       if (!to) setTo(arr);
       await onDraw(dep, arr);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dat lukte niet');
+      setError(err instanceof Error ? err.message : t('trip.train.error.generic'));
       setBusy(false);
     }
   };
@@ -90,22 +93,19 @@ export function TrainRouteSheet({
         {...sheet.handlers}
       >
         <div className="people-sheet-head">
-          <h2>Treinroute tekenen</h2>
-          <button className="icon-btn" aria-label="Sluiten" onClick={onClose}>
+          <h2>{t('trip.train.title')}</h2>
+          <button className="icon-btn" aria-label={t('common.close')} onClick={onClose}>
             <Icon name="close" size={20} />
           </button>
         </div>
 
         <p className="muted layer-hint">
-          In de trein heeft je telefoon vaak geen signaal. Zeg van welk station naar welk station je
-          ging, dan tekent hij het spoor ertussen en sluit hij het aan op je route ervoor en erna.
-          Losse fixes die je onderweg toch opving, maken plaats voor het spoor. Je foto&apos;s
-          blijven staan.
+          {t('trip.train.hint')}
         </p>
 
         <StationField
           id="train-from"
-          label="Vertrekstation"
+          label={t('trip.train.from')}
           city={prefill?.from}
           value={from}
           onPick={setFrom}
@@ -113,7 +113,7 @@ export function TrainRouteSheet({
         />
         <StationField
           id="train-to"
-          label="Aankomststation"
+          label={t('trip.train.to')}
           city={prefill?.to}
           value={to}
           onPick={setTo}
@@ -124,10 +124,10 @@ export function TrainRouteSheet({
 
         <div className="layer-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>
-            Annuleren
+            {t('common.cancel')}
           </button>
           <button type="button" className="btn btn-primary" disabled={busy} onClick={draw}>
-            {busy ? 'Tekenen…' : 'Route tekenen'}
+            {busy ? t('trip.train.drawing') : t('trip.train.draw')}
           </button>
         </div>
       </div>
@@ -284,11 +284,11 @@ function StationField({
           <span className="train-picked-name">
             <strong>
               {value.name}
-              {isMainStation(value.name) && <em className="train-main">hoofdstation</em>}
+              {isMainStation(value.name) && <em className="train-main">{t('trip.train.mainStation')}</em>}
             </strong>
             {value.region && <small>{value.region}</small>}
           </span>
-          <span className="train-change">Wijzig</span>
+          <span className="train-change">{t('trip.train.change')}</span>
         </button>
       ) : (
         <div className="train-input">
@@ -332,7 +332,7 @@ function StationField({
                 <span>
                   <strong>
                     {r.name}
-                    {r.main && <em className="train-main">hoofdstation</em>}
+                    {r.main && <em className="train-main">{t('trip.train.mainStation')}</em>}
                   </strong>
                   {r.region && <small>{r.region}</small>}
                 </span>

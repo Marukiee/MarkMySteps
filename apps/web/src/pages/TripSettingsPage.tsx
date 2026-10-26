@@ -32,6 +32,8 @@ import {
 import { MembersPanel } from '../components/MembersPanel';
 import { TripMarkerPicker } from '../components/TripMarkerPicker';
 import { TrackButton } from '../components/TrackButton';
+import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 import { isNative, onTrackerChange, startTracking } from '../tracking/tracker';
 import './tripsettings.css';
 
@@ -79,13 +81,13 @@ export function TripSettingsPage() {
   function load() {
     if (!tripId) return;
     api<Trip>(`/trips/${tripId}`)
-      .then((t) => {
-        setTrip(t);
-        setTitle(t.title);
-        setStartDate(t.startDate.slice(0, 10));
-        setEndDate(t.endDate.slice(0, 10));
-        setAutoTrack(t.autoTrack);
-        setColor(t.color ?? '');
+      .then((loaded) => {
+        setTrip(loaded);
+        setTitle(loaded.title);
+        setStartDate(loaded.startDate.slice(0, 10));
+        setEndDate(loaded.endDate.slice(0, 10));
+        setAutoTrack(loaded.autoTrack);
+        setColor(loaded.color ?? '');
       })
       .catch((e: Error) => setError(e.message));
   }
@@ -148,7 +150,7 @@ export function TripSettingsPage() {
         body: { title, startDate, endDate, autoTrack },
       });
       // Keep the local copy in step, or the effect above sees an edit again.
-      setTrip((t) => (t ? { ...t, title, startDate, endDate, autoTrack } : t));
+      setTrip((prev) => (prev ? { ...prev, title, startDate, endDate, autoTrack } : prev));
       setSaved(true);
       window.setTimeout(() => setSaved(false), 1600);
       // If you switch auto-track on while the trip is already running, start
@@ -161,7 +163,7 @@ export function TripSettingsPage() {
         now <= new Date(endDate).getTime() + 86_400_000;
       if (started && tripId) void startTracking(tripId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Opslaan mislukt');
+      setError(err instanceof Error ? err.message : t('tripSettings.error.save'));
     } finally {
       setSaving(false);
     }
@@ -173,7 +175,7 @@ export function TripSettingsPage() {
     try {
       await api(`/trips/${tripId}`, { method: 'PATCH', body: { color: hex } });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kleur opslaan mislukt');
+      setError(err instanceof Error ? err.message : t('tripSettings.error.color'));
     }
   }
 
@@ -184,18 +186,18 @@ export function TripSettingsPage() {
         method: 'PATCH',
         body: { markerLng: pos?.[0] ?? null, markerLat: pos?.[1] ?? null },
       });
-      setTrip((t) => (t ? { ...t, markerLng: pos?.[0] ?? null, markerLat: pos?.[1] ?? null } : t));
+      setTrip((prev) => (prev ? { ...prev, markerLng: pos?.[0] ?? null, markerLat: pos?.[1] ?? null } : prev));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Markering opslaan mislukt');
+      setError(err instanceof Error ? err.message : t('tripSettings.error.marker'));
     }
   }
 
   async function wipeRouteFills() {
     if (!tripId) return;
     const ok = await confirmModal({
-      title: 'Automatische routes wissen?',
-      body: 'Alleen de automatisch getekende routes (via wegen) worden verwijderd. Je eigen getrackte GPS blijft staan.',
-      confirmLabel: 'Wissen',
+      title: t('tripSettings.danger.routes.confirmTitle'),
+      body: t('tripSettings.danger.routes.confirmBody'),
+      confirmLabel: t('tripSettings.danger.wipe'),
       danger: true,
     });
     if (!ok) return;
@@ -203,9 +205,9 @@ export function TripSettingsPage() {
     setClearMsg(null);
     try {
       const res = await api<{ deleted: number }>(`/trips/${tripId}/route-fill`, { method: 'DELETE' });
-      setClearMsg(`${res.deleted} automatische routepunten verwijderd.`);
+      setClearMsg(t('tripSettings.danger.routes.done', { count: res.deleted }));
     } catch (err) {
-      setClearMsg(err instanceof Error ? err.message : 'Wissen mislukt');
+      setClearMsg(err instanceof Error ? err.message : t('tripSettings.error.wipe'));
     } finally {
       setWiping(false);
     }
@@ -214,9 +216,9 @@ export function TripSettingsPage() {
   async function remove() {
     if (!tripId) return;
     const ok = await confirmModal({
-      title: 'Reis verwijderen?',
-      body: `"${trip?.title}" wordt definitief verwijderd, samen met de route, de notities en de foto-koppelingen. Dit kan niet ongedaan gemaakt worden.`,
-      confirmLabel: 'Verwijderen',
+      title: t('trips.delete.title'),
+      body: t('trips.delete.body', { title: trip?.title ?? '' }),
+      confirmLabel: t('common.delete'),
       danger: true,
       typeToConfirm: trip?.title,
     });
@@ -227,11 +229,12 @@ export function TripSettingsPage() {
 
   async function wipeTracked(day?: string) {
     if (!tripId) return;
-    const scope = day ? `de tracking van ${day}` : 'ALLE getrackte data van deze reis';
     const ok = await confirmModal({
-      title: 'Tracking wissen?',
-      body: `Weet je zeker dat je ${scope} wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`,
-      confirmLabel: 'Wissen',
+      title: t('tripSettings.danger.tracked.confirmTitle'),
+      body: day
+        ? t('tripSettings.danger.tracked.confirmDay', { day })
+        : t('tripSettings.danger.tracked.confirmAll'),
+      confirmLabel: t('tripSettings.danger.wipe'),
       danger: true,
     });
     if (!ok) return;
@@ -242,10 +245,10 @@ export function TripSettingsPage() {
         `/trips/${tripId}/tracked${day ? `?day=${day}` : ''}`,
         { method: 'DELETE' },
       );
-      setClearMsg(`${res.deleted} trackpunten verwijderd.`);
+      setClearMsg(t('tripSettings.danger.tracked.done', { count: res.deleted }));
       if (day) setClearDay('');
     } catch (err) {
-      setClearMsg(err instanceof Error ? err.message : 'Wissen mislukt');
+      setClearMsg(err instanceof Error ? err.message : t('tripSettings.error.wipe'));
     } finally {
       setWiping(false);
     }
@@ -283,14 +286,14 @@ export function TripSettingsPage() {
     try {
       const result = await importDeviceMedia(tripId, trip.startDate, trip.endDate, user.id);
       setDeviceCount((c) => (c ?? 0) + result.added);
-      const found = `${result.added} nieuwe foto's (${result.found} gevonden)`;
+      const found = t('tripSettings.photos.found', { count: result.added, found: result.found });
       setDeviceMsg(
         result.hasLocation
           ? found
-          : `${found}. Let op: zonder toegang tot de locatie in foto's komen ze niet op de kaart.`,
+          : t('tripSettings.photos.noLocation', { summary: found }),
       );
     } catch (err) {
-      setDeviceMsg(err instanceof Error ? err.message : 'Zoeken mislukt');
+      setDeviceMsg(err instanceof Error ? err.message : t('tripSettings.error.search'));
     } finally {
       setDeviceBusy(false);
     }
@@ -299,15 +302,15 @@ export function TripSettingsPage() {
   async function forgetDevicePhotos() {
     if (!tripId) return;
     const ok = await confirmModal({
-      title: "Foto's van dit toestel loskoppelen?",
-      body: 'De foto\'s zelf blijven gewoon in je galerij staan. Ze verdwijnen alleen uit deze reis.',
-      confirmLabel: 'Loskoppelen',
+      title: t('tripSettings.device.unlinkTitle'),
+      body: t('tripSettings.device.unlinkBody'),
+      confirmLabel: t('tripSettings.device.unlink'),
       danger: true,
     });
     if (!ok) return;
     const removed = await clearDeviceMedia(tripId);
     setDeviceCount(0);
-    setDeviceMsg(`${removed} foto's losgekoppeld.`);
+    setDeviceMsg(t('tripSettings.device.unlinked', { count: removed }));
   }
 
   async function runSync() {
@@ -317,17 +320,21 @@ export function TripSettingsPage() {
     try {
       const result = await api<SyncResult>(`/trips/${tripId}/sync`, { method: 'POST' });
       const found = isLocalMode()
-        ? `${result.assetsAdded} nieuwe foto's (${result.assetsFound} gevonden)`
-        : `${result.assetsAdded} nieuwe foto's (${result.assetsFound} gevonden, ${result.usersSynced} reiziger${result.usersSynced === 1 ? '' : 's'})`;
+        ? t('tripSettings.photos.found', { count: result.assetsAdded, found: result.assetsFound })
+        : t('tripSettings.photos.foundWithTravellers', {
+            count: result.assetsAdded,
+            found: result.assetsFound,
+            travellers: t('tripSettings.photos.travellers', { count: result.usersSynced }),
+          });
       // Without ACCESS_MEDIA_LOCATION every photo arrives without coordinates,
       // which is worth saying rather than leaving an empty map.
       setSyncMessage(
         result.hasLocation === false
-          ? `${found}. Let op: zonder toegang tot de locatie in foto's komen ze niet op de kaart.`
+          ? t('tripSettings.photos.noLocation', { summary: found })
           : found,
       );
     } catch (err) {
-      setSyncMessage(err instanceof Error ? err.message : 'Sync mislukt');
+      setSyncMessage(err instanceof Error ? err.message : t('tripSettings.error.sync'));
     } finally {
       setSyncing(false);
     }
@@ -341,11 +348,11 @@ export function TripSettingsPage() {
         <Link
           to={`/trips/${tripId}`}
           className="ts-back"
-          aria-label="Terug naar de reis"
+          aria-label={t('tripSettings.backToTrip')}
         >
           <Icon name="arrow-left" size={20} />
         </Link>
-        <h1>Reisinstellingen</h1>
+        <h1>{t('tripSettings.title')}</h1>
         <span className="ts-autosave" data-state={saving ? 'saving' : saved ? 'saved' : 'idle'}>
           <span className="ts-autosave-face" key={saving ? 'saving' : saved ? 'saved' : 'idle'}>
             {saving ? <Icon name="hourglass" size={16} /> : saved ? <Icon name="check" size={16} /> : null}
@@ -393,10 +400,9 @@ export function TripSettingsPage() {
             </span>
           )}
           <span className="ts-cover-hint">
-            {trip.resolvedCoverId
-              ? 'Kies een coverfoto: tik een foto '
-              : "Nog geen foto's. Tik er straks één aan "}
-            <Icon name="chevron-right" size={12} /> “Als cover”
+            {tr(trip.resolvedCoverId ? 'tripSettings.cover.pick' : 'tripSettings.cover.none', {
+              arrow: () => <Icon name="chevron-right" size={12} />,
+            })}
           </span>
         </div>
       )}
@@ -404,14 +410,14 @@ export function TripSettingsPage() {
       {isOwner ? (
         <form onSubmit={save} className="ts-form">
           <div className="field">
-            <label htmlFor="ts-title">Naam</label>
+            <label htmlFor="ts-title">{t('tripSettings.name')}</label>
             <input id="ts-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="ts-dates">
-            <DateField id="ts-start" label="Startdatum" value={startDate} onChange={setStartDate} />
+            <DateField id="ts-start" label={t('tripSettings.startDate')} value={startDate} onChange={setStartDate} />
             <DateField
               id="ts-end"
-              label="Einddatum"
+              label={t('tripSettings.endDate')}
               value={endDate}
               nearDate={startDate}
               onChange={setEndDate}
@@ -419,15 +425,15 @@ export function TripSettingsPage() {
           </div>
 
           <div className="field">
-            <label>Kleur op de globe &amp; kaart</label>
+            <label>{t('tripSettings.color.label')}</label>
             <div className="ts-colors">
               <button
                 type="button"
                 className={`ts-color ts-color-auto ${color === '' ? 'active' : ''}`}
                 onClick={() => void saveColor(null)}
-                title="Automatisch"
+                title={t('common.automatic')}
               >
-                Auto
+                {t('common.auto')}
               </button>
               {TRIP_COLORS.map((hex) => (
                 <button
@@ -436,7 +442,7 @@ export function TripSettingsPage() {
                   className={`ts-color ${color.toLowerCase() === hex ? 'active' : ''}`}
                   style={{ background: hex }}
                   onClick={() => void saveColor(hex)}
-                  aria-label={`Kleur ${hex}`}
+                  aria-label={t('tripSettings.color.swatch', { hex })}
                 />
               ))}
             </div>
@@ -447,8 +453,8 @@ export function TripSettingsPage() {
       ) : (
         <p className="muted">
           {canEdit
-            ? 'Alleen de organisator kan de reisinstellingen wijzigen.'
-            : 'Je bent gast op deze reis: je kunt hem bekijken, niet aanpassen.'}
+            ? t('tripSettings.notOwner')
+            : t('tripSettings.guest')}
         </p>
       )}
 
@@ -459,21 +465,23 @@ export function TripSettingsPage() {
       <section className="ts-sync">
         <div>
           <strong>
-            {isLocalMode() ? "Foto's koppelen" : "Foto's syncen"}
+            {isLocalMode() ? t('tripSettings.sync.titleLocal') : t('tripSettings.sync.titleImmich')}
             <HelpTip>
-              Kijkt {isLocalMode() ? 'in je fotobibliotheek' : 'in Immich'} welke foto&apos;s op de
-              dagen van deze reis genomen zijn en zet die in de tijdlijn. Heeft een foto een
-              locatie, dan komt hij ook op de kaart te staan.
+              {isLocalMode() ? t('tripSettings.sync.helpLocal') : t('tripSettings.sync.helpImmich')}
             </HelpTip>
           </strong>
           <span className="muted">
             {isLocalMode()
-              ? "Zoekt in je fotobibliotheek naar foto's van deze reisdagen."
-              : "Haal nieuwe foto's uit Immich op voor deze reis."}
+              ? t('tripSettings.sync.bodyLocal')
+              : t('tripSettings.sync.bodyImmich')}
           </span>
         </div>
         <button className="btn btn-ghost" onClick={runSync} disabled={syncing}>
-          {syncing ? 'Bezig…' : isLocalMode() ? 'Zoeken' : "Foto's syncen"}
+          {syncing
+            ? t('tripSettings.busy')
+            : isLocalMode()
+              ? t('common.search')
+              : t('tripSettings.sync.titleImmich')}
         </button>
       </section>
       )}
@@ -488,28 +496,23 @@ export function TripSettingsPage() {
           <section className="ts-sync ts-sync-stacked">
             <div>
               <strong>
-                Foto&apos;s van dit toestel
-                <HelpTip>
-                  Zoekt in je galerij naar foto&apos;s van deze reisdagen en zet ze in je tijdlijn
-                  en op de kaart, zonder ze te uploaden. Ze staan dan alleen op dit toestel: je
-                  reisgenoten zien ze niet, ze gaan niet mee in een deel-link, en op een nieuwe
-                  telefoon zijn ze er niet. De foto&apos;s zelf blijven gewoon in je galerij.
-                </HelpTip>
+                {t('tripSettings.device.title')}
+                <HelpTip>{t('tripSettings.device.help')}</HelpTip>
               </strong>
               <span className="muted">
                 {deviceCount
-                  ? `${deviceCount} foto${deviceCount === 1 ? '' : "'s"} van dit toestel in deze reis.`
-                  : 'Uit je galerij, zonder ze naar de server te sturen.'}
+                  ? t('tripSettings.device.count', { count: deviceCount })
+                  : t('tripSettings.device.empty')}
               </span>
             </div>
             <div className="ts-device-actions">
               {deviceCount ? (
                 <button className="btn btn-ghost ts-device-clear" onClick={forgetDevicePhotos}>
-                  Loskoppelen
+                  {t('tripSettings.device.unlink')}
                 </button>
               ) : null}
               <button className="btn btn-ghost" onClick={importFromDevice} disabled={deviceBusy}>
-                {deviceBusy ? 'Bezig…' : 'Zoeken'}
+                {deviceBusy ? t('tripSettings.busy') : t('common.search')}
               </button>
             </div>
           </section>
@@ -519,29 +522,24 @@ export function TripSettingsPage() {
       {isOwner && (
         <section className="ts-marker">
           <h2 className="ts-section-title">
-            Bolletje op de globe
-            <HelpTip>
-              Op de globe staat deze reis met een bolletje op het begin en het eind. Hier zet je in
-              plaats daarvan één bolletje op een plek die je zelf kiest, met het naamkaartje
-              eraan. Handig bij een rondreis, waar begin en eind zo dicht bij elkaar liggen dat ze
-              niets zeggen.
-            </HelpTip>
+            {t('tripSettings.marker.title')}
+            <HelpTip>{t('tripSettings.marker.help')}</HelpTip>
           </h2>
           {trip?.markerLng != null && trip.markerLat != null ? (
             <div className="ts-track-box">
               <div>
-                <strong>Eigen positie ingesteld</strong>
-                <span className="muted">Sleep de pin of tik op de kaart om te verplaatsen.</span>
+                <strong>{t('tripSettings.marker.set')}</strong>
+                <span className="muted">{t('tripSettings.marker.move')}</span>
               </div>
               <button className="btn btn-ghost" onClick={() => void saveMarker(null)}>
-                Terug naar automatisch
+                {t('tripSettings.marker.reset')}
               </button>
             </div>
           ) : markerOn ? (
-            <p className="muted">Sleep de pin of tik op de kaart om de plek te kiezen.</p>
+            <p className="muted">{t('tripSettings.marker.choose')}</p>
           ) : (
             <button className="btn btn-ghost" onClick={() => setMarkerOn(true)}>
-              Bolletje handmatig plaatsen
+              {t('tripSettings.marker.place')}
             </button>
           )}
           {(markerOn || (trip?.markerLng != null && trip.markerLat != null)) && trip && tripId && (
@@ -559,7 +557,7 @@ export function TripSettingsPage() {
       )}
 
       <section className="ts-tracking">
-        <h2 className="ts-section-title">Tracking</h2>
+        <h2 className="ts-section-title">{t('tripSettings.tracking.title')}</h2>
 
         {/* Still running counts as reason enough to show the button: a trip that
             has ended cannot be started, but it can certainly still be stopped,
@@ -567,11 +565,11 @@ export function TripSettingsPage() {
         {isNative() && tripId && (canTrack || trackingHere) && (
           <div className="ts-track-box">
             <div>
-              <strong>Route nu bijhouden</strong>
+              <strong>{t('tripSettings.tracking.now')}</strong>
               <span className="muted">
                 {canTrack
-                  ? 'Start of stop het volgen van je route voor deze reis.'
-                  : 'Deze reis is afgelopen. Tracking loopt nog en stopt vanzelf, of nu.'}
+                  ? t('tripSettings.tracking.nowBody')
+                  : t('tripSettings.tracking.nowEnded')}
               </span>
             </div>
             <TrackButton tripId={tripId} />
@@ -580,10 +578,10 @@ export function TripSettingsPage() {
         {isNative() && tripId && !canTrack && !trackingHere && (
           <p className="muted">
             {ended
-              ? 'Deze reis is afgelopen, tracken kan niet meer.'
+              ? t('tripSettings.tracking.ended')
               : me?.role === 'GUEST'
-                ? 'Je bent gast op deze reis en kunt alleen meekijken.'
-                : 'De organisator heeft tracken voor jou uitgezet.'}
+                ? t('tripSettings.tracking.guest')
+                : t('tripSettings.tracking.notAllowed')}
           </p>
         )}
 
@@ -593,10 +591,8 @@ export function TripSettingsPage() {
         <div className={`ts-auto-box ${ended ? 'ts-disabled' : ''}`}>
           <label className="ts-toggle">
             <div>
-              <strong>Automatisch tracken</strong>
-              <span className="muted">
-                Start route-tracking automatisch zodra de reis begint (app, op de achtergrond).
-              </span>
+              <strong>{t('tripSettings.tracking.auto')}</strong>
+              <span className="muted">{t('tripSettings.tracking.autoBody')}</span>
             </div>
             <input
               type="checkbox"
@@ -609,11 +605,13 @@ export function TripSettingsPage() {
             />
           </label>
           <p className="muted ts-track-hint">
-            Meer opties staan bij{' '}
-            <Link to="/settings" className="ts-track-link">
-              de tracking-instellingen
-            </Link>
-            .
+            {tr('tripSettings.tracking.more', {
+              link: (s) => (
+                <Link to="/settings" className="ts-track-link">
+                  {s}
+                </Link>
+              ),
+            })}
           </p>
         </div>
 
@@ -628,29 +626,26 @@ export function TripSettingsPage() {
           tracking belongs. */}
       {(canEdit || isOwner) && (
         <section className="ts-danger">
-          <h2 className="ts-section-title">Verwijderen</h2>
+          <h2 className="ts-section-title">{t('common.delete')}</h2>
 
           {canEdit && (
             <div className="ts-track-box ts-track-danger">
               <div>
-                <strong>Getrackte data wissen</strong>
-                <span className="muted">
-                  Verwijdert jouw GPS-route (de reis en foto's blijven). Kies een dag, of wis
-                  alles.
-                </span>
+                <strong>{t('tripSettings.danger.tracked.title')}</strong>
+                <span className="muted">{t('tripSettings.danger.tracked.body')}</span>
                 <div className="ts-wipe-day">
                   <DateField
                     value={clearDay}
                     onChange={setClearDay}
                     allowClear
-                    placeholder="Kies een dag"
+                    placeholder={t('tripSettings.danger.tracked.pickDay')}
                   />
                   <button
                     className="btn btn-ghost"
                     disabled={!clearDay || wiping}
                     onClick={() => void wipeTracked(clearDay)}
                   >
-                    Wis dag
+                    {t('tripSettings.danger.tracked.wipeDay')}
                   </button>
                 </div>
               </div>
@@ -659,7 +654,7 @@ export function TripSettingsPage() {
                 disabled={wiping}
                 onClick={() => void wipeTracked()}
               >
-                Alles wissen
+                {t('tripSettings.danger.tracked.wipeAll')}
               </button>
             </div>
           )}
@@ -667,13 +662,16 @@ export function TripSettingsPage() {
           {canEdit && (
             <div className="ts-track-box ts-track-danger">
               <div>
-                <strong>Automatisch getekende routes wissen</strong>
+                <strong>{t('tripSettings.danger.routes.title')}</strong>
                 <span className="muted">
-                  Verwijdert alleen de routes die je hebt getekend via{' '}
-                  <span className="inline-path">
-                    Ingedrukt houden <Icon name="chevron-right" size={12} /> Route via wegen
-                  </span>
-                  . Je eigen getrackte GPS blijft staan.
+                  {tr('tripSettings.danger.routes.body', {
+                    path: () => (
+                      <span className="inline-path">
+                        {t('tripSettings.danger.routes.hold')} <Icon name="chevron-right" size={12} />{' '}
+                        {t('tripSettings.danger.routes.viaRoads')}
+                      </span>
+                    ),
+                  })}
                 </span>
               </div>
               <button
@@ -681,7 +679,7 @@ export function TripSettingsPage() {
                 disabled={wiping}
                 onClick={() => void wipeRouteFills()}
               >
-                Wissen
+                {t('tripSettings.danger.wipe')}
               </button>
             </div>
           )}
@@ -692,7 +690,7 @@ export function TripSettingsPage() {
               {/* Full width now that there is no save button beside it — the page
                   saves itself, and the header says so. */}
               <button className="btn btn-danger ts-delete" onClick={remove}>
-                <Icon name="trash" size={17} /> Reis verwijderen
+                <Icon name="trash" size={17} /> {t('tripSettings.danger.deleteTrip')}
               </button>
             </div>
           )}
@@ -753,11 +751,8 @@ function FactPicker({ tripId, trip }: { tripId: string; trip: Trip | null }) {
   return (
     <section className="ts-facts">
       <h2 className="ts-section-title">
-        Feitjes op de cover
-        <HelpTip>
-          Er is plek voor vier. Kies je zelf niets, dan neemt de app de eerste vier die deze reis
-          heeft, in deze volgorde: afstand, dagen, stops, foto's, reisgenoten.
-        </HelpTip>
+        {t('tripSettings.facts.title')}
+        <HelpTip>{t('tripSettings.facts.help')}</HelpTip>
       </h2>
 
       {/* No photo yet (an upcoming trip) → the trip's own colour and the
@@ -794,7 +789,7 @@ function FactPicker({ tripId, trip }: { tripId: string; trip: Trip | null }) {
           }}
         >
           <span className="ts-fact-check">{auto && <Icon name="check" size={14} />}</span>
-          Automatisch
+          {t('common.automatic')}
         </button>
         {FACT_ORDER.map((id) => {
           const on = chosen?.includes(id) ?? false;

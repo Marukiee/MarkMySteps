@@ -40,6 +40,9 @@ import {
 } from '../lib/plannerLocal';
 import '../pages/plan.css';
 import { Flag } from './Flag';
+import { t, intlLocale } from '../i18n';
+import { tr } from '../i18n/rich';
+import { legTitle } from '../lib/legs';
 
 // Names used for the standalone outbound/return legs (any travel mode).
 const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
@@ -213,7 +216,7 @@ export function TripPlanner({
       pickedForNext.current = null;
       onPickConsumed();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Stop toevoegen mislukt');
+      setError(err instanceof Error ? err.message : t('planner.error.addStop'));
     }
   }
 
@@ -305,7 +308,7 @@ export function TripPlanner({
       onFlyTo(place.longitude, place.latitude);
       setDayTripFor(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dagtrip toevoegen mislukt');
+      setError(err instanceof Error ? err.message : t('planner.error.addDayTrip'));
     }
   }
 
@@ -427,7 +430,7 @@ export function TripPlanner({
       }
       refresh(list);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Terugzetten mislukt');
+      setError(err instanceof Error ? err.message : t('planner.error.restore'));
     }
   }
 
@@ -584,14 +587,13 @@ export function TripPlanner({
           <span className="nights-ring" data-full={plannedNights >= tripNights}>
             ●
           </span>
-          {plannedNights}/{tripNights} nachten gepland
+          {t('planner.nightsPlanned', { planned: plannedNights, total: tripNights })}
         </div>
       )}
       {pendingShown && (
         <div className={`plan-pending ${pendingClosing ? 'leaving' : ''}`}>
           <Icon name="cloud-off" size={14} />
-          {lastPending} {lastPending === 1 ? 'wijziging wacht' : 'wijzigingen wachten'} op
-          verbinding
+          {t('planner.pending', { count: lastPending })}
         </div>
       )}
       {error && <p className="error-text">{error}</p>}
@@ -603,16 +605,14 @@ export function TripPlanner({
           </span>
           <p className="muted">
             {readOnly
-              ? 'Er is nog geen route gepland voor deze reis.'
-              : `Nog geen stops. Zoek hieronder een stad en bouw je route op. Versleep om te
-                 herordenen. Tik het vervoer-pilletje bij een stop om te wisselen tussen auto,
-                 trein, bus, boot of vlucht.`}
+              ? t('planner.emptyReadOnly')
+              : t('planner.empty')}
           </p>
         </div>
       )}
 
       {!hasOutbound && !readOnly && (
-        <ModeMenu label="Heenreis" onPick={(m) => void addOutboundLeg(m)} />
+        <ModeMenu label={t('planner.outboundTrip')} onPick={(m) => void addOutboundLeg(m)} />
       )}
 
       <ol className="stop-list">
@@ -654,7 +654,7 @@ export function TripPlanner({
                 <SwipeToDelete
                   disabled={readOnly}
                   onDelete={() => removeStop(stop)}
-                  label="Reis verwijderen"
+                  label={t('planner.deleteLeg')}
                   dragging={touchDrag?.id === stop.id}
                   onDragStart={() => beginTouchDrag(stop, index)}
                   onDragMove={moveTouchDrag}
@@ -668,7 +668,7 @@ export function TripPlanner({
                         Heenvlucht) is too long to keep the pills, the distance
                         and the mode menu on one row. */}
                     <strong className="flight-leg-name">
-                      {stop.name.startsWith('Heen') ? 'Heen' : 'Terug'}
+                      {stop.name.startsWith('Heen') ? t('planner.leg.out') : t('planner.leg.back')}
                     </strong>
                     {stop.travelMode === 'FLIGHT' ? (
                       <FlightEditor
@@ -788,7 +788,7 @@ export function TripPlanner({
                           }
                         >
                           <Icon name="route" size={13} />
-                          Spoor tekenen
+                          {t('planner.drawRails')}
                         </button>
                       )}
                   </div>
@@ -797,7 +797,7 @@ export function TripPlanner({
               <SwipeToDelete
                 disabled={readOnly}
                 onDelete={() => removeStop(stop)}
-                label="Stop verwijderen"
+                label={t('planner.deleteStop')}
                 dragging={touchDrag?.id === stop.id}
                 onDragStart={() => beginTouchDrag(stop, index)}
                 onDragMove={moveTouchDrag}
@@ -829,7 +829,7 @@ export function TripPlanner({
                 <div className="stop-main">
                   <CityThumb name={stop.name} index={index} countryCode={stop.countryCode} />
                   <div className="stop-info">
-                    <strong>{stop.name}</strong>
+                    <strong>{legTitle(stop.name)}</strong>
                     {/* One line: shortening the range is what keeps the weather
                         beside the dates, so the separator dot is never left
                         dangling at the start of a wrapped line. */}
@@ -854,25 +854,25 @@ export function TripPlanner({
                     {readOnly ? (
                       <span className="nights-static">
                         {stop.nights}
-                        <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
+                        <small>{t('planner.nightsUnit', { count: stop.nights })}</small>
                       </span>
                     ) : (
                       <div className="nights-buttons">
                         <button
                           className="nights-btn"
                           onClick={() => changeNights(stop, -1)}
-                          aria-label="Minder nachten"
+                          aria-label={t('planner.fewerNights')}
                         >
                           <Icon name="minus" size={16} />
                         </button>
                         <span className="nights-count">
                           {stop.nights}
-                          <small>{stop.nights === 1 ? 'nacht' : 'nachten'}</small>
+                          <small>{t('planner.nightsUnit', { count: stop.nights })}</small>
                         </span>
                         <button
                           className="nights-btn"
                           onClick={() => changeNights(stop, 1)}
-                          aria-label="Meer nachten"
+                          aria-label={t('planner.moreNights')}
                         >
                           <Icon name="plus" size={16} />
                         </button>
@@ -885,7 +885,7 @@ export function TripPlanner({
                         onClick={() => setDayTripFor(dayTripFor === stop.id ? null : stop.id)}
                       >
                         <Icon name="plus" size={13} />
-                        Dagtrip
+                        {t('planner.dayTrip')}
                       </button>
                     )}
                   </div>
@@ -911,7 +911,7 @@ export function TripPlanner({
       </ol>
 
       {!hasReturn && !readOnly && (
-        <ModeMenu label="Terugreis" onPick={(m) => void addReturnLeg(m)} />
+        <ModeMenu label={t('planner.returnTrip')} onPick={(m) => void addReturnLeg(m)} />
       )}
 
       {/* What the track already knows, before the form where you would have
@@ -921,12 +921,12 @@ export function TripPlanner({
       {!readOnly && (
       <form className="card stop-add" onSubmit={addStop}>
         <div className="field stop-search">
-          <label htmlFor="st-name">Nieuwe stop</label>
+          <label htmlFor="st-name">{t('planner.add.label')}</label>
           <input
             id="st-name"
             required
             autoComplete="off"
-            placeholder="Zoek een stad, bijv. Hanoi"
+            placeholder={t('planner.add.placeholder')}
             value={newName}
             onChange={(e) => onNameInput(e.target.value)}
           />
@@ -947,7 +947,7 @@ export function TripPlanner({
           )}
         </div>
         <div className="field">
-          <label htmlFor="st-nights">Nachten</label>
+          <label htmlFor="st-nights">{t('planner.add.nights')}</label>
           <input
             id="st-nights"
             type="number"
@@ -959,10 +959,13 @@ export function TripPlanner({
         </div>
         <span className="muted">
           {effectivePick
-            ? `Locatie: ${effectivePick.lat.toFixed(4)}, ${effectivePick.lng.toFixed(4)}`
-            : 'Tik op de kaart voor de locatie (optioneel)'}
+            ? t('planner.add.location', {
+                lat: effectivePick.lat.toFixed(4),
+                lng: effectivePick.lng.toFixed(4),
+              })
+            : t('planner.add.locationHintTap')}
         </span>
-        <button className="btn btn-primary">Stop toevoegen</button>
+        <button className="btn btn-primary">{t('planner.add.submit')}</button>
       </form>
       )}
 
@@ -972,10 +975,14 @@ export function TripPlanner({
         createPortal(
           <div className={`undo-pill ${undoClosing ? 'leaving' : ''}`}>
             <span className="undo-text">
-              <strong>{lastUndoName}</strong> verwijderd
+              {tr(
+                'planner.undo.removed',
+                { b: (s) => <strong>{s}</strong> },
+                { name: legTitle(lastUndoName) },
+              )}
             </span>
             <button type="button" className="undo-btn" onClick={() => void undoDelete()}>
-              Ongedaan maken
+              {t('planner.undo.undo')}
             </button>
           </div>,
           document.body,
@@ -1432,7 +1439,7 @@ function DayTrips({
                       type="button"
                       className="daytrip-delete"
                       onClick={() => onRemove(trip)}
-                      aria-label="Dagtrip verwijderen"
+                      aria-label={t('planner.dayTrip.delete')}
                     >
                       <Icon name="close" size={14} />
                     </button>
@@ -1454,7 +1461,7 @@ function DayTrips({
               <input
                 ref={inputRef}
                 value={query}
-                placeholder={`Waar ging je heen vanuit ${parent.name}?`}
+                placeholder={t('planner.dayTrip.search', { name: parent.name })}
                 onChange={(e) => onInput(e.target.value)}
               />
             </div>
@@ -1475,7 +1482,7 @@ function DayTrips({
             )}
             <div className="daytrip-when">
               <DateField
-                label="Welke dag?"
+                label={t('planner.dayTrip.when')}
                 value={day}
                 nearDate={parent.arrivalDate.slice(0, 10)}
                 onChange={setDay}
@@ -1483,7 +1490,7 @@ function DayTrips({
             </div>
             <div className="daytrip-actions">
               <button type="button" className="btn btn-ghost" onClick={onClose}>
-                Annuleren
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -1491,7 +1498,7 @@ function DayTrips({
                 disabled={!picked || !day}
                 onClick={() => picked && onAdd(picked, day)}
               >
-                Toevoegen
+                {t('common.add')}
               </button>
             </div>
           </div>
@@ -1542,7 +1549,9 @@ function LegLocation({
 
   // The chosen place name (this session), else the persisted one, else a prompt.
   const name = label ?? savedLabel ?? null;
-  const text = name ?? (hasLocation ? 'Ingesteld' : outbound ? 'Beginpunt' : 'Eindpunt');
+  const text =
+    name ??
+    (hasLocation ? t('planner.leg.set') : outbound ? t('planner.leg.start') : t('planner.leg.end'));
   const isSet = hasLocation || !!label;
 
   // Nothing set and nothing to set: an empty "Beginpunt" prompt is an
@@ -1562,8 +1571,8 @@ function LegLocation({
       </button>
       {open && (
         <PlaceSheet
-          title={outbound ? 'Vertrek vanaf' : 'Terug naar'}
-          placeholder={outbound ? 'Vanaf welke plaats?' : 'Naar welke plaats?'}
+          title={outbound ? t('planner.leg.from') : t('planner.leg.backTo')}
+          placeholder={outbound ? t('planner.leg.fromPlaceholder') : t('planner.leg.toPlaceholder')}
           onClose={() => setOpen(false)}
           onPick={pick}
         />
@@ -1623,7 +1632,7 @@ function PlaceSheet({
         <div className="fe-grab" aria-hidden="true" />
         <header className="fe-head">
           <strong>{title}</strong>
-          <button type="button" className="fe-icon-btn" aria-label="Sluiten" onClick={close}>
+          <button type="button" className="fe-icon-btn" aria-label={t('common.close')} onClick={close}>
             <Icon name="close" size={18} />
           </button>
         </header>
@@ -1651,7 +1660,7 @@ function PlaceSheet({
             </li>
           ))}
           {query.trim() && sugg.length === 0 && (
-            <li className="fe-picker-empty">Niets gevonden.</li>
+            <li className="fe-picker-empty">{t('planner.noResults')}</li>
           )}
         </ul>
       </div>
@@ -1672,7 +1681,7 @@ function AltMetric({ km, mode }: { km: number; mode: TravelMode }) {
   const [alternate, setAlternate] = useState(false);
   const [showDur, setShowDur] = useState(false);
 
-  const distance = `${km.toLocaleString('nl-NL')} km`;
+  const distance = `${km.toLocaleString(intlLocale())} km`;
   const duration = estimateDuration(km, mode);
   const full = `${distance} · ${duration}`;
 

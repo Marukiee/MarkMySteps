@@ -1,28 +1,32 @@
 import type { MediaItem, RouteCollection, Trip } from '../../api/types';
 import type { PlannedStop } from '../arc';
 import type { Weather } from '../weather';
+import { t } from '../../i18n';
 
 /** The four layouts. A series is any of them repeated over several pages. */
 export type TemplateId = 'route' | 'photos' | 'ribbon' | 'stats';
 
 export const TEMPLATE_NAMES: Record<TemplateId, string> = {
-  route: 'Routekaart',
-  photos: 'Fotodag',
-  ribbon: 'Stoppenlint',
-  stats: 'Cijferposter',
+  route: t('summary.template.route'),
+  photos: t('summary.template.photos'),
+  ribbon: t('summary.template.ribbon'),
+  stats: t('summary.template.stats'),
 };
 
 export const TEMPLATE_HINTS: Record<TemplateId, string> = {
-  route: 'De kaart is de hoofdpersoon. Voor een hike of een dag onderweg.',
-  photos: 'Alleen foto’s, plaatsnaam, datum en het weer. Voor een dag in de stad.',
-  ribbon: 'De hele route met genummerde stops en een foto per stop.',
-  stats: 'Eén grote foto met de cijfers van de reis eroverheen.',
+  route: t('summary.templateHint.route'),
+  photos: t('summary.templateHint.photos'),
+  ribbon: t('summary.templateHint.ribbon'),
+  stats: t('summary.templateHint.stats'),
 };
 
 /** Two moods. Dark for a feed of photographs, light for the app's own paper. */
 export type ThemeId = 'dark' | 'light';
 
-export const THEME_NAMES: Record<ThemeId, string> = { dark: 'Donker', light: 'Licht' };
+export const THEME_NAMES: Record<ThemeId, string> = {
+  dark: t('summary.theme.dark'),
+  light: t('summary.theme.light'),
+};
 
 /**
  * What the line under the trip's name says.
@@ -35,19 +39,19 @@ export const THEME_NAMES: Record<ThemeId, string> = { dark: 'Donker', light: 'Li
 export type SubtitleMode = 'auto' | 'countries' | 'stops' | 'place' | 'none';
 
 export const SUBTITLE_NAMES: Record<SubtitleMode, string> = {
-  auto: 'Automatisch',
-  countries: 'Landen',
-  stops: 'Stops',
-  place: 'Plaatsnaam',
-  none: 'Geen',
+  auto: t('common.automatic'),
+  countries: t('summary.subtitle.countries'),
+  stops: t('summary.subtitle.stops'),
+  place: t('summary.subtitle.place'),
+  none: t('summary.subtitle.none'),
 };
 
 export type FormatId = 'story' | 'post' | 'square';
 
 export const FORMATS: Record<FormatId, { label: string; width: number; height: number }> = {
-  story: { label: 'Verhaal 9:16', width: 1080, height: 1920 },
-  post: { label: 'Bericht 4:5', width: 1080, height: 1350 },
-  square: { label: 'Vierkant 1:1', width: 1080, height: 1080 },
+  story: { label: t('summary.format.story'), width: 1080, height: 1920 },
+  post: { label: t('summary.format.post'), width: 1080, height: 1350 },
+  square: { label: t('summary.format.square'), width: 1080, height: 1080 },
 };
 
 /** Which slice of the trip a summary is about. Dates are yyyy-mm-dd. */

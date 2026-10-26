@@ -1,6 +1,7 @@
 import type { MediaItem } from '../api/types';
 import { galleryAvailable, queryGallery, requestGalleryPermission } from './gallery';
 import { dbByTrip, dbDeleteMany, dbPutMany } from './localDb';
+import { t } from '../i18n';
 
 /**
  * Photos from the phone's own library on a trip that lives on a server.
@@ -67,7 +68,7 @@ export async function importDeviceMedia(
 ): Promise<DeviceImportResult> {
   const permissions = await requestGalleryPermission();
   if (!permissions.library) {
-    throw new Error('Geen toegang tot je fotobibliotheek.');
+    throw new Error(t('ui.deviceMedia.noAccess'));
   }
   const items = await queryGallery(fromDay, toDay);
   const known = new Set((await listDeviceMedia(tripId)).map((m) => m.id));

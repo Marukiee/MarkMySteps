@@ -66,7 +66,7 @@ public class MmsUpdatePlugin extends Plugin {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             getContext().startActivity(intent);
         } catch (Exception e) {
-            call.reject("Kon het instellingenscherm niet openen");
+            call.reject(AppLang.text(getContext(), R.string.error_open_settings));
             return;
         }
         JSObject result = new JSObject();
@@ -84,7 +84,7 @@ public class MmsUpdatePlugin extends Plugin {
     public void download(PluginCall call) {
         final String url = call.getString("url");
         if (url == null || url.isEmpty()) {
-            call.reject("Geen download-adres");
+            call.reject(AppLang.text(getContext(), R.string.error_no_download_url));
             return;
         }
         cancelled = false;
@@ -95,7 +95,7 @@ public class MmsUpdatePlugin extends Plugin {
                 connection = open(url);
                 int status = connection.getResponseCode();
                 if (status < 200 || status > 299) {
-                    call.reject("Download mislukt (" + status + ")");
+                    call.reject(AppLang.text(getContext(), R.string.error_download_status, status));
                     return;
                 }
                 long total = connection.getContentLengthLong();
@@ -108,7 +108,7 @@ public class MmsUpdatePlugin extends Plugin {
                         if (cancelled) {
                             //noinspection ResultOfMethodCallIgnored
                             target.delete();
-                            call.reject("Geannuleerd");
+                            call.reject(AppLang.text(getContext(), R.string.error_cancelled));
                             return;
                         }
                         int read = in.read(buffer);
@@ -135,7 +135,7 @@ public class MmsUpdatePlugin extends Plugin {
             } catch (Exception e) {
                 //noinspection ResultOfMethodCallIgnored
                 target.delete();
-                call.reject("Download mislukt");
+                call.reject(AppLang.text(getContext(), R.string.error_download));
             } finally {
                 if (connection != null) connection.disconnect();
             }
@@ -159,12 +159,12 @@ public class MmsUpdatePlugin extends Plugin {
     public void install(PluginCall call) {
         String path = call.getString("path");
         if (path == null) {
-            call.reject("Geen bestand");
+            call.reject(AppLang.text(getContext(), R.string.error_no_file));
             return;
         }
         File file = new File(path);
         if (!file.exists()) {
-            call.reject("Het gedownloade bestand is weg");
+            call.reject(AppLang.text(getContext(), R.string.error_download_gone));
             return;
         }
         if (!mayInstall()) {
@@ -183,7 +183,7 @@ public class MmsUpdatePlugin extends Plugin {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             getContext().startActivity(intent);
         } catch (Exception e) {
-            call.reject("Geen installatieprogramma op dit toestel");
+            call.reject(AppLang.text(getContext(), R.string.error_no_installer));
             return;
         }
         JSObject result = new JSObject();

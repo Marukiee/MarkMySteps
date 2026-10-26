@@ -2,6 +2,7 @@ import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { Style, StatusBar } from '@capacitor/status-bar';
 import { DEFAULT_SERVER_URL } from '../config';
+import { t } from '../i18n';
 
 export function isNativeApp(): boolean {
   return Capacitor.isNativePlatform();
@@ -73,12 +74,12 @@ function initStatusBarScrim(): void {
 
 /** What the location setting that keeps tracking alive is called on this phone. */
 export function alwaysLabel(): string {
-  return isIosApp() ? 'Altijd' : 'Altijd toestaan';
+  return t(isIosApp() ? 'common.perm.alwaysIos' : 'common.perm.always');
 }
 
 /** And the setting that stops tracking when the app is closed. */
 export function whileUsingLabel(): string {
-  return isIosApp() ? 'Bij gebruik van app' : 'Alleen tijdens gebruik van de app';
+  return t(isIosApp() ? 'common.perm.whileUsingIos' : 'common.perm.whileUsing');
 }
 
 /**

@@ -86,7 +86,7 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
     @PermissionCallback
     private void afterForeground(PluginCall call) {
         if (!hasForegroundPermission()) {
-            call.reject("Locatietoestemming geweigerd");
+            call.reject(AppLang.text(getContext(), R.string.error_location_denied));
             return;
         }
         continueAfterForeground(call);
@@ -151,7 +151,7 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
         } catch (Exception e) {
             // e.g. ForegroundServiceStartNotAllowedException — surface it rather
             // than silently resolving and never producing a fix.
-            call.reject("Tracking-service kon niet starten: " + e.getMessage());
+            call.reject(AppLang.text(getContext(), R.string.error_tracking_start, e.getMessage()));
             return;
         }
         call.resolve();
@@ -176,7 +176,7 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
             // Android 11+ only shows this dialog once the foreground permission
             // is already granted; without it the request is denied instantly.
             if (!hasForegroundPermission()) {
-                call.reject("Vraag eerst de gewone locatietoestemming");
+                call.reject(AppLang.text(getContext(), R.string.error_ask_location_first));
                 return;
             }
             requestPermissionForAlias(BACKGROUND, call, "afterSingle");
@@ -251,13 +251,13 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
     @PluginMethod
     public void currentPosition(PluginCall call) {
         if (!hasForegroundPermission()) {
-            call.reject("Geen locatietoestemming");
+            call.reject(AppLang.text(getContext(), R.string.error_no_location_permission));
             return;
         }
         LocationManager manager =
                 (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
         if (manager == null) {
-            call.reject("Geen locatieprovider beschikbaar");
+            call.reject(AppLang.text(getContext(), R.string.error_no_provider));
             return;
         }
 
@@ -286,7 +286,7 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
                 }
             }
             if (best[0] != null) call.resolve(toResult(best[0]));
-            else call.reject("Geen positie gevonden");
+            else call.reject(AppLang.text(getContext(), R.string.error_no_fix));
         };
 
         holder[0] = new LocationListener() {
@@ -323,7 +323,7 @@ public class MmsLocationPlugin extends Plugin implements MmsLocationService.Sink
                 manager.requestLocationUpdates(provider, 0L, 0f, holder[0], Looper.getMainLooper());
                 any = true;
             } catch (SecurityException e) {
-                call.reject("Geen locatietoestemming");
+                call.reject(AppLang.text(getContext(), R.string.error_no_location_permission));
                 return;
             } catch (IllegalArgumentException ignored) {
             }

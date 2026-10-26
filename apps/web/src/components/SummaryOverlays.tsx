@@ -5,6 +5,7 @@ import { popWasOurs, skipNextPop } from '../lib/backStack';
 import type { RenderedPage } from '../lib/summary/render';
 import { AuthImage } from './AuthImage';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 
 /**
  * Closes on a back gesture as well as on the cross, and animates either way.
@@ -73,7 +74,7 @@ export function SummaryPageViewer({
 
   return createPortal(
     <div className={`summary-viewer ${closing ? 'closing' : ''}`} onClick={close}>
-      <button className="summary-viewer-close" aria-label="Sluiten" onClick={close}>
+      <button className="summary-viewer-close" aria-label={t('common.close')} onClick={close}>
         <Icon name="close" size={20} />
       </button>
       <div
@@ -86,7 +87,7 @@ export function SummaryPageViewer({
         }}
       >
         {pages.map((page, i) => (
-          <img key={page.url} src={page.url} alt={`Pagina ${i + 1}`} />
+          <img key={page.url} src={page.url} alt={t('summary.preview.pageAlt', { n: i + 1 })} />
         ))}
       </div>
       {pages.length > 1 && (
@@ -139,8 +140,8 @@ export function SummaryPhotoSwap({
     <div className={`summary-swap-backdrop ${closing ? 'closing' : ''}`} onClick={close}>
       <div className="summary-swap card" onClick={(e) => e.stopPropagation()}>
         <div className="summary-swap-head">
-          <h3>Andere foto</h3>
-          <button className="people-sheet-close" aria-label="Sluiten" onClick={close}>
+          <h3>{t('summary.swap.title')}</h3>
+          <button className="people-sheet-close" aria-label={t('common.close')} onClick={close}>
             <Icon name="close" size={18} />
           </button>
         </div>
@@ -162,7 +163,7 @@ export function SummaryPhotoSwap({
               <AuthImage path={`/media/${item.id}/thumbnail`} alt="" className="summary-photo-img" />
             </button>
           ))}
-          {shown.length === 0 && <p className="muted">Geen foto’s in deze periode.</p>}
+          {shown.length === 0 && <p className="muted">{t('summary.swap.empty')}</p>}
         </div>
       </div>
     </div>,

@@ -1,4 +1,5 @@
 import type { Trip } from '../api/types';
+import { t } from '../i18n';
 
 // Example European trips for the globe demo, shared by both onboarding tours.
 // A few realistic multi-city routes plus a city trip and one flight, so the
@@ -13,11 +14,11 @@ const AMS: [number, number] = [4.9, 52.37];
  * travel order — the slide is meant to be the app, not a diagram of it.
  */
 const PLAN_STOPS: { name: string; at: [number, number]; nights: number; mode: string }[] = [
-  { name: 'Málaga', at: [-4.42, 36.72], nights: 3, mode: 'plane' },
-  { name: 'Madrid', at: [-3.7, 40.42], nights: 4, mode: 'train' },
-  { name: 'Barcelona', at: [2.17, 41.39], nights: 3, mode: 'train' },
-  { name: 'Turijn', at: [7.69, 45.07], nights: 2, mode: 'train' },
-  { name: 'Parijs', at: [2.35, 48.86], nights: 4, mode: 'train' },
+  { name: t('onboarding.sample.place.malaga'), at: [-4.42, 36.72], nights: 3, mode: 'plane' },
+  { name: t('onboarding.sample.place.madrid'), at: [-3.7, 40.42], nights: 4, mode: 'train' },
+  { name: t('onboarding.sample.place.barcelona'), at: [2.17, 41.39], nights: 3, mode: 'train' },
+  { name: t('onboarding.sample.place.turin'), at: [7.69, 45.07], nights: 2, mode: 'train' },
+  { name: t('onboarding.sample.place.paris'), at: [2.35, 48.86], nights: 4, mode: 'train' },
 ];
 
 /** The route as the planner lists it, for the slide's own itinerary. */
@@ -26,7 +27,7 @@ export const PLAN_ROUTE = PLAN_STOPS;
 export const PLAN_TRIP = [
   {
     id: 'p-route',
-    title: 'Zuid-Europa',
+    title: t('onboarding.sample.plan'),
     anchor: PLAN_STOPS[0]!.at,
     routePath: [PLAN_STOPS.map((s) => s.at)],
     flightPath: null,
@@ -41,7 +42,7 @@ export const PLAN_TRIP = [
 export const SAMPLE_TRIPS = [
   {
     id: 's-scan',
-    title: 'Scandinavië',
+    title: t('onboarding.sample.scandinavia'),
     anchor: [11.97, 57.71],
     routePath: [
       [
@@ -64,7 +65,7 @@ export const SAMPLE_TRIPS = [
   },
   {
     id: 's-es',
-    title: 'Spanje',
+    title: t('onboarding.sample.spain'),
     anchor: [2.17, 41.4],
     routePath: [
       [
@@ -84,7 +85,7 @@ export const SAMPLE_TRIPS = [
   },
   {
     id: 's-balkan',
-    title: 'Balkan',
+    title: t('onboarding.sample.balkans'),
     anchor: [23.73, 37.98],
     routePath: [
       [
@@ -104,7 +105,7 @@ export const SAMPLE_TRIPS = [
   },
   {
     id: 's-krk',
-    title: 'Krakau',
+    title: t('onboarding.sample.krakow'),
     anchor: [19.94, 50.06],
     routePath: null,
     // City trip: just there and back from home.

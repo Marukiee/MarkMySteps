@@ -97,6 +97,8 @@ public class MmsNotifyWorker extends Worker {
             conn.setConnectTimeout(TIMEOUT_MS);
             conn.setReadTimeout(TIMEOUT_MS);
             conn.setRequestProperty("Accept", "application/json");
+            // The server writes the notification itself, in the language asked for here.
+            conn.setRequestProperty("Accept-Language", AppLang.header(getApplicationContext()));
             if (conn.getResponseCode() != 200) return null;
             StringBuilder body = new StringBuilder();
             try (BufferedReader reader =
@@ -120,11 +122,12 @@ public class MmsNotifyWorker extends Worker {
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null) return;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                && manager.getNotificationChannel(CHANNEL_ID) == null) {
+        // Created again each time: that renames it into the app's language.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID, "Meldingen", NotificationManager.IMPORTANCE_DEFAULT);
-            channel.setDescription("Verzoeken en uitnodigingen van reisgenoten");
+                    CHANNEL_ID, AppLang.text(context, R.string.channel_news),
+                    NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setDescription(AppLang.text(context, R.string.channel_news_desc));
             manager.createNotificationChannel(channel);
         }
 

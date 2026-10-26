@@ -1,5 +1,6 @@
 import { geoInterpolate } from 'd3-geo';
 import { airportByCode } from './airports';
+import { t } from '../i18n';
 
 /** Great-circle arc between two [lng,lat] points as a GeoJSON LineString. */
 export function greatCircleArc(
@@ -57,9 +58,9 @@ export function flightArc(
   // The great circle itself, as a slerp between the two points on the sphere.
   const base: [number, number][] = [];
   for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const a = Math.sin((1 - t) * d) / Math.sin(d);
-    const b = Math.sin(t * d) / Math.sin(d);
+    const frac = i / steps;
+    const a = Math.sin((1 - frac) * d) / Math.sin(d);
+    const b = Math.sin(frac * d) / Math.sin(d);
     const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2);
     const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2);
     const z = a * Math.sin(lat1) + b * Math.sin(lat2);
@@ -192,11 +193,11 @@ export type TravelMode = 'GROUND' | 'TRAIN' | 'BUS' | 'BOAT' | 'FLIGHT';
 export const TRAVEL_MODES: TravelMode[] = ['GROUND', 'TRAIN', 'BUS', 'BOAT', 'FLIGHT'];
 
 export const MODE_LABEL: Record<TravelMode, string> = {
-  GROUND: 'Auto',
-  TRAIN: 'Trein',
-  BUS: 'Bus',
-  BOAT: 'Boot',
-  FLIGHT: 'Vlucht',
+  GROUND: t('planner.mode.ground'),
+  TRAIN: t('planner.mode.train'),
+  BUS: t('planner.mode.bus'),
+  BOAT: t('planner.mode.boat'),
+  FLIGHT: t('planner.mode.flight'),
 };
 
 // Rough average speeds (km/h) + a fixed overhead (min) for terminals/check-in.
@@ -214,7 +215,9 @@ export function estimateDuration(km: number, mode: TravelMode): string {
   const totalMin = Math.round((km / kmh) * 60) + overhead;
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  return h > 0 ? `${h}u ${m}m` : `${m}m`;
+  return h > 0
+    ? t('planner.duration.hoursMinutes', { h, m })
+    : t('planner.duration.minutes', { m });
 }
 
 export interface LegStop {

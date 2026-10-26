@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { reversePlaceName, searchPlaces } from '../lib/geocode';
+import { t, intlLocale } from '../i18n';
 import { Flag } from './Flag';
 import { Icon } from './Icon';
 import './stopsuggestions.css';
@@ -113,10 +114,8 @@ export function StopSuggestions({
           <Icon name="sparkle" size={15} />
         </span>
         <span className="stay-suggest-title">
-          <strong>Gevonden in je route</strong>
-          <small>
-            {stays.length} {stays.length === 1 ? 'plek' : 'plekken'} waar je bleef slapen
-          </small>
+          <strong>{t('planner.suggest.title')}</strong>
+          <small>{t('planner.suggest.count', { count: stays.length })}</small>
         </span>
         <Icon name="chevron-down" size={16} className="stay-suggest-caret" />
       </button>
@@ -137,7 +136,7 @@ export function StopSuggestions({
                 <span className="stay-card-meta">
                   {dateRange(stay.from, stay.to)}
                   <span className="stay-card-dot">·</span>
-                  {stay.nights} {stay.nights === 1 ? 'nacht' : 'nachten'}
+                  {t('common.nights', { count: stay.nights })}
                   {stay.photos > 0 && (
                     <>
                       <span className="stay-card-dot">·</span>
@@ -153,12 +152,12 @@ export function StopSuggestions({
                 onClick={() => void accept(stay)}
               >
                 <Icon name="plus" size={15} />
-                Toevoegen
+                {t('common.add')}
               </button>
               <button
                 type="button"
                 className="stay-card-no"
-                aria-label="Niet deze"
+                aria-label={t('planner.suggest.dismiss')}
                 onClick={() => dismiss(stay)}
               >
                 <Icon name="close" size={15} />
@@ -171,18 +170,18 @@ export function StopSuggestions({
   );
 }
 
-/** "12 – 14 aug", or one date when the stay began and ended on the same day. */
+/** "12 t/m 14 aug", or one date when the stay began and ended on the same day. */
 function dateRange(from: string, to: string): string {
   const start = new Date(from);
   const end = new Date(to);
   const day = (d: Date, withMonth: boolean) =>
-    d.toLocaleDateString('nl-NL', {
+    d.toLocaleDateString(intlLocale(), {
       day: 'numeric',
       ...(withMonth ? { month: 'short' } : {}),
     });
   const sameMonth = start.getMonth() === end.getMonth();
   if (start.toDateString() === end.toDateString()) return day(start, true);
-  return `${day(start, !sameMonth)} t/m ${day(end, true)}`;
+  return t('common.dateRange', { from: day(start, !sameMonth), to: day(end, true) });
 }
 
 function placeLabel(stay: StaySuggestion): string {

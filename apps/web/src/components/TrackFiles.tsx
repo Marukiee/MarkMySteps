@@ -4,6 +4,7 @@ import type { Trip } from '../api/types';
 import { shareOrSaveFiles } from '../lib/fileShare';
 import { useExit } from '../lib/useExit';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './trackfiles.css';
 
 interface TrackImportResult {
@@ -41,7 +42,7 @@ export function TrackFiles() {
   }, []);
 
   const trip = trips.find((t) => t.id === tripId) ?? null;
-  const title = trip?.title ?? 'reis';
+  const title = trip?.title ?? t('settings.tripFallback');
 
   async function exportAs(format: 'gpx' | 'kml') {
     setBusy(format);
@@ -51,10 +52,10 @@ export function TrackFiles() {
       const blob = await fetch(url).then((r) => r.blob());
       const file = new File([blob], `${slug(title)}.${format}`, { type: blob.type });
       const outcome = await shareOrSaveFiles([file], title);
-      if (outcome === 'downloaded') setNote('Bewaard in je downloads');
-      else if (outcome === 'failed') setNote('Exporteren lukte niet');
+      if (outcome === 'downloaded') setNote(t('settings.trackFiles.saved'));
+      else if (outcome === 'failed') setNote(t('settings.trackFiles.exportFailed'));
     } catch {
-      setNote('Exporteren lukte niet');
+      setNote(t('settings.trackFiles.exportFailed'));
     } finally {
       setBusy(null);
     }
@@ -74,7 +75,7 @@ export function TrackFiles() {
         }),
       );
     } catch (err) {
-      setNote(err instanceof Error ? err.message : 'Importeren mislukt');
+      setNote(err instanceof Error ? err.message : t('settings.trackFiles.importFailed'));
     } finally {
       setBusy(null);
     }
@@ -82,10 +83,9 @@ export function TrackFiles() {
 
   return (
     <section className="card settings-card track-files">
-      <h2>Route-bestanden</h2>
+      <h2>{t('settings.trackFiles.title')}</h2>
       <p className="muted">
-        Exporteer een reis als GPX of KML, of voeg een track toe die je ergens anders opnam.
-        Punten buiten de reisdagen worden overgeslagen: die horen bij een andere reis.
+        {t('settings.trackFiles.hint')}
       </p>
 
       <TripPicker
@@ -116,7 +116,7 @@ export function TrackFiles() {
               if (file) void importFile(file);
             }}
           />
-          <Icon name="plus" size={15} /> {busy === 'import' ? 'Bezig…' : 'Importeren'}
+          <Icon name="plus" size={15} /> {busy === 'import' ? t('settings.busy') : t('settings.trackFiles.import')}
         </label>
       </div>
 
@@ -124,10 +124,14 @@ export function TrackFiles() {
         <p className="track-files-result">
           <Icon name="check" size={15} />
           <span>
-            {imported.added} van {imported.found} punten toegevoegd
-            {imported.outsideTrip > 0 && `, ${imported.outsideTrip} buiten de reisdagen`}
-            {imported.undated > 0 && `, ${imported.undated} zonder tijd`}
-            {imported.added === 0 && imported.found > 0 && ' (stonden er al in)'}
+            {t('settings.trackFiles.result.added', { added: imported.added, found: imported.found })}
+            {imported.outsideTrip > 0 &&
+              `, ${t('settings.trackFiles.result.outside', { count: imported.outsideTrip })}`}
+            {imported.undated > 0 &&
+              `, ${t('settings.trackFiles.result.undated', { count: imported.undated })}`}
+            {imported.added === 0 &&
+              imported.found > 0 &&
+              ` ${t('settings.trackFiles.result.already')}`}
           </span>
         </p>
       )}
@@ -184,7 +188,7 @@ function TripPicker({
         onClick={() => setOpen((o) => !o)}
       >
         <Icon name="compass" size={15} />
-        <span className="track-picker-name">{current?.title ?? 'Geen reizen'}</span>
+        <span className="track-picker-name">{current?.title ?? t('settings.trackFiles.noTrips')}</span>
         {current && <span className="track-picker-year">{current.startDate.slice(0, 4)}</span>}
         <Icon name="chevron-down" size={15} className="track-picker-caret" />
       </button>
@@ -247,7 +251,7 @@ function ExportMenu({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <Icon name="download" size={15} /> {busy ? 'Bezig…' : 'Exporteren'}
+        <Icon name="download" size={15} /> {busy ? t('settings.busy') : t('settings.trackFiles.export')}
         <Icon name="chevron-down" size={14} className={`track-export-caret ${open ? 'on' : ''}`} />
       </button>
 
@@ -263,7 +267,7 @@ function ExportMenu({
               }}
             >
               <strong>{format.toUpperCase()}</strong>
-              <small>{format === 'gpx' ? 'Voor apps en horloges' : 'Voor Google Earth'}</small>
+              <small>{format === 'gpx' ? t('settings.trackFiles.gpx') : t('settings.trackFiles.kml')}</small>
             </button>
           ))}
         </div>
@@ -280,6 +284,6 @@ function slug(text: string): string {
       .replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
-      .slice(0, 60) || 'reis'
+      .slice(0, 60) || t('settings.tripFallback')
   );
 }

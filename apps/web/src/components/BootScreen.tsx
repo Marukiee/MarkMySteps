@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { LogoMark } from './Logo';
+import { t } from '../i18n';
 import './bootscreen.css';
 
 /**
@@ -41,7 +42,7 @@ export function BootScreen({ closing = false }: { closing?: boolean }) {
       <span className="boot-compass">
         <LogoMark size={78} spin />
       </span>
-      <p className="boot-text">Dit duurt langer dan verwacht...</p>
+      <p className="boot-text">{t('ui.boot.slow')}</p>
     </div>
   );
 }

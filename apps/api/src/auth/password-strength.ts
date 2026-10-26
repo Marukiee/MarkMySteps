@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { coded } from '../common/i18n';
 
 /**
  * The floor a password has to clear, checked here because the meter in the app
@@ -40,22 +41,32 @@ export function assertStrongPassword(password: string, personal: (string | null)
   const lower = password.toLowerCase();
 
   if (password.length < 10) {
-    throw new BadRequestException('Wachtwoord moet minimaal 10 tekens zijn');
+    throw new BadRequestException(
+      coded('Wachtwoord moet minimaal 10 tekens zijn', 'password.tooShort', { min: 10 }),
+    );
   }
   if (COMMON.some((word) => lower.includes(word))) {
     throw new BadRequestException(
-      'Dit wachtwoord staat op elke lijst die als eerste geprobeerd wordt. Kies iets anders.',
+      coded(
+        'Dit wachtwoord staat op elke lijst die als eerste geprobeerd wordt. Kies iets anders.',
+        'password.common',
+      ),
     );
   }
   for (const part of personal) {
     const clean = part?.trim().toLowerCase() ?? '';
     if (clean.length >= 4 && lower.includes(clean)) {
       throw new BadRequestException(
-        'Gebruik je naam, gebruikersnaam of e-mailadres niet in je wachtwoord.',
+        coded(
+          'Gebruik je naam, gebruikersnaam of e-mailadres niet in je wachtwoord.',
+          'password.personal',
+        ),
       );
     }
   }
   if (new Set(password).size <= 4) {
-    throw new BadRequestException('Wachtwoord bevat te weinig verschillende tekens');
+    throw new BadRequestException(
+      coded('Wachtwoord bevat te weinig verschillende tekens', 'password.tooFewDistinct'),
+    );
   }
 }

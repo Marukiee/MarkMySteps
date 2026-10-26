@@ -4,6 +4,8 @@ import { api } from '../api/client';
 import type { TripAccessPreview } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/Icon';
+import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 import { formatDateRange } from '../lib/colors';
 import './tripaccess.css';
 
@@ -56,7 +58,7 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
       setSent(true);
       setPreview((p) => (p ? { ...p, status: 'PENDING' } : p));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Het verzoek kon niet verstuurd worden');
+      setError(err instanceof Error ? err.message : t('social.access.sendFailed'));
     } finally {
       setAsking(false);
     }
@@ -65,7 +67,7 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
   /** Back goes where you came from: the traveller whose trip this is. */
   const back = (
     <button type="button" className="ta-back" onClick={() => navigate('/friends')}>
-      <Icon name="arrow-left" size={17} /> Terug
+      <Icon name="arrow-left" size={17} /> {t('common.back')}
     </button>
   );
 
@@ -77,12 +79,10 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
           <span className="ta-glyph ta-glyph-lost" aria-hidden="true">
             <Icon name="compass" size={38} />
           </span>
-          <h1>Deze reis bestaat niet</h1>
-          <p className="ta-note">
-            De link klopt niet meer, of de reis is verwijderd door de organisator.
-          </p>
+          <h1>{t('social.access.gone.title')}</h1>
+          <p className="ta-note">{t('social.access.gone.body')}</p>
           <button type="button" className="btn btn-primary ta-ask" onClick={() => navigate('/')}>
-            Naar mijn reizen
+            {t('social.myTrips')}
           </button>
         </div>
       </main>
@@ -114,7 +114,11 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
             size={34}
           />
           <span>
-            van <strong>{preview.owner.displayName}</strong>
+            {tr(
+              'social.access.owner',
+              { b: (s) => <strong>{s}</strong> },
+              { name: preview.owner.displayName },
+            )}
           </span>
         </div>
 
@@ -125,31 +129,28 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
             <>
               <p className="ta-status ta-status-wait">
                 <Icon name="hourglass" size={15} />
-                Je verzoek staat klaar bij {preview.owner.displayName}.
+                {t('social.access.waiting', { name: preview.owner.displayName })}
               </p>
-              <p className="ta-note">
-                Zodra het beantwoord is krijg je een melding bij Reizigers.
-              </p>
+              <p className="ta-note">{t('social.access.waitingNote')}</p>
             </>
           ) : (
             <>
               {denied && (
                 <p className="ta-status ta-status-no">
                   <Icon name="close" size={15} />
-                  Je eerdere verzoek is afgewezen. Je mag het opnieuw vragen.
+                  {t('social.access.denied')}
                 </p>
               )}
               <p className="ta-note">
-                Je bent geen reisgenoot of gast op deze reis, dus je ziet de route en de foto&apos;s
-                niet. Vraag {preview.owner.displayName} om je toe te laten.
+                {t('social.access.note', { name: preview.owner.displayName })}
               </p>
               <div className="field ta-field">
-                <label htmlFor="ta-msg">Bericht (optioneel)</label>
+                <label htmlFor="ta-msg">{t('social.access.message')}</label>
                 <input
                   id="ta-msg"
                   value={message}
                   maxLength={300}
-                  placeholder="Hoi! Mag ik meekijken?"
+                  placeholder={t('social.access.placeholder')}
                   onChange={(e) => setMessage(e.target.value)}
                 />
               </div>
@@ -160,7 +161,7 @@ export function TripAccessPage({ tripId }: { tripId: string }) {
                 disabled={asking}
                 onClick={() => void ask()}
               >
-                {asking ? 'Versturen…' : 'Toegang vragen'}
+                {asking ? t('social.access.sending') : t('social.access.ask')}
               </button>
             </>
           )}

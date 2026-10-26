@@ -12,6 +12,7 @@ import { StopJump } from './StopJump';
 import { WeatherBadge } from './WeatherBadge';
 import './timeline.css';
 import { Flag } from './Flag';
+import { t } from '../i18n';
 
 export interface TimelineStop {
   name: string;
@@ -145,8 +146,8 @@ export function Timeline({
         {emptyOwnerName
           ? // Not your trip: connecting your own Immich would not fill it, and
             // telling a guest to do so was an instruction they cannot follow.
-            `${emptyOwnerName} heeft nog geen foto's toegevoegd aan deze reis.`
-          : "Nog geen foto's. Koppel Immich in Instellingen en druk op Sync."}
+            t('trip.timeline.emptyOther', { name: emptyOwnerName })
+          : t('trip.timeline.empty')}
       </p>
     );
   }
@@ -190,8 +191,8 @@ export function Timeline({
                   <button
                     type="button"
                     className="timeline-note-add"
-                    aria-label="Schrijf iets over deze dag"
-                    title="Schrijf iets over deze dag"
+                    aria-label={t('trip.note.write')}
+                    title={t('trip.note.write')}
                     onClick={() => setEditingDay(day)}
                   >
                     <Icon name="pencil" size={15} />

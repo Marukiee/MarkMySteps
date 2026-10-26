@@ -1,0 +1,19 @@
+{
+  "apiError.trip.alreadyMember": "You're already on this trip",
+  "apiError.access.alreadyAnswered": "This request has already been answered",
+  "apiError.members.unknownOne": "No account called {name} on this server",
+  "apiError.members.unknownMany": "No account found for: {names}",
+  "apiError.signup.tooManyPending": "There are too many open requests on this server. Try again later.",
+  "apiError.signup.emailTaken": "An account with this email already exists",
+  "apiError.signup.usernameTaken": "This username is taken",
+  "apiError.password.tooShort": "Password must be at least {min} characters",
+  "apiError.password.common": "This password is on every list that gets tried first. Choose something else.",
+  "apiError.password.personal": "Don't use your name, username or email address in your password.",
+  "apiError.password.tooFewDistinct": "Password has too few different characters",
+  "apiError.point.outsideTrip": "That moment is outside this trip.",
+  "apiError.route.noRoad": "Couldn't find a route by road.",
+  "apiError.route.noRail": "Couldn't find a rail route between those stations. Outside Europe the rail map knows no routes.",
+  "apiError.route.nothingToFill": "There is no route to fill in yet.",
+  "apiError.route.noDrawnNear": "No drawn route nearby.",
+  "apiError.route.noStraightNear": "No straight stretch nearby to fill in."
+}

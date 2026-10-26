@@ -4,6 +4,7 @@ import { flightArc, haversineKm } from '../arc';
 import { flagEmoji, formatDate, formatDateRange } from '../colors';
 import { reversePlaceName } from '../geocode';
 import { fetchWeather, type Weather } from '../weather';
+import { getLang, intlLocale, t, type TKey } from '../../i18n';
 import type { Fact, PageData, Scope, SummarySource, SummarySpec } from './types';
 
 /**
@@ -256,10 +257,10 @@ function pickPhotosPerStop(
   return out;
 }
 
-/** "SE" → "Zweden". Falls back to the code itself for anything unknown. */
+/** "SE" → "Zweden" / "Sweden". Falls back to the code itself for anything unknown. */
 const REGION_NAMES = (() => {
   try {
-    return new Intl.DisplayNames(['nl'], { type: 'region' });
+    return new Intl.DisplayNames([getLang()], { type: 'region' });
   } catch {
     return null;
   }
@@ -307,7 +308,7 @@ async function subtitleFor(
 }
 
 export function scopeLabel(scope: Scope): string {
-  if (scope.kind === 'trip') return 'Hele reis';
+  if (scope.kind === 'trip') return t('summary.scope.trip');
   if (scope.kind === 'day') return formatDate(scope.from);
   return formatDateRange(scope.from, scope.to);
 }
@@ -388,11 +389,13 @@ export async function buildPages(source: SummarySource, spec: SummarySpec): Prom
     const place = await subtitleFor(spec, scope, stops, countries, middle);
 
     const facts: Fact[] = [];
-    if (km > 0) facts.push({ value: km.toLocaleString('nl-NL'), label: 'km' });
-    if (days > 1) facts.push({ value: String(days), label: 'dagen' });
-    if (stops.length > 1) facts.push({ value: String(stops.length), label: 'stops' });
-    if (photosIn.length > 0) facts.push({ value: String(photosIn.length), label: "foto's" });
-    if (countries.length > 1) facts.push({ value: String(countries.length), label: 'landen' });
+    const fact = (count: number, key: TKey) =>
+      facts.push({ value: count.toLocaleString(intlLocale()), label: t(key, { count }) });
+    if (km > 0) facts.push({ value: km.toLocaleString(intlLocale()), label: t('common.km') });
+    if (days > 1) fact(days, 'summary.fact.days');
+    if (stops.length > 1) fact(stops.length, 'summary.fact.stops');
+    if (photosIn.length > 0) fact(photosIn.length, 'summary.fact.photos');
+    if (countries.length > 1) fact(countries.length, 'summary.fact.countries');
 
     pages.push({
       title: trip.title,
@@ -406,7 +409,10 @@ export async function buildPages(source: SummarySource, spec: SummarySpec): Prom
       facts: facts.slice(0, 4),
       flags: countries.map(flagEmoji).filter(Boolean),
       accent,
-      pageLabel: spec.series && !isCover && !isEnd ? `${i} van ${periods.length - 2}` : null,
+      pageLabel:
+        spec.series && !isCover && !isEnd
+          ? t('summary.page.of', { page: i, total: periods.length - 2 })
+          : null,
     });
   }
   return pages;

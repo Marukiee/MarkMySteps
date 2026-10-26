@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
+import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 import './confirm.css';
 
 interface ConfirmOptions {
@@ -72,7 +74,11 @@ function ConfirmDialog({ options, onDone }: { options: ConfirmOptions; onDone: (
         {needsTyping && (
           <div className="field confirm-type">
             <label htmlFor="confirm-type">
-              Typ <strong>{options.typeToConfirm}</strong> om te bevestigen
+              {tr(
+                'ui.confirm.typeToConfirm',
+                { b: (s) => <strong>{s}</strong> },
+                { text: options.typeToConfirm ?? '' },
+              )}
             </label>
             <input
               id="confirm-type"
@@ -87,7 +93,7 @@ function ConfirmDialog({ options, onDone }: { options: ConfirmOptions; onDone: (
         )}
         <div className="confirm-actions">
           <button className="btn btn-ghost" onClick={() => close(false)}>
-            {options.cancelLabel ?? 'Annuleren'}
+            {options.cancelLabel ?? t('common.cancel')}
           </button>
           <button
             className={`btn ${options.danger ? 'btn-danger' : 'btn-primary'}`}
@@ -95,7 +101,7 @@ function ConfirmDialog({ options, onDone }: { options: ConfirmOptions; onDone: (
             disabled={!matches}
             onClick={() => close(true)}
           >
-            {options.confirmLabel ?? 'Bevestigen'}
+            {options.confirmLabel ?? t('ui.confirm.confirm')}
           </button>
         </div>
       </div>
@@ -216,7 +222,7 @@ function ChoiceDialog({
         </div>
         <div className="confirm-actions">
           <button className="btn btn-ghost" onClick={() => close(null)}>
-            {options.cancelLabel ?? 'Annuleren'}
+            {options.cancelLabel ?? t('common.cancel')}
           </button>
         </div>
       </div>

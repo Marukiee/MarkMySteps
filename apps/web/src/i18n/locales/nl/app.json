@@ -1,0 +1,16 @@
+{
+  "app.language.title": "Taal",
+  "app.language.hint": "“Systeem” volgt de taal van je toestel. De app start even opnieuw als je wisselt.",
+  "app.tempPassword": "Je gebruikt nog een tijdelijk wachtwoord. Kies een eigen wachtwoord bij <link>Instellingen</link>.",
+  "app.error.sessionExpired": "Sessie verlopen, log opnieuw in",
+  "app.error.serverUnreachable": "Server even niet bereikbaar",
+  "app.error.status": "Fout {status}",
+  "app.error.noImage": "Geen afbeelding",
+  "app.error.imageFailed": "Kon afbeelding niet laden",
+  "app.mapStyle.positron": "Licht & minimaal",
+  "app.mapStyle.bright": "Helder & kleurrijk",
+  "app.mapStyle.liberty": "Klassiek",
+  "app.mapStyle.satellite": "Satelliet",
+  "app.error.fetchFailed": "Kon {url} niet ophalen",
+  "app.error.fileRead": "kon het bestand niet lezen"
+}

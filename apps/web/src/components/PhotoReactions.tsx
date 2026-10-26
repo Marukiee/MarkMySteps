@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useExit } from '../lib/useExit';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './photoreactions.css';
 
 /** The five a photo can get, in the order the picker shows them. */
 export const REACTIONS = [
-  { kind: 'heart', emoji: '❤️', label: 'Hartje' },
-  { kind: 'laugh', emoji: '😂', label: 'Grappig' },
-  { kind: 'wow', emoji: '😮', label: 'Wauw' },
-  { kind: 'love', emoji: '😍', label: 'Prachtig' },
-  { kind: 'clap', emoji: '👏', label: 'Applaus' },
+  { kind: 'heart', emoji: '❤️', label: t('social.reactions.heart') },
+  { kind: 'laugh', emoji: '😂', label: t('social.reactions.laugh') },
+  { kind: 'wow', emoji: '😮', label: t('social.reactions.wow') },
+  { kind: 'love', emoji: '😍', label: t('social.reactions.love') },
+  { kind: 'clap', emoji: '👏', label: t('social.reactions.clap') },
 ] as const;
 
 const EMOJI: Record<string, string> = Object.fromEntries(REACTIONS.map((r) => [r.kind, r.emoji]));
@@ -128,7 +129,7 @@ export function ReactionBadge({ summary }: { summary: { kind: string; count: num
   if (summary.length === 0) return null;
   const total = summary.reduce((sum, r) => sum + r.count, 0);
   return (
-    <span className="reaction-badge" aria-label={total === 1 ? '1 like' : `${total} likes`}>
+    <span className="reaction-badge" aria-label={t('social.reactions.likes', { count: total })}>
       {summary.slice(0, 2).map((r) => (
         <span key={r.kind}>{EMOJI[r.kind]}</span>
       ))}
@@ -208,7 +209,7 @@ export function ReactionBar({
       <button
         type="button"
         className={`reaction-toggle ${mine ? 'has' : ''}`}
-        aria-label={mine ? 'Je like wijzigen' : 'Like'}
+        aria-label={mine ? t('social.reactions.change') : t('social.reactions.like')}
         aria-expanded={open}
         onClick={() => onOpenChange(!open)}
       >
@@ -243,7 +244,7 @@ export function CommentReactions({ target, adapter }: { target: string; adapter:
         type="button"
         className={`comment-like ${mine ? 'on' : ''}`}
         aria-pressed={!!mine}
-        aria-label={mine ? 'Like weghalen' : 'Like'}
+        aria-label={mine ? t('social.reactions.unlike') : t('social.reactions.like')}
         title={names || undefined}
         onClick={() => void adapter.set(target, mine ? null : 'heart')}
       >

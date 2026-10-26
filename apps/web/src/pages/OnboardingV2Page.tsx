@@ -1,6 +1,7 @@
 import { registerPlugin } from '@capacitor/core';
 import {
   CSSProperties,
+  Fragment,
   ReactNode,
   TouchEvent as ReactTouchEvent,
   useEffect,
@@ -22,6 +23,8 @@ import {
   VisualTheme,
   VisualTrips,
 } from '../components/OnboardingShots';
+import { t } from '../i18n';
+import { tr } from '../i18n/rich';
 import {
   GalleryPermissions,
   galleryPermissions,
@@ -50,6 +53,15 @@ interface MmsLocationPlugin {
 }
 
 const MmsLocation = registerPlugin<MmsLocationPlugin>('MmsLocation');
+
+/**
+ * A path through settings, "Instellingen › Voorkeuren", with the app's own
+ * chevron between the steps. The steps come from the dictionary as one line,
+ * so the whole path is translated in one piece.
+ */
+function pathSteps(text: string): string[] {
+  return text.split(' › ');
+}
 
 /**
  * Onboarding, second attempt.
@@ -159,10 +171,8 @@ export function OnboardingV2Page() {
       <span className="onb2-mark">
         <LogoMark size={78} />
       </span>
-      <h1>Welkom bij MarkMySteps</h1>
-      <p className="muted">
-        Volg je route, plan je reis en kijk 'm later terug. Alles blijft van jou.
-      </p>
+      <h1>{t('onboarding.welcome.title')}</h1>
+      <p className="muted">{t('onboarding.welcome.body')}</p>
     </div>,
     ...(localOnly
       ? [
@@ -170,15 +180,12 @@ export function OnboardingV2Page() {
             <span className="onb-visual">
               <Icon name="person" size={54} />
             </span>
-            <h1>Hoe heet je?</h1>
-            <p className="muted">
-              Zonder server is er geen account en geen wachtwoord. Je naam staat alleen op je eigen
-              reizen, en blijft op dit toestel.
-            </p>
+            <h1>{t('onboarding.name.title')}</h1>
+            <p className="muted">{t('onboarding.name.body')}</p>
             <div className="field onb-name">
               <input
                 autoComplete="name"
-                placeholder="Je naam"
+                placeholder={t('onboarding.name.placeholder')}
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
@@ -193,11 +200,8 @@ export function OnboardingV2Page() {
       <div className="onb-globe" aria-hidden="true">
         <GlobeBackdrop trips={SAMPLE_TRIPS} noTour />
       </div>
-      <h1>Je reizen in kaart</h1>
-      <p className="muted">
-        Al je reizen als kleurrijke routes op een 3D-globe, met een bolletje voor elke stop. Tik een
-        reis om ‘m te openen met je tijdlijn en foto’s.
-      </p>
+      <h1>{t('onboarding.globe.title')}</h1>
+      <p className="muted">{t('onboarding.globe.body')}</p>
     </div>,
     // The route builds itself on the same globe the app uses, with the
     // itinerary writing itself underneath in the planner's own shape — and a
@@ -208,17 +212,14 @@ export function OnboardingV2Page() {
         <GlobeBackdrop trips={PLAN_TRIP} solo />
       </div>
       <PlanItinerary stops={PLAN_ROUTE} />
-      <h1>Plan je route</h1>
-      <p className="muted">
-        Bouw je route met stops, nachten en vervoer: auto, trein, boot of vlucht met tussenstops.
-        De afstanden en je dagen tellen zichzelf op.
-      </p>
+      <h1>{t('onboarding.plan.title')}</h1>
+      <p className="muted">{t('onboarding.plan.body')}</p>
     </div>,
     feature(
       'trips',
       <VisualTrips />,
-      'Je reizen terugkijken',
-      'Elke reis blijft staan met haar kaart, haar dagen en haar cijfers. Je foto’s komen vanzelf op de juiste dag en de juiste plek te staan.',
+      t('onboarding.trips.title'),
+      t('onboarding.trips.body'),
     ),
     // Nothing to share without a server to share it from.
     ...(localOnly
@@ -227,50 +228,66 @@ export function OnboardingV2Page() {
           feature(
             'share',
             <VisualShare />,
-            'Deel met thuisblijvers',
-            'Eén privélink met je kaart, je dagen en je foto’s. Alleen lezen, en niemand hoeft een account te maken.',
+            t('onboarding.share.title'),
+            t('onboarding.share.body'),
           ),
         ]),
     feature(
       'offline',
       <VisualOffline />,
-      'Zuinig & offline',
-      'Tracking is zuinig met je accu en werkt zonder internet: alles wordt gebufferd en later geüpload.',
+      t('onboarding.offline.title'),
+      t('onboarding.offline.body'),
     ),
     <div className="onb-feature" key="theme">
       <VisualTheme />
-      <h1>Licht of donker?</h1>
-      <p className="muted">Kies je thema. Je kunt dit later altijd wijzigen in Instellingen.</p>
+      <h1>{t('onboarding.theme.title')}</h1>
+      <p className="muted">{t('onboarding.theme.body')}</p>
       <div
         className="theme-choice onb-theme-choice pill-switch"
         style={
           { '--n': 3, '--i': ['system', 'light', 'dark'].indexOf(theme) } as CSSProperties
         }
       >
-        {(['system', 'light', 'dark'] as ThemeId[]).map((t) => (
+        {(['system', 'light', 'dark'] as ThemeId[]).map((id) => (
           <button
-            key={t}
+            key={id}
             type="button"
-            className={`theme-opt ${theme === t ? 'active' : ''}`}
+            className={`theme-opt ${theme === id ? 'active' : ''}`}
             onClick={() => {
-              setTheme(t);
-              setThemeId(t);
+              setTheme(id);
+              setThemeId(id);
             }}
           >
-            {t === 'system' ? 'Automatisch' : t === 'light' ? 'Licht' : 'Donker'}
+            {id === 'system'
+              ? t('common.automatic')
+              : id === 'light'
+                ? t('onboarding.theme.light')
+                : t('onboarding.theme.dark')}
           </button>
         ))}
       </div>
     </div>,
     <div className="onb-feature onb-airports-slide" key="airports">
       <VisualAirports />
-      <h1>Je vaste vliegvelden</h1>
+      <h1>{t('onboarding.airports.title')}</h1>
       <p className="muted">
-        Vanaf welke vliegvelden vertrek je meestal? Dit kan je later aanpassen via{' '}
-        <strong className="onb-inline-path">
-          Instellingen <Icon name="chevron-right" size={13} /> Voorkeuren
-        </strong>
-        .
+        {tr('onboarding.airports.body', {
+          path: (s) => (
+            <strong className="onb-inline-path">
+              {pathSteps(String(s)).map((step, i) => (
+                <Fragment key={i}>
+                  {i > 0 && (
+                    <>
+                      {' '}
+                      <Icon name="chevron-right" size={13} />{' '}
+                    </>
+                  )}
+                  {step}
+                </Fragment>
+              ))}
+            </strong>
+          ),
+        })}
       </p>
       <AirportPrefs />
     </div>,
@@ -280,32 +297,23 @@ export function OnboardingV2Page() {
             <span className="onb-visual">
               <Icon name="pin" size={54} />
             </span>
-            <h1>Locatietoestemming</h1>
-            <p className="muted">
-              Voor route-tracking vraagt de app om je locatie. Er wordt alléén een GPS-punt bewaard
-              als je verplaatst, dat spaart je accu.
-            </p>
-            {permission(perms.location, 'Toestemming vragen', 'Toestemming gegeven', () =>
+            <h1>{t('onboarding.location.title')}</h1>
+            <p className="muted">{t('onboarding.location.body')}</p>
+            {permission(perms.location, t('onboarding.perm.ask'), t('onboarding.perm.granted'), () =>
               void ask('location'),
             )}
             {denied.location && !perms.location && (
-              <p className="error-text">Geweigerd. Je kunt dit later aanzetten via Instellingen.</p>
+              <p className="error-text">{t('onboarding.perm.denied')}</p>
             )}
           </div>,
           <div className="onb-feature" key="always">
             <span className="onb-visual">
               <Icon name="pin" size={54} />
             </span>
-            <h1>Locatie altijd toestaan</h1>
-            <p className="muted">
-              Tracking met het scherm uit kan alleen als locatie op “{alwaysLabel()}” staat. Vraag
-              het hier aan; stuurt je telefoon je door naar de instellingen, volg dan dit pad:
-            </p>
+            <h1>{t('onboarding.always.title')}</h1>
+            <p className="muted">{t('onboarding.always.body', { always: alwaysLabel() })}</p>
             <div className="onb-path">
-              {(isIosApp()
-                ? ['Instellingen', 'Apps', 'MarkMySteps', 'Locatie', 'Altijd']
-                : ['Apps', 'MarkMySteps', 'Rechten', 'Locatie', 'Altijd toestaan']
-              ).map((p, i) => (
+              {pathSteps(t(isIosApp() ? 'onboarding.always.pathIos' : 'onboarding.always.path')).map((p, i) => (
                 <span key={p} className="onb-path-step">
                   {i > 0 && <Icon name="chevron-right" size={13} />}
                   <span>{p}</span>
@@ -314,14 +322,14 @@ export function OnboardingV2Page() {
             </div>
             {permission(
               perms.background,
-              'Locatie altijd toestaan',
-              'Altijd toegestaan',
+              t('onboarding.always.ask'),
+              t('onboarding.always.granted'),
               () => void ask('background'),
               !perms.location,
             )}
             {!perms.background && (
               <button className="btn btn-ghost" onClick={() => void MmsLocation.openSettings()}>
-                Open systeeminstellingen
+                {t('onboarding.always.openSettings')}
               </button>
             )}
           </div>,
@@ -331,44 +339,32 @@ export function OnboardingV2Page() {
                   <span className="onb-visual">
                     <Icon name="camera" size={54} />
                   </span>
-                  <h1>Je foto's</h1>
-                  <p className="muted">
-                    Zonder server komen je foto's uit de galerij van je toestel. Ze blijven waar ze
-                    staan: de app leest ze alleen, en er gaat niets naar buiten. Android geeft de
-                    locatie in een foto pas vrij met een aparte toestemming; zonder die tweede vraag
-                    komen ze niet op de kaart.
-                  </p>
-                  {permission(gallery.library, "Toegang tot foto's", 'Toegang gegeven', () =>
-                    void askGallery(),
+                  <h1>{t('onboarding.gallery.title')}</h1>
+                  <p className="muted">{t('onboarding.gallery.body')}</p>
+                  {permission(
+                    gallery.library,
+                    t('onboarding.gallery.ask'),
+                    t('onboarding.gallery.granted'),
+                    () => void askGallery(),
                   )}
                   {gallery.library && !gallery.location && (
-                    <p className="error-text">
-                      Locatie in foto&apos;s geweigerd. Ze komen dan niet op de kaart te staan.
-                    </p>
+                    <p className="error-text">{t('onboarding.gallery.noLocation')}</p>
                   )}
                   {galleryAsked && !gallery.library && (
-                    <p className="error-text">
-                      Geweigerd. Je kunt dit later aanzetten via Instellingen.
-                    </p>
+                    <p className="error-text">{t('onboarding.perm.denied')}</p>
                   )}
                 </div>,
               ]
             : []),
           <div className="onb-feature" key="notifs">
             <VisualNotifs />
-            <h1>Meldingen</h1>
-            <p className="muted">
-              Alleen wat je moet weten: de status van je tracking en updates van je reisgenoten.
-              Geen reclame, geen tips, geen herinneringen om de app te openen. Je kunt dit altijd
-              aanpassen in de toestelinstellingen.
-            </p>
-            {permission(perms.notifications, 'Meldingen toestaan', 'Ingesteld', () =>
+            <h1>{t('onboarding.notifs.title')}</h1>
+            <p className="muted">{t('onboarding.notifs.body')}</p>
+            {permission(perms.notifications, t('onboarding.notifs.ask'), t('onboarding.notifs.granted'), () =>
               void ask('notifications'),
             )}
             {denied.notifications && !perms.notifications && (
-              <p className="error-text">
-                Geweigerd. Zonder melding kan de tracking niet op de achtergrond draaien.
-              </p>
+              <p className="error-text">{t('onboarding.notifs.denied')}</p>
             )}
           </div>,
         ]
@@ -378,8 +374,8 @@ export function OnboardingV2Page() {
     feature(
       'start',
       <VisualStart />,
-      'Begin je eerste reis',
-      'Vul een naam en je data in, en zet je stops erbij. De rest vult zichzelf terwijl je onderweg bent: je route, je foto’s en je dagen.',
+      t('onboarding.start.title'),
+      t('onboarding.start.body'),
     ),
   ];
 
@@ -406,7 +402,7 @@ export function OnboardingV2Page() {
     >
       {!last && (
         <button className="onb-skip" onClick={finish}>
-          Overslaan
+          {t('onboarding.skip')}
         </button>
       )}
 
@@ -421,7 +417,7 @@ export function OnboardingV2Page() {
           ))}
         </div>
         <button className="btn btn-primary onb-next" onClick={() => (last ? finish() : go(step + 1))}>
-          {last ? 'Aan de slag' : 'Volgende'}
+          {last ? t('onboarding.finish') : t('common.next')}
         </button>
       </div>
     </main>

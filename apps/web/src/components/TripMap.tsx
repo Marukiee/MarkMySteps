@@ -17,6 +17,8 @@ import { haptic } from '../lib/haptics';
 import { useNow } from '../lib/lastSeen';
 import './tripmap.css';
 import { paintMarker } from './Flag';
+import { t } from '../i18n';
+import { legTitle } from '../lib/legs';
 
 /** How long a line takes to come up, or to go. */
 const FADE_MS = 260;
@@ -185,12 +187,12 @@ export function TripMap({
 
     const name = document.createElement('strong');
     name.className = 'stop-popup-name';
-    name.textContent = stop.name;
+    name.textContent = legTitle(stop.name);
     body.appendChild(name);
 
     const day = stop.dayTripDate ?? stop.arrivalDate;
     const when = stop.parentStopId
-      ? `Dagtrip · ${formatDate(day)}`
+      ? t('trip.map.dayTrip', { date: formatDate(day) })
       : stop.arrivalDate.slice(0, 10) === stop.departureDate.slice(0, 10)
         ? formatDate(stop.arrivalDate)
         : formatDateRange(stop.arrivalDate, stop.departureDate);
@@ -204,7 +206,7 @@ export function TripMap({
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'stop-popup-close';
-    close.setAttribute('aria-label', 'Sluiten');
+    close.setAttribute('aria-label', t('common.close'));
     close.innerHTML =
       '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" ' +
       'stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -838,7 +840,7 @@ export function TripMap({
       el.innerHTML = '<span class="me-marker-pulse"></span><span class="me-marker-dot"></span>';
       // Tapping yourself opens today's raw fixes — the natural question to ask
       // of the dot that says where the tracker thinks you are.
-      el.title = 'Punten van vandaag';
+      el.title = t('trip.trackEdit.titleToday');
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         onSelfClickRef.current?.();
@@ -873,7 +875,7 @@ export function TripMap({
       el.className = 'waypoint-dot';
       if (waypointDeleteRef.current) {
         el.classList.add('deletable');
-        el.title = 'Klik om te verwijderen';
+        el.title = t('trip.map.tapToDelete');
         el.addEventListener('click', (e) => {
           e.stopPropagation();
           waypointDeleteRef.current?.(wp.id);

@@ -1,5 +1,6 @@
 import { CSSProperties, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getLang, intlLocale, t } from '../i18n';
 import { CountryGlobe } from './CountryGlobe';
 import { Flag } from './Flag';
 import { Icon, IconName } from './Icon';
@@ -43,11 +44,11 @@ const TILES: {
   /** Tile accent, so the block reads as a set of things rather than a table. */
   tone: string;
 }[] = [
-  { key: 'trips', label: 'reizen', icon: 'compass', tone: '#e8613c' },
-  { key: 'days', label: 'dagen op reis', icon: 'hourglass', tone: '#c98a2d' },
-  { key: 'places', label: 'plaatsen', icon: 'pin', tone: '#2a8f85' },
-  { key: 'flights', label: 'vluchten', icon: 'plane', tone: '#5b6ee1' },
-  { key: 'photoCount', label: "foto's", icon: 'camera', tone: '#b04a98' },
+  { key: 'trips', label: t('trips.stats.trips'), icon: 'compass', tone: '#e8613c' },
+  { key: 'days', label: t('trips.stats.days'), icon: 'hourglass', tone: '#c98a2d' },
+  { key: 'places', label: t('trips.stats.places'), icon: 'pin', tone: '#2a8f85' },
+  { key: 'flights', label: t('trips.stats.flights'), icon: 'plane', tone: '#5b6ee1' },
+  { key: 'photoCount', label: t('trips.stats.photos'), icon: 'camera', tone: '#b04a98' },
 ];
 
 /**
@@ -65,15 +66,15 @@ export function StatGrid({ stats }: { stats: TravelStats | null }) {
         wide
         icon="distance"
         tone="#4a8f3c"
-        label="kilometer afgelegd"
+        label={t('trips.stats.distance')}
         delay={0}
         value={stats?.distanceKm}
-        format={(v) => v.toLocaleString('nl-NL')}
+        format={(v) => v.toLocaleString(intlLocale())}
       />
       <Tile
         icon="globe"
         tone="#2f7fd4"
-        label="landen"
+        label={t('trips.stats.countries')}
         delay={60}
         value={stats?.countries.length}
       />
@@ -154,10 +155,10 @@ export function CountUp({ value, format }: { value: number; format?: (v: number)
     const start = performance.now();
     let raf = 0;
     const step = (now: number) => {
-      const t = Math.min(1, (now - start) / DURATION);
+      const progress = Math.min(1, (now - start) / DURATION);
       // Ease-out cubic: quick at first, settling onto the real number.
-      setShown(Math.round(value * (1 - Math.pow(1 - t, 3))));
-      if (t < 1) raf = requestAnimationFrame(step);
+      setShown(Math.round(value * (1 - Math.pow(1 - progress, 3))));
+      if (progress < 1) raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
@@ -166,8 +167,8 @@ export function CountUp({ value, format }: { value: number; format?: (v: number)
   return <>{format ? format(shown) : shown}</>;
 }
 
-/** Dutch country names, for the legend beside the globe. */
-const COUNTRY_NAMES = new Intl.DisplayNames(['nl'], { type: 'region' });
+/** Country names in the app's language, for the legend beside the globe. */
+const COUNTRY_NAMES = new Intl.DisplayNames([getLang()], { type: 'region' });
 
 function countryName(code: string): string {
   try {
@@ -187,7 +188,7 @@ function countryName(code: string): string {
 export function CountryPanel({ countries }: { countries: string[] | null }) {
   if (countries !== null && countries.length === 0) return null;
   const sorted = [...(countries ?? [])].sort((a, b) =>
-    countryName(a).localeCompare(countryName(b), 'nl'),
+    countryName(a).localeCompare(countryName(b), getLang()),
   );
   return (
     <section className="country-panel">
@@ -223,7 +224,7 @@ export function RecentTrips({
   if (trips.length === 0) return null;
   return (
     <section className="recent-trips">
-      <h3>{who ? `Laatste reizen van ${who}` : 'Je laatste reizen'}</h3>
+      <h3>{who ? t('trips.stats.recentOf', { name: who }) : t('trips.stats.recentMine')}</h3>
       <ul>
         {trips.map((trip, i) => (
           <li key={trip.id} style={{ animationDelay: `${i * 55}ms` }}>
@@ -232,7 +233,7 @@ export function RecentTrips({
               <span className="recent-name">
                 <strong>{trip.title}</strong>
                 <small>
-                  {new Date(trip.startDate).toLocaleDateString('nl-NL', {
+                  {new Date(trip.startDate).toLocaleDateString(intlLocale(), {
                     month: 'long',
                     year: 'numeric',
                   })}

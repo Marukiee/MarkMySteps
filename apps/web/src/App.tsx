@@ -21,6 +21,7 @@ import { isNativeApp, isOnboarded } from './lib/native';
 import { resumeBackgroundNotify, takeNotificationPath } from './lib/notify';
 import { BootScreen } from './components/BootScreen';
 import { useExit } from './lib/useExit';
+import { tr } from './i18n/rich';
 
 /**
  * Pages arrive when they are asked for.
@@ -129,8 +130,7 @@ function Shell() {
       <TopBar />
       {user?.mustChangePassword && (
         <div className="pw-banner">
-          Je gebruikt nog een tijdelijk wachtwoord. Kies een eigen wachtwoord bij{' '}
-          <Link to="/settings">Instellingen</Link>.
+          {tr('app.tempPassword', { link: (s) => <Link to="/settings">{s}</Link> })}
         </div>
       )}
       <Outlet />

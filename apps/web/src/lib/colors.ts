@@ -1,3 +1,5 @@
+import { intlLocale, t } from '../i18n';
+
 /** Stable per-traveller route colors — warm, distinct, readable on light maps. */
 const PALETTE = ['#e8613c', '#2a8f85', '#5b6ee1', '#c98a2d', '#b04a98', '#4a8f3c', '#8a5be1'];
 
@@ -22,7 +24,7 @@ export function lighten(hex: string, amount: number): string {
 }
 
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /**
@@ -33,17 +35,17 @@ export function formatDate(iso: string): string {
 export function formatDateRange(from: string, to: string): string {
   const a = new Date(from);
   const b = new Date(to);
-  const day = (d: Date) => d.toLocaleDateString('nl-NL', { day: 'numeric' });
-  const dayMonth = (d: Date) => d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+  const day = (d: Date) => d.toLocaleDateString(intlLocale(), { day: 'numeric' });
+  const dayMonth = (d: Date) => d.toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short' });
   const full = (d: Date) =>
-    d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
-  if (a.getFullYear() !== b.getFullYear()) return `${full(a)} t/m ${full(b)}`;
-  if (a.getMonth() === b.getMonth()) return `${day(a)} t/m ${full(b)}`;
-  return `${dayMonth(a)} t/m ${full(b)}`;
+    d.toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
+  if (a.getFullYear() !== b.getFullYear()) return t('common.dateRange', { from: full(a), to: full(b) });
+  if (a.getMonth() === b.getMonth()) return t('common.dateRange', { from: day(a), to: full(b) });
+  return t('common.dateRange', { from: dayMonth(a), to: full(b) });
 }
 
 export function formatDay(iso: string): string {
-  return new Date(iso).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' });
+  return new Date(iso).toLocaleDateString(intlLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 /** "NL" → 🇳🇱 (regional indicator pair); empty for unknown codes. */

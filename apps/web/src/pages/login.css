@@ -193,3 +193,32 @@
   font-size: 1.25rem;
   text-align: center;
 }
+
+/* The language switch under the card: two names, quiet until one is needed.
+   Pulled up into the shell's gap so it reads as part of the card's footing
+   rather than as a third block on the page. The one in use sits on the same
+   sunken pill as the tabs above. */
+.login-lang {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: -1.25rem;
+  animation: rise 0.5s var(--ease) backwards;
+}
+
+.login-lang button {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.login-lang button:hover {
+  color: var(--ink);
+}
+
+.login-lang button.active {
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--paper-sunken);
+}

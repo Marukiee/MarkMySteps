@@ -7,6 +7,7 @@ import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SERVER_URL } from '../config';
 import { mediaSrc } from '../lib/gallery';
 import { isLocalMode } from '../lib/localMode';
+import { getLang, hasKey, t, tDynamic } from '../i18n';
 import {
   cacheGetJson,
   cachePutJson,
@@ -65,9 +66,44 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    /** The server's name for what went wrong (`password.tooShort`), when it gave one. */
+    public readonly code?: string,
   ) {
     super(message);
   }
+}
+
+/** What an error answer of the server says, as JSON. */
+interface ErrorBody {
+  message?: string | string[];
+  code?: string;
+  params?: Record<string, string | number>;
+}
+
+/**
+ * The sentence to show for an error answer of the server.
+ *
+ * The server names what went wrong with a code and says it in English; the
+ * app has the words for each code in every language. A code the app does not
+ * know yet (a newer server) falls back to the server's own English.
+ */
+export function apiErrorText(status: number, body: ErrorBody | null): string {
+  const key = body?.code ? `apiError.${body.code}` : null;
+  if (key && hasKey(key)) return tDynamic(key, body?.params);
+  const message = body?.message;
+  if (Array.isArray(message)) return message.join(', ');
+  return message ?? t('app.error.status', { status });
+}
+
+/** Builds the ApiError for a failed response, reading its body if it has one. */
+export async function apiErrorFrom(res: Response): Promise<ApiError> {
+  let body: ErrorBody | null = null;
+  try {
+    body = (await res.json()) as ErrorBody;
+  } catch {
+    /* not JSON: the status says it all */
+  }
+  return new ApiError(res.status, apiErrorText(res.status, body), body?.code);
 }
 
 /**
@@ -188,6 +224,8 @@ export async function api<T>(
       headers: {
         ...(token ? { authorization: `Bearer ${token}` } : {}),
         ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
+        // So whatever the server writes itself (a notification) is in the app's language.
+        'accept-language': getLang(),
       },
       body:
         options.formData ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
@@ -224,21 +262,12 @@ export async function api<T>(
     if (outcome === 'invalid') {
       clearTokens();
       onLogout?.();
-      throw new ApiError(401, 'Sessie verlopen, log opnieuw in');
+      throw new ApiError(401, t('app.error.sessionExpired'));
     }
-    throw new ApiError(503, 'Server even niet bereikbaar');
+    throw new ApiError(503, t('app.error.serverUnreachable'));
   }
 
-  if (!res.ok) {
-    let message = `Fout ${res.status}`;
-    try {
-      const data = (await res.json()) as { message?: string | string[] };
-      message = Array.isArray(data.message) ? data.message.join(', ') : (data.message ?? message);
-    } catch {
-      /* keep default */
-    }
-    throw new ApiError(res.status, message);
-  }
+  if (!res.ok) throw await apiErrorFrom(res);
 
   if (res.status === 204) return undefined as T;
   const data = (await res.json()) as T;
@@ -288,7 +317,7 @@ export async function fetchBlobUrl(path: string): Promise<string> {
   if (isLocalMode()) {
     const match = LOCAL_MEDIA.exec(path);
     if (match) return mediaSrc(decodeURIComponent(match[1]!));
-    throw new ApiError(404, 'Geen afbeelding');
+    throw new ApiError(404, t('app.error.noImage'));
   }
   await acquireBlobSlot();
   try {
@@ -307,7 +336,7 @@ export async function fetchBlobUrl(path: string): Promise<string> {
     if (!res.ok) {
       const cached = await thumbCacheMatch(path);
       if (cached) return URL.createObjectURL(await cached.blob());
-      throw new ApiError(res.status, 'Kon afbeelding niet laden');
+      throw new ApiError(res.status, t('app.error.imageFailed'));
     }
     // Cache a copy for offline viewing (clone before reading the body).
     void thumbCachePut(path, res.clone());

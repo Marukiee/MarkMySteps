@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchWeather, Weather } from '../lib/weather';
+import { t } from '../i18n';
 
 /**
  * Small weather chip for a located stop on a given day.
@@ -35,7 +36,7 @@ export function WeatherBadge({
   return (
     <>
       {separator && <span className="weather-sep"> · </span>}
-      <span className="weather-badge" title="Huidig weer">
+      <span className="weather-badge" title={t('trip.weather.current')}>
         {weather.emoji} {weather.temperature}°
       </span>
     </>

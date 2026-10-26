@@ -10,8 +10,8 @@ import {
   RecentTrips,
   StatGrid,
   TravelStats,
-  plural,
 } from '../components/TravelStatsView';
+import { t } from '../i18n';
 import { isLocalMode, travellersTabLabel } from '../lib/localMode';
 import './friends.css';
 
@@ -75,12 +75,12 @@ export function FriendsPage() {
               <strong>{user.displayName}</strong>
               {/* Your own row does not need your handle back: you know who you
                   are. What it needs to say is whose numbers these are. */}
-              <span className="muted">Jouw statistieken</span>
+              <span className="muted">{t('social.friends.yourStats')}</span>
             </div>
             {!!mine?.ongoing && (
               <span className="stats-ongoing">
                 <span className="stats-ongoing-dot" />
-                {mine.ongoing === 1 ? 'onderweg' : `${mine.ongoing}× onderweg`}
+                {t('social.ongoing', { count: mine.ongoing })}
               </span>
             )}
           </header>
@@ -93,18 +93,13 @@ export function FriendsPage() {
 
       {!local && (
         <>
-          <h2 className="friends-heading">Mensen op je reizen</h2>
-          <p className="muted friends-intro">
-            Iedereen met wie je een reis deelt, reisgenoot of gast. Toevoegen doe je per reis: open
-            een reis, tik het mensen-icoon en vul de @gebruikersnaam in.
-          </p>
+          <h2 className="friends-heading">{t('social.friends.heading')}</h2>
+          <p className="muted friends-intro">{t('social.friends.intro')}</p>
 
           {friends?.length === 0 && (
             <div className="card friends-empty">
-              <h2>Nog niemand</h2>
-              <p className="muted">
-                Laat je vrienden een account maken op deze server en voeg ze toe aan een reis.
-              </p>
+              <h2>{t('social.friends.empty.title')}</h2>
+              <p className="muted">{t('social.friends.empty.body')}</p>
             </div>
           )}
 
@@ -125,7 +120,7 @@ export function FriendsPage() {
                 <div className="friend-card-body">
                   <strong>{friend.displayName}</strong>
                   <p className="muted">
-                    @{friend.username} · {plural(friend.sharedTrips, 'gedeelde reis', 'gedeelde reizen')}
+                    @{friend.username} · {t('social.friends.sharedTrips', { count: friend.sharedTrips })}
                   </p>
                 </div>
                 <Icon name="chevron-right" size={18} className="friend-card-caret" />

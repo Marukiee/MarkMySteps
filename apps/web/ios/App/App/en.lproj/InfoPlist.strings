@@ -1,0 +1,5 @@
+/* What iOS shows when it asks for a permission, in English. */
+"NSCameraUsageDescription" = "To take a profile photo with your camera.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "With Always, MarkMySteps keeps recording your route while your screen is off: one reading per interval, easy on your battery.";
+"NSLocationWhenInUseUsageDescription" = "MarkMySteps puts your route on the map of your trip.";
+"NSPhotoLibraryUsageDescription" = "To show the photos of your trip on the map and in the timeline. They stay on your phone.";

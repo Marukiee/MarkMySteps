@@ -13,6 +13,7 @@ import { AuthImage } from './AuthImage';
 import { confirmModal } from './confirm';
 import { Icon } from './Icon';
 import { SummaryStudio } from './SummaryStudio';
+import { t } from '../i18n';
 import './summary.css';
 
 /**
@@ -56,9 +57,9 @@ export function SummaryPanel({
 
   async function remove(summary: TripSummaryInfo) {
     const ok = await confirmModal({
-      title: 'Samenvatting verwijderen?',
-      body: `“${summary.title}” wordt van de server gehaald. Wat je al gedeeld hebt blijft staan.`,
-      confirmLabel: 'Verwijderen',
+      title: t('summary.delete.title'),
+      body: t('summary.delete.body', { title: summary.title }),
+      confirmLabel: t('common.delete'),
       danger: true,
     });
     if (!ok) return;
@@ -70,7 +71,7 @@ export function SummaryPanel({
         setLeaving((list) => list.filter((id) => id !== summary.id));
       }, 260);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verwijderen mislukt');
+      setError(err instanceof Error ? err.message : t('summary.delete.failed'));
     }
   }
 
@@ -85,14 +86,14 @@ export function SummaryPanel({
   return (
     <section className="summary-panel">
       <h2 className="trip-side-heading">
-        Samenvattingen <span className="summary-beta">(bèta)</span>
+        {t('summary.panel.title')} <span className="summary-beta">{t('summary.beta')}</span>
       </h2>
       <p className="muted summary-hint">
         {isGuest
-          ? 'Reisgenoten kunnen hier posters van deze reis maken.'
+          ? t('summary.panel.hintGuest')
           : hasPhotos
-            ? 'Een poster van de reis, van een dag of van een stuk ervan, klaar om te delen.'
-            : 'Zodra er foto’s in deze reis staan kun je er een poster van maken.'}
+            ? t('summary.panel.hint')
+            : t('summary.panel.hintNoPhotos')}
       </p>
 
       {/* Every layout is built around photographs, and the two that lean on
@@ -110,7 +111,7 @@ export function SummaryPanel({
           }}
         >
           <Icon name="plus" size={16} />
-          Samenvatting maken
+          {t('summary.make')}
         </button>
       )}
 
@@ -276,11 +277,11 @@ function SummaryCard({
         saved = true;
         window.setTimeout(() => URL.revokeObjectURL(href), 30_000);
       }
-      setNote(saved ? 'Bewaard in je downloads' : 'Opslaan lukte niet');
+      setNote(saved ? t('summary.card.savedToDownloads') : t('summary.card.saveFailed'));
     } catch (err) {
       // A share the user waved away is not a failure worth reporting.
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      setNote('Delen lukte niet, houd de poster ingedrukt om hem te bewaren');
+      setNote(t('summary.card.shareFailed'));
     } finally {
       setBusy(false);
       closeMenu();
@@ -307,7 +308,7 @@ function SummaryCard({
       <button
         type="button"
         className={`summary-card-menu-btn ${menu && !menuClosing ? 'open' : ''}`}
-        aria-label="Meer"
+        aria-label={t('common.more')}
         aria-expanded={menu && !menuClosing}
         onClick={(e) => {
           if (menu) {
@@ -343,11 +344,11 @@ function SummaryCard({
         >
               <button type="button" disabled={busy} onClick={() => void share()}>
                 <Icon name="download" size={15} />
-                Downloaden en delen
+                {t('summary.card.share')}
               </button>
               <button type="button" onClick={onEdit}>
                 <Icon name="pencil" size={15} />
-                Aanpassen
+                {t('summary.card.edit')}
               </button>
               <button
                 type="button"
@@ -358,7 +359,7 @@ function SummaryCard({
                 }}
               >
                 <Icon name="trash" size={15} />
-                Verwijderen
+                {t('common.delete')}
               </button>
         </div>,
         document.body,
@@ -372,7 +373,7 @@ function SummaryCard({
 function toBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error('kon het bestand niet lezen'));
+    reader.onerror = () => reject(new Error(t('app.error.fileRead')));
     reader.onload = () => {
       const result = String(reader.result);
       resolve(result.slice(result.indexOf(',') + 1));
@@ -389,6 +390,6 @@ function slug(text: string): string {
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
-      .slice(0, 40) || 'samenvatting'
+      .slice(0, 40) || t('summary.fileName')
   );
 }

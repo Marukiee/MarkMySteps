@@ -1,21 +1,21 @@
 import { ApiError } from '../api/client';
+import { t, TKey } from '../i18n';
 
 /**
  * What to tell somebody when the server turned a sign-in step down.
  *
  * The server's own messages are English and short. The ones a person will meet
- * while setting this up or signing in are said in Dutch here; anything else is
- * passed on as it came.
+ * while setting this up or signing in are said in the app's language here;
+ * anything else is passed on as it came.
  */
-const KNOWN: Record<string, string> = {
-  'That code is not right': 'Die code klopt niet.',
-  'That code is not right. Check the clock on your phone.':
-    'Die code klopt niet. Controleer of de klok van je telefoon goed staat.',
-  'Current password is incorrect': 'Dat wachtwoord klopt niet.',
-  'Invalid email or password': 'E-mailadres of wachtwoord klopt niet.',
-  'Two-step verification is already on': 'Tweestapsverificatie staat al aan.',
-  'Two-step verification is off': 'Tweestapsverificatie staat uit.',
-  'Start the setup first': 'Begin eerst met de installatie.',
+const KNOWN: Record<string, TKey> = {
+  'That code is not right': 'auth.error.codeWrong',
+  'That code is not right. Check the clock on your phone.': 'auth.error.codeWrongClock',
+  'Current password is incorrect': 'auth.error.passwordWrong',
+  'Invalid email or password': 'auth.error.loginWrong',
+  'Two-step verification is already on': 'auth.error.twoFactorOn',
+  'Two-step verification is off': 'auth.error.twoFactorOff',
+  'Start the setup first': 'auth.error.setupFirst',
 };
 
 export function signInProblem(err: unknown, fallback: string): string {
@@ -23,14 +23,17 @@ export function signInProblem(err: unknown, fallback: string): string {
     if (err.status === 429) {
       const minutes = /(\d+) minute/.exec(err.message)?.[1];
       return minutes
-        ? `Te veel foute pogingen. Probeer het over ${minutes} ${minutes === '1' ? 'minuut' : 'minuten'} opnieuw.`
-        : 'Te veel pogingen. Probeer het zo opnieuw.';
+        ? t('auth.error.tooManyMinutes', { count: Number(minutes) })
+        : t('auth.error.tooMany');
     }
     if (err.status === 401 && err.message === 'Sign in again') {
-      return 'Je inlogpoging is verlopen. Log opnieuw in.';
+      return t('auth.error.expired');
     }
   }
-  if (err instanceof Error) return KNOWN[err.message] ?? err.message;
+  if (err instanceof Error) {
+    const key = KNOWN[err.message];
+    return key ? t(key) : err.message;
+  }
   return fallback;
 }
 

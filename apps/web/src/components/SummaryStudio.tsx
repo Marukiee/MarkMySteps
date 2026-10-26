@@ -34,6 +34,7 @@ import { DateField } from './DatePicker';
 import { SummaryPageViewer, SummaryPhotoSwap } from './SummaryOverlays';
 import { SummarySchematic } from './SummarySchematic';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 import './summary.css';
 
 /**
@@ -236,7 +237,7 @@ export function SummaryStudio({
         })
         .catch((err: unknown) => {
           if (renderToken.current !== token) return;
-          setError(err instanceof Error ? err.message : 'Renderen mislukt');
+          setError(err instanceof Error ? err.message : t('summary.error.render'));
         })
         .finally(() => {
           if (renderToken.current === token) {
@@ -296,16 +297,16 @@ export function SummaryStudio({
       onSaved(saved, replaces ?? null);
       close();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Opslaan mislukt');
+      setError(err instanceof Error ? err.message : t('summary.error.save'));
     } finally {
       setSaving(false);
     }
   }
 
   const scopes: { kind: Scope['kind']; label: string }[] = [
-    { kind: 'trip', label: 'Hele reis' },
-    { kind: 'day', label: 'Eén dag' },
-    { kind: 'range', label: 'Periode' },
+    { kind: 'trip', label: t('summary.scope.trip') },
+    { kind: 'day', label: t('summary.scope.day') },
+    { kind: 'range', label: t('summary.scope.range') },
   ];
 
   return createPortal(
@@ -313,19 +314,19 @@ export function SummaryStudio({
       <div className="summary-studio card" onClick={(e) => e.stopPropagation()}>
         <div className="summary-studio-head">
           <h2>
-            Samenvatting maken <span className="summary-beta">(bèta)</span>
+            {t('summary.make')} <span className="summary-beta">{t('summary.beta')}</span>
           </h2>
-          <button className="people-sheet-close" aria-label="Sluiten" onClick={close}>
+          <button className="people-sheet-close" aria-label={t('common.close')} onClick={close}>
             <Icon name="close" size={18} />
           </button>
         </div>
 
         <div className="summary-preview" data-busy={busy}>
-          {pages.length === 0 && !busy && <p className="muted">Nog niets om te tonen.</p>}
+          {pages.length === 0 && !busy && <p className="muted">{t('summary.preview.empty')}</p>}
           <div className="summary-preview-strip" data-single={pages.length === 1}>
             {pages.map((page, i) => (
               <figure key={page.url} className="summary-preview-page">
-                <img src={page.url} alt={`Pagina ${i + 1}`} />
+                <img src={page.url} alt={t('summary.preview.pageAlt', { n: i + 1 })} />
                 {/* Every photograph on the poster is a target: press the one
                     you want to be something else. The rest of the page opens
                     it full size. */}
@@ -334,7 +335,7 @@ export function SummaryStudio({
                     key={si}
                     type="button"
                     className="summary-slot-hit"
-                    aria-label="Andere foto kiezen"
+                    aria-label={t('summary.preview.swapPhoto')}
                     style={{
                       left: `${(slot.box.x / page.width) * 100}%`,
                       top: `${(slot.box.y / page.height) * 100}%`,
@@ -360,7 +361,7 @@ export function SummaryStudio({
             <button
               type="button"
               className="summary-fullscreen"
-              aria-label="Groter bekijken"
+              aria-label={t('summary.preview.enlarge')}
               onClick={() => setZoomed(0)}
             >
               <Icon name="external" size={16} />
@@ -369,13 +370,15 @@ export function SummaryStudio({
           {busy && (
             <div className="summary-preview-busy">
               <span className="summary-spinner" aria-hidden="true" />
-              <span>{progress ? `Pagina ${progress.done} van ${progress.total}…` : 'Tekenen…'}</span>
+              <span>{progress
+                  ? t('summary.preview.progress', { done: progress.done, total: progress.total })
+                  : t('summary.preview.drawing')}</span>
             </div>
           )}
         </div>
 
         <section className="summary-field">
-          <label>Welk deel</label>
+          <label>{t('summary.scope.label')}</label>
           <div className="summary-pills">
             {scopes.map((s) => (
               <button
@@ -383,7 +386,7 @@ export function SummaryStudio({
                 type="button"
                 className={scope.kind === s.kind ? 'active' : ''}
                 disabled={s.kind === 'day' && !dayAllowed}
-                title={s.kind === 'day' && !dayAllowed ? 'Een stoppenlint heeft meer dan één plaats nodig' : undefined}
+                title={s.kind === 'day' && !dayAllowed ? t('summary.scope.dayNeedsPlaces') : undefined}
                 onClick={() => {
                   if (s.kind === 'trip') setScope({ kind: 'trip', from: tripStart, to: tripEnd });
                   else if (s.kind === 'day') {
@@ -402,7 +405,7 @@ export function SummaryStudio({
             <DateField
               value={scope.from}
               onChange={(value) => setScope({ kind: 'day', from: value, to: value })}
-              label="Dag"
+              label={t('summary.scope.dayField')}
               nearDate={tripStart}
             />
           )}
@@ -411,26 +414,26 @@ export function SummaryStudio({
               <DateField
                 value={scope.from}
                 onChange={(value) => setScope({ ...scope, from: value, to: value > scope.to ? value : scope.to })}
-                label="Van"
+                label={t('summary.scope.from')}
                 nearDate={tripStart}
               />
               <DateField
                 value={scope.to}
                 onChange={(value) => setScope({ ...scope, to: value < scope.from ? scope.from : value })}
-                label="Tot en met"
+                label={t('summary.scope.to')}
                 nearDate={scope.from}
               />
             </div>
           )}
           <span className="muted summary-note">
-            {scopeFacts.photos} foto{scopeFacts.photos === 1 ? '' : "'s"}
-            {scopeFacts.stops > 0 && `, ${scopeFacts.stops} stop${scopeFacts.stops === 1 ? '' : 's'}`}
-            {scopeFacts.days > 1 && `, ${scopeFacts.days} dagen`}
+            {t('common.photosCount', { count: scopeFacts.photos })}
+            {scopeFacts.stops > 0 && `, ${t('common.stops', { count: scopeFacts.stops })}`}
+            {scopeFacts.days > 1 && `, ${t('common.days', { count: scopeFacts.days })}`}
           </span>
         </section>
 
         <section className="summary-field">
-          <label>Uiterlijk</label>
+          <label>{t('summary.look.label')}</label>
           <div className="summary-templates">
             {(Object.keys(TEMPLATE_NAMES) as TemplateId[]).map((id) => (
               <button
@@ -451,16 +454,18 @@ export function SummaryStudio({
             ))}
           </div>
           {!touchedTemplate && (
-            <span className="muted summary-note">Voorgesteld op basis van deze dagen.</span>
+            <span className="muted summary-note">{t('summary.look.suggested')}</span>
           )}
         </section>
 
         {!series && scopePhotos.length > 0 && (
           <section className="summary-field">
             <label>
-              Foto’s
+              {t('summary.photos.label')}
               <span className="summary-field-note">
-                {photoIds.length > 0 ? `${photoIds.length} van ${slots} gekozen` : 'automatisch'}
+                {photoIds.length > 0
+                  ? t('summary.photos.picked', { picked: photoIds.length, slots })
+                  : t('summary.photos.auto')}
               </span>
             </label>
             <div className="summary-photo-strip">
@@ -497,7 +502,7 @@ export function SummaryStudio({
                   className="btn btn-ghost summary-photo-clear"
                   onClick={() => setPhotoIds([])}
                 >
-                  Weer automatisch kiezen
+                  {t('summary.photos.reset')}
                 </button>
               </div>
             </div>
@@ -505,7 +510,7 @@ export function SummaryStudio({
         )}
 
         <section className="summary-field">
-          <label>Formaat</label>
+          <label>{t('summary.format.label')}</label>
           <div className="summary-pills">
             {(Object.keys(FORMATS) as FormatId[]).map((id) => (
               <button
@@ -523,7 +528,7 @@ export function SummaryStudio({
         </section>
 
         <section className="summary-field">
-          <label>Thema</label>
+          <label>{t('summary.theme.label')}</label>
           <div className="summary-pills">
             {(Object.keys(THEME_NAMES) as ThemeId[]).map((id) => (
               <button
@@ -539,7 +544,7 @@ export function SummaryStudio({
         </section>
 
         <section className="summary-field">
-          <label>Onder de titel</label>
+          <label>{t('summary.subtitle.label')}</label>
           <div className="summary-pills">
             {(['auto', 'countries', 'place'] as SubtitleMode[]).map((id) => (
               <button
@@ -560,29 +565,24 @@ export function SummaryStudio({
             <input
               value={subtitleText}
               onChange={(e) => setSubtitleText(e.target.value)}
-              placeholder="of typ zelf wat"
+              placeholder={t('summary.subtitle.placeholder')}
             />
             {subtitleText && (
-              <button type="button" aria-label="Wissen" onClick={() => setSubtitleText('')}>
+              <button type="button" aria-label={t('summary.subtitle.clear')} onClick={() => setSubtitleText('')}>
                 <Icon name="close" size={14} />
               </button>
             )}
           </div>
           <span className="muted summary-note">
-            “Automatisch” zegt bij een hele reis in welke landen je was, en bij een dag of een
-            periode waar je toen zat.
+            {t('summary.subtitle.hint')}
           </span>
         </section>
 
         {scopeFacts.days > 1 && seriesAllowed && (
           <label className="summary-toggle summary-toggle-loud">
             <div>
-              <strong>Meerdere afbeeldingen: één pagina per stop</strong>
-              <span className="muted">
-                In plaats van één poster: een omslag met de hele route, dan een pagina per plaats
-                waar je sliep met de foto’s van díe plaats, en de cijfers als slot. Maximaal tien
-                stops, klaar om als carrousel te posten.
-              </span>
+              <strong>{t('summary.series.title')}</strong>
+              <span className="muted">{t('summary.series.body')}</span>
             </div>
             <input type="checkbox" checked={series} onChange={(e) => setSeries(e.target.checked)} />
           </label>
@@ -590,16 +590,16 @@ export function SummaryStudio({
 
         <label className="summary-toggle">
           <div>
-            <strong>Logo tonen</strong>
-            <span className="muted">Het kompas en de naam, klein linksboven.</span>
+            <strong>{t('summary.logo.title')}</strong>
+            <span className="muted">{t('summary.logo.body')}</span>
           </div>
           <input type="checkbox" checked={showLogo} onChange={(e) => setShowLogo(e.target.checked)} />
         </label>
 
         <label className="summary-toggle">
           <div>
-            <strong>Weer tonen</strong>
-            <span className="muted">Het echte weer van die dag, op de plek waar je toen was.</span>
+            <strong>{t('summary.weather.title')}</strong>
+            <span className="muted">{t('summary.weather.body')}</span>
           </div>
           <input
             type="checkbox"
@@ -609,7 +609,7 @@ export function SummaryStudio({
         </label>
 
         <section className="summary-field">
-          <label htmlFor="summary-title">Naam</label>
+          <label htmlFor="summary-title">{t('summary.name.label')}</label>
           <div className="summary-input">
             <input
               id="summary-title"
@@ -653,7 +653,7 @@ export function SummaryStudio({
 
         <div className="summary-studio-actions">
           <button type="button" className="btn btn-ghost" onClick={close}>
-            Annuleren
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -663,12 +663,12 @@ export function SummaryStudio({
           >
             <Icon name="check" size={16} />
             {saving
-              ? 'Opslaan…'
+              ? t('common.saving')
               : replaces
-                ? 'Versie opslaan'
+                ? t('summary.save.version')
                 : pages.length > 1
-                  ? `${pages.length} pagina’s bewaren`
-                  : 'Bewaren'}
+                  ? t('summary.save.pages', { count: pages.length })
+                  : t('summary.save.one')}
           </button>
         </div>
       </div>
