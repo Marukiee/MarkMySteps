@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { t, intlLocale } from '../i18n';
 import { useExit } from '../lib/useExit';
+import { nativeMenusAvailable, showNativeMenu } from '../lib/nativeMenu';
 import { Icon } from './Icon';
 import './dayfilter.css';
 
@@ -122,6 +123,36 @@ export function DayFilter({
     onChange(day);
   }
 
+  /** On the iPhone the list is the system's own menu, the whole trip above a
+   *  line and the days under it. */
+  function toggle() {
+    if (open || !nativeMenusAvailable() || !btnRef.current) {
+      setOpen((o) => !o);
+      return;
+    }
+    void showNativeMenu(btnRef.current, [
+      [
+        {
+          id: '',
+          title: t('trip.dayFilter.wholeTrip'),
+          subtitle: t('common.days', { count: days.length }),
+          checked: value === null,
+        },
+      ],
+      days.map((day) => ({
+        id: day.day,
+        title: longDay(day.day),
+        subtitle: t('common.photosCount', { count: day.photos }),
+        checked: value === day.day,
+      })),
+    ])
+      .then((id) => {
+        if (id !== null) onChange(id || null);
+      })
+      // This iOS cannot open one itself: the page's menu can.
+      .catch(() => setOpen(true));
+  }
+
   return (
     <div className="day-filter">
       <button
@@ -129,7 +160,7 @@ export function DayFilter({
         type="button"
         className={`day-filter-btn ${value ? 'on' : ''} ${open ? 'open' : ''}`}
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
       >
         <Icon name="calendar" size={14} />
         <span className="day-filter-label">{value ? longDay(value) : t('trip.dayFilter.wholeTrip')}</span>

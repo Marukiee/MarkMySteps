@@ -30,6 +30,7 @@ import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { StopSuggestions, type StaySuggestion } from './StopSuggestions';
 import { haptic } from '../lib/haptics';
 import { isIosApp } from '../lib/native';
+import { nativeMenusAvailable, showNativeMenu } from '../lib/nativeMenu';
 import { IosSwipeToDelete, type SwipeRowProps } from './IosSwipeToDelete';
 import { useExit } from '../lib/useExit';
 import { cachePutJson } from '../lib/offlineCache';
@@ -1712,8 +1713,18 @@ function AltMetric({ km, mode }: { km: number; mode: TravelMode }) {
   );
 }
 
+/** The same modes as SF Symbols, for the iPhone's own menu. */
+const MODE_SYMBOL: Record<TravelMode, string> = {
+  GROUND: 'car',
+  TRAIN: 'tram',
+  BUS: 'bus',
+  BOAT: 'ferry',
+  FLIGHT: 'airplane',
+};
+
 /** A pill with a dropdown to pick a travel mode (car/train/bus/boat/flight).
- *  Used to add an outbound/return leg, and to change a standalone leg's mode. */
+ *  Used to add an outbound/return leg, and to change a standalone leg's mode.
+ *  On the iPhone the dropdown is the system's own menu. */
 function ModeMenu({
   label,
   current,
@@ -1764,7 +1775,26 @@ function ModeMenu({
         type="button"
         className="mode-menu-pill"
         disabled={readOnly}
-        onClick={() => (open ? close() : setOpen(true))}
+        onClick={(e) => {
+          if (open) {
+            close();
+            return;
+          }
+          if (!nativeMenusAvailable()) {
+            setOpen(true);
+            return;
+          }
+          const modes = TRAVEL_MODES.map((m) => ({
+            id: m,
+            title: MODE_LABEL[m],
+            symbol: MODE_SYMBOL[m],
+            checked: current === m,
+          }));
+          void showNativeMenu(e.currentTarget, [modes])
+            .then((id) => id && onPick(id as TravelMode))
+            // This iOS cannot open one itself: the page's menu can.
+            .catch(() => setOpen(true));
+        }}
       >
         {/* Keyed on the mode so picking another one cross-fades icon + label
             instead of swapping them instantly. */}
