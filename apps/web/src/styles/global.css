@@ -312,6 +312,77 @@ textarea {
   font-size: max(16px, 1em);
 }
 
+/* Every box in the app turns something on or off, and on an iPhone that is
+   the system's switch, not a box with a tick: a UISwitch's 63 by 28, its grey
+   and green, and the wide knob iOS 26 slides across. Held, the knob stretches
+   towards the side it is about to go to, as the real one does. */
+.ios-app input[type='checkbox'] {
+  width: 63px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: #c5c5c7;
+  transition: background-color 0.25s var(--ease), opacity 0.2s var(--ease);
+}
+
+:root[data-theme='dark'].ios-app input[type='checkbox'] {
+  background: #5a5a5e;
+}
+
+.ios-app input[type='checkbox']:checked {
+  background: #34c759;
+}
+
+:root[data-theme='dark'].ios-app input[type='checkbox']:checked {
+  background: #30d158;
+}
+
+.ios-app input[type='checkbox']:active {
+  transform: none;
+}
+
+.ios-app input[type='checkbox']:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ios-app input[type='checkbox']:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.ios-app input[type='checkbox']::after {
+  left: 2px;
+  top: 2px;
+  width: 37px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  opacity: 1;
+  transform: none;
+  transition: transform 0.34s cubic-bezier(0.3, 1.25, 0.5, 1), width 0.2s var(--ease);
+}
+
+.ios-app input[type='checkbox']:checked::after {
+  transform: translateX(22px);
+}
+
+.ios-app input[type='checkbox']:active:not(:disabled)::after {
+  width: 43px;
+}
+
+.ios-app input[type='checkbox']:checked:active:not(:disabled)::after {
+  transform: translateX(16px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ios-app input[type='checkbox'],
+  .ios-app input[type='checkbox']::after {
+    transition: none;
+  }
+}
+
 ::selection {
   background: var(--accent-soft);
 }
