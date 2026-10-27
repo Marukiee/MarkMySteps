@@ -650,7 +650,7 @@ export function TripDetailPage() {
    * over real roads. A yes/no box could only ever ask one of them.
    */
   const handleLongPress = useCallback(
-    async (lngLat: { lng: number; lat: number }) => {
+    async (lngLat: { lng: number; lat: number }, at: { x: number; y: number }) => {
       if (!tripId || tab === 'plan' || !canEdit) return;
       // Asked for, not waited for. Whether an auto-drawn stretch sits here is
       // the one thing only the server knows, and holding the menu shut until
@@ -717,6 +717,7 @@ export function TripDetailPage() {
         body: t('trip.line.body'),
         choices,
         more,
+        at,
       });
       if (!picked) return;
 

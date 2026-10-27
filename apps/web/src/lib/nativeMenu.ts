@@ -22,9 +22,11 @@ interface MmsMenuPlugin {
     height: number;
     title?: string;
     sections: NativeMenuItem[][];
+    pending?: boolean;
     tint?: string;
     dark: boolean;
   }): Promise<{ id?: string }>;
+  fill(options: { items: NativeMenuItem[] }): Promise<void>;
 }
 
 const MmsMenu = registerPlugin<MmsMenuPlugin>('MmsMenu');
@@ -39,17 +41,23 @@ export function nativeMenusAvailable(): boolean {
 }
 
 /**
- * Opens the system menu from `from`, the pill that was tapped, in groups with
- * a line between them. The picked id, or null when the menu was put away.
- * Rejects on an iOS too old to open a menu by itself; the page's own menu is
- * the way out then.
+ * Opens the system menu from `from`, the pill that was tapped or the point a
+ * finger held, in groups with a line between them. The picked id, or null when
+ * the menu was put away. Rejects on an iOS too old to open a menu by itself;
+ * the page's own menu is the way out then.
+ *
+ * With `pending` the menu ends in a loading row until fillNativeMenu says
+ * what goes there.
  */
 export async function showNativeMenu(
-  from: Element,
+  from: Element | { x: number; y: number },
   sections: NativeMenuItem[][],
   title?: string,
+  pending?: boolean,
 ): Promise<string | null> {
-  const r = from.getBoundingClientRect();
+  const r = 'getBoundingClientRect' in from
+    ? from.getBoundingClientRect()
+    : { left: from.x, top: from.y, width: 1, height: 1 };
   const { id } = await MmsMenu.show({
     x: r.left,
     y: r.top,
@@ -57,8 +65,14 @@ export async function showNativeMenu(
     height: r.height,
     title,
     sections,
+    pending,
     tint: getComputedStyle(document.documentElement).getPropertyValue('--accent-ink').trim(),
     dark: resolvedTheme() === 'dark',
   });
   return id ?? null;
+}
+
+/** What goes where the open menu's loading row is; nothing takes it away. */
+export function fillNativeMenu(items: NativeMenuItem[]): void {
+  void MmsMenu.fill({ items }).catch(() => undefined);
 }

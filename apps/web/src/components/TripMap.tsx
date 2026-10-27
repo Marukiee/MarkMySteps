@@ -51,8 +51,9 @@ interface TripMapProps {
   onWaypointDelete?: (id: string) => void;
   visibleUsers: Set<string>;
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
-  /** Long-press / right-click on the map (used to snap a straight gap to roads). */
-  onLongPress?: (lngLat: { lng: number; lat: number }) => void;
+  /** Long-press / right-click on the map (used to snap a straight gap to roads),
+   *  with where on the screen it was. */
+  onLongPress?: (lngLat: { lng: number; lat: number }, at: { x: number; y: number }) => void;
   onPhotoOpen?: (mediaId: string) => void;
   onPhotoFocus?: (mediaId: string) => void;
   clickMode?: boolean;
@@ -276,7 +277,9 @@ export function TripMap({
       clickHandlerRef.current?.(e.lngLat);
     });
     // Right-click (desktop) + long-press (touch) → onLongPress at that point.
-    map.on('contextmenu', (e) => longPressRef.current?.(e.lngLat));
+    map.on('contextmenu', (e) =>
+      longPressRef.current?.(e.lngLat, { x: e.originalEvent.clientX, y: e.originalEvent.clientY }),
+    );
     const container = containerRef.current;
     let lpTimer = 0;
     let lpStart: { x: number; y: number } | null = null;
@@ -295,7 +298,7 @@ export function TripMap({
         // opens next may have to wait on the network, and without this the
         // wait reads as a press that did not take.
         haptic('long-press');
-        longPressRef.current?.({ lng: p.lng, lat: p.lat });
+        longPressRef.current?.({ lng: p.lng, lat: p.lat }, { x: t.clientX, y: t.clientY });
       }, 420);
     };
     const onTouchMove = (ev: TouchEvent) => {

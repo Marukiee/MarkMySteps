@@ -3,6 +3,12 @@ import { useEffect, useState } from 'react';
 import { t } from '../i18n';
 import { tr } from '../i18n/rich';
 import { confirmNatively, nativeAlertsAvailable } from '../lib/nativeAlert';
+import {
+  fillNativeMenu,
+  nativeMenusAvailable,
+  showNativeMenu,
+  type NativeMenuItem,
+} from '../lib/nativeMenu';
 import './confirm.css';
 
 interface ConfirmOptions {
@@ -151,6 +157,43 @@ export function chooseModal(options: {
    * a long press feel like a press that had not registered, and people pressed
    * again.
    */
+  more?: Promise<ChoiceOption[]>;
+  cancelLabel?: string;
+  /**
+   * Where the finger was, on the screen. On the iPhone the choices then open
+   * right there as the system menu, the hints as its second lines and the
+   * late ones behind its loading row.
+   */
+  at?: { x: number; y: number };
+}): Promise<string | null> {
+  if (options.at && nativeMenusAvailable()) {
+    // This iOS cannot open a menu itself: the page's dialog can.
+    return chooseNatively(options, options.at).catch(() => webChoose(options));
+  }
+  return webChoose(options);
+}
+
+function chooseNatively(
+  options: { title: string; choices: ChoiceOption[]; more?: Promise<ChoiceOption[]> },
+  at: { x: number; y: number },
+): Promise<string | null> {
+  const item = (choice: ChoiceOption): NativeMenuItem => ({
+    id: choice.id,
+    title: choice.label,
+    subtitle: choice.hint,
+    destructive: choice.danger,
+  });
+  options.more?.then(
+    (extra) => fillNativeMenu(extra.map(item)),
+    () => fillNativeMenu([]),
+  );
+  return showNativeMenu(at, [options.choices.map(item)], options.title, !!options.more);
+}
+
+function webChoose(options: {
+  title: string;
+  body?: string;
+  choices: ChoiceOption[];
   more?: Promise<ChoiceOption[]>;
   cancelLabel?: string;
 }): Promise<string | null> {
