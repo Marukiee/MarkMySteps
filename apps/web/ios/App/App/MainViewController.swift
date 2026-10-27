@@ -42,5 +42,6 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(MmsDynamicColorPlugin())
         bridge?.registerPluginInstance(MmsTabBarPlugin())
         bridge?.registerPluginInstance(MmsGlassPlugin())
+        bridge?.registerPluginInstance(MmsViewerPlugin())
     }
 }

@@ -7,23 +7,22 @@ import type {
   WheelEvent as ReactWheelEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { api, ApiError, getServerBase } from '../api/client';
-import type { ConnectionStatus, MediaItem } from '../api/types';
+import { api, getServerBase } from '../api/client';
+import type { MediaItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { DEFAULT_IMMICH_PUBLIC_URL } from '../config';
 import { formatDay } from '../lib/colors';
 import { deviceMediaUri, isDeviceMediaId } from '../lib/deviceMedia';
 import { mediaSrc } from '../lib/gallery';
-import { reversePlaceName } from '../lib/geocode';
-import { isNativeApp, openExternal } from '../lib/native';
-import { savePhoto } from '../lib/photoSave';
+import { isNativeApp } from '../lib/native';
+import { nativeViewerAvailable } from '../lib/nativeViewer';
 import { cachedImage, decoded, loadImage, preloadImage, retainImage } from './AuthImage';
-import { Icon, IconName } from './Icon';
+import { Icon } from './Icon';
+import { NativeLightbox } from './NativeLightbox';
 import { PhotoCommentsAdapter, PhotoCommentsPanel } from './PhotoComments';
 import { useExit } from '../lib/useExit';
 import { ReactionBar, ReactionsAdapter } from './PhotoReactions';
+import { usePlaceName, useViewerTools } from './viewerTools';
 import { t } from '../i18n';
-import { legTitle } from '../lib/legs';
 import './lightbox.css';
 
 /** How the photo is currently framed: a scale plus a translation in CSS pixels. */
@@ -40,7 +39,7 @@ const ZOOM_TAP = 2.5;
 
 const clampScale = (s: number) => Math.min(ZOOM_MAX, Math.max(1, s));
 
-interface LightboxProps {
+export interface LightboxProps {
   items: MediaItem[];
   index: number;
   onClose: () => void;
@@ -92,7 +91,18 @@ interface LightboxProps {
  */
 let pendingBack: number | null = null;
 
-export function Lightbox({
+/**
+ * The photo viewer. On the iPhone it is drawn natively (NativeLightbox), with
+ * the system's own zoom, video player and Liquid Glass bars; everywhere else,
+ * and on the share page, which reaches its photos through a link rather than
+ * a session, it is the one below.
+ */
+export function Lightbox(props: LightboxProps) {
+  if (!props.srcFor && nativeViewerAvailable()) return <NativeLightbox {...props} />;
+  return <WebLightbox {...props} />;
+}
+
+function WebLightbox({
   items,
   index,
   onClose,
@@ -109,15 +119,6 @@ export function Lightbox({
   reactions,
 }: LightboxProps) {
   const { user } = useAuth();
-  const isPublic = Boolean(srcFor);
-  const [immichUrl, setImmichUrl] = useState<string | null>(null);
-  const [coverSaved, setCoverSaved] = useState(false);
-  const [stopCoverSaved, setStopCoverSaved] = useState(false);
-  // A download is the one action here that takes long enough to need saying
-  // something about, and it says it over the photo rather than in the menu it
-  // was started from — the menu is closed by the time the file arrives.
-  const [saving, setSaving] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
   // Three states, not two: a menu that is only ever mounted or not cannot
   // animate itself away — it was simply gone the moment you tapped past it.
   const [menu, setMenu] = useState<'closed' | 'open' | 'closing'>('closed');
@@ -125,9 +126,6 @@ export function Lightbox({
   const closeMenu = () => setMenu((m) => (m === 'open' ? 'closing' : m));
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
-  const [place, setPlace] = useState<string | null>(null);
-  const fallbackRef = useRef(placeFallbackFor);
-  fallbackRef.current = placeFallbackFor;
   const [closing, setClosing] = useState(false);
   // Stays open while paging: reading what people said about a run of photos
   // should not take a tap per photo to bring back.
@@ -244,30 +242,16 @@ export function Lightbox({
     window.setTimeout(onClose, 200);
   };
   const item = items[index];
-
-  // City + country for the photo, when it carries a coordinate. Cached per ~1 km
-  // so paging through an album doesn't re-query the geocoder.
-  //
-  // The name is NOT cleared between photos. Twenty shots taken in one town all
-  // resolve to that town, and blanking the line in between made it fade itself
-  // back in twenty times over. It changes when the place changes, and only then.
-  useEffect(() => {
-    const lat = item?.latitude;
-    const lon = item?.longitude;
-    if (lat == null || lon == null) {
-      setPlace(null);
-      return;
-    }
-    let alive = true;
-    const known = item ? fallbackRef.current?.(item) ?? null : null;
-    void reversePlaceName(lat, lon).then((name) => alive && setPlace(name ?? known));
-    return () => {
-      alive = false;
-    };
-    // The fallback is read through a ref: it is rebuilt on every render of the
-    // page above, and depending on it would re-ask the geocoder each time.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item?.id, item?.latitude, item?.longitude]);
+  const place = usePlaceName(item, placeFallbackFor);
+  const { actionsFor, note } = useViewerTools({
+    item,
+    userId: user?.id,
+    coverTripId,
+    onCoverSet,
+    stopCoverFor,
+    onSetStopCover,
+    srcFor,
+  });
 
   // Fetch a short-lived playback URL when a video is shown.
   useEffect(() => {
@@ -296,57 +280,6 @@ export function Lightbox({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id, item?.assetType]);
-
-  async function setAsCover() {
-    if (!coverTripId || !item) return;
-    await api(`/trips/${coverTripId}`, { method: 'PATCH', body: { coverMediaId: item.id } });
-    setCoverSaved(true);
-    window.setTimeout(() => setCoverSaved(false), 1600);
-    onCoverSet?.();
-  }
-
-  async function setAsStopCover(stopId: string) {
-    if (!item || !onSetStopCover) return;
-    await onSetStopCover(stopId, item.id);
-    setStopCoverSaved(true);
-    window.setTimeout(() => setStopCoverSaved(false), 1600);
-  }
-
-  async function saveToDevice() {
-    if (!item || saving) return;
-    setSaving(true);
-    setNote(t('trip.viewer.downloading'));
-    const outcome = await savePhoto(item, srcFor);
-    setSaving(false);
-    // A share sheet the user waved away is not a failure, and it has already
-    // told them what happened — say nothing.
-    if (outcome === 'cancelled') setNote(null);
-    else if (outcome === 'failed') setNote(t('trip.viewer.downloadFailed'));
-    else setNote(outcome === 'shared' ? t('trip.viewer.saved') : t('settings.trackFiles.saved'));
-  }
-
-  // The note clears itself; a photo you page away from takes it with you.
-  useEffect(() => {
-    if (!note || saving) return;
-    const timer = window.setTimeout(() => setNote(null), 2600);
-    return () => window.clearTimeout(timer);
-  }, [note, saving]);
-
-  useEffect(() => {
-    setNote(null);
-  }, [index]);
-
-  // Public Immich URL → deep link to the asset. Only for own photos;
-  // friends' photos live on their server.
-  useEffect(() => {
-    if (isPublic) return; // nothing to deep-link to, and no session to ask with
-    api<ConnectionStatus>('/immich/connection')
-      .then((s) => setImmichUrl(s.publicUrl ?? DEFAULT_IMMICH_PUBLIC_URL))
-      .catch((err: unknown) => {
-        if (err instanceof ApiError && err.status === 404)
-          setImmichUrl(DEFAULT_IMMICH_PUBLIC_URL);
-      });
-  }, [isPublic]);
 
   // The lightbox is a dark overlay — flip the native status bar to light icons
   // so the clock/battery stay legible, then restore on close.
@@ -434,51 +367,9 @@ export function Lightbox({
   }, [index, items.length, onClose, onNavigate, commentsOpen, reactionsOpen]);
 
   if (!item) return null;
-  const isOwn = !isPublic && item.userId === user?.id;
   const onDevice = isDeviceMediaId(item.id);
+  const actions = actionsFor(item);
   const commentCount = comments?.list({ mediaId: item.id }).length ?? 0;
-
-  const actions: { label: string; icon: IconName; run: () => void }[] = [];
-  if (coverTripId && !onDevice) {
-    actions.push({
-      label: coverSaved ? t('trip.viewer.coverSet') : t('trip.viewer.asCover'),
-      icon: coverSaved ? 'check' : 'camera',
-      run: () => void setAsCover(),
-    });
-  }
-  // The tile at the top of the timeline that takes you to this place: this is
-  // where you choose which photo it wears.
-  const stopForCover = stopCoverFor && !onDevice ? stopCoverFor(item) : null;
-  if (stopForCover && onSetStopCover) {
-    actions.push({
-      label: stopCoverSaved
-        ? t('trip.viewer.stopCoverSet')
-        : t('trip.viewer.stopCover', { name: legTitle(stopForCover.name) }),
-      icon: stopCoverSaved ? 'check' : 'pin',
-      run: () => void setAsStopCover(stopForCover.id),
-    });
-  }
-  // Every viewer gets this one, the share page included: whoever is looking at
-  // the photo may as well be able to keep it. A photo that never left this
-  // phone is already in its gallery, so there is nothing to download.
-  if (!onDevice) {
-    actions.push({
-      label: saving
-        ? t('trip.viewer.downloading')
-        : item.assetType === 'VIDEO'
-          ? t('trip.viewer.downloadVideo')
-          : t('trip.viewer.downloadPhoto'),
-      icon: 'download',
-      run: () => void saveToDevice(),
-    });
-  }
-  if (isOwn && immichUrl && !onDevice) {
-    actions.push({
-      label: t('trip.viewer.openInImmich'),
-      icon: 'external',
-      run: () => openExternal(`${immichUrl}/photos/${item.immichAssetId}`),
-    });
-  }
 
   /**
    * One handler for everything a finger can mean on a photo.

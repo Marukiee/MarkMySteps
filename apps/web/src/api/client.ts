@@ -141,7 +141,7 @@ export type RefreshOutcome = 'ok' | 'invalid' | 'unavailable';
 
 let refreshPromise: Promise<RefreshOutcome> | null = null;
 
-async function tryRefresh(): Promise<RefreshOutcome> {
+export async function tryRefresh(): Promise<RefreshOutcome> {
   // Collapse concurrent 401s into a single refresh call.
   refreshPromise ??= (async () => {
     const refreshToken = localStorage.getItem(REFRESH_KEY);

@@ -1,6 +1,7 @@
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { isNativeApp } from './native';
+import { MmsViewer, nativeViewerOpen } from './nativeViewer';
 import { t } from '../i18n';
 
 export type ShareOutcome = 'shared' | 'downloaded' | 'cancelled' | 'failed';
@@ -28,6 +29,12 @@ export async function shareOrSaveFiles(files: File[], title: string): Promise<Sh
           directory: Directory.Cache,
         });
         uris.push(written.uri);
+      }
+      // Over the iPhone's own photo viewer the share plugin is refused: it
+      // asks the page's controller, which is busy showing that viewer.
+      if (nativeViewerOpen()) {
+        const { completed } = await MmsViewer.share({ files: uris });
+        return completed ? 'shared' : 'cancelled';
       }
       await Share.share({ title, files: uris });
       return 'shared';

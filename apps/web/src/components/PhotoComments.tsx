@@ -69,6 +69,11 @@ const when = new Intl.DateTimeFormat(intlLocale(), {
   minute: '2-digit',
 });
 
+/** When a comment was written, as the thread shows it. */
+export function commentTime(iso: string): string {
+  return when.format(new Date(iso));
+}
+
 /** The flag on a photo in the grid that has comments under it. */
 export function CommentFlag({ count, onOpen }: { count: number; onOpen?: () => void }) {
   if (count <= 0) return null;

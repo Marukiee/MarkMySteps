@@ -12,6 +12,8 @@
 		1D871EEED4CD04F9C99CC343 /* MmsExportPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33607EFEEABABAD593BA4798 /* MmsExportPlugin.swift */; };
 		A69A9FC99AD39048A97CC321 /* MmsHapticsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E25851C4B111CC6178AA240 /* MmsHapticsPlugin.swift */; };
 		067D66778C31E2EA527DD64C /* MmsGlassPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 938E331843274BA7108347BE /* MmsGlassPlugin.swift */; };
+		563E05D03E734C12617C6097 /* PhotoViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5DB278C190250EDB9589356 /* PhotoViewer.swift */; };
+		0675B1B0FDD015D0680E3166 /* MmsViewerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 096CAEF373C7C27D23DAAFC8 /* MmsViewerPlugin.swift */; };
 		06F8603A00C48217FF7EC539 /* MmsTabBarPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3623AFE3E772DC39A986BEB3 /* MmsTabBarPlugin.swift */; };
 		2630F7BB00C993DEA0C423F0 /* MmsNotifyPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A7DEF089B41D1A58B03A31A /* MmsNotifyPlugin.swift */; };
 		099845B9EED0C84A1BE2996F /* PhotoSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C16278B663902D78DA2C85 /* PhotoSchemeHandler.swift */; };
@@ -38,6 +40,8 @@
 		33607EFEEABABAD593BA4798 /* MmsExportPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsExportPlugin.swift; sourceTree = "<group>"; };
 		2E25851C4B111CC6178AA240 /* MmsHapticsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsHapticsPlugin.swift; sourceTree = "<group>"; };
 		938E331843274BA7108347BE /* MmsGlassPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsGlassPlugin.swift; sourceTree = "<group>"; };
+		B5DB278C190250EDB9589356 /* PhotoViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoViewer.swift; sourceTree = "<group>"; };
+		096CAEF373C7C27D23DAAFC8 /* MmsViewerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsViewerPlugin.swift; sourceTree = "<group>"; };
 		3623AFE3E772DC39A986BEB3 /* MmsTabBarPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsTabBarPlugin.swift; sourceTree = "<group>"; };
 		6A7DEF089B41D1A58B03A31A /* MmsNotifyPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MmsNotifyPlugin.swift; sourceTree = "<group>"; };
 		B2C16278B663902D78DA2C85 /* PhotoSchemeHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoSchemeHandler.swift; sourceTree = "<group>"; };
@@ -101,6 +105,8 @@
 				33607EFEEABABAD593BA4798 /* MmsExportPlugin.swift */,
 				2E25851C4B111CC6178AA240 /* MmsHapticsPlugin.swift */,
 				938E331843274BA7108347BE /* MmsGlassPlugin.swift */,
+				B5DB278C190250EDB9589356 /* PhotoViewer.swift */,
+				096CAEF373C7C27D23DAAFC8 /* MmsViewerPlugin.swift */,
 				3623AFE3E772DC39A986BEB3 /* MmsTabBarPlugin.swift */,
 				6A7DEF089B41D1A58B03A31A /* MmsNotifyPlugin.swift */,
 				B2C16278B663902D78DA2C85 /* PhotoSchemeHandler.swift */,
@@ -212,6 +218,8 @@
 				1D871EEED4CD04F9C99CC343 /* MmsExportPlugin.swift in Sources */,
 				A69A9FC99AD39048A97CC321 /* MmsHapticsPlugin.swift in Sources */,
 				067D66778C31E2EA527DD64C /* MmsGlassPlugin.swift in Sources */,
+				563E05D03E734C12617C6097 /* PhotoViewer.swift in Sources */,
+				0675B1B0FDD015D0680E3166 /* MmsViewerPlugin.swift in Sources */,
 				06F8603A00C48217FF7EC539 /* MmsTabBarPlugin.swift in Sources */,
 				2630F7BB00C993DEA0C423F0 /* MmsNotifyPlugin.swift in Sources */,
 				099845B9EED0C84A1BE2996F /* PhotoSchemeHandler.swift in Sources */,
