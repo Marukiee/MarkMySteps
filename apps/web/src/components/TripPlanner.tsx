@@ -29,6 +29,8 @@ import { formatDate, formatDateRange } from '../lib/colors';
 import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { StopSuggestions, type StaySuggestion } from './StopSuggestions';
 import { haptic } from '../lib/haptics';
+import { isIosApp } from '../lib/native';
+import { IosSwipeToDelete, type SwipeRowProps } from './IosSwipeToDelete';
 import { useExit } from '../lib/useExit';
 import { cachePutJson } from '../lib/offlineCache';
 import { enqueueWrite, onPendingChange } from '../lib/pendingWrites';
@@ -655,6 +657,7 @@ export function TripPlanner({
                   disabled={readOnly}
                   onDelete={() => removeStop(stop)}
                   label={t('planner.deleteLeg')}
+                  removing={removingId === stop.id}
                   dragging={touchDrag?.id === stop.id}
                   onDragStart={() => beginTouchDrag(stop, index)}
                   onDragMove={moveTouchDrag}
@@ -798,6 +801,7 @@ export function TripPlanner({
                 disabled={readOnly}
                 onDelete={() => removeStop(stop)}
                 label={t('planner.deleteStop')}
+                removing={removingId === stop.id}
                 dragging={touchDrag?.id === stop.id}
                 onDragStart={() => beginTouchDrag(stop, index)}
                 onDragMove={moveTouchDrag}
@@ -991,8 +995,13 @@ export function TripPlanner({
   );
 }
 
+/** Each phone its own swipe: the one its owner already knows from every other list. */
+function SwipeToDelete(props: SwipeRowProps) {
+  return isIosApp() ? <IosSwipeToDelete {...props} /> : <ComposeSwipeToDelete {...props} />;
+}
+
 /**
- * Swipe a row aside to delete it, either direction.
+ * Swipe a row aside to delete it, either direction. Android, and the web.
  *
  * The feel is ported from a Compose implementation that got it right, and it is
  * worth spelling out because "just follow the finger" is what it is NOT:
@@ -1013,7 +1022,7 @@ export function TripPlanner({
  * Touch only: a desktop has no swipe, and the card's drag gesture there is
  * already reordering the route.
  */
-function SwipeToDelete({
+function ComposeSwipeToDelete({
   onDelete,
   label,
   onDragStart,
@@ -1022,18 +1031,7 @@ function SwipeToDelete({
   dragging,
   disabled,
   children,
-}: {
-  onDelete: () => void;
-  label: string;
-  /** Long-pressing the row starts a reorder instead of a swipe. */
-  onDragStart?: () => void;
-  onDragMove?: (dy: number) => void;
-  onDragEnd?: () => void;
-  dragging?: boolean;
-  /** Read-only row: hand the card straight through, no gesture on it. */
-  disabled?: boolean;
-  children: ReactNode;
-}) {
+}: SwipeRowProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<HTMLDivElement>(null);
   const bgRef = useRef<HTMLDivElement>(null);

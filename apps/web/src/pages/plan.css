@@ -1137,6 +1137,47 @@
   will-change: transform;
 }
 
+/* iPhone: the red capsule iOS 27 puts beside a swiped row, in its size, red
+   and system font. It sits where the card's right edge was and keeps its
+   height on a tall card. Its width is set while swiping. */
+.ios-swipe-action {
+  position: absolute;
+  top: 50%;
+  right: var(--plan-bleed, 0px);
+  height: 27px;
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  visibility: hidden;
+  border-radius: 999px;
+  background: #ff383c;
+  color: #fff;
+  transform: translateY(-50%);
+  transform-origin: right center;
+}
+
+:root[data-theme='dark'] .ios-swipe-action {
+  background: #ff4245;
+}
+
+.ios-swipe-action:active {
+  filter: brightness(0.92);
+}
+
+.ios-swipe-action-content {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-inline: 11px 13px;
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 /* ---------------------------------------------------------------------------
    Day trips — an excursion from a stop and back the same day.
 
