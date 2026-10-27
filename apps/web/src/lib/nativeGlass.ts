@@ -50,8 +50,17 @@ const SYMBOLS: Record<string, string> = {
  */
 export async function initNativeGlass(): Promise<void> {
   if (!isIosApp()) return;
+  // The page's buttons are unseen from their first frame (tripdetail.css),
+  // not from the moment the glass took their place: until then they showed in
+  // the page's own style and were swapped out a moment later. Taken back on a
+  // phone without the glass, long before a trip page is opened.
+  const root = document.documentElement;
+  root.classList.add('glass-native');
   const { supported } = await MmsGlass.supported().catch(() => ({ supported: false }));
-  if (!supported) return;
+  if (!supported) {
+    root.classList.remove('glass-native');
+    return;
+  }
 
   const pressable = new Map<string, HTMLElement>();
   let sent = '';

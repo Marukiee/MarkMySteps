@@ -1240,6 +1240,22 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
   opacity: 0;
 }
 
+/* Unseen from the frame they mount in, not from when the glass has caught up:
+   for as long as their pop-in ran they showed in the page's own style, and
+   were then swapped for the glass. Important, so a running animation's
+   opacity cannot bring them back. */
+.glass-native .trip-detail .trip-fab-back,
+.glass-native .trip-detail .trip-fabs > .trip-fab,
+.glass-native .trip-backtop {
+  opacity: 0 !important;
+}
+
+/* Nothing to pop in that nobody sees, and the glass waits for a running
+   animation to end before it takes a button's place. It has its own fade. */
+.glass-native .trip-detail .trip-fabs .trip-fab {
+  animation: none;
+}
+
 /* And they sit where iOS puts the buttons of a navigation bar: straight under
    the status bar. The extra 0.9rem left them hanging below it. */
 @media (max-width: 900px) {
