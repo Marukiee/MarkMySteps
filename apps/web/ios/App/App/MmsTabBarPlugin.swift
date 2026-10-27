@@ -102,7 +102,7 @@ public class MmsTabBarPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     }
 
     /** `#rrggbb` or `rgb(r g b)` / `rgb(r, g, b)`, as getComputedStyle hands it over. */
-    private static func color(hex value: String) -> UIColor? {
+    static func color(hex value: String) -> UIColor? {
         let text = value.trimmingCharacters(in: .whitespaces)
         if text.hasPrefix("#"), text.count == 7, let rgb = Int(text.dropFirst(), radix: 16) {
             return UIColor(

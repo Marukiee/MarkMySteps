@@ -43,5 +43,6 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(MmsTabBarPlugin())
         bridge?.registerPluginInstance(MmsGlassPlugin())
         bridge?.registerPluginInstance(MmsViewerPlugin())
+        bridge?.registerPluginInstance(MmsDatePlugin())
     }
 }

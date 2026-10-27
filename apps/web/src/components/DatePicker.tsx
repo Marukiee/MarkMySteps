@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import { t, intlLocale } from '../i18n';
+import { nativeDatesAvailable, pickNativeDate } from '../lib/nativeDate';
 import './datepicker.css';
 
 interface DateFieldProps {
@@ -39,7 +40,8 @@ function toISO(d: Date): string {
 }
 
 /** A tappable field that opens a modern calendar sheet instead of the native
- *  date dialog (which renders as a dated Android/WebView popup). */
+ *  date dialog (which renders as a dated Android/WebView popup). On the iPhone
+ *  it is the system's own calendar instead, in a sheet of its own. */
 export function DateField({
   value,
   onChange,
@@ -50,10 +52,22 @@ export function DateField({
   nearDate,
 }: DateFieldProps) {
   const [open, setOpen] = useState(false);
+  const choose = () => {
+    if (!nativeDatesAvailable()) {
+      setOpen(true);
+      return;
+    }
+    void pickNativeDate({ value, near: nearDate, title: label, allowClear })
+      .then((picked) => {
+        if (picked !== null) onChange(picked);
+      })
+      // The plugin could not show itself: the page's calendar can.
+      .catch(() => setOpen(true));
+  };
   return (
     <div className="field date-field">
       {label && <label htmlFor={id}>{label}</label>}
-      <button id={id} type="button" className="date-field-btn" onClick={() => setOpen(true)}>
+      <button id={id} type="button" className="date-field-btn" onClick={choose}>
         <Icon name="pin" size={15} className="date-field-cal" />
         <span className={value ? '' : 'date-field-empty'}>
           {value ? fmtLong(value) : placeholder ?? t('planner.date.choose')}
