@@ -27,6 +27,7 @@ import {
   setTripCardOverride,
 } from '../lib/prefs';
 import { canEditTrip } from '../lib/perm';
+import { nativeMenusAvailable, showNativeMenu } from '../lib/nativeMenu';
 import { tripGlyph, tripGlyphSize, tripGlyphStroke } from '../lib/tripGlyph';
 import { intlLocale, t } from '../i18n';
 import { onTrackerChange } from '../tracking/tracker';
@@ -629,6 +630,74 @@ function TripCard({
     }, 150);
   }
 
+  /**
+   * On a phone the two shapes really are a big card and a small one. In a
+   * window wide enough to stand cards beside each other the "small" one is a
+   * row across the full width, so it is named for what it looks like instead.
+   */
+  const sizeLabel = (opt: 'auto' | 'large' | 'compact') =>
+    opt === 'auto'
+      ? t('common.auto')
+      : opt === 'large'
+        ? wide
+          ? t('trips.card.size.card')
+          : t('trips.card.size.large')
+        : wide
+          ? t('trips.card.size.row')
+          : t('trips.card.size.small');
+
+  function openWebMenu(button: HTMLElement) {
+    // A card with a cover clips its own contents, so the menu is
+    // rendered against the viewport instead, anchored to the button.
+    const r = button.getBoundingClientRect();
+    // Anchored to the button's own corner, so the menu opens ON TOP of
+    // the ⋯ rather than hanging below it.
+    const up = r.bottom + 260 > window.innerHeight;
+    setMenuUp(up);
+    setMenuAt({
+      top: up ? r.bottom : r.top,
+      right: Math.max(8, window.innerWidth - r.right),
+    });
+    window.dispatchEvent(new CustomEvent('mms-menu-open', { detail: trip.id }));
+    setMenuOpen(true);
+  }
+
+  /**
+   * On the iPhone the ⋯ is the system's own menu: the card's size, ticked,
+   * above a line and what can be done with the trip under it. The card takes
+   * its new shape at once, as the menu has already gone.
+   */
+  async function openNativeMenu(from: HTMLElement): Promise<void> {
+    const size = getTripCardOverride(trip.id) ?? 'auto';
+    const sizes = (['auto', 'large', 'compact'] as const).map((opt) => ({
+      id: `size:${opt}`,
+      title: sizeLabel(opt),
+      checked: size === opt,
+    }));
+    const actions = isOwner
+      ? [
+          { id: 'settings', title: t('common.settings'), symbol: 'gearshape' },
+          { id: 'rename', title: t('trips.card.menu.rename'), symbol: 'pencil' },
+          { id: 'delete', title: t('common.delete'), symbol: 'trash', destructive: true },
+        ]
+      : [
+          {
+            id: 'leave',
+            title: t('trips.card.menu.leave'),
+            symbol: 'rectangle.portrait.and.arrow.right',
+            destructive: true,
+          },
+        ];
+    const picked = await showNativeMenu(from, [sizes, actions]);
+    if (picked?.startsWith('size:')) {
+      const opt = picked.slice(5);
+      onResize(trip.id, opt === 'large' || opt === 'compact' ? opt : null);
+    } else if (picked === 'settings') navigate(`/trips/${trip.id}/settings`);
+    else if (picked === 'rename') setRenaming(true);
+    else if (picked === 'delete') void remove();
+    else if (picked === 'leave') void leave();
+  }
+
   const month = new Date(trip.startDate).toLocaleDateString(intlLocale(), { month: 'long' });
   const year = new Date(trip.startDate).getFullYear();
   const days =
@@ -679,21 +748,13 @@ function TripCard({
         aria-label={t('trips.card.menu.label')}
         onClick={(e) => {
           stop(e);
+          const button = e.currentTarget as HTMLElement;
           if (menuOpen) closeMenu();
-          else {
-            // A card with a cover clips its own contents, so the menu is
-            // rendered against the viewport instead — anchored to the button.
-            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            // Anchored to the button's own corner, so the menu opens ON TOP of
-            // the ⋯ rather than hanging below it.
-            const up = r.bottom + 260 > window.innerHeight;
-            setMenuUp(up);
-            setMenuAt({
-              top: up ? r.bottom : r.top,
-              right: Math.max(8, window.innerWidth - r.right),
-            });
-            window.dispatchEvent(new CustomEvent('mms-menu-open', { detail: trip.id }));
-            setMenuOpen(true);
+          else if (nativeMenusAvailable()) {
+            // This iOS cannot open a menu itself: the page's one opens instead.
+            openNativeMenu(button).catch(() => openWebMenu(button));
+          } else {
+            openWebMenu(button);
           }
         }}
       >
@@ -732,19 +793,7 @@ function TripCard({
                     setSize(opt === 'auto' ? null : opt);
                   }}
                 >
-                  {/* On a phone the two shapes really are a big card and a
-                      small one. In a window wide enough to stand cards beside
-                      each other the "small" one is a row across the full
-                      width, so it is named for what it looks like instead. */}
-                  {opt === 'auto'
-                    ? t('common.auto')
-                    : opt === 'large'
-                      ? wide
-                        ? t('trips.card.size.card')
-                        : t('trips.card.size.large')
-                      : wide
-                        ? t('trips.card.size.row')
-                        : t('trips.card.size.small')}
+                  {sizeLabel(opt)}
                 </button>
               );
             })}
