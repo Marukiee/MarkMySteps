@@ -524,6 +524,10 @@
 
 .fe-picker-name strong {
   font-size: 0.95rem;
+  /* With every airport in the list, some cities have long names too. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fe-picker-name small {
