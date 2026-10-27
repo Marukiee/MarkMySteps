@@ -9,7 +9,7 @@ import { CHANGELOG } from '../lib/changelog';
 import { AirportPrefs } from '../components/AirportPrefs';
 import { AvatarCrop } from '../components/AvatarCrop';
 import type { ConnectionStatus, ImportedTripSummary } from '../api/types';
-import type { Trip } from '../api/types';
+import type { Trip, User } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_SERVER_URL } from '../config';
 import { Avatar, bumpAvatar } from '../components/Avatar';
@@ -47,7 +47,7 @@ import {
 import { applyDynamicAccent, dynamicAccentAvailable } from '../lib/dynamicColor';
 import { MapStylePicker } from '../components/MapStylePicker';
 import { tr } from '../i18n/rich';
-import { getLangSetting, intlLocale, LANGUAGES, LangSetting, setLangSetting, t } from '../i18n';
+import { getLangSetting, intlLocale, LANGUAGES, LangSetting, setLangSetting, t, type TKey } from '../i18n';
 import { skipNextPop, useBackToClose } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
 import {
@@ -1956,6 +1956,52 @@ function InvitePreviewSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** The same rule the server checks a username against. */
+const USERNAME_PATTERN = /^[a-z0-9._-]{3,30}$/;
+
+type UsernameCheck = 'same' | 'invalid' | 'checking' | 'free' | 'taken' | 'unknown';
+
+/**
+ * Whether the username being typed can be had, asked of the server once the
+ * typing pauses. A server from before the check answers nothing useful, and
+ * then saving is what says so.
+ */
+function useUsernameCheck(name: string, current: string): UsernameCheck {
+  const [state, setState] = useState<UsernameCheck>('same');
+  useEffect(() => {
+    const wanted = name.trim();
+    if (!wanted || wanted === current) {
+      setState('same');
+      return;
+    }
+    if (!USERNAME_PATTERN.test(wanted)) {
+      setState('invalid');
+      return;
+    }
+    setState('checking');
+    let live = true;
+    const timer = window.setTimeout(() => {
+      api<{ available: boolean }>(`/users/username-available?name=${encodeURIComponent(wanted)}`)
+        .then((answer) => live && setState(answer.available ? 'free' : 'taken'))
+        .catch(() => live && setState('unknown'));
+    }, 350);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [name, current]);
+  return state;
+}
+
+const USERNAME_HINT: Record<UsernameCheck, TKey> = {
+  same: 'settings.profile.name.usernameHint',
+  unknown: 'settings.profile.name.usernameHint',
+  invalid: 'settings.profile.name.usernameInvalid',
+  checking: 'settings.profile.name.usernameChecking',
+  free: 'settings.profile.name.usernameFree',
+  taken: 'settings.profile.name.usernameTaken',
+};
+
 /** Client-side resize to keep stored avatars tiny. */
 function ProfileSection() {
   const { user, logout, refresh } = useAuth();
@@ -1965,15 +2011,34 @@ function ProfileSection() {
   const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Said in the card itself: the page's own line is a screen further down,
+  // and on a phone a save that shows nothing looks like a save that failed.
+  const [nameMessage, setNameMessage] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const local = isLocalMode();
+  const check = useUsernameCheck(username, user?.username ?? '');
 
   async function saveName(event: FormEvent) {
     event.preventDefault();
-    setError(null);
+    setNameError(null);
+    setNameMessage(null);
+    const before = user?.username;
     try {
-      await api('/users/me', { method: 'PATCH', body: { displayName, username } });
-      setMessage(t('settings.profile.saved'));
+      // Without a server there is nobody to be found by, so no username.
+      const saved = await api<User>('/users/me', {
+        method: 'PATCH',
+        body: local ? { displayName } : { displayName, username },
+      });
+      // The @ at the top and everywhere else read it from here.
+      await refresh();
+      setUsername(saved.username);
+      setNameMessage(
+        !local && saved.username !== before
+          ? t('settings.profile.name.usernameSaved', { username: saved.username })
+          : t('settings.profile.saved'),
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('settings.saveFailed'));
+      setNameError(err instanceof Error ? err.message : t('settings.saveFailed'));
     }
   }
 
@@ -2171,23 +2236,49 @@ function ProfileSection() {
               id="pr-name"
               required
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(e) => {
+                setDisplayName(e.target.value);
+                setNameMessage(null);
+              }}
             />
           </div>
-          <div className="field">
-            <label htmlFor="pr-user">{t('settings.profile.name.username')}</label>
-            <input
-              id="pr-user"
-              required
-              pattern="[a-zA-Z0-9._\-]{3,30}"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-            <span className="muted">{t('settings.profile.name.usernameHint')}</span>
-          </div>
+          {!local && (
+            <div className="field">
+              <label htmlFor="pr-user">{t('settings.profile.name.username')}</label>
+              <div className="username-input">
+                <span aria-hidden="true">@</span>
+                <input
+                  id="pr-user"
+                  required
+                  maxLength={30}
+                  pattern="[a-z0-9._\-]{3,30}"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-describedby="pr-user-hint"
+                  aria-invalid={check === 'invalid' || check === 'taken'}
+                  value={username}
+                  // Stored in small letters anyway: typed that way, what is
+                  // seen is what friends will search for.
+                  onChange={(e) => {
+                    setUsername(e.target.value.toLowerCase().replace(/\s/g, ''));
+                    setNameMessage(null);
+                  }}
+                />
+              </div>
+              <span id="pr-user-hint" className={`username-hint ${check}`} aria-live="polite">
+                {t(USERNAME_HINT[check])}
+              </span>
+            </div>
+          )}
           <div className="settings-actions">
-            <button className="btn btn-ghost">{t('settings.profile.name.save')}</button>
+            <button className="btn btn-ghost" disabled={check === 'invalid' || check === 'taken'}>
+              {t('settings.profile.name.save')}
+            </button>
           </div>
+          {nameMessage && <p className="settings-ok">{nameMessage}</p>}
+          {nameError && <p className="error-text">{nameError}</p>}
         </form>
       </section>
 

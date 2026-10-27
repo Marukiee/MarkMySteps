@@ -70,6 +70,20 @@ export class UsersController {
     await this.users.removeAvatar(user.sub);
   }
 
+  /**
+   * Whether a username is free, so the settings field can say so while it is
+   * typed. Usernames can already be found through `suggestions`, so this tells
+   * nobody anything new. Declared above `:id/avatar` so the literal path wins.
+   */
+  @Get('username-available')
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  async usernameAvailable(
+    @CurrentUser() user: JwtPayload,
+    @Query('name') name?: string,
+  ): Promise<{ available: boolean }> {
+    return { available: await this.users.usernameAvailable(user.sub, name ?? '') };
+  }
+
   /** Type-ahead for the "add someone" fields. Declared above `:id/avatar` so
    *  the literal path always wins. */
   @Get('suggestions')

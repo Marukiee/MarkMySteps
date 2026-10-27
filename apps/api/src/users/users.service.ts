@@ -4,11 +4,13 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { assertStrongPassword } from '../auth/password-strength';
 import { revokeAllSessions } from '../auth/sessions';
+import { coded } from '../common/i18n';
 import { PrismaService } from '../prisma/prisma.service';
+import { USERNAME_PATTERN } from './dto/profile.dto';
 
 export interface PublicUser {
   id: string;
@@ -148,15 +150,34 @@ export class UsersService {
         where: { username: normalizedUsername, id: { not: id } },
       });
       if (taken) {
-        throw new ConflictException('This username is taken');
+        throw new ConflictException(coded('This username is taken', 'signup.usernameTaken'));
       }
     }
-    const updated = await this.prisma.user.update({
-      where: { id },
-      data: { displayName: displayName.trim(), username: normalizedUsername },
-      select: PUBLIC_USER_SELECT,
-    });
+    const updated = await this.prisma.user
+      .update({
+        where: { id },
+        data: { displayName: displayName.trim(), username: normalizedUsername },
+        select: PUBLIC_USER_SELECT,
+      })
+      .catch((err: unknown) => {
+        // Someone else took it between the check above and this write.
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          throw new ConflictException(coded('This username is taken', 'signup.usernameTaken'));
+        }
+        throw err;
+      });
     return toPublic(updated);
+  }
+
+  /** Whether this user could take `name` as their username right now. */
+  async usernameAvailable(id: string, name: string): Promise<boolean> {
+    const normalized = name.trim().toLowerCase();
+    if (!USERNAME_PATTERN.test(normalized)) return false;
+    const taken = await this.prisma.user.findFirst({
+      where: { username: normalized, id: { not: id } },
+      select: { id: true },
+    });
+    return !taken;
   }
 
   async changePassword(id: string, currentPassword: string, newPassword: string): Promise<void> {
