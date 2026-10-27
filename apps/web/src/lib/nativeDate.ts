@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { intlLocale, t } from '../i18n';
 import { isIosApp } from './native';
+import { resolvedTheme } from './prefs';
 
 interface MmsDatePlugin {
   pick(options: {
@@ -11,6 +12,7 @@ interface MmsDatePlugin {
     locale: string;
     tint?: string;
     labels: { cancel: string; select: string; clear: string };
+    dark: boolean;
   }): Promise<{ value?: string; cancelled?: boolean }>;
 }
 
@@ -42,6 +44,7 @@ export async function pickNativeDate(options: {
       select: t('planner.date.select'),
       clear: t('planner.clear'),
     },
+    dark: resolvedTheme() === 'dark',
   });
   return result.cancelled ? null : (result.value ?? null);
 }

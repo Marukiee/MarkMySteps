@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
 import { t } from '../i18n';
 import { tr } from '../i18n/rich';
+import { confirmNatively, nativeAlertsAvailable } from '../lib/nativeAlert';
 import './confirm.css';
 
 interface ConfirmOptions {
@@ -24,8 +25,17 @@ interface ConfirmOptions {
 /**
  * Imperative, promise-based confirm — a themed in-app dialog that replaces the
  * browser's native window.confirm. `await confirmModal({...})` → true/false.
+ * On the iPhone it is the system's own alert instead.
  */
 export function confirmModal(options: ConfirmOptions): Promise<boolean> {
+  if (nativeAlertsAvailable()) {
+    // The plugin could not show itself: the page's dialog can.
+    return confirmNatively(options).catch(() => webConfirm(options));
+  }
+  return webConfirm(options);
+}
+
+function webConfirm(options: ConfirmOptions): Promise<boolean> {
   return new Promise((resolve) => {
     const host = document.createElement('div');
     document.body.appendChild(host);

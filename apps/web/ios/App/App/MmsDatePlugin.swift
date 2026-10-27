@@ -32,7 +32,8 @@ public class MmsDatePlugin: CAPPlugin, CAPBridgedPlugin {
             tint: call.getString("tint").flatMap(MmsTabBarPlugin.color(hex:)),
             clear: (call.getBool("allowClear") ?? false) ? labels["clear"] as? String ?? "" : nil,
             cancel: labels["cancel"] as? String ?? "",
-            select: labels["select"] as? String ?? "")
+            select: labels["select"] as? String ?? "",
+            dark: call.getBool("dark"))
         DispatchQueue.main.async {
             guard var top = self.bridge?.viewController else {
                 call.reject("No view to show the calendar from")
@@ -63,6 +64,8 @@ final class DatePickerController: UIViewController, UIAdaptivePresentationContro
         let clear: String?
         let cancel: String
         let select: String
+        /** The page's own light or dark, which may not be the phone's. */
+        let dark: Bool?
     }
 
     enum Result {
@@ -100,6 +103,7 @@ final class DatePickerController: UIViewController, UIAdaptivePresentationContro
     func present(from host: UIViewController) {
         let nav = UINavigationController(rootViewController: self)
         if let tint = options.tint { nav.view.tintColor = tint }
+        if let dark = options.dark { nav.overrideUserInterfaceStyle = dark ? .dark : .light }
         if let sheet = nav.sheetPresentationController {
             if #available(iOS 16.0, *) {
                 sheet.detents = [.custom(identifier: .init("fit")) { [weak self] context in
