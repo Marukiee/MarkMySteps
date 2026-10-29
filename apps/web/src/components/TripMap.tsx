@@ -945,13 +945,18 @@ function fitSafely(
   if (!width || !height) return;
 
   // Never more than two thirds of the canvas in either direction, and never
-  // negative — either leaves the map with nothing to draw the box into.
+  // negative: either leaves the map with nothing to draw the box into. When
+  // it has to give, it keeps the middle where it was. Scaling both sides by
+  // the same factor moved it: with the map folded small nearly all of the
+  // padding is the hidden part below, and the photos landed low in the strip
+  // instead of in its middle.
   const fit = (a: number, b: number, size: number): [number, number] => {
     const room = size * 0.66;
-    const total = Math.max(0, a) + Math.max(0, b);
-    if (total <= room || total === 0) return [Math.max(0, a), Math.max(0, b)];
-    const scale = room / total;
-    return [Math.max(0, a) * scale, Math.max(0, b) * scale];
+    const lo = Math.max(0, a);
+    const hi = Math.max(0, b);
+    if (lo + hi <= room) return [lo, hi];
+    const shift = Math.max(-room, Math.min(room, lo - hi));
+    return [Math.max(0, (room + shift) / 2), Math.max(0, (room - shift) / 2)];
   };
   const [top, bottom] = fit(padding.top, padding.bottom, height);
   const [left, right] = fit(padding.left, padding.right, width);

@@ -394,22 +394,6 @@ export function TripDetailPage() {
     if (tab !== 'timeline') setMapFullNow(false);
   }, [tab]);
 
-  /**
-   * A tap on the folded map: a photo on it opens that photo, anywhere else
-   * opens the map out. The strip itself does not pan, because on a strip this
-   * size a drag was nearly always a thumb that meant to scroll the photos.
-   */
-  const onFoldedTap = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const under = document
-      .elementsFromPoint(e.clientX, e.clientY)
-      .find((el) => el !== e.currentTarget && el.closest('.maplibregl-marker'));
-    const marker = under?.closest<HTMLElement>('.maplibregl-marker');
-    if (marker) {
-      (marker.querySelector<HTMLElement>('[role="button"], button') ?? marker).click();
-      return;
-    }
-    setMapFull(true);
-  };
 
     // Live "you are here" dot, sourced ONLY from the tracker. The browser's
   // geolocation was previously used as a fallback, which made the website ask
@@ -1168,15 +1152,17 @@ export function TripDetailPage() {
           }}
         />
 
-        {/* Phone, timeline: the folded map as one big tap target, and the same
-            thing said out loud in the corner. */}
+        {/* Phone, timeline: the folded map is a map like any other, to move
+            around with a finger. It was one big button that opened the map
+            out, which left no way to look around in it; opening it out is the
+            corner button, or pulling its bottom edge down. */}
         {tab === 'timeline' && !mapFull && (
           <>
-            <button
-              type="button"
-              className="map-expand-hit"
-              aria-label={t('trip.map.expand')}
-              onClick={onFoldedTap}
+            <MapGrab
+              edge
+              panelRef={mapPanelRef}
+              shiftRef={mapShiftRef}
+              onOpen={() => setMapFull(true)}
             />
             <button
               type="button"
@@ -1264,7 +1250,6 @@ export function TripDetailPage() {
       <SideResizer host={scrollRef} />
 
       <aside className="trip-side" ref={sideRef}>
-        <MapGrab panelRef={mapPanelRef} shiftRef={mapShiftRef} onOpen={() => setMapFull(true)} />
 
         {/* Portalled out of the side column on purpose: that column sets its
             own z-index, which makes it a stacking context, and no z-index
@@ -1649,31 +1634,29 @@ const MAP_OPEN_MS = 360;
 
 /** While the map is opened out, a back gesture folds it up instead of leaving. */
 /**
- * The pill under the folded map, which used to be only a picture of one.
+ * The grip on the folded map's bottom edge, a pill in the middle of it.
  *
- * Pulled down, the map's bottom edge comes along with the finger; let go far
- * enough and the map opens over the screen, short of that it springs back. A
- * tap opens it too. Only with the map at the top: scrolled, the pill is
- * under the map anyway.
+ * Pulled down, the edge comes along with the finger; let go far enough and
+ * the map opens over the screen, short of that it springs back. A tap opens
+ * it too. It sits on the map, so it works however far the page has folded
+ * the map away.
  */
 function MapGrab({
   panelRef,
-  shiftRef,
   onOpen,
 }: {
+  edge?: boolean;
   panelRef: React.RefObject<HTMLDivElement | null>;
   shiftRef: React.RefObject<number>;
   onOpen: () => void;
 }) {
   const drag = useRef<{ y: number; h: number } | null>(null);
 
-  const release = (grab: HTMLElement, open: boolean) => {
+  const release = (open: boolean) => {
     const panel = panelRef.current;
     const from = drag.current;
     drag.current = null;
     if (!panel || !from) return;
-    grab.style.transition = 'transform 0.3s var(--ease)';
-    grab.style.transform = '';
     panel.style.transition = '';
     if (open) {
       onOpen();
@@ -1693,14 +1676,14 @@ function MapGrab({
   return (
     <button
       type="button"
-      className="sheet-grab"
+      className="map-edge-grab"
       aria-label={t('trip.map.expand')}
       onPointerDown={(e) => {
         const panel = panelRef.current;
-        if (!panel || (shiftRef.current ?? 0) > 0) return;
-        drag.current = { y: e.clientY, h: panel.getBoundingClientRect().height };
+        if (!panel) return;
+        e.stopPropagation();
+        drag.current = { y: e.clientY, h: panel.offsetHeight };
         e.currentTarget.setPointerCapture(e.pointerId);
-        e.currentTarget.style.transition = 'none';
       }}
       onPointerMove={(e) => {
         const panel = panelRef.current;
@@ -1709,13 +1692,12 @@ function MapGrab({
         const dy = Math.max(0, e.clientY - from.y);
         panel.style.transition = 'none';
         panel.style.height = `${from.h + dy}px`;
-        e.currentTarget.style.transform = `translateY(${dy}px)`;
       }}
       onPointerUp={(e) => {
         const dy = drag.current ? e.clientY - drag.current.y : 0;
-        release(e.currentTarget, dy > 60 || Math.abs(dy) < 6);
+        release(dy > 60 || Math.abs(dy) < 6);
       }}
-      onPointerCancel={(e) => release(e.currentTarget, false)}
+      onPointerCancel={() => release(false)}
     >
       <span />
     </button>

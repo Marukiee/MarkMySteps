@@ -8,10 +8,6 @@
   height: calc(100vh - 57px); /* minus topbar */
 }
 
-.sheet-grab {
-  display: none;
-}
-
 /* The grip between map and timeline: centred in the gap, out of the grid
    (absolute), so the two columns stay the only grid items. */
 .side-resizer {
@@ -151,38 +147,15 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
        a millimetre of photo. Published as a variable because the timeline reads
        it back to work out where its rail goes. */
     --page-pad: 0.85rem;
-    padding: 0.2rem var(--page-pad) calc(96px + env(safe-area-inset-bottom));
+    /* The top keeps the room the pill under the map used to take; the
+       grip is on the map's own edge now. */
+    padding: 1.6rem var(--page-pad) calc(96px + env(safe-area-inset-bottom));
     /* This box IS the width of the screen, so it is the right place to stop a
        swiped card — anything narrower cut it off early. Clip, not hidden: no
        scrollbar, and the vertical axis stays visible for the sticky map. */
     overflow-x: clip;
   }
 
-  /* Grab handle scrolls with the content, just under the map. The button is
-     a thumb wide and tall; the pill is the line in it. Pulled down, it takes
-     the map's bottom edge along (MapGrab). */
-  .sheet-grab {
-    display: block;
-    margin: 0 auto 0.2rem;
-    padding: 0.5rem 2rem 0.7rem;
-    background: none;
-    touch-action: none;
-    cursor: grab;
-  }
-
-  .sheet-grab span {
-    display: block;
-    width: 42px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--line);
-    transition: background-color 0.2s var(--ease), width 0.2s var(--ease);
-  }
-
-  .sheet-grab:active span {
-    width: 52px;
-    background: var(--ink-faint);
-  }
 
   /* Person toggles sit on the map, clear of the status bar. */
   .person-toggles {
@@ -1156,24 +1129,41 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 /* ---------- Phone: the folded map, and opening it out ---------- */
 
 .map-expand,
-.map-expand-hit {
+.map-edge-grab {
   display: none;
 }
 
 @media (max-width: 900px) {
-  /* The folded map as one big tap target: under the corner buttons and the
-     day filter, over the canvas and its markers (a tap on a photo is passed on
-     to it, see onFoldedTap). */
-  .map-foldable:not(.map-full) .map-expand-hit {
-    display: block;
+  /* The grip on the folded map's bottom edge: a pill in the middle, on a
+     strip a thumb tall so it is easy to catch. Pulled down, the map follows
+     (MapGrab). */
+  .map-foldable:not(.map-full) .map-edge-grab {
+    display: grid;
+    place-items: end center;
     position: absolute;
-    inset: 0;
+    left: 50%;
+    bottom: 0;
     z-index: 40;
-    border: none;
-    padding: 0;
-    background: transparent;
-    cursor: zoom-in;
-    -webkit-tap-highlight-color: transparent;
+    width: 140px;
+    height: 34px;
+    padding-bottom: 7px;
+    transform: translateX(-50%);
+    background: none;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .map-edge-grab span {
+    width: 40px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgb(255 255 255 / 0.92);
+    box-shadow: 0 1px 4px rgb(8 12 18 / 0.35);
+    transition: width 0.2s var(--ease);
+  }
+
+  .map-edge-grab:active span {
+    width: 52px;
   }
 
   /* Said out loud as well: a glass button like the locate button. */
