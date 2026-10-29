@@ -91,10 +91,13 @@ type BookPage = DayPage | LegPage;
  */
 export async function renderPhotoBook(
   source: BookSource,
-  options: { dpi?: number; theme?: 'light' | 'dark' } = {},
+  options: { dpi?: number; theme?: 'light' | 'dark'; signal?: AbortSignal } = {},
   onProgress?: (done: number, total: number) => void,
 ): Promise<Blob> {
+  // Called off: stops at the next photograph, not at the next whole page.
+  const signal = options.signal;
   await readyFonts();
+  signal?.throwIfAborted();
   const dpi = options.dpi ?? 150;
   const width = Math.round(A4_W_IN * dpi);
   const height = Math.round(A4_H_IN * dpi);
@@ -106,7 +109,7 @@ export async function renderPhotoBook(
   const page = { w: width, h: height, margin: Math.round(width * 0.072) };
   // The plan needs to know what shape every photograph is: how many fit on a
   // page is a question about proportions, not a number decided in advance.
-  const pages = await planPages(source, page);
+  const pages = await planPages(source, page, signal);
   const total = pages.length + 2;
 
   // One canvas for the whole book. Ninety of them is ninety allocations of a
@@ -126,6 +129,7 @@ export async function renderPhotoBook(
     );
     if (!blob) throw new Error(t('book.error.render'));
     out.push({ jpeg: await blob.arrayBuffer(), width, height });
+    signal?.throwIfAborted();
     onProgress?.(++done, total);
   };
 
@@ -135,6 +139,7 @@ export async function renderPhotoBook(
   await finish();
 
   for (let i = 0; i < pages.length; i++) {
+    signal?.throwIfAborted();
     const current = pages[i]!;
     // The next page's photographs are fetched while this one is being drawn,
     // so the decoder is never the thing everybody is waiting for.
@@ -162,7 +167,7 @@ export async function renderPhotoBook(
  * pages in, "where is this?" has no answer on the page. The little maps are
  * the answer, and they cost one page per move.
  */
-async function planPages(source: BookSource, page: PageBox): Promise<BookPage[]> {
+async function planPages(source: BookSource, page: PageBox, signal?: AbortSignal): Promise<BookPage[]> {
   const byDay = groupByDay(source.media);
   const days = [...byDay.keys()].sort();
   const route = source.stops.filter(
@@ -194,7 +199,9 @@ async function planPages(source: BookSource, page: PageBox): Promise<BookPage[]>
     const first = page.h - page.margin - Math.round(page.h * (hasNote ? 0.3 : 0.17));
     const rest = page.h - page.margin - Math.round(page.h * 0.08);
 
-    const shapes = await measure(photos);
+    // Measuring every photograph of a long trip takes minutes; a book called
+    // off in the meantime stops here rather than when the measuring is done.
+    const shapes = await measure(photos, signal);
     const split = paginate(shapes, width, gap, first, rest);
     for (const [part, group] of split.entries()) {
       pages.push({
@@ -1257,7 +1264,7 @@ async function decode(mediaId: string): Promise<ImageBitmap | HTMLImageElement |
 }
 
 /** What shape each of these photographs is, fetching them a few at a time. */
-async function measure(photos: MediaItem[]): Promise<Shape[]> {
+async function measure(photos: MediaItem[], signal?: AbortSignal): Promise<Shape[]> {
   const shapes: Shape[] = photos.map((item) => ({ item, ratio: ratios.get(item.id) ?? 0 }));
   const todo = shapes.filter((shape) => shape.ratio === 0);
 
@@ -1266,7 +1273,7 @@ async function measure(photos: MediaItem[]): Promise<Shape[]> {
     Array.from({ length: Math.min(PREFETCH, queue.length) }, async () => {
       for (;;) {
         const shape = queue.shift();
-        if (!shape) return;
+        if (!shape || signal?.aborted) return;
         const image = await decode(shape.item.id);
         // Portraits are the common case for a phone; a photo that will not
         // decode is assumed to be one rather than left at zero.
@@ -1277,6 +1284,7 @@ async function measure(photos: MediaItem[]): Promise<Shape[]> {
       }
     }),
   );
+  signal?.throwIfAborted();
 
   for (const shape of shapes) if (shape.ratio === 0) shape.ratio = ratios.get(shape.item.id) ?? 0.75;
   return shapes;

@@ -15,7 +15,6 @@
   "book.done.failedTitle": "Fotoboek mislukt",
   "book.done.failedBody": "Er ging iets mis tijdens het maken. Probeer het opnieuw.",
   "book.done.save": "Bewaren",
-  "book.job.cancelling": "Annuleren…",
   "book.job.notifyTitle": "Fotoboek · {title}",
   "book.job.preparing": "Voorbereiden…",
   "book.job.notifyDone": "{title} · open de app om te bewaren",

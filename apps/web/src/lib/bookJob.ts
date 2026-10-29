@@ -62,19 +62,29 @@ function set(next: Partial<BookJob>): void {
   for (const fn of listeners) fn(job);
 }
 
-/** Set while a job should stop: the panel's button, or the notification's. */
-let cancelling = false;
+/** Stops the running job: the panel's button, or the notification's. */
+let controller: AbortController | null = null;
 
-/** Stops the book being made. What has been drawn so far is thrown away. */
+/**
+ * Stops the book being made. What has been drawn so far is thrown away.
+ *
+ * The panel is back to its buttons at once. It used to wait for the renderer
+ * to reach the end of a page, and before the first page it measures every
+ * photograph of the trip, so on a long trip the button seemed to do nothing
+ * at all for minutes. The renderer stops at the next photograph.
+ */
 export function cancelBook(): void {
   if (job.status !== 'running') return;
-  cancelling = true;
-  set({ note: t('book.job.cancelling') });
+  controller?.abort();
+  controller = null;
+  dismissBook();
 }
 
 export async function startBook(source: BookSource, dpi: number): Promise<void> {
   if (job.status === 'running') return;
-  cancelling = false;
+  const own = new AbortController();
+  controller = own;
+  const signal = own.signal;
   set({
     status: 'running',
     tripId: source.trip.id,
@@ -90,6 +100,7 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
   // how the notification ended up never appearing at all. A refusal is not a
   // reason to stop — the pill in the app says the same thing.
   const mayNotify = await notifyPermitted();
+  if (signal.aborted) return;
   if (mayNotify) {
     await showJobProgress(
       t('book.job.notifyTitle', { title: source.trip.title }),
@@ -108,16 +119,13 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
     // pulled in the moment somebody asks for a book, not on every launch. It
     // is the largest thing in the app and most sessions never make one.
     const { renderPhotoBook } = await import('./photobook');
-    const pdf = await renderPhotoBook(source, { dpi }, (done, total) => {
-      // Thrown from inside the renderer, which is exactly where it has to
-      // stop: between two pages, with nothing half-drawn.
-      if (cancelling) throw new CancelledError();
+    const pdf = await renderPhotoBook(source, { dpi, signal }, (done, total) => {
       set({ done, total });
       // The notification's own button leaves a flag behind; this is where it
       // is picked up. Asked once a page, which is often enough to feel instant
       // and rare enough to cost nothing.
       void jobCancelled().then((yes) => {
-        if (yes) cancelling = true;
+        if (yes && !signal.aborted) cancelBook();
       });
       const percent = total > 0 ? Math.round((done / total) * 100) : 0;
       const now = Date.now();
@@ -132,6 +140,7 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
       }
     });
 
+    if (signal.aborted) return;
     const file = new File([pdf], `${slug(source.trip.title)}.pdf`, { type: 'application/pdf' });
     set({ status: 'done', file, note: null });
     // The quiet progress notification goes away and a real one takes its
@@ -141,16 +150,14 @@ export async function startBook(source: BookSource, dpi: number): Promise<void> 
     if (mayNotify) {
       notify(t('book.done.title'), t('book.job.notifyDone', { title: source.trip.title }));
     }
-  } catch (err) {
+  } catch {
+    // Called off on purpose: the job was already put away, and a new book may
+    // have started since. Nothing here is this one's to touch any more.
+    if (signal.aborted) return;
     void clearJobProgress();
-    if (err instanceof CancelledError) {
-      // Nothing to show and nothing to save: it was called off on purpose.
-      dismissBook();
-      return;
-    }
     set({ status: 'failed', note: t('book.job.failed') });
   } finally {
-    cancelling = false;
+    if (controller === own) controller = null;
   }
 }
 
@@ -168,9 +175,6 @@ export function dismissBook(): void {
   for (const fn of listeners) fn(job);
   void clearJobProgress();
 }
-
-/** Not a failure: the job was called off. */
-class CancelledError extends Error {}
 
 function slug(text: string): string {
   return (

@@ -15,7 +15,6 @@
   "book.done.failedTitle": "Photo book failed",
   "book.done.failedBody": "Something went wrong while making it. Please try again.",
   "book.done.save": "Save",
-  "book.job.cancelling": "Cancelling…",
   "book.job.notifyTitle": "Photo book · {title}",
   "book.job.preparing": "Getting ready…",
   "book.job.notifyDone": "{title} · open the app to save it",
