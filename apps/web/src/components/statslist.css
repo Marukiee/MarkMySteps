@@ -1,0 +1,205 @@
+/* The list behind a number on a traveller's page: a sheet from the bottom,
+   the same shape and motion as the people sheet in a trip. */
+.stats-list-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: end center;
+  background: rgb(16 21 27 / 0.5);
+  backdrop-filter: blur(3px);
+  animation: statsListBackdropIn 0.28s var(--ease);
+}
+
+.stats-list-backdrop.closing {
+  animation: statsListBackdropOut 0.24s var(--ease) forwards;
+}
+
+@keyframes statsListBackdropIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+@keyframes statsListBackdropOut {
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+.stats-list.card,
+.stats-list {
+  width: min(560px, 100%);
+  max-height: 88dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 1.1rem 1.15rem calc(1.4rem + env(safe-area-inset-bottom));
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+  animation: statsListUp 0.28s var(--ease);
+}
+
+.stats-list-backdrop.closing .stats-list:not(.sheet-swiping) {
+  animation: statsListDown 0.24s var(--ease) forwards;
+}
+
+@keyframes statsListUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+}
+
+@keyframes statsListDown {
+  to {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+@media (min-width: 860px) and (pointer: fine) {
+  .stats-list-backdrop {
+    place-items: center;
+  }
+
+  .stats-list.card,
+  .stats-list {
+    border-radius: var(--radius-l);
+  }
+}
+
+.stats-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.stats-list-head h2 {
+  font-size: 1.3rem;
+}
+
+.stats-list-close {
+  display: grid;
+  place-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+}
+
+.stats-list-close:hover {
+  background: var(--paper-sunken);
+}
+
+.stats-list-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* One thing per row, a hairline between them: a list to read down, not a
+   stack of cards. */
+.stats-list-row {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--line);
+  animation: statsListRowIn 0.3s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 30ms + 60ms);
+}
+
+.stats-list-row:first-child {
+  border-top: 0;
+}
+
+@keyframes statsListRowIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.stats-list-top {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.stats-list-top strong {
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.stats-list-top small {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.stats-list-flight {
+  flex-wrap: wrap;
+  row-gap: 0.2rem;
+}
+
+.stats-list-plane {
+  color: var(--ink-soft);
+  margin: 0 0.1rem;
+}
+
+/* A trip under a place: what and when on the left, the way in on the right. */
+.stats-list-visit {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.stats-list-what {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 0.05rem;
+}
+
+.stats-list-what > span,
+.stats-list-what > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-list-what > span {
+  font-size: 0.92rem;
+}
+
+.stats-list-what small {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.stats-list-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.btn.stats-list-go {
+  flex: none;
+  gap: 0.2rem;
+  padding: 0.42rem 0.6rem 0.42rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stats-list-backdrop,
+  .stats-list-backdrop.closing,
+  .stats-list,
+  .stats-list-backdrop.closing .stats-list,
+  .stats-list-row {
+    animation: none;
+  }
+}

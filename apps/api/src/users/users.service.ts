@@ -10,7 +10,7 @@ import { assertStrongPassword } from '../auth/password-strength';
 import { revokeAllSessions } from '../auth/sessions';
 import { coded } from '../common/i18n';
 import { PrismaService } from '../prisma/prisma.service';
-import { addDays, isoDay, LEG_NAMES, PLAN_STOP_SELECT, planTrip } from '../trips/trip-schedule';
+import { addDays, type FlightEnd, isoDay, LEG_NAMES, PLAN_STOP_SELECT, planTrip } from '../trips/trip-schedule';
 import { USERNAME_PATTERN } from './dto/profile.dto';
 
 export interface PublicUser {
@@ -63,6 +63,44 @@ export interface TravelStats {
     startDate: string;
     endDate: string;
     color: string | null;
+  }[];
+  /** What is behind the tiles, one list per number, counted from the same days. */
+  lists: TravelLists;
+}
+
+/** One stretch of one trip, to go and look at. */
+export interface TravelVisit {
+  tripId: string;
+  tripTitle: string;
+  /** The stop to land on in that trip's timeline. */
+  stopId: string;
+  from: string;
+  to: string;
+}
+
+export interface TravelLists {
+  trips: {
+    id: string;
+    title: string;
+    color: string | null;
+    from: string;
+    to: string;
+    days: number;
+    km: number;
+    photos: number;
+  }[];
+  /** As many as `places`: going back to a city is one more visit, not a place. */
+  places: { name: string; countryCode: string | null; visits: TravelVisit[] }[];
+  /** As many as `countries`, with every trip that went there. */
+  countries: { code: string; visits: (TravelVisit & { places: string[] })[] }[];
+  /** As many as `flights`, newest first. */
+  flights: {
+    tripId: string;
+    tripTitle: string;
+    stopId: string;
+    day: string;
+    from: FlightEnd;
+    to: FlightEnd;
   }[];
 }
 
@@ -304,6 +342,11 @@ export class UsersService {
     // three times is one place you have been.
     const places = new Set<string>();
     let flights = 0;
+    // The lists behind the tiles come out of this same loop, so a tile that
+    // says 23 never opens a list of 24.
+    const lists: TravelLists = { trips: [], places: [], countries: [], flights: [] };
+    const placeRows = new Map<string, TravelLists['places'][number]>();
+    const countryRows = new Map<string, TravelLists['countries'][number]>();
     let days = 0;
     let ongoing = 0;
     let km = 0;
@@ -322,15 +365,52 @@ export class UsersService {
       const inside = (day: string) => day >= from && day <= to;
 
       const plan = planTrip(trip.stops, trip.startDate);
-      for (const visit of plan.visits) {
+      // In the order they were visited, so a trip's first stop in a country
+      // is the one its row lands on.
+      const visits = [...plan.visits].sort((a, b) => a.from.localeCompare(b.from));
+      for (const visit of visits) {
         if (visit.to < from || visit.from > to) continue;
         const code = visit.stop.countryCode?.toUpperCase();
-        if (code && code !== HOME_COUNTRY) countries.add(code);
-        if (!LEG_NAMES.has(visit.stop.name)) {
-          places.add(`${code ?? ''}/${visit.stop.name.trim().toLowerCase()}`);
+        const stretch: TravelVisit = {
+          tripId: trip.id,
+          tripTitle: trip.title,
+          stopId: visit.stop.id,
+          from: visit.from > from ? visit.from : from,
+          to: visit.to < to ? visit.to : to,
+        };
+        const isPlace = !LEG_NAMES.has(visit.stop.name);
+        if (code && code !== HOME_COUNTRY) {
+          countries.add(code);
+          const row = countryRows.get(code) ?? { code, visits: [] };
+          countryRows.set(code, row);
+          const here = row.visits.find((v) => v.tripId === trip.id);
+          if (here) {
+            if (stretch.to > here.to) here.to = stretch.to;
+            if (isPlace && !here.places.includes(visit.stop.name)) here.places.push(visit.stop.name);
+          } else {
+            row.visits.push({ ...stretch, places: isPlace ? [visit.stop.name] : [] });
+          }
+        }
+        if (isPlace) {
+          const key = `${code ?? ''}/${visit.stop.name.trim().toLowerCase()}`;
+          places.add(key);
+          const row = placeRows.get(key) ?? { name: visit.stop.name.trim(), countryCode: code ?? null, visits: [] };
+          placeRows.set(key, row);
+          // A city split over two stops in one trip is one visit to it.
+          const again = row.visits.find((v) => v.tripId === trip.id);
+          if (again) {
+            if (stretch.to > again.to) again.to = stretch.to;
+          } else {
+            row.visits.push(stretch);
+          }
         }
       }
-      flights += plan.flights.filter(inside).length;
+      const flown = plan.flights.filter((f) => inside(f.day));
+      flights += flown.length;
+      for (const flight of flown) {
+        lists.flights.push({ tripId: trip.id, tripTitle: trip.title, ...flight });
+      }
+      const tripStart = km;
       km += plan.extras.filter((e) => inside(e.day)).reduce((sum, e) => sum + e.km, 0);
 
       const [tracked] = await this.prisma.$queryRaw<{ meters: number | null }[]>`
@@ -342,16 +422,33 @@ export class UsersService {
       `;
       km += (tracked?.meters ?? 0) / 1000;
       // Often one person takes the pictures for everyone.
-      photoCount += await this.prisma.mediaRef.count({
+      const photos = await this.prisma.mediaRef.count({
         where: {
           tripId: trip.id,
           takenAt: { gte: new Date(`${from}T00:00:00Z`), lt: new Date(`${addDays(to, 1)}T00:00:00Z`) },
         },
       });
+      photoCount += photos;
 
-      days += Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;
+      const tripDays = Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;
+      days += tripDays;
       if (from <= today && to >= today) ongoing += 1;
+      lists.trips.push({
+        id: trip.id,
+        title: trip.title,
+        color: trip.color,
+        from,
+        to,
+        days: tripDays,
+        km: Math.round(km - tripStart),
+        photos,
+      });
     }
+    // Trips come newest first, and so do the visits inside each row; the
+    // places themselves too, by when you were last there.
+    lists.places = [...placeRows.values()];
+    lists.countries = [...countryRows.values()].sort((a, b) => a.code.localeCompare(b.code));
+    lists.flights.sort((a, b) => b.day.localeCompare(a.day));
 
     return {
       user: {
@@ -377,6 +474,7 @@ export class UsersService {
         endDate: t.endDate.toISOString().slice(0, 10),
         color: t.color,
       })),
+      lists,
     };
   }
 

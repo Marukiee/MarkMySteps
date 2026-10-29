@@ -296,3 +296,25 @@
   color: var(--ink-faint);
   flex-shrink: 0;
 }
+
+/* A tile with a list behind it: the same tile, as a button. Pressing it
+   gives way a little, like a card does, and that is all the hint it needs. */
+.stat-tile-open {
+  width: 100%;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease), background 0.2s var(--ease);
+}
+
+.stat-tile-open:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) {
+  .stat-tile-open:hover {
+    background: color-mix(in srgb, var(--paper-sunken) 88%, var(--ink) 12%);
+  }
+}

@@ -39,6 +39,7 @@ import { getMapStyle, getTripFacts } from '../lib/prefs';
 import { countTravellers, FactId, resolveFacts } from '../lib/tripFacts';
 import { onTrackerChange } from '../tracking/tracker';
 import { TripAccessPage } from './TripAccessPage';
+import { jumpToDay, stopLanding } from '../components/StopJump';
 import { t } from '../i18n';
 import { legTitle } from '../lib/legs';
 import './tripdetail.css';
@@ -1032,6 +1033,38 @@ export function TripDetailPage() {
     next.delete('photo');
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, visibleMedia, visibleUsers, media, day]);
+
+  // Arriving from somebody's list of places or flights means "show me the
+  // photos from there": the timeline scrolls to that stop the way its own
+  // tile on the rail would, once the stops and photos are in and laid out.
+  useEffect(() => {
+    const wanted = searchParams.get('stop');
+    if (!wanted || stops.length === 0 || media.length === 0) return;
+    if (tab !== 'timeline') {
+      setTab('timeline');
+      return;
+    }
+    if (day !== null) {
+      setDay(null);
+      return;
+    }
+    // After the page has settled: the map folds and the photos take their
+    // height in the first frames, and a jump measured before that lands short.
+    // Consumed only then, or the param going away cancelled its own jump.
+    const timer = window.setTimeout(() => {
+      const next = new URLSearchParams(searchParams);
+      next.delete('stop');
+      setSearchParams(next, { replace: true });
+      const stop = stops.find((s) => s.id === wanted);
+      if (!stop) return;
+      const shown = [...document.querySelectorAll<HTMLElement>('.timeline-day[data-day]')].map(
+        (el) => el.dataset.day!,
+      );
+      const landing = stopLanding(stop, shown, visibleMedia);
+      if (landing) jumpToDay(landing.day, landing.anchorId);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [searchParams, setSearchParams, stops, media, visibleMedia, tab, day]);
 
   useEffect(() => {
     if (lightboxIndex === null) return;

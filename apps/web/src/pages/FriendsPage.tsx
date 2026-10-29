@@ -9,8 +9,10 @@ import {
   CountryPanel,
   RecentTrips,
   StatGrid,
+  StatsListKind,
   TravelStats,
 } from '../components/TravelStatsView';
+import { StatsListSheet } from '../components/StatsListSheet';
 import { t } from '../i18n';
 import { isLocalMode, travellersTabLabel } from '../lib/localMode';
 import './friends.css';
@@ -37,6 +39,8 @@ export function FriendsPage() {
   const demoBell = params.get('demo') === 'meldingen';
   const [friends, setFriends] = useState<Friend[] | null>(null);
   const [mine, setMine] = useState<TravelStats | null>(null);
+  /** Which number's list is open over the page. */
+  const [list, setList] = useState<StatsListKind | null>(null);
   const local = isLocalMode();
 
   useEffect(() => {
@@ -84,12 +88,15 @@ export function FriendsPage() {
               </span>
             )}
           </header>
-          <StatGrid stats={mine} />
+          <StatGrid stats={mine} onOpen={setList} />
           <CountryPanel countries={mine?.countries ?? null} />
         </section>
       )}
 
       {mine && <RecentTrips trips={mine.recent} />}
+      {list && mine?.lists && (
+        <StatsListSheet kind={list} lists={mine.lists} onClose={() => setList(null)} />
+      )}
 
       {!local && (
         <>

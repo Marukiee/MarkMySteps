@@ -226,6 +226,31 @@ export function StopJump({
 }
 
 /**
+ * Where a jump to one stop lands: the first day with photos while you were
+ * there, and the photo taken at the place itself when there is one. The same
+ * choice the tiles above make, for a stop asked for from outside the trip (a
+ * place on somebody's list of places).
+ *
+ * A stop without a photo of its own days lands on the nearest day after it
+ * that has one, or the last one before it: the neighbourhood is still right.
+ */
+export function stopLanding(
+  stop: JumpStop,
+  days: string[],
+  media: JumpPhoto[],
+): { day: string; anchorId: string | null } | null {
+  const sorted = [...days].sort();
+  const from = stop.arrivalDate.slice(0, 10);
+  const to = stop.departureDate.slice(0, 10);
+  const inside = sorted.find((d) => d >= from && d <= to);
+  const day = inside ?? sorted.find((d) => d > to) ?? [...sorted].reverse().find((d) => d < from);
+  if (!day) return null;
+  if (!inside) return { day, anchorId: null };
+  const face = faceOf(stop, media, from, to, day);
+  return { day, anchorId: face?.near ? face.id : stop.coverMediaId ?? null };
+}
+
+/**
  * Puts a day, or one photo of it, at the top of whatever is doing the
  * scrolling.
  *

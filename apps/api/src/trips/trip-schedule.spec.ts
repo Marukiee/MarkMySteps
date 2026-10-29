@@ -42,7 +42,13 @@ describe('planTrip', () => {
       ],
       start,
     );
-    expect(plan.flights).toEqual(['2026-04-03']);
+    expect(plan.flights.map((f) => f.day)).toEqual(['2026-04-03']);
+    // Leaving from where the last stop was, by name; arriving at the stop.
+    expect(plan.flights[0]).toMatchObject({
+      stopId: 'Marrakesh',
+      from: { name: 'Rabat' },
+      to: { name: 'Marrakesh', countryCode: 'MA' },
+    });
   });
 
   it('counts an outbound flight between two airports', () => {
@@ -53,7 +59,12 @@ describe('planTrip', () => {
       ],
       start,
     );
-    expect(plan.flights).toEqual(['2026-04-01']);
+    expect(plan.flights.map((f) => f.day)).toEqual(['2026-04-01']);
+    // A leg is not a place: its ends are the airports.
+    expect(plan.flights[0]).toMatchObject({
+      from: { name: null, airport: 'AMS' },
+      to: { name: null, airport: 'RAK' },
+    });
   });
 
   it('puts a day trip on its own day and adds the way there and back', () => {

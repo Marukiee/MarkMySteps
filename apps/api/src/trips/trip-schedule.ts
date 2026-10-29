@@ -43,11 +43,27 @@ export interface PlanStop {
   countryCode: string | null;
 }
 
+/** One end of a flight: the place, the airport, or both when known. */
+export interface FlightEnd {
+  /** The stop's name; null for a route leg or an airport typed on its own. */
+  name: string | null;
+  airport: string | null;
+  countryCode: string | null;
+}
+
+export interface PlanFlight {
+  day: string;
+  /** The stop the flight arrives at, to land on its photos. */
+  stopId: string;
+  from: FlightEnd;
+  to: FlightEnd;
+}
+
 export interface TripPlan {
   /** Each stop with the days it covers, as 'YYYY-MM-DD'. Day trips are one day. */
   visits: { stop: PlanStop; from: string; to: string }[];
-  /** The day of every flight, one per arc the map draws. */
-  flights: string[];
+  /** Every flight, one per arc the map draws. */
+  flights: PlanFlight[];
   /** Kilometres the plan adds to what was tracked, with the day they fall on. */
   extras: { km: number; day: string }[];
 }
@@ -103,16 +119,34 @@ export function planTrip(stops: PlanStop[], tripStart: Date): TripPlan {
   // its departure airport or where the last one ended, and ends at its arrival
   // airport or the stop itself. A first stop without a departure airport has
   // no leg to it, whatever its mode says.
-  const flights: string[] = [];
+  // Where the last leg ended, by name, for a flight that leaves from there
+  // without an airport of its own.
+  const flights: PlanFlight[] = [];
   let prev: [number, number] | null = null;
+  let prevEnd: FlightEnd | null = null;
   for (const stop of route) {
     const dep = airportCoord(stop.fromAirport);
     const arr = airportCoord(stop.toAirport);
     const city = point(stop);
     const from = dep ?? prev;
     const to = arr ?? city;
-    if (from && to && stop.travelMode === 'FLIGHT') flights.push(arrival.get(stop.id)!);
+    const here: FlightEnd = {
+      name: LEG_NAMES.has(stop.name) ? null : stop.name,
+      airport: stop.toAirport,
+      countryCode: stop.countryCode,
+    };
+    if (from && to && stop.travelMode === 'FLIGHT') {
+      flights.push({
+        day: arrival.get(stop.id)!,
+        stopId: stop.id,
+        from: dep
+          ? { name: null, airport: stop.fromAirport, countryCode: null }
+          : prevEnd ?? { name: null, airport: null, countryCode: null },
+        to: here,
+      });
+    }
     prev = to ?? city ?? prev;
+    prevEnd = here;
   }
 
   // What tracking never sees. A day trip there and back from where you slept,

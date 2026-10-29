@@ -34,7 +34,50 @@ export interface TravelStats {
     endDate: string;
     color: string | null;
   }[];
+  /** What is behind the tiles; missing from servers that do not send it yet. */
+  lists?: TravelLists;
 }
+
+/** One stretch of one trip, to go and look at. */
+export interface TravelVisit {
+  tripId: string;
+  tripTitle: string;
+  stopId: string;
+  from: string;
+  to: string;
+}
+
+export interface FlightEnd {
+  name: string | null;
+  airport: string | null;
+  countryCode: string | null;
+}
+
+export interface TravelLists {
+  trips: {
+    id: string;
+    title: string;
+    color: string | null;
+    from: string;
+    to: string;
+    days: number;
+    km: number;
+    photos: number;
+  }[];
+  places: { name: string; countryCode: string | null; visits: TravelVisit[] }[];
+  countries: { code: string; visits: (TravelVisit & { places: string[] })[] }[];
+  flights: {
+    tripId: string;
+    tripTitle: string;
+    stopId: string;
+    day: string;
+    from: FlightEnd;
+    to: FlightEnd;
+  }[];
+}
+
+/** Which list a tile opens. Distance, days and photos are per trip. */
+export type StatsListKind = 'places' | 'countries' | 'flights' | 'trips';
 
 /** "1 reis" / "4 reizen", instead of the "reiszen" a bare suffix produced. */
 export function plural(n: number, one: string, many: string): string {
@@ -47,12 +90,13 @@ const TILES: {
   icon: IconName;
   /** Tile accent, so the block reads as a set of things rather than a table. */
   tone: string;
+  list: StatsListKind;
 }[] = [
-  { key: 'trips', label: t('trips.stats.trips'), icon: 'compass', tone: '#e8613c' },
-  { key: 'days', label: t('trips.stats.days'), icon: 'hourglass', tone: '#c98a2d' },
-  { key: 'places', label: t('trips.stats.places'), icon: 'pin', tone: '#2a8f85' },
-  { key: 'flights', label: t('trips.stats.flights'), icon: 'plane', tone: '#5b6ee1' },
-  { key: 'photoCount', label: t('trips.stats.photos'), icon: 'camera', tone: '#b04a98' },
+  { key: 'trips', label: t('trips.stats.trips'), icon: 'compass', tone: '#e8613c', list: 'trips' },
+  { key: 'days', label: t('trips.stats.days'), icon: 'hourglass', tone: '#c98a2d', list: 'trips' },
+  { key: 'places', label: t('trips.stats.places'), icon: 'pin', tone: '#2a8f85', list: 'places' },
+  { key: 'flights', label: t('trips.stats.flights'), icon: 'plane', tone: '#5b6ee1', list: 'flights' },
+  { key: 'photoCount', label: t('trips.stats.photos'), icon: 'camera', tone: '#b04a98', list: 'trips' },
 ];
 
 /**
@@ -63,7 +107,15 @@ const TILES: {
  * reads as a label. Distance gets a double-width tile because it is the one
  * with four or five digits, and it looked cramped beside the small ones.
  */
-export function StatGrid({ stats }: { stats: TravelStats | null }) {
+export function StatGrid({
+  stats,
+  onOpen,
+}: {
+  stats: TravelStats | null;
+  /** Tapping a number opens what it counts; only when the server sent the lists. */
+  onOpen?: (kind: StatsListKind) => void;
+}) {
+  const open = stats?.lists && onOpen ? onOpen : undefined;
   return (
     <div className="stat-grid">
       <Tile
@@ -74,6 +126,7 @@ export function StatGrid({ stats }: { stats: TravelStats | null }) {
         delay={0}
         value={stats?.distanceKm}
         format={(v) => v.toLocaleString(intlLocale())}
+        onOpen={open && (() => open('trips'))}
       />
       <Tile
         icon="globe"
@@ -81,6 +134,7 @@ export function StatGrid({ stats }: { stats: TravelStats | null }) {
         label={t('trips.stats.countries')}
         delay={60}
         value={stats?.countries.length}
+        onOpen={open && (() => open('countries'))}
       />
       {TILES.map((tile, i) => (
         <Tile
@@ -94,6 +148,7 @@ export function StatGrid({ stats }: { stats: TravelStats | null }) {
               ? stats.ownPhotoCount ?? stats.photoCount
               : stats?.[tile.key]
           }
+          onOpen={open && (() => open(tile.list))}
         />
       ))}
     </div>
@@ -114,6 +169,7 @@ function Tile({
   delay,
   wide,
   format,
+  onOpen,
 }: {
   icon: IconName;
   tone: string;
@@ -122,10 +178,15 @@ function Tile({
   delay: number;
   wide?: boolean;
   format?: (v: number) => string;
+  onOpen?: () => void;
 }) {
+  // A button once there is a list behind it, so it is reachable and said as
+  // one; until then the same tile as before.
+  const Box = onOpen ? 'button' : 'div';
   return (
-    <div
-      className={`stat-tile ${wide ? 'stat-tile-wide' : ''}`}
+    <Box
+      {...(onOpen ? { type: 'button' as const, onClick: onOpen } : {})}
+      className={`stat-tile ${wide ? 'stat-tile-wide' : ''} ${onOpen ? 'stat-tile-open' : ''}`}
       style={{ '--tone': tone, animationDelay: `${delay}ms` } as CSSProperties}
     >
       <strong>
@@ -146,7 +207,7 @@ function Tile({
         className="stat-tile-icon"
       />
       <small>{label}</small>
-    </div>
+    </Box>
   );
 }
 

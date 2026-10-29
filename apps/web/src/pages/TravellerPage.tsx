@@ -7,8 +7,10 @@ import {
   CountryPanel,
   RecentTrips,
   StatGrid,
+  StatsListKind,
   TravelStats,
 } from '../components/TravelStatsView';
+import { StatsListSheet } from '../components/StatsListSheet';
 import { t } from '../i18n';
 import './friends.css';
 
@@ -26,6 +28,8 @@ export function TravellerPage() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<TravelStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Which number's list is open over the page. */
+  const [list, setList] = useState<StatsListKind | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -79,12 +83,15 @@ export function TravellerPage() {
       {!error && (
         <>
           <section className="card traveller-body">
-            <StatGrid stats={stats} />
+            <StatGrid stats={stats} onOpen={setList} />
             <CountryPanel countries={stats?.countries ?? null} />
           </section>
           {/* Out on the page rather than inside the panel: it is a list of
               places to go, like the travellers list, not another statistic. */}
           {stats && <RecentTrips trips={stats.recent} who={stats.user.displayName} />}
+          {list && stats?.lists && (
+            <StatsListSheet kind={list} lists={stats.lists} onClose={() => setList(null)} />
+          )}
         </>
       )}
     </main>
