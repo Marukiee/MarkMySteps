@@ -2,6 +2,7 @@ package nl.markmaaktmedia.markmysteps;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -33,6 +34,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MmsDynamicColorPlugin.class);
         registerPlugin(MmsUpdatePlugin.class);
         super.onCreate(savedInstanceState);
+        // Android's stretch at the end of a scroll pulls the whole WebView,
+        // the tab bar fixed at the bottom included. The page's own
+        // overscroll-behavior did not stop it on every phone; this does.
+        getBridge().getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
         remember(getIntent());
     }
 
