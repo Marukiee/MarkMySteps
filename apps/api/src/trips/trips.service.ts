@@ -8,6 +8,7 @@ import { Trip, TripRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { airportCoord } from '../common/airports';
+import { isoDay, kmLngLat, PLAN_STOP_SELECT, planTrip } from './trip-schedule';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { coded } from '../common/i18n';
@@ -31,6 +32,9 @@ export type TripMemberView = {
   userId: string;
   role: TripRole;
   canTrack: boolean;
+  /** The days they were there, 'YYYY-MM-DD'; null is from the start or to the end. */
+  fromDate: string | null;
+  toDate: string | null;
   user: { displayName: string; username: string; hasAvatar: boolean };
 };
 export type TripWithMembers = Trip & {
@@ -202,6 +206,8 @@ function mapMembers(trip: RawTripRow, liveCovers?: Set<string>): TripWithMembers
       userId: m.userId,
       role: m.role,
       canTrack: m.canTrack,
+      fromDate: m.fromDate ? isoDay(m.fromDate) : null,
+      toDate: m.toDate ? isoDay(m.toDate) : null,
       user: {
         displayName: m.user.displayName,
         username: m.user.username,
@@ -228,17 +234,6 @@ function inHomeCountry(p: [number, number]): boolean {
 function stripHomeCountry(coords: [number, number][]): [number, number][] {
   const foreign = coords.filter((p) => !inHomeCountry(p));
   return foreign.length === 0 ? coords : foreign;
-}
-
-/** Great-circle distance (km) between two [lng,lat] points. */
-function kmLngLat(a: [number, number], b: [number, number]): number {
-  const toRad = Math.PI / 180;
-  const dLat = (b[1] - a[1]) * toRad;
-  const dLon = (b[0] - a[0]) * toRad;
-  const la1 = a[1] * toRad;
-  const la2 = b[1] * toRad;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
-  return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
 /**
@@ -333,6 +328,8 @@ type RawMember = {
   userId: string;
   role: TripRole;
   canTrack: boolean;
+  fromDate: Date | null;
+  toDate: Date | null;
   user: { displayName: string; username: string; avatarMime: string | null };
 };
 
@@ -665,55 +662,12 @@ export class TripsService {
         select: { countryCode: true },
         distinct: ['countryCode'],
       }),
-      this.prisma.stop.findMany({
-        where: { tripId },
-        orderBy: { orderIndex: 'asc' },
-        select: {
-          id: true,
-          name: true,
-          latitude: true,
-          longitude: true,
-          travelMode: true,
-          parentStopId: true,
-        },
-      }),
+      this.prisma.stop.findMany({ where: { tripId }, select: PLAN_STOP_SELECT }),
     ]);
 
-    // A manually-entered begin/end leg (Heenreis/Terugreis by any ground mode)
-    // with its own coordinate adds that driven stretch to the total — it's the
-    // part from/to home that usually isn't GPS-tracked. Flights don't count as
-    // "driven" kilometres.
-    const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
-    const hasCoord = (s: { latitude: number | null; longitude: number | null }) =>
-      s.latitude != null && s.longitude != null;
-    const cities = orderedStops.filter(
-      (s) => hasCoord(s) && !LEG_NAMES.has(s.name) && !s.parentStopId,
-    );
-    let extraKm = 0;
-
-    // A day trip is a there-and-back detour from the stop you slept at, and
-    // those kilometres are never tracked (you leave the phone's route as one
-    // long stay), so they're added from the plan.
-    const stopById = new Map(orderedStops.map((s) => [s.id, s]));
-    for (const s of orderedStops) {
-      if (!s.parentStopId || !hasCoord(s)) continue;
-      const parent = stopById.get(s.parentStopId);
-      if (!parent || !hasCoord(parent)) continue;
-      extraKm +=
-        2 * kmLngLat([s.longitude!, s.latitude!], [parent.longitude!, parent.latitude!]);
-    }
-
-    orderedStops.forEach((s, i) => {
-      if (!hasCoord(s) || !LEG_NAMES.has(s.name) || s.travelMode === 'FLIGHT') return;
-      // Leading leg connects to the first city, trailing leg to the last city.
-      const neighbour = i === 0 ? cities[0] : cities[cities.length - 1];
-      if (neighbour) {
-        extraKm += kmLngLat(
-          [s.longitude!, s.latitude!],
-          [neighbour.longitude!, neighbour.latitude!],
-        );
-      }
-    });
+    // What tracking never sees, added from the plan: day trips there and back,
+    // and a ground leg from or to home typed in by hand (see trip-schedule.ts).
+    const extraKm = planTrip(orderedStops, trip.startDate).extras.reduce((sum, e) => sum + e.km, 0);
 
     const days =
       Math.round(
@@ -875,23 +829,32 @@ export class TripsService {
     }
   }
 
-  /** Owner updates a member's role and/or tracking permission. */
+  /**
+   * Owner updates a member's role, tracking permission, or the days they were
+   * there. The owner's own days can be set too (they may have gone home
+   * early); their role cannot.
+   */
   async updateMember(
     tripId: string,
     ownerId: string,
     memberId: string,
-    dto: { role?: TripRole; canTrack?: boolean },
+    dto: { role?: TripRole; canTrack?: boolean; fromDate?: string | null; toDate?: string | null },
   ): Promise<TripWithMembers> {
     const trip = await this.getForMember(tripId, ownerId);
     this.assertOwner(trip, ownerId);
-    if (memberId === trip.ownerId) {
+    if (memberId === trip.ownerId && (dto.role !== undefined || dto.canTrack !== undefined)) {
       throw new BadRequestException('The owner role cannot be changed');
     }
+    const member = trip.members.find((m) => m.userId === memberId);
+    if (!member) throw new NotFoundException('Member not found');
     await this.prisma.tripMember.update({
       where: { tripId_userId: { tripId, userId: memberId } },
       data: {
         ...(dto.role !== undefined ? { role: dto.role } : {}),
         ...(dto.canTrack !== undefined ? { canTrack: dto.canTrack } : {}),
+        ...(dto.fromDate !== undefined || dto.toDate !== undefined
+          ? memberDays(trip, member, dto)
+          : {}),
       },
     });
     // Turned down to guest: their photos leave the trip with them. The Immich
@@ -903,6 +866,31 @@ export class TripsService {
     }
     return this.getForMember(tripId, ownerId);
   }
+}
+
+/**
+ * The days a member was there, checked against the trip. The whole trip is
+ * stored as null on either side, so moving the trip's dates later keeps "the
+ * whole trip" meaning the whole trip.
+ */
+function memberDays(
+  trip: TripWithMembers,
+  member: TripMemberView,
+  dto: { fromDate?: string | null; toDate?: string | null },
+): { fromDate: Date | null; toDate: Date | null } {
+  const first = isoDay(trip.startDate);
+  const last = isoDay(trip.endDate);
+  const from = (dto.fromDate !== undefined ? dto.fromDate : member.fromDate) ?? first;
+  const to = (dto.toDate !== undefined ? dto.toDate : member.toDate) ?? last;
+  if (from < first || to > last || from > to) {
+    throw new BadRequestException(
+      coded('Deze dagen vallen niet binnen de reis', 'trip.memberDaysOutside'),
+    );
+  }
+  return {
+    fromDate: from === first ? null : new Date(`${from}T00:00:00Z`),
+    toDate: to === last ? null : new Date(`${to}T00:00:00Z`),
+  };
 }
 
 function parseDates(start: string, end: string): { startDate: Date; endDate: Date } {

@@ -10,6 +10,7 @@ import { assertStrongPassword } from '../auth/password-strength';
 import { revokeAllSessions } from '../auth/sessions';
 import { coded } from '../common/i18n';
 import { PrismaService } from '../prisma/prisma.service';
+import { addDays, isoDay, LEG_NAMES, PLAN_STOP_SELECT, planTrip } from '../trips/trip-schedule';
 import { USERNAME_PATTERN } from './dto/profile.dto';
 
 export interface PublicUser {
@@ -202,29 +203,39 @@ export class UsersService {
     await revokeAllSessions(this.prisma, id);
   }
 
-  /** Everyone you share at least one trip with. Never exposes their email. */
+  /**
+   * Everyone you share at least one trip with. Never exposes their email.
+   *
+   * The count is of trips you both travelled on: a trip one of you only
+   * followed as a guest keeps the other in the list, but was not together.
+   */
   async listFriends(id: string): Promise<Friend[]> {
-    const rows = await this.prisma.tripMember.findMany({
-      where: {
-        userId: { not: id },
-        trip: { members: { some: { userId: id } } },
-      },
-      include: {
-        user: {
-          select: { id: true, username: true, displayName: true, avatarMime: true },
+    const [rows, mine] = await Promise.all([
+      this.prisma.tripMember.findMany({
+        where: {
+          userId: { not: id },
+          trip: { members: { some: { userId: id } } },
         },
-      },
-    });
+        include: {
+          user: {
+            select: { id: true, username: true, displayName: true, avatarMime: true },
+          },
+        },
+      }),
+      this.prisma.tripMember.findMany({ where: { userId: id }, select: { tripId: true, role: true } }),
+    ]);
+    const myRole = new Map(mine.map((m) => [m.tripId, m.role]));
 
     const byUser = new Map<string, Friend>();
     for (const row of rows) {
+      const together = row.role !== 'GUEST' && myRole.get(row.tripId) !== 'GUEST' ? 1 : 0;
       const existing = byUser.get(row.userId);
       if (existing) {
-        existing.sharedTrips++;
+        existing.sharedTrips += together;
         continue;
       }
       const { avatarMime, ...user } = row.user;
-      byUser.set(row.userId, { ...user, hasAvatar: avatarMime !== null, sharedTrips: 1 });
+      byUser.set(row.userId, { ...user, hasAvatar: avatarMime !== null, sharedTrips: together });
     }
     return [...byUser.values()].sort((a, b) => b.sharedTrips - a.sharedTrips);
   }
@@ -233,9 +244,11 @@ export class UsersService {
    * A traveller's numbers, over every trip they are a member of.
    *
    * Only for people you actually travel with: someone else's history is not
-   * public just because you both have an account here. Distance and photos
-   * count that person's own contribution; days and countries count the trips
-   * they were on, because those are shared by definition.
+   * public just because you both have an account here. Photos count that
+   * person's own; days, countries, flights and distance count the trips they
+   * were on, because those are shared by definition: a friend who never
+   * tracked still travelled the route somebody else kept. A companion who was
+   * only there for part of a trip gets only those days.
    *
    * Guests are left out of their own totals. Being invited to look at a trip
    * is not the same as having been on it, and counting a grandmother's fifteen
@@ -244,10 +257,16 @@ export class UsersService {
   async travelStats(viewerId: string, targetId: string): Promise<TravelStats> {
     let sharedTrips = 0;
     if (viewerId !== targetId) {
-      sharedTrips = await this.prisma.tripMember.count({
+      // Seeing somebody's numbers takes any trip in common, a guest's too;
+      // "trips together" counts only the ones you both travelled on.
+      const common = await this.prisma.tripMember.findMany({
         where: { userId: targetId, trip: { members: { some: { userId: viewerId } } } },
+        select: { role: true, trip: { select: { members: { where: { userId: viewerId }, select: { role: true } } } } },
       });
-      if (sharedTrips === 0) throw new NotFoundException('User not found');
+      if (common.length === 0) throw new NotFoundException('User not found');
+      sharedTrips = common.filter(
+        (m) => m.role !== 'GUEST' && m.trip.members[0]?.role !== 'GUEST',
+      ).length;
     }
 
     const target = await this.prisma.user.findUnique({
@@ -264,19 +283,11 @@ export class UsersService {
         startDate: true,
         endDate: true,
         color: true,
-        stops: { select: { countryCode: true, name: true, travelMode: true } },
+        members: { where: { userId: targetId }, select: { fromDate: true, toDate: true } },
+        stops: { select: PLAN_STOP_SELECT },
       },
       orderBy: { startDate: 'desc' },
     });
-
-    const [distanceRow] = await this.prisma.$queryRaw<{ meters: number | null }[]>`
-      SELECT SUM(len) AS meters FROM (
-        SELECT ST_Length(ST_MakeLine(geom ORDER BY "recordedAt")::geography) AS len
-        FROM location_points
-        WHERE "userId" = ${targetId}::uuid
-        GROUP BY "tripId"
-      ) x
-    `;
     const photoCount = await this.prisma.mediaRef.count({ where: { userId: targetId } });
 
     const today = new Date().toISOString().slice(0, 10);
@@ -292,17 +303,42 @@ export class UsersService {
     let flights = 0;
     let days = 0;
     let ongoing = 0;
+    let km = 0;
     for (const trip of travelled) {
-      for (const stop of trip.stops) {
-        const code = stop.countryCode?.toUpperCase();
+      // The days this person was there: the whole trip, or the part they were
+      // on when they came later or went home sooner. Everything below counts
+      // only these days, distance too, which is the trip's own, tracked by
+      // whoever tracked it: travelling with somebody who keeps the route is
+      // still having travelled it.
+      const first = isoDay(trip.startDate);
+      const last = isoDay(trip.endDate);
+      const member = trip.members[0];
+      const from = member?.fromDate && isoDay(member.fromDate) > first ? isoDay(member.fromDate) : first;
+      const to = member?.toDate && isoDay(member.toDate) < last ? isoDay(member.toDate) : last;
+      const inside = (day: string) => day >= from && day <= to;
+
+      const plan = planTrip(trip.stops, trip.startDate);
+      for (const visit of plan.visits) {
+        if (visit.to < from || visit.from > to) continue;
+        const code = visit.stop.countryCode?.toUpperCase();
         if (code && code !== HOME_COUNTRY) countries.add(code);
-        places.add(`${code ?? ''}/${stop.name.trim().toLowerCase()}`);
-        if (stop.travelMode === 'FLIGHT') flights += 1;
+        if (!LEG_NAMES.has(visit.stop.name)) {
+          places.add(`${code ?? ''}/${visit.stop.name.trim().toLowerCase()}`);
+        }
       }
-      days +=
-        Math.round((trip.endDate.getTime() - trip.startDate.getTime()) / 86_400_000) + 1;
-      const from = trip.startDate.toISOString().slice(0, 10);
-      const to = trip.endDate.toISOString().slice(0, 10);
+      flights += plan.flights.filter(inside).length;
+      km += plan.extras.filter((e) => inside(e.day)).reduce((sum, e) => sum + e.km, 0);
+
+      const [tracked] = await this.prisma.$queryRaw<{ meters: number | null }[]>`
+        SELECT ST_Length(ST_MakeLine(geom ORDER BY "recordedAt")::geography) AS meters
+        FROM location_points
+        WHERE "tripId" = ${trip.id}::uuid
+          AND "recordedAt" >= ${new Date(`${from}T00:00:00Z`)}
+          AND "recordedAt" < ${new Date(`${addDays(to, 1)}T00:00:00Z`)}
+      `;
+      km += (tracked?.meters ?? 0) / 1000;
+
+      days += Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;
       if (from <= today && to >= today) ongoing += 1;
     }
 
@@ -320,7 +356,7 @@ export class UsersService {
       countries: [...countries].sort(),
       places: places.size,
       flights,
-      distanceKm: Math.round((distanceRow?.meters ?? 0) / 1000),
+      distanceKm: Math.round(km),
       photoCount,
       recent: travelled.slice(0, 5).map((t) => ({
         id: t.id,

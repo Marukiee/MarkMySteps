@@ -315,6 +315,11 @@ model TripMember {
   /// Cleared when somebody else puts you on a trip, so the app can say so once
   /// and then stop. Your own trips start seen — you were there when it was made.
   seen     Boolean  @default(true)
+  /// The part of the trip this person was there for, when it was not all of
+  /// it: friends who flew home early, or joined halfway. Null is from the
+  /// first day or to the last. Their own travel stats count only these days.
+  fromDate DateTime? @db.Date
+  toDate   DateTime? @db.Date
   joinedAt DateTime @default(now())
 
   @@id([tripId, userId])
