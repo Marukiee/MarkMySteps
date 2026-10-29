@@ -5,6 +5,7 @@
   "tripSettings.cover.none": "No photos yet. Later, tap one <arrow></arrow> “Set as cover”",
   "tripSettings.name": "Name",
   "tripSettings.startDate": "Start date",
+  "tripSettings.dates": "Dates",
   "tripSettings.endDate": "End date",
   "tripSettings.color.label": "Colour on the globe & map",
   "tripSettings.color.swatch": "Colour {hex}",

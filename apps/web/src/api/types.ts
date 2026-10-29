@@ -50,6 +50,10 @@ export interface TripMember {
   userId: string;
   role: TripRole;
   canTrack: boolean;
+  /** The days they were there, 'YYYY-MM-DD'; null (or missing on an older
+   *  server) is from the first day or to the last. */
+  fromDate?: string | null;
+  toDate?: string | null;
   user: { displayName: string; username: string; hasAvatar: boolean };
 }
 

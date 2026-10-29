@@ -15,7 +15,7 @@ import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
 import { Avatar } from '../components/Avatar';
 import { confirmModal } from '../components/confirm';
-import { DateField } from '../components/DatePicker';
+import { DateRangeField } from '../components/DatePicker';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { LogoMark } from '../components/Logo';
 import { Icon } from '../components/Icon';
@@ -1031,16 +1031,18 @@ function NewTripForm({ onCreated }: { onCreated: () => void }) {
         <label htmlFor="nt-title">{t('trips.new.title')}</label>
         <input id="nt-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
       </div>
-      <DateField id="nt-start" label={t('trips.new.from')} value={startDate} onChange={setStartDate} />
-      <DateField
-        id="nt-end"
-        label={t('trips.new.to')}
-        value={endDate}
-        nearDate={startDate}
-        onChange={setEndDate}
+      <DateRangeField
+        id="nt-dates"
+        label={t('trips.new.dates')}
+        from={startDate}
+        to={endDate}
+        onChange={(from, to) => {
+          setStartDate(from);
+          setEndDate(to);
+        }}
       />
       {error && <p className="error-text">{error}</p>}
-      <button className="btn btn-primary" disabled={busy}>
+      <button className="btn btn-primary" disabled={busy || !startDate || !endDate}>
         {t('trips.new.create')}
       </button>
     </form>

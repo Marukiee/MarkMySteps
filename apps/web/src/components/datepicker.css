@@ -336,3 +336,111 @@
   pointer-events: none;
   transition: opacity 0.2s var(--ease);
 }
+
+/* --- A range: a first and a last day, the days between lit up --- */
+
+.dp-range-ends {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.dp-range-end {
+  display: grid;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.3rem 0 0.45rem;
+  border-bottom: 2px solid transparent;
+  color: #fff;
+  text-align: left;
+  opacity: 0.62;
+  transition: opacity 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+
+/* The one being chosen now. */
+.dp-range-end.active {
+  opacity: 1;
+  border-bottom-color: #fff;
+}
+
+.dp-range-end span {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.dp-range-end strong {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dp-range-end strong::first-letter {
+  text-transform: uppercase;
+}
+
+.dp-range-arrow {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.dp-month-static {
+  cursor: default;
+  pointer-events: none;
+}
+
+/* No gap between the days of a row, so the band runs through. */
+.dp-range .dp-days {
+  column-gap: 0;
+}
+
+.dp-cell {
+  position: relative;
+  display: grid;
+}
+
+.dp-cell::before {
+  content: '';
+  position: absolute;
+  inset: 7% 0;
+  background: var(--accent-soft);
+  opacity: 0;
+  transition: opacity 0.15s var(--ease);
+}
+
+.dp-cell.in-range::before,
+.dp-cell.range-start::before,
+.dp-cell.range-end::before {
+  opacity: 1;
+}
+
+/* The band starts and ends in the middle of the first and last day. */
+.dp-cell.range-start::before {
+  left: 50%;
+}
+
+.dp-cell.range-end::before {
+  right: 50%;
+}
+
+.dp-cell .dp-day {
+  position: relative;
+}
+
+.dp-cell.in-range .dp-day {
+  color: var(--accent-ink);
+}
+
+.dp-cell.in-range .dp-day:hover {
+  background: transparent;
+}
+
+.dp-day:disabled {
+  opacity: 0.28;
+  cursor: default;
+  background: none;
+}

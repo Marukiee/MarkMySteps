@@ -5,6 +5,7 @@
   "tripSettings.cover.none": "Nog geen foto's. Tik er straks één aan <arrow></arrow> “Als cover”",
   "tripSettings.name": "Naam",
   "tripSettings.startDate": "Startdatum",
+  "tripSettings.dates": "Datums",
   "tripSettings.endDate": "Einddatum",
   "tripSettings.color.label": "Kleur op de globe & kaart",
   "tripSettings.color.swatch": "Kleur {hex}",

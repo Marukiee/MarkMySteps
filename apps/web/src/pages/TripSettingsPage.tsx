@@ -5,7 +5,7 @@ import type { ConnectionStatus, SyncResult, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AuthImage } from '../components/AuthImage';
 import { confirmModal } from '../components/confirm';
-import { DateField } from '../components/DatePicker';
+import { DateField, DateRangeField } from '../components/DatePicker';
 import { HelpTip } from '../components/HelpTip';
 import { Icon } from '../components/Icon';
 import { OfflineMap } from '../components/OfflineMap';
@@ -414,16 +414,16 @@ export function TripSettingsPage() {
             <label htmlFor="ts-title">{t('tripSettings.name')}</label>
             <input id="ts-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
-          <div className="ts-dates">
-            <DateField id="ts-start" label={t('tripSettings.startDate')} value={startDate} onChange={setStartDate} />
-            <DateField
-              id="ts-end"
-              label={t('tripSettings.endDate')}
-              value={endDate}
-              nearDate={startDate}
-              onChange={setEndDate}
-            />
-          </div>
+          <DateRangeField
+            id="ts-dates"
+            label={t('tripSettings.dates')}
+            from={startDate}
+            to={endDate}
+            onChange={(from, to) => {
+              setStartDate(from);
+              setEndDate(to);
+            }}
+          />
 
           <div className="field">
             <label>{t('tripSettings.color.label')}</label>

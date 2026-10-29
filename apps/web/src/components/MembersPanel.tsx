@@ -3,6 +3,8 @@ import { api } from '../api/client';
 import type { Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from './Avatar';
+import { DateRangeSheet } from './DatePicker';
+import { formatDateRange } from '../lib/colors';
 import { confirmModal } from './confirm';
 import { Icon } from './Icon';
 import { MemberAdd } from './MemberAdd';
@@ -49,10 +51,27 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
 
   const canRemove = (memberId: string) => isOwner && memberId !== user?.id;
 
-  async function setMember(memberId: string, patch: { role?: 'MEMBER' | 'GUEST'; canTrack?: boolean }) {
-    await api(`/trips/${trip.id}/members/${memberId}`, { method: 'PATCH', body: patch });
-    onChanged();
+  async function setMember(
+    memberId: string,
+    patch: { role?: 'MEMBER' | 'GUEST'; canTrack?: boolean; fromDate?: string | null; toDate?: string | null },
+  ) {
+    setError(null);
+    try {
+      await api(`/trips/${trip.id}/members/${memberId}`, { method: 'PATCH', body: patch });
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.errorGeneric'));
+    }
   }
+
+  // Whose days are being picked: the calendar sheet is one for the panel.
+  const [daysFor, setDaysFor] = useState<string | null>(null);
+  const tripFrom = trip.startDate.slice(0, 10);
+  const tripTo = trip.endDate.slice(0, 10);
+  const daysLabel = (m: { fromDate?: string | null; toDate?: string | null }) =>
+    m.fromDate || m.toDate
+      ? formatDateRange(m.fromDate ?? tripFrom, m.toDate ?? tripTo)
+      : t('trips.members.wholeTrip');
 
   async function removeMember(memberId: string, name: string) {
     const ok = await confirmModal({
@@ -136,9 +155,51 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
                 </div>
               </div>
             )}
+
+            {/* The days someone was there, for friends who went home early:
+                only those days count in their travel stats. Guests were
+                never on the trip, so they have no days. */}
+            {member.role !== 'GUEST' &&
+              (isOwner ? (
+                <button
+                  type="button"
+                  className={`member-days ${member.fromDate || member.toDate ? 'partial' : ''}`}
+                  onClick={() => setDaysFor(member.userId)}
+                >
+                  <Icon name="calendar" size={14} />
+                  {t('trips.members.days', { days: daysLabel(member) })}
+                </button>
+              ) : (
+                (member.fromDate || member.toDate) && (
+                  <span className="member-days partial">
+                    <Icon name="calendar" size={14} />
+                    {t('trips.members.days', { days: daysLabel(member) })}
+                  </span>
+                )
+              ))}
           </li>
         ))}
       </ul>
+
+      {daysFor &&
+        (() => {
+          const member = trip.members.find((m) => m.userId === daysFor);
+          if (!member) return null;
+          return (
+            <DateRangeSheet
+              from={member.fromDate ?? tripFrom}
+              to={member.toDate ?? tripTo}
+              min={tripFrom}
+              max={tripTo}
+              resetLabel={t('trips.members.wholeTrip')}
+              onClose={() => setDaysFor(null)}
+              onPick={(from, to) => {
+                setDaysFor(null);
+                void setMember(member.userId, { fromDate: from || null, toDate: to || null });
+              }}
+            />
+          );
+        })()}
 
       {isOwner && (
         <MemberAdd
