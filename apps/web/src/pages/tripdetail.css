@@ -158,14 +158,30 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
     overflow-x: clip;
   }
 
-  /* Grab handle scrolls with the content, just under the map. */
+  /* Grab handle scrolls with the content, just under the map. The button is
+     a thumb wide and tall; the pill is the line in it. Pulled down, it takes
+     the map's bottom edge along (MapGrab). */
   .sheet-grab {
+    display: block;
+    margin: 0 auto 0.2rem;
+    padding: 0.5rem 2rem 0.7rem;
+    background: none;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .sheet-grab span {
     display: block;
     width: 42px;
     height: 5px;
-    margin: 0.5rem auto 0.7rem;
     border-radius: 3px;
     background: var(--line);
+    transition: background-color 0.2s var(--ease), width 0.2s var(--ease);
+  }
+
+  .sheet-grab:active span {
+    width: 52px;
+    background: var(--ink-faint);
   }
 
   /* Person toggles sit on the map, clear of the status bar. */

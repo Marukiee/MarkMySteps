@@ -83,7 +83,8 @@ export interface TripMapApi {
   focusOn: (coords: [number, number][]) => void;
   /** How many pixels at the bottom of the canvas are hidden behind the sheet,
    *  so the camera centres on what you can actually see. */
-  setHiddenBottom: (px: number) => void;
+  /** How much of the canvas is out of sight below (and above) the visible strip. */
+  setHiddenBottom: (px: number, top?: number) => void;
   /** Ease the camera to a single point (e.g. a searched planner place). */
   flyTo: (lng: number, lat: number, zoom?: number) => void;
   /** Frame the whole trip again, as it was when the page opened. */
@@ -233,6 +234,7 @@ export function TripMap({
   /** Pixels of canvas hidden behind the bottom sheet — every camera move has to
    *  compensate, including the automatic "frame the whole trip" below. */
   const hiddenBottomRef = useRef(0);
+  const hiddenTopRef = useRef(0);
   // Bumped after a live theme swap re-loads the style, so the layer-adding
   // effects re-run and re-add their sources (setStyle wipes them).
   const [themeVersion, setThemeVersion] = useState(0);
@@ -316,7 +318,7 @@ export function TripMap({
     // canvas centre is NOT the centre of what's on screen. Everything that
     // moves the camera compensates with this.
     const camPadding = () => ({
-      top: 50,
+      top: 50 + hiddenTopRef.current,
       bottom: 50 + hiddenBottomRef.current,
       left: 50,
       right: 50,
@@ -333,16 +335,17 @@ export function TripMap({
         map.easeTo({
           center: [lng, lat],
           zoom,
-          padding: { top: 0, bottom: hiddenBottomRef.current, left: 0, right: 0 },
+          padding: { top: hiddenTopRef.current, bottom: hiddenBottomRef.current, left: 0, right: 0 },
           duration: 700,
         }),
-      setHiddenBottom: (px) => {
+      setHiddenBottom: (px, top = 0) => {
         hiddenBottomRef.current = Math.max(0, Math.round(px));
+        hiddenTopRef.current = Math.max(0, Math.round(top));
       },
       resetView: () => {
         const bounds = wholeTripRef.current;
         if (!bounds) return;
-        fitSafely(map, bounds, tripPadding(hiddenBottomRef.current), TRIP_MAX_ZOOM, 700);
+        fitSafely(map, bounds, tripPadding(hiddenBottomRef.current, hiddenTopRef.current), TRIP_MAX_ZOOM, 700);
       },
       glowRoutes: () => runGlow(map, glowLinesRef.current),
     });
@@ -560,7 +563,7 @@ export function TripMap({
         if (autoFitRef.current) {
           // The sheet covers the bottom of the canvas, so padding that ignores
           // it centres the trip behind the sheet instead of in view.
-          fitSafely(map, bounds, tripPadding(hiddenBottomRef.current), TRIP_MAX_ZOOM, 900);
+          fitSafely(map, bounds, tripPadding(hiddenBottomRef.current, hiddenTopRef.current), TRIP_MAX_ZOOM, 900);
         }
       }
     };
@@ -918,11 +921,11 @@ export function TripMap({
  */
 const TRIP_MAX_ZOOM = 12;
 
-const tripPadding = (hiddenBottom: number) => ({
+const tripPadding = (hiddenBottom: number, hiddenTop = 0) => ({
   /* Deeper at the top: the back arrow, the live pill and the share and
      settings buttons float over the first eighty-odd pixels of the map, and
      an evenly fitted trip put its first days underneath them. */
-  top: 130,
+  top: 130 + hiddenTop,
   bottom: 80 + hiddenBottom,
   left: 80,
   right: 80,

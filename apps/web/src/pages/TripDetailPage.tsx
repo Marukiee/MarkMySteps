@@ -273,15 +273,21 @@ export function TripDetailPage() {
       shift = next;
       mapShiftRef.current = next;
       panel.style.transform = `translate3d(0, ${-next}px, 0)`;
-      // Slid back down by the same amount, so only the crop moves.
+      // The corner buttons slide back down by the same amount, so they stay on
+      // the visible bottom edge.
       const back = `translate3d(0, ${next}px, 0)`;
-      if (inner) inner.style.transform = back;
       for (const node of corners) node.style.transform = back;
+      // The map itself only half of it: the crop then takes as much off the
+      // top as off the bottom, and whatever sat in the middle of the strip
+      // (the city of the day) stays in the middle while it narrows. Slid back
+      // fully, the top stayed put and the middle disappeared under the edge.
+      if (inner) inner.style.transform = `translate3d(0, ${next / 2}px, 0)`;
       mapBottomRef.current = startH - next;
-      // Tell the map how much of its canvas is hidden, so it frames photos in
-      // the visible strip rather than behind the timeline. Applied on the next
-      // camera move, so this stays a cheap assignment during the scroll.
-      mapApiRef.current?.setHiddenBottom(fullH - startH + next);
+      // Tell the map how much of its canvas is hidden, above and below, so it
+      // frames photos in the visible strip rather than behind the timeline.
+      // Applied on the next camera move, so this stays a cheap assignment
+      // during the scroll.
+      mapApiRef.current?.setHiddenBottom(fullH - startH + next / 2, next / 2);
     };
     shrinkMap();
     refoldRef.current = () => shrinkMap(true);
@@ -329,7 +335,10 @@ export function TripDetailPage() {
         mapApiRef.current?.resetView();
       }
       window.clearTimeout(focusTimer);
-      focusTimer = window.setTimeout(focusVisible, 180);
+      // Only once the scroll rests: a camera that set off at every short pause
+      // had to move every photo on the map while the next scroll was already
+      // painting, which is what made a trip with many photos stutter.
+      focusTimer = window.setTimeout(focusVisible, 420);
     };
     for (const node of scrollers) node.addEventListener('scroll', onScroll, { passive: true });
     return () => {
@@ -1255,7 +1264,7 @@ export function TripDetailPage() {
       <SideResizer host={scrollRef} />
 
       <aside className="trip-side" ref={sideRef}>
-        <div className="sheet-grab" aria-hidden="true" />
+        <MapGrab panelRef={mapPanelRef} shiftRef={mapShiftRef} onOpen={() => setMapFull(true)} />
 
         {/* Portalled out of the side column on purpose: that column sets its
             own z-index, which makes it a stacking context, and no z-index
@@ -1639,6 +1648,80 @@ const MAP_FOLDED_MIN = 0.24;
 const MAP_OPEN_MS = 360;
 
 /** While the map is opened out, a back gesture folds it up instead of leaving. */
+/**
+ * The pill under the folded map, which used to be only a picture of one.
+ *
+ * Pulled down, the map's bottom edge comes along with the finger; let go far
+ * enough and the map opens over the screen, short of that it springs back. A
+ * tap opens it too. Only with the map at the top: scrolled, the pill is
+ * under the map anyway.
+ */
+function MapGrab({
+  panelRef,
+  shiftRef,
+  onOpen,
+}: {
+  panelRef: React.RefObject<HTMLDivElement | null>;
+  shiftRef: React.RefObject<number>;
+  onOpen: () => void;
+}) {
+  const drag = useRef<{ y: number; h: number } | null>(null);
+
+  const release = (grab: HTMLElement, open: boolean) => {
+    const panel = panelRef.current;
+    const from = drag.current;
+    drag.current = null;
+    if (!panel || !from) return;
+    grab.style.transition = 'transform 0.3s var(--ease)';
+    grab.style.transform = '';
+    panel.style.transition = '';
+    if (open) {
+      onOpen();
+      // Let go of the height a frame later, once the page is opening the map
+      // out: the panel then grows on from where the finger left it.
+      requestAnimationFrame(() => (panel.style.height = ''));
+    } else {
+      panel.style.transition = 'height 0.3s var(--ease)';
+      panel.style.height = `${from.h}px`;
+      window.setTimeout(() => {
+        panel.style.transition = '';
+        panel.style.height = '';
+      }, 320);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className="sheet-grab"
+      aria-label={t('trip.map.expand')}
+      onPointerDown={(e) => {
+        const panel = panelRef.current;
+        if (!panel || (shiftRef.current ?? 0) > 0) return;
+        drag.current = { y: e.clientY, h: panel.getBoundingClientRect().height };
+        e.currentTarget.setPointerCapture(e.pointerId);
+        e.currentTarget.style.transition = 'none';
+      }}
+      onPointerMove={(e) => {
+        const panel = panelRef.current;
+        const from = drag.current;
+        if (!panel || !from) return;
+        const dy = Math.max(0, e.clientY - from.y);
+        panel.style.transition = 'none';
+        panel.style.height = `${from.h + dy}px`;
+        e.currentTarget.style.transform = `translateY(${dy}px)`;
+      }}
+      onPointerUp={(e) => {
+        const dy = drag.current ? e.clientY - drag.current.y : 0;
+        release(e.currentTarget, dy > 60 || Math.abs(dy) < 6);
+      }}
+      onPointerCancel={(e) => release(e.currentTarget, false)}
+    >
+      <span />
+    </button>
+  );
+}
+
 function MapFullBack({ onBack }: { onBack: () => void }) {
   useBackToClose('mmsMapFull', onBack);
   return null;
