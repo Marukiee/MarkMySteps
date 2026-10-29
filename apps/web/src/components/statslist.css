@@ -6,8 +6,9 @@
   z-index: 70;
   display: grid;
   place-items: end center;
-  background: rgb(16 21 27 / 0.5);
-  backdrop-filter: blur(3px);
+  /* Flat, no blur: a blur is redrawn for every frame the list scrolls over
+     it, and that was what made the list stutter on the iPhone. */
+  background: rgb(16 21 27 / 0.42);
   animation: statsListBackdropIn 0.28s var(--ease);
 }
 
@@ -18,44 +19,43 @@
 @keyframes statsListBackdropIn {
   from {
     opacity: 0;
-    backdrop-filter: blur(0);
   }
 }
 
 @keyframes statsListBackdropOut {
   to {
     opacity: 0;
-    backdrop-filter: blur(0);
   }
 }
 
 .stats-list.card,
 .stats-list {
+  display: flex;
+  flex-direction: column;
   width: min(560px, 100%);
   max-height: 88dvh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  padding: 1.1rem 1.15rem calc(1.4rem + env(safe-area-inset-bottom));
+  overflow: hidden;
+  padding: 0;
+  border-bottom: 0;
   border-radius: var(--radius-l) var(--radius-l) 0 0;
   animation: statsListUp 0.28s var(--ease);
+  will-change: transform;
 }
 
 .stats-list-backdrop.closing .stats-list:not(.sheet-swiping) {
   animation: statsListDown 0.24s var(--ease) forwards;
 }
 
+/* Up from the bottom edge and back down to it, as one solid sheet. */
 @keyframes statsListUp {
   from {
-    transform: translateY(30px);
-    opacity: 0;
+    transform: translateY(100%);
   }
 }
 
 @keyframes statsListDown {
   to {
-    transform: translateY(24px);
-    opacity: 0;
+    transform: translateY(100%);
   }
 }
 
@@ -67,14 +67,38 @@
   .stats-list.card,
   .stats-list {
     border-radius: var(--radius-l);
+    border-bottom: 1px solid var(--line);
   }
 }
 
+/* The head stays put while the list under it scrolls, so there is always
+   something to take hold of and pull the sheet down by. */
 .stats-list-head {
+  position: relative;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.4rem;
+  padding: 1.35rem 1.15rem 0.7rem 1.25rem;
+  border-bottom: 1px solid transparent;
+  touch-action: none;
+}
+
+.stats-list-grab {
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  width: 36px;
+  height: 5px;
+  margin-left: -18px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ink-faint) 45%, transparent);
+}
+
+@media (min-width: 860px) and (pointer: fine) {
+  .stats-list-grab {
+    display: none;
+  }
 }
 
 .stats-list-head h2 {
@@ -95,9 +119,15 @@
 }
 
 .stats-list-rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 1.25rem calc(1.2rem + env(safe-area-inset-bottom));
 }
 
 /* One thing per row, a hairline between them: a list to read down, not a
@@ -105,10 +135,13 @@
 .stats-list-row {
   display: grid;
   gap: 0.45rem;
-  padding: 0.8rem 0;
+  padding: 0.85rem 0 0.9rem;
   border-top: 1px solid var(--line);
+}
+
+.stats-list-row-in {
   animation: statsListRowIn 0.3s var(--ease) both;
-  animation-delay: calc(var(--i, 0) * 30ms + 60ms);
+  animation-delay: calc(var(--i, 0) * 30ms + 120ms);
 }
 
 .stats-list-row:first-child {
@@ -130,8 +163,9 @@
 }
 
 .stats-list-top strong {
-  font-size: 1rem;
-  font-weight: 650;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
 }
 
 .stats-list-top small {
@@ -139,14 +173,93 @@
   font-size: 0.85rem;
 }
 
-.stats-list-flight {
-  flex-wrap: wrap;
-  row-gap: 0.2rem;
+/* A flight as a boarding pass reads it: code, route, code. */
+.flight-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
 }
 
-.stats-list-plane {
+.flight-end {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.flight-end:last-child {
+  justify-items: end;
+  text-align: right;
+}
+
+.flight-code {
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.flight-code-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 1.15rem;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flight-city {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  min-width: 0;
   color: var(--ink-soft);
-  margin: 0 0.1rem;
+  font-size: 0.8rem;
+}
+
+.flight-city > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flight-arc {
+  width: 104px;
+  height: 30px;
+  overflow: visible;
+}
+
+.flight-arc-line {
+  fill: none;
+  stroke: color-mix(in srgb, #5b6ee1 55%, var(--ink-faint));
+  stroke-width: 1.8;
+  stroke-dasharray: 0.1 4.6;
+  stroke-linecap: round;
+}
+
+.flight-arc-from {
+  fill: var(--paper-raised);
+  stroke: #5b6ee1;
+  stroke-width: 1.4;
+}
+
+.flight-arc-to {
+  fill: #5b6ee1;
+}
+
+.flight-arc-plane {
+  fill: #5b6ee1;
+  /* A ring of the sheet's own colour, so the dots stop short of the wings. */
+  stroke: var(--paper-raised);
+  stroke-width: 3;
+  paint-order: stroke;
+}
+
+.flight-route + .stats-list-visit {
+  padding-top: 0.15rem;
 }
 
 /* A trip under a place: what and when on the left, the way in on the right. */
@@ -189,9 +302,9 @@
 
 .btn.stats-list-go {
   flex: none;
-  gap: 0.2rem;
-  padding: 0.42rem 0.6rem 0.42rem 0.85rem;
-  font-size: 0.85rem;
+  gap: 0.15rem;
+  padding: 0.36rem 0.5rem 0.36rem 0.8rem;
+  font-size: 0.82rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -199,7 +312,7 @@
   .stats-list-backdrop.closing,
   .stats-list,
   .stats-list-backdrop.closing .stats-list,
-  .stats-list-row {
+  .stats-list-row-in {
     animation: none;
   }
 }

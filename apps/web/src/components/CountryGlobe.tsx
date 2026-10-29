@@ -5,6 +5,7 @@ import * as topojson from 'topojson-client';
 import countries110m from 'world-atlas/countries-110m.json';
 import { COUNTRY_COLOR } from '../lib/countryColors';
 import { COUNTRY_ID } from '../lib/countryShapes';
+import { COVER_EVENT, isCovered } from '../lib/cover';
 import { t } from '../i18n';
 import './countryglobe.css';
 
@@ -209,7 +210,9 @@ export function CountryGlobe({ countries, size = 200 }: { countries: string[]; s
     let onScreen = true;
     let awake = document.visibilityState !== 'hidden';
     const sync = () => {
-      if (onScreen && awake) {
+      // A sheet over the page hides it; turning under a list you are scrolling
+      // only takes frames from that list.
+      if (onScreen && awake && !isCovered()) {
         if (!raf) raf = requestAnimationFrame(draw);
       } else {
         cancelAnimationFrame(raf);
@@ -221,6 +224,7 @@ export function CountryGlobe({ countries, size = 200 }: { countries: string[]; s
       sync();
     };
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener(COVER_EVENT, sync);
     const io = new IntersectionObserver(
       (entries) => {
         onScreen = entries.some((e) => e.isIntersecting);
@@ -234,6 +238,7 @@ export function CountryGlobe({ countries, size = 200 }: { countries: string[]; s
       cancelAnimationFrame(raf);
       io.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener(COVER_EVENT, sync);
     };
   }, [visited, size]);
 

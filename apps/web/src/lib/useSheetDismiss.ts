@@ -71,8 +71,13 @@ export function useSheetDismiss(onClose: () => void) {
     const el = ref.current;
     const touch = e.touches[0];
     if (!el || !touch || e.touches.length > 1) return;
-    // Halfway down a long list, a downward drag is a scroll.
-    if (el.scrollTop > 0) return;
+    // Halfway down a long list, a downward drag is a scroll. The list may be
+    // the sheet itself or a part of it under a fixed head; a thumb on that
+    // head always takes the sheet, wherever the list below it stands.
+    for (let node = e.target as Element | null; node; node = node.parentElement) {
+      if (node.scrollTop > 0) return;
+      if (node === el) break;
+    }
     // Fields and sliders inside the sheet get their own gestures.
     if ((e.target as Element | null)?.closest?.('input, textarea, select')) return;
     start.current = { x: touch.clientX, y: touch.clientY, at: performance.now() };
@@ -107,10 +112,11 @@ export function useSheetDismiss(onClose: () => void) {
       if (el) {
         // Carries on the way it was going: from where your thumb let go, out
         // through the bottom of the screen.
-        const away = Math.max(el.offsetHeight, window.innerHeight - el.getBoundingClientRect().top);
-        el.style.transition = `transform ${EXIT_MS}ms cubic-bezier(0.32, 0, 0.67, 0), opacity ${EXIT_MS}ms linear`;
+        const away = Math.max(el.offsetHeight, window.innerHeight - el.getBoundingClientRect().top + offset.current) + 24;
+        // No fade on the way: it is thrown, so it stays solid until it has
+        // left the screen, at the speed it was already going.
+        el.style.transition = `transform ${EXIT_MS}ms cubic-bezier(0.3, 0.55, 0.5, 1)`;
         el.style.transform = `translateY(${away}px)`;
-        el.style.opacity = '0';
       }
       offset.current = 0;
       onClose();

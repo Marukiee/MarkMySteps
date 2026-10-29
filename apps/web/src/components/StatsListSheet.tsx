@@ -5,6 +5,7 @@ import { getLang, intlLocale, t } from '../i18n';
 import { airportByCode } from '../lib/airports';
 import { popWasOurs, skipNextPop } from '../lib/backStack';
 import { formatDateRange } from '../lib/colors';
+import { coverPage } from '../lib/cover';
 import { useSheetDismiss } from '../lib/useSheetDismiss';
 import { Flag } from './Flag';
 import { Icon } from './Icon';
@@ -64,6 +65,9 @@ export function StatsListSheet({
   const navigate = useNavigate();
   const sheet = useSheetDismiss(() => close());
 
+  // The page under it stands still while it is covered.
+  useEffect(() => coverPage(), []);
+
   function close() {
     if (closing) return;
     setClosing(true);
@@ -114,6 +118,7 @@ export function StatsListSheet({
         {...sheet.handlers}
       >
         <div className="stats-list-head">
+          <span className="stats-list-grab" aria-hidden="true" />
           <h2>{title}</h2>
           <button type="button" className="stats-list-close" aria-label={t('common.close')} onClick={close}>
             <Icon name="close" size={18} />
@@ -145,31 +150,22 @@ export function StatsListSheet({
             ))}
 
           {kind === 'flights' &&
-            lists.flights.map((flight, i) => {
-              const fromCountry = endCountry(flight.from);
-              const toCountry = endCountry(flight.to);
-              const codes = [flight.from.airport, flight.to.airport].every(Boolean)
-                ? `${flight.from.airport} → ${flight.to.airport}`
-                : null;
-              return (
-                <Row key={`${flight.tripId}/${flight.stopId}/${flight.day}`} i={i}>
-                  <div className="stats-list-top stats-list-flight">
-                    {fromCountry && <Flag code={fromCountry} size={14} />}
-                    <strong>{endName(flight.from)}</strong>
-                    <Icon name="plane" size={14} className="stats-list-plane" />
-                    {toCountry && <Flag code={toCountry} size={14} />}
-                    <strong>{endName(flight.to)}</strong>
-                  </div>
-                  <div className="stats-list-visit">
-                    <span className="stats-list-what">
-                      <span>{flight.tripTitle}</span>
-                      <small>{[dayLabel(flight.day), codes].filter(Boolean).join(' · ')}</small>
-                    </span>
-                    <GoButton onClick={() => go(flight.tripId, flight.stopId)} />
-                  </div>
-                </Row>
-              );
-            })}
+            lists.flights.map((flight, i) => (
+              <Row key={`${flight.tripId}/${flight.stopId}/${flight.day}`} i={i}>
+                <div className="flight-route">
+                  <FlightEndLabel end={flight.from} />
+                  <FlightArc still={i > 12} />
+                  <FlightEndLabel end={flight.to} />
+                </div>
+                <div className="stats-list-visit">
+                  <span className="stats-list-what">
+                    <span>{flight.tripTitle}</span>
+                    <small>{dayLabel(flight.day)}</small>
+                  </span>
+                  <GoButton onClick={() => go(flight.tripId, flight.stopId)} />
+                </div>
+              </Row>
+            ))}
 
           {kind === 'trips' &&
             lists.trips.map((trip, i) => (
@@ -199,10 +195,10 @@ export function StatsListSheet({
 }
 
 function Row({ i, children }: { i: number; children: React.ReactNode }) {
-  // Only the first screenful steps in one after another; a long list would
-  // otherwise still be arriving a second later.
+  // Only the first screenful steps in one after another; the rest is out of
+  // sight at that moment, and animating it would only cost the scroll frames.
   return (
-    <li className="stats-list-row" style={{ '--i': Math.min(i, 12) } as CSSProperties}>
+    <li className={i > 12 ? 'stats-list-row' : 'stats-list-row stats-list-row-in'} style={{ '--i': i } as CSSProperties}>
       {children}
     </li>
   );
@@ -233,11 +229,66 @@ function Visits({
   );
 }
 
+/** One end of a flight, the way a boarding pass has it: the airport's code
+ *  large, the town and its flag under it. With no airport, the town is large. */
+function FlightEndLabel({ end }: { end: FlightEnd }) {
+  const country = endCountry(end);
+  const city = endName(end);
+  return (
+    <span className="flight-end">
+      <strong className={end.airport ? 'flight-code' : 'flight-code flight-code-name'}>
+        {end.airport ?? city}
+      </strong>
+      <span className="flight-city">
+        {country && <Flag code={country} size={11} />}
+        <span>{end.airport ? city : country ? countryName(country) : ''}</span>
+      </span>
+    </span>
+  );
+}
+
+const REDUCED_MOTION =
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/** The route between them: a dotted arc, and a plane that takes off from the
+ *  first dot and levels out on top of it as the row comes in. */
+const ARC = 'M6 24 Q52 -6 98 24';
+
+function FlightArc({ still }: { still: boolean }) {
+  return (
+    <svg className="flight-arc" viewBox="0 0 104 30" aria-hidden="true">
+      <path d={ARC} className="flight-arc-line" />
+      <circle cx="6" cy="24" r="3" className="flight-arc-from" />
+      <circle cx="98" cy="24" r="3" className="flight-arc-to" />
+      <g transform={still || REDUCED_MOTION ? 'translate(52 9)' : undefined}>
+        <path className="flight-arc-plane" d={PLANE} transform="scale(0.85) translate(-12 -12)" />
+        {!still && !REDUCED_MOTION && (
+          <animateMotion
+            dur="0.9s"
+            begin="0.15s"
+            fill="freeze"
+            path={ARC}
+            rotate="auto"
+            keyPoints="0;0.5"
+            keyTimes="0;1"
+            calcMode="spline"
+            keySplines="0.25 0.6 0.3 1"
+          />
+        )}
+      </g>
+    </svg>
+  );
+}
+
+/** Seen from above, nose to the right. Drawn for this, not out of the icon set. */
+const PLANE =
+  'M21 12c0-.8-.7-1.4-1.5-1.4H15L10.2 3H8.4l2.4 7.6H6.3L4.6 8.4H3.2l1.1 3.6-1.1 3.6h1.4l1.7-2.2h4.5L8.4 21h1.8L15 13.4h4.5c.8 0 1.5-.6 1.5-1.4z';
+
 function GoButton({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" className="btn btn-ghost stats-list-go" onClick={onClick}>
       {t('trips.statsList.go')}
-      <Icon name="chevron-right" size={15} />
+      <Icon name="chevron-right" size={14} />
     </button>
   );
 }
