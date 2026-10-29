@@ -157,31 +157,35 @@
   }
 }
 
-/* The days someone was there: a quiet pill, in the accent once it is only
-   part of the trip. */
+/* The days someone was there: plain, like "mag tracken" beside it, and in
+   the accent once it is only part of the trip. */
+.member-track-wrap > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+}
+
 .member-days {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  justify-self: start;
-  grid-column: 2 / -1;
-  margin-top: 0.15rem;
-  padding: 0.3rem 0.7rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--paper-raised);
+  gap: 0.4rem;
   color: var(--ink-soft);
-  font-size: 0.8rem;
-  font-weight: 550;
-  transition: border-color 0.2s var(--ease), color 0.2s var(--ease), background-color 0.2s var(--ease);
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition: color 0.2s var(--ease);
+}
+
+.member-days svg {
+  color: var(--ink-faint);
+}
+
+.member-days.partial,
+.member-days.partial svg {
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 
 button.member-days:active {
-  transform: scale(0.97);
-}
-
-.member-days.partial {
-  border-color: transparent;
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  opacity: 0.6;
 }

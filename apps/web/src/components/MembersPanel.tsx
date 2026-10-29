@@ -72,6 +72,16 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
     m.fromDate || m.toDate
       ? formatDateRange(m.fromDate ?? tripFrom, m.toDate ?? tripTo)
       : t('trips.members.wholeTrip');
+  const daysButton = (m: Trip['members'][number]) => (
+    <button
+      type="button"
+      className={`member-days ${m.fromDate || m.toDate ? 'partial' : ''}`}
+      onClick={() => setDaysFor(m.userId)}
+    >
+      <Icon name="calendar" size={15} />
+      {t('trips.members.days', { days: daysLabel(m) })}
+    </button>
+  );
 
   async function removeMember(memberId: string, name: string) {
     const ok = await confirmModal({
@@ -117,6 +127,22 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
               </button>
             )}
 
+            {/* The days someone was there, for friends who went home early:
+                only those days count in their travel stats. Beside the other
+                settings for that person, in the same plain style; guests were
+                never on the trip, so theirs folds away with "mag tracken". */}
+            {isOwner && member.role === 'OWNER' && (
+              <div className="member-controls">{daysButton(member)}</div>
+            )}
+            {!isOwner && member.role !== 'GUEST' && (member.fromDate || member.toDate) && (
+              <div className="member-controls">
+                <span className="member-days partial">
+                  <Icon name="calendar" size={15} />
+                  {t('trips.members.days', { days: daysLabel(member) })}
+                </span>
+              </div>
+            )}
+
             {isOwner && member.role !== 'OWNER' && (
               <div className="member-controls">
                 <div className="member-role-seg" data-role={member.role}>
@@ -151,32 +177,12 @@ export function MembersPanel({ trip, onChanged }: { trip: Trip; onChanged: () =>
                       />
                       {t('trips.members.canTrack')}
                     </label>
+                    {daysButton(member)}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* The days someone was there, for friends who went home early:
-                only those days count in their travel stats. Guests were
-                never on the trip, so they have no days. */}
-            {member.role !== 'GUEST' &&
-              (isOwner ? (
-                <button
-                  type="button"
-                  className={`member-days ${member.fromDate || member.toDate ? 'partial' : ''}`}
-                  onClick={() => setDaysFor(member.userId)}
-                >
-                  <Icon name="calendar" size={14} />
-                  {t('trips.members.days', { days: daysLabel(member) })}
-                </button>
-              ) : (
-                (member.fromDate || member.toDate) && (
-                  <span className="member-days partial">
-                    <Icon name="calendar" size={14} />
-                    {t('trips.members.days', { days: daysLabel(member) })}
-                  </span>
-                )
-              ))}
           </li>
         ))}
       </ul>
