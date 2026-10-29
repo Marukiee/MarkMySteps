@@ -36,7 +36,7 @@ import { canEditTrip } from '../lib/perm';
 import { tripGlyph, tripGlyphSize, tripGlyphStroke } from '../lib/tripGlyph';
 import { stableViewportHeight } from '../lib/native';
 import { getMapStyle, getTripFacts } from '../lib/prefs';
-import { FactId, resolveFacts } from '../lib/tripFacts';
+import { countTravellers, FactId, resolveFacts } from '../lib/tripFacts';
 import { onTrackerChange } from '../tracking/tracker';
 import { TripAccessPage } from './TripAccessPage';
 import { t } from '../i18n';
@@ -1338,7 +1338,7 @@ export function TripDetailPage() {
                     days: stats.days,
                     stops: countStopPlaces(stops),
                     photoCount: stats.photoCount,
-                    travellers: trip?.members.length ?? 0,
+                    travellers: countTravellers(trip?.members ?? []),
                     countries: stats.countries.length,
                   },
                   (getTripFacts(tripId ?? '') as FactId[] | null) ?? null,

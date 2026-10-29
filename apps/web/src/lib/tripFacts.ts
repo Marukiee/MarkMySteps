@@ -10,6 +10,14 @@ import { t, intlLocale } from '../i18n';
 
 export type FactId = 'km' | 'days' | 'stops' | 'photos' | 'travellers' | 'countries';
 
+/**
+ * Who travelled: the owner and the companions. Guests only follow along, so
+ * they are not counted, the same as in everyone's travel stats.
+ */
+export function countTravellers(members: { role?: string }[]): number {
+  return members.filter((m) => m.role !== 'GUEST').length;
+}
+
 export interface FactSource {
   distanceKm: number;
   days: number;

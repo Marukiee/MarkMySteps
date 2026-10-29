@@ -24,7 +24,7 @@ import { GRID_ZOOM_PREVIEW, useGridZoom } from '../lib/gridZoom';
 import { jumpToDay, StopJump } from '../components/StopJump';
 import { TripFacts } from '../components/TripFacts';
 import { WeatherBadge } from '../components/WeatherBadge';
-import { resolveFacts } from '../lib/tripFacts';
+import { countTravellers, resolveFacts } from '../lib/tripFacts';
 import '../components/timeline.css'; // the shared timeline IS the app's timeline
 import '../components/tripmap.css'; // photo markers on the shared map
 import './share-page.css';
@@ -37,7 +37,8 @@ interface SharedTrip {
   description: string | null;
   startDate: string;
   endDate: string;
-  members: { userId: string; user: { displayName: string } }[];
+  /** `role` is missing from servers before guests were left out of the count. */
+  members: { userId: string; role?: string; user: { displayName: string } }[];
   resolvedCoverId: string | null;
   stats: {
     distanceKm: number;
@@ -720,7 +721,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                       days: trip.stats.days,
                       stops: trip.stats.stops,
                       photoCount: trip.stats.photoCount,
-                      travellers: trip.members.length,
+                      travellers: countTravellers(trip.members),
                       countries: trip.stats.countries.length,
                     },
                     null,

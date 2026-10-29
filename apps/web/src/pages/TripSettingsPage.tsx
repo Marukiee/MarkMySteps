@@ -22,6 +22,7 @@ import { canEditTrip, canTrackTrip } from '../lib/perm';
 import { tripGlyph, tripGlyphSize, tripGlyphStroke } from '../lib/tripGlyph';
 import { getTripFacts, setTripFacts } from '../lib/prefs';
 import {
+  countTravellers,
   FACT_NAMES,
   FACT_ORDER,
   FactId,
@@ -731,7 +732,7 @@ function FactPicker({ tripId, trip }: { tripId: string; trip: Trip | null }) {
     days: stats?.days ?? 0,
     stops: stopCount,
     photoCount: stats?.photoCount ?? 0,
-    travellers: trip?.members.length ?? 0,
+    travellers: countTravellers(trip?.members ?? []),
     countries: stats?.countries.length ?? 0,
   };
 

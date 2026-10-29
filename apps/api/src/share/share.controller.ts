@@ -166,7 +166,8 @@ export class SharePublicController {
         startDate: true,
         endDate: true,
         coverMediaId: true,
-        members: { select: { userId: true, user: { select: { displayName: true } } } },
+        // The role, so the page counts companions and not the guests.
+        members: { select: { userId: true, role: true, user: { select: { displayName: true } } } },
         // Fallback cover: the first photo of the trip.
         mediaRefs: { take: 1, orderBy: { takenAt: 'asc' }, select: { id: true } },
       },
