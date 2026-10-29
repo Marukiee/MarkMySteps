@@ -1,11 +1,12 @@
 import { api } from '../../api/client';
 import type { MediaItem } from '../../api/types';
-import { flightArc, haversineKm } from '../arc';
+import { buildLegs, flightArc, haversineKm } from '../arc';
+import { groundRuns } from '../mapRoute';
 import { flagEmoji, formatDate, formatDateRange } from '../colors';
 import { reversePlaceName } from '../geocode';
 import { fetchWeather, type Weather } from '../weather';
 import { getLang, intlLocale, t, type TKey } from '../../i18n';
-import type { Fact, PageData, Scope, SummarySource, SummarySpec } from './types';
+import type { Fact, PageData, RouteShape, Scope, SummarySource, SummarySpec } from './types';
 
 /**
  * A trip without a colour of its own still gets a consistent one: the same hue
@@ -111,42 +112,109 @@ async function dayLine(tripId: string, day: string): Promise<[number, number][]>
   }
 }
 
+type Line = [number, number][];
+
 /**
- * The track for a period: the trip's own route when it is the whole trip,
- * otherwise the tracked days stitched together.
+ * The track for a period, the way the trip's own map draws it.
+ *
+ * A tracker is off in the air, so a recorded route holds a flight as one
+ * straight jump from the airport you left to the one you landed at, and that
+ * is how the posters drew it: a ruler line across half a continent. The route
+ * is now cut where the plan says a flight happened, and every flight is drawn
+ * as the arc it is everywhere else in the app. A hole nothing on the ground
+ * could have made gets its arc too; a smaller one (a train through a tunnel)
+ * is a dashed straight line, like on the map.
  */
-export async function scopeLines(
-  source: SummarySource,
-  scope: Scope,
-): Promise<[number, number][][]> {
-  if (scope.kind === 'trip') return tripLines(source);
+export async function scopeShape(source: SummarySource, scope: Scope): Promise<RouteShape> {
+  if (scope.kind === 'trip') return tripShape(source);
   const perDay = await Promise.all(
     daysBetween(scope.from, scope.to).map((d) => dayLine(source.trip.id, d)),
   );
-  return perDay.filter((line) => line.length > 1);
+  const tracked = perDay.filter((line) => line.length > 1);
+  return withPlannedFlights(source, fromTracks(tracked, source), scope);
 }
 
-function tripLines(source: SummarySource): [number, number][][] {
+function emptyShape(): RouteShape {
+  return { ground: [], gaps: [], flights: [], km: 0 };
+}
+
+/** Recorded lines, cut into what was travelled on the ground and the jumps. */
+function fromTracks(tracks: Line[], source: SummarySource): RouteShape {
+  const shape = emptyShape();
+  for (const track of tracks) {
+    const runs = groundRuns(track, source.stops);
+    shape.ground.push(...runs.ground);
+    shape.gaps.push(...runs.gaps);
+    shape.flights.push(...runs.flights);
+    shape.km += lineKm([runs.trimmed]);
+  }
+  return shape;
+}
+
+/**
+ * The flights of the plan inside this period, as arcs.
+ *
+ * A there-and-back over the same route is one arc, not two drawn on top of
+ * each other with their dashes filling each other in.
+ */
+function withPlannedFlights(source: SummarySource, shape: RouteShape, scope: Scope | null): RouteShape {
+  const byId = new Map(source.stops.map((s) => [s.id, s]));
+  const seen = new Set<string>();
+  const round = (c: number) => Math.round(c / 0.8);
+  const tracked = shape.ground.length > 0 || shape.gaps.length > 0;
+  for (const leg of buildLegs(source.stops)) {
+    if (!leg.isFlight) continue;
+    const stop = byId.get(leg.id);
+    if (scope && stop) {
+      const day = dayKey(stop.arrivalDate);
+      if (day < scope.from || day > scope.to) continue;
+    }
+    const coords = leg.feature.geometry.coordinates as Line;
+    const a = coords[0]!;
+    const b = coords[coords.length - 1]!;
+    const key = [`${round(a[0])},${round(a[1])}`, `${round(b[0])},${round(b[1])}`].sort().join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    shape.flights.push(coords);
+    // A recorded route already counted the jump it made; a plan alone did not.
+    if (!tracked) shape.km += haversineKm(a, b);
+  }
+  return shape;
+}
+
+function tripShape(source: SummarySource): RouteShape {
   const fromRoutes = (source.routes?.features ?? [])
-    .map((f) => f.geometry.coordinates)
+    .map((f) => f.geometry.coordinates as Line)
     .filter((c) => c.length > 1);
-  if (fromRoutes.length > 0) return fromRoutes;
-  // No tracked route: the planned journey is the shape of the trip. A flight
-  // gets the curve it gets everywhere else in the app — a straight line
-  // between two airports is not what flying looks like on a map.
-  const journey = (source.trip.journey ?? [])
-    .map((leg) => {
-      if (!leg.flight || leg.points.length < 2) return leg.points;
-      const from = leg.points[0]!;
-      const to = leg.points[leg.points.length - 1]!;
-      return flightArc(from, to);
-    })
-    .filter((p) => p.length > 1);
-  if (journey.length > 0) return journey;
-  const stops = source.stops
-    .filter((s) => s.latitude !== null && s.longitude !== null && !s.parentStopId)
-    .map((s) => [s.longitude!, s.latitude!] as [number, number]);
-  return stops.length > 1 ? [stops] : [];
+  if (fromRoutes.length > 0) {
+    return withPlannedFlights(source, fromTracks(fromRoutes, source), null);
+  }
+  // No tracked route: the planned journey is the shape of the trip, its
+  // flights already marked.
+  const journey = (source.trip.journey ?? []).filter((leg) => leg.points.length > 1);
+  if (journey.length > 0) {
+    const shape = emptyShape();
+    for (const leg of journey) {
+      const pts = leg.points as Line;
+      if (leg.flight) {
+        shape.flights.push(flightArc(pts[0]!, pts[pts.length - 1]!));
+        shape.km += haversineKm(pts[0]!, pts[pts.length - 1]!);
+      } else {
+        shape.ground.push(pts);
+        shape.km += lineKm([pts]);
+      }
+    }
+    return shape;
+  }
+  // Nothing but the plan: straight lines between the places, arcs where it flew.
+  const shape = emptyShape();
+  for (const leg of buildLegs(source.stops)) {
+    if (leg.isFlight) continue;
+    const coords = leg.feature.geometry.coordinates as Line;
+    shape.ground.push(coords);
+    shape.km += lineKm([coords]);
+  }
+  return withPlannedFlights(source, shape, null);
 }
 
 /** Middle of everything on this page, for the weather and the place name. */
@@ -229,12 +297,12 @@ function stopsIn(source: SummarySource, from: string, to: string) {
 function pickPhotosPerStop(
   media: MediaItem[],
   stops: { name: string; lng: number; lat: number; from: string; to: string }[],
-): string[] {
+): { id: string; label: string }[] {
   const usable = media
     .filter((m) => m.assetType === 'IMAGE')
     .sort((a, b) => a.takenAt.localeCompare(b.takenAt));
   const taken = new Set<string>();
-  const out: string[] = [];
+  const out: { id: string; label: string }[] = [];
   for (const stop of stops) {
     const near = usable.filter(
       (m) =>
@@ -249,9 +317,11 @@ function pickPhotosPerStop(
     });
     const pool = near.length > 0 ? near : byDay;
     const pick = pool[Math.floor(pool.length / 2)];
+    // A place with no photograph of its own is left out, name and all, so
+    // the names under a row of photos never slide one place along.
     if (pick) {
       taken.add(pick.id);
-      out.push(pick.id);
+      out.push({ id: pick.id, label: stop.name });
     }
   }
   return out;
@@ -323,7 +393,7 @@ export function scopeLabel(scope: Scope): string {
 export async function buildPages(source: SummarySource, spec: SummarySpec): Promise<PageData[]> {
   const { trip } = source;
   const accent = trip.color ?? accentFromId(trip.id);
-  const all = tripLines(source);
+  const all = tripShape(source);
 
   /**
    * A series is a page per PLACE, not per day.
@@ -349,72 +419,93 @@ export async function buildPages(source: SummarySource, spec: SummarySpec): Prom
     periods.push({ scope: spec.scope });
   }
 
-  const pages: PageData[] = [];
-  for (let i = 0; i < periods.length; i++) {
-    const scope = periods[i]!.scope;
-    const isCover = spec.series && i === 0;
-    const isEnd = spec.series && i === periods.length - 1;
-    const photosIn = source.media.filter((m) => {
-      const day = dayKey(m.takenAt);
-      return day >= scope.from && day <= scope.to;
-    });
+  // Every page at once: each one waits on the network (its day's track, the
+  // weather, a place name), and asked one after the other a series of ten
+  // pages spent most of its time waiting in line.
+  const pages = await Promise.all(
+    periods.map(async ({ scope }, i): Promise<PageData> => {
+      const isCover = spec.series && i === 0;
+      const isEnd = spec.series && i === periods.length - 1;
+      const photosIn = source.media.filter((m) => {
+        const day = dayKey(m.takenAt);
+        return day >= scope.from && day <= scope.to;
+      });
 
-    const lines = isCover || isEnd ? all : await scopeLines(source, scope);
+      const shape = isCover || isEnd ? all : await scopeShape(source, scope);
 
-    const km = Math.round(lineKm(lines));
-    const stops = stopsIn(source, scope.from, scope.to);
-    const middle = centroid(lines, photosIn);
+      const km = Math.round(shape.km);
+      const stops = stopsIn(source, scope.from, scope.to);
+      const middle = centroid(shape.ground, photosIn);
 
-    // Weather belongs to a day and to the place you were that day, not to the
-    // trip's home stop. Over a longer period it says nothing, so it is left off.
-    let weather: Weather | null = null;
-    if (spec.showWeather && middle && scope.kind === 'day' && !isCover && !isEnd) {
-      weather = await fetchWeather(middle[1], middle[0], scope.from);
-    }
+      // Weather belongs to a day and to the place you were that day, not to
+      // the trip's home stop. Over a longer period it says nothing, so it is
+      // left off.
+      const weatherFor =
+        spec.showWeather && middle && scope.kind === 'day' && !isCover && !isEnd
+          ? fetchWeather(middle[1], middle[0], scope.from)
+          : Promise.resolve(null);
 
-    const slots = photoSlots(isEnd ? 'stats' : isCover ? 'ribbon' : spec.template);
-    const layout = isEnd ? 'stats' : isCover ? 'ribbon' : spec.template;
-    const chosenPhotos =
-      spec.photoIds.length > 0 && !spec.series
-        ? spec.photoIds.slice(0, slots)
-        : // A lint names the places under its photos, and the closing figures
-          // want one from each of them, so both take a photo per place rather
-          // than a handful spread over the whole period.
-          layout === 'ribbon' || (layout === 'stats' && stops.length > 1)
-          ? pickPhotosPerStop(photosIn, stops.slice(0, Math.max(slots, stops.length)))
-          : pickPhotos(photosIn, slots);
+      const slots = photoSlots(isEnd ? 'stats' : isCover ? 'ribbon' : spec.template);
+      const layout = isEnd ? 'stats' : isCover ? 'ribbon' : spec.template;
+      let chosen: string[];
+      let labels: string[] | null = null;
+      if (spec.photoIds.length > 0 && !spec.series) {
+        chosen = spec.photoIds.slice(0, slots);
+      } else if (layout === 'ribbon' || (layout === 'stats' && stops.length > 1)) {
+        // A lint names the places under its photos, and the closing figures
+        // want one from each of them, so both take a photo per place rather
+        // than a handful spread over the whole period.
+        const picked = pickPhotosPerStop(photosIn, stops.slice(0, Math.max(slots, stops.length)));
+        chosen = picked.map((p) => p.id);
+        labels = picked.map((p) => p.label);
+      } else {
+        chosen = pickPhotos(photosIn, slots);
+      }
+      // Stand-ins, in case one of the chosen photographs will not load: a
+      // poster gets a different picture from the same period rather than a
+      // blank tile where the missing one should have been.
+      const spare = pickPhotos(
+        photosIn.filter((m) => !chosen.includes(m.id)),
+        Math.min(12, slots * 2),
+      );
 
-    const countries = [...new Set(stops.map((s) => s.countryCode).filter(Boolean))] as string[];
-    const days = daysBetween(scope.from, scope.to).length;
-    const place = await subtitleFor(spec, scope, stops, countries, middle);
+      const countries = [...new Set(stops.map((s) => s.countryCode).filter(Boolean))] as string[];
+      const days = daysBetween(scope.from, scope.to).length;
+      const [place, weather] = await Promise.all([
+        subtitleFor(spec, scope, stops, countries, middle),
+        weatherFor as Promise<Weather | null>,
+      ]);
 
-    const facts: Fact[] = [];
-    const fact = (count: number, key: TKey) =>
-      facts.push({ value: count.toLocaleString(intlLocale()), label: t(key, { count }) });
-    if (km > 0) facts.push({ value: km.toLocaleString(intlLocale()), label: t('common.km') });
-    if (days > 1) fact(days, 'summary.fact.days');
-    if (stops.length > 1) fact(stops.length, 'summary.fact.stops');
-    if (photosIn.length > 0) fact(photosIn.length, 'summary.fact.photos');
-    if (countries.length > 1) fact(countries.length, 'summary.fact.countries');
+      const facts: Fact[] = [];
+      const fact = (count: number, key: TKey) =>
+        facts.push({ value: count.toLocaleString(intlLocale()), label: t(key, { count }) });
+      if (km > 0) facts.push({ value: km.toLocaleString(intlLocale()), label: t('common.km') });
+      if (days > 1) fact(days, 'summary.fact.days');
+      if (stops.length > 1) fact(stops.length, 'summary.fact.stops');
+      if (photosIn.length > 0) fact(photosIn.length, 'summary.fact.photos');
+      if (countries.length > 1) fact(countries.length, 'summary.fact.countries');
 
-    pages.push({
-      title: trip.title,
-      dateLabel: scope.from === scope.to ? formatDate(scope.from) : formatDateRange(scope.from, scope.to),
-      place,
-      weather,
-      lines,
-      allLines: all,
-      stops,
-      photos: chosenPhotos,
-      facts: facts.slice(0, 4),
-      flags: countries.map(flagEmoji).filter(Boolean),
-      accent,
-      pageLabel:
-        spec.series && !isCover && !isEnd
-          ? t('summary.page.of', { page: i, total: periods.length - 2 })
-          : null,
-    });
-  }
+      return {
+        title: trip.title,
+        dateLabel: scope.from === scope.to ? formatDate(scope.from) : formatDateRange(scope.from, scope.to),
+        place,
+        weather,
+        route: shape,
+        allRoute: all,
+        stops,
+        photos: chosen,
+        photoLabels: labels,
+        spare,
+        facts: facts.slice(0, 4),
+        flags: countries.map(flagEmoji).filter(Boolean),
+        accent,
+        pageLabel:
+          spec.series && !isCover && !isEnd
+            ? t('summary.page.of', { page: i, total: periods.length - 2 })
+            : null,
+      };
+    }),
+  );
   return pages;
 }
 

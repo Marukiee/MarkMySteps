@@ -7,10 +7,9 @@ import {
   daysBetween,
   dayKey,
   defaultScope,
-  lineKm,
   photoSlots,
   scopeLabel,
-  scopeLines,
+  scopeShape,
   suggestTemplate,
 } from '../lib/summary/data';
 import { renderSummary, revokePages, type RenderedPage } from '../lib/summary/render';
@@ -163,8 +162,8 @@ export function SummaryStudio({
   const [km, setKm] = useState(0);
   useEffect(() => {
     let alive = true;
-    void scopeLines({ trip, stops, media, routes }, scope).then((lines) => {
-      if (alive) setKm(lineKm(lines));
+    void scopeShape({ trip, stops, media, routes }, scope).then((shape) => {
+      if (alive) setKm(shape.km);
     });
     return () => {
       alive = false;
@@ -215,17 +214,39 @@ export function SummaryStudio({
     if (scopeFacts.days < 2 && series) setSeries(false);
   }, [scopeFacts.days, series]);
 
-  // Render on every change, one at a time, throwing away anything a newer
-  // change has overtaken.
+  // Render on every change, one at a time. A newer change stops the render
+  // it overtakes, rather than letting it finish drawing pages nobody will see
+  // while the one that matters waits its turn.
   useEffect(() => {
     const token = ++renderToken.current;
+    const abort = new AbortController();
     setBusy(true);
     setError(null);
     const timer = window.setTimeout(() => {
-      void renderSummary({ trip, stops, media, routes }, spec, (done, total) => {
-        if (renderToken.current === token) setProgress({ done, total });
-      })
-        .then((result) => {
+      void renderSummary(
+        { trip, stops, media, routes },
+        spec,
+        (done, total) => {
+          if (renderToken.current === token) setProgress({ done, total });
+        },
+        abort.signal,
+      )
+        .then(async (result) => {
+          // Decoded before they are shown, so the new poster replaces the old
+          // one in a single frame instead of the preview going blank while
+          // the image loads. Never waited on for long: a browser that holds
+          // decoding back (a page in the background) must not hold the
+          // preview back with it.
+          await Promise.race([
+            Promise.all(
+              result.pages.map((page) => {
+                const img = new Image();
+                img.src = page.url;
+                return img.decode().catch(() => undefined);
+              }),
+            ),
+            new Promise((resolve) => window.setTimeout(resolve, 600)),
+          ]);
           if (renderToken.current !== token) {
             revokePages(result.pages);
             return;
@@ -246,7 +267,10 @@ export function SummaryStudio({
           }
         });
     }, 260);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      abort.abort();
+    };
     // `spec` is the whole of the input; trip data does not change while this
     // sheet is open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -325,7 +349,10 @@ export function SummaryStudio({
           {pages.length === 0 && !busy && <p className="muted">{t('summary.preview.empty')}</p>}
           <div className="summary-preview-strip" data-single={pages.length === 1}>
             {pages.map((page, i) => (
-              <figure key={page.url} className="summary-preview-page">
+              // By position, not by file: a new version of page two is still page
+              // two, and swapping its picture must not unmount and fade it in
+              // again from nothing.
+              <figure key={i} className="summary-preview-page">
                 <img src={page.url} alt={t('summary.preview.pageAlt', { n: i + 1 })} />
                 {/* Every photograph on the poster is a target: press the one
                     you want to be something else. The rest of the page opens

@@ -8,10 +8,11 @@ import {
   drawCover,
   drawLayout,
   drawMap,
-  drawRoute,
+  drawShape,
   drawStopDot,
   layoutText,
   loadPhoto,
+  loadPhotos,
   panel,
   roundRect,
   scrim,
@@ -189,12 +190,23 @@ async function photoRow(
   hits?: { id: string | null; box: Box }[],
 ): Promise<void> {
   if (ids.length === 0) return;
-  const cell = (box.w - gap * (ids.length - 1)) / ids.length;
+  const images = await loadPhotos(ids);
+  // Named photos share the row evenly, so every name gets the same room.
+  // Unnamed ones take the width their shape asks for, within reason: a
+  // landscape wider, a portrait narrower, and less of either cropped away.
+  const weights = images.map((img) =>
+    labels || !img ? 1 : Math.min(1.5, Math.max(0.7, img.width / img.height)),
+  );
+  const total = weights.reduce((a, b) => a + b, 0);
+  const free = box.w - gap * (ids.length - 1);
+  let x = box.x;
   for (let i = 0; i < ids.length; i++) {
-    const slot: Box = { x: box.x + (cell + gap) * i, y: box.y, w: cell, h: box.h };
+    const cell = (free * weights[i]!) / total;
+    const slot: Box = { x, y: box.y, w: cell, h: box.h };
+    x += cell + gap;
     hits?.push({ id: ids[i] ?? null, box: slot });
     panel(ctx, slot, 24, palette.panel);
-    const img = await loadPhoto(ids[i]!);
+    const img = images[i];
     if (img) drawCover(ctx, img, slot, 24);
     const label = labels?.[i];
     if (label) {
@@ -221,7 +233,81 @@ async function photoRow(
  */
 function mapFocus(page: PageData): [number, number][] {
   if (page.stops.length > 0) return page.stops.map((s) => [s.lng, s.lat] as [number, number]);
-  return page.lines.flat();
+  return routePoints(page.route);
+}
+
+/** Everything a route touches: its ground, and both ends of every flight. */
+function routePoints(route: PageData['route']): [number, number][] {
+  return [
+    ...route.ground.flat(),
+    ...route.gaps.flat(),
+    ...route.flights.flatMap((f) => [f[0]!, f[f.length - 1]!]),
+  ];
+}
+
+/**
+ * Photographs laid out to fill a box, however many there are and whatever
+ * their shape.
+ *
+ * The grids used to be fixed: five photos in a six-tile story left the sixth
+ * tile empty, and a row of landscapes in tall tiles lost most of each picture.
+ * Now every way of splitting the photos into rows (in order, one to three per
+ * row) is tried, each row as tall as its photos' shapes ask, and the one that
+ * has to stretch or squash least to fill the box exactly wins.
+ */
+function mosaic(box: Box, ratios: number[], gap: number): Box[] {
+  const n = ratios.length;
+  if (n === 0) return [];
+  if (n === 1) return [box];
+  let best: { rows: number[]; cost: number } | null = null;
+  const tryRows = (rows: number[]) => {
+    let at = 0;
+    const natural = rows.map((k) => {
+      const sum = ratios.slice(at, at + k).reduce((a, b) => a + b, 0);
+      at += k;
+      return (box.w - gap * (k - 1)) / sum;
+    });
+    const room = box.h - gap * (rows.length - 1);
+    const scale = room / natural.reduce((a, b) => a + b, 0);
+    const thinnest = Math.min(...natural) * scale;
+    const cost =
+      Math.abs(Math.log(scale)) +
+      (thinnest < box.h * 0.14 ? 1 : 0) +
+      // Of two equal fits, the calmer one with fewer rows.
+      rows.length * 0.03;
+    if (!best || cost < best.cost) best = { rows, cost };
+  };
+  const walk = (left: number, rows: number[]) => {
+    if (left === 0) return tryRows(rows);
+    for (let k = 1; k <= Math.min(3, left); k++) walk(left - k, [...rows, k]);
+  };
+  walk(n, []);
+
+  const rows = best!.rows;
+  const out: Box[] = [];
+  let at = 0;
+  const natural = rows.map((k) => {
+    const sum = ratios.slice(at, at + k).reduce((a, b) => a + b, 0);
+    at += k;
+    return (box.w - gap * (k - 1)) / sum;
+  });
+  const scale = (box.h - gap * (rows.length - 1)) / natural.reduce((a, b) => a + b, 0);
+  let y = box.y;
+  at = 0;
+  rows.forEach((k, r) => {
+    const h = r === rows.length - 1 ? box.y + box.h - y : Math.round(natural[r]! * scale);
+    const sum = ratios.slice(at, at + k).reduce((a, b) => a + b, 0);
+    const free = box.w - gap * (k - 1);
+    let x = box.x;
+    for (let i = 0; i < k; i++) {
+      const w = i === k - 1 ? box.x + box.w - x : Math.round((free * ratios[at + i]!) / sum);
+      out.push({ x, y, w, h });
+      x += w + gap;
+    }
+    at += k;
+    y += h + gap;
+  });
+  return out;
 }
 
 /**
@@ -362,7 +448,7 @@ const renderRoute: TemplateRenderer = async (ctx, size, page, opts) => {
   // A single place is a city trip: there is no line worth drawing, only the
   // dot, and a flight home across the continent would be the whole picture.
   if (page.stops.length !== 1) {
-    drawRoute(ctx, map, page.lines, split.map, { color: page.accent, width: 10 * mt.u });
+    drawShape(ctx, map, page.route, split.map, { color: page.accent, ring: p.panel, width: 10 * mt.u });
   }
 
   ctx.save();
@@ -373,8 +459,8 @@ const renderRoute: TemplateRenderer = async (ctx, size, page, opts) => {
     if (xy) drawStopDot(ctx, xy[0], xy[1], page.accent, p.paper, page.stops.length === 1, mt.u);
   }
   // Where the day began and where it ended, which is the story of a route.
-  const line = page.lines[0];
-  const last = page.lines[page.lines.length - 1];
+  const line = page.route.ground[0];
+  const last = page.route.ground[page.route.ground.length - 1];
   if (page.stops.length === 0 && line && last && line.length > 1) {
     const start = map.project(line[0]!);
     const end = map.project(last[last.length - 1]!);
@@ -410,53 +496,21 @@ const renderPhotos: TemplateRenderer = async (ctx, size, page, opts) => {
   ctx.fillRect(0, 0, size.w, size.h);
   const ids = page.photos.slice(0, 6);
   const gap = 12;
-  const grid: Box = { x: 0, y: 0, w: size.w, h: size.h };
-
-  // The mosaic shape follows how many photos there are, so two photos are two
-  // halves rather than two thirds of an empty grid.
-  const slots: Box[] = [];
-  const cols = (n: number, box: Box, rows: number) => ({
-    cw: (box.w - gap * (n - 1)) / n,
-    ch: (box.h - gap * (rows - 1)) / rows,
+  const images = await loadPhotos(ids);
+  const shown = ids.filter((_, i) => images[i]);
+  const pictures = images.filter((img): img is HTMLImageElement => !!img);
+  const slots = mosaic(
+    { x: 0, y: 0, w: size.w, h: size.h },
+    pictures.map((img) => img.width / img.height),
+    gap,
+  );
+  if (slots.length === 0) {
+    panel(ctx, { x: 0, y: 0, w: size.w, h: size.h }, 0, p.panel);
+  }
+  slots.forEach((slot, i) => {
+    opts.slots?.push({ id: shown[i] ?? null, box: slot });
+    drawCover(ctx, pictures[i]!, slot, 0);
   });
-  if (ids.length <= 1) {
-    slots.push(grid);
-  } else if (ids.length === 2) {
-    const { ch } = cols(1, grid, 2);
-    slots.push({ ...grid, h: ch }, { ...grid, y: ch + gap, h: ch });
-  } else if (ids.length === 3) {
-    const big = { ...grid, h: grid.h * 0.62 };
-    const restY = big.h + gap;
-    const restH = grid.h - restY;
-    const { cw } = cols(2, grid, 1);
-    slots.push(big, { x: 0, y: restY, w: cw, h: restH }, { x: cw + gap, y: restY, w: cw, h: restH });
-  } else if (ids.length === 4) {
-    const { cw, ch } = cols(2, grid, 2);
-    slots.push(
-      { x: 0, y: 0, w: cw, h: ch },
-      { x: cw + gap, y: 0, w: cw, h: ch },
-      { x: 0, y: ch + gap, w: cw, h: ch },
-      { x: cw + gap, y: ch + gap, w: cw, h: ch },
-    );
-  } else {
-    // Only a story is tall enough for three rows of pairs — on anything
-    // shorter the bottom row ends up behind the wash the place name sits on.
-    const rows = size.h / size.w >= 1.5 ? 3 : 2;
-    const { cw, ch } = cols(2, grid, rows);
-    for (let i = 0; i < rows * 2; i++) {
-      slots.push({ x: (i % 2) * (cw + gap), y: Math.floor(i / 2) * (ch + gap), w: cw, h: ch });
-    }
-  }
-
-  for (let i = 0; i < slots.length; i++) {
-    const slot = slots[i]!;
-    opts.slots?.push({ id: ids[i] ?? null, box: slot });
-    panel(ctx, slot, 0, p.panel);
-    const id = ids[i];
-    if (!id) continue;
-    const img = await loadPhoto(id);
-    if (img) drawCover(ctx, img, slot, 0);
-  }
 
   // Text over photographs is white on a wash whichever mood the poster is in:
   // the picture underneath decides what is legible, not the theme.
@@ -518,12 +572,12 @@ const renderRibbon: TemplateRenderer = async (ctx, size, page, opts) => {
   ctx.fillRect(0, 0, size.w, size.h);
   // Centred under the map's own width: a lint is a symmetrical thing.
   const top = head(ctx, size, page, opts, mt, true);
-  const shown = page.stops.slice(0, 4);
-  const split = bodySplit(size, mt, top, Math.min(page.photos.length, 4), shown.length > 0);
+  const labels = page.photoLabels?.slice(0, 4);
+  const split = bodySplit(size, mt, top, Math.min(page.photos.length, 4), !!labels && labels.length > 0);
 
   const map = drawMap(ctx, split.map, mapFocus(page), { accent: page.accent, palette: p });
   if (page.stops.length !== 1) {
-    drawRoute(ctx, map, page.lines, split.map, { color: page.accent, width: 8 * mt.u });
+    drawShape(ctx, map, page.route, split.map, { color: page.accent, ring: p.panel, width: 8 * mt.u });
   }
 
   // No numbers on the dots. Two places a day trip apart sat on top of each
@@ -544,7 +598,7 @@ const renderRibbon: TemplateRenderer = async (ctx, size, page, opts) => {
       split.photos,
       16,
       p,
-      shown.length > 0 ? shown.map((s) => s.name) : undefined,
+      labels && labels.length > 0 ? labels : undefined,
       opts.slots,
     );
   }
@@ -583,9 +637,10 @@ const renderStats: TemplateRenderer = async (ctx, size, page, opts) => {
   ctx.textBaseline = 'top';
 
   // The route, small and unlabelled: a signature rather than a map.
-  if (page.allLines.length > 0) {
+  const signature = routePoints(page.allRoute);
+  if (signature.length > 1) {
     const sigBox: Box = { x: m, y: m + 90, w: size.w - m * 2, h: Math.round(size.h * 0.18) };
-    const sig = drawMap(ctx, sigBox, page.allLines.flat(), {
+    const sig = drawMap(ctx, sigBox, signature, {
       accent: page.accent,
       palette: p,
       land: false,
@@ -593,7 +648,12 @@ const renderStats: TemplateRenderer = async (ctx, size, page, opts) => {
       fill: null,
       radius: 0,
     });
-    drawRoute(ctx, sig, page.allLines, sigBox, { color: page.accent, width: 7 * mt.u, radius: 0 });
+    drawShape(ctx, sig, page.allRoute, sigBox, {
+      color: page.accent,
+      ring: 'rgba(10, 13, 17, 0.6)',
+      width: 7 * mt.u,
+      radius: 0,
+    });
   }
 
   // Bottom-up: flags, then the numbers, then the name above them, so a long

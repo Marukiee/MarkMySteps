@@ -1,10 +1,11 @@
-import { geoMercator, geoPath, type GeoPermissibleObjects } from 'd3-geo';
+import { geoMercator, geoPath, type GeoPermissibleObjects, type GeoProjection } from 'd3-geo';
 import * as topojson from 'topojson-client';
 // 50m, not the 110m the globe uses: a globe is seen from space and a poster
 // is a printed map, where a coastline made of six straight lines is the first
 // thing you notice.
 import countries50m from 'world-atlas/countries-50m.json';
 import { fetchBlobUrl } from '../../api/client';
+import type { RouteShape } from './types';
 
 /**
  * Drawing kit for the posters.
@@ -370,14 +371,12 @@ export function drawMap(
 
   const wide = Math.max(spanLng, spanLat) > 0.6;
   if (opts.land !== false && wide) {
-    const path = geoPath(projection, ctx);
-    ctx.beginPath();
-    path(LAND);
+    const land = landPath(projection, box);
     ctx.fillStyle = opts.palette.land;
-    ctx.fill();
+    ctx.fill(land);
     ctx.strokeStyle = opts.palette.landLine;
     ctx.lineWidth = 1.5;
-    ctx.stroke();
+    ctx.stroke(land);
   } else if (opts.grid !== false) {
     // Close in, a faint grid gives the eye something to measure the route
     // against without pretending to be a street map.
@@ -404,6 +403,33 @@ export function drawMap(
       return xy ? [xy[0], xy[1]] : null;
     },
   };
+}
+
+/**
+ * The world's coastlines and borders for one frame, kept.
+ *
+ * Every country at the 50m detail is tens of thousands of points, and they
+ * were projected and traced again for every preview: change the theme, the
+ * logo, one photo, and the same map was worked out from scratch. The outline
+ * only depends on where the map looks, so it is traced once per frame and
+ * reused, and only the part inside the frame is kept at all.
+ */
+const landCache = new Map<string, Path2D>();
+
+function landPath(projection: GeoProjection, box: Box): Path2D {
+  const [tx, ty] = projection.translate();
+  const key = [projection.scale(), tx, ty, box.x, box.y, box.w, box.h].map((n) => n.toFixed(2)).join('|');
+  const known = landCache.get(key);
+  if (known) return known;
+  projection.clipExtent([
+    [box.x - 4, box.y - 4],
+    [box.x + box.w + 4, box.y + box.h + 4],
+  ]);
+  const path = new Path2D(geoPath(projection)(LAND) ?? '');
+  projection.clipExtent(null);
+  if (landCache.size >= 16) landCache.delete(landCache.keys().next().value!);
+  landCache.set(key, path);
+  return path;
 }
 
 /** The route: a soft glow under a solid line, so it reads on any background. */
@@ -440,6 +466,114 @@ export function drawRoute(
     }
   }
   ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/**
+ * A whole route as the map in the app has it: the recorded ground solid,
+ * unrecorded ground dashed, and every flight a dotted arc with a plane at its
+ * top, flying the way it went.
+ */
+export function drawShape(
+  ctx: CanvasRenderingContext2D,
+  map: MapDraw,
+  shape: RouteShape,
+  box: Box,
+  opts: { color: string; ring: string; width?: number; radius?: number },
+): void {
+  const width = opts.width ?? 9;
+  const radius = opts.radius ?? 40;
+  drawRoute(ctx, map, shape.ground, box, { color: opts.color, width, radius });
+
+  ctx.save();
+  roundRect(ctx, box, radius);
+  ctx.clip();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = opts.color;
+
+  // Ground nobody recorded: there, but not as sure as the solid line.
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = width * 0.5;
+  ctx.setLineDash([width * 1.3, width * 1.2]);
+  for (const gap of shape.gaps) strokeLine(ctx, map, gap);
+
+  // Flights: a row of dots, so an arc never reads as a road.
+  ctx.globalAlpha = 0.95;
+  ctx.lineWidth = width * 0.62;
+  ctx.setLineDash([0.01, width * 1.55]);
+  for (const flight of shape.flights) strokeLine(ctx, map, flight);
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+
+  // The plane sits halfway along the part of the arc you can see. A flight
+  // home from the far side of the frame would otherwise have it off the edge.
+  const inside = (p: [number, number]) =>
+    p[0] >= box.x + width * 2 && p[0] <= box.x + box.w - width * 2 &&
+    p[1] >= box.y + width * 2 && p[1] <= box.y + box.h - width * 2;
+  for (const flight of shape.flights) {
+    const pts = flight.map((p) => map.project(p)).filter((p): p is [number, number] => !!p);
+    let run: [number, number][] = [];
+    let longest: [number, number][] = [];
+    for (const p of pts) {
+      if (inside(p)) run.push(p);
+      else run = [];
+      if (run.length > longest.length) longest = run;
+    }
+    if (longest.length < 3) continue;
+    const first = longest[0]!;
+    const last = longest[longest.length - 1]!;
+    // A hop of a few pixels has no room for an aeroplane on it.
+    if (Math.hypot(last[0] - first[0], last[1] - first[1]) < width * 9) continue;
+    const mid = Math.floor(longest.length / 2);
+    const a = longest[mid - 1]!;
+    const b = longest[mid + 1]!;
+    drawPlane(ctx, longest[mid]![0], longest[mid]![1], Math.atan2(b[1] - a[1], b[0] - a[0]), width * 4.4, opts.color, opts.ring);
+  }
+  ctx.restore();
+}
+
+function strokeLine(ctx: CanvasRenderingContext2D, map: MapDraw, line: [number, number][]): void {
+  ctx.beginPath();
+  let started = false;
+  for (const point of line) {
+    const xy = map.project(point);
+    if (!xy) continue;
+    if (started) ctx.lineTo(xy[0], xy[1]);
+    else {
+      ctx.moveTo(xy[0], xy[1]);
+      started = true;
+    }
+  }
+  ctx.stroke();
+}
+
+/** Seen from above, nose along the arc; the same plane as the app's lists. */
+const PLANE = new Path2D(
+  'M21 12c0-.8-.7-1.4-1.5-1.4H15L10.2 3H8.4l2.4 7.6H6.3L4.6 8.4H3.2l1.1 3.6-1.1 3.6h1.4l1.7-2.2h4.5L8.4 21h1.8L15 13.4h4.5c.8 0 1.5-.6 1.5-1.4z',
+);
+
+function drawPlane(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  size: number,
+  fill: string,
+  ring: string,
+): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.scale(size / 24, size / 24);
+  ctx.translate(-12, -12);
+  // A ring of the map's own colour, so the dots stop short of the wings.
+  ctx.lineWidth = 3;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = ring;
+  ctx.stroke(PLANE);
+  ctx.fillStyle = fill;
+  ctx.fill(PLANE);
   ctx.restore();
 }
 
@@ -488,6 +622,14 @@ export async function loadPhoto(mediaId: string): Promise<HTMLImageElement | nul
   } catch {
     return null;
   }
+}
+
+/**
+ * The photographs of a page, all fetched at once and kept in their order.
+ * Asked one by one, a poster with six photos waited six round trips.
+ */
+export async function loadPhotos(ids: string[]): Promise<(HTMLImageElement | null)[]> {
+  return Promise.all(ids.map((id) => loadPhoto(id)));
 }
 
 /**

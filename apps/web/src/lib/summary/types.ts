@@ -90,6 +90,18 @@ export interface SummarySource {
   routes: RouteCollection | null;
 }
 
+/** A route split the way a map draws it. All lines are [lng, lat]. */
+export interface RouteShape {
+  /** What was travelled over the ground and recorded. */
+  ground: [number, number][][];
+  /** Ground nobody recorded (a tunnel, a dead phone): dashed and straight. */
+  gaps: [number, number][][];
+  /** Flights, as arcs. */
+  flights: [number, number][][];
+  /** How far, flights counted as the distance between the airports. */
+  km: number;
+}
+
 /** One number on a poster. */
 export interface Fact {
   value: string;
@@ -102,8 +114,8 @@ export interface PageData {
   dateLabel: string;
   place: string | null;
   weather: Weather | null;
-  /** Route lines in [lng, lat], already limited to this page's period. */
-  lines: [number, number][][];
+  /** The route of this page's period, already cut into ground and air. */
+  route: RouteShape;
   /** Places you actually stayed, in travel order. */
   stops: {
     name: string;
@@ -114,9 +126,13 @@ export interface PageData {
     from: string;
     to: string;
   }[];
-  /** Every stop of the whole trip, so a series page can show its progress. */
-  allLines: [number, number][][];
+  /** The route of the whole trip, so a series page can show its progress. */
+  allRoute: RouteShape;
   photos: string[];
+  /** The place under each photo, where the layout names them. */
+  photoLabels: string[] | null;
+  /** Other photographs from the period, to stand in for one that fails. */
+  spare: string[];
   facts: Fact[];
   flags: string[];
   accent: string;

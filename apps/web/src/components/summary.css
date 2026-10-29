@@ -355,14 +355,16 @@
   scroll-snap-type: x proximity;
   overscroll-behavior-x: contain;
   padding-bottom: 0.2rem;
-  transition: opacity 0.2s var(--ease), filter 0.2s var(--ease);
+  transition: opacity 0.2s var(--ease);
 }
 
-/* Out of focus while it is being drawn: the old poster is still there to look
-   at, and it is plainly not the answer yet. */
+/* Dimmed while it is being drawn: the old poster is still there to look at,
+   and it is plainly not the answer yet. No blur, which flashed on and off with
+   every quick change, and only after a moment, so a redraw that is done at
+   once never dims at all. */
 .summary-preview[data-busy='true'] .summary-preview-strip {
-  opacity: 0.6;
-  filter: blur(7px);
+  opacity: 0.55;
+  transition-delay: 0.25s;
 }
 
 .summary-preview-strip[data-single='true'] {
@@ -428,6 +430,18 @@
   font-size: 0.82rem;
   font-weight: 600;
   pointer-events: none;
+}
+
+/* The spinner waits a moment too: a redraw that finishes quickly should not
+   flash a spinner over the poster on its way past. */
+.summary-preview-busy {
+  animation: summaryBusyIn 0.2s var(--ease) 0.25s both;
+}
+
+@keyframes summaryBusyIn {
+  from {
+    opacity: 0;
+  }
 }
 
 .summary-preview-busy .summary-spinner {
