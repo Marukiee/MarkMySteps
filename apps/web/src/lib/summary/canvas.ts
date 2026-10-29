@@ -5,6 +5,7 @@ import * as topojson from 'topojson-client';
 // thing you notice.
 import countries50m from 'world-atlas/countries-50m.json';
 import { fetchBlobUrl } from '../../api/client';
+import { haversineKm } from '../arc';
 import type { RouteShape } from './types';
 
 /**
@@ -498,39 +499,93 @@ export function drawShape(
   ctx.setLineDash([width * 1.3, width * 1.2]);
   for (const gap of shape.gaps) strokeLine(ctx, map, gap);
 
-  // Flights: a row of dots, so an arc never reads as a road.
-  ctx.globalAlpha = 0.95;
-  ctx.lineWidth = width * 0.62;
-  ctx.setLineDash([0.01, width * 1.55]);
-  for (const flight of shape.flights) strokeLine(ctx, map, flight);
-  ctx.setLineDash([]);
-  ctx.globalAlpha = 1;
-
-  // The plane sits halfway along the part of the arc you can see. A flight
-  // home from the far side of the frame would otherwise have it off the edge.
+  // Flights: a row of dots, so an arc never reads as a road. Bowed on the
+  // poster itself, the way the trip map lifts them, rather than along the
+  // ground: a gentle curve over a continent became a near straight line once
+  // the map had zoomed in on the places.
   const inside = (p: [number, number]) =>
-    p[0] >= box.x + width * 2 && p[0] <= box.x + box.w - width * 2 &&
-    p[1] >= box.y + width * 2 && p[1] <= box.y + box.h - width * 2;
+    p[0] >= box.x && p[0] <= box.x + box.w && p[1] >= box.y && p[1] <= box.y + box.h;
+  ctx.lineWidth = width * 0.62;
   for (const flight of shape.flights) {
-    const pts = flight.map((p) => map.project(p)).filter((p): p is [number, number] => !!p);
-    let run: [number, number][] = [];
-    let longest: [number, number][] = [];
-    for (const p of pts) {
-      if (inside(p)) run.push(p);
-      else run = [];
-      if (run.length > longest.length) longest = run;
+    const from = map.project(flight[0]!);
+    const to = map.project(flight[flight.length - 1]!);
+    if (!from || !to) continue;
+    const spanKm = haversineKm(flight[0]!, flight[flight.length - 1]!);
+    let arc = bow(from, to, 0.1 + 0.22 * Math.min(1, spanKm / 8000), box.h * 0.42);
+    // A flight from somewhere outside the frame: only its last stretch shows,
+    // and the last stretch of a long curve is all but straight. It comes in
+    // over the edge on a curve of its own instead.
+    if (!inside(from) || !inside(to)) {
+      const first = arc.findIndex(inside);
+      if (first < 0) continue;
+      let last = first;
+      while (last + 1 < arc.length && inside(arc[last + 1]!)) last++;
+      if (last === first) continue;
+      // From exactly where it crosses the edge, not from the first sample
+      // that happens to fall inside, which left it starting in mid air.
+      const start = first > 0 ? edgeCrossing(arc[first - 1]!, arc[first]!, inside) : arc[first]!;
+      const end = last < arc.length - 1 ? edgeCrossing(arc[last + 1]!, arc[last]!, inside) : arc[last]!;
+      arc = bow(start, end, 0.28, box.h * 0.42);
     }
-    if (longest.length < 3) continue;
-    const first = longest[0]!;
-    const last = longest[longest.length - 1]!;
+    ctx.globalAlpha = 0.95;
+    ctx.setLineDash([0.01, width * 1.55]);
+    ctx.beginPath();
+    arc.forEach((p, i) => (i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1])));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+
+    const first = arc[0]!;
+    const last = arc[arc.length - 1]!;
     // A hop of a few pixels has no room for an aeroplane on it.
     if (Math.hypot(last[0] - first[0], last[1] - first[1]) < width * 9) continue;
-    const mid = Math.floor(longest.length / 2);
-    const a = longest[mid - 1]!;
-    const b = longest[mid + 1]!;
-    drawPlane(ctx, longest[mid]![0], longest[mid]![1], Math.atan2(b[1] - a[1], b[0] - a[0]), width * 4.4, opts.color, opts.ring);
+    const mid = Math.floor(arc.length / 2);
+    const a = arc[mid - 1]!;
+    const b = arc[mid + 1]!;
+    drawPlane(ctx, arc[mid]![0], arc[mid]![1], Math.atan2(b[1] - a[1], b[0] - a[0]), width * 4.4, opts.color, opts.ring);
   }
   ctx.restore();
+}
+
+/** Where the step from a point outside to one inside crosses the edge. */
+function edgeCrossing(
+  out: [number, number],
+  inn: [number, number],
+  inside: (p: [number, number]) => boolean,
+): [number, number] {
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 20; i++) {
+    const t = (lo + hi) / 2;
+    const p: [number, number] = [out[0] + (inn[0] - out[0]) * t, out[1] + (inn[1] - out[1]) * t];
+    if (inside(p)) hi = t;
+    else lo = t;
+  }
+  return [out[0] + (inn[0] - out[0]) * hi, out[1] + (inn[1] - out[1]) * hi];
+}
+
+/** A curve from one point to another, lifted towards the top of the poster. */
+function bow(
+  from: [number, number],
+  to: [number, number],
+  share: number,
+  max: number,
+): [number, number][] {
+  const chord = Math.hypot(to[0] - from[0], to[1] - from[1]);
+  if (chord < 1) return [from, to];
+  let nx = -(to[1] - from[1]) / chord;
+  let ny = (to[0] - from[0]) / chord;
+  if (ny > 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  const climb = Math.min(chord * share, max);
+  const steps = 48;
+  return Array.from({ length: steps + 1 }, (_, i) => {
+    const t = i / steps;
+    const k = climb * Math.sin(Math.PI * t);
+    return [from[0] + (to[0] - from[0]) * t + nx * k, from[1] + (to[1] - from[1]) * t + ny * k];
+  });
 }
 
 function strokeLine(ctx: CanvasRenderingContext2D, map: MapDraw, line: [number, number][]): void {
@@ -597,7 +652,9 @@ export function drawStopDot(
   ctx.stroke();
 }
 
-const imageCache = new Map<string, HTMLImageElement>();
+/** Failures too, as null: a photo that is gone from Immich is gone for this
+ *  session, and asking again on every redraw only made each one slower. */
+const imageCache = new Map<string, HTMLImageElement | null>();
 
 /**
  * A photo, decoded and ready to draw.
@@ -607,7 +664,7 @@ const imageCache = new Map<string, HTMLImageElement>();
  */
 export async function loadPhoto(mediaId: string): Promise<HTMLImageElement | null> {
   const cached = imageCache.get(mediaId);
-  if (cached) return cached;
+  if (cached !== undefined) return cached;
   try {
     const url = await fetchBlobUrl(`/media/${mediaId}/thumbnail`);
     const img = new Image();
@@ -620,6 +677,7 @@ export async function loadPhoto(mediaId: string): Promise<HTMLImageElement | nul
     imageCache.set(mediaId, img);
     return img;
   } catch {
+    imageCache.set(mediaId, null);
     return null;
   }
 }
