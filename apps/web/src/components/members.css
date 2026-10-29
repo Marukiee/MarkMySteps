@@ -11,15 +11,67 @@
   display: grid;
 }
 
-/* One person per block, with a rule between them: their role switch and their
-   tracking checkbox sit on a second line, and without a divider there was
-   nothing saying which of the two names above them they belonged to. */
+/* One person per row: photo, name with a line of what they are on this
+   trip under it, and their ⋯. Everything else is in the menu. */
 .members-list li {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.6rem;
-  padding: 0.55rem 0;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+}
+
+.members-who {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 0.05rem;
+}
+
+.members-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 550;
+}
+
+.members-sub {
+  color: var(--ink-faint);
+  font-size: 0.82rem;
+}
+
+.members-sub::first-letter {
+  text-transform: uppercase;
+}
+
+.members-sub.partial {
+  color: var(--accent-ink);
+}
+
+/* A guest only follows along: a step quieter than the people who went. */
+.members-list li.is-guest .members-name {
+  color: var(--ink-soft);
+}
+
+.members-more {
+  display: grid;
+  place-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  color: var(--ink-faint);
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+
+.members-more:active {
+  transform: scale(0.9);
+}
+
+@media (hover: hover) {
+  .members-more:hover {
+    background: var(--paper-sunken);
+    color: var(--ink);
+  }
 }
 
 .members-list li + li {
@@ -28,18 +80,6 @@
 
 .members-list li:first-child {
   padding-top: 0.15rem;
-}
-
-/* Owner controls for a member's role + tracking permission. */
-.member-controls {
-  flex-basis: 100%;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  /* Lined up under the name, not the avatar, so the indent reads as "these
-     belong to the row above". */
-  margin-left: calc(30px + 0.6rem);
 }
 
 .member-role-seg {
@@ -86,53 +126,8 @@
   color: var(--ink);
 }
 
-.member-track {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--ink-soft);
-}
-
-.member-track input {
-  width: 18px;
-  height: 18px;
-  border-radius: 6px;
-}
-
-/* Folds away for a guest instead of vanishing. */
-.member-track-wrap {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition: grid-template-rows 0.28s var(--ease), opacity 0.22s var(--ease);
-}
-
-.member-track-wrap[data-open='true'] {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-
-.member-track-wrap > div {
-  overflow: hidden;
-  min-height: 0;
-}
-
 .members-name small {
   color: var(--ink-faint);
-}
-
-.members-remove {
-  margin-left: auto;
-  color: var(--ink-faint);
-  padding: 0.25rem 0.45rem;
-  border-radius: 6px;
-}
-
-.members-remove:hover {
-  color: #b3402a;
-  background: #fbeae4;
 }
 
 .members-hint {
@@ -157,35 +152,97 @@
   }
 }
 
-/* The days someone was there: plain, like "mag tracken" beside it, and in
-   the accent once it is only part of the trip. */
-.member-track-wrap > div {
+/* A person's menu: the same as a trip card's (trips.css), role as a segment
+   on top, then the settings, then taking them off the trip in red. */
+.member-menu {
+  position: fixed;
+  z-index: 120;
+  min-width: 230px;
+  padding: 0.35rem;
+  display: grid;
+  gap: 0.1rem;
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-m);
+  transform-origin: top right;
+  animation: memberMenuIn 0.16s var(--ease);
+}
+
+.member-menu.up {
+  transform-origin: bottom right;
+}
+
+.member-menu.closing {
+  animation: memberMenuOut 0.15s var(--ease) forwards;
+}
+
+@keyframes memberMenuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+}
+
+@keyframes memberMenuOut {
+  to {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+.member-menu .member-role-seg {
+  display: grid;
+  margin-bottom: 0.2rem;
+}
+
+.member-menu > button {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.9rem;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 550;
+  text-align: left;
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.15s var(--ease);
 }
 
-.member-days {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--ink-soft);
-  font-size: 0.82rem;
-  font-weight: 500;
-  transition: color 0.2s var(--ease);
-}
-
-.member-days svg {
+.member-menu > button svg {
+  flex-shrink: 0;
   color: var(--ink-faint);
 }
 
-.member-days.partial,
-.member-days.partial svg {
-  color: var(--accent-ink);
-  font-weight: 600;
+.member-menu > button span {
+  flex: 1;
 }
 
-button.member-days:active {
-  opacity: 0.6;
+.member-menu > button small {
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.member-menu > button .member-menu-check {
+  color: var(--accent);
+}
+
+.member-menu > button:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .member-menu > button:hover {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+
+  .member-menu > button.member-menu-danger:hover {
+    background: rgb(179 64 42 / 0.1);
+  }
+}
+
+.member-menu > button.member-menu-danger,
+.member-menu > button.member-menu-danger svg {
+  color: #b3402a;
 }
