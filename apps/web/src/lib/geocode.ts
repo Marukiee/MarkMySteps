@@ -4,6 +4,9 @@
  * a self-hosted Photon instance can be dropped in later via the same API.
  */
 
+import { api } from '../api/client';
+import { isLocalMode } from './localMode';
+
 export interface PlaceSuggestion {
   name: string;
   region: string; // e.g. "Vietnam" or "Noord-Holland, Nederland"
@@ -24,14 +27,53 @@ interface PhotonFeature {
     district?: string;
     locality?: string;
     type?: string;
+    /** What OSM calls it: city, town, village, hamlet, locality, ... */
+    osm_value?: string;
   };
 }
 
+/** What a traveller means by a place: somewhere people live, not a field. */
+const SETTLEMENTS = new Set(['city', 'town', 'village', 'municipality']);
+
+/** Lower case without accents, so "zurich" matches Zürich. */
+function fold(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+/** Within a few kilometres in the same country: the same place twice. */
+function samePlace(a: PlaceSuggestion, b: PlaceSuggestion): boolean {
+  return (
+    a.countryCode === b.countryCode &&
+    Math.abs(a.latitude - b.latitude) < 0.15 &&
+    Math.abs(a.longitude - b.longitude) < 0.15
+  );
+}
+
+const pause = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(new DOMException('Aborted', 'AbortError'));
+    const timer = window.setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      window.clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    });
+  });
+
+/**
+ * Towns and cities by name, for a stop.
+ *
+ * Photon first, with the towns that carry the name you typed on top: its own
+ * order put a hamlet called Stalingrad in Czechia above everything, and a
+ * friend's stop ended up there. Photon also only knows what a place is called
+ * today and in English, so when it has no town by that name at all
+ * (Stalingrad, Bombay, Keulen) the server asks Nominatim, which knows old and
+ * other names, and those answers come first: they are the town you meant.
+ */
 export async function searchPlaces(query: string, signal?: AbortSignal): Promise<PlaceSuggestion[]> {
   if (query.trim().length < 2) return [];
   const url = new URL('https://photon.komoot.io/api/');
   url.searchParams.set('q', query);
-  url.searchParams.set('limit', '6');
+  url.searchParams.set('limit', '8');
   // 'default' returns every language variant glued together
   // ("Marrakech ⵎⵔⴰⴽⵛ مراكش"); 'en' gives clean single names.
   url.searchParams.set('lang', 'en');
@@ -42,8 +84,10 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   if (!res.ok) return [];
   const data = (await res.json()) as { features: PhotonFeature[] };
 
+  const typed = fold(query);
   const seen = new Set<string>();
-  const suggestions: PlaceSuggestion[] = [];
+  const towns: PlaceSuggestion[] = [];
+  const rest: PlaceSuggestion[] = [];
   for (const feature of data.features) {
     const p = feature.properties;
     if (!p.name) continue;
@@ -51,15 +95,28 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
     const key = `${p.name}|${region}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    suggestions.push({
+    const place = {
       name: p.name,
       region,
       countryCode: p.countrycode?.toUpperCase(),
       latitude: feature.geometry.coordinates[1],
       longitude: feature.geometry.coordinates[0],
-    });
+    };
+    // Photon's own order is kept inside each group.
+    const town = SETTLEMENTS.has(p.osm_value ?? '') && fold(p.name).startsWith(typed);
+    (town ? towns : rest).push(place);
   }
-  return suggestions;
+  const photon = [...towns, ...rest];
+  if (towns.length > 0 || typed.length < 4 || isLocalMode()) return photon.slice(0, 6);
+
+  // Only once typing has stopped for a moment: every question the server
+  // passes on to Nominatim is one of its one-a-second.
+  await pause(450, signal);
+  const other = await api<PlaceSuggestion[]>(`/search/places?q=${encodeURIComponent(query.trim())}`).catch(
+    () => [] as PlaceSuggestion[],
+  );
+  if (signal?.aborted) return [];
+  return [...other, ...photon.filter((p) => !other.some((o) => samePlace(o, p)))].slice(0, 6);
 }
 
 export interface StationSuggestion extends PlaceSuggestion {

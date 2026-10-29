@@ -3,12 +3,16 @@ import { Throttle } from '@nestjs/throttler';
 import type { JwtPayload } from '../auth/auth.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlaceHit, PlaceLookupService } from './place-lookup.service';
 import { SearchResults, SearchService } from './search.service';
 
 @Controller('search')
 @UseGuards(JwtAuthGuard)
 export class SearchController {
-  constructor(private readonly search: SearchService) {}
+  constructor(
+    private readonly search: SearchService,
+    private readonly placeLookup: PlaceLookupService,
+  ) {}
 
   /**
    * One box over trips, places, notes and photographs.
@@ -28,6 +32,16 @@ export class SearchController {
       personIds: asArray(person),
       countryCodes: asArray(country).map((code) => code.toUpperCase()),
     });
+  }
+
+  /**
+   * Towns and cities by an old or another name ("Stalingrad", "Keulen"), for
+   * the stop field when its own search found no town by that name.
+   */
+  @Get('places')
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  places(@Query('q') q?: string): Promise<PlaceHit[]> {
+    return this.placeLookup.search(q ?? '');
   }
 
   /** The faces and countries the filter panel offers. */
