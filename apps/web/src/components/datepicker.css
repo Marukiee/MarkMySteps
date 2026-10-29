@@ -411,31 +411,37 @@
   background: var(--line);
 }
 
-/* The calendar drops open right under the field. */
+/* The calendar drops open right under the field, and its room with it: the
+   row grows from nothing, so the page below eases down instead of jumping.
+   The negative margin takes back the field's gap while it is shut. */
+.dr-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: -0.35rem;
+  transition: grid-template-rows 0.32s var(--ease);
+}
+
+.dr-fold.open {
+  grid-template-rows: 1fr;
+}
+
+.dr-fold-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .dr-drop {
-  margin-top: 0.45rem;
+  margin: 0.8rem 0 0.15rem;
   padding: 0.2rem 0 0;
   overflow: hidden;
-  transform-origin: top center;
-  animation: drIn 0.22s var(--ease);
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.22s var(--ease), transform 0.32s var(--ease);
 }
 
-.dr-drop.closing {
-  animation: drOut 0.18s var(--ease) forwards;
-}
-
-@keyframes drIn {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.98);
-  }
-}
-
-@keyframes drOut {
-  to {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.98);
-  }
+.dr-fold.open .dr-drop {
+  opacity: 1;
+  transform: none;
 }
 
 .dr-sheet-top {
@@ -538,8 +544,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dr-drop,
-  .dr-drop.closing {
-    animation: none;
+  .dr-fold,
+  .dr-drop {
+    transition: none;
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import { t, intlLocale } from '../i18n';
@@ -342,8 +342,19 @@ function RangeSummary({
  * "Selecteren"; tapping the field again or anywhere else puts it back.
  */
 export function DateRangeField({ from, to, onChange, label, id }: DateRangeFieldProps) {
-  const [open, setOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
+  // Shut, then opening (mounted, still folded), open, closing (folding shut,
+  // still mounted). The fold needs that folded first state to open from.
+  const [phase, setPhase] = useState<'shut' | 'opening' | 'open' | 'closing'>('shut');
+  const open = phase !== 'shut';
+  const unfolded = phase === 'open';
+  const closing = phase === 'closing' || phase === 'opening';
+  const foldRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (phase !== 'opening') return;
+    // Read once so the browser has the folded state in hand, then unfold.
+    void foldRef.current?.offsetHeight;
+    setPhase('open');
+  }, [phase]);
   const [draft, setDraft] = useState({ from, to });
   const shown = open ? draft : { from, to };
   const fieldRef = useRef<HTMLDivElement>(null);
@@ -360,11 +371,8 @@ export function DateRangeField({ from, to, onChange, label, id }: DateRangeField
   }, [open, closing]);
 
   const close = () => {
-    setClosing(true);
-    window.setTimeout(() => {
-      setOpen(false);
-      setClosing(false);
-    }, 180);
+    setPhase('closing');
+    window.setTimeout(() => setPhase((p) => (p === 'closing' ? 'shut' : p)), 320);
   };
 
   return (
@@ -375,25 +383,32 @@ export function DateRangeField({ from, to, onChange, label, id }: DateRangeField
         from={shown.from}
         to={shown.to}
         choosingEnd={!!draft.from && !draft.to}
-        open={open && !closing}
+        open={unfolded}
         onClick={() => {
-          if (open) return close();
+          if (phase === 'open') return close();
+          if (phase !== 'shut') return;
           setDraft({ from, to });
-          setOpen(true);
+          setPhase('opening');
         }}
       />
-      {open && (
-        <div className={`dr-drop card ${closing ? 'closing' : ''}`}>
-          <RangeCalendar
-            draft={draft}
-            onDraft={setDraft}
-            onPick={(a, b) => {
-              onChange(a, b);
-              close();
-            }}
-          />
+      {/* Its room opens and closes with it, so what is under the field moves
+          down and back up instead of jumping when the calendar comes and goes. */}
+      <div className={`dr-fold ${unfolded ? 'open' : ''}`} ref={foldRef}>
+        <div className="dr-fold-inner">
+          {open && (
+            <div className="dr-drop card">
+              <RangeCalendar
+                draft={draft}
+                onDraft={setDraft}
+                onPick={(a, b) => {
+                  onChange(a, b);
+                  close();
+                }}
+              />
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
