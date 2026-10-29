@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import { t, intlLocale } from '../i18n';
 import { nativeDatesAvailable, pickNativeDate } from '../lib/nativeDate';
-import { formatDateRange } from '../lib/colors';
 import './datepicker.css';
 
 interface DateFieldProps {
@@ -291,38 +290,6 @@ interface DateRangeFieldProps {
   onChange: (from: string, to: string) => void;
   label?: string;
   id?: string;
-  placeholder?: string;
-}
-
-/**
- * One field for a first and a last day, the way a booking site asks for them:
- * the calendar opens on the first day, moves on to the last by itself, and
- * the days between light up. Nothing is saved until "Selecteren".
- */
-export function DateRangeField({ from, to, onChange, label, id, placeholder }: DateRangeFieldProps) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="field date-field">
-      {label && <label htmlFor={id}>{label}</label>}
-      <button id={id} type="button" className="date-field-btn" onClick={() => setOpen(true)}>
-        <Icon name="pin" size={15} className="date-field-cal" />
-        <span className={from && to ? '' : 'date-field-empty'}>
-          {from && to ? formatDateRange(from, to) : placeholder ?? t('planner.date.chooseRange')}
-        </span>
-      </button>
-      {open && (
-        <DateRangeSheet
-          from={from}
-          to={to}
-          onClose={() => setOpen(false)}
-          onPick={(a, b) => {
-            onChange(a, b);
-            setOpen(false);
-          }}
-        />
-      )}
-    </div>
-  );
 }
 
 function fmtShortDay(iso: string): string {
@@ -334,9 +301,107 @@ function fmtShortDay(iso: string): string {
 }
 
 /**
- * The calendar for a range. `min` and `max` keep it inside a trip; with
- * `resetLabel` it has a button that hands back two empty dates ("the whole
- * trip").
+ * The first and the last day side by side, the way a booking site shows them:
+ * the half that is being chosen is lit, and the dates fill in as you tap.
+ */
+function RangeSummary({
+  from,
+  to,
+  choosingEnd,
+  onClick,
+  id,
+  open,
+}: {
+  from: string;
+  to: string;
+  choosingEnd: boolean;
+  onClick?: () => void;
+  id?: string;
+  open: boolean;
+}) {
+  const half = (label: string, iso: string, active: boolean) => (
+    <span className={`dr-half ${active ? 'active' : ''}`}>
+      <small>{label}</small>
+      <strong className={iso ? '' : 'dr-empty'}>{iso ? fmtShortDay(iso) : t('planner.date.choose')}</strong>
+    </span>
+  );
+  return (
+    <button id={id} type="button" className={`dr-summary ${open ? 'open' : ''}`} onClick={onClick}>
+      <Icon name="calendar" size={18} className="dr-cal" />
+      {half(t('planner.date.start'), from, open && !from)}
+      <span className="dr-sep" aria-hidden="true" />
+      {half(t('planner.date.end'), to, open && choosingEnd)}
+    </button>
+  );
+}
+
+/**
+ * One field for a first and a last day. The calendar opens right under it:
+ * the first tap is the first day, the next the last, and the days between
+ * light up (with a mouse, before you click). Nothing is saved until
+ * "Selecteren"; tapping the field again or anywhere else puts it back.
+ */
+export function DateRangeField({ from, to, onChange, label, id }: DateRangeFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [draft, setDraft] = useState({ from, to });
+  const shown = open ? draft : { from, to };
+  const fieldRef = useRef<HTMLDivElement>(null);
+
+  // A tap anywhere outside closes it without saving, as on a booking site.
+  useEffect(() => {
+    if (!open || closing) return;
+    const away = (e: PointerEvent) => {
+      if (!fieldRef.current?.contains(e.target as Node)) close();
+    };
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, closing]);
+
+  const close = () => {
+    setClosing(true);
+    window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+    }, 180);
+  };
+
+  return (
+    <div className="field date-field" ref={fieldRef}>
+      {label && <label htmlFor={id}>{label}</label>}
+      <RangeSummary
+        id={id}
+        from={shown.from}
+        to={shown.to}
+        choosingEnd={!!draft.from && !draft.to}
+        open={open && !closing}
+        onClick={() => {
+          if (open) return close();
+          setDraft({ from, to });
+          setOpen(true);
+        }}
+      />
+      {open && (
+        <div className={`dr-drop card ${closing ? 'closing' : ''}`}>
+          <RangeCalendar
+            draft={draft}
+            onDraft={setDraft}
+            onPick={(a, b) => {
+              onChange(a, b);
+              close();
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The same calendar in a sheet of its own, for a range that has no field to
+ * hang under: a companion's days. `min` and `max` keep it inside the trip;
+ * `resetLabel` adds a button that hands back two empty dates.
  */
 export function DateRangeSheet({
   from,
@@ -355,22 +420,12 @@ export function DateRangeSheet({
   onClose: () => void;
   onPick: (from: string, to: string) => void;
 }) {
-  const open = from || min || '';
-  const base = open ? new Date(open + 'T00:00:00') : new Date();
-  const [view, setView] = useState({ year: base.getFullYear(), month: base.getMonth() });
   const [draft, setDraft] = useState({ from, to });
-  // Where the mouse is while the last day is being chosen: the band follows
-  // it, so you see the stay before you click. Touch has no such thing.
-  const [hover, setHover] = useState('');
   const [closing, setClosing] = useState(false);
-  const todayIso = toISO(new Date());
-  const choosingEnd = !!draft.from && !draft.to;
-
   const finish = (range?: { from: string; to: string }) => {
     setClosing(true);
     window.setTimeout(() => (range ? onPick(range.from, range.to) : onClose()), 190);
   };
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && finish();
     window.addEventListener('keydown', onKey);
@@ -378,10 +433,66 @@ export function DateRangeSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  return createPortal(
+    <div
+      className={`dp-backdrop ${closing ? 'closing' : ''}`}
+      onClick={() => finish()}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="dp-sheet dr-sheet card" onClick={(e) => e.stopPropagation()}>
+        <div className="dr-sheet-top">
+          <RangeSummary from={draft.from} to={draft.to} choosingEnd={!!draft.from && !draft.to} open />
+        </div>
+        <RangeCalendar
+          draft={draft}
+          onDraft={setDraft}
+          min={min}
+          max={max}
+          resetLabel={resetLabel}
+          onReset={() => finish({ from: '', to: '' })}
+          onPick={(a, b) => finish({ from: a, to: b })}
+        />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function RangeCalendar({
+  draft,
+  onDraft,
+  min,
+  max,
+  resetLabel,
+  onReset,
+  onPick,
+}: {
+  draft: { from: string; to: string };
+  onDraft: (d: { from: string; to: string }) => void;
+  min?: string;
+  max?: string;
+  resetLabel?: string;
+  onReset?: () => void;
+  onPick: (from: string, to: string) => void;
+}) {
+  const open = draft.from || min || '';
+  const base = open ? new Date(open + 'T00:00:00') : new Date();
+  const [view, setView] = useState({ year: base.getFullYear(), month: base.getMonth() });
+  // Where the mouse is while the last day is being chosen: the band follows
+  // it, so you see the stay before you click. Touch has no such thing.
+  const [hover, setHover] = useState('');
+  const todayIso = toISO(new Date());
+  const choosingEnd = !!draft.from && !draft.to;
+
   // First tap is the first day; the next one is the last, unless it is
-  // earlier, then it is a new first day. A tap once both are set starts over.
-  const pick = (iso: string) =>
-    setDraft((d) => (!d.from || d.to || iso < d.from ? { from: iso, to: '' } : { from: d.from, to: iso }));
+  // earlier, then it is a new first day. A tap once both are set starts over,
+  // except on the last day itself, which just stays chosen.
+  const pick = (iso: string) => {
+    const d = draft;
+    if (d.from && d.to && iso === d.to) return;
+    onDraft(!d.from || d.to || iso < d.from ? { from: iso, to: '' } : { from: d.from, to: iso });
+  };
 
   const first = new Date(view.year, view.month, 1);
   const startOffset = (first.getDay() + 6) % 7; // Monday-based
@@ -403,128 +514,100 @@ export function DateRangeSheet({
       ? Math.round((Date.parse(draft.to) - Date.parse(draft.from)) / 86_400_000) + 1
       : 0;
 
-  return createPortal(
-    <div
-      className={`dp-backdrop ${closing ? 'closing' : ''}`}
-      onClick={() => finish()}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="dp-sheet dp-range card" onClick={(e) => e.stopPropagation()}>
-        <div className="dp-header">
-          <div className="dp-range-ends">
+  return (
+    <div className="dr-calendar">
+      <div className="dp-nav">
+        <button
+          type="button"
+          className="dp-nav-btn"
+          aria-label={t('planner.date.prevMonth')}
+          onClick={() => shift(-1)}
+        >
+          <Icon name="chevron-left" size={20} />
+        </button>
+        <span className="dr-month">
+          {first.toLocaleDateString(intlLocale(), { month: 'long' })} {view.year}
+        </span>
+        <button
+          type="button"
+          className="dp-nav-btn"
+          aria-label={t('planner.date.nextMonth')}
+          onClick={() => shift(1)}
+        >
+          <Icon name="chevron-right" size={20} />
+        </button>
+      </div>
+
+      <div className="dp-grid dp-weekdays">
+        {WEEKDAYS.map((w) => (
+          <span key={w} className="dp-weekday">
+            {w}
+          </span>
+        ))}
+      </div>
+      <div
+        className="dp-grid dp-days dr-days"
+        key={`${view.year}-${view.month}`}
+        onPointerLeave={() => setHover('')}
+      >
+        {cells.map((day, i) => {
+          if (day === null) return <span key={i} />;
+          const iso = toISO(new Date(view.year, view.month, day));
+          const isStart = iso === lo;
+          const isEnd = !!hi && iso === hi;
+          const between = !!hi && iso > lo && iso < hi;
+          const outside = (!!min && iso < min) || (!!max && iso > max);
+          const cls = [
+            'dr-day',
+            between && 'between',
+            isStart && 'start',
+            isEnd && 'end',
+            isStart && hi && hi !== lo && 'joined',
+            iso === todayIso && 'today',
+          ]
+            .filter(Boolean)
+            .join(' ');
+          return (
             <button
+              key={i}
               type="button"
-              className={`dp-range-end ${choosingEnd ? '' : 'active'}`}
-              onClick={() => setDraft({ from: '', to: '' })}
+              className={cls}
+              disabled={outside}
+              onClick={() => pick(iso)}
+              onPointerEnter={(e) => e.pointerType === 'mouse' && setHover(iso)}
             >
-              <span>{t('planner.date.start')}</span>
-              <strong>{draft.from ? fmtShortDay(draft.from) : '…'}</strong>
+              {day}
             </button>
-            <Icon name="chevron-right" size={18} className="dp-range-arrow" />
-            <button
-              type="button"
-              className={`dp-range-end ${choosingEnd ? 'active' : ''}`}
-              disabled={!draft.from}
-              onClick={() => setDraft((d) => ({ from: d.from, to: '' }))}
-            >
-              <span>{t('planner.date.end')}</span>
-              <strong>{draft.to ? fmtShortDay(draft.to) : '…'}</strong>
-            </button>
-          </div>
-          <span className="dp-header-year" aria-live="polite">
+          );
+        })}
+      </div>
+
+      {/* One line, as a booking site has it: how long, and the button. Tapping
+          the field again or beside the calendar closes it without saving. */}
+      <div className="dr-foot">
+        <div className="dr-count-col">
+          <span className="dr-count" aria-live="polite">
             {count
               ? t('common.days', { count })
               : choosingEnd
                 ? t('planner.date.chooseEnd')
                 : t('planner.date.chooseStart')}
           </span>
-        </div>
-
-        <div className="dp-nav">
-          <button
-            type="button"
-            className="dp-nav-btn"
-            aria-label={t('planner.date.prevMonth')}
-            onClick={() => shift(-1)}
-          >
-            <Icon name="chevron-left" size={20} />
-          </button>
-          <span className="dp-month dp-month-static">
-            {first.toLocaleDateString(intlLocale(), { month: 'long' })} {view.year}
-          </span>
-          <button
-            type="button"
-            className="dp-nav-btn"
-            aria-label={t('planner.date.nextMonth')}
-            onClick={() => shift(1)}
-          >
-            <Icon name="chevron-right" size={20} />
-          </button>
-        </div>
-
-        <div className="dp-body">
-          <div className="dp-grid dp-weekdays">
-            {WEEKDAYS.map((w) => (
-              <span key={w} className="dp-weekday">
-                {w}
-              </span>
-            ))}
-          </div>
-          <div
-            className="dp-grid dp-days"
-            key={`${view.year}-${view.month}`}
-            onPointerLeave={() => setHover('')}
-          >
-            {cells.map((day, i) => {
-              if (day === null) return <span key={i} />;
-              const iso = toISO(new Date(view.year, view.month, day));
-              const isStart = iso === lo;
-              const isEnd = !!hi && iso === hi;
-              const between = !!hi && iso > lo && iso < hi;
-              const outside = (!!min && iso < min) || (!!max && iso > max);
-              return (
-                <span
-                  key={i}
-                  className={`dp-cell ${between ? 'in-range' : ''} ${isStart && hi && hi !== lo ? 'range-start' : ''} ${
-                    isEnd && hi !== lo ? 'range-end' : ''
-                  }`}
-                >
-                  <button
-                    type="button"
-                    className={`dp-day ${isStart || isEnd ? 'selected' : ''} ${iso === todayIso ? 'today' : ''}`}
-                    disabled={outside}
-                    onClick={() => pick(iso)}
-                    onPointerEnter={(e) => e.pointerType === 'mouse' && setHover(iso)}
-                  >
-                    {day}
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="dp-actions">
-          {resetLabel && (
-            <button type="button" className="btn btn-ghost dp-clear" onClick={() => finish({ from: '', to: '' })}>
+          {resetLabel && onReset && (
+            <button type="button" className="dr-reset" onClick={onReset}>
               {resetLabel}
             </button>
           )}
-          <button type="button" className="btn btn-ghost" onClick={() => finish()}>
-            {t('common.cancel')}
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!draft.from || !draft.to}
-            onClick={() => finish(draft)}
-          >
-            {t('planner.date.select')}
-          </button>
         </div>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={!draft.from || !draft.to}
+          onClick={() => onPick(draft.from, draft.to)}
+        >
+          {t('planner.date.select')}
+        </button>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }

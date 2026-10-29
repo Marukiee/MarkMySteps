@@ -339,108 +339,207 @@
 
 /* --- A range: a first and a last day, the days between lit up --- */
 
-.dp-range-ends {
+/* The field: "Van" and "Tot en met" side by side, as a booking site shows them. */
+.dr-summary {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+  color: var(--ink);
+  text-align: left;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
 
-.dp-range-end {
+.dr-summary:hover,
+.dr-summary.open {
+  border-color: var(--accent);
+}
+
+.dr-summary.open {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.dr-cal {
+  flex-shrink: 0;
+  color: var(--ink-faint);
+}
+
+.dr-half {
   display: grid;
-  gap: 0.1rem;
   flex: 1;
   min-width: 0;
-  padding: 0.3rem 0 0.45rem;
-  border-bottom: 2px solid transparent;
-  color: #fff;
-  text-align: left;
-  opacity: 0.62;
-  transition: opacity 0.2s var(--ease), border-color 0.2s var(--ease);
+  gap: 0.05rem;
 }
 
-/* The one being chosen now. */
-.dp-range-end.active {
-  opacity: 1;
-  border-bottom-color: #fff;
-}
-
-.dp-range-end span {
-  font-size: 0.78rem;
+.dr-half small {
+  color: var(--ink-faint);
+  font-size: 0.74rem;
   font-weight: 600;
+  transition: color 0.2s var(--ease);
 }
 
-.dp-range-end strong {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 600;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dp-range-end strong::first-letter {
-  text-transform: uppercase;
-}
-
-.dp-range-arrow {
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.dp-month-static {
-  cursor: default;
-  pointer-events: none;
-}
-
-/* No gap between the days of a row, so the band runs through. */
-.dp-range .dp-days {
-  column-gap: 0;
-}
-
-.dp-cell {
-  position: relative;
-  display: grid;
-}
-
-.dp-cell::before {
-  content: '';
-  position: absolute;
-  inset: 7% 0;
-  background: var(--accent-soft);
-  opacity: 0;
-  transition: opacity 0.15s var(--ease);
-}
-
-.dp-cell.in-range::before,
-.dp-cell.range-start::before,
-.dp-cell.range-end::before {
-  opacity: 1;
-}
-
-/* The band starts and ends in the middle of the first and last day. */
-.dp-cell.range-start::before {
-  left: 50%;
-}
-
-.dp-cell.range-end::before {
-  right: 50%;
-}
-
-.dp-cell .dp-day {
-  position: relative;
-}
-
-.dp-cell.in-range .dp-day {
+.dr-half.active small {
   color: var(--accent-ink);
 }
 
-.dp-cell.in-range .dp-day:hover {
-  background: transparent;
+.dr-half strong {
+  overflow: hidden;
+  font-size: 0.98rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.dp-day:disabled {
+.dr-half strong::first-letter {
+  text-transform: uppercase;
+}
+
+.dr-half strong.dr-empty {
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
+.dr-sep {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 1px;
+  margin-block: 0.2rem;
+  background: var(--line);
+}
+
+/* The calendar drops open right under the field. */
+.dr-drop {
+  margin-top: 0.45rem;
+  padding: 0.2rem 0 0;
+  overflow: hidden;
+  transform-origin: top center;
+  animation: drIn 0.22s var(--ease);
+}
+
+.dr-drop.closing {
+  animation: drOut 0.18s var(--ease) forwards;
+}
+
+@keyframes drIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+@keyframes drOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.dr-sheet-top {
+  padding: 1rem 1rem 0.2rem;
+}
+
+.dr-month {
+  font-weight: 700;
+}
+
+.dr-month::first-letter {
+  text-transform: uppercase;
+}
+
+/* The days: square tiles, the first and last filled, the stay between them
+   one band per week. */
+.dr-days {
+  column-gap: 0;
+  row-gap: 4px;
+}
+
+.dr-day {
+  aspect-ratio: 1;
+  display: grid;
+  place-content: center;
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 500;
+  transition: background-color 0.12s var(--ease), color 0.12s var(--ease);
+}
+
+.dr-day:hover:not(:disabled) {
+  background: var(--paper-sunken);
+}
+
+.dr-day.today {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.dr-day.between,
+.dr-day.between:hover {
+  border-radius: 0;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.dr-day.start,
+.dr-day.end,
+.dr-day.start:hover,
+.dr-day.end:hover {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Joined to the band: square on the side it runs on. */
+.dr-day.start.joined {
+  border-radius: 8px 0 0 8px;
+}
+
+.dr-day.end:not(.start) {
+  border-radius: 0 8px 8px 0;
+}
+
+.dr-day:disabled {
   opacity: 0.28;
   cursor: default;
-  background: none;
+}
+
+.dr-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.9rem 0.85rem 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.dr-count-col {
+  display: grid;
+  justify-items: start;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.dr-count {
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.dr-reset {
+  color: var(--accent-ink);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dr-drop,
+  .dr-drop.closing {
+    animation: none;
+  }
 }

@@ -5,6 +5,7 @@
   "apiError.members.unknownMany": "Geen account gevonden voor: {names}",
   "apiError.signup.tooManyPending": "Er staan te veel aanvragen open op deze server. Probeer het later opnieuw.",
   "apiError.signup.emailTaken": "Er is al een account met dit e-mailadres",
+  "apiError.trip.memberDaysOutside": "Deze dagen vallen niet binnen de reis",
   "apiError.signup.usernameTaken": "Deze gebruikersnaam is al bezet",
   "apiError.password.tooShort": "Wachtwoord moet minimaal {min} tekens zijn",
   "apiError.password.common": "Dit wachtwoord staat op elke lijst die als eerste geprobeerd wordt. Kies iets anders.",
