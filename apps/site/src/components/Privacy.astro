@@ -1,0 +1,223 @@
+---
+// The same statement as the app's own privacy page (apps/web/src/pages/
+// PrivacyPage.tsx), plus a word on this website. Kept in step by hand: when
+// one changes, change the other.
+import { CONTACT, type Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const mail = `mailto:${CONTACT}`;
+---
+
+<article class="wrap page prose">
+  {
+    lang === 'nl' ? (
+      <>
+        <h1>Privacy</h1>
+        <p class="lead">
+          MarkMySteps is een reis-app van Mark Maakt Media. Je route, je reizen en je foto’s zijn van jou. Hier
+          staat wat de app bewaart, waarom, en wie het kan zien.
+        </p>
+        <p class="page-date">Bijgewerkt op 28 oktober 2026</p>
+
+        <h2>Wat de app bewaart</h2>
+        <ul>
+          <li>
+            <strong>Je account:</strong> je naam, gebruikersnaam, e-mailadres en profielfoto. Je wachtwoord wordt
+            alleen versleuteld bewaard.
+          </li>
+          <li>
+            <strong>Je route:</strong> de locatiepunten die de app vastlegt terwijl je een reis bijhoudt.
+          </li>
+          <li>
+            <strong>Je reizen:</strong> titels, data, stops, dagverhalen en notities.
+          </li>
+          <li>
+            <strong>Reacties en likes</strong> op foto’s en dagverhalen.
+          </li>
+          <li>
+            <strong>Je Immich-koppeling:</strong> het adres van je Immich-server en de sleutel daarvoor,
+            versleuteld. De foto’s zelf blijven in jouw Immich; de app haalt ze daar op om ze te tonen.
+          </li>
+          <li>
+            <strong>Meldingen:</strong> een versleuteld kenmerk van je telefoon, zodat die nieuwe meldingen kan
+            ophalen.
+          </li>
+        </ul>
+
+        <h2>Je locatie</h2>
+        <p>
+          De app legt je locatie alleen vast als je zelf tracking aanzet voor een reis. Geef je de toestemming
+          “Altijd”, dan neemt de app ook met het scherm uit één meting per interval, tot je tracking weer uitzet.
+          Je locatie gaat naar de server van MarkMySteps en nergens anders heen.
+        </p>
+
+        <h2>Foto’s op je telefoon</h2>
+        <p>
+          De app kan foto’s uit de fotobibliotheek van je telefoon tonen bij de reis waar ze bij horen. Die foto’s
+          blijven op je telefoon en worden niet geüpload.
+        </p>
+
+        <h2>Wie het ziet</h2>
+        <ul>
+          <li>De reisgenoten die je aan een reis toevoegt.</li>
+          <li>
+            Iedereen met een deellink die je zelf maakt, eventueel met een wachtwoord. Wie daar reageert, geeft een
+            naam op; likes van bezoekers worden onthouden met een willekeurige code in hun eigen browser.
+          </li>
+          <li>De beheerder van de server, voor onderhoud en als je om hulp vraagt.</li>
+        </ul>
+
+        <h2>Diensten van anderen</h2>
+        <p>Een paar dingen haalt de app bij andere diensten op. Die zien dan je IP-adres en:</p>
+        <ul>
+          <li>
+            <strong>Kaarten:</strong> OpenFreeMap, en Esri voor de satellietkaart: welk stuk kaart je bekijkt.
+          </li>
+          <li>
+            <strong>Plaatsen zoeken:</strong> Photon van Komoot: wat je intypt.
+          </li>
+          <li>
+            <strong>Weer:</strong> Open-Meteo: de coördinaten van een plaats.
+          </li>
+          <li>
+            <strong>Foto’s van plaatsen:</strong> Wikipedia: de naam van een plaats.
+          </li>
+          <li>
+            <strong>Routes tussen stops:</strong> OSRM voor de auto en signal.eu.org voor de trein: de coördinaten
+            van je stops.
+          </li>
+          <li>
+            <strong>Updates van de Android-app:</strong> GitHub.
+          </li>
+        </ul>
+        <p>Geen advertenties, geen analytics en geen tracking. Er wordt niets verkocht of gedeeld met adverteerders.</p>
+
+        <h2>Waar het staat en hoe lang</h2>
+        <p>
+          Alles staat op de server van MarkMySteps die je gebruikt: die van Mark Maakt Media, of je eigen server als
+          je die zelf draait. Het gaat er versleuteld (https) naartoe. Je gegevens blijven bewaard zolang je account
+          bestaat.
+        </p>
+
+        <h2>Deze website</h2>
+        <p>
+          markmysteps.nl gebruikt geen cookies, geen analytics en geen lettertypes of scripts van anderen. De
+          server die de site aflevert (Bunny, in de EU) houdt zoals elke webserver kort bij welke pagina’s worden
+          opgevraagd, zonder dat te koppelen aan wie je bent.
+        </p>
+
+        <h2>Je rechten</h2>
+        <p>
+          Je mag je gegevens inzien, laten verbeteren of je account met alles erop laten verwijderen. Mail daarvoor
+          naar <a href={mail}>{CONTACT}</a>; het is binnen een maand geregeld. Ben je het ergens niet mee eens, dan
+          kun je een klacht indienen bij de Autoriteit Persoonsgegevens.
+        </p>
+      </>
+    ) : (
+      <>
+        <h1>Privacy</h1>
+        <p class="lead">
+          MarkMySteps is a travel app by Mark Maakt Media. Your route, your trips and your photos are yours. This is
+          what the app keeps, why, and who can see it.
+        </p>
+        <p class="page-date">Updated on 28 October 2026</p>
+
+        <h2>What the app keeps</h2>
+        <ul>
+          <li>
+            <strong>Your account:</strong> your name, username, email address and profile photo. Your password is
+            only kept encrypted.
+          </li>
+          <li>
+            <strong>Your route:</strong> the location points the app records while you keep a trip.
+          </li>
+          <li>
+            <strong>Your trips:</strong> titles, dates, stops, day stories and notes.
+          </li>
+          <li>
+            <strong>Comments and likes</strong> on photos and day stories.
+          </li>
+          <li>
+            <strong>Your Immich link:</strong> the address of your Immich server and its key, encrypted. The photos
+            themselves stay in your Immich; the app fetches them there to show them.
+          </li>
+          <li>
+            <strong>Notifications:</strong> an encrypted token for your phone, so it can fetch new notifications.
+          </li>
+        </ul>
+
+        <h2>Your location</h2>
+        <p>
+          The app only records your location when you turn on tracking for a trip yourself. If you give it the
+          “Always” permission, it also takes one measurement per interval with the screen off, until you turn
+          tracking off again. Your location goes to the MarkMySteps server and nowhere else.
+        </p>
+
+        <h2>Photos on your phone</h2>
+        <p>
+          The app can show photos from your phone’s library with the trip they belong to. Those photos stay on your
+          phone and are not uploaded.
+        </p>
+
+        <h2>Who sees it</h2>
+        <ul>
+          <li>The travel companions you add to a trip.</li>
+          <li>
+            Anyone with a share link you make yourself, with a password if you like. Whoever comments there gives a
+            name; likes from visitors are remembered with a random code in their own browser.
+          </li>
+          <li>The administrator of the server, for maintenance and when you ask for help.</li>
+        </ul>
+
+        <h2>Services of others</h2>
+        <p>A few things the app fetches from other services. They then see your IP address and:</p>
+        <ul>
+          <li>
+            <strong>Maps:</strong> OpenFreeMap, and Esri for the satellite map: which part of the map you look at.
+          </li>
+          <li>
+            <strong>Searching places:</strong> Photon by Komoot: what you type.
+          </li>
+          <li>
+            <strong>Weather:</strong> Open-Meteo: the coordinates of a place.
+          </li>
+          <li>
+            <strong>Photos of places:</strong> Wikipedia: the name of a place.
+          </li>
+          <li>
+            <strong>Routes between stops:</strong> OSRM for the car and signal.eu.org for the train: the coordinates
+            of your stops.
+          </li>
+          <li>
+            <strong>Updates of the Android app:</strong> GitHub.
+          </li>
+        </ul>
+        <p>No ads, no analytics and no tracking. Nothing is sold or shared with advertisers.</p>
+
+        <h2>Where it is kept and for how long</h2>
+        <p>
+          Everything is kept on the MarkMySteps server you use: the one run by Mark Maakt Media, or your own if you
+          run it yourself. It travels there encrypted (https). Your data is kept for as long as your account exists.
+        </p>
+
+        <h2>This website</h2>
+        <p>
+          markmysteps.nl uses no cookies, no analytics and no fonts or scripts from others. The server that delivers
+          the site (Bunny, in the EU) briefly logs which pages are requested, like any web server, without tying that
+          to who you are.
+        </p>
+
+        <h2>Your rights</h2>
+        <p>
+          You may see your data, have it corrected, or have your account deleted with everything on it. Write to{' '}
+          <a href={mail}>{CONTACT}</a> for that; it is done within a month. If you disagree with something, you can
+          file a complaint with the Dutch Data Protection Authority (Autoriteit Persoonsgegevens).
+        </p>
+      </>
+    )
+  }
+</article>

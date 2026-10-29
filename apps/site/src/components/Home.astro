@@ -1,0 +1,231 @@
+---
+import type { ImageMetadata } from 'astro';
+import { Icon, type IconName } from '../../../web/src/components/Icon';
+import Globe from './Globe.astro';
+import Phone from './Phone.astro';
+import { APK, CONTACT, INSTALL, TEXT, type Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = TEXT[lang];
+
+// Real screenshots from the app, one set per language: shots/<lang>/<name>.jpg.
+// A language without its own set shows the Dutch one.
+const files = import.meta.glob<{ default: ImageMetadata }>('../assets/shots/*/*.jpg', { eager: true });
+const shot = (name: string): ImageMetadata => {
+  const file = files[`../assets/shots/${lang}/${name}.jpg`] ?? files[`../assets/shots/nl/${name}.jpg`];
+  if (!file) throw new Error(`Missing screenshot ${lang}/${name}.png`);
+  return file.default;
+};
+const icon = (name: string) => name as IconName;
+---
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-text">
+      <p class="eyebrow">{t.hero.eyebrow}</p>
+      <h1>{t.hero.title}</h1>
+      <p class="lead">{t.hero.lead}</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#download">
+          <Icon name="phone" size={18} />
+          {t.hero.iphone}
+        </a>
+        <a class="btn btn-ghost" href="#download">
+          <Icon name="phone" size={18} />
+          {t.hero.android}
+        </a>
+      </div>
+      <p class="hero-note">
+        <Icon name="check" size={16} />
+        {t.hero.note}
+      </p>
+    </div>
+    <div class="hero-visual">
+      <Globe label={t.hero.globe} />
+      <Phone class="hero-phone" src={shot('hero')} alt={t.hero.shot} eager />
+    </div>
+  </div>
+</section>
+
+<section class="section how" id="how">
+  <div class="wrap">
+    <header class="section-head reveal">
+      <p class="eyebrow">{t.how.eyebrow}</p>
+      <h2>{t.how.title}</h2>
+    </header>
+    <ol class="steps">
+      {
+        t.how.steps.map((step, i) => (
+          <li class="step card reveal" style={`--delay: ${i * 90}ms`}>
+            <span class="step-icon">
+              <Icon name={icon(step.icon)} size={22} />
+            </span>
+            <span class="step-number">{i + 1}</span>
+            <h3>{step.title}</h3>
+            <p>{step.body}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>
+
+<section class="section features" id="features">
+  <div class="wrap">
+    <header class="section-head reveal">
+      <p class="eyebrow">{t.features.eyebrow}</p>
+      <h2>{t.features.title}</h2>
+    </header>
+    {
+      t.features.items.map((item, i) => (
+        <article class:list={['feature', { flip: i % 2 === 1 }]}>
+          <div class="feature-visual reveal">
+            <Phone src={shot(item.id)} alt={item.shot} />
+          </div>
+          <div class="feature-text reveal">
+            <span class="chip">
+              <Icon name={icon(item.icon)} size={18} />
+            </span>
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+            <ul class="points">
+              {item.points.map((point) => (
+                <li>
+                  <Icon name="check" size={16} />
+                  {point}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </article>
+      ))
+    }
+    <div class="more">
+      <h3 class="more-title reveal">{t.features.more.title}</h3>
+      <ul class="more-grid">
+        {
+          t.features.more.items.map((item, i) => (
+            <li class="more-item reveal" style={`--delay: ${(i % 3) * 70}ms`}>
+              <span class="chip">
+                <Icon name={icon(item.icon)} size={18} />
+              </span>
+              <div>
+                <h4>{item.title}</h4>
+                <p>{item.body}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section own" id="own">
+  <div class="wrap">
+    <header class="section-head reveal">
+      <p class="eyebrow">{t.own.eyebrow}</p>
+      <h2>{t.own.title}</h2>
+      <p class="lead">{t.own.lead}</p>
+    </header>
+    <ul class="own-grid">
+      {
+        t.own.items.map((item, i) => (
+          <li class="own-item reveal" style={`--delay: ${i * 70}ms`}>
+            <span class="own-icon">
+              <Icon name={icon(item.icon)} size={22} />
+            </span>
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<section class="section devices">
+  <div class="wrap">
+    <header class="section-head reveal">
+      <p class="eyebrow">{t.devices.eyebrow}</p>
+      <h2>{t.devices.title}</h2>
+    </header>
+    <ul class="device-grid">
+      {
+        t.devices.items.map((item, i) => (
+          <li class="card device reveal" style={`--delay: ${i * 70}ms`}>
+            <span class="chip">
+              <Icon name={icon(item.icon)} size={18} />
+            </span>
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<section class="section download" id="download">
+  <div class="wrap">
+    <header class="section-head reveal">
+      <p class="eyebrow">{t.download.eyebrow}</p>
+      <h2>{t.download.title}</h2>
+    </header>
+    <div class="download-grid">
+      <article class="card download-card reveal">
+        <span class="chip"><Icon name="phone" size={18} /></span>
+        <h3>{t.download.iphone.title}</h3>
+        <p>{t.download.iphone.body}</p>
+        <a class="btn btn-ghost" href={`mailto:${CONTACT}?subject=TestFlight%20MarkMySteps`}>
+          <Icon name="bell" size={17} />
+          {t.download.iphone.cta}
+        </a>
+      </article>
+      <article class="card download-card featured reveal" style="--delay: 70ms">
+        <span class="chip"><Icon name="phone" size={18} /></span>
+        <h3>{t.download.android.title}</h3>
+        <p>{t.download.android.body}</p>
+        <a class="btn btn-primary" href={APK}>
+          <Icon name="download" size={17} />
+          {t.download.android.cta}
+        </a>
+      </article>
+      <article class="card download-card reveal" style="--delay: 140ms">
+        <span class="chip"><Icon name="shield" size={18} /></span>
+        <h3>{t.download.server.title}</h3>
+        <p>{t.download.server.body}</p>
+        <a class="btn btn-ghost" href={INSTALL} rel="noopener">
+          <Icon name="external" size={17} />
+          {t.download.server.cta}
+        </a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section faq" id="faq">
+  <div class="wrap faq-wrap">
+    <header class="section-head reveal">
+      <p class="eyebrow">{t.faq.eyebrow}</p>
+      <h2>{t.faq.title}</h2>
+    </header>
+    <div class="faq-list reveal">
+      {
+        t.faq.items.map((item) => (
+          <details class="faq-item">
+            <summary>
+              <span>{item.q}</span>
+              <Icon name="chevron-down" size={18} />
+            </summary>
+            <p>{item.a}</p>
+          </details>
+        ))
+      }
+    </div>
+  </div>
+</section>

@@ -1,0 +1,220 @@
+---
+// The globe from the app's home screen, drawn small: land, a few trips and
+// their flights as dashed arcs, turning slowly. It can be turned by hand, rests
+// when off screen, and stands still for "reduce motion" or without JavaScript.
+interface Props {
+  label: string;
+}
+const { label } = Astro.props;
+---
+
+<div class="globe" role="img" aria-label={label}>
+  <canvas class="globe-canvas" aria-hidden="true"></canvas>
+</div>
+
+<script>
+  import { geoInterpolate, geoOrthographic, geoPath, geoGraticule10, geoDistance } from 'd3-geo';
+  import { feature } from 'topojson-client';
+  import land110 from 'world-atlas/land-110m.json';
+
+  type Point = [number, number];
+
+  // A few trips from Amsterdam, as the app would draw them.
+  const HOME: Point = [4.76, 52.31];
+  const FLIGHTS: Point[] = [
+    [-9.13, 38.78], // Lisbon
+    [44.4, 40.15], // Yerevan
+    [135.24, 34.43], // Osaka
+    [-22.6, 63.99], // Reykjavík
+    [-73.78, 40.64], // New York
+    [18.6, -33.97], // Cape Town
+    [100.75, 13.69], // Bangkok
+  ];
+  // A drive along the Portuguese coast, Lisbon to Porto.
+  const DRIVE: Point[] = [
+    [-9.14, 38.72],
+    [-9.39, 38.8],
+    [-9.07, 39.6],
+    [-8.61, 41.15],
+  ];
+
+  const land = feature(land110 as any, (land110 as any).objects.land);
+  const graticule = geoGraticule10();
+  const arcs = FLIGHTS.map((to) => {
+    const at = geoInterpolate(HOME, to);
+    return { type: 'LineString', coordinates: Array.from({ length: 65 }, (_, i) => at(i / 64)) } as const;
+  });
+  const drive = { type: 'LineString', coordinates: DRIVE } as const;
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  for (const host of document.querySelectorAll<HTMLElement>('.globe')) {
+    const canvas = host.querySelector('canvas')!;
+    const ctx = canvas.getContext('2d')!;
+    const projection = geoOrthographic().clipAngle(90).precision(0.4);
+    const path = geoPath(projection, ctx);
+    let rotation: Point = [10, -28];
+    let size = 0;
+    let colours = readColours();
+    let visible = false;
+    let dragging: { x: number; y: number; from: Point } | null = null;
+    let last = performance.now();
+    let dash = 0;
+    let frame = 0;
+
+    function readColours() {
+      const css = getComputedStyle(document.documentElement);
+      const v = (name: string) => css.getPropertyValue(name).trim();
+      return {
+        ocean: v('--paper-raised'),
+        land: v('--paper-sunken'),
+        line: v('--line'),
+        ink: v('--ink-faint'),
+        accent: v('--accent'),
+        dark: document.documentElement.dataset.theme === 'dark',
+      };
+    }
+
+    function resize() {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      size = host.clientWidth;
+      canvas.width = Math.round(size * ratio);
+      canvas.height = Math.round(size * ratio);
+      canvas.style.width = `${size}px`;
+      canvas.style.height = `${size}px`;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      projection.translate([size / 2, size / 2]).scale(size / 2 - 2);
+      draw();
+    }
+
+    function draw() {
+      if (!size) return;
+      projection.rotate(rotation);
+      ctx.clearRect(0, 0, size, size);
+
+      ctx.beginPath();
+      path({ type: 'Sphere' });
+      ctx.fillStyle = colours.ocean;
+      ctx.fill();
+
+      ctx.beginPath();
+      path(graticule);
+      ctx.strokeStyle = colours.line;
+      ctx.lineWidth = 0.6;
+      ctx.stroke();
+
+      ctx.beginPath();
+      path(land as any);
+      ctx.fillStyle = colours.land;
+      ctx.fill();
+      ctx.strokeStyle = colours.line;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      // Light from the top left, the way the app shades its globe.
+      const shade = ctx.createRadialGradient(size * 0.32, size * 0.28, size * 0.05, size / 2, size / 2, size / 2);
+      shade.addColorStop(0, colours.dark ? 'rgb(255 255 255 / 0.05)' : 'rgb(255 255 255 / 0.35)');
+      shade.addColorStop(1, colours.dark ? 'rgb(0 0 0 / 0.35)' : 'rgb(30 42 53 / 0.10)');
+      ctx.beginPath();
+      path({ type: 'Sphere' });
+      ctx.fillStyle = shade;
+      ctx.fill();
+
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = colours.accent;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 6]);
+      ctx.lineDashOffset = -dash;
+      for (const arc of arcs) {
+        ctx.beginPath();
+        path(arc as any);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      path(drive as any);
+      ctx.stroke();
+
+      for (const point of [HOME, ...FLIGHTS]) pin(point);
+
+      ctx.beginPath();
+      path({ type: 'Sphere' });
+      ctx.strokeStyle = colours.line;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    /** A stop: an accent dot with a white ring, only on the near side. */
+    function pin(point: Point) {
+      const centre: Point = [-rotation[0], -rotation[1]];
+      if (geoDistance(point, centre) > Math.PI / 2 - 0.05) return;
+      const [x, y] = projection(point)!;
+      ctx.beginPath();
+      ctx.arc(x, y, 4.2, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x, y, 2.8, 0, Math.PI * 2);
+      ctx.fillStyle = colours.accent;
+      ctx.fill();
+    }
+
+    function tick(now: number) {
+      const dt = Math.min(now - last, 64) / 1000;
+      last = now;
+      if (!dragging) rotation = [rotation[0] + dt * 6, rotation[1]];
+      dash = (dash + dt * 14) % 11;
+      draw();
+      frame = visible && !reduceMotion.matches ? requestAnimationFrame(tick) : 0;
+    }
+
+    function start() {
+      if (frame || !visible || reduceMotion.matches || document.hidden) return;
+      last = performance.now();
+      frame = requestAnimationFrame(tick);
+    }
+
+    function stop() {
+      cancelAnimationFrame(frame);
+      frame = 0;
+    }
+
+    new ResizeObserver(resize).observe(host);
+    new IntersectionObserver(([entry]) => {
+      visible = !!entry?.isIntersecting;
+      if (visible) start();
+      else stop();
+    }).observe(host);
+    document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+    reduceMotion.addEventListener('change', () => (reduceMotion.matches ? (stop(), draw()) : start()));
+    new MutationObserver(() => {
+      colours = readColours();
+      draw();
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    // Turned by hand, like the globe in the app.
+    canvas.addEventListener('pointerdown', (e) => {
+      dragging = { x: e.clientX, y: e.clientY, from: rotation };
+      canvas.setPointerCapture(e.pointerId);
+      host.classList.add('dragging');
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const k = 180 / size;
+      rotation = [
+        dragging.from[0] + (e.clientX - dragging.x) * k,
+        Math.max(-70, Math.min(70, dragging.from[1] - (e.clientY - dragging.y) * k)),
+      ];
+      if (!frame) draw();
+    });
+    const release = () => {
+      dragging = null;
+      host.classList.remove('dragging');
+    };
+    canvas.addEventListener('pointerup', release);
+    canvas.addEventListener('pointercancel', release);
+
+    host.classList.add('ready');
+  }
+</script>

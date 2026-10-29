@@ -7,3 +7,4 @@ allowBuilds:
   argon2: true
   esbuild: true
   prisma: true
+  sharp: true

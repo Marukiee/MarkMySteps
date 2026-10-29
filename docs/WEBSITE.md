@@ -2,7 +2,38 @@
 
 Een echte showcase van MarkMySteps: laten zien wat de app is, hoe hij voelt en
 waar je hem haalt. Niet de webversie van de app zelf, die blijft op de eigen
-server. Gepland op 27 oktober 2026, bouwen in een volgende ronde.
+server. Gepland op 27 oktober 2026.
+
+## Stand (28 oktober 2026)
+
+Gebouwd in `apps/site`, lokaal te bekijken met
+`pnpm --filter @markmysteps/site dev`:
+
+- Voorpagina in het Nederlands (`/`) en Engels (`/en/`): opening met de
+  draaiende wereldbol en een echte screenshot, zo werkt het, vier functies
+  met screenshot plus zes als iconen, het donkere blok "van jou", toestellen,
+  downloads en vragen.
+- `/privacy` en `/en/privacy` (dezelfde tekst als in de app, plus een stuk over
+  de website), `/hulp` en `/en/help`, en een 404.
+- Kleuren uit `apps/web/src/styles/tokens.css`, die app en site nu allebei
+  gebruiken; de iconen komen rechtstreeks uit `Icon.tsx` (er is een
+  telefoon-icoon bijgekomen). Volgt licht en donker van het toestel.
+- Deelplaatje `public/og.png`, gemaakt met `node scripts/og.mjs`.
+- Deploy naar Bunny in `.github/workflows/site.yml`; die slaat zichzelf over
+  tot de vier geheimen erin staan.
+
+Nog te doen:
+
+- **Bunny inrichten** (Mark): Storage Zone, Pull Zone met markmysteps.nl en
+  www, Bunny DNS, en de vier geheimen in GitHub. Zie "Hoe het in elkaar zit".
+- **Meer screenshots**: de poster-studio en de statistieken, en een Engelse
+  set (de Engelse pagina toont nu de Nederlandse). De iPhone-simulator werd
+  op 28 oktober ook door een Hiero-sessie gebruikt, dus dat kon toen niet.
+  Bestanden horen in `apps/site/src/assets/shots/<taal>/<naam>.jpg`.
+- **TestFlight-link**: zodra er een openbare link is, die op de iPhone-knop
+  zetten in plaats van "vraag een uitnodiging".
+- **App Store Connect**: privacy-adres naar markmysteps.nl/privacy en de
+  support-URL naar markmysteps.nl/hulp.
 
 ## Kort advies
 

@@ -1,0 +1,38 @@
+---
+import Logo from './Logo.astro';
+import { PATHS, TEXT, type Lang, type PageId } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+  page: PageId | null;
+}
+
+const { lang, page } = Astro.props;
+const t = TEXT[lang].nav;
+const home = PATHS.home[lang];
+const other: Lang = lang === 'nl' ? 'en' : 'nl';
+const otherHref = PATHS[page ?? 'home'][other];
+// On the home page the links scroll; elsewhere they lead back to it.
+const at = (id: string) => (page === 'home' ? `#${id}` : `${home}#${id}`);
+---
+
+<header class="site-header">
+  <div class="wrap header-row">
+    <a class="brand" href={home} aria-label="MarkMySteps">
+      <Logo size={28} />
+      <span>MarkMySteps</span>
+    </a>
+    <nav class="header-nav" aria-label={t.menu}>
+      <a href={at('how')}>{t.how}</a>
+      <a href={at('features')}>{t.features}</a>
+      <a href={at('own')}>{t.privacy}</a>
+      <a href={at('faq')}>{t.faq}</a>
+    </nav>
+    <div class="header-end">
+      <a class="lang-switch" href={otherHref} hreflang={other} lang={other} title={t.otherLang}>
+        {t.otherLangShort}
+      </a>
+      <a class="btn btn-primary btn-small" href={at('download')}>{t.download}</a>
+    </div>
+  </div>
+</header>

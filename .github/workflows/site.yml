@@ -1,0 +1,92 @@
+# Builds the website (apps/site) and puts it on Bunny for markmysteps.nl.
+#
+# Runs when the site changes, or what it borrows from the app: the colours in
+# tokens.css and the icons. Skips itself until these secrets are set (see
+# docs/WEBSITE.md):
+#   BUNNY_STORAGE_ZONE      name of the Storage Zone
+#   BUNNY_STORAGE_PASSWORD  its password (FTP & API Access)
+#   BUNNY_PULLZONE_ID       id of the Pull Zone in front of it
+#   BUNNY_API_KEY           account API key, to empty the Pull Zone's cache
+# and optionally the repository variable BUNNY_STORAGE_HOST when the zone is
+# not in Falkenstein (for example ny.storage.bunnycdn.com).
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/site/**'
+      - 'apps/web/src/styles/tokens.css'
+      - 'apps/web/src/components/Icon.tsx'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: website
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.secrets.outputs.ready }}
+    steps:
+      - id: secrets
+        env:
+          ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
+          PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
+          PULLZONE: ${{ secrets.BUNNY_PULLZONE_ID }}
+          API_KEY: ${{ secrets.BUNNY_API_KEY }}
+        run: |
+          if [ -n "$ZONE" ] && [ -n "$PASSWORD" ] && [ -n "$PULLZONE" ] && [ -n "$API_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Bunny secrets are not set, so the website is not published. See docs/WEBSITE.md."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: check
+    if: needs.check.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    env:
+      ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
+      PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
+      PULLZONE: ${{ secrets.BUNNY_PULLZONE_ID }}
+      API_KEY: ${{ secrets.BUNNY_API_KEY }}
+      HOST: ${{ vars.BUNNY_STORAGE_HOST || 'storage.bunnycdn.com' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version comes from "packageManager" in package.json
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # The whole workspace: the site renders the app's own Icon component,
+      # which needs React from the app's node_modules.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the site
+        run: pnpm --filter @markmysteps/site build
+
+      - name: Upload to Bunny Storage
+        working-directory: apps/site/dist
+        run: |
+          find . -type f | sed 's|^\./||' | xargs -P 8 -I {} \
+            curl --fail --silent --show-error --retry 3 -X PUT \
+              -H "AccessKey: $PASSWORD" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@{}" \
+              "https://$HOST/$ZONE/{}"
+          echo "Uploaded $(find . -type f | wc -l) files"
+
+      - name: Empty the Pull Zone cache
+        run: |
+          curl --fail --silent --show-error -X POST \
+            -H "AccessKey: $API_KEY" \
+            "https://api.bunny.net/pullzone/$PULLZONE/purgeCache"

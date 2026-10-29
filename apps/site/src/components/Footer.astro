@@ -1,0 +1,29 @@
+---
+import Logo from './Logo.astro';
+import { GITHUB, PATHS, TEXT, type Lang, type PageId } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+  page: PageId | null;
+}
+
+const { lang, page } = Astro.props;
+const t = TEXT[lang];
+const other: Lang = lang === 'nl' ? 'en' : 'nl';
+---
+
+<footer class="site-footer">
+  <div class="wrap footer-row">
+    <a class="brand" href={PATHS.home[lang]}>
+      <Logo size={24} />
+      <span>MarkMySteps</span>
+    </a>
+    <nav class="footer-nav" aria-label="MarkMySteps">
+      <a href={PATHS.privacy[lang]}>{t.footer.privacy}</a>
+      <a href={PATHS.help[lang]}>{t.footer.help}</a>
+      <a href={GITHUB} rel="noopener">{t.footer.github}</a>
+      <a href={PATHS[page ?? 'home'][other]} hreflang={other} lang={other}>{t.nav.otherLang}</a>
+    </nav>
+    <p class="footer-made">{t.footer.made}</p>
+  </div>
+</footer>

@@ -1,0 +1,22 @@
+---
+import Base from '../layouts/Base.astro';
+import Logo from '../components/Logo.astro';
+import { TEXT } from '../lib/i18n';
+
+// One page for both languages: Bunny serves it for any address it does not
+// know, so it says it in Dutch first and English underneath.
+const nl = TEXT.nl.notFound;
+const en = TEXT.en.notFound;
+---
+
+<Base lang="nl" page={null} title="404">
+  <section class="wrap not-found">
+    <div class="not-found-mark"><Logo size={64} /></div>
+    <h1>{nl.title}</h1>
+    <p class="lead">{nl.body}</p>
+    <a class="btn btn-primary" href="/">{nl.home}</a>
+    <p class="not-found-en" lang="en">
+      {en.title} {en.body} <a href="/en/">{en.home}</a>
+    </p>
+  </section>
+</Base>

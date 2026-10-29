@@ -1,0 +1,100 @@
+---
+import '@fontsource-variable/fraunces';
+import '@fontsource-variable/inter';
+import '@fontsource-variable/outfit';
+// The app's own colours and sizes, light and dark.
+import '../../../web/src/styles/tokens.css';
+import '../styles/site.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { PATHS, TEXT, type Lang, type PageId } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+  page: PageId | null;
+  title?: string;
+  description?: string;
+}
+
+const { lang, page, title, description } = Astro.props;
+const t = TEXT[lang];
+const other: Lang = lang === 'nl' ? 'en' : 'nl';
+const pageTitle = title ? `${title} | MarkMySteps` : t.meta.title;
+const pageDescription = description ?? t.meta.description;
+const site = Astro.site ?? new URL('https://markmysteps.nl');
+const canonical = new URL(Astro.url.pathname, site);
+const ogImage = new URL('/og.png', site);
+---
+
+<!doctype html>
+<html lang={lang} data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageDescription} />
+    <link rel="canonical" href={canonical} />
+    {page && <link rel="alternate" hreflang={lang} href={new URL(PATHS[page][lang], site)} />}
+    {page && <link rel="alternate" hreflang={other} href={new URL(PATHS[page][other], site)} />}
+    {page && <link rel="alternate" hreflang="x-default" href={new URL(PATHS[page].nl, site)} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#faf6ef" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14181d" media="(prefers-color-scheme: dark)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="MarkMySteps" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content={lang === 'nl' ? 'nl_NL' : 'en_GB'} />
+    <meta name="twitter:card" content="summary_large_image" />
+    {/* The app follows the phone's light or dark, and so does the site. Set
+        before the first paint so nothing flashes; without JavaScript it is
+        light. */}
+    <script is:inline>
+      (() => {
+        const dark = window.matchMedia('(prefers-color-scheme: dark)');
+        const apply = () => (document.documentElement.dataset.theme = dark.matches ? 'dark' : 'light');
+        apply();
+        dark.addEventListener('change', apply);
+        document.documentElement.classList.add('js');
+      })();
+    </script>
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip" href="#main">{t.nav.skip}</a>
+    <Header lang={lang} page={page} />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer lang={lang} page={page} />
+    <script>
+      // Sections ease in once they scroll into view, the way the app's cards do.
+      const reveal = document.querySelectorAll<HTMLElement>('.reveal');
+      if ('IntersectionObserver' in window) {
+        const seen = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (!entry.isIntersecting) continue;
+              entry.target.classList.add('in');
+              seen.unobserve(entry.target);
+            }
+          },
+          { rootMargin: '0px 0px -8% 0px' },
+        );
+        reveal.forEach((el) => seen.observe(el));
+      } else {
+        reveal.forEach((el) => el.classList.add('in'));
+      }
+
+      // The bar gets its line once the page moves under it.
+      const header = document.querySelector('.site-header');
+      const onScroll = () => header?.classList.toggle('scrolled', window.scrollY > 8);
+      onScroll();
+      window.addEventListener('scroll', onScroll, { passive: true });
+    </script>
+  </body>
+</html>

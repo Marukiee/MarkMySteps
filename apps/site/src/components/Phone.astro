@@ -1,0 +1,29 @@
+---
+import { Picture } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+// A real screenshot from the app in a plain phone bezel drawn in CSS: no
+// picture of anybody's hardware, so it fits an iPhone shot and an Android one.
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  eager?: boolean;
+  class?: string;
+}
+
+const { src, alt, eager = false, class: className } = Astro.props;
+---
+
+<figure class:list={['phone', className]}>
+  <div class="phone-screen">
+    <Picture
+      src={src}
+      alt={alt}
+      formats={['avif', 'webp']}
+      widths={[300, 450, 600, 760]}
+      sizes="(max-width: 720px) 64vw, 340px"
+      loading={eager ? 'eager' : 'lazy'}
+      fetchpriority={eager ? 'high' : 'auto'}
+    />
+  </div>
+</figure>

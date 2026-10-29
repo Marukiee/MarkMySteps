@@ -1,0 +1,14 @@
+---
+// The compass from the app (apps/web/src/components/Logo.tsx), in the accent.
+interface Props {
+  size?: number;
+}
+const { size = 28 } = Astro.props;
+---
+
+<svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" class="logo-mark">
+  <g stroke="var(--accent)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9.4"></circle>
+    <path class="logo-needle" d="m16.4 7.6-2.5 6.3-6.3 2.5 2.5-6.3Z"></path>
+  </g>
+</svg>

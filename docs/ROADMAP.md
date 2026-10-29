@@ -5,8 +5,9 @@ echte toestellen gezien is.
 
 ## Open lijst voor een grote ronde
 
-- [ ] **Website markmysteps.nl**: een showcase in de stijl van de app, gehost
-      op Bunny. Plan in [WEBSITE.md](WEBSITE.md).
+- [ ] **Website markmysteps.nl**: staat in `apps/site`. Nog: Bunny inrichten,
+      screenshots van poster en statistieken, Engelse screenshots. Zie
+      [WEBSITE.md](WEBSITE.md), "Stand".
 
 ## Website markmysteps.nl
 

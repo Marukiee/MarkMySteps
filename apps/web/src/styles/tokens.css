@@ -1,0 +1,64 @@
+/* The colours, sizes and type of MarkMySteps, shared by the app and the
+   website (apps/site), so the two never drift apart. */
+
+:root {
+  --paper: #faf6ef;
+  --paper-raised: #ffffff;
+  --paper-sunken: #f1ebe1;
+  --ink: #1e2a35;
+  --ink-soft: #51616f;
+  --ink-faint: #8b97a3;
+  --line: #e4dcce;
+  --accent: #e8613c;
+  --accent-soft: #fbe9e2;
+  --accent-ink: #c74a28;
+  --teal: #2a8f85;
+
+  --radius-s: 10px;
+  --radius-m: 16px;
+  --radius-l: 24px;
+
+  --shadow-s: 0 1px 3px rgb(30 42 53 / 0.07), 0 1px 2px rgb(30 42 53 / 0.05);
+  --shadow-m: 0 6px 24px rgb(30 42 53 / 0.09), 0 2px 6px rgb(30 42 53 / 0.05);
+  --shadow-l: 0 18px 48px rgb(30 42 53 / 0.16);
+
+  --font-body: 'Inter Variable', system-ui, sans-serif;
+  --font-display: 'Fraunces Variable', Georgia, serif;
+  /* Wordmark only. Swap this one line to try another candidate:
+       'Outfit Variable'             - geometric, modern, travel-app feel
+       'Plus Jakarta Sans Variable'  - friendly geometric, softer product look
+       'Darker Grotesque'            - tall + condensed, editorial character
+     (all three are installed; see main.tsx for the imports.) */
+  --font-brand: 'Outfit Variable', var(--font-body);
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Bars and floating buttons over the page. Solid: they carried a blur, and
+     redrawing it on every scrolled frame is what made Android stutter; without
+     it, any see-through let the text passing underneath show through sharp. */
+  --glass: rgb(255 255 255);
+  --glass-border: var(--line);
+  color-scheme: light;
+}
+
+/* Dark theme: set by JS (applyTheme) via <html data-theme="dark">. */
+:root[data-theme='dark'] {
+  --paper: #14181d;
+  --paper-raised: #1d242c;
+  --paper-sunken: #0f141a;
+  --ink: #eef1f4;
+  --ink-soft: #a7b2bd;
+  --ink-faint: #6d7a87;
+  --line: #2b333d;
+  --accent: #f0714d;
+  --accent-soft: #3a231a;
+  --accent-ink: #f6926f;
+  --teal: #38a89c;
+
+  --shadow-s: 0 1px 3px rgb(0 0 0 / 0.4), 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-m: 0 6px 24px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.35);
+  --shadow-l: 0 18px 48px rgb(0 0 0 / 0.6);
+
+  --glass: rgb(24 30 37);
+  --glass-border: #2b333d;
+  color-scheme: dark;
+}

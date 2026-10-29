@@ -55,6 +55,7 @@ export type IconName =
   | 'sun'
   | 'moon'
   | 'monitor'
+  | 'phone'
   | 'settings'
   | 'hourglass'
   | 'cloud-off';
@@ -295,6 +296,12 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <rect x="3" y="4" width="18" height="12" rx="2" />
       <path d="M9 20h6M12 16v4" />
+    </>
+  ),
+  phone: (
+    <>
+      <rect x="6.5" y="2.5" width="11" height="19" rx="2.6" />
+      <path d="M10.5 18.5h3" />
     </>
   ),
   settings: (
