@@ -120,6 +120,9 @@
   "settings.globe.hint": "Stops along the way on the home page globe.",
   "settings.globe.highlight": "On highlight",
 
+  "settings.statsPhotos.title": "Photos in your stats",
+  "settings.statsPhotos.toggle": "Count companions' photos",
+  "settings.statsPhotos.hint": "Under Travellers every trip counts all photos from the days someone was there, also those somebody else took. Off counts only what someone added themselves.",
   "settings.selfLocation.title": "Your location",
   "settings.selfLocation.help": "Your position comes from route tracking, so you only see yourself while you're tracking a trip. The app never asks for your location separately.",
   "settings.selfLocation.hint": "On a trip's map you always see yourself while tracking.",

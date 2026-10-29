@@ -4,6 +4,7 @@ import { getLang, intlLocale, t } from '../i18n';
 import { CountryGlobe } from './CountryGlobe';
 import { Flag } from './Flag';
 import { Icon, IconName } from './Icon';
+import { getStatsOwnPhotosOnly } from '../lib/prefs';
 import './travelstats.css';
 
 /** What `/users/:id/stats` answers. */
@@ -22,7 +23,10 @@ export interface TravelStats {
   places: number;
   flights: number;
   distanceKm: number;
+  /** Photos on their trips' days, whoever took them. */
   photoCount: number;
+  /** Only their own; missing from servers that did not count the others yet. */
+  ownPhotoCount?: number;
   recent: {
     id: string;
     title: string;
@@ -85,7 +89,11 @@ export function StatGrid({ stats }: { stats: TravelStats | null }) {
           tone={tile.tone}
           label={tile.label}
           delay={120 + i * 60}
-          value={stats?.[tile.key]}
+          value={
+            tile.key === 'photoCount' && stats && getStatsOwnPhotosOnly()
+              ? stats.ownPhotoCount ?? stats.photoCount
+              : stats?.[tile.key]
+          }
         />
       ))}
     </div>

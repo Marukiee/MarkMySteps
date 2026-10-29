@@ -120,6 +120,9 @@
   "settings.globe.hint": "Tussenstops op de globe van de homepage.",
   "settings.globe.highlight": "Bij uitlichten",
 
+  "settings.statsPhotos.title": "Foto's in je statistieken",
+  "settings.statsPhotos.toggle": "Foto's van reisgenoten meetellen",
+  "settings.statsPhotos.hint": "Bij Reizigers telt elke reis alle foto's van de dagen dat iemand mee was, ook die een ander maakte. Uit telt alleen wat iemand zelf toevoegde.",
   "settings.selfLocation.title": "Eigen locatie",
   "settings.selfLocation.help": "Je positie komt van de route-tracking, dus je ziet jezelf alleen terwijl je een reis aan het tracken bent. De app vraagt nooit apart je locatie op.",
   "settings.selfLocation.hint": "Op de kaart van een reis zie je jezelf altijd tijdens het tracken.",

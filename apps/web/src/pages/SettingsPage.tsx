@@ -62,6 +62,8 @@ import {
   isDynamicAccent,
   getThemeId,
   getShowSelfOnHome,
+  getStatsOwnPhotosOnly,
+  setStatsOwnPhotosOnly,
   getMapStyle,
   getThumbCacheLimitMb,
   getTrackingIntervalMin,
@@ -715,6 +717,7 @@ function PreferencesSection() {
         <AirportPrefs />
       </section>
       <GlobeSection />
+      <StatsPhotosSection />
       {isNative() && <SelfLocationSection />}
       {isNative() && <NotifySection />}
       {isNative() && <TrackingSection />}
@@ -826,6 +829,30 @@ function GlobeSection() {
 }
 
 /** Where your own live position may be drawn. */
+/** Whose photos a traveller's photo count takes in. */
+function StatsPhotosSection() {
+  const [ownOnly, setOwnOnly] = useState(getStatsOwnPhotosOnly());
+  return (
+    <section className="card settings-card">
+      <h2>{t('settings.statsPhotos.title')}</h2>
+      <label className="settings-toggle">
+        <div>
+          <strong>{t('settings.statsPhotos.toggle')}</strong>
+          <span className="muted">{t('settings.statsPhotos.hint')}</span>
+        </div>
+        <input
+          type="checkbox"
+          checked={!ownOnly}
+          onChange={(e) => {
+            setOwnOnly(!e.target.checked);
+            setStatsOwnPhotosOnly(!e.target.checked);
+          }}
+        />
+      </label>
+    </section>
+  );
+}
+
 function SelfLocationSection() {
   const [onHome, setOnHome] = useState(getShowSelfOnHome());
   return (

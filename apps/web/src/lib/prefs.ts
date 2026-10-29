@@ -168,6 +168,22 @@ export function setTripFacts(tripId: string, facts: string[] | null): void {
   }
 }
 
+const OWN_PHOTOS_ONLY_KEY = 'mms.statsOwnPhotos';
+
+/**
+ * Whether a traveller's photo count is only the photos they added themselves.
+ * Off by default: often one person takes the pictures for everyone, and a
+ * friend who was on every trip then stood at 0 photos.
+ */
+export function getStatsOwnPhotosOnly(): boolean {
+  return localStorage.getItem(OWN_PHOTOS_ONLY_KEY) === '1';
+}
+
+export function setStatsOwnPhotosOnly(on: boolean): void {
+  if (on) localStorage.setItem(OWN_PHOTOS_ONLY_KEY, '1');
+  else localStorage.removeItem(OWN_PHOTOS_ONLY_KEY);
+}
+
 const SELF_ON_HOME_KEY = 'mms.selfOnHome';
 
 /** Show your own live position on the homepage globe as well as on a trip map. */

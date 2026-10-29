@@ -53,7 +53,10 @@ export interface TravelStats {
   /** Legs flown, counted per trip leg rather than per airport. */
   flights: number;
   distanceKm: number;
+  /** Photos on the days they were on their trips, whoever took them. */
   photoCount: number;
+  /** Only the photos they added themselves, for the setting that wants that. */
+  ownPhotoCount: number;
   recent: {
     id: string;
     title: string;
@@ -288,7 +291,7 @@ export class UsersService {
       },
       orderBy: { startDate: 'desc' },
     });
-    const photoCount = await this.prisma.mediaRef.count({ where: { userId: targetId } });
+    const ownPhotoCount = await this.prisma.mediaRef.count({ where: { userId: targetId } });
 
     const today = new Date().toISOString().slice(0, 10);
     // A trip you have not left for yet is a plan, not a place you have been.
@@ -304,6 +307,7 @@ export class UsersService {
     let days = 0;
     let ongoing = 0;
     let km = 0;
+    let photoCount = 0;
     for (const trip of travelled) {
       // The days this person was there: the whole trip, or the part they were
       // on when they came later or went home sooner. Everything below counts
@@ -337,6 +341,13 @@ export class UsersService {
           AND "recordedAt" < ${new Date(`${addDays(to, 1)}T00:00:00Z`)}
       `;
       km += (tracked?.meters ?? 0) / 1000;
+      // Often one person takes the pictures for everyone.
+      photoCount += await this.prisma.mediaRef.count({
+        where: {
+          tripId: trip.id,
+          takenAt: { gte: new Date(`${from}T00:00:00Z`), lt: new Date(`${addDays(to, 1)}T00:00:00Z`) },
+        },
+      });
 
       days += Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;
       if (from <= today && to >= today) ongoing += 1;
@@ -358,6 +369,7 @@ export class UsersService {
       flights,
       distanceKm: Math.round(km),
       photoCount,
+      ownPhotoCount,
       recent: travelled.slice(0, 5).map((t) => ({
         id: t.id,
         title: t.title,
