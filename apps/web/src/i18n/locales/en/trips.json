@@ -60,6 +60,8 @@
   "trips.statsList.photos_other": "{count} photos",
   "trips.statsList.km": "{km} km",
   "trips.statsList.go": "Go to trip",
+  "trips.statsList.flightKm": "{km} km in the air",
+  "trips.statsList.flightLabel": "Flight from {from} to {to}, {day}",
   "trips.members.more": "Options for {name}",
   "trips.members.trackItem": "May track",
   "trips.members.daysItem": "Days there",
