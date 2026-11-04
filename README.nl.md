@@ -13,16 +13,6 @@ alles later terug op een kaart die er goed uitziet.
 Je foto's blijven waar ze staan: in de galerij van je telefoon, of op je eigen
 [Immich](https://immich.app)-server. MarkMySteps kopieert ze niet.
 
-## Screenshots
-
-<p>
-  <img src="docs/screenshots/globe.png" width="150" alt="De wereldbol met routes en je reizen">
-  <img src="docs/screenshots/map.png" width="150" alt="Een reis op de kaart, met een vlag bij elke stop">
-  <img src="docs/screenshots/planner.png" width="150" alt="De routeplanner met stops, nachten en vervoer">
-  <img src="docs/screenshots/sharing.png" width="150" alt="Reisgenoten en een openbare link">
-  <img src="docs/screenshots/login.png" width="150" alt="Inloggen, of doorgaan zonder server">
-</p>
-
 ## Wat het doet
 
 - **Kaart en globe** (MapLibre + OpenFreeMap), geen API-sleutels, geen

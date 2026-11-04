@@ -8,16 +8,6 @@ English | [Nederlands](README.nl.md)
 
 **A self-hosted travel tracker and Polarsteps alternative.** Plan your route with draggable stops, track your trip without draining your battery and without Google, and relive it later on a map that looks good. Your photos stay where they are: in your phone's gallery, or on your own [Immich](https://immich.app) server. MarkMySteps does not copy them.
 
-## Screenshots
-
-<p>
-  <img src="docs/screenshots/globe.png" width="150" alt="The globe with routes and your trips">
-  <img src="docs/screenshots/map.png" width="150" alt="A trip on the map, with a flag at every stop">
-  <img src="docs/screenshots/planner.png" width="150" alt="The route planner with stops, nights and transport">
-  <img src="docs/screenshots/sharing.png" width="150" alt="Travel companions and a public link">
-  <img src="docs/screenshots/login.png" width="150" alt="Logging in, or continuing without a server">
-</p>
-
 ## What it does
 
 - **Map and globe** (MapLibre and OpenFreeMap), no API keys, no Google. One route per traveller, photos as markers with clustering, and each person can be switched on or off
