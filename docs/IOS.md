@@ -120,4 +120,4 @@ Xcode, en dan werkt hij zeven dagen.
 Net als de Android-app praat de iPhone-app alleen via https met een server,
 behalve met het eigen netwerk (`NSAllowsLocalNetworking`). Een server die alleen
 via `http://` op een Tailscale-adres bereikbaar is, werkt dus niet; zet er https
-voor (bijvoorbeeld de Cloudflare Tunnel uit DEPLOY.md).
+voor (bijvoorbeeld de Cloudflare Tunnel uit SELF-HOSTING.nl.md).

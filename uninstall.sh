@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MarkMySteps uninstaller — removes ONLY what install.sh created.
+# MarkMySteps uninstaller. Removes ONLY what install.sh created.
 # Touches nothing else on the server (Immich, Home Assistant, cloudflared
 # and other Docker projects stay untouched).
 #
@@ -7,28 +7,28 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-echo "Dit verwijdert de MarkMySteps-containers, -images en het interne netwerk."
-read -rp "Doorgaan? [j/N] " answer
-[[ "${answer,,}" == "j" ]] || { echo "Afgebroken."; exit 0; }
+echo "This removes the MarkMySteps containers, images and the internal network."
+read -rp "Continue? [y/N] " answer
+[[ "${answer,,}" == "y" || "${answer,,}" == "j" ]] || { echo "Cancelled."; exit 0; }
 
 # Containers, project images and network of THIS compose project only.
 docker compose down --rmi local --remove-orphans
 
 echo
-echo "De database (al je reizen, routes en accounts) staat in een Docker-volume."
-read -rp "Database-volume óók verwijderen? Dit is ONOMKEERBAAR. [j/N] " answer
-if [[ "${answer,,}" == "j" ]]; then
+echo "The database (all your trips, routes and accounts) lives in a Docker volume."
+read -rp "Remove the database volume as well? This CANNOT be undone. [y/N] " answer
+if [[ "${answer,,}" == "y" || "${answer,,}" == "j" ]]; then
   docker compose down -v --remove-orphans 2>/dev/null || true
   docker volume rm markmysteps_db-data 2>/dev/null || true
-  echo "→ database-volume verwijderd"
+  echo "→ database volume removed"
 else
-  echo "→ database-volume bewaard (markmysteps_db-data); een nieuwe install"
-  echo "  met dezelfde .env pakt je data gewoon weer op"
+  echo "→ database volume kept (markmysteps_db-data); a new install"
+  echo "  with the same .env picks your data up again"
 fi
 
 echo
-echo "✔ Klaar. Handmatig nog te doen als je álles weg wilt:"
-echo "  - Cloudflare: Public Hostname 'reis.markmaaktmedia.nl' verwijderen uit je tunnel"
-echo "  - Deze map verwijderen: rm -rf $(pwd)"
-echo "    (let op: daarmee verdwijnt ook .env met je encryptiesleutels —"
-echo "     zonder dat bestand is een bewaard database-volume niet meer bruikbaar)"
+echo "✔ Done. To remove everything, you still have to do this by hand:"
+echo "  - Cloudflare: remove the Public Hostname of this app from your tunnel"
+echo "  - Remove this folder: rm -rf $(pwd)"
+echo "    (note: that also removes .env with your encryption keys."
+echo "     Without that file a kept database volume can no longer be used)"
