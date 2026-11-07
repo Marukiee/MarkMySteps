@@ -256,6 +256,8 @@
 }
 
 .tcm {
+  position: relative;
+  top: 1.5px;
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -277,6 +279,7 @@
 
 .trip-card-meta .trip-card-members {
   flex-shrink: 0;
+  margin-top: 0;
   margin-left: auto;
 }
 

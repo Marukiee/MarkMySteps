@@ -57,7 +57,8 @@ export type IconName =
   | 'monitor'
   | 'settings'
   | 'hourglass'
-  | 'cloud-off';
+  | 'cloud-off'
+  | 'copy';
 
 // Single source of truth for line icons. 24×24 viewbox, 2px stroke,
 // currentColor — so an icon inherits text color and sizes with `size`.
@@ -397,6 +398,12 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M12 3.5 13.7 9l5.5 1.7-5.5 1.7L12 18l-1.7-5.6L4.8 10.7 10.3 9Z" />
       <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7Z" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="9" y="9" width="12" height="12" rx="2.5" />
+      <path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5" />
     </>
   ),
   'cloud-off': (

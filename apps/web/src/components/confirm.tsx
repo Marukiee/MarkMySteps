@@ -1,7 +1,8 @@
 import { createRoot } from 'react-dom/client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n';
 import { tr } from '../i18n/rich';
+import { Icon } from './Icon';
 import { confirmNatively, nativeAlertsAvailable } from '../lib/nativeAlert';
 import {
   fillNativeMenu,
@@ -125,6 +126,127 @@ function ConfirmDialog({ options, onDone }: { options: ConfirmOptions; onDone: (
   );
 }
 
+
+interface PromptOptions {
+  title: string;
+  body?: string;
+  /** The label above the field. */
+  label: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  /** The confirm button stays off until the answer is at least this long. */
+  minLength?: number;
+  /** Says what minLength asks, under the field; it ticks once that is met. */
+  minHint?: string;
+  /** A button beside the field that fills it in, such as a made-up password. */
+  suggest?: { label: string; make: () => string };
+}
+
+/**
+ * The same dialog with a field to fill in, instead of the browser's own
+ * window.prompt: a grey system box with a bare line to type on and its own
+ * buttons, nothing like the rest of the app. Resolves with what was typed,
+ * trimmed, or null when it is dismissed.
+ */
+export function promptModal(options: PromptOptions): Promise<string | null> {
+  return new Promise((resolve) => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    const done = (result: string | null) => {
+      root.unmount();
+      host.remove();
+      resolve(result);
+    };
+    root.render(<PromptDialog options={options} onDone={done} />);
+  });
+}
+
+function PromptDialog({ options, onDone }: { options: PromptOptions; onDone: (r: string | null) => void }) {
+  const [closing, setClosing] = useState(false);
+  const [value, setValue] = useState('');
+  const field = useRef<HTMLInputElement>(null);
+  const answer = value.trim();
+  const long = answer.length >= (options.minLength ?? 1);
+
+  const close = (result: string | null) => {
+    setClosing(true);
+    window.setTimeout(() => onDone(result), 180);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      className={`confirm-backdrop ${closing ? 'closing' : ''}`}
+      onClick={() => close(null)}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="prompt-title"
+    >
+      <form
+        className="confirm-card card"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (long) close(answer);
+        }}
+      >
+        <h3 id="prompt-title">{options.title}</h3>
+        {options.body && <p className="muted">{options.body}</p>}
+        <div className="field prompt-field">
+          <label htmlFor="prompt-input">{options.label}</label>
+          <div className="prompt-row">
+            <input
+              id="prompt-input"
+              ref={field}
+              autoFocus
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
+            {options.suggest && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  setValue(options.suggest!.make());
+                  field.current?.focus();
+                }}
+              >
+                {options.suggest.label}
+              </button>
+            )}
+          </div>
+          {options.minHint && (
+            <span className={`prompt-hint ${long ? 'met' : ''}`}>
+              <Icon name="check" size={13} />
+              {options.minHint}
+            </span>
+          )}
+        </div>
+        <div className="confirm-actions">
+          <button type="button" className="btn btn-ghost" onClick={() => close(null)}>
+            {options.cancelLabel ?? t('common.cancel')}
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={!long}>
+            {options.confirmLabel ?? t('ui.confirm.confirm')}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 /** One thing you can do from a choice dialog. */
 export interface ChoiceOption {

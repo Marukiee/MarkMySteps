@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { TwoFactorSetup, TwoFactorStatus } from '../api/types';
+import { copyText } from '../lib/copyText';
 import { isLocalMode } from '../lib/localMode';
 import { signInProblem } from '../lib/twoFactor';
 import { Icon } from './Icon';
@@ -32,6 +33,7 @@ export function TwoFactorSection() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [keyCopied, setKeyCopied] = useState(false);
 
   function loadStatus() {
     api<TwoFactorStatus>('/auth/2fa')
@@ -50,6 +52,7 @@ export function TwoFactorSection() {
     setCode('');
     setError(null);
     setCopied(false);
+    setKeyCopied(false);
   }
 
   async function run(action: () => Promise<void>) {
@@ -111,13 +114,16 @@ export function TwoFactorSection() {
   };
 
   async function copy(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-    } catch {
-      // No clipboard in this webview: the text is selectable, which will have to do.
-      setCopied(false);
-    }
+    // Without a clipboard the text is still selectable, which will have to do.
+    setCopied(await copyText(text));
+  }
+
+  /** The app is often on this same phone, where a QR code cannot be scanned:
+   *  one tap puts the key on the clipboard to paste in there. */
+  async function copyKey(secret: string) {
+    if (!(await copyText(secret))) return;
+    setKeyCopied(true);
+    window.setTimeout(() => setKeyCopied(false), 1800);
   }
 
   const low = status.enabled && status.recoveryCodesLeft <= 3;
@@ -205,7 +211,18 @@ export function TwoFactorSection() {
             <QrCode value={step.setup.otpauthUri} label={t('settings.twoFactor.qr')} />
             <div className="tf-secret">
               <span className="muted">{t('settings.twoFactor.typeKey')}</span>
-              <code>{step.setup.secret.match(/.{1,4}/g)?.join(' ')}</code>
+              <button
+                type="button"
+                className={`tf-key ${keyCopied ? 'copied' : ''}`}
+                aria-label={t('settings.twoFactor.copyKey')}
+                onClick={() => void copyKey(step.setup.secret)}
+              >
+                <code>{step.setup.secret.match(/.{1,4}/g)?.join(' ')}</code>
+                <span className="tf-key-action">
+                  <Icon name={keyCopied ? 'check' : 'copy'} size={15} />
+                  {keyCopied ? t('settings.twoFactor.copied') : t('settings.twoFactor.copy')}
+                </span>
+              </button>
             </div>
           </div>
           <div className="field">

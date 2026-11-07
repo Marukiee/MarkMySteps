@@ -58,6 +58,54 @@
   user-select: all;
 }
 
+/* The key is one button: tap anywhere on it to copy. */
+.tf-key {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-s);
+  background: var(--paper-sunken);
+  color: var(--ink);
+  text-align: left;
+  transition: background 0.15s var(--ease), transform 0.15s var(--ease);
+}
+
+.tf-key:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--paper-sunken));
+}
+
+.tf-key:active {
+  transform: scale(0.99);
+}
+
+.tf-key code {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  /* Breaks between the groups of four, never inside one. */
+  word-break: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.tf-key-action {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--accent-ink);
+  transition: color 0.2s var(--ease);
+}
+
+.tf-key.copied .tf-key-action {
+  color: var(--teal);
+}
+
 .tf-codes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

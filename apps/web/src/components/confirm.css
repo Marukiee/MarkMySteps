@@ -3,6 +3,9 @@
   inset: 0;
   z-index: 300;
   display: grid;
+  /* One column as wide as the screen allows, so a card with long buttons is
+     held to the screen instead of the column growing to fit it. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 1.5rem;
   background: rgb(16 21 27 / 0.5);
@@ -31,6 +34,8 @@
   width: min(400px, 100%);
   padding: 1.4rem 1.35rem 1.15rem;
   display: grid;
+  /* A field keeps a width of its own; this holds it to the card. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
   animation: confirmPop 0.22s var(--ease);
 }
@@ -64,6 +69,7 @@
 
 .confirm-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.6rem;
   margin-top: 0.7rem;
@@ -164,4 +170,44 @@
     opacity: 1;
     transform: none;
   }
+}
+
+/* A dialog with a field to fill in. The field and its button share one row, as
+   the temporary password does in the account form. */
+.prompt-field {
+  margin-top: 0.35rem;
+}
+
+.prompt-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.prompt-row input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  letter-spacing: 0.04em;
+}
+
+.prompt-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  transition: color 0.2s var(--ease);
+}
+
+.prompt-hint svg {
+  opacity: 0.35;
+  transition: opacity 0.2s var(--ease), color 0.2s var(--ease);
+}
+
+.prompt-hint.met {
+  color: var(--teal);
+}
+
+.prompt-hint.met svg {
+  opacity: 1;
 }

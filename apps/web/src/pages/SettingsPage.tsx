@@ -13,7 +13,8 @@ import type { Trip, User } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_SERVER_URL } from '../config';
 import { Avatar, bumpAvatar } from '../components/Avatar';
-import { confirmModal } from '../components/confirm';
+import { confirmModal, promptModal } from '../components/confirm';
+import { makeTempPassword } from '../lib/tempPassword';
 import { TrackFiles } from '../components/TrackFiles';
 import { TwoFactorSection } from '../components/TwoFactorSection';
 import { HelpTip } from '../components/HelpTip';
@@ -2735,8 +2736,7 @@ function AccountsSection() {
   useEffect(load, []);
 
   function generatePassword() {
-    const raw = crypto.getRandomValues(new Uint8Array(9));
-    setTempPassword(btoa(String.fromCharCode(...raw)).replace(/[+/=]/g, 'x'));
+    setTempPassword(makeTempPassword());
   }
 
   async function createAccount(event: FormEvent) {
@@ -2787,14 +2787,22 @@ function AccountsSection() {
   }
 
   async function resetPassword(row: AdminUserRow) {
-    const temp = window.prompt(t('settings.accounts.resetPrompt', { username: row.username }));
+    const temp = await promptModal({
+      title: t('settings.accounts.reset.title'),
+      body: t('settings.accounts.reset.body', { username: row.username }),
+      label: t('settings.accounts.create.tempPassword'),
+      minLength: 10,
+      minHint: t('settings.accounts.reset.min', { min: 10 }),
+      confirmLabel: t('settings.accounts.reset.confirm'),
+      suggest: { label: t('settings.accounts.create.generate'), make: makeTempPassword },
+    });
     if (!temp) return;
     try {
       await api(`/admin/users/${row.id}/reset-password`, {
         method: 'POST',
         body: { tempPassword: temp },
       });
-      setMessage(t('settings.accounts.resetDone', { username: row.username }));
+      setMessage(t('settings.accounts.resetDone', { username: row.username, password: temp }));
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('settings.accounts.resetFailed'));
