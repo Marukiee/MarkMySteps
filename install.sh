@@ -13,8 +13,10 @@ FIRST_INSTALL=false
 
 if [[ ! -f .env ]]; then
   FIRST_INSTALL=true
-  read -rp "Publieke URL van de app [https://reis.markmaaktmedia.nl]: " WEB_ORIGIN
-  WEB_ORIGIN="${WEB_ORIGIN:-https://reis.markmaaktmedia.nl}"
+  WEB_ORIGIN=""
+  while [[ -z "$WEB_ORIGIN" ]]; do
+    read -rp "Public URL of the app (for example https://trips.example.com): " WEB_ORIGIN
+  done
 
   DB_PASS=$(openssl rand -hex 24)
   cat > .env <<EOF
@@ -36,9 +38,9 @@ MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32 | tr -d '\n')
 # IMMICH_ALLOWED_HOSTS=192.168.1.50
 EOF
   chmod 600 .env
-  echo "→ .env aangemaakt met verse secrets (bewaar dit bestand goed!)"
+  echo "→ .env created with fresh secrets (keep this file safe!)"
 else
-  echo "→ bestaande .env gevonden — secrets blijven ongewijzigd"
+  echo "→ existing .env found, secrets stay unchanged"
   # Pick up the port from the existing .env for the final message.
   WEB_PORT=$(grep -E '^WEB_PORT=' .env | cut -d= -f2 || true)
   WEB_PORT="${WEB_PORT:-18790}"
@@ -47,22 +49,22 @@ fi
 # The images are built BEFORE anything is stopped, so a build that fails (or
 # takes ten minutes) never costs a second of uptime: the old containers keep
 # serving the whole time.
-echo "→ nieuwe images bouwen (de site blijft ondertussen draaien)…"
+echo "→ building new images (the site keeps running meanwhile)…"
 docker compose build
 docker compose --profile maintenance build maintenance
 
 # From here the app really is going down, so put a page in its place. The
 # maintenance container binds the same port, which is why web has to go first.
-echo "→ onderhoudspagina online zetten…"
+echo "→ putting the maintenance page up…"
 docker compose stop web >/dev/null 2>&1 || true
 docker compose --profile maintenance up -d maintenance
 
-echo "→ database en API vervangen…"
+echo "→ replacing database and API…"
 docker compose up -d --remove-orphans db api
 
 # The API has no host port of its own, and its usual way in is answering 503
 # right now, so the container's own healthcheck is what gets asked.
-echo "→ wachten tot de API gezond is…"
+echo "→ waiting for the API to be healthy…"
 API_OK=false
 for _ in $(seq 1 60); do
   API_CID=$(docker compose ps -q api || true)
@@ -75,14 +77,14 @@ for _ in $(seq 1 60); do
 done
 
 if [[ "$API_OK" != true ]]; then
-  echo "✗ API niet gezond na 2 minuten — check: docker compose logs api" >&2
-  echo "  De onderhoudspagina blijft staan tot dit opgelost is." >&2
+  echo "✗ API not healthy after 2 minutes. Check: docker compose logs api" >&2
+  echo "  The maintenance page stays up until this is fixed." >&2
   exit 1
 fi
 
 # Hand the port back. `rm -f` as well as `stop`: a container that is only
 # stopped still holds its port binding when web comes back up.
-echo "→ site weer online zetten…"
+echo "→ bringing the site back online…"
 docker compose --profile maintenance stop maintenance
 docker compose --profile maintenance rm -f maintenance
 docker compose up -d web
@@ -90,20 +92,20 @@ docker compose up -d web
 for _ in $(seq 1 30); do
   if curl -fsS "http://127.0.0.1:${WEB_PORT}/api/health" >/dev/null 2>&1; then
     echo
-    echo "✔ MarkMySteps draait op http://127.0.0.1:${WEB_PORT}"
+    echo "✔ MarkMySteps is running at http://127.0.0.1:${WEB_PORT}"
     if [[ "$FIRST_INSTALL" == true ]]; then
       echo
-      echo "Volgende stap (eenmalig): Cloudflare Zero Trust → Networks → Tunnels"
-      echo "→ jouw tunnel → Public Hostname → Add:"
-      echo "    subdomain:  reis (of eigen keuze)"
-      echo "    domain:     markmaaktmedia.nl"
-      echo "    service:    HTTP → <LAN-IP van deze server>:${WEB_PORT}"
-      echo "    (LAN-IP nodig omdat cloudflared vaak in Docker draait; check: hostname -I)"
+      echo "Next step (once): Cloudflare Zero Trust > Networks > Tunnels"
+      echo "> your tunnel > Public Hostname > Add:"
+      echo "    subdomain:  the one in ${WEB_ORIGIN}"
+      echo "    domain:     your own domain"
+      echo "    service:    HTTP > <LAN IP of this server>:${WEB_PORT}"
+      echo "    (the LAN IP is needed because cloudflared often runs in Docker; check: hostname -I)"
     fi
     exit 0
   fi
   sleep 2
 done
 
-echo "✗ Web-container niet bereikbaar. Check: docker compose logs web" >&2
+echo "✗ Web container not reachable. Check: docker compose logs web" >&2
 exit 1

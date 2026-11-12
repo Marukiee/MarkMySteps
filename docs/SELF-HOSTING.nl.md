@@ -1,4 +1,8 @@
-# MarkMySteps: installatie & testen
+# Draai je eigen MarkMySteps-server
+
+[English](SELF-HOSTING.md) | Nederlands
+
+Een server is gewoon een computer die aan blijft. Een oude laptop met Linux voldoet prima, net als een Raspberry Pi of een NAS. Je hebt Docker nodig. Je hebt geen server nodig om MarkMySteps te gebruiken: de Android-app werkt ook alleen, en je kunt later alsnog een server koppelen.
 
 ## Op je server zetten (één commando)
 
@@ -8,7 +12,7 @@ Vereist: Docker + docker compose (heb je al voor Immich). Alles in één keer:
 cd ~ && git clone https://github.com/Marukiee/MarkMySteps.git && cd MarkMySteps && ./install.sh
 ```
 
-Het script vraagt éénmalig je publieke URL (Enter = `https://reis.markmaaktmedia.nl`),
+Het script vraagt éénmalig je publieke URL (bijvoorbeeld `https://reis.jouwdomein.nl`),
 genereert alle secrets, bouwt de containers, wacht tot de API gezond is en
 print daarna precies wat je in Cloudflare moet invullen.
 
@@ -194,7 +198,7 @@ Draait jouw Immich op zo'n intern adres, zet dan de host (zonder poort) in
 `.env`, meerdere gescheiden door komma's:
 
 ```bash
-IMMICH_ALLOWED_HOSTS=192.168.1.157
+IMMICH_ALLOWED_HOSTS=192.168.0.10
 ```
 
 Daarna `docker compose up -d` (herstart de API). Zonder deze regel geeft
@@ -219,8 +223,8 @@ Ga je zelf iets aan de server doen, dan kun je die pagina ook met de hand
 aan- en uitzetten:
 
 ```bash
-./maintenance.sh aan
-./maintenance.sh uit
+./maintenance.sh on
+./maintenance.sh off
 ```
 
 ## Back-up (database = alle data)
@@ -232,24 +236,14 @@ docker compose exec db pg_dump -U markmysteps markmysteps | gzip > ~/mms-backup-
 
 ---
 
-## Android-app (APK) installeren
+## Android-app installeren
 
-De APK wordt automatisch gebouwd door GitHub Actions bij elke push:
+1. Download `markmysteps.apk` van de [nieuwste release](https://github.com/Marukiee/MarkMySteps/releases/latest) op je telefoon.
+2. Open het bestand en sta installeren uit onbekende bronnen toe.
+3. Open de app en kies **Doorgaan zonder server**, of vul je server-URL in en log in.
+4. Open een reis en tik op **Start tracking**. Geef locatietoestemming en zet die daarna in Android-instellingen → Apps → MarkMySteps → Locatie op **"Altijd toestaan"** (nodig voor tracking met scherm uit).
 
-1. Ga naar https://github.com/Marukiee/MarkMySteps/actions → workflow
-   **Android APK** → nieuwste groene run → onderaan bij **Artifacts**:
-   `markmysteps-debug-apk` downloaden.
-2. Zip uitpakken → `app-debug.apk` naar je telefoon (of direct op de telefoon
-   downloaden) → installeren ("onbekende bronnen" toestaan).
-3. App openen → **Server-URL** invullen: `https://reis.markmaaktmedia.nl` →
-   inloggen met je account.
-4. Reis openen → **Start tracking**. Geef locatietoestemming en zet die daarna
-   in Android-instellingen → Apps → MarkMySteps → Locatie op
-   **"Altijd toestaan"** (nodig voor tracking met scherm uit).
-
-Batterijgedrag: de app vraagt alleen een GPS-fix bij ≥50 m verplaatsing,
-buffert offline in de app en upload zodra er weer netwerk is. Werkt zonder
-Google Play Services (LineageOS / GrapheneOS).
+Batterijgedrag: de app vraagt alleen een GPS-fix bij ≥50 m verplaatsing, buffert offline in de app en upload zodra er weer netwerk is. Werkt zonder Google Play Services (LineageOS / GrapheneOS).
 
 ---
 
