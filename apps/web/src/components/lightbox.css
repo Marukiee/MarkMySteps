@@ -121,7 +121,7 @@
    one on screen. */
 .lightbox-menu {
   position: fixed;
-  top: calc(0.9rem + env(safe-area-inset-top));
+  top: calc(0.9rem + var(--safe-top));
   left: 1rem;
   z-index: 201;
 }
@@ -199,7 +199,7 @@
 
 .lightbox-date {
   position: fixed;
-  top: calc(1rem + env(safe-area-inset-top));
+  top: calc(1rem + var(--safe-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 201;
@@ -216,7 +216,7 @@
 .lightbox-note {
   position: fixed;
   left: 50%;
-  bottom: calc(4.2rem + env(safe-area-inset-bottom));
+  bottom: calc(4.2rem + var(--safe-bottom));
   transform: translateX(-50%);
   z-index: 201;
   max-width: 80vw;
@@ -246,7 +246,7 @@
 
 .lightbox-close {
   position: fixed;
-  top: calc(0.9rem + env(safe-area-inset-top));
+  top: calc(0.9rem + var(--safe-top));
   right: 1rem;
   display: inline-flex;
   align-items: center;
@@ -324,12 +324,12 @@
    * photo gives back the height it takes.
    */
   .lightbox {
-    padding-top: calc(3.4rem + env(safe-area-inset-top));
+    padding-top: calc(3.4rem + var(--safe-top));
   }
 
   .lightbox-stage {
     max-width: 100vw;
-    padding: 0 0.6rem calc(0.6rem + env(safe-area-inset-bottom));
+    padding: 0 0.6rem calc(0.6rem + var(--safe-bottom));
   }
 
   .lightbox-img {

@@ -4,7 +4,7 @@
 .privacy-page {
   min-height: 100%;
   background: var(--paper);
-  padding: 0 max(1.25rem, env(safe-area-inset-right)) calc(3rem + env(safe-area-inset-bottom))
+  padding: 0 max(1.25rem, env(safe-area-inset-right)) calc(3rem + var(--safe-bottom))
     max(1.25rem, env(safe-area-inset-left));
 }
 
@@ -17,7 +17,7 @@
 .privacy-top {
   display: flex;
   align-items: center;
-  padding: calc(1.1rem + env(safe-area-inset-top)) 0 0.2rem;
+  padding: calc(1.1rem + var(--safe-top)) 0 0.2rem;
 }
 
 .privacy-brand {

@@ -7,7 +7,7 @@
   display: flex;
   align-items: flex-start;
   gap: 0.6rem;
-  padding: calc(0.6rem + env(safe-area-inset-top)) 1rem 0.6rem;
+  padding: calc(0.6rem + var(--safe-top)) 1rem 0.6rem;
   background: var(--ink);
   color: var(--paper);
   font-size: 0.85rem;

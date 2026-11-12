@@ -336,7 +336,7 @@
  */
 .share-backtop {
   position: fixed;
-  top: calc(0.8rem + env(safe-area-inset-top));
+  top: calc(0.8rem + var(--safe-top));
   left: 50%;
   z-index: 40;
   display: grid;
@@ -371,7 +371,7 @@
 .share-fresh {
   position: fixed;
   left: 50%;
-  bottom: calc(1rem + env(safe-area-inset-bottom));
+  bottom: calc(1rem + var(--safe-bottom));
   z-index: 41;
   display: flex;
   align-items: center;

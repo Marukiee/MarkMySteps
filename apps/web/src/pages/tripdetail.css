@@ -149,7 +149,7 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
     --page-pad: 0.85rem;
     /* The top keeps the room the pill under the map used to take; the
        grip is on the map's own edge now. */
-    padding: 1.6rem var(--page-pad) calc(96px + env(safe-area-inset-bottom));
+    padding: 1.6rem var(--page-pad) calc(96px + var(--safe-bottom));
     /* This box IS the width of the screen, so it is the right place to stop a
        swiped card — anything narrower cut it off early. Clip, not hidden: no
        scrollbar, and the vertical axis stays visible for the sticky map. */
@@ -159,7 +159,7 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 
   /* Person toggles sit on the map, clear of the status bar. */
   .person-toggles {
-    top: calc(0.9rem + env(safe-area-inset-top));
+    top: calc(0.9rem + var(--safe-top));
   }
 
   /* Cover photo as a compact banner at the top of the sheet. */
@@ -748,13 +748,13 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 @media (max-width: 900px) {
   .trip-fabs {
     position: fixed;
-    top: calc(0.9rem + env(safe-area-inset-top));
+    top: calc(0.9rem + var(--safe-top));
     right: 1rem;
   }
 
   .trip-fab-back {
     position: fixed;
-    top: calc(0.9rem + env(safe-area-inset-top));
+    top: calc(0.9rem + var(--safe-top));
     left: 1rem;
   }
 
@@ -839,7 +839,7 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
      on-screen keyboard. */
   /* The keyboard covers the bottom of the screen without the sheet moving,
      so the room it needs is padding rather than a smaller sheet. */
-  padding: 1.1rem 1.15rem calc(6rem + env(safe-area-inset-bottom) + var(--kb-inset, 0px));
+  padding: 1.1rem 1.15rem calc(6rem + var(--safe-bottom) + var(--kb-inset, 0px));
   border-radius: var(--radius-l) var(--radius-l) 0 0;
   animation: sheetUp 0.28s var(--ease);
 }
@@ -1227,7 +1227,7 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 
   .trip-detail.map-full .map-locate,
   .trip-detail.map-full .map-bottom-left {
-    margin-bottom: env(safe-area-inset-bottom);
+    margin-bottom: var(--safe-bottom);
   }
 }
 
@@ -1267,6 +1267,6 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 @media (max-width: 900px) {
   .ios-app .trip-fabs,
   .ios-app .trip-fab-back {
-    top: env(safe-area-inset-top);
+    top: var(--safe-top);
   }
 }

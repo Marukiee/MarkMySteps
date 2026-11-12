@@ -27,7 +27,7 @@
 /* In the app the globe runs up under the (transparent) status bar so it flows
    seamlessly — the clock/battery sit on top in their own colour. */
 .native-app .globe-backdrop {
-  margin-top: calc(-1.5rem - env(safe-area-inset-top));
+  margin-top: calc(-1.5rem - var(--safe-top));
   height: clamp(300px, 46vh, 560px);
 }
 

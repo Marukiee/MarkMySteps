@@ -1,5 +1,5 @@
 import { App } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Style, StatusBar } from '@capacitor/status-bar';
 import { DEFAULT_SERVER_URL } from '../config';
 import { t } from '../i18n';
@@ -91,9 +91,39 @@ export function webBase(): string {
   return isNativeApp() ? DEFAULT_SERVER_URL : window.location.origin;
 }
 
+interface Insets {
+  top: number;
+  bottom: number;
+}
+
+interface MmsInsetsPlugin {
+  get(): Promise<Insets>;
+  addListener(event: 'change', listener: (insets: Insets) => void): Promise<unknown>;
+}
+
+const MmsInsets = registerPlugin<MmsInsetsPlugin>('MmsInsets');
+
+/**
+ * Android: how much of the status bar and the gesture bar lies over the page,
+ * measured by the app itself, as --mms-inset-top and --mms-inset-bottom. The
+ * stylesheet takes the larger of these and the WebView's own safe area, which
+ * some phones leave at zero while the page still runs under the bar.
+ */
+function initAndroidInsets(): void {
+  if (!isAndroidApp() || !Capacitor.isPluginAvailable('MmsInsets')) return;
+  const apply = ({ top, bottom }: Insets) => {
+    const root = document.documentElement.style;
+    root.setProperty('--mms-inset-top', `${top}px`);
+    root.setProperty('--mms-inset-bottom', `${bottom}px`);
+  };
+  MmsInsets.get().then(apply, () => undefined);
+  void MmsInsets.addListener('change', apply).catch(() => undefined);
+}
+
 /** Native status bar: overlay the web content, icon colour follows the theme. */
 export function initStatusBar(): void {
   if (!isNativeApp()) return;
+  initAndroidInsets();
   void StatusBar.setOverlaysWebView({ overlay: true });
   // Fully transparent bar so the page/globe shows through instead of a solid
   // white strip. (Some Android builds keep a background even when overlaying.)

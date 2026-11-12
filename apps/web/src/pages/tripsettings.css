@@ -277,7 +277,7 @@
 
 /* Clear the fixed tab bar so the last field (travellers) stays reachable. */
 .native-app .trip-settings {
-  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  padding-bottom: calc(88px + var(--safe-bottom));
 }
 
 /* Phone: stack the action rows so buttons never get pushed off-screen. */

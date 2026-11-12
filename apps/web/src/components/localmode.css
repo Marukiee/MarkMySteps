@@ -43,7 +43,7 @@
   border-bottom-right-radius: 0;
   background: var(--paper);
   box-shadow: var(--shadow-l);
-  padding-bottom: calc(env(safe-area-inset-bottom) + var(--kb-inset, 0px));
+  padding-bottom: calc(var(--safe-bottom) + var(--kb-inset, 0px));
   animation: lmRise 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 

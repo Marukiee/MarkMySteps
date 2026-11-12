@@ -33,6 +33,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MmsNotifyPlugin.class);
         registerPlugin(MmsDynamicColorPlugin.class);
         registerPlugin(MmsUpdatePlugin.class);
+        registerPlugin(MmsInsetsPlugin.class);
         super.onCreate(savedInstanceState);
         // Android's stretch at the end of a scroll pulls the whole WebView,
         // the tab bar fixed at the bottom included. The page's own

@@ -795,8 +795,8 @@
   display: grid;
   grid-template-rows: auto 1fr;
   background: var(--paper);
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
   animation: logIn 0.24s var(--ease);
 }
 

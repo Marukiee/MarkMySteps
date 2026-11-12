@@ -5,7 +5,7 @@
   display: grid;
   grid-template-rows: 1fr auto;
   align-items: center;
-  padding: calc(2rem + env(safe-area-inset-top)) 1.5rem calc(1.5rem + env(safe-area-inset-bottom));
+  padding: calc(2rem + var(--safe-top)) 1.5rem calc(1.5rem + var(--safe-bottom));
   text-align: center;
   overflow: hidden;
   /* Flat surface: the accent wash that used to sit here read as a smudge on an
@@ -30,7 +30,7 @@
 
 .onb-skip {
   position: absolute;
-  top: calc(1rem + env(safe-area-inset-top));
+  top: calc(1rem + var(--safe-top));
   right: 1.1rem;
   z-index: 2;
   padding: 0.4rem 0.8rem;

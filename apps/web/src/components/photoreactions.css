@@ -48,7 +48,7 @@
 .reaction-bar {
   position: fixed;
   left: 1rem;
-  bottom: calc(1rem + env(safe-area-inset-bottom));
+  bottom: calc(1rem + var(--safe-bottom));
   z-index: 201;
 }
 

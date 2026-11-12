@@ -61,7 +61,7 @@ body:has(
    and put the bottom of every page out of reach. */
 .native-app .bottomnav {
   display: grid;
-  padding-bottom: calc(0.35rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(0.35rem + var(--safe-bottom));
 }
 
 .native-app body,
@@ -77,8 +77,8 @@ body.native-app {
 /* Status bar overlays the WebView natively — push content below it, and clear
    the fixed tab bar at the bottom so the last row is never hidden. */
 .native-app .page {
-  padding-top: calc(1.5rem + env(safe-area-inset-top));
-  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  padding-top: calc(1.5rem + var(--safe-top));
+  padding-bottom: calc(88px + var(--safe-bottom));
 }
 
 /* Phones (browser + app) also need to clear the tab bar. The gesture-bar inset
@@ -89,14 +89,14 @@ body.native-app {
   }
 
   .native-app .page {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+    padding-bottom: calc(88px + var(--safe-bottom));
   }
 }
 
 /* Planner handles its own top inset; trip detail is immersive (map under the
    status bar) so it gets no top padding. */
 .native-app .plan-page {
-  padding-top: calc(0.5rem + env(safe-area-inset-top));
+  padding-top: calc(0.5rem + var(--safe-top));
 }
 
 @media (max-width: 720px) {
@@ -124,7 +124,7 @@ body.nav-tucked {
 
 .native-app .nav-tucked .page,
 .nav-tucked.native-app .page {
-  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(1.5rem + var(--safe-bottom));
 }
 
 /* iPhone: the system tab bar is drawn over this one (nativeTabBar.ts), in
@@ -133,7 +133,7 @@ body.nav-tucked {
    state from it. */
 .native-tabbar .bottomnav {
   opacity: 0;
-  height: var(--native-tabbar-h, calc(49px + env(safe-area-inset-bottom)));
+  height: var(--native-tabbar-h, calc(49px + var(--safe-bottom)));
   padding: 0;
   overflow: hidden;
   backdrop-filter: none;

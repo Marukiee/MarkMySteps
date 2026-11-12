@@ -33,7 +33,7 @@
   flex-direction: column;
   width: min(560px, 100vw);
   max-height: min(60vh, 520px);
-  padding: 0.6rem 1rem calc(0.8rem + env(safe-area-inset-bottom));
+  padding: 0.6rem 1rem calc(0.8rem + var(--safe-bottom));
   border-radius: 18px 18px 0 0;
   background: rgb(20 24 29 / 0.92);
   color: rgb(255 255 255 / 0.92);
@@ -209,7 +209,7 @@
    finds it and where it is clear of the date and the menus at the top. */
 .lightbox-comments-btn {
   position: fixed;
-  bottom: calc(1rem + env(safe-area-inset-bottom));
+  bottom: calc(1rem + var(--safe-bottom));
   right: 1rem;
   z-index: 201;
   display: inline-flex;

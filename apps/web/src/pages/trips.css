@@ -44,7 +44,7 @@
 .trips-brand {
   display: none;
   position: absolute;
-  top: calc(0.7rem + env(safe-area-inset-top, 0px));
+  top: calc(0.7rem + var(--safe-top));
   left: -0.3rem;
   z-index: 3;
   align-items: center;

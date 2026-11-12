@@ -6,6 +6,12 @@
    ========================================================== */
 
 :root {
+  /* How far the status bar and the gesture bar reach over the page. The
+     WebView's own safe area is missing on some Android phones while the page
+     still runs under the bars, so the app measures it too (MmsInsetsPlugin)
+     and the larger of the two wins. */
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--mms-inset-top, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--mms-inset-bottom, 0px));
   --paper: #faf6ef;
   --paper-raised: #ffffff;
   --paper-sunken: #f1ebe1;
@@ -278,7 +284,7 @@ textarea {
 .statusbar-scrim {
   position: fixed;
   inset: 0 0 auto;
-  height: calc(env(safe-area-inset-top, 0px) + 1.25rem);
+  height: calc(var(--safe-top) + 1.25rem);
   z-index: 55;
   pointer-events: none;
   background: linear-gradient(
