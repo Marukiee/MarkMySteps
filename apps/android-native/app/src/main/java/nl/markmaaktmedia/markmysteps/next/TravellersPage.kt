@@ -1,6 +1,7 @@
 package nl.markmaaktmedia.markmysteps.next
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -83,6 +84,28 @@ private fun dots(n: Int) = "%,d".format(n).replace(',', '.')
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TravellersPage() {
+    var openFriend by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Friend?>(null) }
+    // A companion's own page slides in over the list, and back slides it away.
+    val motion = MaterialTheme.motionScheme
+    androidx.compose.animation.AnimatedContent(
+        openFriend,
+        transitionSpec = {
+            val forward = targetState != null
+            (androidx.compose.animation.slideInHorizontally(motion.defaultSpatialSpec()) { w -> if (forward) w / 3 else -w / 3 } + androidx.compose.animation.fadeIn(motion.defaultEffectsSpec())) togetherWith
+                (androidx.compose.animation.slideOutHorizontally(motion.defaultSpatialSpec()) { w -> if (forward) -w / 3 else w / 3 } + androidx.compose.animation.fadeOut(motion.fastEffectsSpec()))
+        },
+        label = "friend",
+    ) { friend ->
+        if (friend == null) TravellersList(onFriend = { openFriend = it })
+        else {
+            androidx.activity.compose.BackHandler { openFriend = null }
+            FriendPage(friend, onBack = { openFriend = null })
+        }
+    }
+}
+
+@Composable
+private fun TravellersList(onFriend: (Friend) -> Unit) {
     val cs = MaterialTheme.colorScheme
     val trips = Data.past
     val countries = Data.all.flatMap { t -> t.stops.map { it.flag } }.distinct()
@@ -138,21 +161,7 @@ fun TravellersPage() {
             }
         }
 
-        // Two columns of tiles, the first figure of each row a little wider.
-        stats.chunked(2).forEachIndexed { row, pair ->
-            Row(Modifier.fillMaxWidth().padding(bottom = 3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                pair.forEachIndexed { col, stat ->
-                    val i = row * 2 + col
-                    val outer = 28.dp
-                    val inner = 8.dp
-                    val tileShape: Shape = RoundedCornerShape(
-                        topStart = if (i == 0) outer else inner, topEnd = if (i == 1) outer else inner,
-                        bottomStart = if (i == 4) outer else inner, bottomEnd = if (i == 5) outer else inner,
-                    )
-                    StatTile(stat.value, stat.label, stat.icon, stat.shape.toShape(), tileShape, i, Modifier.weight(1f))
-                }
-            }
-        }
+        StatsGrid(stats)
 
         // The countries you have been to on a slowly turning globe, as on the web.
         if (!countryFlags.isNullOrEmpty() || !Data.live) {
@@ -208,7 +217,7 @@ fun TravellersPage() {
                     bottomStart = if (i == people.lastIndex) 26.dp else 6.dp, bottomEnd = if (i == people.lastIndex) 26.dp else 6.dp,
                 )
                 Row(
-                    Modifier.fillMaxWidth().clip(shape).background(cs.surfaceContainerLow).tap().padding(horizontal = 14.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth().clip(shape).background(cs.surfaceContainerLow).tap { if (f.id != null) onFriend(f) }.padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Avatar(f.id, f.name, f.hasAvatar, f.color, Modifier.size(44.dp))
@@ -251,5 +260,76 @@ private fun StatTile(value: Int, label: String, icon: List<Shape24>, mark: Shape
             )
             Text(label, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.sp, color = fg.copy(alpha = 0.8f)))
         }
+    }
+}
+
+
+/** Two columns of tonal tiles, one connected block with round outer corners. */
+@Composable
+private fun StatsGrid(stats: List<Stat>) {
+    stats.chunked(2).forEachIndexed { row, pair ->
+        Row(Modifier.fillMaxWidth().padding(bottom = 3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            pair.forEachIndexed { col, stat ->
+                val i = row * 2 + col
+                val last = stats.lastIndex
+                val outer = 28.dp
+                val inner = 8.dp
+                val tileShape: Shape = RoundedCornerShape(
+                    topStart = if (i == 0) outer else inner, topEnd = if (i == 1) outer else inner,
+                    bottomStart = if (i == last - 1) outer else inner, bottomEnd = if (i == last) outer else inner,
+                )
+                StatTile(stat.value, stat.label, stat.icon, stat.shape.toShape(), tileShape, i, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+/** A companion's own figures and countries, as the web's traveller page. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FriendPage(f: Friend, onBack: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val stats by androidx.compose.runtime.produceState<Remote.Stats?>(null, f.id) { value = f.id?.let { runCatching { Remote.stats(it) }.getOrNull() } }
+    Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+        Box(Modifier.padding(top = 8.dp).size(48.dp).clip(CircleShape).background(cs.surfaceContainerHigh).tap(onBack), contentAlignment = Alignment.Center) {
+            LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f)
+        }
+        Row(Modifier.padding(top = 18.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Avatar(f.id, f.name, f.hasAvatar, f.color, Modifier.size(64.dp))
+            Column(Modifier.padding(start = 16.dp)) {
+                Text(f.name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 28.sp, letterSpacing = (-0.02).em, color = cs.onBackground))
+                Text("@${f.handle} · ${f.shared} ${if (f.shared == 1) "reis samen" else "reizen samen"}", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
+            }
+        }
+        val st = stats
+        if (st == null) {
+            // The tiles' own shape while the figures are read, so nothing jumps.
+            repeat(3) { Row(Modifier.fillMaxWidth().padding(bottom = 3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) { repeat(2) { Box(Modifier.weight(1f).height(112.dp).clip(RoundedCornerShape(8.dp)).background(cs.surfaceContainerHigh)) } } }
+        } else {
+            StatsGrid(listOf(
+                Stat(st.trips, "reizen", Glyphs.compass, MaterialShapes.Cookie9Sided),
+                Stat(st.countries.size, "landen", Glyphs.globe, MaterialShapes.Clover4Leaf),
+                Stat(st.km, "kilometer", Glyphs.distance, MaterialShapes.Cookie6Sided),
+                Stat(st.days, "dagen op reis", Glyphs.hourglass, MaterialShapes.Sunny),
+                Stat(st.photos, "foto's", Glyphs.camera, MaterialShapes.Flower),
+                Stat(st.flights, "vluchten", Glyphs.plane, MaterialShapes.SoftBurst),
+            ))
+            if (st.countries.isNotEmpty()) {
+                Box(Modifier.fillMaxWidth().padding(top = 22.dp), contentAlignment = Alignment.Center) {
+                    CountryGlobe(st.countries, dark = cs.background.luminance() < 0.5f, modifier = Modifier.size(200.dp))
+                }
+                FlowRow(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    st.countries.forEach { code ->
+                        Row(Modifier.height(40.dp).clip(CircleShape).background(cs.secondaryContainer).padding(start = 10.dp, end = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            FlagIcon(code, 15.dp)
+                            Text(java.util.Locale("", code).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL")), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSecondaryContainer), modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(120.dp))
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }
