@@ -58,7 +58,9 @@ struct RootView: View {
         ZStack {
             if signedOut {
                 LoginView(
+                    notice: store.sessionExpired ? "Je sessie is verlopen. Log opnieuw in." : nil,
                     onDone: {
+                        store.sessionExpired = false
                         withAnimation(.smooth(duration: 0.45)) { signedOut = false }
                         Task { await store.load() }
                     },
@@ -77,6 +79,10 @@ struct RootView: View {
         .tint(Brand.accent)
         .preferredColorScheme(theme == "light" ? .light : theme == "dark" ? .dark : nil)
         .task { await store.load() }
+        // A session the server no longer accepts goes back to signing in, never on to the demo's trips.
+        .onChange(of: store.sessionExpired) { _, expired in
+            if expired { withAnimation(.smooth(duration: 0.45)) { signedOut = true } }
+        }
         .task {
             if let host = UserDefaults.standard.string(forKey: "nettest") { await Api.netTest(host) }
             if UserDefaults.standard.bool(forKey: "keychaintest") { Keychain.selfTest() }

@@ -184,12 +184,12 @@ struct StatsGrid: View {
                     Text(item.1).font(.inter(13, 600)).foregroundStyle(Brand.inkSoft)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 110)
                 .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+                .frame(height: 118)
                 .overlay(alignment: .topTrailing) {
-                    Image(systemName: item.2).font(.system(size: 17, weight: .semibold)).foregroundStyle(Brand.inkSoft).frame(width: 24, height: 24).padding(14)
+                    Image(systemName: item.2).font(.system(size: 17, weight: .semibold)).foregroundStyle(Brand.inkSoft).frame(width: 24, height: 24).padding(16)
                 }
-                .padding(.vertical, 2)
                 .background(Brand.raised, in: .rect(cornerRadius: 22))
             }
         }

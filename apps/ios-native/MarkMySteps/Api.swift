@@ -695,7 +695,7 @@ enum Cache {
     private static var dir: URL { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0] }
     static func save(_ name: String, _ data: Data) { try? data.write(to: dir.appendingPathComponent("mms-\(name).json")) }
     static func load(_ name: String) -> Data? { try? Data(contentsOf: dir.appendingPathComponent("mms-\(name).json")) }
-    static func clear() { for n in ["me", "trips", "stats", "friends"] { try? FileManager.default.removeItem(at: dir.appendingPathComponent("mms-\(n).json")) } }
+    static func clear() { for n in ["me", "trips", "stats", "friends", "planned"] { try? FileManager.default.removeItem(at: dir.appendingPathComponent("mms-\(n).json")) } }
 }
 
 /// Where the pages get their trips: the invented ones, or after signing in the account's own.
@@ -711,6 +711,12 @@ final class Store {
     var friendsLoaded = false
     var live: Bool
     var error: String?
+    /// The server turned the session down (401 after a refresh): the app goes back to signing in, it never
+    /// quietly carries on with the demo's trips and figures.
+    var sessionExpired = false
+    /// Countries of your own trips still to come that you have not been to yet (ISO codes), from the stops of
+    /// those trips on the server; Reizigers shows them with an hourglass.
+    var plannedCountries: [String] = []
     /// Bumped on every reload, so pages that read more per trip read it again.
     var version = 0
 
@@ -723,6 +729,7 @@ final class Store {
             let cachedFriends = Cache.load("friends").map(Remote.parseFriends)
             friends = cachedFriends ?? []
             friendsLoaded = cachedFriends != nil
+            plannedCountries = Cache.load("planned").flatMap { try? JSONDecoder().decode([String].self, from: $0) } ?? []
             live = true
         } else {
             trips = Demo.past + [Demo.upcoming]
@@ -759,16 +766,37 @@ final class Store {
             if let s = try? await Remote.stats(me.id) { stats = s }
             if let f = try? await Remote.friends() { friends = f }
             friendsLoaded = true
+            await loadPlanned()
         } catch let failure as Api.Failure {
-            if failure.status == 401 { signOut() } else { error = failure.message }
+            if failure.status == 401 {
+                signOut()
+                sessionExpired = true
+            } else {
+                error = failure.message
+            }
         } catch {
             self.error = error.localizedDescription
         }
     }
 
+    /// The countries of the real upcoming trips' stops that the server's statistics do not count as visited yet.
+    private func loadPlanned() async {
+        let visited = Set((stats?.countries ?? []).map { $0.uppercased() })
+        var codes: [String] = []
+        for trip in coming {
+            guard let stops = try? await Remote.stops(trip).stops else { continue }
+            for code in stops.compactMap({ Remote.code(fromFlag: $0.flag) }) where !visited.contains(code) && !codes.contains(code) {
+                codes.append(code)
+            }
+        }
+        plannedCountries = codes
+        if let data = try? JSONEncoder().encode(codes) { Cache.save("planned", data) }
+    }
+
     func signOut() {
         Api.shared.signOut()
         Cache.clear()
+        plannedCountries = []
         trips = Demo.past + [Demo.upcoming]
         me = nil
         stats = nil

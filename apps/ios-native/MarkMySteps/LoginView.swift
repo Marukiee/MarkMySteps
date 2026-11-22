@@ -7,6 +7,8 @@ import SwiftUI
  * the invented trips instead.
  */
 struct LoginView: View {
+    /// Why signing in is asked again, e.g. an expired session.
+    var notice: String? = nil
     let onDone: () -> Void
     let onDemo: () -> Void
 
@@ -208,6 +210,7 @@ struct LoginView: View {
         .background(Brand.raised, in: .rect(cornerRadius: 26))
         .animation(.calm, value: mfaToken)
         .animation(.calm, value: error)
+        .onAppear { if error == nil, let notice { error = notice } }
     }
 
     private func field<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
