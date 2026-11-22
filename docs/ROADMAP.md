@@ -15,13 +15,18 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       hieronder, kolom iPhone: nee).
 - [ ] iPhone: alle animaties nalopen, gelijk aan Android en mooi (in het
       werk, twee delen: reispagina/kaart/viewer en de rest).
-- [ ] Navigatiebalk: twee soorten animatie (gewoon tikken is snel, een paar
-      keer heen en weer is anders). Opnemen en gelijk maken. iPhone: nee
+- [ ] Webversie van de app nalopen met dezelfde punten (wat daar ook
+      geldt), en goed controleren.
+- [ ] Stijlgids voor andere Android-apps in deze stijl (PixelPlayer en
+      MarkMySteps): docs/STIJLGIDS.md, bijhouden bij elke nieuwe opmerking.
 - [ ] Release (merge naar main) pas na Marks akkoord, met fotoboek en
       samenvatting erbij.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] Navigatiebalk: een vaste animatie (geen veer meer die snelheid meenam
+      naar de volgende tik), oranje vervaagt zonder bruin, geen grijze ripple.
+      iPhone: nee
 - [x] Reis openen: de cijfers (stops, foto's) die de pagina vorige keer telde
       staan meteen goed (de lijst telde dagtrips mee: 8 werd 5); verandert er
       later iets, dan rolt het getal na een moment naar de nieuwe waarde.

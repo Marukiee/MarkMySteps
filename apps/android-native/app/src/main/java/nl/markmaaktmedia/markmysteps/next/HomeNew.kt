@@ -560,7 +560,7 @@ private fun slab(i: Int, n: Int): Shape {
 }
 
 /** Tandem's bouncyClickable: the ripple at full size, the content dipping on a spring. */
-private fun Modifier.bouncyClickable(onClick: () -> Unit = {}, feel: Haptic? = Haptic.Tap): Modifier = composed {
+private fun Modifier.bouncyClickable(onClick: () -> Unit = {}, feel: Haptic? = Haptic.Tap, rippled: Boolean = true): Modifier = composed {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -570,7 +570,7 @@ private fun Modifier.bouncyClickable(onClick: () -> Unit = {}, feel: Haptic? = H
     )
     // A light tick under the finger on every tap, as Tandem and PixelPlayer do.
     val haptics = rememberHaptics()
-    clickable(source, ripple(), onClick = { feel?.let { haptics(it) }; onClick() }).graphicsLayer {
+    clickable(source, if (rippled) ripple() else null, onClick = { feel?.let { haptics(it) }; onClick() }).graphicsLayer {
         scaleX = scale
         scaleY = scale
     }
@@ -1092,22 +1092,27 @@ private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modi
             colors = FloatingToolbarDefaults.standardFloatingToolbarColors(toolbarContainerColor = cs.surfaceContainerHighest),
             expandedShadowElevation = 8.dp,
         ) {
+            // One fixed motion for the pill moving to another tab, so a single tap and quick taps back and forth
+            // look the same (springs carried their speed into the next tap and looked different every time).
+            val navEase = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
             items.forEachIndexed { i, (icon, label) ->
                 val on = i == active
-                val bg by animateColorAsState(if (on) cs.primary else Color.Transparent, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "navBg")
+                // The orange itself fades out: towards plain transparent (black) it passed through brown.
+                val bg by animateColorAsState(if (on) cs.primary else cs.primary.copy(alpha = 0f), androidx.compose.animation.core.tween(260, easing = navEase), label = "navBg")
                 Row(
-                    Modifier.height(48.dp).clip(CircleShape).background(bg).bouncyClickable({ if (!on) haptics(Haptic.Tick); onNav(i) }, feel = null)
+                    // No grey ripple: the pill moving over is the answer to the tap.
+                    Modifier.height(48.dp).clip(CircleShape).background(bg).bouncyClickable({ if (!on) haptics(Haptic.Tick); onNav(i) }, feel = null, rippled = false)
                         .a11y(label, androidx.compose.ui.semantics.Role.Tab, selected = on).padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // The icon's colour moves with the pill, so it never turns white on beige before the pill is there.
-                    val fg by animateColorAsState(if (on) cs.onPrimary else cs.onSurfaceVariant, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "navFg")
+                    val fg by animateColorAsState(if (on) cs.onPrimary else cs.onSurfaceVariant, androidx.compose.animation.core.tween(260, easing = navEase), label = "navFg")
                     LineIcon(icon, fg, size = 22.dp, stroke = if (on) 2.1f else 1.9f)
                     AnimatedVisibility(
                         visible = on,
                         // The pill grows out of its middle, both sides at once, while icon and label stay together.
-                        enter = expandHorizontally(MaterialTheme.motionScheme.fastSpatialSpec(), expandFrom = Alignment.CenterHorizontally) + fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
-                        exit = shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec(), shrinkTowards = Alignment.CenterHorizontally) + fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
+                        enter = expandHorizontally(androidx.compose.animation.core.tween(260, easing = navEase), expandFrom = Alignment.CenterHorizontally) + fadeIn(androidx.compose.animation.core.tween(200, delayMillis = 60)),
+                        exit = shrinkHorizontally(androidx.compose.animation.core.tween(260, easing = navEase), shrinkTowards = Alignment.CenterHorizontally) + fadeOut(androidx.compose.animation.core.tween(120)),
                     ) {
                         Text(
                             label,
