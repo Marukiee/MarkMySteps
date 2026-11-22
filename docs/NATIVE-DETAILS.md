@@ -36,6 +36,11 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Eén ⋯-menu voor de hele app: het segmented menu van Material 3 Expressive (afgeronde groepen, geen schaduw, gekozen optie met vinkje in de warme accentkleur). Ook bij Mensen. (klaar Android)
 - Keuzes van één soort staan naast elkaar als verbonden knoppen, de gekozen wordt een pil; zelfde achtergrondkleur als de andere menuregels. (klaar Android)
 - Haptische feedback op knoppen, tabs en schakelaars, zoals Tandem en PixelPlayer. (klaar Android)
+- Eén eigen sheet voor de hele app: verschijnt kort en zonder doorschieten, hard weggooien gaat met jouw snelheid weg, langzaam loslaten glijdt rustig weg, wegtikken en terugvegen even rustig. (klaar Android)
+- Het ⋯-menu opent op de knop zelf (bovenkant gelijk, rechts uitgelijnd), zo breed als nodig (niet schermbreed), gelijke ruimte boven en onder de keuzerij en tussen de regels. (klaar Android)
+- Alle dialogen: bevestigen als gevulde pil (rood bij verwijderen), annuleren als tonale pil. (klaar Android)
+- Pillen en ⋯-knop op reiskaarten met foto: wit en half doorzichtig met een lichte blur. (klaar Android)
+- Eenmalige pop-up "MarkMySteps heeft een nieuwe look", alleen voor wie de app al had. Goedgekeurd. (klaar Android)
 - Eén sheet-gedrag voor de hele app: het terugveeggebaar schuift de sheet met je vinger mee naar beneden tot hij bijna weg is, niet alleen kleiner. (klaar Android, deels: alle sheets na samenvoegen)
 - Foto's en omslagen worden vooruit geladen, zodat je bij scrollen nooit lege vakjes ziet die pas invullen als je er al voorbij bent. (klaar Android voor de homepage, bezig voor plaatsen en tijdlijn)
 - Een test schrijft nooit naar de echte server: de app heeft een testmodus (dryRun) die elke wijziging tegenhoudt. (klaar)
@@ -111,6 +116,9 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Nachten tellen goed: een reis van 19 dagen heeft 18 nachten. (klaar Android)
 - Het ringetje voor "x/y nachten gepland" heeft een duidelijke opening, zodat het niet als een fout lijkt. (klaar Android)
 - Datums over een maandgrens kloppen ("30 aug t/m 2 sep"). (klaar Android)
+- Terugvegen vanaf de routeplanner gaat meteen naar de homepage, niet eerst naar de tijdlijn. (klaar Android)
+- Vliegveld kiezen: typen is zoeken, een vliegveld telt pas als je op de suggestie tikt ("Eindhoven (EIN)"), daarna als chip in het veld; suggesties zonder bounce. (klaar Android)
+- De golvende nachtenring bij "x/x nachten gepland" blijft. Stopfoto in het midden van de kaart, nummer op de hoek. (klaar Android)
 - Indeling zoals de oude: foto per stop met nummer, nachtenstepper, "+ Dagtrip", Heen/Terug met vliegvelden en duur, vervoer kiezen uit een uitklapmenu en vluchtgegevens invullen. (bezig)
 - De vervoerpil groeit mee zonder dat het woord even afgekapt wordt. (bezig)
 - Wegvegen met precies de physics en haptics van PixelPlayer. (bezig)
@@ -132,6 +140,10 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Volledige pagina zoals de web, geen klein paneel. Kleur kiezen animeert. Rood loopt van zwak (wissen) naar sterkst (reis verwijderen). "Terug naar automatisch" bij het bolletje komt met een animatie. (bezig)
 
 ## Reizigers
+
+- Statistiektegels staan altijd in hun echte vorm (icoon, kleur, label); alleen het getal wacht als plaatshouder, en de cijfers worden onthouden. (klaar Android)
+- Wereldbol en landen in één paneel, "13 bezocht" duidelijk, geplande landen met zandloper. (deels: zandloper Android open)
+- Wereldbol op de homepage zonder gedeelde reizen (waar je gast bent); het vliegtuigje vliegt over zijn eigen lijn en de rondleiding begint met de heenreis. (klaar Android)
 
 - Echte statistieken, landen en reisgenoten van de server met profielfoto's. (klaar Android)
 - Labels: reizen, landen, kilometer, dagen op reis, foto's, vluchten. (klaar Android)
