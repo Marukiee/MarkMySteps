@@ -116,7 +116,7 @@ fun DayPill(state: TripMapState, onOpen: () -> Unit, modifier: Modifier = Modifi
  * right. The chosen row turns warm, its tile fills with the accent and a tick takes the place of the count.
  */
 @Composable
-fun DaySheet(state: TripMapState, onPick: (LocalDate?) -> Unit, onDismiss: () -> Unit, placeOf: (LocalDate) -> String? = { null }) {
+fun DaySheet(state: TripMapState, onPick: (LocalDate?) -> Unit, onDismiss: () -> Unit, placeOf: (LocalDate) -> String? = { null }, tripStart: LocalDate? = null) {
     val cs = MaterialTheme.colorScheme
     val haptics = rememberHaptics()
     val motion = MaterialTheme.motionScheme
@@ -155,10 +155,13 @@ fun DaySheet(state: TripMapState, onPick: (LocalDate?) -> Unit, onDismiss: () ->
                     tile = { fg -> LineIcon(CalendarGlyph, fg, size = 22.dp, stroke = 2f) }) { onPick(null); dismiss() }
             }
             item { Box(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 8.dp).height(1.dp).background(cs.outlineVariant)) }
+            val first = tripStart ?: state.days.minOfOrNull { it.day }
             items(state.days, key = { it.day.toString() }) { d ->
-                val date = "${d.day.dayOfMonth} ${DateText.month(d.day.monthValue)}"
+                // The tile already says the date; the line under the place says which day of the trip it was.
                 val place = placeOf(d.day)
-                DayRow(state.day == d.day, place ?: shortDay(d.day), if (place != null) "${DateText.weekday(d.day.dayOfWeek)} $date" else "", d.photos,
+                val nth = first?.let { java.time.temporal.ChronoUnit.DAYS.between(it, d.day).toInt() + 1 }
+                val dayN = nth?.let { stringResource(R.string.map_day_n, it) } ?: ""
+                DayRow(state.day == d.day, place ?: dayN, if (place != null) dayN else DateText.month(d.day.monthValue), d.photos,
                     tile = { fg ->
                         androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("${d.day.dayOfMonth}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 18.sp, lineHeight = 19.sp, color = fg))

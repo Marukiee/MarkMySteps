@@ -802,15 +802,15 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
     val scope = rememberCoroutineScope()
     val style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onSecondaryContainer)
     val measurer = rememberTextMeasurer()
-    fun textW(m: Mode) = with(density) { measurer.measure(m.label, style).size.width.toDp() }
-    val pillW = textW(mode) + 11.dp + 18.dp + 6.dp + 5.dp + 14.dp + 9.dp
-    val fullW = maxOf(pillW, Mode.entries.maxOf { textW(it) } + 11.dp + 18.dp + 6.dp + 16.dp + 18.dp + 12.dp)
+    fun widthOf(m: Mode) = with(density) { measurer.measure(m.label, style).size.width.toDp() } + 11.dp + 18.dp + 6.dp + 5.dp + 14.dp + 9.dp
+    // The pill itself folding out: its own colour, its own 18 dp corners, as wide as it is (or as the longest
+    // choice needs), only getting longer. The choices sit in it, no boxes of their own.
+    val pillW = widthOf(mode)
+    val fullW = maxOf(pillW, Mode.entries.maxOf { widthOf(it) })
     val pillH = 36.dp
-    val rowH = 42.dp
-    val gap = 2.dp
-    val inset = 4.dp
+    val rowH = 40.dp
     val others = Mode.entries.filter { it != mode }
-    val fullH = pillH + (rowH + gap) * others.size + inset
+    val fullH = pillH + rowH * others.size + 4.dp
     val open = remember { Animatable(0f) }
     var closing by remember { mutableStateOf(false) }
     var up by remember { mutableStateOf(false) }
@@ -826,8 +826,9 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
     val position = remember(fullPx) {
         object : androidx.compose.ui.window.PopupPositionProvider {
             override fun calculatePosition(anchorBounds: androidx.compose.ui.unit.IntRect, windowSize: androidx.compose.ui.unit.IntSize, layoutDirection: androidx.compose.ui.unit.LayoutDirection, popupContentSize: androidx.compose.ui.unit.IntSize): IntOffset {
-                // Grows to the right from the pill's left edge; a pill near the right edge grows to the left.
+                // On the pill exactly: same left edge (a pill near the right edge keeps its right edge instead).
                 val x = if (anchorBounds.left + popupContentSize.width <= windowSize.width - margin) anchorBounds.left else anchorBounds.right - popupContentSize.width
+                // Downwards whenever it fits; upwards only near the bottom of the screen.
                 val below = anchorBounds.top + fullPx <= windowSize.height - margin
                 if (up == below) up = !below
                 val y = if (below) anchorBounds.top else anchorBounds.bottom - popupContentSize.height
@@ -839,20 +840,17 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
         val k = open.value
         val w = pillW + (fullW - pillW) * k
         val h = pillH + (fullH - pillH) * k
-        // A fine edge around it, as the menu has, and the choices as their own rounded rows in a lighter tone,
-        // so the open pill reads as a panel with things to tap instead of one flat block.
-        val shape = RoundedCornerShape(18.dp + 4.dp * k)
+        val shape = RoundedCornerShape(18.dp)
         Column(
             Modifier.size(w, h).clip(shape).background(cs.secondaryContainer)
-                .border(1.dp, cs.outlineVariant.copy(alpha = 0.9f * k), shape),
+                // A fine edge in the pill's own colour, so the opened pill stands off the card under it.
+                .border(1.dp, cs.secondary.copy(alpha = 0.4f * k), shape),
             verticalArrangement = if (up) Arrangement.Bottom else Arrangement.Top,
         ) {
             @Composable fun Choice(m: Mode) {
                 Row(
-                    Modifier.padding(horizontal = inset).padding(top = if (up) 0.dp else gap, bottom = if (up) gap else 0.dp)
-                        .fillMaxWidth().height(rowH).graphicsLayer { alpha = ((k - 0.25f) / 0.75f).coerceIn(0f, 1f) }
-                        .clip(RoundedCornerShape(14.dp)).background(cs.surfaceContainerLow)
-                        .clickable { haptics(Haptic.Tick); close { onPick(m) } }.padding(start = 11.dp - inset), // icons in line with the chosen one above
+                    Modifier.fillMaxWidth().height(rowH).graphicsLayer { alpha = ((k - 0.25f) / 0.75f).coerceIn(0f, 1f) }
+                        .clickable { haptics(Haptic.Tick); close { onPick(m) } }.padding(start = 11.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LineIcon(m.icon(), cs.onSecondaryContainer, size = 18.dp, stroke = 1.9f)
@@ -860,7 +858,7 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
                 }
             }
             val header = @Composable {
-                // The chosen mode stays where the pill was, its chevron turning to say it folds back.
+                // The chosen mode stays exactly where the pill was, its chevron turning to say it folds back.
                 Box(Modifier.fillMaxWidth().height(pillH).clickable { close() }, contentAlignment = Alignment.CenterStart) {
                     Row(Modifier.padding(start = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                         LineIcon(mode.icon(), cs.onSecondaryContainer, size = 18.dp, stroke = 1.9f)
@@ -870,8 +868,10 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
                         modifier = Modifier.align(Alignment.CenterEnd).padding(end = 9.dp).graphicsLayer { rotationZ = (if (up) -180f else 180f) * k })
                 }
             }
-            if (up) { Spacer(Modifier.height(inset)); others.reversed().forEach { Choice(it) }; header() }
-            else { header(); others.forEach { Choice(it) }; Spacer(Modifier.height(inset)) }
+            // A hairline between the chosen mode and the others, fading in as it opens.
+            val line = @Composable { Box(Modifier.padding(horizontal = 11.dp).fillMaxWidth().height(1.dp).background(cs.onSecondaryContainer.copy(alpha = 0.12f * k))) }
+            if (up) { others.reversed().forEach { Choice(it) }; line(); header() }
+            else { header(); line(); others.forEach { Choice(it) } }
         }
     }
 }

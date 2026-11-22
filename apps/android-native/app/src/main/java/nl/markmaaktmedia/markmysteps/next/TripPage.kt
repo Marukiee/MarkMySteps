@@ -490,7 +490,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
             )
         })
         if (daySheet) DaySheet(mapState, onPick = { d -> dayPicked = true; mapState.day = d }, onDismiss = { daySheet = false },
-            placeOf = { d -> trip.stops.lastOrNull { s -> s.start != null && !s.start.isAfter(d) }?.name })
+            placeOf = { d -> trip.stops.lastOrNull { s -> s.start != null && !s.start.isAfter(d) }?.name }, tripStart = trip.start)
         lineAt?.let { at ->
             LineMenuSheet(
                 trip, mapState, at, onDismiss = { lineAt = null }, onTrain = { prefill -> trainFor = at to prefill },
