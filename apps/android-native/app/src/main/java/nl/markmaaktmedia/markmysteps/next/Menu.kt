@@ -39,10 +39,11 @@ class MenuEntry(
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntry>>) {
+fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntry>>, anchorHeight: androidx.compose.ui.unit.Dp = 40.dp) {
     val cs = MaterialTheme.colorScheme
     val shown = groups.filter { it.isNotEmpty() }
-    DropdownMenuPopup(expanded = expanded, onDismissRequest = onDismiss) {
+    // It opens over the button it came from, not hanging just below it.
+    DropdownMenuPopup(expanded = expanded, onDismissRequest = onDismiss, offset = androidx.compose.ui.unit.DpOffset(0.dp, -anchorHeight)) {
         val text = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp)
         val edge = BorderStroke(1.dp, cs.outlineVariant.copy(alpha = 0.55f))
         shown.forEachIndexed { g, entries ->

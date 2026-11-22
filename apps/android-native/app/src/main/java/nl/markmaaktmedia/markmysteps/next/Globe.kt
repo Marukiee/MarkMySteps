@@ -658,20 +658,38 @@ private fun NameCard(trip: Trip, motion: GlobeMotion, tick: MutableLongState, bo
     val cs = MaterialTheme.colorScheme
     val density = LocalDensity.current.density
     val origin = remember { FloatArray(2) }
+    // Which side of the dot the card goes: away from the rest of the trip, so a small trip stays visible
+    // (its route runs east of the start: the card goes left). Chosen once when the card appears and then kept,
+    // so it never jumps to the other side halfway; a long trip may still be partly covered, which is fine.
+    val awayLeft = remember(trip.id) {
+        val pts = trip.route.ifEmpty { trip.stops.map { it.at } }
+        val start = trip.stops.firstOrNull()?.at ?: pts.firstOrNull()
+        start != null && pts.isNotEmpty() && pts.map { it.first }.average() > start.first
+    }
+    val side = remember(trip.id) { intArrayOf(0) } // 0 = not chosen yet, 1 = right, -1 = left
     Column(
         Modifier
             .layout { measurable, constraints ->
                 val p = measurable.measure(Constraints(maxWidth = (constraints.maxWidth * 0.7f).toInt()))
                 layout(p.width, p.height) {
                     tick.longValue
-                    // Right of the dot, flipped left when it would run off, kept inside.
+                    // On the chosen side of the dot, kept inside the screen.
                     val margin = 6f * density
                     val w = box[0]
                     val h = box[1]
                     val cardX = motion.cardX
                     val cardY = motion.cardY
-                    var x = cardX + 9f * density
-                    if (x + p.width > w - margin) x = cardX - 9f * density - p.width
+                    if (side[0] == 0) {
+                        val fitsLeft = cardX - 9f * density - p.width >= margin
+                        val fitsRight = cardX + 9f * density + p.width <= w - margin
+                        side[0] = when {
+                            awayLeft && fitsLeft -> -1
+                            !awayLeft && fitsRight -> 1
+                            fitsRight -> 1
+                            else -> -1
+                        }
+                    }
+                    var x = if (side[0] > 0) cardX + 9f * density else cardX - 9f * density - p.width
                     x = x.coerceIn(margin, max(margin, w - p.width - margin))
                     val y = (cardY - p.height / 2f).coerceIn(margin, max(margin, h - p.height - margin))
                     origin[0] = (cardX - x) / p.width
