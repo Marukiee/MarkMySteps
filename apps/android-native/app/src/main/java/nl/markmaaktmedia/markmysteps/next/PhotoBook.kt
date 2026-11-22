@@ -15,6 +15,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,7 +66,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -162,20 +163,17 @@ data class BookContext(
     val picked: Picked,
     val dark: Boolean,
     val accent: Color,
+    val tiles: TileBounds,
+    /** The photo open in the viewer: its place in the book stays empty meanwhile. */
+    val hidden: String?,
     val onPhoto: (Rated) -> Unit,
 )
 
-@OptIn(ExperimentalSharedTransitionApi::class)
-private val LocalShared = compositionLocalOf<Pair<SharedTransitionScope, AnimatedVisibilityScope>?> { null }
-
-/** The same photo in the book and full screen, so it flies between them. */
-@OptIn(ExperimentalSharedTransitionApi::class)
-fun Modifier.sharedPhoto(id: String): Modifier = composed {
-    val pair = LocalShared.current ?: return@composed this
-    with(pair.first) {
-        this@composed.sharedElement(rememberSharedContentState("photo-$id"), pair.second)
-    }
-}
+/** A photo on a page: tappable, known to the viewer by where it sits, and empty while open. */
+private fun Modifier.bookTile(r: Rated, ctx: BookContext): Modifier =
+    onGloballyPositioned { ctx.tiles.tiles[r.photo.id] = it }
+        .graphicsLayer { alpha = if (ctx.hidden == r.photo.id) 0f else 1f }
+        .clickable { ctx.onPhoto(r) }
 
 /**
  * The state a book or summary screen loads: the trip's photos read and
@@ -208,49 +206,53 @@ fun rememberPicked(trip: Trip): Pair<Picked?, Reading> {
 
 private val cachedPicks = HashMap<String, Picked>()
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PhotoBook(trip: Trip, dark: Boolean, onBack: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val (picked, reading) = rememberPicked(trip)
     val sheets = remember(picked) { picked?.let { buildBook(it) } ?: emptyList() }
     val pager = rememberPagerState { sheets.size }
-    var open by remember { mutableStateOf<Rated?>(null) }
-    val all = remember(picked) { picked?.days?.flatMap { d -> d.photos } ?: emptyList() }
+    // The book's photos in page order, for the trip page's own viewer (it grows from the tile and flies back).
+    val all = remember(sheets) {
+        sheets.flatMap { s ->
+            when (s) {
+                Sheet.Cover -> listOfNotNull(picked?.cover)
+                is Sheet.Opener -> listOf(s.photo)
+                is Sheet.Photos -> s.photos
+                else -> emptyList()
+            }
+        }.distinctBy { it.photo.id }
+    }
+    val media = remember(all) { all.map { Media(it.photo.id, localDay(it.photo.takenAt, it.photo.at, trip.stops), false, it.aspect) } }
+    val tiles = remember(trip.id) { TileBounds() }
+    var viewing by remember { mutableStateOf<Int?>(null) }
+    var shown by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val accent = legibleColor(trip.color, dark)
 
-    BackHandler { if (open != null) open = null else onBack() }
+    BackHandler(enabled = viewing == null) { onBack() }
 
-    Box(Modifier.fillMaxSize().background(if (dark) Color.Black else cs.surfaceContainer)) {
+    Box(Modifier.fillMaxSize().background(cs.background)) {
         if (picked == null) {
             Reading(reading, "Foto's bekijken", Modifier.align(Alignment.Center))
-        } else SharedTransitionLayout {
-            val motion = MaterialTheme.motionScheme
-            AnimatedContent(
-                open,
-                transitionSpec = { fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()) },
-                label = "viewer",
-            ) { photo ->
-                CompositionLocalProvider(LocalShared provides (this@SharedTransitionLayout to this@AnimatedContent)) {
-                    if (photo == null) {
-                        BookPages(
-                            sheets, pager,
-                            BookContext(trip, picked, dark, accent, onPhoto = { open = it }),
-                            onBack = onBack,
-                        )
-                    } else {
-                        Viewer(all, photo, trip, onClose = { last ->
-                            // Leaf to the page the photo is on, so it can fly back into place.
-                            val page = sheets.indexOfFirst { s ->
-                                (s is Sheet.Photos && last in s.photos) || (s is Sheet.Opener && s.photo == last)
-                            }
-                            if (page >= 0) scope.launch { pager.scrollToPage(page) }
-                            open = null
-                        })
-                    }
-                }
-            }
+        } else {
+            BookPages(
+                sheets, pager,
+                BookContext(trip, picked, dark, accent, tiles, hidden = shown, onPhoto = { r -> viewing = all.indexOf(r).takeIf { it >= 0 } }),
+                onBack = onBack,
+            )
+        }
+        viewing?.let { start ->
+            PhotoViewer(
+                trip, media, start, bounds = tiles,
+                onCurrent = { id ->
+                    shown = id
+                    // Leaf the book along, so the photo can fly back into its own place.
+                    val page = sheets.indexOfFirst { s -> (s is Sheet.Photos && s.photos.any { it.photo.id == id }) || (s is Sheet.Opener && s.photo.photo.id == id) || (s == Sheet.Cover && picked?.cover?.photo?.id == id) }
+                    if (page >= 0 && page != pager.currentPage) scope.launch { pager.scrollToPage(page) }
+                },
+                onClose = { viewing = null; shown = null },
+            )
         }
     }
 }
@@ -313,9 +315,10 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
                                 scaleX = s; scaleY = s
                                 alpha = 1f - 0.35f * off
                             }
-                            .shadow(if (ctx.dark) 0.dp else 10.dp, RoundedCornerShape(3.dp), ambientColor = Color(0x33000000), spotColor = Color(0x33000000))
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(if (ctx.dark) Color(0xFF15181C) else Color.White),
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(if (ctx.dark) MaterialTheme.colorScheme.surfaceContainerLow else Color.White)
+                            // A card as on the web: raised paper with a thin line, no shadow.
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp)),
                     ) { SheetView(sheets[i], i, ctx) }
                 }
             }
@@ -397,7 +400,7 @@ private val scrim = Brush.verticalGradient(0.45f to Color.Transparent, 1f to Col
 private fun CoverSheet(ctx: BookContext, u: Dp) {
     val cover = ctx.picked.cover
     Box(Modifier.fillMaxSize()) {
-        if (cover != null) PhotoView(cover.photo, Modifier.fillMaxSize().sharedPhoto(cover.photo.id).clickable { ctx.onPhoto(cover) }, placeholder = Color(cover.look.average))
+        if (cover != null) PhotoView(cover.photo, Modifier.fillMaxSize().bookTile(cover, ctx), placeholder = Color(cover.look.average))
         Box(Modifier.fillMaxSize().background(scrim))
         Text(
             "MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.036f).sp(), color = Color.White, letterSpacing = 0.01.em),
@@ -478,7 +481,7 @@ private fun RouteSheet(ctx: BookContext, u: Dp) {
             }
         }
         Spacer(Modifier.height(u * 0.045f))
-        FactSlab(tripFacts(ctx.trip, ctx.picked), u, cs.surfaceContainerHigh)
+        FactSlab(tripFacts(ctx.trip, ctx.picked), u, if (ctx.dark) cs.surfaceContainerHigh else cs.surfaceContainerHigh)
     }
 }
 
@@ -519,7 +522,7 @@ private fun stopIndex(ctx: BookContext, day: BookDay): Int = ctx.trip.stops.inde
 private fun OpenerSheet(sheet: Sheet.Opener, ctx: BookContext, u: Dp) {
     val day = sheet.day
     Box(Modifier.fillMaxSize()) {
-        PhotoView(sheet.photo.photo, Modifier.fillMaxSize().sharedPhoto(sheet.photo.photo.id).clickable { ctx.onPhoto(sheet.photo) }, placeholder = Color(sheet.photo.look.average))
+        PhotoView(sheet.photo.photo, Modifier.fillMaxSize().bookTile(sheet.photo, ctx), placeholder = Color(sheet.photo.look.average))
         Box(Modifier.fillMaxSize().background(scrim))
         Column(Modifier.align(Alignment.BottomStart).padding(start = u * SIDE, end = u * SIDE, bottom = u * 0.08f)) {
             StopBadge(stopIndex(ctx, day), ctx.accent, u * 0.12f, "${day.number}")
@@ -566,9 +569,8 @@ private fun PhotosSheet(sheet: Sheet.Photos, index: Int, ctx: BookContext, u: Dp
                 Modifier
                     .offset(x = u * (SIDE + slot.x * INNER_W), y = u * (boxTop + slot.y * boxH))
                     .size(width = u * (slot.w * INNER_W), height = u * (slot.h * boxH))
-                    .sharedPhoto(r.photo.id)
                     .clip(RoundedCornerShape(u * 0.008f))
-                    .clickable { ctx.onPhoto(r) },
+                    .bookTile(r, ctx),
                 placeholder = Color(r.look.average),
             )
         }
@@ -605,53 +607,5 @@ private fun EndSheet(ctx: BookContext, u: Dp) {
         )
         Spacer(Modifier.weight(1f))
         Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.032f).sp(), color = ctx.accent))
-    }
-}
-
-/**
- * One photo full screen, leafing through all of the book's photos. Opens the
- * original, which on an Ultra HDR photo carries the gain map: the window then
- * switches to HDR, held to a modest headroom so the highlights glow without
- * blinding, and goes back to normal on the way out.
- */
-@OptIn(ExperimentalSharedTransitionApi::class)
-@Composable
-private fun Viewer(all: List<Rated>, start: Rated, trip: Trip, onClose: (Rated) -> Unit) {
-    val first = all.indexOf(start).coerceAtLeast(0)
-    val pager = rememberPagerState(first) { all.size }
-    val activity = LocalContext.current as? Activity
-    DisposableEffect(activity) {
-        val window = activity?.window
-        if (window != null && Build.VERSION.SDK_INT >= 34) {
-            window.colorMode = ActivityInfo.COLOR_MODE_HDR
-            if (Build.VERSION.SDK_INT >= 35) window.desiredHdrHeadroom = 3f
-        }
-        onDispose { if (window != null && Build.VERSION.SDK_INT >= 34) window.colorMode = ActivityInfo.COLOR_MODE_DEFAULT }
-    }
-    BackHandler { onClose(all[pager.currentPage]) }
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
-        HorizontalPager(pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1) { i ->
-            val r = all[i]
-            Box(Modifier.fillMaxSize().clickable { onClose(r) }, contentAlignment = Alignment.Center) {
-                val m = Modifier.fillMaxWidth().aspectRatio(r.aspect, matchHeightConstraintsFirst = r.aspect < 0.6f)
-                PhotoView(r.photo, if (i == pager.currentPage) m.sharedPhoto(r.photo.id) else m, size = PhotoSize.Original, placeholder = Color(r.look.average))
-            }
-        }
-        val r = all[pager.currentPage]
-        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0x99000000)))).padding(horizontal = 20.dp)) {
-            val stop = r.stop?.let { trip.stops.getOrNull(it) }
-            Text(
-                listOfNotNull(stop?.let { "${it.flag} ${it.name}" }).joinToString() .ifEmpty { trip.title },
-                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 18.sp, color = Color.White),
-                modifier = Modifier.padding(top = 32.dp),
-            )
-            val local = r.photo.takenAt.atZone(zoneAt(r.photo.at, trip.stops))
-            Text(
-                "${local.format(longDate)} · ${local.format(clock)}",
-                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f)),
-                modifier = Modifier.padding(top = 2.dp, bottom = 16.dp),
-            )
-            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-        }
     }
 }

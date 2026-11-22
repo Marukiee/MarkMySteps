@@ -84,14 +84,29 @@ private fun isScreenshot(p: TripPhoto, aspect: Float): Boolean =
  * photo in Marrakesh then stays on its own day instead of moving to the next
  * one on Dutch time.
  */
-fun zoneAt(where: LonLat?, stops: List<Stop>): ZoneId {
-    val near = where?.let { w -> stops.minByOrNull { angle(it.at, w) }?.takeIf { angle(it.at, w) < 8.0 } } ?: stops.firstOrNull().takeIf { where == null }
+fun zoneAt(where: LonLat?, stops: List<Stop>, at: Instant? = null): ZoneId {
+    // With a place, the nearest stop; without one, the stop whose nights hold the photo's date.
+    val near = if (where != null) stops.minByOrNull { angle(it.at, where) }?.takeIf { angle(it.at, where) < 8.0 }
+    else at?.let { t ->
+        val day = t.atOffset(java.time.ZoneOffset.UTC).toLocalDate()
+        stops.firstOrNull { s -> s.start != null && !day.isBefore(s.start) && day.isBefore(s.start.plusDays(s.nights.coerceAtLeast(1).toLong())) }
+    }
     val code = near?.flag?.let(::countryOf)
     if (code != null) {
-        val ids = android.icu.util.TimeZone.getAvailableIDs(code)
-        val lon = where?.first ?: near.at.first
-        val pick = ids.minByOrNull { id -> abs(android.icu.util.TimeZone.getTimeZone(id).rawOffset / 3_600_000.0 - lon / 15.0) }
-        if (pick != null) return runCatching { ZoneId.of(pick) }.getOrNull() ?: ZoneId.systemDefault()
+        val zones = android.icu.util.TimeZone.getAvailableIDs(code).map { it to android.icu.util.TimeZone.getTimeZone(it).rawOffset }
+        if (zones.isNotEmpty()) {
+            val offsets = zones.map { it.second }
+            // Spain has the Canaries and Portugal the Azores: there the country's usual zone counts,
+            // only a country spanning several hours (the US, Russia, Brazil) goes by the longitude.
+            val pick = if (offsets.max() - offsets.min() <= 2 * 3_600_000) {
+                val usual = offsets.groupingBy { it }.eachCount().maxBy { it.value }.key
+                zones.first { it.second == usual }.first
+            } else {
+                val lon = where?.first ?: near.at.first
+                zones.minBy { abs(it.second / 3_600_000.0 - lon / 15.0) }.first
+            }
+            runCatching { ZoneId.of(pick) }.getOrNull()?.let { return it }
+        }
     }
     if (where == null || abs(where.first - HomeAirport.first) < 22) return ZoneId.systemDefault()
     return java.time.ZoneOffset.ofHours((where.first / 15.0).roundToInt().coerceIn(-12, 14))
@@ -104,7 +119,7 @@ private fun countryOf(flag: String): String? {
     return cps.joinToString("") { (it - 0x1F1E6 + 'A'.code).toChar().toString() }
 }
 
-fun localDay(at: Instant, where: LonLat?, stops: List<Stop> = emptyList()): LocalDate = at.atZone(zoneAt(where, stops)).toLocalDate()
+fun localDay(at: Instant, where: LonLat?, stops: List<Stop> = emptyList()): LocalDate = at.atZone(zoneAt(where, stops, at)).toLocalDate()
 
 /** Nearest stop within about 60 km, for "which place is this". */
 fun nearestStop(at: LonLat?, stops: List<Stop>): Int? {

@@ -139,7 +139,6 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(cs.outlineVariant))
                 CoverCard(trip, photos = media?.size, modifier = Modifier.padding(top = 14.dp), onPeople = if (trip.remoteId != null) ({ people = true }) else null)
                 Facts(trip, Modifier.padding(top = 4.dp), photos = media?.size)
-                if (!trip.upcoming && media?.isEmpty() != true) MakeTiles(onOpen = { extra = it }, Modifier.padding(top = 10.dp))
 
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
                     listOf("Tijdlijn", "Routeplanner").forEachIndexed { i, label ->
@@ -185,6 +184,18 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                             text = { Text("Mensen en delen", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
                             onClick = { menu = false; people = true }, enabled = trip.remoteId != null,
                             leadingIcon = { LineIcon(Glyphs.friends, cs.onSurface, size = 20.dp) },
+                        )
+                        // The photo book and the summary, once a trip has photos to make them from.
+                        val canMake = !trip.upcoming && media?.isNotEmpty() == true
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Fotoboek", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
+                            onClick = { menu = false; extra = "book" }, enabled = canMake,
+                            leadingIcon = { LineIcon(Glyphs.photo, cs.onSurface, size = 20.dp) },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Samenvatting", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
+                            onClick = { menu = false; extra = "summary" }, enabled = canMake,
+                            leadingIcon = { LineIcon(Glyphs.sun, cs.onSurface, size = 20.dp) },
                         )
                     }
                 }

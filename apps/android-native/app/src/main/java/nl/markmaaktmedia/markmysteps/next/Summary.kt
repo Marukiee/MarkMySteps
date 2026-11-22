@@ -21,6 +21,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -108,37 +109,6 @@ enum class Template(val label: String) { Route("Route"), Photos("Foto's"), Ribbo
 
 enum class Format(val label: String, val aspect: Float) { Story("Verhaal", 9f / 16f), Post("Post", 4f / 5f), Square("Vierkant", 1f) }
 
-/** On the trip page: the way into the book and the summary, as two tonal tiles. */
-@Composable
-fun MakeTiles(onOpen: (String) -> Unit, modifier: Modifier = Modifier) {
-    val cs = MaterialTheme.colorScheme
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        listOf(
-            Triple("book", "Fotoboek", Glyphs.photo) to MaterialShapes.Cookie9Sided,
-            Triple("summary", "Samenvatting", Glyphs.sun) to MaterialShapes.Clover4Leaf,
-        ).forEachIndexed { i, (item, shape) ->
-            val (key, label, glyph) = item
-            val corners = RoundedCornerShape(
-                topStart = if (i == 0) 24.dp else 6.dp, bottomStart = if (i == 0) 24.dp else 6.dp,
-                topEnd = if (i == 1) 24.dp else 6.dp, bottomEnd = if (i == 1) 24.dp else 6.dp,
-            )
-            val source = remember { MutableInteractionSource() }
-            val pressed by source.collectIsPressedAsState()
-            val scale by animateFloatAsState(if (pressed) 0.96f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "tile")
-            Row(
-                Modifier.weight(1f).graphicsLayer { scaleX = scale; scaleY = scale }.clip(corners).background(cs.surfaceContainerHigh)
-                    .clickable(source, ripple()) { onOpen(key) }.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.size(40.dp).clip(shape.toShape()).background(if (i == 0) cs.primaryContainer else cs.tertiaryContainer), contentAlignment = Alignment.Center) {
-                    LineIcon(glyph, if (i == 0) cs.onPrimaryContainer else cs.onTertiaryContainer, size = 20.dp)
-                }
-                Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 16.sp, color = cs.onSurface), modifier = Modifier.padding(start = 12.dp))
-            }
-        }
-    }
-}
-
 /** The book or the summary, sliding in over the trip page. */
 @Composable
 fun TripExtras(trip: Trip, dark: Boolean, open: String?, onClose: () -> Unit) {
@@ -196,7 +166,7 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
     var saved by remember { mutableStateOf<Uri?>(null) }
     BackHandler(onBack = onBack)
 
-    Box(Modifier.fillMaxSize().background(if (dark) Color.Black else cs.surfaceContainer)) {
+    Box(Modifier.fillMaxSize().background(cs.background)) {
         Column(Modifier.fillMaxSize()) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -235,8 +205,8 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                             CompositionLocalProvider(LocalPosterShared provides (this@SharedTransitionLayout to this@AnimatedContent)) {
                                 Box(
                                     Modifier.width(pw).aspectRatio(f.aspect)
-                                        .shadow(if (dark) 0.dp else 14.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x40000000), spotColor = Color(0x40000000))
                                         .clip(RoundedCornerShape(18.dp))
+                                        .border(1.dp, cs.outlineVariant, RoundedCornerShape(18.dp))
                                         .then(
                                             if (t == template && f == format) Modifier.drawWithContent {
                                                 // Recorded at 1080 wide for saving, shown at screen size.
@@ -338,7 +308,7 @@ private suspend fun savePoster(context: Context, bitmap: Bitmap, trip: Trip, tem
 private fun Dp.sp(): TextUnit = with(LocalDensity.current) { this@sp.toSp() }
 
 private class Ink(val dark: Boolean) {
-    val bg = if (dark) Color(0xFF0E1114) else Color(0xFFFBF7F2)
+    val bg = if (dark) Color(0xFF0E1114) else Color.White
     val text = if (dark) Color(0xFFF1F3F5) else Color(0xFF1B2530)
     val soft = if (dark) Color(0xFFA2ACB6) else Color(0xFF5E6B77)
     val tile = if (dark) Color(0xFF1B1F24) else Color(0xFFF1EAE0)
