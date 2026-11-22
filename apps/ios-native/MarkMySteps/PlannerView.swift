@@ -647,7 +647,7 @@ private struct AddLegRow: View {
 }
 
 private struct StopRow<Panel: View>: View {
-    @Environment(\.colorScheme) private var scheme
+    @Environment(\.editMode) private var editMode
     @Binding var stop: PlanStop
     let index: Int
     let dates: String
@@ -693,7 +693,7 @@ private struct StopRow<Panel: View>: View {
                 .padding(.leading, 33)
             }
             VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     // The stay's photo in the middle of the card's height, the number hanging on its corner.
                     StopThumb(candidates: photo, flag: stop.flag, color: color)
                         .overlay(alignment: .topLeading) {
@@ -719,11 +719,16 @@ private struct StopRow<Panel: View>: View {
                                 .contentTransition(.numericText(value: Double(stop.nights)))
                         }
                     }
-                    Spacer(minLength: 6)
-                    NightsStepper(nights: stop.nights, place: stop.name, enabled: editable) { by in
-                        withAnimation(.calm) { stop.nights = min(60, max(0, stop.nights + by)) }
+                    Spacer(minLength: 0)
+                    // While moving stops (Wijzig) the delete and move handles need the room; nobody steps nights then.
+                    if editMode?.wrappedValue.isEditing != true {
+                        NightsStepper(nights: stop.nights, place: stop.name, enabled: editable) { by in
+                            withAnimation(.calm) { stop.nights = min(60, max(0, stop.nights + by)) }
+                        }
+                        .transition(.opacity)
                     }
                 }
+                .animation(.calm, value: editMode?.wrappedValue.isEditing == true)
                 ForEach(stop.dayTrips) { dt in
                     DayTripRow(dt: dt, editable: editable) { onRemoveDayTrip(dt) }
                         .transition(.opacity.combined(with: .move(edge: .top)))

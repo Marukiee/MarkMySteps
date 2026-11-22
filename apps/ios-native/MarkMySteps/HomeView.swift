@@ -193,18 +193,34 @@ struct HomeView: View {
                     .padding(.top, 14)
             }
             let firstBig = first.map(isBig) ?? false
-            if let first, firstBig {
-                item(first, big: true, prev: nil, next: nil).padding(.top, 14).arrive(4)
+            let rest = Array(list.dropFirst())
+            // The first trip always sits in this slot, big or as a row, so switching its size morphs in place (one
+            // element, no fresh view) and its entrance never plays again. As a row its year stands above it and the
+            // other trips of that year join under it.
+            let joins = !firstBig && first != nil && rest.first?.year == first?.year
+            if let first {
+                if !firstBig {
+                    SectionTitle(text: first.year, small: true).padding(.top, 20).padding(.bottom, 8).padding(.leading, 4)
+                        .id("years")
+                        .transition(.opacity)
+                }
+                item(first, big: firstBig, prev: nil, next: joins ? rest.first.map(isBig) : nil)
+                    .padding(.top, firstBig ? 14 : 0)
+                    .arrive(4)
             }
-            let rest = firstBig ? Array(list.dropFirst()) : list
             let years = rest.map(\.year).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
             ForEach(Array(years.enumerated()), id: \.element) { i, year in
                 let trips = rest.filter { $0.year == year }
-                SectionTitle(text: year, small: true).padding(.top, 20).padding(.bottom, 8).padding(.leading, 4)
-                    .id(i == 0 ? "years" : year)
+                let continues = i == 0 && joins
+                if !continues {
+                    SectionTitle(text: year, small: true).padding(.top, 20).padding(.bottom, 8).padding(.leading, 4)
+                        .id(i == 0 && firstBig ? "years" : year)
+                        .transition(.opacity)
+                }
                 VStack(spacing: 0) {
                     ForEach(Array(trips.enumerated()), id: \.element.id) { k, trip in
-                        item(trip, big: isBig(trip), prev: k > 0 ? isBig(trips[k - 1]) : nil, next: k < trips.count - 1 ? isBig(trips[k + 1]) : nil)
+                        item(trip, big: isBig(trip), prev: k > 0 ? isBig(trips[k - 1]) : (continues ? false : nil),
+                             next: k < trips.count - 1 ? isBig(trips[k + 1]) : nil)
                     }
                 }
                 .arrive(5 + i)
