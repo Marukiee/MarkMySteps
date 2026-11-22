@@ -401,13 +401,23 @@ fun Confirm(title: String, text: String, confirm: String, danger: Boolean = true
                 extra?.invoke()
             }
         },
-        confirmButton = {
-            androidx.compose.material3.TextButton(onClick = { onConfirm(); onDismiss() }, enabled = confirmEnabled) {
-                Text(confirm, color = if (!confirmEnabled) cs.onSurface.copy(alpha = 0.38f) else if (danger) cs.error else cs.primary, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600)))
-            }
-        },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+        // Two pills side by side on the right: cancel tonal, the action filled (red when it removes something).
+        confirmButton = { DialogButtons(confirm, danger, confirmEnabled, onConfirm = { onConfirm(); onDismiss() }, onDismiss = onDismiss) },
     )
+}
+
+/** The buttons of every dialog here: "Annuleren" as a tonal pill, the action as a filled one, both morphing on press. */
+@Composable
+fun DialogButtons(confirm: String, danger: Boolean, enabled: Boolean = true, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val label = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        FilledTonalButton(onClick = onDismiss, shapes = ButtonDefaults.shapes(), modifier = Modifier.height(44.dp)) { Text("Annuleren", style = label) }
+        Button(
+            onClick = onConfirm, enabled = enabled, shapes = ButtonDefaults.shapes(), modifier = Modifier.height(44.dp),
+            colors = if (danger) ButtonDefaults.buttonColors(containerColor = cs.error, contentColor = cs.onError) else ButtonDefaults.buttonColors(),
+        ) { Text(confirm, style = label) }
+    }
 }
 
 /** A settings page: the round back button, the big title, and its content scrolling under the clock. */

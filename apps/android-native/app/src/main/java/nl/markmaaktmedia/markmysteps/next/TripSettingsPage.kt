@@ -290,30 +290,22 @@ private fun DatesField(start: String, end: String, onChange: (String, String) ->
         }
     }
     if (open) {
-        val state = remember { androidx.compose.material3.DateRangePickerState(locale = DutchLocale, initialSelectedStartDateMillis = millis(start), initialSelectedEndDateMillis = millis(end)) }
-        DatePickerDialog(
-            onDismissRequest = { open = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val s = state.selectedStartDateMillis; val e = state.selectedEndDateMillis ?: s
-                    if (s != null && e != null) onChange(isoDay(s), isoDay(e))
-                    open = false
-                }, enabled = state.selectedStartDateMillis != null) { Text("Klaar", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
-            },
-            dismissButton = { TextButton(onClick = { open = false }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
-        ) {
-            Dutch {
-                DateRangePicker(
-                    state, Modifier.height(520.dp), showModeToggle = false,
-                    title = { Text("Datums van de reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp), modifier = Modifier.padding(start = 24.dp, top = 16.dp)) },
-                    headline = {
-                        val s = state.selectedStartDateMillis?.let { isoDay(it) }; val e = state.selectedEndDateMillis?.let { isoDay(it) }
-                        Text(
-                            when { s == null -> "Kies het begin"; e == null -> "${shortDate(s)}, kies het eind"; else -> rangeText(s, e) },
-                            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 22.sp), modifier = Modifier.padding(start = 24.dp, bottom = 12.dp),
-                        )
-                    },
-                )
+        // The app's own range calendar (as for a new trip) in a sheet, with the chosen days above it.
+        var a by remember { mutableStateOf(runCatching { LocalDate.parse(start) }.getOrNull()) }
+        var b by remember { mutableStateOf(runCatching { LocalDate.parse(end) }.getOrNull()) }
+        AppSheet(onDismiss = { open = false }) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
+                Text("Datums van de reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant))
+                val label = a?.let { s0 -> rangeText(s0.toString(), (b ?: s0).toString()) } ?: "Kies de dagen"
+                AnimatedContent(label, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "range") { t ->
+                    Text(t, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
+                }
+                RangeCalendar(a, b, onChange = { x, y -> a = x; b = y }, modifier = Modifier.padding(top = 16.dp))
+                Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
+                    DialogButtons("Klaar", danger = false, enabled = a != null, onConfirm = {
+                        a?.let { s0 -> onChange(s0.toString(), (b ?: s0).toString()) }; open = false
+                    }, onDismiss = { open = false })
+                }
             }
         }
     }
@@ -534,26 +526,16 @@ private fun DangerPanel(trip: Trip, id: String, isOwner: Boolean, canEdit: Boole
     if (pickDay) {
         val first = trip.start ?: LocalDate.now()
         val last = first.plusDays((trip.days - 1).coerceAtLeast(0).toLong())
-        val state = remember { androidx.compose.material3.DatePickerState(
-            initialSelectedDateMillis = millis((day ?: first.toString())),
-            initialDisplayedMonthMillis = millis(first.withDayOfMonth(1).toString()),
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long): Boolean = LocalDate.parse(isoDay(utcTimeMillis)).let { !it.isBefore(first) && !it.isAfter(last) }
-                override fun isSelectableYear(year: Int): Boolean = year in first.year..last.year
-            },
-            locale = DutchLocale,
-        ) }
-        DatePickerDialog(
-            onDismissRequest = { pickDay = false },
-            confirmButton = { TextButton(onClick = { state.selectedDateMillis?.let { day = isoDay(it) }; pickDay = false }) { Text("Klaar", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
-            dismissButton = { TextButton(onClick = { pickDay = false }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
-        ) {
-            Dutch {
-                DatePicker(
-                    state, showModeToggle = false,
-                    title = { Text("Dag om te wissen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp), modifier = Modifier.padding(start = 24.dp, top = 16.dp)) },
-                    headline = { Text(state.selectedDateMillis?.let { shortDate(isoDay(it)) } ?: "Kies een dag", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 22.sp), modifier = Modifier.padding(start = 24.dp, bottom = 12.dp)) },
-                )
+        var chosen by remember { mutableStateOf(day?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: first) }
+        AppSheet(onDismiss = { pickDay = false }) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
+                Text("Dag om te wissen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant))
+                Text(chosen?.let { shortDate(it.toString()) } ?: "Kies een dag van de reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
+                // One day: the last tap wins, and only days of the trip count.
+                RangeCalendar(chosen, null, onChange = { x, y -> (y ?: x)?.takeIf { !it.isBefore(first) && !it.isAfter(last) }?.let { chosen = it } }, modifier = Modifier.padding(top = 16.dp))
+                Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
+                    DialogButtons("Klaar", danger = false, enabled = chosen != null, onConfirm = { day = chosen?.toString(); pickDay = false }, onDismiss = { pickDay = false })
+                }
             }
         }
     }

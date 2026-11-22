@@ -133,7 +133,6 @@ private fun SettingsMain(sections: List<Section>, onOpen: (String) -> Unit) {
                 Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                     Text(Data.me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
                     Text(if (Data.live) "@${Data.me?.username}" else "voorbeelden, niet ingelogd", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
-                    if (Data.live) Text(Api.base.removePrefix("https://").trimEnd('/'), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant.copy(alpha = 0.8f)))
                 }
                 Box(Modifier.size(44.dp).clip(CircleShape).background(cs.surfaceContainerHigh), contentAlignment = Alignment.Center) {
                     LineIcon(Glyphs.pencil, cs.onSurface, size = 20.dp, stroke = 2f)
