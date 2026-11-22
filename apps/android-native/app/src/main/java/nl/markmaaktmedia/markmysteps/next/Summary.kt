@@ -85,6 +85,8 @@ import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -133,6 +135,7 @@ fun TripExtras(trip: Trip, dark: Boolean, open: String?, onClose: () -> Unit) {
         when (which) {
             "book" -> PhotoBook(trip, dark, onBack = onClose)
             "summary" -> SummaryScreen(trip, dark, onBack = onClose)
+            "posters" -> SummaryScreen(trip, dark, onBack = onClose, exportAll = true)
             else -> Box(Modifier.size(0.dp))
         }
     }
@@ -171,7 +174,7 @@ private val LocalPosterSwap = compositionLocalOf<Pair<Map<String, Rated>, ((Rate
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
+fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit, exportAll: Boolean = false) {
     val cs = MaterialTheme.colorScheme
     val (picked, reading) = rememberPicked(trip)
     var template by remember { mutableStateOf(Template.Route) }
@@ -187,6 +190,7 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
     var capturing by remember { mutableStateOf<String?>(null) }
     var drawn by remember { mutableStateOf(0 to 0) }
     var note by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    var exportStep by remember { mutableStateOf(0) }
     BackHandler(onBack = onBack)
     val savedVersion = stringResource(R.string.summary_saved_version)
     val saveFailed = stringResource(R.string.summary_save_failed)
@@ -239,7 +243,7 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                     )
                     val data = remember(cut, posterDark, options, weather) { dataFor(cut.first, cut.second) }
                     // A series: the chosen poster, a page per stop where you slept with its own photos, and the numbers.
-                    val pages: List<Pair<Template, PosterData>> = remember(data, options.series) {
+                    val pages: List<Pair<Template, PosterData>> = remember(data, options.series, template) {
                         if (!options.series) listOf(template to data) else buildList {
                             add(template to data)
                             seriesStops(cut.first).forEach { st -> val (t, p) = stopPage(cut.first, cut.second, st, options); add(Template.Photos to dataFor(t, p).copy(sub = "${st.flag} ${st.dates}")) }
@@ -338,6 +342,13 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                                             ),
                                         )
                                     }
+                                    "export" -> {
+                                        val name = "${if (options.dark == true) "donker" else "licht"}-${template.ordinal + 1}${template.name}-${format.ordinal + 1}${format.name}.png"
+                                        withContext(Dispatchers.IO) {
+                                            java.io.File(context.getExternalFilesDir("posters"), name).outputStream().use { bitmaps.first().compress(Bitmap.CompressFormat.PNG, 100, it) }
+                                        }
+                                        exportStep++
+                                    }
                                     else -> {
                                         val range = scopeRange(trip, options)
                                         val label = if (range == null) "" else cut.first.dates
@@ -347,6 +358,16 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                                     }
                                 }
                             }
+                        }
+                    }
+                    // adb (--es page posters): every template, format and theme drawn into the app's own files, nothing sent.
+                    if (exportAll) {
+                        val combos = remember { listOf(false, true).flatMap { d -> Template.entries.flatMap { t -> Format.entries.map { f -> Triple(d, t, f) } } } }
+                        LaunchedEffect(exportStep) {
+                            val c = combos.getOrNull(exportStep) ?: return@LaunchedEffect
+                            options = options.copy(dark = c.first); template = c.second; format = c.third
+                            kotlinx.coroutines.delay(3500)
+                            capturing = "export"
                         }
                     }
                     if (optionsOpen) SummaryOptionsSheet(trip, options, { options = it; saved = null }, onDismiss = { optionsOpen = false })
@@ -528,8 +549,8 @@ private fun Head(data: PosterData, u: Dp, ink: Ink, center: Boolean = false, onP
             modifier = Modifier.padding(top = u * 0.05f),
         )
         val line = data.sub ?: subtitle(data.trip)
-        if (line.isNotBlank()) Text(
-            line, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        if (line.isNotBlank()) FlagText(
+            line,
             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.034f).sp(), color = soft),
             modifier = Modifier.padding(top = u * 0.012f),
         )
@@ -551,7 +572,6 @@ private fun InlineFacts(data: PosterData, u: Dp, ink: Ink, center: Boolean = fal
 /** Head, the route on the globe with a card of the stops, and a row of photos. */
 @Composable
 private fun RoutePoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
-    val (lon, lat, zoom) = remember(data.trip) { tripFrame(data.trip) }
     val m = u * 0.065f
     Column(Modifier.fillMaxSize().padding(m)) {
         Head(data, u, ink)
@@ -559,9 +579,8 @@ private fun RoutePoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
         InlineFacts(data, u, ink)
         BoxWithConstraints(Modifier.padding(top = u * 0.05f).fillMaxWidth().weight(1f).clip(RoundedCornerShape(u * 0.05f))) {
             val card = format != Format.Square
-            // The globe's scale follows the panel's short side; a wide, low panel needs more zoom.
-            val wide = (maxWidth / maxHeight).coerceIn(1f, 2.2f)
-            Globe(listOf(data.trip), globeStyle(data.dark, 3.4f), Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = zoom * (if (card) 0.6f else 0.75f) * (0.55f + 0.45f * wide), showStops = true, turnable = false, shiftX = if (card) 0.17f else 0f)
+            // The route fills the part of the panel beside the card of stops.
+            TripMap(data.trip, data.dark, Modifier.fillMaxSize(), fill = 0.8f, frameW = if (card) 0.6f else 1f, shiftX = if (card) 0.2f else 0f)
             if (card) Column(
                 Modifier.padding(u * 0.03f).clip(RoundedCornerShape(u * 0.035f)).background(ink.bg.copy(alpha = 0.88f)).padding(horizontal = u * 0.035f, vertical = u * 0.025f),
                 verticalArrangement = Arrangement.spacedBy(u * 0.012f),
@@ -577,7 +596,8 @@ private fun RoutePoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
         // Three different places where there are, the best of each.
         val photos = (data.perStop.map { it.second }.sortedByDescending { it.showScore } + data.picked.highlights.sortedByDescending { it.showScore })
             .distinct().take(3).sortedBy { it.photo.takenAt }
-        if (photos.isNotEmpty()) {
+        // A square has no height to spare: there the route gets it all.
+        if (photos.isNotEmpty() && format != Format.Square) {
             val weights = photos.map { it.aspect.coerceIn(0.7f, 1.5f) }
             val h = (u - m * 2 - u * 0.02f * (photos.size - 1)) / weights.sum()
             Row(Modifier.padding(top = u * 0.03f).fillMaxWidth().height(h), horizontalArrangement = Arrangement.spacedBy(u * 0.02f)) {
@@ -613,7 +633,7 @@ private fun PhotosPoster(data: PosterData, format: Format, u: Dp) {
         }
         Column(Modifier.align(Alignment.BottomStart).padding(u * 0.065f)) {
             val line = data.sub ?: subtitle(data.trip)
-            if (line.isNotBlank()) Text(line.uppercase(), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.03f).sp(), letterSpacing = 0.08.em, color = Color.White.copy(alpha = 0.85f)))
+            if (line.isNotBlank()) FlagText(line.uppercase(), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.03f).sp(), letterSpacing = 0.08.em, color = Color.White.copy(alpha = 0.85f)))
             Text(
                 data.trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(600), fontSize = (u * 0.1f).sp(), lineHeight = (u * 0.105f).sp(), color = Color.White),
@@ -624,30 +644,46 @@ private fun PhotosPoster(data: PosterData, format: Format, u: Dp) {
     }
 }
 
-/** Centred: the numbers, the globe, and a photo per stop with its name. */
+/** Centred: the numbers and a photo per stop, over the map of the trip with its route framed in the open middle. */
 @Composable
 private fun RibbonPoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
-    val (lon, lat, zoom) = remember(data.trip) { tripFrame(data.trip) }
     val m = u * 0.065f
     val stops = data.perStop.take(if (format == Format.Square) 3 else 4)
-    Column(Modifier.fillMaxSize().padding(m), horizontalAlignment = Alignment.CenterHorizontally) {
-        Head(data, u, ink, center = true)
-        Spacer(Modifier.height(u * 0.04f))
-        InlineFacts(data, u, ink, center = true)
-        Box(Modifier.padding(vertical = u * 0.04f).weight(1f).aspectRatio(1f, matchHeightConstraintsFirst = true).clip(CircleShape)) {
-            Globe(listOf(data.trip), globeStyle(data.dark, 3f), Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = (zoom * 0.62f).coerceAtLeast(1.4f), showStops = true, turnable = false)
-        }
-        val grid = format == Format.Story && stops.size == 4
-        val rows = if (grid) stops.chunked(2) else listOf(stops)
-        Column(verticalArrangement = Arrangement.spacedBy(u * 0.025f)) {
-            rows.forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(u * 0.025f)) {
-                    row.forEach { (i, r) ->
-                        Column(Modifier.weight(1f)) {
-                            PosterPhoto(r, Modifier.fillMaxWidth().aspectRatio(if (grid) 1.25f else 0.8f).clip(RoundedCornerShape(u * 0.03f)))
-                            Row(Modifier.padding(top = u * 0.015f), verticalAlignment = Alignment.CenterVertically) {
-                                StopBadge(i, data.accent, u * 0.04f)
-                                Text(data.trip.stops[i].name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = (u * 0.028f).sp(), color = ink.text), modifier = Modifier.padding(start = u * 0.015f))
+    // Where the words end and the photos begin, so the route can sit in the open band between them.
+    var boxTop by remember { mutableStateOf(0f) }
+    var wordsEnd by remember { mutableStateOf(0f) }
+    var photosTop by remember { mutableStateOf(0f) }
+    BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { boxTop = it.positionInRoot().y }) {
+        val full = constraints.maxHeight.toFloat()
+        val top = (wordsEnd - boxTop).takeIf { wordsEnd > 0f } ?: (full * 0.32f)
+        val bottom = (photosTop - boxTop).takeIf { photosTop > 0f } ?: (full * 0.72f)
+        val band = ((bottom - top) / full).coerceIn(0.15f, 1f)
+        val mid = (top + bottom) / 2f / full - 0.5f
+        TripMap(data.trip, data.dark, Modifier.fillMaxSize(), fill = 0.76f, frameH = band, shiftY = mid)
+        // The words on calm ground: the map fades out under them (a flight line would run through the title).
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to ink.bg.copy(alpha = 0.92f), (top / full * 0.7f).coerceIn(0.05f, 0.9f) to ink.bg.copy(alpha = 0.7f), (top / full).coerceIn(0.1f, 0.95f) to Color.Transparent)))
+        Column(Modifier.fillMaxSize().padding(m), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.onGloballyPositioned { c -> wordsEnd = c.positionInRoot().y + c.size.height }) {
+                Head(data, u, ink, center = true)
+                // A square keeps the open middle for the route: no numbers there.
+                if (format != Format.Square) {
+                    Spacer(Modifier.height(u * 0.04f))
+                    InlineFacts(data, u, ink, center = true)
+                }
+            }
+            Spacer(Modifier.weight(1f))
+            val grid = format == Format.Story && stops.size == 4
+            val rows = if (grid) stops.chunked(2) else listOf(stops)
+            Column(Modifier.onGloballyPositioned { c -> photosTop = c.positionInRoot().y }, verticalArrangement = Arrangement.spacedBy(u * 0.025f)) {
+                rows.forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(u * 0.025f)) {
+                        row.forEach { (i, r) ->
+                            Column(Modifier.weight(1f)) {
+                                PosterPhoto(r, Modifier.fillMaxWidth().aspectRatio(if (grid) 1.25f else if (format == Format.Square) 1.15f else 0.8f).clip(RoundedCornerShape(u * 0.03f)))
+                                Row(Modifier.padding(top = u * 0.015f), verticalAlignment = Alignment.CenterVertically) {
+                                    StopBadge(i, data.accent, u * 0.04f)
+                                    Text(data.trip.stops[i].name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = (u * 0.028f).sp(), color = ink.text), modifier = Modifier.padding(start = u * 0.015f))
+                                }
                             }
                         }
                     }
@@ -661,12 +697,11 @@ private fun RibbonPoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
 @Composable
 private fun StatsPoster(data: PosterData, format: Format, u: Dp) {
     val hero = data.picked.cover ?: data.picked.highlights.firstOrNull()
-    val (lon, lat, zoom) = remember(data.trip) { tripFrame(data.trip) }
     // A square has less height: smaller numbers and title, so the flags still fit.
     val k = if (format == Format.Square) 0.78f else 1f
     Box(Modifier.fillMaxSize()) {
         if (hero != null) PosterPhoto(hero, Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x80000000), 0.3f to Color(0x1A000000), 0.55f to Color(0x33000000), 1f to Color(0xE6000000))))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x73000000), 0.22f to Color(0x10000000), 0.42f to Color(0x66000000), 0.7f to Color(0xB3000000), 1f to Color(0xEB000000))))
         Column(Modifier.fillMaxSize().padding(u * 0.065f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (data.logo) {
@@ -675,7 +710,7 @@ private fun StatsPoster(data: PosterData, format: Format, u: Dp) {
                 }
                 Spacer(Modifier.weight(1f))
                 Box(Modifier.size(u * 0.2f).clip(CircleShape)) {
-                    Globe(listOf(data.trip), globeStyle(true, 2.6f), Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = (zoom * 0.26f).coerceAtLeast(1.3f), turnable = false)
+                    TripMap(data.trip, true, Modifier.fillMaxSize(), fill = 0.62f, routeWidth = 2f, stops = false)
                 }
             }
             Spacer(Modifier.weight(1f))
@@ -695,7 +730,9 @@ private fun StatsPoster(data: PosterData, format: Format, u: Dp) {
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
-            Text(data.trip.stops.map { it.flag }.distinct().joinToString("  "), style = TextStyle(fontSize = (u * 0.05f).sp()))
+            Row(horizontalArrangement = Arrangement.spacedBy(u * 0.025f)) {
+                data.trip.stops.map { it.flag }.distinct().forEach { FlagIcon(it, u * 0.055f) }
+            }
         }
     }
 }
