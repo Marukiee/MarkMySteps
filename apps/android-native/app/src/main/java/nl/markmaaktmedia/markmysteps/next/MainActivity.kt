@@ -24,6 +24,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Api.init(applicationContext)
+        DeepLink.linkHost = getString(R.string.link_host)
+        // A share or trip link that opened the app: handled once the home page and the trips are there.
+        if (savedInstanceState == null) intent?.takeIf { it.action == android.content.Intent.ACTION_VIEW }?.data?.let { DeepLink.pending = it }
         if (intent?.getBooleanExtra("dryRun", false) == true) {
             Api.dryRun = true
             // Said at start, so a test can check the flag took before it taps anything that writes.
@@ -57,6 +60,13 @@ class MainActivity : ComponentActivity() {
         val forcedTheme = intent.getStringExtra("theme")
         val startTrip = intent.getStringExtra("trip")
         val startPage = intent.getStringExtra("page")
+        // Looks at screens that cannot be reached safely on a real account; none of them sends anything.
+        val previews = Previews(
+            invite = intent.getBooleanExtra("invitePreview", false),
+            tempPassword = intent.getBooleanExtra("tempPassword", false),
+            mfa = intent.getBooleanExtra("mfaPreview", false),
+            access = intent.getBooleanExtra("accessPreview", false),
+        )
         setContent {
             val system = isSystemInDarkTheme()
             val dark = when (forcedTheme) {
@@ -73,9 +83,19 @@ class MainActivity : ComponentActivity() {
                 Crossfade(style, animationSpec = tween(300), label = "style") { which ->
                     // The old look for comparing, only with the invented trips; signed in it is never one tap away.
                     val flip = { if (!Data.live) style = if (style == "current") "new" else "current" }
-                    if (which == "new") HomeNew(dark = dark, onLogoTap = flip, startTrip = startTrip, startPage = startPage) else HomeCurrent(onLogoTap = flip)
+                    if (which == "new") HomeNew(dark = dark, onLogoTap = flip, startTrip = startTrip, startPage = startPage, previews = previews) else HomeCurrent(onLogoTap = flip)
                 }
             }
         }
     }
+
+    /** A link tapped while the app was already open (singleTop): the same way in as at start. */
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == android.content.Intent.ACTION_VIEW) intent.data?.let { DeepLink.pending = it }
+    }
 }
+
+/** Screens a test opens to look at (adb extras); they never send anything. */
+data class Previews(val invite: Boolean = false, val tempPassword: Boolean = false, val mfa: Boolean = false, val access: Boolean = false)

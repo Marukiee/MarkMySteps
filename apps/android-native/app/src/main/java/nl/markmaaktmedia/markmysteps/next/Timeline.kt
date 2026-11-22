@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 import java.time.format.TextStyle as DateStyle
 import java.util.Locale
 
@@ -76,8 +77,11 @@ private fun daysOf(trip: Trip): List<Day> {
 }
 
 @Composable
-fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Media) -> Unit = {}, bounds: TileBounds? = null, hidden: String? = null, onJump: (Float) -> Unit = {}) {
-    if (media != null) { LiveTimeline(trip, media, onPhoto, bounds, hidden, onJump); return }
+fun Timeline(
+    trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Media) -> Unit = {}, bounds: TileBounds? = null, hidden: String? = null, onJump: (Float) -> Unit = {},
+    talk: TripTalk? = null, onComments: (Media) -> Unit = {}, marks: TimelineMarks? = null,
+) {
+    if (media != null) { LiveTimeline(trip, media, onPhoto, bounds, hidden, onJump, talk, onComments, marks); return }
     if (trip.remoteId != null) { TimelinePlaceholder(); return }
     val cs = MaterialTheme.colorScheme
     val scenes = Scene.entries
@@ -208,11 +212,23 @@ private fun Photo(scene: Scene, modifier: Modifier) {
 
 /** For a trip from the server: the real photos, day by day, laid out by their own shape. */
 @Composable
-private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Unit, bounds: TileBounds?, hidden: String?, onJump: (Float) -> Unit) {
+private fun LiveTimeline(
+    trip: Trip, media: List<Media>, onPhoto: (Media) -> Unit, bounds: TileBounds?, hidden: String?, onJump: (Float) -> Unit,
+    talk0: TripTalk?, onComments: (Media) -> Unit, marks: TimelineMarks?,
+) {
     // Where each day's heading sits, so a place tile can scroll to its first day.
     val dayAt = androidx.compose.runtime.remember { HashMap<LocalDate, androidx.compose.ui.layout.LayoutCoordinates>() }
-    // The trip's day notes, read once, shown under their day as on the web.
-    val notes by androidx.compose.runtime.produceState(emptyList<Remote.Note>(), trip.id) { value = runCatching { Remote.notes(trip) }.getOrDefault(emptyList()) }
+    // The trip's day stories and the talk around them: from the trip page, else read here once.
+    val talk = talk0 ?: androidx.compose.runtime.remember(trip.id) { TripTalk(trip) }
+    if (talk0 == null) androidx.compose.runtime.LaunchedEffect(trip.id) { talk.load() }
+    val notes = talk.notes
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    androidx.compose.runtime.SideEffect { talk.scope = scope }
+    val me = Data.me?.id
+    // Organiser and companions write a story per day; guests read along.
+    val canEdit = trip.remoteId != null && me != null && (trip.ownerId == me || trip.members.any { it.userId == me && it.role != "GUEST" })
+    var editingDay by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var removing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<SocialRemote.DayNote?>(null) }
     val cs = MaterialTheme.colorScheme
     // Photos and videos together, as on the web; a video carries a play badge.
     val photos = media
@@ -253,7 +269,7 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
         Spacer(Modifier.height(26.dp))
     }
 
-    if (photos.isEmpty()) {
+    if (photos.isEmpty() && notes.isEmpty()) {
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerLow).padding(18.dp)) {
             Text(
                 if (trip.upcoming) "De foto's komen hier vanzelf zodra de reis begint" else "Nog geen foto's bij deze reis",
@@ -264,7 +280,10 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
     }
 
     val line = cs.outlineVariant
-    val days = photos.groupBy { it.takenAt }.toSortedMap().entries.toList()
+    // Days that only have a story (no photos) still get their own section, as on the web.
+    val byDay = photos.groupBy { it.takenAt }.toMutableMap()
+    notes.mapNotNull { parseDay(it.day) }.forEach { d -> byDay.getOrPut(d) { emptyList() } }
+    val days = byDay.toSortedMap().entries.toList()
     // Each photo's place in the timeline, for fetching the first screens before anything is scrolled.
     val order = androidx.compose.runtime.remember(photos) { days.flatMap { it.value }.withIndex().associate { (i, m) -> m.id to i } }
     // The photos whose rows are real photos right now (see the rows below).
@@ -306,14 +325,21 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                 drawLine(line, Offset(x, 22.dp.toPx()), Offset(x, if (last) 40.dp.toPx() else size.height), strokeWidth = 2.dp.toPx())
             },
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.onGloballyPositioned { dayAt[date] = it }) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.onGloballyPositioned { dayAt[date] = it; marks?.put(date, it, stop?.name) }) {
                 Box(Modifier.size(13.dp).clip(CircleShape).background(cs.primary))
                 val weekday = date.dayOfWeek.getDisplayName(DateStyle.FULL, Dutch).replaceFirstChar { it.uppercase() }
                 Text(
                     "$weekday ${date.dayOfMonth} ${date.month.getDisplayName(DateStyle.FULL, Dutch)}",
                     style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = 24.sp, letterSpacing = (-0.01).em, color = cs.onBackground),
-                    modifier = Modifier.padding(start = 14.dp),
+                    modifier = Modifier.padding(start = 14.dp).weight(1f, fill = false),
                 )
+                // A day without a story yet: the app's own pencil starts one.
+                val dayKey = date.toString()
+                androidx.compose.animation.AnimatedVisibility(
+                    canEdit && editingDay != dayKey && notes.none { it.day == dayKey },
+                    enter = androidx.compose.animation.fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(MaterialTheme.motionScheme.fastSpatialSpec(), initialScale = 0.6f),
+                    exit = androidx.compose.animation.fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.6f),
+                ) { WriteStoryButton { editingDay = dayKey } }
             }
             if (stop != null) {
                 // Where you were and that day's real weather there.
@@ -335,13 +361,23 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                     }
                 }
             }
-            notes.filter { it.day == date.toString() }.forEach { n ->
-                Column(Modifier.padding(start = 27.dp, top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(cs.surfaceContainerLow).padding(14.dp)) {
-                    n.title?.let { Text(it, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp, color = cs.onSurface)) }
-                    Text(n.body, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(450), fontSize = 15.sp, lineHeight = 22.sp, color = cs.onSurface), modifier = Modifier.padding(top = if (n.title != null) 4.dp else 0.dp))
-                    Text(n.author, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 6.dp))
-                }
-            }
+            val dayKey = date.toString()
+            val dayNotes = notes.filter { it.day == dayKey }
+            if (dayNotes.isNotEmpty() || editingDay == dayKey) DayStory(
+                dayKey, dayNotes, canEdit, editing = editingDay == dayKey,
+                onEdit = { editingDay = dayKey }, onDone = { if (editingDay == dayKey) editingDay = null },
+                onSave = { body ->
+                    val saved = SocialRemote.saveNote(trip, dayKey, body)
+                    // A dry run answers nothing: the story still shows, as written, under your name.
+                    talk.notes = saved ?: (talk.notes.filter { !(it.day == dayKey && it.authorId == me) } +
+                        SocialRemote.DayNote(talk.notes.firstOrNull { it.day == dayKey && it.authorId == me }?.id ?: ("local-" + java.util.UUID.randomUUID()), dayKey, null, body, me, Data.me?.name ?: ""))
+                    if (editingDay == dayKey) editingDay = null
+                },
+                onDelete = { removing = it },
+                modifier = Modifier.padding(start = 27.dp, top = 12.dp),
+            )
+            // Comments on the day's story, from the trip.
+            if (dayNotes.isNotEmpty() && editingDay != dayKey && trip.remoteId != null) DayThread(talk, dayKey, Modifier.padding(start = 27.dp, top = 10.dp))
             Column(
                 Modifier.padding(start = 27.dp, top = 12.dp, bottom = 30.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -389,6 +425,11 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                                         .graphicsLayer { alpha = if (m.id == hidden) 0f else 1f }
                                         .clip(RoundedCornerShape(TileRadius)).clickable { onPhoto(m) }) {
                                         RemotePhoto(m.id, Modifier.fillMaxSize(), eager = true, onShown = { b -> bounds?.shown(m.id, b) })
+                                        // Liked and talked about, top right; too small to read once five share a row.
+                                        if (perRow <= 3) TileFlags(
+                                            talk.reactions.counts[m.id].orEmpty(), talk.comments.count { it.mediaId == m.id },
+                                            onComments = { onComments(m) }, modifier = Modifier.align(Alignment.TopEnd),
+                                        )
                                         if (m.video) Box(Modifier.align(Alignment.Center).size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
                                             LineIcon(listOf(P("M9 7.5v9l7.5-4.5Z")), Color.White, size = 22.dp, filled = true)
                                         }
@@ -401,6 +442,17 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
             }
         }
     } }
+    }
+    removing?.let { n ->
+        Confirm(
+            "Dagverhaal verwijderen?", "Je verhaal van deze dag verdwijnt. Dit kan niet ongedaan worden.", "Verwijderen",
+            onConfirm = {
+                val before = talk.notes
+                talk.notes = talk.notes.filter { it.id != n.id }
+                if (!n.id.startsWith("local-")) scope.launch { runCatching { SocialRemote.deleteNote(trip, n.id) }.onFailure { talk.notes = before } }
+            },
+            onDismiss = { removing = null },
+        )
     }
 }
 
@@ -457,7 +509,7 @@ private fun TimelinePlaceholder() {
 
 
 /** The weather code as one of the app's line icons (WMO codes, as open-meteo gives them). */
-private fun weatherGlyph(code: Int): List<Shape24> = when (code) {
+internal fun weatherGlyph(code: Int): List<Shape24> = when (code) {
     0, 1 -> Glyphs.sun
     2 -> Glyphs.partly
     in 71..77, 85, 86 -> Glyphs.snow

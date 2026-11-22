@@ -157,7 +157,7 @@ private const val TAG = "MmsViewer"
  * position that a second list could disagree with), and logs a check that the page shown is that photo.
  */
 @Composable
-fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBounds = TileBounds(), onCurrent: (String?) -> Unit = {}, onClose: () -> Unit) {
+fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBounds = TileBounds(), onCurrent: (String?) -> Unit = {}, startComments: Boolean = false, onClose: () -> Unit) {
     // The list as it was when tapped: a refresh of the trip underneath never shifts the pages.
     val list = remember { photos }
     val start = remember { list.indexOfFirst { it.id == startId }.coerceAtLeast(0) }
@@ -183,7 +183,8 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBo
         runCatching { Remote.comments(trip) }.getOrNull()?.let { comments = it }
         runCatching { Remote.reactions(trip) }.getOrNull()?.let { reactions = it }
     }
-    var sheet by remember { mutableStateOf(false) }
+    // Opened from the speech bubble on a tile: straight to the conversation.
+    var sheet by remember { mutableStateOf(startComments) }
     // The five reactions' row; a tap anywhere on the photo folds it away again.
     var picking by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }

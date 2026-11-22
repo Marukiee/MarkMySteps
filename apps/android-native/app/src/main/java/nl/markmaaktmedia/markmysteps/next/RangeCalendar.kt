@@ -57,7 +57,8 @@ private val Months = listOf("januari", "februari", "maart", "april", "mei", "jun
 private val Weekdays = listOf("MA", "DI", "WO", "DO", "VR", "ZA", "ZO")
 
 @Composable
-fun RangeCalendar(start: LocalDate?, end: LocalDate?, onChange: (LocalDate?, LocalDate?) -> Unit, modifier: Modifier = Modifier) {
+/** [bounds]: only these days can be chosen (the days of a trip); the rest stay quiet and do nothing. */
+fun RangeCalendar(start: LocalDate?, end: LocalDate?, onChange: (LocalDate?, LocalDate?) -> Unit, modifier: Modifier = Modifier, bounds: ClosedRange<LocalDate>? = null) {
     val cs = MaterialTheme.colorScheme
     val today = remember { LocalDate.now() }
     var month by remember { mutableStateOf(YearMonth.from(start ?: today)) }
@@ -94,14 +95,14 @@ fun RangeCalendar(start: LocalDate?, end: LocalDate?, onChange: (LocalDate?, Loc
             (slideInHorizontally(motion.defaultSpatialSpec()) { w -> dir * w / 4 } + fadeIn(motion.defaultEffectsSpec())) togetherWith
                 (slideOutHorizontally(motion.defaultSpatialSpec()) { w -> -dir * w / 4 } + fadeOut(motion.fastEffectsSpec()))
         }, label = "monthGrid") { m ->
-            MonthGrid(m, start, end, today, onChange)
+            MonthGrid(m, start, end, today, onChange, bounds)
         }
     }
 }
 
 
 @Composable
-private fun MonthGrid(month: YearMonth, start: LocalDate?, end: LocalDate?, today: LocalDate, onChange: (LocalDate?, LocalDate?) -> Unit) {
+private fun MonthGrid(month: YearMonth, start: LocalDate?, end: LocalDate?, today: LocalDate, onChange: (LocalDate?, LocalDate?) -> Unit, bounds: ClosedRange<LocalDate>? = null) {
     val cs = MaterialTheme.colorScheme
     val haptics = rememberHaptics()
     val lead = month.atDay(1).dayOfWeek.value - 1
@@ -118,7 +119,7 @@ private fun MonthGrid(month: YearMonth, start: LocalDate?, end: LocalDate?, toda
             fun dayAt(x: Float, y: Float): LocalDate? {
                 val col = (x / cellW).toInt().coerceIn(0, 6); val row = (y / cellPx).toInt()
                 val n = row * 7 + col - lead + 1
-                return if (n in 1..days && y >= 0) month.atDay(n) else null
+                return if (n in 1..days && y >= 0) month.atDay(n).takeIf { bounds == null || it in bounds } else null
             }
             awaitEachGesture {
                 val down = awaitFirstDown()
@@ -173,7 +174,7 @@ private fun MonthGrid(month: YearMonth, start: LocalDate?, end: LocalDate?, toda
                 for (c in 0 until 7) {
                     val n = r * 7 + c - lead + 1
                     Box(Modifier.weight(1f).height(cellH), contentAlignment = Alignment.Center) {
-                        if (n in 1..days) DayCell(month.atDay(n), start, end, today, c)
+                        if (n in 1..days) DayCell(month.atDay(n), start, end, today, c, bounds)
                     }
                 }
             }
@@ -182,7 +183,7 @@ private fun MonthGrid(month: YearMonth, start: LocalDate?, end: LocalDate?, toda
 }
 
 @Composable
-private fun DayCell(day: LocalDate, start: LocalDate?, end: LocalDate?, today: LocalDate, column: Int) {
+private fun DayCell(day: LocalDate, start: LocalDate?, end: LocalDate?, today: LocalDate, column: Int, bounds: ClosedRange<LocalDate>? = null) {
     val cs = MaterialTheme.colorScheme
     val motion = MaterialTheme.motionScheme
     val last = end ?: start
@@ -206,7 +207,11 @@ private fun DayCell(day: LocalDate, start: LocalDate?, end: LocalDate?, today: L
     val scale by animateFloatAsState(if (endpoint) 1f else 0f, motion.fastSpatialSpec(), label = "end")
     Box(Modifier.size(42.dp).graphicsLayer { scaleX = scale; scaleY = scale }.clip(CircleShape).background(cs.primary))
     val fg by animateColorAsState(
-        when { endpoint -> cs.onPrimary; inRange -> cs.onPrimaryContainer; day.isBefore(today) -> cs.onSurface.copy(alpha = 0.45f); else -> cs.onSurface },
+        when {
+            endpoint -> cs.onPrimary; inRange -> cs.onPrimaryContainer
+            bounds != null -> if (day in bounds) cs.onSurface else cs.onSurface.copy(alpha = 0.3f)
+            day.isBefore(today) -> cs.onSurface.copy(alpha = 0.45f); else -> cs.onSurface
+        },
         motion.defaultEffectsSpec(), label = "dayText",
     )
     Text("${day.dayOfMonth}", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(if (endpoint || day == today) 650 else 500), fontSize = 15.5.sp, color = fg))

@@ -77,14 +77,17 @@ import kotlinx.coroutines.launch
  */
 
 @Composable
-fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
+fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, mfaPreview: Boolean = false) {
     val cs = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     var server by rememberSaveable { mutableStateOf(Api.base) }
     var name by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
-    var mfaToken by remember { mutableStateOf<String?>(null) }
+    // A test can open the second step straight away (adb extra mfaPreview) to look at it; that step then never sends anything.
+    var mfaToken by remember { mutableStateOf(if (mfaPreview) PreviewToken else null) }
+    // No phone at hand: one of the recovery codes instead of the app's code, as on the web.
+    var recovery by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val heroH = (LocalConfiguration.current.screenHeightDp * 0.36f).dp
@@ -96,6 +99,7 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
         scope.launch {
             try {
                 val token = mfaToken
+                if (token == PreviewToken) { error = "Voorbeeld: er wordt niets verstuurd"; return@launch }
                 if (token == null) {
                     when (val answer = Api.login(server, name, password)) {
                         is Api.Login.NeedsCode -> mfaToken = answer.mfaToken
@@ -165,15 +169,25 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
                             Field("Gebruikersnaam of e-mail", name, { name = it }, "", KeyboardType.Email, autofill = androidx.compose.ui.autofill.ContentType.Username)
                             Field("Wachtwoord", password, { password = it }, "", KeyboardType.Password, secret = true, done = ::submit, autofill = androidx.compose.ui.autofill.ContentType.Password)
                         } else {
-                            Text(
-                                "Vul de code uit je authenticator-app in.",
-                                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant),
-                            )
-                            // Focus at once, and sign in by itself on the sixth digit, as on the web.
-                            Field("Code", code, { v ->
-                                code = v.filter(Char::isLetterOrDigit).take(12)
-                                if (code.length == 6 && code.all(Char::isDigit)) submit()
-                            }, "123456", KeyboardType.Number, done = ::submit, autofill = androidx.compose.ui.autofill.ContentType.SmsOtpCode, focusNow = true)
+                            // The app's code or a recovery code: each its own words and field, sliding into place.
+                            AnimatedContent(recovery, transitionSpec = { (fadeIn() + slideInHorizontally { it / 6 }) togetherWith fadeOut() }, label = "codeKind") { useRecovery ->
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text(
+                                        if (useRecovery) "Voer een van je herstelcodes in. Elke code werkt maar één keer."
+                                        else "Open je authenticator-app (bijvoorbeeld Proton Authenticator) en voer de code van 6 cijfers in.",
+                                        style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, lineHeight = 20.sp, color = cs.onSurfaceVariant),
+                                    )
+                                    if (useRecovery) Field("Herstelcode", code, { v ->
+                                        // As typed (the server drops spaces and dashes and ignores case); changing it here fights the keyboard. Never sent by itself.
+                                        code = v.take(24)
+                                    }, "XXXX-XXXX-XXXX-XXXX", KeyboardType.Ascii, done = ::submit, focusNow = true)
+                                    // Focus at once, and sign in by itself on the sixth digit, as on the web.
+                                    else Field("Code", code, { v ->
+                                        code = v.filter(Char::isLetterOrDigit).take(12)
+                                        if (code.length == 6 && code.all(Char::isDigit)) submit()
+                                    }, "123456", KeyboardType.Number, done = ::submit, autofill = androidx.compose.ui.autofill.ContentType.SmsOtpCode, focusNow = true)
+                                }
+                            }
                         }
                     }
                 }
@@ -186,7 +200,7 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
                 }
                 Button(
                     onClick = ::submit,
-                    enabled = !busy && (if (mfaToken == null) server.isNotBlank() && name.isNotBlank() && password.isNotEmpty() else code.length >= 6),
+                    enabled = !busy && (if (mfaToken == null) server.isNotBlank() && name.isNotBlank() && password.isNotEmpty() else code.count(Char::isLetterOrDigit) >= 6),
                     shapes = ButtonDefaults.shapes(),
                     contentPadding = PaddingValues(vertical = 16.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -195,7 +209,18 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
                     else Text(if (mfaToken == null) "Inloggen" else "Bevestigen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp))
                 }
             }
-            TextButton(onClick = onDemo, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp)) {
+            // On the second step: switch between the app's code and a recovery code.
+            AnimatedVisibility(mfaToken != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut(), modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                val haptics = rememberHaptics()
+                TextButton(onClick = { haptics(Haptic.Tick); recovery = !recovery; code = ""; error = null }, modifier = Modifier.padding(top = 10.dp)) {
+                    Text(
+                        if (recovery) "Toch een code uit de app gebruiken" else "Ik heb mijn telefoon niet: herstelcode gebruiken",
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp),
+                    )
+                }
+            }
+            if (mfaToken == null) TextButton(onClick = onDemo, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp)) {
                 Text("Bekijk met voorbeelden", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
             }
             Text(
@@ -250,3 +275,6 @@ private fun Field(
         }
     }
 }
+
+/** The second step opened by a test to look at it: nothing is ever sent with it. */
+private const val PreviewToken = "preview"

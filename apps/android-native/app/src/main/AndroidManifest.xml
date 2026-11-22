@@ -20,10 +20,23 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:configChanges="uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Share links (/s/...) and trip links (/trips/...) open in the app. Verified once the server
+                 lists this app's signing key in /.well-known/assetlinks.json; until then Android asks, or the
+                 link can be switched on under the app's "Open supported links". -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="${linkHost}" />
+                <data android:pathPrefix="/s/" />
+                <data android:pathPrefix="/trips/" />
             </intent-filter>
         </activity>
         <service
