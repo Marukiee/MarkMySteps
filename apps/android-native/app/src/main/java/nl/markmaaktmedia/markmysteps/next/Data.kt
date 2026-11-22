@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -33,7 +34,8 @@ object Data {
     var live by mutableStateOf(Api.signedIn)
         private set
     /** Signed in but nothing read yet: the pages show placeholders of the right size. */
-    val loading: Boolean get() = live && trips.isEmpty() && error == null
+    val loading: Boolean get() = live && trips.isEmpty() && error == null && !readOnce
+    private var readOnce by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
     /** Bumped on every reload, so pages that read more per trip read it again. */
     var version by mutableIntStateOf(0)
@@ -43,8 +45,9 @@ object Data {
     val past: List<Trip> get() = trips.filter { !it.upcoming && !it.shared }
     /** Other people's trips you were added to. */
     val sharedTrips: List<Trip> get() = trips.filter { it.shared }
-    /** The trip under way, or the first one coming. */
-    val next: Trip? get() = trips.filter { it.upcoming }.minByOrNull { it.startsInDays ?: 0 }
+    /** Your own trips under way or still to come, the soonest first. */
+    val upcoming: List<Trip> get() = trips.filter { it.upcoming && !it.shared }.sortedBy { it.startsInDays ?: 0 }
+    val next: Trip? get() = upcoming.firstOrNull()
     val shared: Int get() = if (live) sharedTrips.size else DemoSharedCount
 
     suspend fun load() {
@@ -54,6 +57,7 @@ object Data {
             trips = Remote.trips()  // reads `me` from the cache to tell own trips from shared ones
             live = true
             error = null
+            readOnce = true
             version++
         } catch (e: Api.Failure) {
             if (e.status == 401) signOut() else error = e.message
@@ -81,8 +85,14 @@ object Data {
 @Composable
 fun Cover(trip: Trip, modifier: Modifier, size: String = "thumbnail") {
     val id = trip.coverId
-    if (id != null) RemotePhoto(id, modifier, size)
-    else Scenery(trip.cover ?: Scene.Mountains, modifier)
+    when {
+        id != null -> RemotePhoto(id, modifier, size)
+        // A real trip without a photo: its own colour with the compass, as on the web, never a made-up landscape.
+        trip.remoteId != null -> Box(modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(trip.color, androidx.compose.ui.graphics.Color(0xFF1B2440).copy(alpha = 0.5f).compositeOver(trip.color)))), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            LineIcon(Glyphs.compass, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f), size = androidx.compose.ui.unit.Dp(26f), stroke = 1.8f)
+        }
+        else -> Scenery(trip.cover ?: Scene.Mountains, modifier)
+    }
 }
 
 /** A photo from the server, fading in once it is there, on a quiet tone until then. */
@@ -133,5 +143,24 @@ fun Avatar(userId: String?, name: String, hasAvatar: Boolean, color: androidx.co
         )
         val shown by animateFloatAsState(if (bitmap != null) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "avatar")
         bitmap?.let { Image(it.asImageBitmap(), null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().graphicsLayer { alpha = shown }) }
+    }
+}
+
+/** Light, dark or follow the phone: kept on the phone, read by MainActivity. */
+object ThemePref {
+    private const val KEY = "theme"
+    private var prefs: android.content.SharedPreferences? = null
+    /** 0 light, 1 dark, 2 the phone's own setting. */
+    var mode by mutableIntStateOf(2)
+        private set
+
+    fun init(context: android.content.Context) {
+        prefs = context.getSharedPreferences("mms.next.ui", android.content.Context.MODE_PRIVATE)
+        mode = prefs?.getInt(KEY, 2) ?: 2
+    }
+
+    fun set(value: Int) {
+        mode = value
+        prefs?.edit()?.putInt(KEY, value)?.apply()
     }
 }

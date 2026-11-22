@@ -75,7 +75,7 @@ private fun stitch(legs: List<JourneyLeg>): List<JourneyLeg> {
     return out
 }
 
-private class Arrival(val at: Double, val ms: Double)
+internal class Arrival(val at: Double, val ms: Double)
 
 /** A point on the great circle from [a] to [b], [f] of the way along. */
 internal fun slerp(a: LonLat, b: LonLat, f: Double, out: DoubleArray) {
@@ -108,10 +108,25 @@ internal fun slerp(a: LonLat, b: LonLat, f: Double, out: DoubleArray) {
 /** A trip as the tour sees it: where to look, how far in, and its journey in order. */
 internal class TourTrip(val trip: Trip) {
     val id = trip.id
-    val segments: List<List<LonLat>> = trip.segments.ifEmpty { if (trip.route.size >= 2) listOf(trip.route) else emptyList() }
+    // A server trip's route falls back to its stops when nothing was recorded; the web
+    // has no path then, so neither does the journey here. Demo trips only have `route`.
+    val segments: List<List<LonLat>> = when {
+        trip.remoteId != null -> trip.segments
+        trip.segments.isNotEmpty() -> trip.segments
+        trip.route.size >= 2 -> listOf(trip.route)
+        else -> emptyList()
+    }
     val flights: List<List<LonLat>> = trip.flightLegs.ifEmpty { trip.flights.map { listOf(it.first, it.second) } }
     val anchor: LonLat = trip.route.firstOrNull() ?: trip.stops.firstOrNull()?.at ?: HomeAirport
     val size: Double = trip.km?.takeIf { it > 0 }?.toDouble() ?: (trip.days * 40.0)
+
+    /** What a tap can hit: the route, the stops and the far ends of flights. */
+    val hitPoints: List<LonLat> = buildList {
+        add(anchor)
+        segments.forEach { addAll(it) }
+        trip.stops.forEach { add(it.at) }
+        for (f in flights) for (p in listOf(f.first(), f.last())) if (angle(p, HomeAirport) >= 0.4) add(p)
+    }
 
     /** The middle of everything the trip touches, as unit vectors (safe across the date line). */
     val centre: LonLat
@@ -242,6 +257,7 @@ internal class TourTrip(val trip: Trip) {
 /** Everything that moves on the home globe, stepped once per frame. */
 internal class GlobeMotion(startLon: Double) {
     var now = 0.0
+    var dt = 1 / 60.0
     var rotation = -startLon
     var tilt = 0.0
     var scale = 1.0
@@ -328,8 +344,8 @@ internal class GlobeMotion(startLon: Double) {
         var best: TourTrip? = null
         var bestD = 6 / scale
         for (t in trips) {
-            var d = angle(hit, t.anchor)
-            for (seg in t.segments) for (p in seg) d = min(d, angle(hit, p))
+            var d = Double.MAX_VALUE
+            for (p in t.hitPoints) d = min(d, angle(hit, p))
             if (d < bestD) {
                 bestD = d
                 best = t
@@ -339,7 +355,10 @@ internal class GlobeMotion(startLon: Double) {
     }
 
     fun step(nowMs: Double, dt: Double, trips: List<TourTrip>) {
+        // The first overview runs its full length from the first frame.
+        if (now == 0.0) phaseStart = nowMs
         now = nowMs
+        this.dt = dt
         val idle = !dragging && now - lastInteract > IDLE_MS
 
         if (!dragging && (flingRot != 0.0 || flingTilt != 0.0)) {
@@ -506,8 +525,10 @@ internal class GlobeMotion(startLon: Double) {
         }
     }
 
-    /** Whether the card's dot is on the near side this frame, set by Globe.kt. */
+    /** The card's dot this frame, set by Globe.kt: on the near side, and where on screen. */
     var cardVisible = false
+    var cardX = 0f
+    var cardY = 0f
 
     private fun stepCard(activeId: String?, dt: Double) {
         if (activeId != cardTripId) {

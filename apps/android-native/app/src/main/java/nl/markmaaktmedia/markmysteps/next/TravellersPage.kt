@@ -101,7 +101,7 @@ fun TravellersPage() {
         Stat(live?.trips ?: trips.size, "reizen", Glyphs.compass, MaterialShapes.Cookie9Sided),
         Stat(live?.countries?.size ?: visited.size, "landen", Glyphs.globe, MaterialShapes.Clover4Leaf),
         Stat(live?.km ?: trips.sumOf { it.km ?: 0 }, "kilometer", Glyphs.distance, MaterialShapes.Cookie6Sided),
-        Stat(live?.days ?: trips.sumOf { it.days }, "dagen weg", Glyphs.hourglass, MaterialShapes.Sunny),
+        Stat(live?.days ?: trips.sumOf { it.days }, "dagen op reis", Glyphs.hourglass, MaterialShapes.Sunny),
         Stat(live?.photos ?: trips.sumOf { it.photos }, "foto's", Glyphs.camera, MaterialShapes.Flower),
         Stat(live?.flights ?: trips.sumOf { it.flights.size }, "vluchten", Glyphs.plane, MaterialShapes.SoftBurst),
     )

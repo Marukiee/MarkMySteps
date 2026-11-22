@@ -87,12 +87,25 @@ object Api {
 
     private fun open(method: String, path: String, auth: Boolean): HttpURLConnection =
         (URL(base + path).openConnection() as HttpURLConnection).apply {
-            requestMethod = method
+            setMethod(this, method)
             connectTimeout = 15_000
             readTimeout = 30_000
             setRequestProperty("Accept", "application/json")
             if (auth) access?.let { setRequestProperty("Authorization", "Bearer $it") }
         }
+
+    /** HttpURLConnection refuses PATCH; set it on the underlying field, as OkHttp-less apps do. */
+    private fun setMethod(c: HttpURLConnection, method: String) {
+        try { c.requestMethod = method } catch (_: java.net.ProtocolException) {
+            runCatching {
+                val f = HttpURLConnection::class.java.getDeclaredField("method"); f.isAccessible = true; f.set(c, method)
+            }.onFailure {
+                // On Android the real connection is wrapped; reach it through "delegate" when present.
+                val d = c.javaClass.getDeclaredField("delegate").apply { isAccessible = true }.get(c) as HttpURLConnection
+                val f = HttpURLConnection::class.java.getDeclaredField("method"); f.isAccessible = true; f.set(d, method)
+            }
+        }
+    }
 
     private fun request(method: String, path: String, body: String? = null, auth: Boolean = true, retried: Boolean = false): String {
         val c = open(method, path, auth)
@@ -238,6 +251,47 @@ object Remote {
         Api.send("PUT", "/api/trips/${trip.remoteId}/media/$mediaId/reaction", JSONObject().put("kind", kind ?: JSONObject.NULL))
     }
 
+    data class ShareLink(val id: String, val url: String, val hasPassword: Boolean, val canManage: Boolean)
+
+    suspend fun shareLinks(trip: Trip): List<ShareLink> {
+        val a = JSONArray(Api.get("/api/trips/${trip.remoteId}/share"))
+        return (0 until a.length()).map { a.getJSONObject(it) }.map { ShareLink(it.getString("id"), it.optString("url"), it.optBoolean("hasPassword"), it.optBoolean("canManage", true)) }
+    }
+
+    suspend fun createShareLink(trip: Trip, password: String?): ShareLink {
+        val o = JSONObject(Api.send("POST", "/api/trips/${trip.remoteId}/share", JSONObject().apply { if (!password.isNullOrBlank()) put("password", password) }))
+        return ShareLink(o.getString("id"), o.optString("url"), o.optBoolean("hasPassword"), o.optBoolean("canManage", true))
+    }
+
+    suspend fun setSharePassword(trip: Trip, id: String, password: String?) {
+        Api.send("PATCH", "/api/trips/${trip.remoteId}/share/$id", JSONObject().put("password", password ?: JSONObject.NULL))
+    }
+
+    suspend fun revokeShareLink(trip: Trip, id: String) { Api.send("DELETE", "/api/trips/${trip.remoteId}/share/$id") }
+
+    /** People to add, by name or @username. */
+    suspend fun findPeople(query: String): List<Friend> {
+        val a = JSONArray(Api.get("/api/users/suggestions?limit=25&q=" + java.net.URLEncoder.encode(query.trim(), "UTF-8")))
+        return (0 until a.length()).map { a.getJSONObject(it) }.map { Friend(it.optString("id"), it.optString("displayName"), it.optString("username"), it.optBoolean("hasAvatar"), 0) }
+    }
+
+    suspend fun addMembers(trip: Trip, usernames: List<String>, guest: Boolean) {
+        Api.send("POST", "/api/trips/${trip.remoteId}/members", JSONObject().put("usernames", JSONArray(usernames)))
+        if (guest) {
+            // Added as companions by the server; guests get their role straight after.
+            val now = trips().firstOrNull { it.remoteId == trip.remoteId }?.members.orEmpty()
+            now.filter { it.username in usernames }.forEach { updateMember(trip, it.userId, role = "GUEST") }
+        }
+    }
+
+    suspend fun updateMember(trip: Trip, userId: String, role: String? = null, canTrack: Boolean? = null) {
+        Api.send("PATCH", "/api/trips/${trip.remoteId}/members/$userId", JSONObject().apply {
+            role?.let { put("role", it) }; canTrack?.let { put("canTrack", it) }
+        })
+    }
+
+    suspend fun removeMember(trip: Trip, userId: String) { Api.send("DELETE", "/api/trips/${trip.remoteId}/members/$userId") }
+
     suspend fun friends(): List<Friend> {
         val a = JSONArray(Api.get("/api/users/friends"))
         return (0 until a.length()).map { a.getJSONObject(it) }.map {
@@ -299,10 +353,19 @@ object Remote {
             val color = o.optString("color").takeIf { it.startsWith("#") }?.let { Color(android.graphics.Color.parseColor(it)) }
                 ?: Color(Palette[i % Palette.size])
             val members = o.optJSONArray("members")
-            val people = (0 until (members?.length() ?: 0)).map { k ->
-                val u = members!!.getJSONObject(k).getJSONObject("user")
-                Person(u.optString("displayName").take(1).uppercase(), Color(Palette[(k + 3) % Palette.size]))
+            val memberList = (0 until (members?.length() ?: 0)).map { k ->
+                val m = members!!.getJSONObject(k); val u = m.getJSONObject("user")
+                Member(
+                    m.getString("userId"), u.optString("displayName"), u.optString("username"), u.optBoolean("hasAvatar"),
+                    m.optString("role"), m.optBoolean("canTrack"),
+                    m.optString("fromDate").takeIf { it.isNotBlank() && it != "null" }, m.optString("toDate").takeIf { it.isNotBlank() && it != "null" },
+                )
             }
+            // Faces are the people who travelled; guests only look along and are not counted.
+            val people = memberList.filter { it.role != "GUEST" }.mapIndexed { k, m ->
+                Person(m.name.take(1).uppercase(), Color(Palette[(k + 3) % Palette.size]), m.userId, m.hasAvatar, m.name)
+            }
+            val ongoing = !start.isAfter(today) && !end.isBefore(today)
             Trip(
                 id = o.getString("id"),
                 title = o.getString("title"),
@@ -316,14 +379,18 @@ object Remote {
                 flights = flights,
                 upcoming = !end.isBefore(today),
                 startsInDays = ChronoUnit.DAYS.between(today, start).toInt().takeIf { it > 0 },
-                people = people.take(3),
-                extraPeople = (people.size - 3).coerceAtLeast(0),
+                people = people,
+                extraPeople = 0,
+                ongoingDay = if (ongoing) (ChronoUnit.DAYS.between(start, today) + 1).toInt() else null,
                 remoteId = o.getString("id"),
                 coverId = o.optString("resolvedCoverId").takeIf { it.isNotBlank() && it != "null" },
                 start = start,
-                shared = me != null && o.optString("ownerId") != me,
+                // As on the web: shared with you means you are a guest on it; a trip you travelled is yours.
+                shared = me != null && memberList.any { it.userId == me && it.role == "GUEST" },
                 segments = segments,
                 flightLegs = flightLegs,
+                ownerId = o.optString("ownerId"),
+                members = memberList,
             )
         }.sortedByDescending { it.start }
     }

@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import kotlin.math.max
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /*
@@ -84,6 +85,7 @@ private fun Modifier.press(onClick: () -> Unit = {}): Modifier = composed {
 @Composable
 fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
     val cs = MaterialTheme.colorScheme
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     // A trip from the server brings its stops and photos in only when it is opened.
     val trip by androidx.compose.runtime.produceState(base, base.id, Data.version) {
         if (base.remoteId != null) runCatching { Remote.stops(base) }.getOrNull()?.let { (stops, legs) ->
@@ -91,6 +93,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
         }
     }
     var viewing by remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
+    var people by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var menu by remember { androidx.compose.runtime.mutableStateOf(false) }
     val media by androidx.compose.runtime.produceState<List<Media>?>(null, base.id, Data.version) {
         if (base.remoteId != null) value = runCatching { Remote.media(base) }.getOrNull() ?: emptyList()
     }
@@ -128,7 +132,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                     .padding(horizontal = 16.dp),
             ) {
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(cs.outlineVariant))
-                CoverCard(trip, photos = media?.size, modifier = Modifier.padding(top = 14.dp))
+                CoverCard(trip, photos = media?.size, modifier = Modifier.padding(top = 14.dp), onPeople = if (trip.remoteId != null) ({ people = true }) else null)
                 Facts(trip, Modifier.padding(top = 4.dp), photos = media?.size)
 
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
@@ -166,9 +170,19 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                     style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 19.sp, color = cs.onSurface),
                     modifier = Modifier.weight(1f).padding(horizontal = 14.dp).graphicsLayer { alpha = bar; translationY = (1f - bar) * 12.dp.toPx() },
                 )
-                RoundButton(onClick = {}) { LineIcon(Glyphs.dotsCircles, cs.onSurface, size = 22.dp, filled = true) }
+                Box {
+                    RoundButton(onClick = { menu = true }) { LineIcon(Glyphs.dotsCircles, cs.onSurface, size = 22.dp, filled = true) }
+                    androidx.compose.material3.DropdownMenu(menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(20.dp), containerColor = cs.surfaceContainerHighest) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Mensen en delen", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
+                            onClick = { menu = false; people = true }, enabled = trip.remoteId != null,
+                            leadingIcon = { LineIcon(Glyphs.friends, cs.onSurface, size = 20.dp) },
+                        )
+                    }
+                }
             }
         }
+        if (people) PeopleSheet(trip, onDismiss = { people = false }, onChanged = { scope.launch { Data.load() } })
         // A tapped photo opens full screen over everything, the toolbar included.
         viewing?.let { start ->
             val photos = media.orEmpty().filter { !it.video }
@@ -190,18 +204,19 @@ private fun RoundButton(onClick: () -> Unit = {}, content: @Composable () -> Uni
 @Composable
 private fun People(people: List<Person>, extra: Int, ring: Color = MaterialTheme.colorScheme.background) {
     val cs = MaterialTheme.colorScheme
-    val faces = people.take(3)
-    val count = faces.size + if (extra > 0) 1 else 0
+    val faces = people.take(if (people.size + extra <= 4) 4 else 3)
+    val more = people.size - faces.size + extra
+    val count = faces.size + if (more > 0) 1 else 0
     if (count == 0) return
     Box(Modifier.width(36.dp + 24.dp * (count - 1)).height(36.dp)) {
         faces.forEachIndexed { i, p ->
-            Box(Modifier.offset(x = 24.dp * i).size(36.dp).background(ring, CircleShape).padding(2.dp).background(p.color, CircleShape), contentAlignment = Alignment.Center) {
-                Text(p.initial, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 13.sp, color = Color.White))
+            Box(Modifier.offset(x = 24.dp * i).size(36.dp).background(ring, CircleShape).padding(2.dp)) {
+                Avatar(p.userId, p.name, p.hasAvatar, p.color, Modifier.matchParentSize())
             }
         }
-        if (extra > 0) {
+        if (more > 0) {
             Box(Modifier.offset(x = 24.dp * faces.size).size(36.dp).background(ring, CircleShape).padding(2.dp).background(cs.secondaryContainer, CircleShape), contentAlignment = Alignment.Center) {
-                Text("+$extra", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 12.sp, color = cs.onSecondaryContainer))
+                Text("+$more", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 12.sp, color = cs.onSecondaryContainer))
             }
         }
     }
@@ -226,7 +241,7 @@ private fun factsOf(trip: Trip, photos: Int?): List<Pair<String, String>> = if (
  * photo the card is the trip's colour with the compass, like the next trip.
  */
 @Composable
-private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier) {
+private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier, onPeople: (() -> Unit)? = null) {
     val hasPhoto = trip.coverId != null || trip.cover != null
     Box(modifier.fillMaxWidth().height(236.dp).clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp, bottomStart = 6.dp, bottomEnd = 6.dp))) {
         if (hasPhoto) {
@@ -240,7 +255,10 @@ private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier) {
                 modifier = Modifier.align(Alignment.TopEnd).offset(x = 50.dp, y = (-26).dp).graphicsLayer { rotationZ = -12f; alpha = 0.16f },
             )
         }
-        Box(Modifier.align(Alignment.TopEnd).padding(14.dp)) { People(trip.people, trip.extraPeople, ring = Color.White.copy(alpha = 0.9f)) }
+        // The faces open people and sharing, as on the web.
+        Box(Modifier.align(Alignment.TopEnd).padding(14.dp).clip(CircleShape).clickable(enabled = onPeople != null) { onPeople?.invoke() }) {
+            People(trip.people, trip.extraPeople, ring = Color.White.copy(alpha = 0.9f))
+        }
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
             Text(
                 trip.title, maxLines = 2,

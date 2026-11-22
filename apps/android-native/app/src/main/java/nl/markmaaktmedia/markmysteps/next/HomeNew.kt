@@ -191,6 +191,9 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         // transition on from there, pulling back snaps it home. Nothing is composed twice.
         var fromTabBack by remember { mutableStateOf(false) }
         LaunchedEffect(target) { if (pages.targetState != target) { pages.animateTo(target) }; fromTabBack = false }
+        // Off to another tab, the home page forgets where it was scrolled: back on it, it starts at
+        // the top. Back from a trip it keeps its place, so you can carry on down the list.
+        LaunchedEffect(page) { if (page != 0) holder.removeState("page0") }
         val backTo: String? = when { open != null -> "page$page"; page != 0 -> "page0"; else -> null }
         androidx.activity.compose.PredictiveBackHandler(enabled = backTo != null) { events ->
             val to = backTo ?: return@PredictiveBackHandler
@@ -265,12 +268,17 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
     val screenH = LocalConfiguration.current.screenHeightDp
     val heroH = (screenH * 0.5f).coerceIn(320f, 560f).dp
     var tab by remember { mutableIntStateOf(0) }
+    var globeScale by remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
     val scroll = rememberScrollState()
 
     Box(Modifier.fillMaxSize().background(cs.background)) {
         Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             Box(Modifier.fillMaxWidth().height(heroH)) {
                 Globe(
+                    tour = true,
+                    onTripTap = onOpenTrip,
+                    onScale = { globeScale = it },
+                    centerLon = 14.0,
                     trips = Data.all,
                     style = GlobeStyle(
                         sphere = if (dark) Color(0xFF101418) else Color(0xFFEADFCE),
@@ -285,7 +293,7 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                 )
                 Column(Modifier.padding(horizontal = Pad)) {
                     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-                    TopRow(onLogoTap)
+                    TopRow(onLogoTap, needle = { (globeScale - 1f) * 660f })
                 }
             }
 
@@ -312,8 +320,10 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                     label = "loading",
                 ) { loading ->
                     if (loading) HomePlaceholders() else Column {
-                        if (Data.next != null) SectionTitle("Aankomend & onderweg", Modifier.padding(top = 22.dp, bottom = 12.dp).arrive(1))
-                        Data.next?.let { next -> NextTripCard(next, onOpen = { onOpenTrip(next) }, modifier = Modifier.arrive(2)) }
+                        if (Data.upcoming.isNotEmpty()) SectionTitle("Aankomend & onderweg", Modifier.padding(top = 22.dp, bottom = 12.dp).arrive(1))
+                        // Every trip of your own under way or to come, not only the first.
+                        Data.upcoming.forEachIndexed { i, next -> NextTripCard(next, onOpen = { onOpenTrip(next) }, modifier = Modifier.padding(top = if (i == 0) 0.dp else 10.dp).arrive(2 + i)) }
+                        if (Data.live && Data.trips.isEmpty()) EmptyTrips()
                         PastOrShared(tab, onTab = { tab = it }, modifier = Modifier.padding(top = 26.dp, bottom = 4.dp).arrive(3))
                         // A trip can be shown big, as the first one here, or as a row with its photo blurred behind it.
                         val list = if (tab == 0) Data.past else Data.sharedTrips
@@ -369,7 +379,7 @@ private fun Modifier.bouncyClickable(onClick: () -> Unit = {}): Modifier = compo
 }
 
 @Composable
-private fun TopRow(onLogoTap: () -> Unit) {
+private fun TopRow(onLogoTap: () -> Unit, needle: () -> Float = { 0f }) {
     val cs = MaterialTheme.colorScheme
     Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(
@@ -377,7 +387,8 @@ private fun TopRow(onLogoTap: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            LineIcon(Glyphs.logo, cs.primary, size = 34.dp, stroke = 2.1f)
+            // The compass turns with the globe's zoom, as on the web; read in the layer so a frame never recomposes the row.
+            LineIcon(Glyphs.logo, cs.primary, size = 34.dp, stroke = 2.1f, modifier = Modifier.graphicsLayer { rotationZ = needle() })
             Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(620), fontSize = 23.sp, letterSpacing = (-0.02).em, color = cs.onBackground))
         }
         Spacer(Modifier.weight(1f))
@@ -410,19 +421,26 @@ private fun NextTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mo
     val shape = RoundedCornerShape(32.dp)
     val base = trip.color
     val deep = Color(0xFF1B2440).copy(alpha = 0.55f).compositeOver(base)
-    val left = trip.startsInDays ?: 0
+    // Under way it counts the days of the trip, before it the days to go; one day is "dag", not "dagen".
+    val (big, top, bottom) = when {
+        trip.ongoingDay != null -> Triple("${trip.ongoingDay}", "e dag", "van ${trip.days}, onderweg")
+        else -> (trip.startsInDays ?: 0).let { n -> Triple("$n", if (n == 1) "dag" else "dagen", "tot vertrek") }
+    }
     Box(modifier.fillMaxWidth().clip(shape).background(Brush.linearGradient(listOf(base, deep))).bouncyClickable(onOpen)) {
-        LineIcon(
+        if (trip.coverId != null) {
+            Cover(trip, Modifier.matchParentSize(), size = "preview")
+            Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.35f), 0.5f to Color.Black.copy(alpha = 0.2f), 1f to Color.Black.copy(alpha = 0.62f))))
+        } else LineIcon(
             Glyphs.compass, Color.White, size = 170.dp, stroke = 1.3f,
             modifier = Modifier.align(Alignment.TopEnd).offset(x = 46.dp, y = (-22).dp).rotate(-12f).alpha(0.16f),
         )
         MenuDots(Modifier.align(Alignment.TopEnd).padding(14.dp))
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text("$left", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(800), fontSize = 60.sp, lineHeight = 60.sp, letterSpacing = (-0.03).em, color = Color.White))
+                Text(big, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(800), fontSize = 60.sp, lineHeight = 60.sp, letterSpacing = (-0.03).em, color = Color.White))
                 Column(Modifier.padding(start = 10.dp, bottom = 9.dp)) {
-                    Text("dagen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = Color.White))
-                    Text("tot vertrek", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = Color.White.copy(alpha = 0.8f)))
+                    Text(top, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = Color.White))
+                    Text(bottom, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = Color.White.copy(alpha = 0.8f)))
                 }
             }
             Text(
@@ -450,17 +468,19 @@ private fun Chip(text: String) {
 }
 
 @Composable
-private fun FaceStack(people: List<Person>, extra: Int, ring: Color) {
-    val faces = people.take(2)
+private fun FaceStack(people: List<Person>, extraIn: Int, ring: Color) {
+    // Two faces, then how many more: three people show two faces and "+1".
+    val faces = people.take(if (people.size + extraIn <= 3) 3 else 2)
+    val extra = people.size - faces.size + extraIn
     val count = faces.size + if (extra > 0) 1 else 0
     val size = 32.dp
     val step = 21.dp
     Box(Modifier.width(size + step * (count - 1)).height(size)) {
         faces.forEachIndexed { i, p ->
             Box(
-                Modifier.offset(x = step * i).size(size).background(ring, CircleShape).padding(2.dp).background(p.color, CircleShape),
+                Modifier.offset(x = step * i).size(size).background(ring, CircleShape).padding(2.dp),
                 contentAlignment = Alignment.Center,
-            ) { Text(p.initial, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 12.sp, color = Color.White)) }
+            ) { Avatar(p.userId, p.name, p.hasAvatar, p.color, Modifier.matchParentSize()) }
         }
         if (extra > 0) {
             Box(
@@ -475,7 +495,7 @@ private fun FaceStack(people: List<Person>, extra: Int, ring: Color) {
 /** Past or shared: a connected toggle group, the open one filled and fully round. */
 @Composable
 private fun PastOrShared(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
-    val options = listOf("Afgelopen" to Data.past.size, "Gedeeld" to Data.shared)
+    val options = listOf("Afgelopen reizen" to Data.past.size, "Gedeeld" to Data.shared)
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
         options.forEachIndexed { i, (label, count) ->
             ToggleButton(
@@ -650,5 +670,17 @@ private fun HomePlaceholders() {
         Column(Modifier.padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             repeat(3) { i -> Box(Modifier.fillMaxWidth().height(84.dp).clip(slab(i, 3)).background(tone)) }
         }
+    }
+}
+
+
+/** Signed in without a single trip yet: say so, and where to begin. */
+@Composable
+private fun EmptyTrips() {
+    val cs = MaterialTheme.colorScheme
+    Column(Modifier.padding(top = 24.dp).fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(cs.surfaceContainerLow).padding(22.dp)) {
+        LineIcon(Glyphs.compass, cs.primary, size = 34.dp, stroke = 2f)
+        Text("Nog geen reizen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface), modifier = Modifier.padding(top = 12.dp))
+        Text("Begin met Nieuwe reis hierboven. Foto's uit Immich komen er vanzelf bij.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp))
     }
 }

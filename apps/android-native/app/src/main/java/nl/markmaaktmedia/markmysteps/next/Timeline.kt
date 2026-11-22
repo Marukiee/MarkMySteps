@@ -24,6 +24,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,18 +72,19 @@ private fun daysOf(trip: Trip): List<Day> {
 @Composable
 fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Media) -> Unit = {}) {
     if (media != null) { LiveTimeline(trip, media, onPhoto); return }
+    if (trip.remoteId != null) { TimelinePlaceholder(); return }
     val cs = MaterialTheme.colorScheme
     val scenes = Scene.entries
 
     val places = trip.stops.distinctBy { it.name }
     if (places.size > 1) Text(
-        "Plekken",
+        "Plaatsen",
         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
         modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
     )
     // The places, each a photo with its name, wider than the screen so the row asks to be swiped.
     if (places.size > 1) Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         trip.stops.distinctBy { it.name }.forEachIndexed { i, stop ->
@@ -207,11 +210,11 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
     // A row of places only when there is more than one: a single place says nothing a row would add.
     if (trip.stops.distinctBy { it.name }.size > 1) {
         Text(
-            "Plekken",
+            "Plaatsen",
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
             modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
         )
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             trip.stops.distinctBy { it.name }.forEach { stop ->
                 val pick = photos.firstOrNull { stopOn(it.takenAt)?.name == stop.name }
                 Box(Modifier.width(138.dp).height(168.dp).clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerHigh)) {
@@ -321,4 +324,26 @@ private fun justified(list: List<Media>): List<List<Media>> {
         i += take
     }
     return rows
+}
+
+
+/** While a real trip's photos are read: quiet shapes where the day and its photos will be, never the demo. */
+@Composable
+private fun TimelinePlaceholder() {
+    val cs = MaterialTheme.colorScheme
+    val pulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse").animateFloat(
+        0.55f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(1100), androidx.compose.animation.core.RepeatMode.Reverse), label = "a",
+    )
+    Column(Modifier.graphicsLayer { alpha = pulse }) {
+        repeat(2) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(13.dp).clip(CircleShape).background(cs.surfaceContainerHigh))
+                Box(Modifier.padding(start = 14.dp).size(width = 190.dp, height = 22.dp).clip(CircleShape).background(cs.surfaceContainerHigh))
+            }
+            Row(Modifier.padding(start = 27.dp, top = 14.dp, bottom = 30.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.weight(1f).height(170.dp).clip(RoundedCornerShape(14.dp)).background(cs.surfaceContainerHigh))
+                Box(Modifier.weight(2f).height(170.dp).clip(RoundedCornerShape(14.dp)).background(cs.surfaceContainerHigh))
+            }
+        }
+    }
 }

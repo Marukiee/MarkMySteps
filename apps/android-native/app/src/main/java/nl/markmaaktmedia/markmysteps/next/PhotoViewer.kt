@@ -10,6 +10,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
@@ -122,10 +123,20 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, onClose: () -> Unit
             .graphicsLayer { alpha = appear.value }
             .background(Color.Black.copy(alpha = 1f - back.value * 0.6f)),
     ) {
-        HorizontalPager(pager, Modifier.fillMaxSize().graphicsLayer {
-            val k = 1f - back.value * 0.12f
-            scaleX = k * (0.94f + 0.06f * appear.value); scaleY = scaleX
-        }) { page ->
+        // Swipe the photo down to put it away, as in the phone's gallery.
+        val drop = remember { Animatable(0f) }
+        HorizontalPager(pager, Modifier.fillMaxSize()
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = { scope.launch { if (drop.value > 220f) { appear.animateTo(0f, androidx.compose.animation.core.tween(160)); onClose() } else drop.animateTo(0f) } },
+                    onDragCancel = { scope.launch { drop.animateTo(0f) } },
+                ) { change, amount -> change.consume(); scope.launch { drop.snapTo((drop.value + amount).coerceAtLeast(0f)) } }
+            }
+            .graphicsLayer {
+                val k = 1f - back.value * 0.12f - (drop.value / size.height).coerceIn(0f, 1f) * 0.25f
+                scaleX = k * (0.94f + 0.06f * appear.value); scaleY = scaleX
+                translationY = drop.value
+            }) { page ->
             ViewerPhoto(photos[page], onHdr = { if (page == pager.currentPage) hdr = it }, onTap = { chrome = !chrome })
         }
         // Which day and where, and how far through the trip's photos.
@@ -135,7 +146,7 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, onClose: () -> Unit
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.16f))
-                        .pointerInput(Unit) { detectTapGestures { onClose() } },
+                        .pointerInput(Unit) { detectTapGestures { scope.launch { appear.animateTo(0f, androidx.compose.animation.core.tween(180)); onClose() } } },
                     contentAlignment = Alignment.Center,
                 ) { LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), Color.White, size = 22.dp, stroke = 2.2f) }
                 val m = photos[pager.currentPage]

@@ -98,10 +98,10 @@ private val Sections = listOf(
     Section(Glyphs.person, "Account", "Profiel, wachtwoord, tweestapsverificatie"),
     Section(Glyphs.sun, "Weergave", "Thema, taal, globe"),
     Section(Glyphs.distance, "Reizen en route", "Tracking, eigen locatie, vliegvelden"),
-    Section(Glyphs.photo, "Foto's", "Immich verbonden"),
+    Section(Glyphs.photo, "Foto's", "Immich en je statistieken"),
     Section(Glyphs.bell, "Meldingen", "Reacties en nieuwe foto's"),
     Section(Glyphs.download, "Opslag en back-up", "Offline kaart, foto-cache"),
-    Section(Glyphs.shield, "Updates", "Automatisch, build 267"),
+    Section(Glyphs.shield, "Updates", "Automatisch controleren"),
     Section(Glyphs.help, "Over", "MarkMySteps, AGPL-3.0"),
 )
 
@@ -198,7 +198,7 @@ private fun SettingsMain(onOpen: (Int) -> Unit) {
 private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val sec = Sections[index]
-    var theme by remember { mutableIntStateOf(2) }
+    val theme = ThemePref.mode
     var autoUpdate by remember { mutableStateOf(true) }
     var twoFactor by remember { mutableStateOf(true) }
     var tracking by remember { mutableStateOf(true) }
@@ -221,8 +221,9 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
             0 -> Group("Jij", listOf(
                 Item(Glyphs.person, "Profiel", "naam, foto"),
                 Item(Glyphs.lock, "Wachtwoord"),
-                Item(Glyphs.shield, "Tweestapsverificatie", toggle = twoFactor),
-            ), onToggle = { twoFactor = !twoFactor }).also {
+                // Signed in, its real state is not read yet, so no made-up switch: it opens its page.
+                if (Data.live) Item(Glyphs.shield, "Tweestapsverificatie") else Item(Glyphs.shield, "Tweestapsverificatie", toggle = twoFactor, action = { twoFactor = !twoFactor }),
+            )).also {
                 Group("Server", listOf(Item(Glyphs.globe, "Server", Api.base.removePrefix("https://").ifBlank { "voorbeelden" }), Item(Glyphs.arrowRight, if (Data.live) "Uitloggen" else "Inloggen", action = onSignIn)))
             }
             1 -> {
@@ -231,7 +232,7 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
                     listOf("Licht", "Donker", "Systeem").forEachIndexed { i, label ->
                         ToggleButton(
                             checked = theme == i,
-                            onCheckedChange = { theme = i },
+                            onCheckedChange = { ThemePref.set(i) },
                             modifier = Modifier.weight(1f).height(52.dp),
                             shapes = when (i) {
                                 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
@@ -248,29 +249,30 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
                 Group("Taal en kaart", listOf(Item(Glyphs.globe, "Taal", "Nederlands"), Item(Glyphs.compass, "Globe", "draait mee met je vinger")))
             }
             2 -> Group("Onderweg", listOf(
-                Item(Glyphs.distance, "Route-tracking", toggle = tracking),
-                Item(Glyphs.pin, "Eigen locatie", toggle = selfLocation),
-                Item(Glyphs.plane, "Standaard vliegvelden", "AMS, EIN"),
-            ), onToggle = { tracking = !tracking }).also {
+                // Each switch flips itself, not the first one in the group.
+                Item(Glyphs.distance, "Route-tracking", toggle = tracking, action = { tracking = !tracking }),
+                Item(Glyphs.pin, "Eigen locatie", toggle = selfLocation, action = { selfLocation = !selfLocation }),
+                Item(Glyphs.plane, "Standaard vliegvelden", if (Data.live) null else "AMS, EIN"),
+            )).also {
                 Group("Importeren", listOf(Item(Glyphs.download, "Route-bestanden", "GPX, KML"), Item(Glyphs.compass, "Polarsteps importeren")))
             }
             3 -> Group("Bron", listOf(
-                Item(Glyphs.photo, "Immich", "verbonden"),
+                Item(Glyphs.photo, "Immich", if (Data.live) null else "verbonden"),
                 Item(Glyphs.camera, "Foto's in je statistieken", "alles van de dagen samen"),
             ))
             4 -> Group("Op je telefoon", listOf(
-                Item(Glyphs.bell, "Meldingen", toggle = notify),
+                Item(Glyphs.bell, "Meldingen", toggle = notify, action = { notify = !notify }),
                 Item(Glyphs.friends, "Reacties", "op je foto's en dagen"),
-            ), onToggle = { notify = !notify })
+            ))
             5 -> Group("Op dit toestel", listOf(
-                Item(Glyphs.globe, "Kaart offline bewaren", toggle = offlineMap),
-                Item(Glyphs.photo, "Foto-cache", "412 MB"),
-                Item(Glyphs.download, "Back-up", "laatst gisteren"),
-            ), onToggle = { offlineMap = !offlineMap })
+                Item(Glyphs.globe, "Kaart offline bewaren", toggle = offlineMap, action = { offlineMap = !offlineMap }),
+                Item(Glyphs.photo, "Foto-cache", if (Data.live) null else "412 MB"),
+                Item(Glyphs.download, "Back-up", if (Data.live) null else "laatst gisteren"),
+            ))
             6 -> Group("Nieuwe versies", listOf(
-                Item(Glyphs.download, "Automatisch controleren", toggle = autoUpdate),
-                Item(Glyphs.download, "Nu controleren", "build 267"),
-            ), onToggle = { autoUpdate = !autoUpdate })
+                Item(Glyphs.download, "Automatisch controleren", toggle = autoUpdate, action = { autoUpdate = !autoUpdate }),
+                Item(Glyphs.download, "Nu controleren", "testversie"),
+            ))
             else -> Group("MarkMySteps", listOf(
                 Item(Glyphs.help, "Wat is er nieuw"),
                 Item(Glyphs.logo, "Over MarkMySteps", "AGPL-3.0"),
@@ -324,7 +326,7 @@ private fun Row0(item: Item, i: Int, n: Int, seed: Int, onToggle: () -> Unit = {
         if (item.toggle != null) {
             Switch(
                 checked = item.toggle,
-                onCheckedChange = { onToggle() },
+                onCheckedChange = { item.action?.invoke() ?: onToggle() },
                 thumbContent = if (item.toggle) {
                     { LineIcon(listOf(P("m5 12 5 5 9-10")), cs.primary, size = 14.dp, stroke = 2.6f) }
                 } else null,

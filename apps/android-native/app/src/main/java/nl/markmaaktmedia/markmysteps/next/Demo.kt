@@ -6,7 +6,7 @@ import java.time.LocalDate
 /** A stop or route point: longitude, latitude. */
 typealias LonLat = Pair<Double, Double>
 
-data class Person(val initial: String, val color: Color)
+data class Person(val initial: String, val color: Color, val userId: String? = null, val hasAvatar: Boolean = false, val name: String = initial)
 
 /** A place on the plan, with how long the trip stayed there. */
 data class Stop(
@@ -65,6 +65,16 @@ data class Trip(
     val segments: List<List<LonLat>> = emptyList(),
     /** Every flight with its stopovers, airport to airport. */
     val flightLegs: List<List<LonLat>> = emptyList(),
+    val ownerId: String? = null,
+    val members: List<Member> = emptyList(),
+    /** Under way: which day of the trip today is (1 is the first). */
+    val ongoingDay: Int? = null,
+)
+
+/** Someone on a trip: organiser, companion (counts it in their figures) or guest (only looks). */
+data class Member(
+    val userId: String, val name: String, val username: String, val hasAvatar: Boolean,
+    val role: String, val canTrack: Boolean, val from: String?, val to: String?,
 )
 
 /** The home airport: a flight from here gets no dot of its own on the globe. */

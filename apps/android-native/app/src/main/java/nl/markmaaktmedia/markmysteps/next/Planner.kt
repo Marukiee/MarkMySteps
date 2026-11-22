@@ -129,17 +129,27 @@ fun Planner(trip: Trip, dark: Boolean) {
     var nextKey by remember { mutableStateOf(trip.stops.size) }
     var outbound by remember(trip.id) { mutableStateOf(trip.outbound) }
     var back by remember(trip.id) { mutableStateOf(trip.back) }
-    val totalNights = (trip.days).coerceAtLeast(1)
+    // A trip of 19 days has 18 nights.
+    val totalNights = (trip.days - 1).coerceAtLeast(1)
     val planned = stops.sumOf { it.nights }
 
     // The first day and month of the trip, from the first stop's dates.
-    val firstDay = trip.stops.firstOrNull()?.dates?.takeWhile { it.isDigit() }?.toIntOrNull() ?: 1
-    val month = trip.stops.firstOrNull()?.dates?.substringAfterLast(' ')?.let { Months.indexOf(it) }?.takeIf { it >= 0 } ?: 0
+    // Real dates, so a stay across the end of a month reads "30 aug t/m 2 sep", not "30 t/m 33 aug".
+    val firstDate = trip.start ?: trip.stops.firstOrNull()?.start ?: run {
+        val d = trip.stops.firstOrNull()?.dates?.takeWhile { it.isDigit() }?.toIntOrNull() ?: 1
+        val m = trip.stops.firstOrNull()?.dates?.substringAfterLast(' ')?.let { Months.indexOf(it) }?.takeIf { it >= 0 } ?: 0
+        java.time.LocalDate.of(trip.year.toIntOrNull() ?: 2026, m + 1, d)
+    }
 
     // Nights planned, out of the trip's: a wavy ring that fills and then settles.
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, bottom = 14.dp)) {
         val share by animateFloatAsState((planned.toFloat() / totalNights).coerceIn(0f, 1f), MaterialTheme.motionScheme.slowSpatialSpec(), label = "nights")
-        CircularWavyProgressIndicator(progress = { share }, modifier = Modifier.size(34.dp), color = color, trackColor = color.copy(alpha = 0.18f))
+        // A clear opening between where the ring starts and ends, so nearly full never reads as a ring
+        // that just fails to close; all nights planned closes it.
+        CircularWavyProgressIndicator(
+            progress = { share }, modifier = Modifier.size(34.dp), color = color, trackColor = color.copy(alpha = 0.18f),
+            gapSize = if (share >= 1f) 0.dp else 7.dp,
+        )
         Text(
             "$planned/$totalNights nachten gepland",
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface),
@@ -155,11 +165,12 @@ fun Planner(trip: Trip, dark: Boolean) {
     var dragY by remember { mutableFloatStateOf(0f) }
     val haptics = LocalHapticFeedback.current
 
-    var day = firstDay
+    var day = firstDate
     stops.forEachIndexed { index, stop ->
         val from = day
-        day += stop.nights
-        val dates = if (stop.nights == 0) "$from ${Months[month]}" else "$from t/m $day ${Months[month]}"
+        day = day.plusDays(stop.nights.toLong())
+        fun d(x: java.time.LocalDate, withMonth: Boolean) = if (withMonth) "${x.dayOfMonth} ${Months[x.monthValue - 1]}" else "${x.dayOfMonth}"
+        val dates = if (stop.nights == 0) d(from, true) else "${d(from, from.month != day.month)} t/m ${d(day, true)}"
         androidx.compose.runtime.key(stop.key) {
             val visible = remember { MutableTransitionState(stop.key < trip.stops.size).apply { targetState = true } }
             AnimatedVisibility(
@@ -249,7 +260,7 @@ private fun LegCard(name: String, leg: Leg, onMode: () -> Unit) {
             LineIcon(Glyphs.arrowRight, cs.onSurfaceVariant, size = 16.dp, stroke = 2.2f, modifier = Modifier.padding(horizontal = 6.dp))
             Text(leg.to, maxLines = 1, style = code)
         }
-        Text(km(leg.km), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+        if (leg.km > 0) Text(km(leg.km), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
     }
 }
 
@@ -421,7 +432,7 @@ private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (String, String, LonL
         }
         if (query.isNotBlank() && matches.isEmpty()) {
             Button(
-                onClick = { onAdd(query.trim(), flag ?: "📍", trip.stops.last().at); query = "" },
+                onClick = { onAdd(query.trim(), flag ?: "📍", trip.stops.lastOrNull()?.at ?: trip.route.lastOrNull() ?: HomeAirport); query = "" },
                 shapes = ButtonDefaults.shapes(),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                 modifier = Modifier.padding(top = 10.dp),

@@ -4,6 +4,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 
@@ -80,3 +81,16 @@ val DarkPalette = Palette(
 )
 
 val LocalPalette = staticCompositionLocalOf { LightPalette }
+
+/**
+ * Lets a horizontally scrolling row run to the screen's edges although its parent has a side
+ * margin: the row is laid out [gutter] wider on both sides, and the caller pads its content by
+ * the same amount, so the first item still lines up with everything else.
+ */
+fun androidx.compose.ui.Modifier.bleed(gutter: androidx.compose.ui.unit.Dp): androidx.compose.ui.Modifier =
+    this.then(androidx.compose.ui.Modifier.layout { measurable, constraints ->
+        val extra = gutter.roundToPx() * 2
+        val width = constraints.maxWidth + extra
+        val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+        layout(constraints.maxWidth, placeable.height) { placeable.place(-extra / 2, 0) }
+    })
