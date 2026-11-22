@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.max
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import androidx.compose.ui.res.stringResource
 
 /*
  * A trip, opened, in the Material 3 Expressive proposal. The map at the top is
@@ -195,8 +196,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     androidx.compose.runtime.SideEffect { mapState.self = selfAt }
     var locating by remember { androidx.compose.runtime.mutableStateOf(false) }
     val locationRequest = rememberLocationRequest(
-        "Je locatie op de kaart",
-        "Om te laten zien waar je nu bent, heeft de app je locatie nodig. Die blijft op je telefoon; je route bijhouden is iets apart. Android vraagt je zo om toestemming.",
+        stringResource(R.string.trip_loc_map_title),
+        stringResource(R.string.trip_loc_map_body),
         onRefused = { msg, permanent -> mapNote = msg to permanent },
     )
     fun locate() {
@@ -209,7 +210,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 val wasKnown = mapState.self != null
                 locating = false
                 if (at != null) { ownFix = at; if (!wasKnown) (if (bigMap) cameraBig else cameraInline)?.flyTo(at, 13.0) }
-                else if (!wasKnown) mapNote = "Je locatie is nu niet te vinden. Staat locatie aan op je telefoon?" to false
+                else if (!wasKnown) mapNote = Lang.text(R.string.trip_loc_not_found) to false
             }
         }
     }
@@ -219,8 +220,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(1200); promptReady = true }
     val promptAsked = remember(base.id) { base.remoteId?.let { TrackPromptPref.dismissed(context, it) } ?: true }
     val trackRequest = rememberLocationRequest(
-        "Locatie voor je route",
-        "Om je route bij te houden heeft de app je locatie nodig, ook met het scherm uit. Je ziet een melding zolang hij loopt. Android vraagt je zo om toestemming.",
+        stringResource(R.string.track_loc_title),
+        stringResource(R.string.trip_loc_route_body),
         notifications = true,
         onRefused = { msg, permanent -> mapNote = msg to permanent },
     )
@@ -309,7 +310,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 Facts(trip, Modifier.padding(top = 4.dp), photos = media?.size, stopsKnown = base.remoteId == null || trip !== base)
 
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
-                    listOf("Tijdlijn", "Routeplanner").forEachIndexed { i, label ->
+                    listOf(stringResource(R.string.trip_tab_timeline), stringResource(R.string.trip_tab_planner)).forEachIndexed { i, label ->
                         ToggleButton(
                             checked = tab == i,
                             onCheckedChange = { if (tab != i) haptics(Haptic.Tick); tab = i },
@@ -475,13 +476,13 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
             LineMenuSheet(
                 trip, mapState, at, onDismiss = { lineAt = null }, onTrain = { prefill -> trainFor = at to prefill },
                 run = { block, done ->
-                    scope.launch { mapNote = runCatching { block(); mapState.reloadRoutes() }.fold({ done to false }, { (it.message ?: "Dat lukte niet") to false }) }
+                    scope.launch { mapNote = runCatching { block(); mapState.reloadRoutes() }.fold({ done to false }, { (it.message ?: Lang.text(R.string.common_failed)) to false }) }
                 },
             )
         }
         trainFor?.let { (at, prefill) ->
             TrainSheet(prefill, onDraw = { from, to ->
-                trip.remoteId?.let { id -> MapRemote.drawTrain(id, at, from, to); mapState.reloadRoutes(); mapNote = "Treinroute getekend" to false }
+                trip.remoteId?.let { id -> MapRemote.drawTrain(id, at, from, to); mapState.reloadRoutes(); mapNote = Lang.text(R.string.trip_train_drawn) to false }
             }, onDismiss = { trainFor = null })
         }
         pointsFor?.let { id -> PointsEditor(id, onClose = { pointsFor = null; scope.launch { mapState.reloadRoutes() } }) }
@@ -567,12 +568,12 @@ private fun People(people: List<Person>, extra: Int, ring: Color = MaterialTheme
 
 /** The figures of a trip, as (value, label): before it starts, how long until it does and who comes. */
 private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<String?, String>> = if (trip.upcoming) listOfNotNull(
-    trip.startsInDays?.let { "$it" to (if (it == 1) "dag tot vertrek" else "dagen tot vertrek") },
-    "${trip.days}" to "dagen",
+    trip.startsInDays?.let { "$it" to (if (it == 1) Lang.text(R.string.trip_day_to_go) else Lang.text(R.string.trip_days_to_go)) },
+    "${trip.days}" to Lang.text(R.string.home_days),
     // As for a past trip: stops only for a route of two or more, travellers only when you are not alone.
     if (!stopsKnown) null to "stops" else trip.stops.size.takeIf { it > 1 }?.let { "$it" to "stops" },
-    (trip.people.size + trip.extraPeople).takeIf { it > 1 }?.let { "$it" to "reizigers" },
-    if (stopsKnown) trip.stops.mapNotNull { it.flag.takeIf { f -> f.isNotBlank() } }.distinct().size.takeIf { it > 0 }?.let { "$it" to (if (it == 1) "land" else "landen") } else null,
+    (trip.people.size + trip.extraPeople).takeIf { it > 1 }?.let { "$it" to Lang.text(R.string.trip_fact_travellers) },
+    if (stopsKnown) trip.stops.mapNotNull { it.flag.takeIf { f -> f.isNotBlank() } }.distinct().size.takeIf { it > 0 }?.let { "$it" to (if (it == 1) Lang.text(R.string.trip_fact_country) else Lang.text(R.string.summary_fact_countries)) } else null,
 ).take(4) else if (trip.remoteId != null && (!stopsKnown || photos == null)) List(4) { null to " " } else {
     // As the web (lib/tripFacts.ts): the first four that have something to say, in a fixed order: distance,
     // days, stops (only for a route of two or more), photos, travellers (more than you alone), countries.
@@ -581,12 +582,12 @@ private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<St
     // Each figure that has something to say, by its id; the trip's own choice (Reisinstellingen > Feitjes)
     // comes first, topped up from the fixed order, as the web's resolveFacts.
     val facts = linkedMapOf<String, Pair<String?, String>>()
-    trip.km?.takeIf { it > 0 }?.let { facts["km"] = "%,d".format(it).replace(',', '.') to "kilometer" }
-    trip.days.takeIf { it > 0 }?.let { facts["days"] = "$it" to (if (it == 1) "dag" else "dagen") }
+    trip.km?.takeIf { it > 0 }?.let { facts["km"] = "%,d".format(it).replace(',', '.') to Lang.text(R.string.summary_fact_km) }
+    trip.days.takeIf { it > 0 }?.let { facts["days"] = "$it" to (if (it == 1) Lang.text(R.string.home_day) else Lang.text(R.string.home_days)) }
     trip.stops.size.takeIf { it > 1 }?.let { facts["stops"] = "$it" to "stops" }
-    (photos ?: trip.photos).takeIf { it > 0 }?.let { facts["photos"] = "$it" to (if (it == 1) "foto" else "foto's") }
-    travellers.takeIf { it > 1 }?.let { facts["travellers"] = "$it" to "reizigers" }
-    countries.takeIf { it > 0 }?.let { facts["countries"] = "$it" to (if (it == 1) "land" else "landen") }
+    (photos ?: trip.photos).takeIf { it > 0 }?.let { facts["photos"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos)) }
+    travellers.takeIf { it > 1 }?.let { facts["travellers"] = "$it" to Lang.text(R.string.trip_fact_travellers) }
+    countries.takeIf { it > 0 }?.let { facts["countries"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_country) else Lang.text(R.string.summary_fact_countries)) }
     val chosen = TripFactsPref.chosen[trip.id] ?: trip.remoteId?.let { TripFactsPref.chosen[it] }.orEmpty()
     (chosen + TripFactsPref.Ids).distinct().mapNotNull { facts[it] }.take(4)
 }

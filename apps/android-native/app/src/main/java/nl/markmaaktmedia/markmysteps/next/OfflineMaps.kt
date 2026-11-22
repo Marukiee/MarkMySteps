@@ -38,6 +38,7 @@ import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.tan
+import androidx.compose.ui.res.stringResource
 
 /*
  * A trip's part of the map kept on the phone, as the web's "Kaart offline bewaren": the box around where the
@@ -153,7 +154,7 @@ object OfflineMaps {
                 override fun onCreate(offlineRegion: OfflineRegion) { if (cont.isActive) cont.resume(offlineRegion) }
                 override fun onError(error: String) { if (cont.isActive) cont.resume(null) }
             })
-        } ?: return Result.failure(Exception("Downloaden mislukt"))
+        } ?: return Result.failure(Exception(Lang.text(R.string.offline_download_failed)))
         val result = suspendCancellableCoroutine<Result<Long>> { cont ->
             cont.invokeOnCancellation { region.setDownloadState(OfflineRegion.STATE_INACTIVE) }
             region.setObserver(object : OfflineRegion.OfflineRegionObserver {
@@ -166,10 +167,10 @@ object OfflineMaps {
                 }
                 override fun onError(error: OfflineRegionError) {
                     // A tile that failed is tried again by MapLibre itself; only a lost connection is worth saying.
-                    if (error.reason == OfflineRegionError.REASON_CONNECTION && cont.isActive) { region.setDownloadState(OfflineRegion.STATE_INACTIVE); cont.resume(Result.failure(Exception("Downloaden mislukt: geen verbinding"))) }
+                    if (error.reason == OfflineRegionError.REASON_CONNECTION && cont.isActive) { region.setDownloadState(OfflineRegion.STATE_INACTIVE); cont.resume(Result.failure(Exception(Lang.text(R.string.offline_download_no_connection)))) }
                 }
                 override fun mapboxTileCountLimitExceeded(limit: Long) {
-                    if (cont.isActive) { region.setDownloadState(OfflineRegion.STATE_INACTIVE); cont.resume(Result.failure(Exception("Dit gebied is te groot om offline te bewaren"))) }
+                    if (cont.isActive) { region.setDownloadState(OfflineRegion.STATE_INACTIVE); cont.resume(Result.failure(Exception(Lang.text(R.string.offline_too_large)))) }
                 }
             })
             region.setDownloadState(OfflineRegion.STATE_ACTIVE)
@@ -187,7 +188,7 @@ object OfflineMaps {
     }
 }
 
-private fun megabytes(bytes: Long) = "%.1f MB".format(java.util.Locale.forLanguageTag("nl-NL"), bytes / 1024.0 / 1024.0)
+private fun megabytes(bytes: Long) = "%.1f MB".format(java.util.Locale.forLanguageTag(Lang.current), bytes / 1024.0 / 1024.0)
 
 /** The trip settings' panel: what is kept, download with its progress, and wipe. */
 @Composable
@@ -204,40 +205,40 @@ fun OfflineMapPanel(trip: Trip, tripId: String) {
     var routes by remember { mutableStateOf<List<MapRemote.RouteLine>?>(null) }
     // A download that finished (here or while the page was away) says how it went.
     val result = OfflineMaps.results[tripId]
-    LaunchedEffect(result) { result?.onSuccess { saved = it }?.onFailure { error = it.message ?: "Downloaden mislukt" } }
+    LaunchedEffect(result) { result?.onSuccess { saved = it }?.onFailure { error = it.message ?: Lang.text(R.string.offline_download_failed) } }
     LaunchedEffect(tripId) {
         runCatching { OfflineMaps.dropUnfinished(context, tripId) }
         saved = runCatching { OfflineMaps.find(context, tripId) }.getOrNull(); checked = true
         routes = runCatching { MapRemote.routes(tripId, null) }.getOrNull()
     }
     val bounds = OfflineMaps.boundsOf(trip, routes)
-    Header("Kaart offline bewaren")
+    Header(stringResource(R.string.offline_title))
     Panel(animate = true) {
         androidx.compose.animation.Crossfade(Triple(saved != null, bounds != null, checked), animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "offlineHint") { (has, can, _) ->
             Hint(when {
-                has -> "${megabytes(saved?.bytes ?: 0)} bewaard. De kaart van deze reis werkt nu zonder internet."
-                can -> "Bewaart de kaart van het gebied waar je geweest bent, zodat hij het ook zonder internet doet."
-                else -> "Zodra deze reis een route of stops met een locatie heeft, kan het gebied bewaard worden."
+                has -> stringResource(R.string.offline_saved, megabytes(saved?.bytes ?: 0))
+                can -> stringResource(R.string.offline_hint)
+                else -> stringResource(R.string.offline_no_area)
             })
         }
         AnimatedVisibility(progress != null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val (done, total) = progress ?: (0L to 0L)
                 SmoothProgress(if (total > 0) done.toFloat() / total else 0f, Modifier.fillMaxWidth())
-                Text(if (total > 0) "$done / $total" else "Voorbereiden…", style = ValueStyle.copy(fontSize = 12.5.sp, color = cs.onSurfaceVariant))
+                Text(if (total > 0) "$done / $total" else stringResource(R.string.book_preparing), style = ValueStyle.copy(fontSize = 12.5.sp, color = cs.onSurfaceVariant))
             }
         }
         AnimatedVisibility(progress == null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Wiping a large region takes a moment: the button says so until it is gone.
-                if (saved != null) QuietDangerButton("Wissen", {
+                if (saved != null) QuietDangerButton(stringResource(R.string.offline_wipe), {
                     wiping = true
                     scope.launch { runCatching { OfflineMaps.delete(context, tripId) }; saved = null; wiping = false }
                 }, Modifier.weight(0.75f), icon = Glyphs.trash, busy = wiping)
-                SoftButton(if (saved != null) "Opnieuw ophalen" else "Downloaden", {
+                SoftButton(if (saved != null) stringResource(R.string.offline_refetch) else stringResource(R.string.offline_download), {
                     val b = bounds ?: return@SoftButton
                     val style = mapStyleUrl(dark)
-                    if (style == null) { error = "Satellietkaart kan niet offline bewaard worden. Kies een andere kaartstijl."; return@SoftButton }
+                    if (style == null) { error = Lang.text(R.string.offline_no_satellite); return@SoftButton }
                     error = null
                     OfflineMaps.start(context, tripId, style, b)
                 }, Modifier.weight(if (saved != null) 1.25f else 1f), icon = Glyphs.download, enabled = bounds != null)

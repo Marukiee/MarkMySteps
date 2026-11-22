@@ -126,15 +126,15 @@ object Tracker {
         }
         if (System.currentTimeMillis() <= until) return false
         stop(context)
-        val message = "Tracking is automatisch gestopt."
+        val message = Lang.text(R.string.tracking_auto_stopped)
         lastStatus = message
         prefs?.edit()?.putString("status", message)?.apply()
         runCatching {
             val nm = context.getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(NotificationChannel("tracking-done", "Tracking gestopt", NotificationManager.IMPORTANCE_DEFAULT))
+            nm.createNotificationChannel(NotificationChannel("tracking-done", Lang.text(R.string.tracking_stopped), NotificationManager.IMPORTANCE_DEFAULT))
             val open = PendingIntent.getActivity(context, 2, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
             nm.notify(8, Notification.Builder(context, "tracking-done").setSmallIcon(android.R.drawable.ic_menu_mylocation)
-                .setContentTitle("Tracking gestopt").setContentText(message).setContentIntent(open).setAutoCancel(true).build())
+                .setContentTitle(Lang.text(R.string.tracking_stopped)).setContentText(message).setContentIntent(open).setAutoCancel(true).build())
         }
         return true
     }
@@ -212,7 +212,7 @@ object Tracker {
                     prefs?.edit()?.putString("buffer", rest.toString())?.apply()
                     buffered = rest.length(); lastError = null
                 }
-                .onFailure { lastError = "Wacht op netwerk" }
+                .onFailure { lastError = Lang.text(R.string.tracking_wait_network) }
         }
     }
 
@@ -230,11 +230,11 @@ class TrackingService : Service(), LocationListener {
         if (Tracker.tripId == null || !Tracker.hasPermission(this)) { stopSelf(); return START_NOT_STICKY }
         if (Tracker.stopIfOver(applicationContext)) { stopSelf(); return START_NOT_STICKY }
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel("tracking", "Route-tracking", NotificationManager.IMPORTANCE_LOW))
+        nm.createNotificationChannel(NotificationChannel("tracking", Lang.text(R.string.local_tracking_title), NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
         val n = Notification.Builder(this, "tracking")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("Route wordt bijgehouden")
+            .setContentTitle(Lang.text(R.string.tracking_running))
             .setContentText(Tracker.tripTitle ?: "MarkMySteps")
             .setContentIntent(open).setOngoing(true).build()
         startForeground(7, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
@@ -247,9 +247,9 @@ class TrackingService : Service(), LocationListener {
             listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).filter { m.isProviderEnabled(it) }.forEach { p ->
                 m.requestLocationUpdates(p, every, 0f, this, mainLooper)
             }
-            if (!m.isProviderEnabled(LocationManager.GPS_PROVIDER) && !m.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) Tracker.fail("Locatie staat uit op je telefoon")
+            if (!m.isProviderEnabled(LocationManager.GPS_PROVIDER) && !m.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) Tracker.fail(Lang.text(R.string.tracking_loc_off))
         } catch (e: SecurityException) {
-            Tracker.fail("Geen toegang tot je locatie"); stopSelf()
+            Tracker.fail(Lang.text(R.string.tracking_no_access)); stopSelf()
         }
         return START_STICKY
     }
@@ -288,16 +288,16 @@ class NotifyJob : JobService() {
         val fresh = Remote.notices().filter { !it.read && it.id !in seen }
         if (fresh.isEmpty()) return
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel("notices", "Meldingen", NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel("notices", Lang.text(R.string.onb_notifs_title), NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(context, 1, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
         fresh.take(5).forEach { n ->
-            val who = n.actor ?: "Iemand"; val trip = n.trip ?: "een reis"
+            val who = n.actor ?: Lang.text(R.string.tracking_someone); val trip = n.trip ?: Lang.text(R.string.tracking_a_trip)
             val text = when (n.kind) {
-                "TRIP_ADDED" -> "$who voegde je toe aan $trip"
-                "ACCESS_REQUESTED" -> "$who wil meekijken met $trip"
-                "ACCESS_APPROVED" -> "Je mag meekijken met $trip"
-                "ACCESS_DENIED" -> "Je verzoek voor $trip is afgewezen"
-                "SECURITY_LOGIN_ATTEMPTS" -> "Er werd een paar keer geprobeerd in te loggen op je account"
+                "TRIP_ADDED" -> Lang.text(R.string.tracking_trip_added, who, trip)
+                "ACCESS_REQUESTED" -> Lang.text(R.string.tracking_access_requested, who, trip)
+                "ACCESS_APPROVED" -> Lang.text(R.string.tracking_access_approved, trip)
+                "ACCESS_DENIED" -> Lang.text(R.string.tracking_access_denied, trip)
+                "SECURITY_LOGIN_ATTEMPTS" -> Lang.text(R.string.tracking_login_attempts)
                 else -> null
             } ?: return@forEach
             nm.notify(n.id.hashCode(), Notification.Builder(context, "notices").setSmallIcon(android.R.drawable.ic_dialog_info)

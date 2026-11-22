@@ -124,6 +124,7 @@ import java.time.LocalDate
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sign
+import androidx.compose.ui.res.stringResource
 
 /*
  * The route planner, the second tab of a trip, with everything the web planner
@@ -298,13 +299,13 @@ fun Planner(
     var saveError by remember { mutableStateOf<String?>(null) }
     val nightJobs = remember { HashMap<Int, Job>() }
     var undo by remember { mutableStateOf<Pending?>(null) }
-    fun save(block: suspend () -> Unit) { if (live) scope.launch { runCatching { block() }.onSuccess { saveError = null }.onFailure { saveError = "Opslaan mislukt" } } }
+    fun save(block: suspend () -> Unit) { if (live) scope.launch { runCatching { block() }.onSuccess { saveError = null }.onFailure { saveError = Lang.text(R.string.summary_save_failed) } } }
 
     /** A removal that waited for undo goes through now (a new removal, or a reorder that must name every stop the server still has). */
     suspend fun flushUndo() {
         val p = undo ?: return
         p.job?.cancel(); undo = null
-        runCatching { p.commit() }.onFailure { saveError = "Opslaan mislukt" }
+        runCatching { p.commit() }.onFailure { saveError = Lang.text(R.string.summary_save_failed) }
     }
     fun offerUndo(name: String, restore: () -> Unit, commit: suspend () -> Unit) {
         val previous = undo
@@ -313,7 +314,7 @@ fun Planner(
         p.job = scope.launch {
             previous?.let { it.job?.cancel(); runCatching { it.commit() } }
             delay(7000)
-            if (live) runCatching { commit() }.onFailure { saveError = "Opslaan mislukt" }
+            if (live) runCatching { commit() }.onFailure { saveError = Lang.text(R.string.summary_save_failed) }
             if (undo === p) undo = null
         }
     }
@@ -337,7 +338,7 @@ fun Planner(
     var flight by remember { mutableStateOf<FlightTarget?>(null) }
     fun legFlight(leg: PlanLeg) {
         flight = FlightTarget(
-            if (leg.outbound) "Heenvlucht" else "Terugvlucht", if (leg.outbound) stops.firstOrNull()?.let { "Naar ${it.name}" } else stops.lastOrNull()?.let { "Vanuit ${it.name}" },
+            if (leg.outbound) Lang.text(R.string.planner_flight_out) else Lang.text(R.string.planner_flight_back), if (leg.outbound) stops.firstOrNull()?.let { Lang.text(R.string.planner_to, it.name) } else stops.lastOrNull()?.let { Lang.text(R.string.planner_from, it.name) },
             leg.flightNumber, leg.fromAirport, leg.toAirport,
             nearFrom = if (leg.outbound) HomeAirport else stops.lastOrNull()?.at, nearTo = if (leg.outbound) stops.firstOrNull()?.at else HomeAirport,
             vias = leg.vias,
@@ -355,7 +356,7 @@ fun Planner(
     fun stopFlight(stop: PlanStop) {
         val prev = stops.getOrNull(stops.indexOf(stop) - 1)
         flight = FlightTarget(
-            "Vlucht naar ${stop.name}", prev?.let { "Vanuit ${it.name}" }, stop.flightNumber, stop.fromAirport, stop.toAirport,
+            Lang.text(R.string.planner_flight_to, stop.name), prev?.let { Lang.text(R.string.planner_from, it.name) }, stop.flightNumber, stop.fromAirport, stop.toAirport,
             nearFrom = prev?.at, nearTo = stop.at, vias = stop.vias,
         ) { n, f, t, v ->
             stop.mode = Mode.Flight
@@ -396,7 +397,7 @@ fun Planner(
     fun removeLeg(leg: PlanLeg) {
         if (leg.outbound) outbound = null else back = null
         syncLegIds()
-        offerUndo(if (leg.outbound) "Heen" else "Terug", restore = {
+        offerUndo(if (leg.outbound) Lang.text(R.string.planner_out) else Lang.text(R.string.planner_back), restore = {
             if (leg.outbound) outbound = leg.copy() else back = leg.copy()
             syncLegIds()
         }) { leg.id?.let { Remote.deleteStop(trip, it) } }
@@ -515,7 +516,7 @@ fun Planner(
                                 // Taps in a row become one save, after a short pause.
                                 stop.id?.let { id ->
                                     nightJobs[stop.key]?.cancel()
-                                    if (live) nightJobs[stop.key] = scope.launch { delay(600); runCatching { Remote.updateStop(trip, id, nights = stop.nights) }.onFailure { saveError = "Opslaan mislukt" } }
+                                    if (live) nightJobs[stop.key] = scope.launch { delay(600); runCatching { Remote.updateStop(trip, id, nights = stop.nights) }.onFailure { saveError = Lang.text(R.string.summary_save_failed) } }
                                 }
                             },
                             onAddDayTrip = { place, d ->
@@ -603,7 +604,7 @@ private fun NightsPill(planned: Int, total: Int, color: Color) {
             label = "planned",
             modifier = Modifier.padding(start = 8.dp),
         ) { n -> Text("$n", style = style) }
-        Text("/$total nachten gepland", style = style)
+        Text(stringResource(R.string.planner_nights_planned, total), style = style)
     }
 }
 
@@ -638,7 +639,7 @@ private fun LegSlot(
         } else if (hasStops || outboundSide) {
             // The way there's button keeps the same gap to the first stop as the stops keep to each other.
             Box(Modifier.padding(bottom = if (outboundSide && hasStops) 12.dp else 0.dp)) {
-                AddLegRow(if (outboundSide) "Heenreis toevoegen" else "Terugreis toevoegen", onAdd)
+                AddLegRow(if (outboundSide) stringResource(R.string.planner_add_out) else stringResource(R.string.planner_add_back), onAdd)
             }
         } else Spacer(Modifier.height(0.dp))
     }
@@ -653,7 +654,7 @@ private fun LegRow(leg: PlanLeg, color: Color, dark: Boolean, airports: Boolean,
         Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(cs.surfaceContainerLow).padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(if (leg.outbound) "Heen" else "Terug", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.widthIn(min = 52.dp))
+        Text(if (leg.outbound) stringResource(R.string.planner_out) else stringResource(R.string.planner_back), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.widthIn(min = 52.dp))
         Row(Modifier.weight(1f).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             AnimatedVisibility(
                 leg.mode == Mode.Flight,
@@ -665,7 +666,7 @@ private fun LegRow(leg: PlanLeg, color: Color, dark: Boolean, airports: Boolean,
                 leg.mode != Mode.Flight && trip.remoteId != null,
                 enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + scaleIn(MaterialTheme.motionScheme.fastSpatialSpec(), initialScale = 0.8f),
                 exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.8f),
-            ) { LegPlacePill(leg.placeName ?: if (leg.place != null) "Ingesteld" else null, leg.outbound, color, dark) { picking = true } }
+            ) { LegPlacePill(leg.placeName ?: if (leg.place != null) stringResource(R.string.planner_set) else null, leg.outbound, color, dark) { picking = true } }
             val landKm = km ?: leg.km.takeIf { it > 0 }
             val time = flightTime(leg.mode, leg.fromAirport, leg.toAirport, airports, leg.vias) ?: landKm?.takeIf { leg.mode != Mode.Flight }?.let { km(it) }
             if (time != null) Text(time, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp))
@@ -673,7 +674,7 @@ private fun LegRow(leg: PlanLeg, color: Color, dark: Boolean, airports: Boolean,
         ModeChooser(leg.mode, onMode)
     }
     if (picking) PlaceSheet(
-        if (leg.outbound) "Vertrek vanaf" else "Terug naar", if (leg.outbound) "Vanaf welke plaats?" else "Naar welke plaats?", trip,
+        if (leg.outbound) stringResource(R.string.planner_depart_from) else stringResource(R.string.planner_back_to), if (leg.outbound) stringResource(R.string.planner_from_which) else stringResource(R.string.planner_to_which), trip,
         onPick = { onPlace(it) }, onDismiss = { picking = false },
     )
 }
@@ -691,7 +692,7 @@ private fun LegPlacePill(name: String?, outbound: Boolean, color: Color, dark: B
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LineIcon(Glyphs.pin, ink, size = 15.dp, stroke = 1.9f)
-        Text(name ?: if (outbound) "Beginpunt" else "Eindpunt", maxLines = 1, overflow = TextOverflow.Ellipsis,
+        Text(name ?: if (outbound) stringResource(R.string.planner_start_point) else stringResource(R.string.planner_end_point), maxLines = 1, overflow = TextOverflow.Ellipsis,
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = ink), modifier = Modifier.padding(start = 6.dp))
     }
 }
@@ -711,7 +712,7 @@ private fun PlaceSheet(title: String, hint: String, trip: Trip, onPick: (Remote.
             val matches = placeMatches(trip, query, emptySet())
             Column(Modifier.animateContentSize(tween(200, easing = SuggestEase))) {
                 PlaceList(matches, trip) { p -> onPick(p); sheet.close() }
-                if (query.trim().length >= 2 && matches.isEmpty()) Text("Niets gevonden.", style = TextStyle(fontFamily = Inter, fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 14.dp, start = 4.dp))
+                if (query.trim().length >= 2 && matches.isEmpty()) Text(stringResource(R.string.planner_nothing_found), style = TextStyle(fontFamily = Inter, fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 14.dp, start = 4.dp))
             }
         }
     }
@@ -761,7 +762,7 @@ private fun AirportPill(number: String?, from: String?, to: String?, color: Colo
             Text(to, style = style)
             // Changing planes on the way: how often, after the airports.
             if (vias > 0) Text("+$vias", style = style.copy(fontSize = 12.sp, color = ink.copy(alpha = 0.75f)), modifier = Modifier.padding(start = 5.dp))
-        } else Text(number ?: "Toevoegen", style = style, modifier = Modifier.padding(start = 6.dp))
+        } else Text(number ?: stringResource(R.string.common_add), style = style, modifier = Modifier.padding(start = 6.dp))
     }
 }
 
@@ -849,7 +850,7 @@ private fun Connector(
             exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()),
         ) { Box(Modifier.padding(start = 8.dp)) { AirportPill(flightNumber, fromAirport, toAirport, color, dark, onFlight, vias = vias.size) } }
         val time = flightTime(mode, fromAirport, toAirport, airports, vias)
-        val text = time ?: km?.let { if (it < 5) "in de buurt" else km(it) }
+        val text = time ?: km?.let { if (it < 5) stringResource(R.string.planner_nearby) else km(it) }
         if (text != null) {
             Text(text, maxLines = 2, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp))
         }
@@ -899,7 +900,7 @@ private fun StopCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LineIcon(Glyphs.plus, cs.primary, size = 15.dp, stroke = 2.4f, modifier = Modifier.graphicsLayer { rotationZ = turn })
-                    Text("Dagtrip", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.primary), modifier = Modifier.padding(start = 4.dp))
+                    Text(stringResource(R.string.planner_day_trip), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.primary), modifier = Modifier.padding(start = 4.dp))
                 }
             }
         }
@@ -940,7 +941,7 @@ private fun DayTripRow(dt: PlanDayTrip, photo: String?, color: Color, dark: Bool
         Thumb(photo, dt.flag, color, dark, Modifier.size(40.dp), RoundedCornerShape(12.dp))
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(dt.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface))
-            Text("Dagtrip" + (dt.day?.let { " · ${day(it)}" } ?: ""), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant))
+            Text(stringResource(R.string.planner_day_trip) + (dt.day?.let { " · ${day(it)}" } ?: ""), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant))
         }
         // A day trip keeps a cross, as on the web: the rows are small, and a swipe on something this size is fiddly.
         Box(Modifier.size(36.dp).clip(CircleShape).background(cs.surfaceContainerHighest).squish(onRemove), contentAlignment = Alignment.Center) {
@@ -963,9 +964,9 @@ private fun DayTripPanel(trip: Trip, parent: String, from: LocalDate, nights: In
     LaunchedEffect(Unit) { delay(320); runCatching { focus.requestFocus() } }
     LaunchedEffect(matches.size, query.isNotEmpty(), above.keyboard) { delay(150); above.show() }
     Column(Modifier.padding(top = 10.dp).fillMaxWidth().then(above.modifier)) {
-        SearchField(query, { query = it }, "Waar ging je heen vanuit $parent?", Modifier.focusRequester(focus))
+        SearchField(query, { query = it }, stringResource(R.string.planner_day_trip_where, parent), Modifier.focusRequester(focus))
         if (days.size > 1) {
-            Text("Welke dag?", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 6.dp))
+            Text(stringResource(R.string.planner_which_day), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 6.dp))
             // Out to the card's edges, so a day that scrolls past is cut by the card and not short of it.
             Row(Modifier.bleedSides(12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 days.forEach { d ->
@@ -980,7 +981,7 @@ private fun DayTripPanel(trip: Trip, parent: String, from: LocalDate, nights: In
         }
         PlaceList(matches, trip) { onPick(it, chosen) }
         if (query.isBlank()) Text(
-            "Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary),
+            stringResource(R.string.common_cancel), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary),
             modifier = Modifier.padding(top = 8.dp).clip(CircleShape).clickable(onClick = onClose).padding(horizontal = 8.dp, vertical = 8.dp),
         )
     }
@@ -1012,7 +1013,7 @@ private fun Stepper(nights: Int, onChange: (Int) -> Unit) {
             ) { n ->
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("$n", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 16.sp, lineHeight = 17.sp, color = cs.onSurface))
-                    Text(if (n == 1) "nacht" else "nachten", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 10.sp, lineHeight = 11.sp, color = cs.onSurfaceVariant))
+                    Text(if (n == 1) stringResource(R.string.planner_night) else stringResource(R.string.planner_nights), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 10.sp, lineHeight = 11.sp, color = cs.onSurfaceVariant))
                 }
             }
         }
@@ -1093,8 +1094,8 @@ private fun AddStop(trip: Trip, taken: Set<String>, onPickOnMap: (((Remote.Place
     val above = rememberAboveKeyboard()
     LaunchedEffect(matches.size, query.isNotEmpty(), above.keyboard) { if (query.isNotEmpty() || above.keyboard) { delay(120); above.show() } }
     Column(Modifier.padding(top = 20.dp).fillMaxWidth().then(above.modifier).clip(RoundedCornerShape(28.dp)).background(cs.surfaceContainerLow).padding(14.dp)) {
-        Text("Nieuwe stop", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
-        SearchField(query, { query = it }, if (trip.remoteId != null) "Zoek een stad, bijv. Hanoi" else "Zoek een stad, bijv. Mestia")
+        Text(stringResource(R.string.planner_new_stop), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
+        SearchField(query, { query = it }, if (trip.remoteId != null) stringResource(R.string.planner_search_hanoi) else stringResource(R.string.planner_search_mestia))
         PlaceList(matches, trip) { onAdd(it); query = "" }
         // Or tap its place on a map, as the web's planner lets you tap its map.
         if (onPickOnMap != null && query.isBlank()) Row(
@@ -1102,7 +1103,7 @@ private fun AddStop(trip: Trip, taken: Set<String>, onPickOnMap: (((Remote.Place
             verticalAlignment = Alignment.CenterVertically,
         ) {
             LineIcon(Glyphs.pin, cs.primary, size = 16.dp, stroke = 2.1f)
-            Text("Kies de plek op de kaart", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary), modifier = Modifier.padding(start = 6.dp))
+            Text(stringResource(R.string.planner_pick_on_map), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary), modifier = Modifier.padding(start = 6.dp))
         }
         if (query.isNotBlank() && matches.isEmpty() && trip.remoteId == null) {
             Button(
@@ -1110,7 +1111,7 @@ private fun AddStop(trip: Trip, taken: Set<String>, onPickOnMap: (((Remote.Place
                 shapes = ButtonDefaults.shapes(),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                 modifier = Modifier.padding(top = 10.dp),
-            ) { Text("“${query.trim()}” toevoegen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
+            ) { Text(stringResource(R.string.planner_add_query, query.trim()), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
         }
     }
 }
@@ -1150,12 +1151,12 @@ private fun FlightSheet(target: FlightTarget, color: Color, dark: Boolean, onDis
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
             Text(target.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             target.subtitle?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp)) }
-            Label("Vluchtnummer")
+            Label(stringResource(R.string.planner_flight_number))
             NumberField(form)
-            Label("Van")
-            AirportField(code = { form.from }, onPick = { form.from = it }, hint = "Stad, vliegveld of code")
-            Label("Naar")
-            AirportField(code = { form.to }, onPick = { form.to = it }, hint = "Stad, vliegveld of code")
+            Label(stringResource(R.string.planner_from_label))
+            AirportField(code = { form.from }, onPick = { form.from = it }, hint = stringResource(R.string.planner_airport_hint))
+            Label(stringResource(R.string.planner_to_label))
+            AirportField(code = { form.to }, onPick = { form.to = it }, hint = stringResource(R.string.planner_airport_hint))
             Vias(form)
             FlightTime(form, color, dark)
             Button(
@@ -1163,7 +1164,7 @@ private fun FlightSheet(target: FlightTarget, color: Color, dark: Boolean, onDis
                 shapes = ButtonDefaults.shapes(),
                 contentPadding = PaddingValues(vertical = 16.dp),
                 modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
-            ) { Text("Opslaan", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp)) }
+            ) { Text(stringResource(R.string.home_save), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp)) }
         }
     }
 }
@@ -1177,10 +1178,10 @@ private fun Vias(form: FlightForm) {
     val cs = MaterialTheme.colorScheme
     val motion = MaterialTheme.motionScheme
     val haptics = rememberHaptics()
-    Label("Overstappen")
+    Label(stringResource(R.string.planner_layovers))
     Column(Modifier.animateContentSize(motion.defaultSpatialSpec())) {
         AnimatedVisibility(form.vias.isEmpty(), enter = fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec()), exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.fastSpatialSpec())) {
-            Text("Directe vlucht.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+            Text(stringResource(R.string.planner_direct), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
         }
         form.vias.forEach { (key, code) ->
             key(key) {
@@ -1192,7 +1193,7 @@ private fun Vias(form: FlightForm) {
                             AirportField(
                                 code = { form.vias.firstOrNull { it.first == key }?.second },
                                 onPick = { picked -> val i = form.vias.indexOfFirst { it.first == key }; if (i >= 0) form.vias[i] = key to picked },
-                                hint = "Overstap op", startEditing = code == null,
+                                hint = stringResource(R.string.planner_layover_at), startEditing = code == null,
                             )
                         }
                         Box(
@@ -1211,7 +1212,7 @@ private fun Vias(form: FlightForm) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             LineIcon(Glyphs.plus, cs.primary, size = 16.dp, stroke = 2.4f)
-            Text("Overstap toevoegen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary), modifier = Modifier.padding(start = 6.dp))
+            Text(stringResource(R.string.planner_add_layover), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary), modifier = Modifier.padding(start = 6.dp))
         }
     }
 }
@@ -1227,7 +1228,7 @@ private fun YourAirports(visible: Boolean, exclude: String?, onPick: (String) ->
         exit = fadeOut(tween(120)) + shrinkVertically(tween(200, easing = SuggestEase), shrinkTowards = Alignment.Top),
     ) {
         Column(Modifier.padding(top = 10.dp)) {
-            Text("Jouw vliegvelden", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+            Text(stringResource(R.string.planner_your_airports), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 codes.forEach { c ->
                     Row(
@@ -1245,7 +1246,7 @@ private fun YourAirports(visible: Boolean, exclude: String?, onPick: (String) ->
 
 @Composable
 private fun NumberField(form: FlightForm) {
-    SheetField(form.number, { form.number = it.uppercase().take(16) }, "bijv. KL1703")
+    SheetField(form.number, { form.number = it.uppercase().take(16) }, stringResource(R.string.planner_flight_example))
 }
 
 /** "Ongeveer 5u 48m reizen" once both airports are chosen. */
@@ -1260,7 +1261,7 @@ private fun FlightTime(form: FlightForm, color: Color, dark: Boolean) {
     ) {
         Row(Modifier.padding(top = 14.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             LineIcon(Glyphs.plane, readable(color, cs.surfaceContainerLow, dark), size = 16.dp, stroke = 1.8f)
-            Text("Ongeveer ${time.orEmpty()} reizen", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 8.dp))
+            Text(stringResource(R.string.planner_about_travel, time.orEmpty()), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 8.dp))
         }
     }
 }
@@ -1345,7 +1346,7 @@ private fun AirportField(code: () -> String?, onPick: (String?) -> Unit, hint: S
                     LineIcon(listOf(P("M6 6l12 12"), P("M18 6 6 18")), cs.onSecondaryContainer, size = 14.dp, stroke = 2.2f)
                 }
             } }
-            Text("Wijzigen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary), modifier = Modifier.padding(horizontal = 8.dp))
+            Text(stringResource(R.string.planner_change), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary), modifier = Modifier.padding(horizontal = 8.dp))
         }
     }
     // With nothing typed yet, your own airports (Instellingen › Voorkeuren) as quick choices, as on the web.
@@ -1370,7 +1371,7 @@ private fun AirportField(code: () -> String?, onPick: (String?) -> Unit, hint: S
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text("${a.city} (${a.iata})", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface))
-                            val country = java.util.Locale("", a.country).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL"))
+                            val country = java.util.Locale("", a.country).getDisplayCountry(java.util.Locale.forLanguageTag(Lang.current))
                             Text("${a.name} · $country", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant))
                         }
                         FlagIcon(Remote.flag(a.country), 13.dp, Modifier.padding(start = 10.dp))
@@ -1408,8 +1409,8 @@ private fun UndoPill(name: String?, onUndo: () -> Unit) {
         Modifier.fillMaxWidth().clip(CircleShape).background(cs.inverseSurface).padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("${name ?: "Stop"} verwijderd", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.inverseOnSurface), modifier = Modifier.weight(1f))
-        androidx.compose.material3.TextButton(onClick = onUndo) { Text("Ongedaan maken", color = cs.inversePrimary, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp)) }
+        Text(stringResource(R.string.planner_stop_removed, name ?: stringResource(R.string.planner_stop)), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.inverseOnSurface), modifier = Modifier.weight(1f))
+        androidx.compose.material3.TextButton(onClick = onUndo) { Text(stringResource(R.string.planner_undo), color = cs.inversePrimary, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp)) }
     }
 }
 
@@ -1548,7 +1549,7 @@ private fun SwipeSurface(state: SwipeRemove, enabled: () -> Boolean, content: @C
             ) {
                 LineIcon(Glyphs.trash, cs.onErrorContainer, size = 22.dp, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 18.dp).graphicsLayer { alpha = iconAlpha })
                 Text(
-                    "Verwijderen", maxLines = 1, softWrap = false,
+                    stringResource(R.string.home_delete), maxLines = 1, softWrap = false,
                     style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onErrorContainer),
                     modifier = Modifier.align(Alignment.CenterEnd).padding(end = 52.dp)
                         .wrapContentWidthUnbounded()

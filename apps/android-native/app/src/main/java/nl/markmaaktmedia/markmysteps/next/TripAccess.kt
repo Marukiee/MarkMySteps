@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
 
 /*
  * The ways into a trip from outside it: a trip you are not on (ask to look along), a link someone sent you
@@ -135,10 +136,10 @@ fun TripAccessPage(tripId: String, onBack: () -> Unit, onOpenTrip: (String) -> U
                 when (state) {
                     "gone" -> {
                         Glyph(Glyphs.compass, lost = true)
-                        Text("Deze reis bestaat niet", textAlign = TextAlign.Center, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 26.sp, color = cs.onSurface), modifier = Modifier.padding(top = 20.dp))
-                        Note("De link klopt niet meer, of de reis is verwijderd door de organisator.")
+                        Text(stringResource(R.string.access_missing_title), textAlign = TextAlign.Center, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 26.sp, color = cs.onSurface), modifier = Modifier.padding(top = 20.dp))
+                        Note(stringResource(R.string.access_missing_body))
                         Button(onClick = onBack, shapes = ButtonDefaults.shapes(), modifier = Modifier.padding(top = 24.dp).height(50.dp)) {
-                            Text("Naar mijn reizen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
+                            Text(stringResource(R.string.access_to_my_trips), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
                         }
                     }
                     "wait" -> {
@@ -152,7 +153,7 @@ fun TripAccessPage(tripId: String, onBack: () -> Unit, onOpenTrip: (String) -> U
                         scope.launch {
                             runCatching { if (!previewOnly) SocialRemote.askAccess(p.tripId, message) }
                                 .onSuccess { haptics(Haptic.Confirm); sent = true; preview = p.copy(status = "PENDING") }
-                                .onFailure { error = (it as? Api.Failure)?.message ?: "Het verzoek kon niet verstuurd worden" }
+                                .onFailure { error = (it as? Api.Failure)?.message ?: Lang.text(R.string.access_request_failed) }
                             asking = false
                         }
                     } }
@@ -184,7 +185,7 @@ private fun AccessBody(p: SocialRemote.AccessPreview, sent: Boolean, message: St
     if (p.start != null && p.end != null) Text(shortRange(p.start, p.end, year = true), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 6.dp))
     Row(Modifier.padding(top = 16.dp).clip(CircleShape).background(cs.surfaceContainerLow).padding(start = 6.dp, end = 16.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Avatar(p.ownerId, p.owner, p.ownerHasAvatar, personColor(p.ownerId), Modifier.size(34.dp))
-        Text(buildAnnotatedString { append("van "); pushStyle(SpanStyle(fontWeight = FontWeight(650), color = cs.onSurface)); append(p.owner); pop() },
+        Text(buildAnnotatedString { append(stringResource(R.string.access_by)); pushStyle(SpanStyle(fontWeight = FontWeight(650), color = cs.onSurface)); append(p.owner); pop() },
             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp))
     }
     val waiting = p.status == "PENDING"
@@ -196,22 +197,22 @@ private fun AccessBody(p: SocialRemote.AccessPreview, sent: Boolean, message: St
             if (state == "wait") {
                 Row(Modifier.clip(CircleShape).background(cs.secondaryContainer).padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     LineIcon(Glyphs.hourglass, cs.onSecondaryContainer, size = 16.dp, stroke = 2f)
-                    Text("Je verzoek staat klaar bij ${p.owner}.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.5.sp, color = cs.onSecondaryContainer), modifier = Modifier.padding(start = 8.dp))
+                    Text(stringResource(R.string.access_request_waiting, p.owner), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.5.sp, color = cs.onSecondaryContainer), modifier = Modifier.padding(start = 8.dp))
                 }
-                Note("Zodra het beantwoord is krijg je een melding bij Reizigers.")
+                Note(stringResource(R.string.access_request_notice))
             } else {
                 if (state == "no") Row(Modifier.padding(bottom = 6.dp).clip(CircleShape).background(cs.errorContainer).padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     LineIcon(listOf(P("M6 6l12 12"), P("M18 6 6 18")), cs.onErrorContainer, size = 15.dp, stroke = 2.2f)
-                    Text("Je eerdere verzoek is afgewezen. Je mag het opnieuw vragen.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onErrorContainer), modifier = Modifier.padding(start = 8.dp))
+                    Text(stringResource(R.string.access_request_denied), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onErrorContainer), modifier = Modifier.padding(start = 8.dp))
                 }
-                Note("Je bent geen reisgenoot of gast op deze reis, dus je ziet de route en de foto's niet. Vraag ${p.owner} om je toe te laten.")
+                Note(stringResource(R.string.access_not_member, p.owner))
                 Column(Modifier.padding(top = 20.dp).fillMaxWidth()) {
-                    FormField("Bericht (optioneel)", message, onMessage, hint = "Hoi! Mag ik meekijken?", capitalize = true, done = onAsk)
+                    FormField(stringResource(R.string.access_message), message, onMessage, hint = stringResource(R.string.access_message_hint), capitalize = true, done = onAsk)
                 }
                 AnimatedVisibility(error != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                     Text(error ?: "", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.error), modifier = Modifier.padding(top = 10.dp))
                 }
-                MainButton(if (asking) "Versturen…" else "Toegang vragen", onAsk, Modifier.padding(top = 18.dp).fillMaxWidth(), icon = Glyphs.send, busy = asking)
+                MainButton(if (asking) stringResource(R.string.access_sending) else stringResource(R.string.access_ask), onAsk, Modifier.padding(top = 18.dp).fillMaxWidth(), icon = Glyphs.send, busy = asking)
             }
         }
     }
@@ -229,7 +230,7 @@ fun ShareLinkPage(slug: String, url: String, onBack: () -> Unit, onOpenTrip: (St
     // The link's title, which is the trip's: that is how the app finds it among your own.
     // Null while it is read; a blank title when the link is gone (revoked, or never there).
     val info by produceState<Pair<String, Boolean>?>(null, slug) {
-        value = runCatching { org.json.JSONObject(Api.get("/api/share/${Uri.encode(slug)}/info")).let { it.optString("title").ifBlank { "Gedeelde reis" } to it.optBoolean("hasPassword") } }.getOrNull() ?: ("" to false)
+        value = runCatching { org.json.JSONObject(Api.get("/api/share/${Uri.encode(slug)}/info")).let { it.optString("title").ifBlank { Lang.text(R.string.access_shared_trip) } to it.optBoolean("hasPassword") } }.getOrNull() ?: ("" to false)
     }
     val gone = info?.first == ""
     LaunchedEffect(info) {
@@ -246,16 +247,16 @@ fun ShareLinkPage(slug: String, url: String, onBack: () -> Unit, onOpenTrip: (St
             val title = info?.first
             AnimatedContent(title, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "title") { t ->
                 if (t == null) Placeholder(Modifier.padding(top = 20.dp).size(width = 220.dp, height = 28.dp).clip(CircleShape))
-                else Text(if (gone) "Deze link werkt niet meer" else t, textAlign = TextAlign.Center, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 26.sp, color = cs.onSurface), modifier = Modifier.padding(top = 20.dp))
+                else Text(if (gone) stringResource(R.string.access_link_dead) else t, textAlign = TextAlign.Center, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 26.sp, color = cs.onSurface), modifier = Modifier.padding(top = 20.dp))
             }
             if (info != null) {
                 Note(when {
-                    gone -> "De link is ingetrokken of klopt niet. Vraag wie hem stuurde om een nieuwe."
-                    info?.second == true -> "Een gedeelde reis met een wachtwoord. Je bent er zelf niet op, dus hij opent op de website."
-                    else -> "Een gedeelde reis van iemand anders. Je bent er zelf niet op, dus hij opent op de website."
+                    gone -> stringResource(R.string.access_link_revoked)
+                    info?.second == true -> stringResource(R.string.access_link_password)
+                    else -> stringResource(R.string.access_link_other)
                 })
-                if (gone) MainButton("Naar mijn reizen", onBack, Modifier.padding(top = 24.dp))
-                else MainButton("Openen op de website", { haptics(Haptic.Tap); openOutside(context, url) }, Modifier.padding(top = 24.dp), icon = Glyphs.external)
+                if (gone) MainButton(stringResource(R.string.access_to_my_trips), onBack, Modifier.padding(top = 24.dp))
+                else MainButton(stringResource(R.string.access_open_website), { haptics(Haptic.Tap); openOutside(context, url) }, Modifier.padding(top = 24.dp), icon = Glyphs.external)
             }
         }
     }
@@ -308,7 +309,7 @@ fun InviteDialog(preview: Boolean, onOpenTrip: (String) -> Unit) {
         ) {
             LineIcon(Glyphs.logo, cs.primary, size = 48.dp, stroke = 2.1f)
             Text(
-                if (single) "Je bent toegevoegd aan 1 reis!" else "Je bent toegevoegd aan ${invites.size} reizen!", textAlign = TextAlign.Center,
+                if (single) stringResource(R.string.access_added_one) else stringResource(R.string.access_added_many, invites.size), textAlign = TextAlign.Center,
                 style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 23.sp, lineHeight = 27.sp, color = cs.onSurface), modifier = Modifier.padding(top = 14.dp),
             )
             Column(Modifier.padding(top = 18.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -320,16 +321,16 @@ fun InviteDialog(preview: Boolean, onOpenTrip: (String) -> Unit) {
                         else Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(cs.secondaryContainer), contentAlignment = Alignment.Center) { LineIcon(Glyphs.pin, cs.onSecondaryContainer, size = 18.dp) }
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
                             Text(inv.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 16.sp, color = cs.onSurface))
-                            Text("door ${inv.owner}", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                            Text(stringResource(R.string.access_invite_by, inv.owner), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
                         }
                     }
                 }
             }
             Row(Modifier.padding(top = 20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val label = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)
-                FilledTonalButton(onClick = { close(null) }, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1f).height(50.dp)) { Text("Later", style = label) }
+                FilledTonalButton(onClick = { close(null) }, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1f).height(50.dp)) { Text(stringResource(R.string.access_later), style = label) }
                 Button(onClick = { close(if (single) invites.first().id else null) }, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1.4f).height(50.dp)) {
-                    Text(if (single) "Bekijk de reis" else "Naar mijn reizen", maxLines = 1, style = label)
+                    Text(if (single) stringResource(R.string.access_view_trip) else stringResource(R.string.access_to_my_trips), maxLines = 1, style = label)
                 }
             }
         }
@@ -352,8 +353,8 @@ fun TempPasswordBar(visible: Boolean, onOpen: () -> Unit, modifier: Modifier = M
             LineIcon(Glyphs.lock, cs.onErrorContainer, size = 22.dp, stroke = 2f)
             Text(
                 buildAnnotatedString {
-                    append("Je gebruikt nog een tijdelijk wachtwoord. Kies een eigen wachtwoord bij ")
-                    pushStyle(SpanStyle(fontWeight = FontWeight(700))); append("Account"); pop(); append(".")
+                    append(stringResource(R.string.access_temp_password))
+                    pushStyle(SpanStyle(fontWeight = FontWeight(700))); append(stringResource(R.string.access_account)); pop(); append(".")
                 },
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, lineHeight = 20.sp, color = cs.onErrorContainer),
                 modifier = Modifier.weight(1f).padding(horizontal = 12.dp),

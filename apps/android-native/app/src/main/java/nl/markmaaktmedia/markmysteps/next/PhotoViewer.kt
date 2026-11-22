@@ -111,6 +111,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import java.time.format.TextStyle as DateStyle
+import androidx.compose.ui.res.stringResource
 
 /*
  * A trip's photos full screen, swiped through one by one. Each opens on the
@@ -412,7 +413,7 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBo
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     RoundButton(onClick = { closeLatest(Velocity.Zero) }) { LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), Color.White, size = 22.dp, stroke = 2.2f) }
                     Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                        val nl = Locale.forLanguageTag("nl-NL")
+                        val nl = Locale.forLanguageTag(Lang.current)
                         Text(
                             "${current.takenAt.dayOfWeek.getDisplayName(DateStyle.FULL, nl).replaceFirstChar { it.uppercase() }} ${current.takenAt.dayOfMonth} ${current.takenAt.month.getDisplayName(DateStyle.FULL, nl)}",
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -420,7 +421,7 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBo
                         )
                         PlaceLine(current, list, pager.currentPage, stops)
                         Text(
-                            "${pager.currentPage + 1} van ${list.size}",
+                            stringResource(R.string.viewer_page_of, pager.currentPage + 1, list.size),
                             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = Color.White.copy(alpha = 0.72f)),
                         )
                     }
@@ -584,41 +585,41 @@ private fun ViewerMenu(trip: Trip, media: Media, stops: List<ViewerApi.StopRow>?
     val me = Data.me?.id
     val owner = trip.ownerId != null && trip.ownerId == me
     val stop = remember(media.id, stops) { stops?.let { ViewerApi.stopFor(media, it) } }
-    val what = if (media.video) "Video" else "Foto"
+    val what = if (media.video) stringResource(R.string.viewer_video) else stringResource(R.string.viewer_photo)
     fun cover(label: String, block: suspend () -> Unit) {
         scope.launch {
             runCatching { block() }
-                .onSuccess { onNote("$label ingesteld", false); Data.load() }
-                .onFailure { onNote("Instellen lukte niet", false) }
+                .onSuccess { onNote(Lang.text(R.string.viewer_set_done, label), false); Data.load() }
+                .onFailure { onNote(Lang.text(R.string.viewer_set_failed), false) }
         }
     }
     fun handOver(block: (android.net.Uri, String) -> Unit) {
         scope.launch {
-            onNote("$what ophalen…", true)
+            onNote(Lang.text(R.string.viewer_fetching, what), true)
             val file = ViewerApi.shared(context, media)
-            if (file == null) onNote("Ophalen lukte niet", false)
-            else { onNote(null, false); runCatching { block(file.first, file.second) }.onFailure { onNote("Geen app gevonden", false) } }
+            if (file == null) onNote(Lang.text(R.string.viewer_fetch_failed), false)
+            else { onNote(null, false); runCatching { block(file.first, file.second) }.onFailure { onNote(Lang.text(R.string.viewer_no_app), false) } }
         }
     }
     AppMenu(expanded, onDismiss, groups = listOf(
         if (owner && !DeviceMedia.isDevice(media.id)) listOfNotNull(
-            MenuEntry("Omslag van de reis", Glyphs.photo) { cover("Omslag van de reis") { ViewerApi.setTripCover(trip, media.id) } },
-            stop?.let { s -> MenuEntry("Omslag van ${s.name}", Glyphs.pin) { cover("Omslag van ${s.name}") { ViewerApi.setStopCover(trip, s.id, media.id) } } },
+            MenuEntry(stringResource(R.string.viewer_cover_trip), Glyphs.photo) { cover(Lang.text(R.string.viewer_cover_trip)) { ViewerApi.setTripCover(trip, media.id) } },
+            stop?.let { s -> MenuEntry(stringResource(R.string.viewer_cover_stop, s.name), Glyphs.pin) { cover(Lang.text(R.string.viewer_cover_stop, s.name)) { ViewerApi.setStopCover(trip, s.id, media.id) } } },
         ) else emptyList(),
         listOfNotNull(
-            if (DeviceMedia.isDevice(media.id)) null else MenuEntry("$what downloaden", Glyphs.download) {
+            if (DeviceMedia.isDevice(media.id)) null else MenuEntry(stringResource(R.string.viewer_download, what), Glyphs.download) {
                 scope.launch {
-                    onNote("Downloaden…", true)
+                    onNote(Lang.text(R.string.viewer_downloading), true)
                     val uri = ViewerApi.download(context, media)
-                    onNote(if (uri != null) "Opgeslagen in je galerij" else "Downloaden lukte niet", false)
+                    onNote(if (uri != null) Lang.text(R.string.viewer_saved) else Lang.text(R.string.viewer_download_failed), false)
                 }
             },
-            MenuEntry("Openen in…", Glyphs.external) { handOver { uri, type -> ViewerApi.openIn(context, uri, type) } },
-            MenuEntry("Delen", Glyphs.send) { handOver { uri, type -> ViewerApi.share(context, uri, type) } },
+            MenuEntry(stringResource(R.string.viewer_open_in), Glyphs.external) { handOver { uri, type -> ViewerApi.openIn(context, uri, type) } },
+            MenuEntry(stringResource(R.string.summary_share), Glyphs.send) { handOver { uri, type -> ViewerApi.share(context, uri, type) } },
         ),
         // Only your own photos live in your Immich; a friend's are on theirs.
         if (immich != null && media.immichAssetId != null && media.userId.isNotBlank() && media.userId == me)
-            listOf(MenuEntry("Openen in Immich", Glyphs.globe) { ViewerApi.browse(context, "$immich/photos/${media.immichAssetId}") })
+            listOf(MenuEntry(stringResource(R.string.viewer_open_immich), Glyphs.globe) { ViewerApi.browse(context, "$immich/photos/${media.immichAssetId}") })
         else emptyList(),
     ))
 }
@@ -793,7 +794,7 @@ private fun SocialBar(
             ) {
                 LineIcon(Glyphs.comment, Color.White, size = 21.dp, stroke = 2f)
                 Text(
-                    if (comments == 0) "Reageer" else "$comments",
+                    if (comments == 0) stringResource(R.string.comments_react) else "$comments",
                     style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp, color = Color.White),
                     modifier = Modifier.padding(start = 8.dp),
                 )
@@ -876,11 +877,11 @@ private fun clock(ms: Int): String {
 private fun ago(at: java.time.Instant): String {
     val s = java.time.Duration.between(at, java.time.Instant.now()).seconds
     return when {
-        s < 60 -> "zojuist"
-        s < 3600 -> "${s / 60} min"
+        s < 60 -> Lang.text(R.string.viewer_just_now)
+        s < 3600 -> Lang.text(R.string.viewer_minutes, s / 60)
         s < 86400 -> "${s / 3600} u"
         s < 7 * 86400 -> "${s / 86400} d"
-        else -> java.time.format.DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("nl-NL")).withZone(java.time.ZoneId.systemDefault()).format(at)
+        else -> java.time.format.DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag(Lang.current)).withZone(java.time.ZoneId.systemDefault()).format(at)
     }
 }
 
@@ -892,9 +893,9 @@ private fun CommentsSheet(comments: List<Remote.Comment>, onDismiss: () -> Unit,
     var text by remember { mutableStateOf("") }
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = cs.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 16.dp)) {
-            Text("Reacties", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(bottom = 12.dp))
+            Text(stringResource(R.string.comments_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(bottom = 12.dp))
             if (comments.isEmpty()) {
-                Text("Nog niemand heeft gereageerd. Wees de eerste.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 16.dp))
+                Text(stringResource(R.string.viewer_no_comments), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 16.dp))
             }
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(3.dp)) {
                 comments.forEachIndexed { i, c ->
@@ -923,7 +924,7 @@ private fun CommentsSheet(comments: List<Remote.Comment>, onDismiss: () -> Unit,
             }
             Row(Modifier.padding(top = 14.dp, bottom = 16.dp).fillMaxWidth().height(52.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(start = 18.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
-                    if (text.isEmpty()) Text("Schrijf een reactie", style = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurfaceVariant))
+                    if (text.isEmpty()) Text(stringResource(R.string.viewer_write_comment), style = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurfaceVariant))
                     androidx.compose.foundation.text.BasicTextField(
                         text, { text = it.take(1000) },
                         textStyle = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurface),

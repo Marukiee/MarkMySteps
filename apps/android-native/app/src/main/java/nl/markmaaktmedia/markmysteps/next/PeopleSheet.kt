@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
 
 /*
  * People and sharing, as on the web (MembersPanel, MemberAdd, SharePanel): who
@@ -98,9 +99,9 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake
 
     AppSheet(onDismiss = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
-            Text("Mensen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
+            Text(stringResource(R.string.people_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             Text(
-                "Reisgenoten waren erbij en tellen de reis mee in hun statistieken. Gasten kijken alleen mee: voor hen telt deze reis niet.",
+                stringResource(R.string.people_hint),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, lineHeight = 19.sp, color = cs.onSurfaceVariant),
                 modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
             )
@@ -109,11 +110,11 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake
                     MemberRow(m, i, members.size, canChange = owner && m.role != "OWNER", tripFirst = tripFirst, tripLast = tripLast, onDays = if (owner && m.role != "GUEST" && tripFirst != null) ({ daysFor = m }) else null, onRole = { role ->
                         val before = members
                         members = members.map { if (it.userId == m.userId) it.copy(role = role) else it }
-                        scope.launch { runCatching { Remote.updateMember(trip, m.userId, role = role) }.onSuccess { onChanged() }.onFailure { members = before; error = "Opslaan mislukt" } }
+                        scope.launch { runCatching { Remote.updateMember(trip, m.userId, role = role) }.onSuccess { onChanged() }.onFailure { members = before; error = Lang.text(R.string.summary_save_failed) } }
                     }, onTrack = { on ->
                         val before = members
                         members = members.map { if (it.userId == m.userId) it.copy(canTrack = on) else it }
-                        scope.launch { runCatching { Remote.updateMember(trip, m.userId, canTrack = on) }.onSuccess { onChanged() }.onFailure { members = before; error = "Opslaan mislukt" } }
+                        scope.launch { runCatching { Remote.updateMember(trip, m.userId, canTrack = on) }.onSuccess { onChanged() }.onFailure { members = before; error = Lang.text(R.string.summary_save_failed) } }
                     }, onRemove = { removing = m })
                 }
             }
@@ -132,24 +133,24 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake
             val f = from.takeIf { it != tripFirst }?.toString(); val t = to.takeIf { it != tripLast }?.toString()
             val before = members
             members = members.map { if (it.userId == m.userId) it.copy(from = f, to = t) else it }
-            scope.launch { runCatching { SocialRemote.setMemberDays(trip, m.userId, f, t) }.onSuccess { onChanged() }.onFailure { members = before; error = (it as? Api.Failure)?.message ?: "Opslaan mislukt" } }
+            scope.launch { runCatching { SocialRemote.setMemberDays(trip, m.userId, f, t) }.onSuccess { onChanged() }.onFailure { members = before; error = (it as? Api.Failure)?.message ?: Lang.text(R.string.summary_save_failed) } }
         }
     }
 
     removing?.let { m ->
         AlertDialog(
             onDismissRequest = { removing = null },
-            title = { Text(if (m.role == "GUEST") "Gast verwijderen?" else "Reisgenoot verwijderen?", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
-            text = { Text("${m.name} wordt uit de reis verwijderd.", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
+            title = { Text(if (m.role == "GUEST") stringResource(R.string.people_remove_guest) else stringResource(R.string.people_remove_companion), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
+            text = { Text(stringResource(R.string.people_remove_body, m.name), style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
             confirmButton = {
                 TextButton(onClick = {
                     removing = null
                     val before = members
                     members = members - m
-                    scope.launch { runCatching { Remote.removeMember(trip, m.userId) }.onSuccess { onChanged() }.onFailure { members = before; error = "Verwijderen mislukt" } }
-                }) { Text("Verwijderen", color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+                    scope.launch { runCatching { Remote.removeMember(trip, m.userId) }.onSuccess { onChanged() }.onFailure { members = before; error = Lang.text(R.string.people_remove_failed) } }
+                }) { Text(stringResource(R.string.home_delete), color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
             },
-            dismissButton = { TextButton(onClick = { removing = null }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.common_cancel), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
         )
     }
 }
@@ -158,10 +159,10 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake
 @Composable
 private fun Make(onMake: (String) -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Text("Samenvatting en fotoboek", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 8.dp))
+    Text(stringResource(R.string.people_summary_book), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 8.dp))
     val items = listOf(
-        Triple("book", "Fotoboek", "Een boek van de mooiste foto's per dag") to Glyphs.photo,
-        Triple("summary", "Samenvatting", "Een poster om te delen") to Glyphs.sun,
+        Triple("book", stringResource(R.string.book_title), stringResource(R.string.people_book_hint)) to Glyphs.photo,
+        Triple("summary", stringResource(R.string.summary_title), stringResource(R.string.people_summary_hint)) to Glyphs.sun,
     )
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         items.forEachIndexed { i, (item, glyph) ->
@@ -192,13 +193,13 @@ private fun MemberRow(
         Avatar(m.userId, m.name, m.hasAvatar, personColor(m.userId), Modifier.size(44.dp))
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(m.name, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 16.5.sp, color = cs.onSurface))
-            val role = when (m.role) { "OWNER" -> "organisator"; "GUEST" -> "gast"; else -> "reisgenoot" }
+            val role = when (m.role) { "OWNER" -> stringResource(R.string.people_role_owner); "GUEST" -> stringResource(R.string.people_role_guest); else -> stringResource(R.string.people_role_companion) }
             // A companion who was only there part of the time: which days, as the web writes them.
             val days = if (m.role != "GUEST" && (m.from != null || m.to != null)) {
                 val a = parseDay(m.from) ?: tripFirst; val b = parseDay(m.to) ?: tripLast
-                if (a != null && b != null) " · ${shortRange(a, b)}" else " · deel van de reis"
+                if (a != null && b != null) " · ${shortRange(a, b)}" else stringResource(R.string.people_part_of_trip)
             } else ""
-            val track = if (m.role != "GUEST" && !m.canTrack) " · trackt niet" else ""
+            val track = if (m.role != "GUEST" && !m.canTrack) stringResource(R.string.people_no_tracking) else ""
             // The handle on its own line and the role under it, so neither is ever cut off.
             Text("@${m.username}", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
             Text(role.replaceFirstChar { it.uppercase() } + days + track, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
@@ -211,14 +212,14 @@ private fun MemberRow(
                 // The same menu as everywhere: the role as a choice with a tick, tracking, then removing.
                 AppMenu(menu, onDismiss = { menu = false }, groups = listOf(
                     listOf(
-                        MenuEntry("Reisgenoot", Glyphs.friends, selected = m.role != "GUEST") { if (m.role == "GUEST") onRole("MEMBER") },
-                        MenuEntry("Gast", Glyphs.person, selected = m.role == "GUEST") { if (m.role != "GUEST") onRole("GUEST") },
+                        MenuEntry(stringResource(R.string.people_companion), Glyphs.friends, selected = m.role != "GUEST") { if (m.role == "GUEST") onRole("MEMBER") },
+                        MenuEntry(stringResource(R.string.people_guest), Glyphs.person, selected = m.role == "GUEST") { if (m.role != "GUEST") onRole("GUEST") },
                     ),
                     if (m.role != "GUEST") listOfNotNull(
-                        MenuEntry("Mag tracken", Glyphs.distance, selected = m.canTrack) { onTrack(!m.canTrack) },
-                        onDays?.let { go -> MenuEntry("Dagen mee", CalendarGlyph) { go() } },
+                        MenuEntry(stringResource(R.string.people_can_track), Glyphs.distance, selected = m.canTrack) { onTrack(!m.canTrack) },
+                        onDays?.let { go -> MenuEntry(stringResource(R.string.people_days_along), CalendarGlyph) { go() } },
                     ) else emptyList(),
-                    listOf(MenuEntry("Verwijderen", Glyphs.trash, danger = true) { onRemove() }),
+                    listOf(MenuEntry(stringResource(R.string.home_delete), Glyphs.trash, danger = true) { onRemove() }),
                 ))
             }
         }
@@ -241,18 +242,18 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
         delay(250) // one lookup per pause in typing, not per letter
         found = runCatching { Remote.findPeople(query) }.getOrNull()?.filter { it.username !in existing }
     }
-    Text("Iemand toevoegen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
+    Text(stringResource(R.string.people_add_someone), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
     Row(Modifier.fillMaxWidth().height(52.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         LineIcon(Glyphs.search, cs.onSurfaceVariant, size = 20.dp)
         Box(Modifier.weight(1f).padding(start = 12.dp)) {
-            if (query.isEmpty()) Text("Zoek op naam of @gebruikersnaam", style = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurfaceVariant))
+            if (query.isEmpty()) Text(stringResource(R.string.people_search), style = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurfaceVariant))
             BasicTextField(query, { query = it }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
         }
     }
     val list = found
     if (list != null) {
         if (list.isEmpty()) {
-            Text("Niemand gevonden met die naam.", style = TextStyle(fontFamily = Inter, fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 10.dp))
+            Text(stringResource(R.string.people_none_found), style = TextStyle(fontFamily = Inter, fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 10.dp))
         } else Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             list.take(8).forEachIndexed { i, f ->
                 val on = f.username in picked
@@ -274,11 +275,11 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
     AnimatedVisibility(picked.isNotEmpty(), enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
         Column(Modifier.padding(top = 12.dp)) {
             Text(
-                if (picked.size == 1) "1 persoon toevoegen als" else "${picked.size} mensen toevoegen als",
+                if (picked.size == 1) stringResource(R.string.people_add_one_as) else stringResource(R.string.people_add_many_as, picked.size),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 8.dp),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween), verticalAlignment = Alignment.CenterVertically) {
-                listOf(false to "Reisgenoot", true to "Gast").forEachIndexed { i, (isGuest, label) ->
+                listOf(false to stringResource(R.string.people_companion), true to stringResource(R.string.people_guest)).forEachIndexed { i, (isGuest, label) ->
                     ToggleButton(
                         checked = guest == isGuest, onCheckedChange = { if (guest != isGuest) haptics(Haptic.Tick); guest = isGuest },
                         modifier = Modifier.weight(1f).height(48.dp),
@@ -298,7 +299,7 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
                     enabled = !busy, shapes = ButtonDefaults.shapes(), modifier = Modifier.height(48.dp),
                 ) {
                     if (busy) LoadingIndicator(Modifier.size(22.dp), color = cs.onPrimary)
-                    else Text("Toevoegen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
+                    else Text(stringResource(R.string.common_add), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
                 }
             }
         }
@@ -326,9 +327,9 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
     LaunchedEffect(trip.id) { links = runCatching { Remote.shareLinks(trip) }.getOrNull() ?: emptyList() }
     LaunchedEffect(copied) { if (copied != null) { delay(1600); copied = null } }
 
-    Text("Delen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 24.dp, bottom = 4.dp))
+    Text(stringResource(R.string.summary_share), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 24.dp, bottom = 4.dp))
     Text(
-        if (owner) "Publieke, alleen-lezen link voor thuisblijvers, zonder account." else "De link die de beheerder maakte. Doorsturen mag; wijzigen doet de beheerder.",
+        if (owner) stringResource(R.string.people_share_owner) else stringResource(R.string.people_share_member),
         style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 10.dp),
     )
     val list = links
@@ -363,7 +364,7 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                         haptics(Haptic.Confirm)
                         copied = link.id
                     }, shapes = ButtonDefaults.shapes(), modifier = Modifier.padding(start = 10.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                        Text(if (copied == link.id) "Gekopieerd" else "Kopieer", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp))
+                        Text(if (copied == link.id) stringResource(R.string.common_copied) else stringResource(R.string.people_copy), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp))
                     }
                     if (owner && link.canManage) {
                         Box(Modifier.padding(start = 2.dp).size(42.dp).clip(CircleShape).clickable { settingsFor = link }, contentAlignment = Alignment.Center) {
@@ -378,19 +379,19 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
             Row(Modifier.padding(top = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f).height(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) {
-                        if (newPassword.isEmpty()) Text("Wachtwoord (optioneel)", style = TextStyle(fontFamily = Inter, fontSize = 14.5.sp, color = cs.onSurfaceVariant))
+                        if (newPassword.isEmpty()) Text(stringResource(R.string.people_password_optional), style = TextStyle(fontFamily = Inter, fontSize = 14.5.sp, color = cs.onSurfaceVariant))
                         BasicTextField(newPassword, { newPassword = it.take(128) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 14.5.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
                     }
                 }
                 Spacer(Modifier.size(8.dp))
                 androidx.compose.material3.Button(
                     onClick = {
-                        if (newPassword.isNotEmpty() && newPassword.length < 4) { error = "Een wachtwoord heeft minstens 4 tekens"; return@Button }
+                        if (newPassword.isNotEmpty() && newPassword.length < 4) { error = Lang.text(R.string.people_password_min); return@Button }
                         creating = true; error = null
                         scope.launch {
                             runCatching { Remote.createShareLink(trip, newPassword.ifBlank { null }) }
                                 .onSuccess { haptics(Haptic.Confirm); links = (links ?: emptyList()) + it; newPassword = "" }
-                                .onFailure { error = "Aanmaken mislukt" }
+                                .onFailure { error = Lang.text(R.string.people_create_failed) }
                             creating = false
                         }
                     },
@@ -400,7 +401,7 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                         if (creating) LoadingIndicator(Modifier.size(18.dp), color = cs.onPrimary) else LineIcon(Glyphs.plus, cs.onPrimary, size = 18.dp, stroke = 2.4f)
                     }
                     Spacer(Modifier.size(6.dp))
-                    Text("Deellink", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
+                    Text(stringResource(R.string.people_share_link), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
                 }
             }
             error?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.error), modifier = Modifier.padding(top = 8.dp)) }
@@ -423,33 +424,33 @@ private fun LinkSettings(trip: Trip, link: Remote.ShareLink, onDismiss: () -> Un
     HapticOn(error, Haptic.Reject)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (confirmRevoke) "Link intrekken?" else "Instellingen van deze link", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
+        title = { Text(if (confirmRevoke) stringResource(R.string.people_revoke_title) else stringResource(R.string.people_link_settings), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
         text = {
-            if (confirmRevoke) Text("Wie de link heeft kan de reis daarna niet meer bekijken.", style = TextStyle(fontFamily = Inter, fontSize = 15.sp))
+            if (confirmRevoke) Text(stringResource(R.string.people_revoke_body), style = TextStyle(fontFamily = Inter, fontSize = 15.sp))
             else Column {
-                Text(if (link.hasPassword) "Nieuw wachtwoord" else "Wachtwoord", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 6.dp))
+                Text(if (link.hasPassword) stringResource(R.string.people_new_password) else stringResource(R.string.auth_password), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 6.dp))
                 Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     BasicTextField(password, { password = it.take(128) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
                 }
                 error?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.sp, color = cs.error), modifier = Modifier.padding(top = 6.dp)) }
                 Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (link.hasPassword) FilledTonalButton(onClick = {
-                        scope.launch { runCatching { Remote.setSharePassword(trip, link.id, null) }.onSuccess { onChanged(link.copy(hasPassword = false)); onDismiss() }.onFailure { error = "Opslaan mislukt" } }
-                    }, shapes = ButtonDefaults.shapes()) { Text("Wachtwoord verwijderen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
-                    TextButton(onClick = { confirmRevoke = true }) { Text("Link intrekken", color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
+                        scope.launch { runCatching { Remote.setSharePassword(trip, link.id, null) }.onSuccess { onChanged(link.copy(hasPassword = false)); onDismiss() }.onFailure { error = Lang.text(R.string.summary_save_failed) } }
+                    }, shapes = ButtonDefaults.shapes()) { Text(stringResource(R.string.people_password_remove), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
+                    TextButton(onClick = { confirmRevoke = true }) { Text(stringResource(R.string.people_revoke), color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
                 }
             }
         },
         confirmButton = {
             if (confirmRevoke) TextButton(onClick = {
                 scope.launch { runCatching { Remote.revokeShareLink(trip, link.id) }.onSuccess { onChanged(null); onDismiss() } }
-            }) { Text("Intrekken", color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+            }) { Text(stringResource(R.string.people_revoke_confirm), color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
             else TextButton(onClick = {
-                if (password.length < 4) { error = "Minstens 4 tekens"; return@TextButton }
-                scope.launch { runCatching { Remote.setSharePassword(trip, link.id, password) }.onSuccess { onChanged(link.copy(hasPassword = true)); onDismiss() }.onFailure { error = "Opslaan mislukt" } }
-            }) { Text("Opslaan", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+                if (password.length < 4) { error = Lang.text(R.string.people_min_chars); return@TextButton }
+                scope.launch { runCatching { Remote.setSharePassword(trip, link.id, password) }.onSuccess { onChanged(link.copy(hasPassword = true)); onDismiss() }.onFailure { error = Lang.text(R.string.summary_save_failed) } }
+            }) { Text(stringResource(R.string.home_save), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
         },
-        dismissButton = { TextButton(onClick = { if (confirmRevoke) confirmRevoke = false else onDismiss() }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+        dismissButton = { TextButton(onClick = { if (confirmRevoke) confirmRevoke = false else onDismiss() }) { Text(stringResource(R.string.common_cancel), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
     )
 }
 
@@ -478,9 +479,9 @@ private fun LinkPassword(trip: Trip, link: Remote.ShareLink) {
     Column(Modifier.padding(top = 3.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             LineIcon(Glyphs.lock, cs.onSurfaceVariant, size = 13.dp, stroke = 2f)
-            Text("Met wachtwoord", style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp))
+            Text(stringResource(R.string.people_with_password), style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp))
             if (secret == null) Text(
-                if (failed) "Ophalen mislukt" else "Bekijken",
+                if (failed) stringResource(R.string.people_fetch_failed) else stringResource(R.string.people_view),
                 style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.sp, color = if (failed) cs.error else cs.primary),
                 modifier = Modifier.padding(start = 6.dp).clip(CircleShape).clickable(enabled = !busy) {
                     haptics(Haptic.Tap); busy = true; failed = false
@@ -493,7 +494,7 @@ private fun LinkPassword(trip: Trip, link: Remote.ShareLink) {
         if (shown != null) {
             val (pw, recoverable) = shown
             if (pw == null || !recoverable) Text(
-                "Dit wachtwoord is van voor deze functie en niet meer terug te lezen." + if (link.canManage) " Stel een nieuw wachtwoord in." else "",
+                stringResource(R.string.people_password_old) + if (link.canManage) stringResource(R.string.people_password_set_new) else "",
                 style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, lineHeight = 17.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp),
             ) else Row(
                 Modifier.padding(top = 6.dp).clip(CircleShape).background(cs.surfaceContainerHighest).clickable {
@@ -520,16 +521,16 @@ private fun DaysAlongSheet(m: Member, first: java.time.LocalDate, last: java.tim
     AppSheet(onDismiss = onDismiss) {
         val sheet = this
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
-            Text("Dagen mee", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
+            Text(stringResource(R.string.people_days_along), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             Text(
-                "Welke dagen was ${m.name} erbij? ${shortRange(a, b ?: a)}",
+                stringResource(R.string.people_days_question, m.name, shortRange(a, b ?: a)),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp),
             )
             RangeCalendar(a, b, onChange = { x, y -> if (x != null) { a = x; b = y } }, modifier = Modifier.padding(top = 16.dp), bounds = first..last)
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val label = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)
-                FilledTonalButton(onClick = { onPick(first, last); sheet.close() }, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1f).height(50.dp)) { Text("Hele reis", style = label) }
-                androidx.compose.material3.Button(onClick = { onPick(a, b ?: a); sheet.close() }, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1f).height(50.dp)) { Text("Opslaan", style = label) }
+                FilledTonalButton(onClick = { onPick(first, last); sheet.close() }, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1f).height(50.dp)) { Text(stringResource(R.string.map_whole_trip), style = label) }
+                androidx.compose.material3.Button(onClick = { onPick(a, b ?: a); sheet.close() }, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1f).height(50.dp)) { Text(stringResource(R.string.home_save), style = label) }
             }
         }
     }

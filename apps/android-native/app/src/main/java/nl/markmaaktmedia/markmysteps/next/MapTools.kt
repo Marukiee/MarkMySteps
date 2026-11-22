@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import androidx.compose.ui.res.stringResource
 
 /*
  * The controls on and around the trip map, as the web's trip page has them: the day pill and its list, the
@@ -108,7 +109,7 @@ fun DayPill(state: TripMapState, onOpen: () -> Unit, modifier: Modifier = Modifi
         (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.fastSpatialSpec(), initialScale = 0.9f)) togetherWith
             fadeOut(motion.fastEffectsSpec()) using androidx.compose.animation.SizeTransform(clip = false)
     }, label = "dayPill", modifier = modifier) { day ->
-        MapPill(day?.let { shortDay(it) } ?: "Hele reis", CalendarGlyph, active = day != null, trailing = listOf(P("m6 9 6 6 6-6")), onClick = onOpen)
+        MapPill(day?.let { shortDay(it) } ?: stringResource(R.string.map_whole_trip), CalendarGlyph, active = day != null, trailing = listOf(P("m6 9 6 6 6-6")), onClick = onOpen)
     }
 }
 
@@ -118,8 +119,8 @@ fun DaySheet(state: TripMapState, onPick: (LocalDate?) -> Unit, onDismiss: () ->
     val cs = MaterialTheme.colorScheme
     val haptics = rememberHaptics()
     AppSheet(onDismiss = onDismiss) {
-        Text("Dag op de kaart", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(horizontal = 20.dp))
-        Text("Kies één dag om alleen die route en die foto's te zien.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp))
+        Text(stringResource(R.string.map_day_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(horizontal = 20.dp))
+        Text(stringResource(R.string.map_day_hint), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp))
         @Composable fun Row(label: String, count: String, chosen: Boolean, camera: Boolean, onClick: () -> Unit) {
             val bg by animateColorAsState(if (chosen) cs.secondaryContainer else cs.surfaceContainerHigh, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "dayRow")
             androidx.compose.foundation.layout.Row(
@@ -139,7 +140,7 @@ fun DaySheet(state: TripMapState, onPick: (LocalDate?) -> Unit, onDismiss: () ->
         }
         val dismiss = { close() }
         LazyColumn(Modifier.heightIn(max = 520.dp).padding(bottom = 16.dp)) {
-            item { Row("Hele reis", "${state.days.size} dagen", state.day == null, camera = false) { onPick(null); dismiss() } }
+            item { Row(stringResource(R.string.map_whole_trip), stringResource(R.string.map_days_count, state.days.size), state.day == null, camera = false) { onPick(null); dismiss() } }
             item { Box(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 8.dp).height(1.dp).background(cs.outlineVariant)) }
             items(state.days, key = { it.day.toString() }) { d ->
                 Row(shortDay(d.day), "${d.photos}", state.day == d.day, camera = true) { onPick(d.day); dismiss() }
@@ -221,16 +222,16 @@ fun LineMenuSheet(
     AppSheet(onDismiss = onDismiss) {
         val dismiss = { close() }
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("Deze lijn", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp))
-            Text("Wat wil je met het stuk route dat je ingedrukt hield?", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 12.dp))
+            Text(stringResource(R.string.map_line_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp))
+            Text(stringResource(R.string.map_line_question), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 12.dp))
             val draw = @Composable { i: Int, n: Int ->
-                ChoiceRow(RouteGlyph, "Route via wegen tekenen", "Vult het dichtstbijzijnde rechte stuk aan via de snelste weg.", i, n) {
-                    act(dismiss, { MapRemote.drawRoad(tripId, at) }, "Route via wegen getekend")
+                ChoiceRow(RouteGlyph, stringResource(R.string.map_road_draw), stringResource(R.string.map_road_draw_hint), i, n) {
+                    act(dismiss, { MapRemote.drawRoad(tripId, at) }, Lang.text(R.string.map_road_drawn))
                 }
             }
             val train = @Composable { i: Int, n: Int ->
-                ChoiceRow(Glyphs.train, "Treinroute tekenen",
-                    if (byTrain) "De leg naar ${leg!!.name} gaat met de trein. Kies je begin- en eindstation." else "Voor een treinreis zonder signaal: kies je begin- en eindstation.", i, n) {
+                ChoiceRow(Glyphs.train, stringResource(R.string.map_train_draw),
+                    if (byTrain) stringResource(R.string.map_train_leg_hint, leg!!.name) else stringResource(R.string.map_train_hint), i, n) {
                     val before = leg?.let { l -> trip.stops.getOrNull(trip.stops.indexOf(l) - 1) }
                     dismiss(); onTrain(if (leg != null && before != null) before.name to leg.name else null)
                 }
@@ -238,16 +239,16 @@ fun LineMenuSheet(
             val total = 2 + (if (leg != null) 1 else 0) + (if (near) 1 else 0)
             if (byTrain) { train(0, total); draw(1, total) } else { draw(0, total); train(1, total) }
             if (leg != null) {
-                if (hidden) ChoiceRow(EyeOn, "Lijn naar ${leg.name} terugzetten", "De rechte lijn tussen deze twee stops komt terug.", 2, total) {
-                    leg.id?.let { id -> state.hiddenLegs[id] = false; act(dismiss, { MapRemote.hideLeg(tripId, id, false) }, "Lijn teruggezet") }
-                } else ChoiceRow(EyeOff, "Lijn naar ${leg.name} verwijderen", "De stop blijft staan; alleen de lijn ernaartoe verdwijnt.", 2, total, danger = true) {
-                    leg.id?.let { id -> state.hiddenLegs[id] = true; act(dismiss, { MapRemote.hideLeg(tripId, id, true) }, "Lijn verwijderd") }
+                if (hidden) ChoiceRow(EyeOn, stringResource(R.string.map_line_restore, leg.name), stringResource(R.string.map_line_restore_hint), 2, total) {
+                    leg.id?.let { id -> state.hiddenLegs[id] = false; act(dismiss, { MapRemote.hideLeg(tripId, id, false) }, Lang.text(R.string.map_line_restored)) }
+                } else ChoiceRow(EyeOff, stringResource(R.string.map_line_remove, leg.name), stringResource(R.string.map_line_remove_hint), 2, total, danger = true) {
+                    leg.id?.let { id -> state.hiddenLegs[id] = true; act(dismiss, { MapRemote.hideLeg(tripId, id, true) }, Lang.text(R.string.map_line_removed)) }
                 }
             }
             // Only where there is something to wipe, so it comes in once the server said so.
             AnimatedVisibility(near, enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec())) {
-                ChoiceRow(EraseGlyph, "Getekende route wissen", "Alleen dit automatisch getekende stuk. Je eigen GPS blijft staan.", total - 1, total, danger = true) {
-                    act(dismiss, { MapRemote.wipeDrawn(tripId, at) }, "Getekende route gewist")
+                ChoiceRow(EraseGlyph, stringResource(R.string.map_drawn_wipe), stringResource(R.string.map_drawn_wipe_hint), total - 1, total, danger = true) {
+                    act(dismiss, { MapRemote.wipeDrawn(tripId, at) }, Lang.text(R.string.map_drawn_wiped))
                 }
             }
         }
@@ -291,14 +292,14 @@ fun TrainSheet(prefill: Pair<String, String>?, onDraw: suspend (MapRemote.Statio
     AppSheet(onDismiss = onDismiss) {
         val dismiss = { close() }
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Treinroute tekenen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp))
-            Hint("In de trein heeft je telefoon vaak geen signaal. Zeg van welk station naar welk station je ging, dan tekent hij het spoor ertussen en sluit hij het aan op je route ervoor en erna. Je foto's blijven staan.", Modifier.padding(horizontal = 4.dp))
-            StationField("Vertrekstation", prefill?.first, from, { from = it }, { fromText = it })
-            StationField("Aankomststation", prefill?.second, to, { to = it }, { toText = it })
+            Text(stringResource(R.string.map_train_draw), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp))
+            Hint(stringResource(R.string.map_train_sheet_body), Modifier.padding(horizontal = 4.dp))
+            StationField(stringResource(R.string.map_train_from), prefill?.first, from, { from = it }, { fromText = it })
+            StationField(stringResource(R.string.map_train_to), prefill?.second, to, { to = it }, { toText = it })
             Note(error, true)
             ButtonRow {
-                SoftButton("Annuleren", dismiss, Modifier.weight(1f))
-                MainButton(if (busy) "Tekenen…" else "Route tekenen", {
+                SoftButton(stringResource(R.string.common_cancel), dismiss, Modifier.weight(1f))
+                MainButton(if (busy) stringResource(R.string.map_drawing) else stringResource(R.string.map_route_draw), {
                     if (busy) return@MainButton
                     busy = true; error = null
                     scope.launch {
@@ -306,11 +307,11 @@ fun TrainSheet(prefill: Pair<String, String>?, onDraw: suspend (MapRemote.Statio
                         val dep = from ?: fromText.takeIf { it.trim().length >= 2 }?.let { MapRemote.stations(it).firstOrNull() }
                         val arr = to ?: toText.takeIf { it.trim().length >= 2 }?.let { MapRemote.stations(it).firstOrNull() }
                         if (dep == null || arr == null) {
-                            error = if (dep == null && arr == null) "Vul allebei de stations in." else if (dep == null) "Vul nog een vertrekstation in." else "Vul nog een aankomststation in."
+                            error = if (dep == null && arr == null) Lang.text(R.string.map_fill_both) else if (dep == null) Lang.text(R.string.map_fill_from) else Lang.text(R.string.map_fill_to)
                             busy = false; return@launch
                         }
                         from = dep; to = arr
-                        runCatching { onDraw(dep, arr) }.onSuccess { dismiss() }.onFailure { error = it.message ?: "Dat lukte niet"; busy = false }
+                        runCatching { onDraw(dep, arr) }.onSuccess { dismiss() }.onFailure { error = it.message ?: Lang.text(R.string.common_failed); busy = false }
                     }
                 }, Modifier.weight(1f), busy = busy)
             }
@@ -353,11 +354,11 @@ private fun StationField(label: String, city: String?, value: MapRemote.Station?
                         if (picked.region.isNotBlank()) Text(picked.region, maxLines = 1, overflow = TextOverflow.Ellipsis, style = ValueStyle.copy(fontSize = 12.sp, color = cs.onSurfaceVariant))
                     }
                     androidx.compose.material3.TextButton(onClick = { onPick(null); query = picked.name; onType(picked.name) }) {
-                        Text("Wijzig", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary))
+                        Text(stringResource(R.string.map_change), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary))
                     }
                 } else {
                     Box(Modifier.weight(1f).padding(start = 10.dp)) {
-                        if (query.isEmpty()) Text("Zoek een station", style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
+                        if (query.isEmpty()) Text(stringResource(R.string.map_search_station), style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
                         BasicTextField(query, { query = it; onType(it) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
                     }
                     Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { if (busy) LoadingIndicator(Modifier.size(22.dp)) }
@@ -408,19 +409,19 @@ fun MapLayersSections(layers: MapLayers) {
     }
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { delay(5_000); now = System.currentTimeMillis() } }
-    Title("Routes op de kaart", "Wiens gevolgde route je ziet.")
+    Title(stringResource(R.string.map_routes_title), stringResource(R.string.map_routes_hint))
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         layers.members.forEachIndexed { i, m ->
             val fix = layers.live.firstOrNull { it.userId == m.userId }
             val seen = fix?.let { f ->
                 val mins = (now - f.time.toEpochMilli()) / 60_000
-                (if (mins < 2) "zojuist gezien" else if (mins < 60) "$mins min geleden" else if (mins < 48 * 60) "${mins / 60} uur geleden" else "${mins / 1440} dagen geleden") to (mins < 15)
+                (if (mins < 2) stringResource(R.string.map_seen_now) else if (mins < 60) stringResource(R.string.map_seen_minutes, mins) else if (mins < 48 * 60) stringResource(R.string.map_seen_hours, mins / 60) else stringResource(R.string.map_seen_days, mins / 1440)) to (mins < 15)
             }
             LayerRow(m, m.userId == me, layers.colorOf(m.userId), m.userId in layers.routeUsers, seen, i, layers.members.size) { layers.onRoute(m.userId) }
         }
     }
     Spacer(Modifier.height(20.dp))
-    Title("Foto's op de kaart", "Wiens foto's als bolletjes op de kaart staan. Zet ze allemaal uit om alleen de route te zien.")
+    Title(stringResource(R.string.map_photos_title), stringResource(R.string.map_photos_hint))
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         layers.members.forEachIndexed { i, m ->
             LayerRow(m, m.userId == me, layers.colorOf(m.userId), m.userId in layers.photoUsers, null, i, layers.members.size) { layers.onPhoto(m.userId) }
@@ -430,7 +431,7 @@ fun MapLayersSections(layers: MapLayers) {
     Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
         val all = layers.members.isNotEmpty() && layers.members.all { it.userId in layers.photoUsers }
         val none = layers.photoUsers.none { id -> layers.members.any { it.userId == id } }
-        listOf(true to "Allemaal aan", false to "Allemaal uit").forEachIndexed { i, (on, label) ->
+        listOf(true to stringResource(R.string.map_all_on), false to stringResource(R.string.map_all_off)).forEachIndexed { i, (on, label) ->
             ToggleButton(
                 checked = if (on) all else none,
                 onCheckedChange = { haptics(Haptic.Tick); layers.onAllPhotos(on) },
@@ -456,7 +457,7 @@ private fun LayerRow(m: Member, me: Boolean, color: Color, on: Boolean, seen: Pa
             Avatar(m.userId, m.name, m.hasAvatar, color, Modifier.matchParentSize())
         }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(m.name + if (me) " (ik)" else "", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 16.sp, color = cs.onSurface))
+            Text(m.name + if (me) stringResource(R.string.map_me) else "", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 16.sp, color = cs.onSurface))
             if (seen != null) Text(seen.first, style = ValueStyle.copy(color = if (seen.second) cs.primary else cs.onSurfaceVariant))
         }
         // An empty ring when off, filling with the accent and a tick when on.
@@ -503,7 +504,7 @@ fun TrackPrompt(trip: Trip, visible: Boolean, onLater: () -> Unit, onStart: () -
                 Text(
                     androidx.compose.ui.text.buildAnnotatedString {
                         pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight(700))); append(trip.title); pop()
-                        append(" is bezig. Route bijhouden?")
+                        append(stringResource(R.string.map_busy_track))
                     },
                     style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, lineHeight = 20.sp, color = cs.onSecondaryContainer),
                     modifier = Modifier.padding(start = 10.dp),
@@ -512,8 +513,8 @@ fun TrackPrompt(trip: Trip, visible: Boolean, onLater: () -> Unit, onStart: () -
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 val label = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)
                 androidx.compose.material3.FilledTonalButton(onClick = onLater, shapes = androidx.compose.material3.ButtonDefaults.shapes(), modifier = Modifier.height(44.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(containerColor = cs.surfaceContainerHighest)) { Text("Later", style = label) }
-                androidx.compose.material3.Button(onClick = onStart, shapes = androidx.compose.material3.ButtonDefaults.shapes(), modifier = Modifier.height(44.dp)) { Text("Start tracking", style = label) }
+                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(containerColor = cs.surfaceContainerHighest)) { Text(stringResource(R.string.access_later), style = label) }
+                androidx.compose.material3.Button(onClick = onStart, shapes = androidx.compose.material3.ButtonDefaults.shapes(), modifier = Modifier.height(44.dp)) { Text(stringResource(R.string.map_start_tracking), style = label) }
             }
         }
     }
@@ -550,7 +551,7 @@ fun MapPickDialog(trip: Trip, dark: Boolean, onPicked: (Remote.Place) -> Unit, o
                     Box(Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest).dip { close() }, contentAlignment = Alignment.Center) {
                         LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), cs.onSurface, size = 22.dp, stroke = 2.2f)
                     }
-                    Text("Tik op de kaart waar de stop komt", maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    Text(stringResource(R.string.map_tap_stop), maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface),
                         modifier = Modifier.padding(start = 10.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp, vertical = 12.dp))
                 }
@@ -567,7 +568,7 @@ fun MapPickDialog(trip: Trip, dark: Boolean, onPicked: (Remote.Place) -> Unit, o
                     Column(Modifier.weight(1f)) {
                         androidx.compose.animation.Crossfade(place, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "place") { p ->
                             Column {
-                                Text(p?.name ?: "Plaats opzoeken…", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(color = cs.onSurface))
+                                Text(p?.name ?: stringResource(R.string.map_place_looking), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(color = cs.onSurface))
                                 Text(p?.region?.takeIf { it.isNotBlank() } ?: " ", maxLines = 1, overflow = TextOverflow.Ellipsis, style = ValueStyle.copy(color = cs.onSurfaceVariant))
                             }
                         }
@@ -575,7 +576,7 @@ fun MapPickDialog(trip: Trip, dark: Boolean, onPicked: (Remote.Place) -> Unit, o
                     androidx.compose.material3.Button(
                         onClick = { place?.let { haptics(Haptic.Confirm); onPicked(it); close() } }, enabled = place != null,
                         shapes = androidx.compose.material3.ButtonDefaults.shapes(), modifier = Modifier.height(48.dp),
-                    ) { Text("Stop toevoegen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
+                    ) { Text(stringResource(R.string.map_add_stop), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
                 }
             }
         }
@@ -606,7 +607,7 @@ fun androidx.compose.foundation.layout.BoxScope.MapCorners(
     // Level with the round buttons: a 40 dp pill on a 48 dp button's line.
     Column(Modifier.align(Alignment.BottomStart).padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         AnimatedVisibility(state.photoUsers?.isEmpty() == true, enter = fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.fastSpatialSpec(), initialScale = 0.8f), exit = fadeOut(motion.fastEffectsSpec()) + scaleOut(motion.fastSpatialSpec(), targetScale = 0.8f)) {
-            MapPill("Foto's staan uit op de kaart", Glyphs.camera, maxText = 260.dp, onClick = onPhotosOff)
+            MapPill(stringResource(R.string.map_photos_off), Glyphs.camera, maxText = 260.dp, onClick = onPhotosOff)
         }
         DayPill(state, onDays)
     }
