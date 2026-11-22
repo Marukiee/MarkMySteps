@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -233,6 +234,21 @@ fun SummaryOptionsSheet(trip: Trip, options: SummaryOptions, onChange: (SummaryO
                         if (options.scope == Scope.Range) {
                             Text(stringResource(R.string.summary_scope_to), style = TitleStyle.copy(color = cs.onSurfaceVariant, fontSize = 14.sp))
                             DayChips(days.filter { d -> options.from == null || !d.isBefore(options.from) }, options.to) { onChange(options.copy(to = it)) }
+                        }
+                    }
+                }
+            }
+            // Whose tracked line the maps on the posters and in the book show (only with more than one).
+            val lines = rememberRouteLines(trip)
+            val walkers = remember(trip, lines) { lines.orEmpty().mapNotNull { l -> trip.members.firstOrNull { it.userId == l.userId } }.distinctBy { it.userId } }
+            if (lines != null && walkers.size > 1) {
+                val chosen = RouteChoice.users(trip, lines)
+                Header(stringResource(R.string.map_routes_title))
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    walkers.forEachIndexed { i, m ->
+                        LayerRow(m, m.userId == Data.me?.id, legibleColor(trip.color, cs.background.luminance() < 0.5f), m.userId in chosen, null, i, walkers.size) {
+                            RouteChoice.toggle(trip, lines, m.userId)
+                            onChange(options.copy())
                         }
                     }
                 }

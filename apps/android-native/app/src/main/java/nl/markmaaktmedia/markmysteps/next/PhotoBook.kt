@@ -529,37 +529,74 @@ fun fitFrame(trip: Trip, w: Float, h: Float, side: Float, fill: Float): Triple<D
 }
 
 /**
- * The route as the app's own map draws it: a line per traveller (GET /api/trips/:id/route). The trip list's
- * overview line strings every traveller's points together in time order, so where two people tracked at the
- * same time it jumped between them in straight lines, such as from Marrakesh to Rabat beside the train ride.
+ * The route as the app's own map draws it: a line per traveller (GET /api/trips/:id/route, only read). The
+ * trip list's overview line strings every traveller's points together in time order, so where two people
+ * tracked at the same time it jumped between them in straight lines (Marrakesh to Rabat beside the train).
  */
-private val travelledLines = java.util.concurrent.ConcurrentHashMap<String, List<List<LonLat>>>()
+private val travelledLines = java.util.concurrent.ConcurrentHashMap<String, List<MapRemote.RouteLine>>()
 
-suspend fun travelled(trip: Trip): List<List<LonLat>>? {
+suspend fun travelled(trip: Trip): List<MapRemote.RouteLine>? {
     val id = trip.remoteId ?: return null
     if (LocalMode.on) return null
     travelledLines[id]?.let { return it }
-    return runCatching {
-        val lines = MapRemote.routes(id, null).filter { it.points.size >= 2 }
-        // Whose lines, as the trip page's map shows them before anyone chooses (TripPage.kt): the owner's and
-        // your own when you can edit; everyone's only when neither has one.
-        val me = Data.me?.id
-        val role = trip.members.firstOrNull { it.userId == me }?.role
-        val canEdit = me != null && (trip.ownerId == me || (role != null && role != "GUEST"))
-        val wanted = setOfNotNull(trip.ownerId, me.takeIf { canEdit })
-        val own = lines.filter { it.userId in wanted }
-        own.ifEmpty { lines }.map { it.points }
-    }.getOrNull()?.also { travelledLines[id] = it }
+    return runCatching { MapRemote.routes(id, null).filter { it.points.size >= 2 } }.getOrNull()?.also { travelledLines[id] = it }
 }
 
-/** [trip] with its route per traveller once it is known (it usually is, fetched while the photos were read). */
+/** Every traveller's line once it has come (usually fetched while the photos were read); null before or offline. */
 @Composable
-fun rememberTravelled(trip: Trip): Trip {
+fun rememberRouteLines(trip: Trip): List<MapRemote.RouteLine>? {
     val lines by androidx.compose.runtime.produceState(trip.remoteId?.let { travelledLines[it] }, trip.remoteId) {
         if (value == null) value = travelled(trip)
     }
-    val l = lines?.takeIf { it.isNotEmpty() } ?: return trip
-    return remember(trip, l) { trip.copy(segments = l, route = l.flatten()) }
+    return lines
+}
+
+/**
+ * Whose lines the posters and the book show, ticked in the summary's choices and kept per trip on the phone.
+ * Untouched it is only your own line; the owner's when you have none; everyone's when neither has one.
+ */
+object RouteChoice {
+    private val chosen = androidx.compose.runtime.mutableStateMapOf<String, Set<String>>()
+    private var prefs: android.content.SharedPreferences? = null
+    private fun key(id: String) = "posterRoutes.$id"
+
+    fun init(context: android.content.Context) {
+        if (prefs == null) prefs = context.applicationContext.getSharedPreferences("mms.next.ui", android.content.Context.MODE_PRIVATE)
+    }
+
+    fun users(trip: Trip, lines: List<MapRemote.RouteLine>): Set<String> {
+        val id = trip.remoteId ?: return emptySet()
+        chosen[id]?.let { return it }
+        prefs?.getString(key(id), null)?.let { raw -> return raw.split(',').filter { it.isNotBlank() }.toSet() }
+        val drawn = lines.map { it.userId }.toSet()
+        val me = Data.me?.id
+        return when {
+            me != null && me in drawn -> setOf(me)
+            trip.ownerId != null && trip.ownerId in drawn -> setOf(trip.ownerId)
+            else -> drawn
+        }
+    }
+
+    fun toggle(trip: Trip, lines: List<MapRemote.RouteLine>, userId: String) {
+        val id = trip.remoteId ?: return
+        val now = users(trip, lines)
+        val next = if (userId in now) now - userId else now + userId
+        chosen[id] = next
+        prefs?.edit()?.putString(key(id), next.joinToString(","))?.apply()
+    }
+}
+
+/** [trip] with only the chosen travellers' lines, each drawn on its own; as it is until the lines have come. */
+@Composable
+fun rememberTravelled(trip: Trip): Trip {
+    val context = LocalContext.current
+    remember { RouteChoice.init(context) }
+    val lines = rememberRouteLines(trip)?.takeIf { it.isNotEmpty() } ?: return trip
+    val users = RouteChoice.users(trip, lines)
+    return remember(trip, lines, users) {
+        val shown = lines.filter { it.userId in users }.map { it.points }
+        trip.copy(segments = shown, route = shown.flatten())
+    }
 }
 
 /**
