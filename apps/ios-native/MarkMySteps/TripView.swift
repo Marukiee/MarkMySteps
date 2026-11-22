@@ -20,6 +20,8 @@ struct TripView: View {
     @State private var titleShown = false
     @State private var pageHeight: CGFloat = 800
     @State private var pastMap = false
+    /// The up button steps aside while the keyboard is up, so it never covers a field's suggestions.
+    @State private var keyboardUp = false
     @State private var saver = PlanSaver()
     /// Whether the stops have been read from the server, so the figures can wait in their place until then.
     @State private var stopsKnown: Bool
@@ -85,7 +87,11 @@ struct TripView: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                             withAnimation(.smooth) { proxy.scrollTo("add", anchor: .bottom) }
                         }
-                    }, saver: saver)
+                    }, saver: saver, onReveal: { id in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                            withAnimation(.smooth) { proxy.scrollTo(id, anchor: .bottom) }
+                        }
+                    })
                 }
 
                 Color.clear.frame(height: 28).plainRow()
@@ -115,7 +121,7 @@ struct TripView: View {
             }
             .overlay(alignment: .bottomTrailing) {
                 // Back to the top once the map has scrolled away.
-                if pastMap && plan.pending == nil {
+                if pastMap && plan.pending == nil && !keyboardUp {
                     Button { withAnimation(.smooth) { proxy.scrollTo("top", anchor: .top) } } label: {
                         Image(systemName: "chevron.up").font(.system(size: 17, weight: .semibold)).frame(width: 30, height: 30)
                     }
@@ -133,7 +139,7 @@ struct TripView: View {
                 // A removed stop can come back for 7 seconds.
                 if let pending = plan.pending {
                     HStack(spacing: 12) {
-                        Text("\(pending.stop.name) verwijderd").font(.inter(15, 550)).foregroundStyle(Brand.ink).lineLimit(1)
+                        Text("\(pending.name) verwijderd").font(.inter(15, 550)).foregroundStyle(Brand.ink).lineLimit(1)
                         Button("Ongedaan maken") { saver.undo($plan) }
                             .font(.inter(15, 650))
                             .foregroundStyle(Brand.accent)
@@ -178,6 +184,11 @@ struct TripView: View {
                 .animation(.calm, value: [showPeople, showMapStyle, showSettings])
             }
         }
+        .sheet(item: $plan.flight) { target in
+            FlightSheet(target: target) { number, from, to, via in
+                saver.saveFlight(trip, $plan, target, send: PlannerRows.saves(trip, me: store.me?.id), number: number, from: from, to: to, via: via)
+            }
+        }
         .sheet(isPresented: $showPeople) { PeopleSheet(trip: trip) }
         .sheet(isPresented: $showMapStyle) { MapStyleSheet() }
         .sheet(isPresented: $showSettings) { TripSettingsSheet(trip: trip) }
@@ -194,6 +205,8 @@ struct TripView: View {
                 .navigationTransition(.zoom(sourceID: viewerCurrent, in: ns))
         }
         .task(id: "\(base.id)/\(store.version)") { await loadMore() }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in withAnimation(.calm) { keyboardUp = true } }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in withAnimation(.calm) { keyboardUp = false } }
         .onAppear {
             if Launch.photo, viewer == nil, let first = trip.demoDays.first {
                 let photos = Demo.media(trip, day: 0, date: first.date)

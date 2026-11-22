@@ -440,17 +440,24 @@ enum Remote {
         .sorted { ($0.start ?? .distantPast) > ($1.start ?? .distantPast) }
     }
 
-    /// The planned stops, day trips left out, with their dates worked out from the trip's start.
+    /// The planned stops with their day trips under them, and the way there and back, with their dates worked out
+    /// from the trip's start.
     static func stops(_ trip: Trip) async throws -> (stops: [Stop], outbound: Leg?, back: Leg?) {
         guard let rid = trip.remoteId else { return (trip.stops, trip.outbound, trip.back) }
         let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/stops")) as? [[String: Any]] ?? []
-        let rows = list.filter { $0["parentStopId"] == nil || $0["parentStopId"] is NSNull }
-            .sorted { ($0["orderIndex"] as? Int ?? 0) < ($1["orderIndex"] as? Int ?? 0) }
+        func isChild(_ o: [String: Any]) -> Bool { !(o["parentStopId"] == nil || o["parentStopId"] is NSNull) }
+        let rows = list.filter { !isChild($0) }.sorted { ($0["orderIndex"] as? Int ?? 0) < ($1["orderIndex"] as? Int ?? 0) }
+        let children = Dictionary(grouping: list.filter(isChild), by: { $0["parentStopId"] as? String ?? "" })
         let cal = Format.calendar
         var day = trip.start ?? cal.startOfDay(for: Date())
         var stops: [Stop] = []
         var outbound: Leg?
         var back: Leg?
+        func text(_ o: [String: Any], _ k: String) -> String? { (o[k] as? String).flatMap { $0.isEmpty ? nil : $0 } }
+        func point(_ o: [String: Any]) -> LonLat? {
+            guard let lat = (o["latitude"] as? NSNumber)?.doubleValue, let lon = (o["longitude"] as? NSNumber)?.doubleValue else { return nil }
+            return LonLat(lon, lat)
+        }
         for (index, o) in rows.enumerated() {
             let mode: Mode = switch o["travelMode"] as? String {
             case "FLIGHT": .flight
@@ -461,21 +468,30 @@ enum Remote {
             }
             let nights = o["nights"] as? Int ?? 0
             let name = o["name"] as? String ?? ""
+            let via = (o["viaAirports"] as? [String] ?? []).filter { !$0.isEmpty }
             // The way there and back are stops of their own with no nights, at the ends.
             if nights == 0 && (index == 0 || index == rows.count - 1) && (name.hasPrefix("Heen") || name.hasPrefix("Terug")) {
-                let from = (o["fromAirport"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Thuis"
-                let leg = Leg(mode: mode, from: from, to: o["toAirport"] as? String ?? "", km: 0, serverId: o["id"] as? String)
+                let from = text(o, "fromAirport") ?? "Thuis"
+                let leg = Leg(mode: mode, from: from, to: text(o, "toAirport") ?? "", km: 0, serverId: o["id"] as? String,
+                              flightNumber: text(o, "flightNumber"), fromAirport: text(o, "fromAirport"), toAirport: text(o, "toAirport"), via: via)
                 if index == 0 { outbound = leg } else { back = leg }
                 continue
             }
             // The server's own dates when it gives them, so gaps in the plan do not shift everything after.
             let from = Remote.day(o["arrivalDate"]) ?? day
             day = Remote.day(o["departureDate"]) ?? cal.date(byAdding: .day, value: nights, to: from) ?? from
-            let at: LonLat = if let lat = o["latitude"] as? Double, let lon = o["longitude"] as? Double { LonLat(lon, lat) } else { trip.route.first ?? LonLat(0, 0) }
+            let at = point(o) ?? trip.route.first ?? LonLat(0, 0)
+            let outings = (children[o["id"] as? String ?? ""] ?? []).compactMap { c -> DayTrip? in
+                guard let p = point(c) else { return nil }
+                return DayTrip(name: c["name"] as? String ?? "", flag: flag(c["countryCode"] as? String), at: p,
+                               day: Remote.day(c["dayTripDate"]) ?? Remote.day(c["arrivalDate"]), serverId: c["id"] as? String)
+            }.sorted { ($0.day ?? .distantPast) < ($1.day ?? .distantPast) }
             stops.append(Stop(
                 name: name, flag: flag(o["countryCode"] as? String), at: at, nights: nights,
                 dates: nights == 0 ? Format.shortDay(from) : Format.range(from, day, withYear: false),
-                mode: mode, start: from, serverId: o["id"] as? String
+                mode: mode, start: from, serverId: o["id"] as? String,
+                flightNumber: text(o, "flightNumber"), fromAirport: text(o, "fromAirport"), toAirport: text(o, "toAirport"), via: via,
+                dayTrips: outings
             ))
         }
         return (stops, outbound, back)
