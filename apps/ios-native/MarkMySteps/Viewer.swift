@@ -87,7 +87,8 @@ struct PhotoViewer: View {
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(Format.dayHeading(media.takenAt)).font(.outfit(15, 600)).lineLimit(1)
-                        Text("\(i + 1)/\(item.photos.count)").font(.inter(12, 500)).foregroundStyle(.secondary)
+                        // Clearly readable on the dark glass: a soft white, not the system's grey.
+                        Text("\(i + 1)/\(item.photos.count)").font(.inter(12.5, 600)).foregroundStyle(.white.opacity(0.78))
                             .monospacedDigit()
                             .contentTransition(.numericText())
                     }

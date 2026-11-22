@@ -63,8 +63,9 @@ extension Remote {
 
     @MainActor private static var weatherCache: [String: Weather?] = [:]
 
-    /// A day's weather where you were, as the web reads it: Open-Meteo, the archive for days older than 90. A day
-    /// that is over is kept on the phone, so it is never asked twice.
+    /// A day's weather where you were: Open-Meteo, the archive for every day more than a week ago (the forecast API
+    /// answers null for those, so recent stops had no weather). A day that is over is kept on the phone, so it is
+    /// never asked twice.
     @MainActor static func weather(at: LonLat, day: Date) async -> Weather? {
         let iso = PlannerRemote.isoDay(day)
         let key = String(format: "%.2f,%.2f,", at.lat, at.lon) + iso
@@ -77,7 +78,7 @@ extension Remote {
         let today = Format.calendar.startOfDay(for: Date())
         let ahead = Format.calendar.dateComponents([.day], from: today, to: day).day ?? 0
         guard ahead <= 14 else { return nil }
-        let host = -ahead > 90 ? "archive-api.open-meteo.com/v1/archive" : "api.open-meteo.com/v1/forecast"
+        let host = -ahead > 7 ? "archive-api.open-meteo.com/v1/archive" : "api.open-meteo.com/v1/forecast"
         guard let url = URL(string: "https://\(host)?latitude=\(at.lat)&longitude=\(at.lon)&daily=weather_code,temperature_2m_max,precipitation_sum,precipitation_hours&start_date=\(iso)&end_date=\(iso)&timezone=auto"),
               let (data, _) = try? await URLSession.shared.data(for: URLRequest(url: url, timeoutInterval: 8)),
               let daily = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["daily"] as? [String: Any],

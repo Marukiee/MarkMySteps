@@ -50,6 +50,7 @@ struct TripMenu<Label: View>: View {
     var onLeave: () -> Void = {}
     @ViewBuilder let label: Label
     @Environment(Store.self) private var store
+    @Environment(\.colorScheme) private var scheme
     private let sizes = CardSizes.shared
 
     private var mine: Bool {
@@ -67,9 +68,12 @@ struct TripMenu<Label: View>: View {
                     withAnimation(.smooth(duration: 0.45)) { sizes.set(trip.id, value) }
                 }
             })) {
-                Text("Auto").tag(CardSizes.auto)
-                Text("Groot").tag(CardSizes.large)
-                Text("Klein").tag(CardSizes.compact)
+                // The chosen size carries a checkmark: the system's own pale box behind it was too faint to see.
+                ForEach([(CardSizes.auto, "Auto"), (CardSizes.large, "Groot"), (CardSizes.compact, "Klein")], id: \.0) { tag, title in
+                    // The words stay as the label's title for VoiceOver; the palette shows only the picture.
+                    SwiftUI.Label { Text(title) } icon: { Image(uiImage: SizeChip.image(title, chosen: sizes.choice(trip.id) == tag, dark: scheme == .dark)) }
+                        .tag(tag)
+                }
             } label: {
                 // No title: the three choices speak for themselves, in full contrast.
                 EmptyView()
@@ -92,6 +96,32 @@ struct TripMenu<Label: View>: View {
         // Menu text and icons in the label colour, not the orange accent; Verwijderen stays red by its role.
         .tint(Brand.ink)
         .accessibilityLabel("Meer voor \(trip.title)")
+    }
+}
+
+/// A size choice in the menu drawn as a picture: a menu flattens styled text to plain words and draws its own
+/// faint grey box for the chosen one, so the chosen size is drawn here as a warm accent pill with a checkmark and
+/// the others as plain words, as Android's menu shows it.
+enum SizeChip {
+    @MainActor static func image(_ title: String, chosen: Bool, dark: Bool) -> UIImage {
+        let font = Fonts.ui("Inter", 16, chosen ? 640 : 520)
+        let ink = chosen ? UIColor.white : (dark ? UIColor(hex: 0xEEF1F4) : UIColor(hex: 0x1B2530))
+        let text = NSAttributedString(string: title, attributes: [.font: font, .foregroundColor: ink])
+        let check = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .bold))?
+            .withTintColor(.white, renderingMode: .alwaysOriginal)
+        let textSize = text.size()
+        let checkW: CGFloat = chosen ? (check?.size.width ?? 0) + 5 : 0
+        // As tight as the words: the menu scales a palette picture down to its own height, so any air shrinks the text.
+        let size = CGSize(width: ceil(textSize.width + checkW + 14), height: ceil(textSize.height) + 2)
+        let image = UIGraphicsImageRenderer(size: size).image { _ in
+            if chosen {
+                (dark ? UIColor(hex: 0xF0714D) : UIColor(hex: 0xE8613C)).setFill()
+                UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: size.height / 2).fill()
+                if let check { check.draw(at: CGPoint(x: 7, y: (size.height - check.size.height) / 2)) }
+            }
+            text.draw(at: CGPoint(x: 7 + checkW, y: (size.height - textSize.height) / 2))
+        }
+        return image.withRenderingMode(.alwaysOriginal)
     }
 }
 

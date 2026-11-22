@@ -197,8 +197,9 @@ enum Geo {
         }
     }
 
-    /// legibleColor(): nudged into a readable range on a light or dark background.
-    static func legible(_ color: Color, dark: Bool) -> Color {
+    /// legibleColor(): nudged into a readable range on a light or dark background. `darkFloor` is the least
+    /// lightness in dark: small text needs more than a line on the map does.
+    static func legible(_ color: Color, dark: Bool, darkFloor: CGFloat = 0.50) -> Color {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
         let mx = max(r, g, b), mn = min(r, g, b)
@@ -214,7 +215,7 @@ enum Geo {
             if h < 0 { h += 360 }
         }
         let s2 = min(0.96, max(s, 0.48))
-        let l2 = dark ? min(0.80, max(l, 0.50)) : max(0.26, min(l, 0.54))
+        let l2 = dark ? min(max(0.80, darkFloor), max(l, darkFloor)) : max(0.26, min(l, 0.54))
         return hsl(h, s2, l2)
     }
 

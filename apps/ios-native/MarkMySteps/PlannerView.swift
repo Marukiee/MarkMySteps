@@ -606,6 +606,7 @@ private struct AddLegRow: View {
 }
 
 private struct StopRow<Panel: View>: View {
+    @Environment(\.colorScheme) private var scheme
     @Binding var stop: PlanStop
     let index: Int
     let dates: String
@@ -646,9 +647,10 @@ private struct StopRow<Panel: View>: View {
             }
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 12) {
+                    // In dark the number is a light version of the trip's colour: the plain one was brown on dark.
                     Text("\(index + 1)")
                         .font(.outfit(17, 700))
-                        .foregroundStyle(color)
+                        .foregroundStyle(scheme == .dark ? Geo.legible(color, dark: true, darkFloor: 0.74) : color)
                         .contentTransition(.numericText())
                         .frame(width: 44, height: 44)
                         .background(color.opacity(0.16), in: .circle)
