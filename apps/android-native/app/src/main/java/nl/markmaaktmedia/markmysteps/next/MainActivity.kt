@@ -1,0 +1,49 @@
+package nl.markmaaktmedia.markmysteps.next
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+
+/**
+ * Test app: the MarkMySteps home page in Compose, in today's style and in a
+ * proposal for a new one. A tap on the logo switches between them; the adb
+ * extras "style" (current or new) and "theme" (light or dark) pick them at start,
+ * and "trip" (an id from Demo.kt) opens that trip straight away.
+ */
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val startStyle = intent.getStringExtra("style") ?: "current"
+        val forcedTheme = intent.getStringExtra("theme")
+        val startTrip = intent.getStringExtra("trip")
+        val startPage = intent.getStringExtra("page")
+        setContent {
+            val dark = when (forcedTheme) {
+                "dark" -> true
+                "light" -> false
+                else -> isSystemInDarkTheme()
+            }
+            var style by rememberSaveable { mutableStateOf(startStyle) }
+            enableEdgeToEdge(
+                statusBarStyle = if (dark) SystemBarStyle.dark(0) else SystemBarStyle.light(0, 0),
+                navigationBarStyle = if (dark) SystemBarStyle.dark(0) else SystemBarStyle.light(0, 0),
+            )
+            CompositionLocalProvider(LocalPalette provides if (dark) DarkPalette else LightPalette) {
+                Crossfade(style, animationSpec = tween(300), label = "style") { which ->
+                    val flip = { style = if (style == "current") "new" else "current" }
+                    if (which == "new") HomeNew(dark = dark, onLogoTap = flip, startTrip = startTrip, startPage = startPage) else HomeCurrent(onLogoTap = flip)
+                }
+            }
+        }
+    }
+}

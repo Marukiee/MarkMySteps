@@ -1,0 +1,23 @@
+# The same versions as Marks other Compose apps (Drip, Wijzer).
+[versions]
+agp = "8.13.2"
+kotlin = "2.2.21"
+composeBom = "2025.12.01"
+coreKtx = "1.17.0"
+activityCompose = "1.11.0"
+material3 = "1.5.0-alpha17"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+androidx-animation = { group = "androidx.compose.animation", name = "animation" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
