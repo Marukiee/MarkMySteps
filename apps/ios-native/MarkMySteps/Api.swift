@@ -1,0 +1,475 @@
+import Foundation
+import OSLog
+import Security
+import SwiftUI
+
+/// Tokens live in the Keychain, never in UserDefaults.
+enum Keychain {
+    private static let service = "nl.markmaaktmedia.markmysteps.next"
+
+    static func get(_ account: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var out: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func set(_ account: String, _ value: String?) {
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+        ]
+        SecItemDelete(base as CFDictionary)
+        guard let value, let data = value.data(using: .utf8) else { return }
+        var add = base
+        add[kSecValueData as String] = data
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        SecItemAdd(add as CFDictionary, nil)
+    }
+}
+
+/// The test app's line to a real MarkMySteps server: sign in, then read the
+/// trips, their stops and their photos. It only ever reads.
+final class Api {
+    static let shared = Api()
+    static let log = Logger(subsystem: "nl.markmaaktmedia.markmysteps.next", category: "net")
+
+    /// Debug: `-nettest <host>` asks https://<host>/api/auth/status once at launch and logs
+    /// what came back (status, or the URLError code), to tell a network problem from an app one.
+    static func netTest(_ host: String) async {
+        guard let url = URL(string: "https://\(host)/api/auth/status") else { return }
+        let started = Date()
+        do {
+            let (_, response) = try await URLSession.shared.data(for: URLRequest(url: url, timeoutInterval: 15))
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            log.notice("nettest host=\(host, privacy: .public) status=\(status, privacy: .public) seconds=\(Date().timeIntervalSince(started), privacy: .public)")
+        } catch {
+            let code = (error as? URLError)?.code.rawValue ?? 0
+            log.error("nettest host=\(host, privacy: .public) urlError=\(code, privacy: .public) seconds=\(Date().timeIntervalSince(started), privacy: .public) \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private(set) var base: String
+    private var access: String?
+    private var refresh: String?
+    /// One refresh at a time, however many requests found their token expired.
+    private var renewing: Task<Bool, Never>?
+
+    private init() {
+        base = UserDefaults.standard.string(forKey: "server") ?? ""
+        access = Keychain.get("access")
+        refresh = Keychain.get("refresh")
+    }
+
+    var signedIn: Bool { access != nil && !base.isEmpty }
+
+    /// The server as shown to people: without the scheme.
+    var host: String { base.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "") }
+
+    struct Failure: LocalizedError {
+        let message: String
+        var status = 0
+        var errorDescription: String? { message }
+    }
+
+    enum Login {
+        case done
+        case needsCode(String)
+    }
+
+    func login(server: String, identifier: String, password: String) async throws -> Login {
+        var b = server.trimmingCharacters(in: .whitespacesAndNewlines)
+        while b.hasSuffix("/") { b.removeLast() }
+        if !b.hasPrefix("http") { b = "https://" + b }
+        base = b
+        UserDefaults.standard.set(b, forKey: "server")
+        let answer = try json(await request("POST", "/api/auth/login", body: ["identifier": identifier.trimmingCharacters(in: .whitespaces), "password": password], auth: false))
+        if answer["mfaRequired"] as? Bool == true, let token = answer["mfaToken"] as? String { return .needsCode(token) }
+        try tokens(answer)
+        return .done
+    }
+
+    func loginCode(mfaToken: String, code: String) async throws {
+        let answer = try json(await request("POST", "/api/auth/login/mfa", body: ["mfaToken": mfaToken, "code": code.trimmingCharacters(in: .whitespaces)], auth: false))
+        try tokens(answer)
+    }
+
+    func signOut() {
+        access = nil
+        refresh = nil
+        Keychain.set("access", nil)
+        Keychain.set("refresh", nil)
+        ImageLoader.shared.clear()
+    }
+
+    func get(_ path: String) async throws -> Data { try await request("GET", path) }
+
+    /// An image from the server, with the token; nil when it cannot be had.
+    func bytes(_ path: String) async -> Data? { try? await request("GET", path, accept: "image/*") }
+
+    private func tokens(_ o: [String: Any]) throws {
+        guard let a = o["accessToken"] as? String, let r = o["refreshToken"] as? String else { throw Failure(message: "Onverwacht antwoord van de server") }
+        access = a
+        refresh = r
+        Keychain.set("access", a)
+        Keychain.set("refresh", r)
+    }
+
+    private func renew() async -> Bool {
+        if let renewing { return await renewing.value }
+        let task = Task<Bool, Never> {
+            guard let r = refresh else { return false }
+            do {
+                try tokens(json(await request("POST", "/api/auth/refresh", body: ["refreshToken": r], auth: false)))
+                return true
+            } catch {
+                return false
+            }
+        }
+        renewing = task
+        let ok = await task.value
+        renewing = nil
+        return ok
+    }
+
+    private func json(_ data: Data) throws -> [String: Any] {
+        guard let o = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw Failure(message: "Onverwacht antwoord van de server") }
+        return o
+    }
+
+    private func request(_ method: String, _ path: String, body: [String: Any]? = nil, auth: Bool = true, accept: String = "application/json", retried: Bool = false) async throws -> Data {
+        guard let url = URL(string: base + path) else { throw Failure(message: "Dat serveradres klopt niet") }
+        // Signing in answers quickly or not at all: 15 seconds, then a clear message instead of a spinner.
+        var req = URLRequest(url: url, timeoutInterval: auth ? 30 : 15)
+        req.httpMethod = method
+        req.setValue(accept, forHTTPHeaderField: "Accept")
+        if auth, let access { req.setValue("Bearer \(access)", forHTTPHeaderField: "Authorization") }
+        if let body {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        }
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: req)
+        } catch {
+            // Only the host and the error code are logged: never the path's query, a password or a token.
+            let code = (error as? URLError)?.code.rawValue ?? 0
+            Api.log.error("request failed host=\(url.host() ?? "?", privacy: .public) urlError=\(code, privacy: .public) \(error.localizedDescription, privacy: .public)")
+            throw Failure(message: "Kan de server niet bereiken")
+        }
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if code == 401 && auth && !retried, await renew() {
+            return try await request(method, path, body: body, auth: auth, accept: accept, retried: true)
+        }
+        guard (200..<300).contains(code) else {
+            let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["message"] as? String
+            throw Failure(message: message.flatMap { $0.isEmpty ? nil : $0 } ?? "De server gaf \(code)", status: code)
+        }
+        return data
+    }
+}
+
+/// Reads the signed-in account's trips into the same shapes the demo uses.
+enum Remote {
+    struct Me: Hashable {
+        let id: String
+        let name: String
+        let username: String
+        var hasAvatar = false
+    }
+
+    /// Your travelling in numbers, as the web's Reizigers page shows it.
+    struct Stats: Hashable {
+        let trips: Int
+        let days: Int
+        let countries: [String]
+        let places: Int
+        let flights: Int
+        let km: Int
+        let photos: Int
+    }
+
+    struct Friend: Identifiable, Hashable {
+        let id: String
+        let name: String
+        let username: String
+        let hasAvatar: Bool
+        let sharedTrips: Int
+    }
+
+    static func stats(_ userId: String) async throws -> Stats {
+        let data = try await Api.shared.get("/api/users/\(userId)/stats")
+        Cache.save("stats", data)
+        return parseStats(data)
+    }
+
+    static func parseStats(_ data: Data) -> Stats {
+        let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        func int(_ k: String) -> Int { (o[k] as? NSNumber)?.intValue ?? 0 }
+        return Stats(
+            trips: int("trips"), days: int("days"), countries: o["countries"] as? [String] ?? [], places: int("places"),
+            flights: int("flights"), km: int("distanceKm"), photos: int("photoCount")
+        )
+    }
+
+    static func friends() async throws -> [Friend] {
+        let data = try await Api.shared.get("/api/users/friends")
+        Cache.save("friends", data)
+        return parseFriends(data)
+    }
+
+    static func parseFriends(_ data: Data) -> [Friend] {
+        let list = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] ?? []
+        return list.compactMap { o in
+            guard let id = o["id"] as? String else { return nil }
+            return Friend(
+                id: id, name: o["displayName"] as? String ?? "", username: o["username"] as? String ?? "",
+                hasAvatar: o["hasAvatar"] as? Bool ?? false, sharedTrips: (o["sharedTrips"] as? NSNumber)?.intValue ?? 0
+            )
+        }
+    }
+
+    /// A country code as its Dutch name: "IS" becomes "IJsland".
+    static func countryName(_ code: String) -> String {
+        Format.dutch.localizedString(forRegionCode: code) ?? code
+    }
+
+    private static let palette: [UInt32] = [0xE8613C, 0x2BB6A8, 0xD08A2A, 0x7A5BD6, 0xE34B8A, 0x5B8DEF, 0xC9772E, 0x7DA7D9]
+
+    static func me() async throws -> Me {
+        let data = try await Api.shared.get("/api/users/me")
+        Cache.save("me", data)
+        return parseMe(data)
+    }
+
+    static func parseMe(_ data: Data) -> Me {
+        let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        return Me(id: o["id"] as? String ?? "", name: o["displayName"] as? String ?? "", username: o["username"] as? String ?? "", hasAvatar: o["hasAvatar"] as? Bool ?? false)
+    }
+
+    static func flag(_ code: String?) -> String {
+        guard let code, code.count == 2 else { return "📍" }
+        return code.uppercased().unicodeScalars.compactMap { Unicode.Scalar(0x1F1E6 + $0.value - 65) }.map { String($0) }.joined()
+    }
+
+    private static func points(_ any: Any?) -> [LonLat] {
+        (any as? [[Double]] ?? (any as? [Any])?.compactMap { $0 as? [Double] } ?? []).compactMap { $0.count >= 2 ? LonLat($0[0], $0[1]) : nil }
+    }
+
+    private static func day(_ any: Any?) -> Date? {
+        guard let s = any as? String, s.count >= 10 else { return nil }
+        let parts = s.prefix(10).split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return Format.calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+    }
+
+    private static func color(_ any: Any?) -> Color? {
+        guard let s = any as? String, s.hasPrefix("#"), s.count == 7, let v = UInt32(s.dropFirst(), radix: 16) else { return nil }
+        return Color(hex: v)
+    }
+
+    static func trips(me: String) async throws -> [Trip] {
+        let data = try await Api.shared.get("/api/trips")
+        Cache.save("trips", data)
+        return parseTrips(data, me: me)
+    }
+
+    static func parseTrips(_ data: Data, me: String) -> [Trip] {
+        let list = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] ?? []
+        let cal = Format.calendar
+        let today = cal.startOfDay(for: Date())
+        return list.enumerated().compactMap { i, o -> Trip? in
+            guard let id = o["id"] as? String, let start = day(o["startDate"]), let end = day(o["endDate"]) else { return nil }
+            // Each piece of recorded route stays its own line; joining them draws lines across the gaps.
+            let segments = (o["routePath"] as? [Any] ?? []).map { points($0) }.filter { $0.count >= 2 }
+            let routes = segments.flatMap { $0 }
+            let flights = (o["flightPath"] as? [Any] ?? []).compactMap { line -> Trip.Flight? in
+                let p = points(line)
+                return p.count >= 2 ? Trip.Flight(from: p[0], to: p[p.count - 1]) : nil
+            }
+            let rows = o["members"] as? [[String: Any]] ?? []
+            let members = rows.enumerated().map { k, m in
+                let name = (m["user"] as? [String: Any])?["displayName"] as? String ?? "?"
+                return Person(initial: String(name.prefix(1)).uppercased(), color: Color(hex: palette[(k + 3) % palette.count]))
+            }
+            // Shared with you only when you are a guest on it; as a companion it is your own trip.
+            let mine = rows.first { ($0["userId"] as? String ?? ($0["user"] as? [String: Any])?["id"] as? String) == me }
+            let guest = (mine?["role"] as? String) == "GUEST"
+            let days = (cal.dateComponents([.day], from: start, to: end).day ?? 0) + 1
+            let startsIn = cal.dateComponents([.day], from: today, to: start).day ?? 0
+            let cover = o["resolvedCoverId"] as? String
+            return Trip(
+                id: id,
+                title: o["title"] as? String ?? "Reis",
+                month: Format.monthsLong[cal.component(.month, from: start) - 1],
+                year: String(cal.component(.year, from: start)),
+                dates: Format.range(start, end, withYear: true),
+                days: days,
+                // No measured distance is no distance, never "0 km".
+                km: (o["distanceKm"] as? NSNumber).map { $0.intValue }.flatMap { $0 > 0 ? $0 : nil },
+                color: color(o["color"]) ?? Color(hex: palette[i % palette.count]),
+                route: routes.isEmpty ? points(o["stopPoints"]) : routes,
+                segments: segments,
+                flights: flights,
+                upcoming: end >= today,
+                startsInDays: startsIn > 0 ? startsIn : nil,
+                people: Array(members.prefix(3)),
+                extraPeople: max(0, members.count - 3),
+                shared: guest,
+                remoteId: id,
+                coverId: (cover?.isEmpty ?? true) ? nil : cover,
+                start: start
+            )
+        }
+        .sorted { ($0.start ?? .distantPast) > ($1.start ?? .distantPast) }
+    }
+
+    /// The planned stops, day trips left out, with their dates worked out from the trip's start.
+    static func stops(_ trip: Trip) async throws -> (stops: [Stop], outbound: Leg?, back: Leg?) {
+        guard let rid = trip.remoteId else { return (trip.stops, trip.outbound, trip.back) }
+        let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/stops")) as? [[String: Any]] ?? []
+        let rows = list.filter { $0["parentStopId"] == nil || $0["parentStopId"] is NSNull }
+            .sorted { ($0["orderIndex"] as? Int ?? 0) < ($1["orderIndex"] as? Int ?? 0) }
+        let cal = Format.calendar
+        var day = trip.start ?? cal.startOfDay(for: Date())
+        var stops: [Stop] = []
+        var outbound: Leg?
+        var back: Leg?
+        for (index, o) in rows.enumerated() {
+            let mode: Mode = switch o["travelMode"] as? String {
+            case "FLIGHT": .flight
+            case "TRAIN": .train
+            case "BUS": .bus
+            case "BOAT": .boat
+            default: .car
+            }
+            let nights = o["nights"] as? Int ?? 0
+            let name = o["name"] as? String ?? ""
+            // The way there and back are stops of their own with no nights, at the ends.
+            if nights == 0 && (index == 0 || index == rows.count - 1) && (name.hasPrefix("Heen") || name.hasPrefix("Terug")) {
+                let from = (o["fromAirport"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Thuis"
+                let leg = Leg(mode: mode, from: from, to: o["toAirport"] as? String ?? "", km: 0)
+                if index == 0 { outbound = leg } else { back = leg }
+                continue
+            }
+            let from = day
+            day = cal.date(byAdding: .day, value: nights, to: day) ?? day
+            let at: LonLat = if let lat = o["latitude"] as? Double, let lon = o["longitude"] as? Double { LonLat(lon, lat) } else { trip.route.first ?? LonLat(0, 0) }
+            stops.append(Stop(
+                name: name, flag: flag(o["countryCode"] as? String), at: at, nights: nights,
+                dates: nights == 0 ? Format.shortDay(from) : Format.range(from, day, withYear: false),
+                mode: mode, start: from
+            ))
+        }
+        return (stops, outbound, back)
+    }
+
+    static func media(_ trip: Trip) async throws -> [Media] {
+        guard let rid = trip.remoteId else { return [] }
+        let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/media")) as? [[String: Any]] ?? []
+        return list.compactMap { o -> Media? in
+            guard let id = o["id"] as? String, let taken = day(o["takenAt"]) else { return nil }
+            let w = o["width"] as? Double ?? 0, h = o["height"] as? Double ?? 0
+            return Media(id: id, takenAt: taken, video: (o["assetType"] as? String) == "VIDEO", ratio: w > 0 && h > 0 ? w / h : 1)
+        }
+        .sorted { $0.takenAt < $1.takenAt }
+    }
+}
+
+/// The last answers of the server, so a signed-in launch starts on your own trips
+/// instead of flashing the demo first. Trip data only; tokens stay in the Keychain.
+enum Cache {
+    private static var dir: URL { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0] }
+    static func save(_ name: String, _ data: Data) { try? data.write(to: dir.appendingPathComponent("mms-\(name).json")) }
+    static func load(_ name: String) -> Data? { try? Data(contentsOf: dir.appendingPathComponent("mms-\(name).json")) }
+    static func clear() { for n in ["me", "trips", "stats", "friends"] { try? FileManager.default.removeItem(at: dir.appendingPathComponent("mms-\(n).json")) } }
+}
+
+/// Where the pages get their trips: the invented ones, or after signing in the account's own.
+@Observable
+final class Store {
+    static let shared = Store()
+
+    var trips: [Trip]
+    var me: Remote.Me?
+    var stats: Remote.Stats?
+    var friends: [Remote.Friend] = []
+    /// Whether the people have been read once, so the page can hold their place until then.
+    var friendsLoaded = false
+    var live: Bool
+    var error: String?
+    /// Bumped on every reload, so pages that read more per trip read it again.
+    var version = 0
+
+    private init() {
+        if Api.shared.signedIn {
+            let me = Cache.load("me").map(Remote.parseMe)
+            self.me = me
+            trips = Cache.load("trips").map { Remote.parseTrips($0, me: me?.id ?? "") } ?? []
+            stats = Cache.load("stats").map(Remote.parseStats)
+            let cachedFriends = Cache.load("friends").map(Remote.parseFriends)
+            friends = cachedFriends ?? []
+            friendsLoaded = cachedFriends != nil
+            live = true
+        } else {
+            trips = Demo.past + [Demo.upcoming]
+            live = false
+        }
+    }
+
+    /// Your own trips; one you are a guest on counts as shared.
+    var own: [Trip] { trips.filter { !$0.shared } }
+    var past: [Trip] { own.filter { !$0.upcoming } }
+    /// Under way first, then the coming ones by how soon they start.
+    var coming: [Trip] { own.filter(\.upcoming).sorted { ($0.startsInDays ?? 0) < ($1.startsInDays ?? 0) } }
+    var next: Trip? { coming.first }
+    /// Shared with you: on a real account the guest trips, in the demo two with company.
+    var sharedTrips: [Trip] { live ? trips.filter(\.shared) : Array(past.filter { !$0.people.isEmpty }.prefix(Demo.sharedCount)) }
+    var shared: Int { sharedTrips.count }
+
+    /// A trip to open from a test argument: that id, or on a real account a sensible one.
+    func trip(for id: String?, upcoming: Bool) -> Trip? {
+        if let id, let t = trips.first(where: { $0.id == id }) { return t }
+        return upcoming ? (next ?? past.first) : (past.first ?? next)
+    }
+
+    func load() async {
+        guard Api.shared.signedIn else { return }
+        do {
+            let me = try await Remote.me()
+            self.me = me
+            trips = try await Remote.trips(me: me.id)
+            live = true
+            error = nil
+            version += 1
+            // The figures and the people come after the trips; the page keeps their place meanwhile.
+            if let s = try? await Remote.stats(me.id) { stats = s }
+            if let f = try? await Remote.friends() { friends = f }
+            friendsLoaded = true
+        } catch let failure as Api.Failure {
+            if failure.status == 401 { signOut() } else { error = failure.message }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func signOut() {
+        Api.shared.signOut()
+        Cache.clear()
+        trips = Demo.past + [Demo.upcoming]
+        me = nil
+        stats = nil
+        friends = []
+        friendsLoaded = false
+        live = false
+        version += 1
+    }
+}
