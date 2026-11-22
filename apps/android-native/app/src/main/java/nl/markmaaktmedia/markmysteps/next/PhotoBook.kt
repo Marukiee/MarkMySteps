@@ -177,30 +177,36 @@ fun Modifier.sharedPhoto(id: String): Modifier = composed {
     }
 }
 
-/** The state a book or summary screen loads: the photos read and picked. */
+/**
+ * The state a book or summary screen loads: the trip's photos read and
+ * picked. Picked again once the stops have come in, since they name the days.
+ */
 @Composable
 fun rememberPicked(trip: Trip): Pair<Picked?, Reading> {
     val loader = LocalPhotoLoader.current
-    var picked by remember(trip.id) { mutableStateOf<Picked?>(cachedPicks[trip.id]) }
-    var reading by remember(trip.id) { mutableStateOf(Reading(0, 0)) }
-    if (picked == null) LaunchedEffect(trip.id) {
-        val (media, start) = tripMedia(trip)
-        reading = Reading(0, media.size)
-        val (looks, aspects) = readLooks(media, if (media.any { it.scene != null }) null else loader) { reading = it }
+    val context = LocalContext.current.applicationContext
+    val key = "${trip.id}/${trip.stops.size}"
+    var picked by remember(key) { mutableStateOf<Picked?>(cachedPicks[key]) }
+    var reading by remember(key) { mutableStateOf(Reading(0, 0)) }
+    if (picked == null) LaunchedEffect(key) {
+        val remote = trip.remoteId
+        val media = if (remote != null) runCatching { serverMedia(trip) }.getOrDefault(emptyList()) else demoMedia(trip).first
+        val start = if (remote != null) trip.start else demoStart(trip)
+        val known = if (remote != null) LookStore.load(context, remote) else emptyMap()
+        val todo = media.filter { it.id !in known }
+        reading = Reading(0, todo.size)
+        val (fresh, freshAspects) = readLooks(todo, if (remote != null) loader else null) { reading = it }
+        val looks = known.mapValues { it.value.first } + fresh
+        val aspects = known.mapValues { it.value.second } + freshAspects
+        if (remote != null && fresh.isNotEmpty()) LookStore.save(context, remote, looks, aspects)
         val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { pickPhotos(media, looks, aspects, trip.stops, start) }
-        cachedPicks[trip.id] = result
+        cachedPicks[key] = result
         picked = result
     }
     return picked to reading
 }
 
 private val cachedPicks = HashMap<String, Picked>()
-
-/** Media of a trip: from the server once there is one, else the demo roll. Replaced after the login merge. */
-var tripMediaSource: (suspend (Trip) -> Pair<List<TripPhoto>, java.time.LocalDate>?)? = null
-
-private suspend fun tripMedia(trip: Trip): Pair<List<TripPhoto>, java.time.LocalDate> =
-    tripMediaSource?.invoke(trip) ?: demoMedia(trip)
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable

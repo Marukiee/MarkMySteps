@@ -1,7 +1,6 @@
 package nl.markmaaktmedia.markmysteps.next
 
 import android.graphics.Bitmap
-import android.util.LruCache
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -37,6 +36,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.time.Duration
@@ -61,11 +61,12 @@ fun interface PhotoLoader {
     suspend fun load(id: String, size: PhotoSize): Bitmap?
 }
 
-val LocalPhotoLoader = staticCompositionLocalOf<PhotoLoader?> { null }
+/** The signed-in server, through Api.kt's Photos (its cache, its six lanes, its token). */
+val ServerPhotos = PhotoLoader { id, size -> Photos.load(id, size.query ?: "preview") }
 
-private val memory = object : LruCache<String, Bitmap>(64 * 1024 * 1024) {
-    override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
-}
+val LocalPhotoLoader = staticCompositionLocalOf<PhotoLoader?> { ServerPhotos }
+
+private fun cachedBitmap(id: String, size: PhotoSize): Bitmap? = Photos.cached("$id/${size.query ?: "preview"}")
 
 /**
  * A photo, filling its box (cropped to it; the layouts keep that crop small).
@@ -75,16 +76,13 @@ private val memory = object : LruCache<String, Bitmap>(64 * 1024 * 1024) {
 fun PhotoView(photo: TripPhoto, modifier: Modifier = Modifier, size: PhotoSize = PhotoSize.Preview, placeholder: Color? = null) {
     val loader = LocalPhotoLoader.current
     val key = "${photo.id}/${size.name}"
-    var bitmap by remember(key) { mutableStateOf<ImageBitmap?>(memory.get(key)?.asImageBitmap()) }
+    var bitmap by remember(key) { mutableStateOf<ImageBitmap?>(cachedBitmap(photo.id, size)?.asImageBitmap()) }
     if (photo.scene == null && bitmap == null && loader != null) {
         LaunchedEffect(key) {
-            // Fall back to the smaller rendition first so something shows quickly.
-            if (size != PhotoSize.Thumbnail) memory.get("${photo.id}/${PhotoSize.Thumbnail.name}")?.let { bitmap = it.asImageBitmap() }
-            val b = loader.load(photo.id, size)
-            if (b != null) {
-                memory.put(key, b)
-                bitmap = b.asImageBitmap()
-            }
+            // Show a smaller rendition first, when there is one, so something is there at once.
+            if (size == PhotoSize.Original) cachedBitmap(photo.id, PhotoSize.Preview)?.let { bitmap = it.asImageBitmap() }
+            if (bitmap == null && size != PhotoSize.Thumbnail) cachedBitmap(photo.id, PhotoSize.Thumbnail)?.let { bitmap = it.asImageBitmap() }
+            loader.load(photo.id, size)?.let { bitmap = it.asImageBitmap() }
         }
     }
     val shown by animateFloatAsState(if (photo.scene != null || bitmap != null) 1f else 0f, MaterialTheme.motionScheme.slowEffectsSpec(), label = "photo")
@@ -122,6 +120,15 @@ private fun renderDemo(photo: TripPhoto, w: Int, h: Int): Bitmap {
     return image.asAndroidBitmap()
 }
 
+private val paceLock = kotlinx.coroutines.sync.Mutex()
+private var lastRequest = 0L
+
+private suspend fun pace() = paceLock.withLock {
+    val wait = lastRequest + 135 - System.currentTimeMillis()
+    if (wait > 0) kotlinx.coroutines.delay(wait)
+    lastRequest = System.currentTimeMillis()
+}
+
 /** Progress while the thumbnails are being read. */
 data class Reading(val done: Int, val total: Int)
 
@@ -148,11 +155,14 @@ suspend fun readLooks(
                         val a = p.aspect ?: 1f
                         renderDemo(p, if (a >= 1f) 96 else (96 * a).toInt(), if (a >= 1f) (96 / a).toInt() else 96)
                     }
-                    loader != null -> loader.load(p.id, PhotoSize.Thumbnail) ?: loader.load(p.id, PhotoSize.Thumbnail)
+                    loader != null -> {
+                        // At most about 450 a minute, well under the server's 600; one retry after a pause.
+                        pace()
+                        loader.load(p.id, PhotoSize.Thumbnail) ?: run { kotlinx.coroutines.delay(2500); pace(); loader.load(p.id, PhotoSize.Thumbnail) }
+                    }
                     else -> null
                 }
                 if (bitmap != null) {
-                    if (p.scene == null) memory.put("${p.id}/${PhotoSize.Thumbnail.name}", bitmap)
                     val soft = if (bitmap.config == Bitmap.Config.HARDWARE) bitmap.copy(Bitmap.Config.ARGB_8888, false) else bitmap
                     var look = Look.of(soft)
                     // Demo: some frames are shaken or too dark, as real ones are.

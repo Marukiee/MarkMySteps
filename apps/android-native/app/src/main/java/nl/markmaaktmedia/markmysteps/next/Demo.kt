@@ -1,6 +1,7 @@
 package nl.markmaaktmedia.markmysteps.next
 
 import androidx.compose.ui.graphics.Color
+import java.time.LocalDate
 
 /** A stop or route point: longitude, latitude. */
 typealias LonLat = Pair<Double, Double>
@@ -16,6 +17,8 @@ data class Stop(
     val dates: String,
     /** How the trip got here from the stop before. */
     val mode: Mode = Mode.Car,
+    /** The first day there, for a stop read from a server. */
+    val start: LocalDate? = null,
 )
 
 /** How a leg is travelled, in the order a tap on the pill walks through them. */
@@ -52,6 +55,10 @@ data class Trip(
     val photos: Int = 0,
     val outbound: Leg? = null,
     val back: Leg? = null,
+    /** Set for a trip read from a server: its id there, its cover photo and its first day. */
+    val remoteId: String? = null,
+    val coverId: String? = null,
+    val start: LocalDate? = null,
 )
 
 /** The home airport: a flight from here gets no dot of its own on the globe. */

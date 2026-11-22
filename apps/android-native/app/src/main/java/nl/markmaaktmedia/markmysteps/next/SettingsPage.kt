@@ -86,6 +86,7 @@ private class Item(
     val title: String,
     val value: String? = null,
     val toggle: Boolean? = null,
+    val action: (() -> Unit)? = null,
 )
 
 /** A page of settings under the main list: its icon, name, the line that says how it stands, and its rows. */
@@ -103,7 +104,7 @@ private val Sections = listOf(
 )
 
 @Composable
-fun SettingsPage() {
+fun SettingsPage(onSignIn: () -> Unit = {}) {
     var open by remember { mutableStateOf<Int?>(null) }
     androidx.activity.compose.BackHandler(enabled = open != null) { open = null }
     val motion = MaterialTheme.motionScheme
@@ -119,7 +120,7 @@ fun SettingsPage() {
         },
         label = "settings",
     ) { which ->
-        if (which == null) SettingsMain(onOpen = { open = it }) else SectionPage(which, onBack = { open = null })
+        if (which == null) SettingsMain(onOpen = { open = it }) else SectionPage(which, onBack = { open = null }, onSignIn = onSignIn)
     }
 }
 
@@ -139,11 +140,11 @@ private fun SettingsMain(onOpen: (Int) -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(64.dp).clip(MaterialShapes.Cookie12Sided.toShape()).background(cs.primaryContainer), contentAlignment = Alignment.Center) {
-                Text("M", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 26.sp, color = cs.onPrimaryContainer))
+                Text((Data.me?.name ?: "Mark").take(1), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 26.sp, color = cs.onPrimaryContainer))
             }
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                Text("Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
-                Text("@mark · eigen server", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
+                Text(Data.me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
+                Text(if (Data.live) "@${Data.me?.username} · ${Api.base.removePrefix("https://")}" else "voorbeelden, niet ingelogd", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
             }
             LineIcon(Glyphs.pencil, cs.onSurfaceVariant, size = 20.dp, stroke = 2f)
         }
@@ -171,7 +172,7 @@ private fun SettingsMain(onOpen: (Int) -> Unit) {
 }
 
 @Composable
-private fun SectionPage(index: Int, onBack: () -> Unit) {
+private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val sec = Sections[index]
     var theme by remember { mutableIntStateOf(2) }
@@ -199,7 +200,7 @@ private fun SectionPage(index: Int, onBack: () -> Unit) {
                 Item(Glyphs.lock, "Wachtwoord"),
                 Item(Glyphs.shield, "Tweestapsverificatie", toggle = twoFactor),
             ), onToggle = { twoFactor = !twoFactor }).also {
-                Group("Server", listOf(Item(Glyphs.globe, "Server", "eigen server"), Item(Glyphs.arrowRight, "Uitloggen")))
+                Group("Server", listOf(Item(Glyphs.globe, "Server", Api.base.removePrefix("https://").ifBlank { "voorbeelden" }), Item(Glyphs.arrowRight, if (Data.live) "Uitloggen" else "Inloggen", action = onSignIn)))
             }
             1 -> {
                 Header("Thema")
@@ -287,7 +288,7 @@ private fun Row0(item: Item, i: Int, n: Int, seed: Int, onToggle: () -> Unit = {
     val cs = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth().clip(slabShape(i, n)).background(cs.surfaceContainerLow)
-            .dip { if (item.toggle != null) onToggle() }.padding(horizontal = 14.dp, vertical = 12.dp),
+            .dip { item.action?.invoke() ?: run { if (item.toggle != null) onToggle() } }.padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconTile(item.icon, seed)
