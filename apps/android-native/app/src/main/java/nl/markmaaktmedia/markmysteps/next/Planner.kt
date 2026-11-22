@@ -30,6 +30,8 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -814,13 +816,19 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
     val open = remember { Animatable(0f) }
     var closing by remember { mutableStateOf(false) }
     var up by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { haptics(Haptic.Tap); open.animateTo(1f, motion.fastSpatialSpec()) }
+    // Whether its place is known: until then it is not drawn, so it never shows a frame on the wrong side.
+    var placed by remember { mutableStateOf(false) }
+    // Folds out calmly, no overshoot (the expressive spring bounced it), once it knows where it is.
+    LaunchedEffect(placed) { if (placed) { haptics(Haptic.Tap); open.animateTo(1f, tween(260, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f))) } }
     fun close(then: () -> Unit = {}) {
         if (closing) return
         closing = true
         then()
         scope.launch { open.animateTo(0f, tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing)); onClosed() }
     }
+    // A touch beside it (a scroll starting) closes it at once: the page moves on, and a pill folding shut while
+    // trailing a frame behind its own pill looked empty.
+    fun closeNow() { if (closing) return; closing = true; onClosed() }
     val margin = with(density) { 12.dp.roundToPx() }
     val fullPx = with(density) { fullH.roundToPx() }
     val position = remember(fullPx) {
@@ -831,25 +839,32 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
                 // Downwards whenever it fits; upwards only near the bottom of the screen.
                 val below = anchorBounds.top + fullPx <= windowSize.height - margin
                 if (up == below) up = !below
+                if (!placed) placed = true
                 val y = if (below) anchorBounds.top else anchorBounds.bottom - popupContentSize.height
                 return IntOffset(x, y)
             }
         }
     }
-    androidx.compose.ui.window.Popup(popupPositionProvider = position, onDismissRequest = { close() }, properties = androidx.compose.ui.window.PopupProperties(focusable = true)) {
+    // Not focusable: a touch beside it still reaches the page, so a scroll scrolls (the opened pill rides along
+    // with its pill) while it folds shut.
+    androidx.compose.ui.window.Popup(popupPositionProvider = position, onDismissRequest = { closeNow() }, properties = androidx.compose.ui.window.PopupProperties(focusable = false, dismissOnClickOutside = true)) {
         val k = open.value
         val w = pillW + (fullW - pillW) * k
         val h = pillH + (fullH - pillH) * k
         val shape = RoundedCornerShape(18.dp)
-        Column(
-            Modifier.size(w, h).clip(shape).background(cs.secondaryContainer)
+        Box(
+            Modifier.size(w, h).graphicsLayer { alpha = if (placed) 1f else 0f }.clip(shape).background(cs.secondaryContainer)
                 // A fine edge in the pill's own colour, so the opened pill stands off the card under it.
                 .border(1.dp, cs.secondary.copy(alpha = 0.4f * k), shape),
-            verticalArrangement = if (up) Arrangement.Bottom else Arrangement.Top,
         ) {
+        // The list keeps its full height and stays fixed to the pill's end (top, or bottom when it opens
+        // upwards); the shape around it only uncovers or covers it.
+        Column(Modifier.fillMaxWidth().wrapContentHeight(if (up) Alignment.Bottom else Alignment.Top, unbounded = true).align(if (up) Alignment.BottomStart else Alignment.TopStart)) {
             @Composable fun Choice(m: Mode) {
                 Row(
-                    Modifier.fillMaxWidth().height(rowH).graphicsLayer { alpha = ((k - 0.25f) / 0.75f).coerceIn(0f, 1f) }
+                    // Visible as soon as there is room for them and until the edge folds over them, so the opened
+                    // pill is never an empty box on the way in or out.
+                    Modifier.fillMaxWidth().height(rowH).graphicsLayer { alpha = (k / 0.35f).coerceIn(0f, 1f) }
                         .clickable { haptics(Haptic.Tick); close { onPick(m) } }.padding(start = 11.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -859,7 +874,8 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
             }
             val header = @Composable {
                 // The chosen mode stays exactly where the pill was, its chevron turning to say it folds back.
-                Box(Modifier.fillMaxWidth().height(pillH).clickable { close() }, contentAlignment = Alignment.CenterStart) {
+                // No grey press tone on it: it simply folds the pill back.
+                Box(Modifier.fillMaxWidth().height(pillH).clickable(remember { MutableInteractionSource() }, indication = null) { close() }, contentAlignment = Alignment.CenterStart) {
                     Row(Modifier.padding(start = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                         LineIcon(mode.icon(), cs.onSecondaryContainer, size = 18.dp, stroke = 1.9f)
                         Text(mode.label, maxLines = 1, softWrap = false, style = style, modifier = Modifier.padding(start = 6.dp))
@@ -872,6 +888,7 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
             val line = @Composable { Box(Modifier.padding(horizontal = 11.dp).fillMaxWidth().height(1.dp).background(cs.onSecondaryContainer.copy(alpha = 0.12f * k))) }
             if (up) { others.reversed().forEach { Choice(it) }; line(); header() }
             else { header(); line(); others.forEach { Choice(it) } }
+        }
         }
     }
 }

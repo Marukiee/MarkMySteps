@@ -606,8 +606,10 @@ private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<St
     val facts = linkedMapOf<String, Pair<String?, String>>()
     trip.km?.takeIf { it > 0 }?.let { facts["km"] = "%,d".format(Lang.locale, it) to Lang.text(R.string.summary_fact_km) }
     trip.days.takeIf { it > 0 }?.let { facts["days"] = "$it" to (if (it == 1) Lang.text(R.string.home_day) else Lang.text(R.string.home_days)) }
-    if (!stopsKnown) facts["stops"] = null to "stops" else trip.stops.size.takeIf { it > 1 }?.let { facts["stops"] = "$it" to "stops" }
-    if (photosWaiting) facts["photos"] = null to (if (trip.photos == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos))
+    // While the page's own stops and photos are on their way, the numbers the trip list already has stand in, so
+    // the tiles are filled from the first frame (only a number the list does not know waits).
+    if (!stopsKnown) facts["stops"] = trip.stopPoints.size.takeIf { it > 1 }?.let { "$it" } to "stops" else trip.stops.size.takeIf { it > 1 }?.let { facts["stops"] = "$it" to "stops" }
+    if (photosWaiting) facts["photos"] = trip.photos.takeIf { it > 0 }?.let { "$it" } to (if (trip.photos == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos))
     else (photos ?: trip.photos).takeIf { it > 0 }?.let { facts["photos"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos)) }
     travellers.takeIf { it > 1 }?.let { facts["travellers"] = "$it" to Lang.text(R.string.trip_fact_travellers) }
     countries.takeIf { it > 0 }?.let { facts["countries"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_country) else Lang.text(R.string.summary_fact_countries)) }
