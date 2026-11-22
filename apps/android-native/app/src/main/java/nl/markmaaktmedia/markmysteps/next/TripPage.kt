@@ -142,7 +142,7 @@ fun TripPage(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                 Facts(trip, Modifier.padding(top = 18.dp))
 
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
-                    listOf("Tijdlijn", "Foto's").forEachIndexed { i, label ->
+                    listOf("Tijdlijn", "Routeplanner").forEachIndexed { i, label ->
                         ToggleButton(
                             checked = tab == i,
                             onCheckedChange = { tab = i },
@@ -159,7 +159,7 @@ fun TripPage(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                 }
 
                 Column(Modifier.padding(top = 16.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
-                    if (tab == 0) Timeline(trip, dark) else PhotoGrid(trip)
+                    if (tab == 0) Timeline(trip, dark) else Planner(trip, dark)
                 }
                 Spacer(Modifier.height(24.dp))
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -211,7 +211,13 @@ private fun People(people: List<Person>, extra: Int) {
 /** Days, distance, stops and photos as one connected slab. */
 @Composable
 private fun Facts(trip: Trip, modifier: Modifier = Modifier) {
-    val items = listOf(
+    // Before a trip there is nothing driven or photographed yet: then how long until it starts and who comes.
+    val items = if (trip.upcoming) listOf(
+        "${trip.startsInDays ?: 0}" to "dagen tot vertrek",
+        "${trip.days}" to "dagen",
+        "${trip.stops.size}" to "stops",
+        "${trip.people.size + trip.extraPeople}" to "reizigers",
+    ) else listOf(
         "${trip.days}" to "dagen",
         (trip.km?.let { "%,d".format(it).replace(',', '.') } ?: "0") to "km",
         "${trip.stops.size}" to "stops",
@@ -224,7 +230,7 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier) {
                 topEnd = if (i == items.lastIndex) 24.dp else 6.dp, bottomEnd = if (i == items.lastIndex) 24.dp else 6.dp,
             )
             Column(
-                Modifier.weight(if (i == 1) 1.3f else 1f).clip(shape).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(horizontal = 12.dp, vertical = 12.dp),
+                Modifier.weight(if (i == 1 && !trip.upcoming) 1.3f else if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(horizontal = 12.dp, vertical = 12.dp),
             ) {
                 Text(value, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 21.sp, letterSpacing = (-0.02).em, color = MaterialTheme.colorScheme.onSurface))
                 Text(label, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant))

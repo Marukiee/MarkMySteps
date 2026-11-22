@@ -14,7 +14,15 @@ data class Stop(
     val at: LonLat,
     val nights: Int,
     val dates: String,
+    /** How the trip got here from the stop before. */
+    val mode: Mode = Mode.Car,
 )
+
+/** How a leg is travelled, in the order a tap on the pill walks through them. */
+enum class Mode(val label: String) { Car("Auto"), Train("Trein"), Bus("Bus"), Boat("Boot"), Flight("Vlucht") }
+
+/** The way there or back: by air between two airports, or over land. */
+data class Leg(val mode: Mode, val from: String, val to: String, val km: Int)
 
 /** Stand-in for a cover photo in this test: a drawn landscape, see Scenery.kt. */
 enum class Scene { Desert, SunsetSea, Snow, Coast, Highlands, Fjord, Mountains }
@@ -42,6 +50,8 @@ data class Trip(
     val extraPeople: Int = 0,
     val cover: Scene? = null,
     val photos: Int = 0,
+    val outbound: Leg? = null,
+    val back: Leg? = null,
 )
 
 /** The home airport: a flight from here gets no dot of its own on the globe. */
@@ -62,9 +72,11 @@ val DemoUpcoming = Trip(
     stops = listOf(
         Stop("Tbilisi", "🇬🇪", 44.79 to 41.72, 3, "4 t/m 7 dec"),
         Stop("Kazbegi", "🇬🇪", 44.64 to 42.66, 2, "7 t/m 9 dec"),
-        Stop("Koetaisi", "🇬🇪", 42.7 to 42.25, 1, "9 t/m 10 dec"),
-        Stop("Batoemi", "🇬🇪", 41.64 to 41.65, 2, "10 t/m 12 dec"),
+        Stop("Koetaisi", "🇬🇪", 42.7 to 42.25, 1, "9 t/m 10 dec", Mode.Bus),
+        Stop("Batoemi", "🇬🇪", 41.64 to 41.65, 2, "10 t/m 12 dec", Mode.Train),
     ),
+    outbound = Leg(Mode.Flight, "AMS", "TBS", 3020),
+    back = Leg(Mode.Flight, "BUS", "AMS", 2890),
     upcoming = true,
     startsInDays = 34,
     people = listOf(mark, sanne),
@@ -87,6 +99,7 @@ val DemoPast = listOf(
         ),
         people = listOf(mark, sanne, joris), extraPeople = 5,
         cover = Scene.Highlands, photos = 412,
+        outbound = Leg(Mode.Flight, "AMS", "KEF", 2010), back = Leg(Mode.Flight, "KEF", "AMS", 2010),
     ),
     Trip(
         "sweden", "Zomer in Zweden", "juli", "2026", "4 t/m 22 jul 2026", 18, 2347, Color(0xFFD08A2A),
@@ -94,11 +107,12 @@ val DemoPast = listOf(
         stops = listOf(
             Stop("Kopenhagen", "🇩🇰", 12.57 to 55.68, 2, "5 t/m 7 jul"),
             Stop("Kalmar", "🇸🇪", 16.36 to 56.66, 3, "7 t/m 10 jul"),
-            Stop("Stockholm", "🇸🇪", 18.07 to 59.33, 4, "10 t/m 14 jul"),
+            Stop("Stockholm", "🇸🇪", 18.07 to 59.33, 4, "10 t/m 14 jul", Mode.Train),
             Stop("Östersund", "🇸🇪", 14.64 to 63.18, 7, "14 t/m 21 jul"),
         ),
         people = listOf(mark, joris), extraPeople = 2,
         cover = Scene.SunsetSea, photos = 288,
+        outbound = Leg(Mode.Car, "Thuis", "Kopenhagen", 780), back = Leg(Mode.Car, "Östersund", "Thuis", 1650),
     ),
     Trip(
         "sicily", "Sicilië rond", "mei", "2026", "2 t/m 11 mei 2026", 9, 1243, Color(0xFFE8613C),
@@ -111,6 +125,7 @@ val DemoPast = listOf(
             Stop("Taormina", "🇮🇹", 15.29 to 37.85, 2, "9 t/m 11 mei"),
         ),
         cover = Scene.Coast, photos = 196,
+        outbound = Leg(Mode.Flight, "AMS", "PMO", 1930), back = Leg(Mode.Flight, "CTA", "AMS", 2040),
     ),
     Trip(
         "lisbon", "Lissabon, lang weekend", "maart", "2026", "13 t/m 16 mrt 2026", 4, 312, Color(0xFFE34B8A),
@@ -136,11 +151,12 @@ val DemoPast = listOf(
         flights = listOf(HomeAirport to (5.22 to 60.29), (14.37 to 67.27) to HomeAirport),
         stops = listOf(
             Stop("Bergen", "🇳🇴", 5.32 to 60.39, 2, "5 t/m 7 jul"),
-            Stop("Geiranger", "🇳🇴", 7.2 to 62.1, 2, "7 t/m 9 jul"),
+            Stop("Geiranger", "🇳🇴", 7.2 to 62.1, 2, "7 t/m 9 jul", Mode.Boat),
             Stop("Trondheim", "🇳🇴", 10.4 to 63.43, 2, "9 t/m 11 jul"),
-            Stop("Lofoten", "🇳🇴", 13.9 to 68.2, 6, "11 t/m 17 jul"),
+            Stop("Lofoten", "🇳🇴", 13.9 to 68.2, 6, "11 t/m 17 jul", Mode.Train),
         ),
         cover = Scene.Fjord, photos = 341,
+        outbound = Leg(Mode.Flight, "AMS", "BGO", 960), back = Leg(Mode.Flight, "BOO", "AMS", 1690),
     ),
 )
 

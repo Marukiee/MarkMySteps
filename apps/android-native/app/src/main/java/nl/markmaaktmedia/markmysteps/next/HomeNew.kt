@@ -154,7 +154,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         motionScheme = MotionScheme.expressive(),
     ) {
         var open by remember { mutableStateOf((DemoPast + DemoUpcoming).firstOrNull { it.id == startTrip }) }
-        var page by remember { mutableIntStateOf(if (startPage == "settings") 2 else 0) }
+        var page by remember { mutableIntStateOf(when (startPage) { "settings" -> 2; "travellers" -> 1; else -> 0 }) }
         BackHandler(enabled = open != null || page != 0) { if (open != null) open = null else page = 0 }
         val motion = MaterialTheme.motionScheme
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -172,6 +172,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                 when {
                     trip != null -> TripPage(trip, dark, onBack = { open = null })
                     key == "page2" -> SettingsPage()
+                    key == "page1" -> TravellersPage()
                     else -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it })
                 }
             }
@@ -181,7 +182,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                 enter = slideInVertically(motion.defaultSpatialSpec()) { it } + fadeIn(motion.defaultEffectsSpec()),
                 exit = slideOutVertically(motion.fastSpatialSpec()) { it } + fadeOut(motion.fastEffectsSpec()),
             ) {
-                Toolbar(page, onNav = { page = if (it == 1) page else it })
+                Toolbar(page, onNav = { page = it })
             }
         }
     }

@@ -59,6 +59,12 @@ object Glyphs {
     val help = listOf(C(12f, 12f, 9f), P("M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"), P("M12 17h.01"))
     val pencil = listOf(P("M12 20h9"), P("M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"))
     val photo = listOf(P("M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"), C(9f, 9.5f, 1.8f), P("m21 15-5-5L5 20"))
+    val bus = listOf(P("M7 4h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"), P("M5 11h14"), P("M8 16v2M16 16v2"), P("M7.5 13.5h.01M16.5 13.5h.01"))
+    val boat = listOf(P("M3 15h18l-2 4a2 2 0 0 1-1.8 1H6.8A2 2 0 0 1 5 19l-2-4Z"), P("M5 15V9a2 2 0 0 1 2-2h6l4 4v4"), P("M10 7V4"))
+    val minus = listOf(P("M5 12h14"))
+    val trash = listOf(P("M4 7h16"), P("M10 11v6M14 11v6"), P("M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"), P("M9 7V4h6v3"))
+    val search = listOf(C(11f, 11f, 7f), P("m20 20-3.5-3.5"))
+    val grip = listOf(C(9f, 6f, 1.3f), C(15f, 6f, 1.3f), C(9f, 12f, 1.3f), C(15f, 12f, 1.3f), C(9f, 18f, 1.3f), C(15f, 18f, 1.3f))
 }
 
 private val parsed = HashMap<String, Path>()
