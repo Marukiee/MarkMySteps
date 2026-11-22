@@ -274,8 +274,16 @@ fun Planner(trip: Trip, dark: Boolean) {
         LegCard("Terug", leg, onMode = { back = leg.copy(mode = leg.mode.next()) })
     }
 
-    // The undo pill, in the page's own colours, rising in and folding away.
-    androidx.compose.animation.AnimatedVisibility(
+    // The undo pill floats at the bottom of the screen, above everything, the moment a stop is swiped
+    // away; inside the list it could sit off screen and the stop was gone before anyone saw it.
+    if (undo != null) androidx.compose.ui.window.Popup(
+        alignment = Alignment.BottomCenter,
+        properties = androidx.compose.ui.window.PopupProperties(focusable = false),
+    ) { Box(Modifier.padding(horizontal = 16.dp).padding(bottom = 96.dp)) { UndoPill(undo?.first?.first?.name, onUndo = {
+        undo?.let { (pair, job) -> job.cancel(); val (st, at) = pair; stops.add(at.coerceIn(0, stops.size), PlanStop(nextKey, st.name, st.flag, st.at, st.nights, st.mode, st.id)); nextKey += 1 }
+        undo = null
+    }) } }
+    if (false) androidx.compose.animation.AnimatedVisibility(
         undo != null,
         enter = androidx.compose.animation.slideInVertically(MaterialTheme.motionScheme.fastSpatialSpec()) { it } + fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
         exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()),
@@ -535,4 +543,17 @@ private fun Modifier.glideToPlace(): Modifier = composed {
             if (a.targetValue != t) scope.launch { a.animateTo(t, spec) }
             a.value - t
         }
+}
+
+
+@Composable
+private fun UndoPill(name: String?, onUndo: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(CircleShape).background(cs.inverseSurface).padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("${name ?: "Stop"} verwijderd", maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.inverseOnSurface), modifier = Modifier.weight(1f))
+        androidx.compose.material3.TextButton(onClick = onUndo) { Text("Ongedaan maken", color = cs.inversePrimary, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp)) }
+    }
 }
