@@ -51,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -309,12 +310,20 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
             list.forEachIndexed { i, link ->
                 Row(Modifier.fillMaxWidth().clip(slab(i, list.size)).background(cs.surfaceContainerHigh).padding(start = 16.dp, end = 6.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        // The link reads as a link: orange and underlined, and a tap opens it.
+                        // The whole address as on the web, cut at the end when it is long, with a soft underline in
+                        // the accent; a tap copies it, the same as the button.
+                        val copy = {
+                            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("MarkMySteps", link.url))
+                            copied = link.id
+                        }
+                        val line = cs.primary.copy(alpha = 0.4f)
                         Text(
-                            // Only the part after the server: that is what tells two links apart.
-                            link.url.substringAfter("://").substringAfter('/').let { "/$it" }, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                            style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.5.sp, color = cs.primary, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline),
-                            modifier = Modifier.clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(link.url))) } },
+                            link.url.substringAfter("://"), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.5.sp, color = cs.primary),
+                            modifier = Modifier.clickable(onClick = copy).drawBehind {
+                                val y = size.height - 1.dp.toPx()
+                                drawLine(line, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), strokeWidth = 1.5.dp.toPx())
+                            },
                         )
                         if (link.hasPassword) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
                             LineIcon(Glyphs.lock, cs.onSurfaceVariant, size = 13.dp, stroke = 2f)

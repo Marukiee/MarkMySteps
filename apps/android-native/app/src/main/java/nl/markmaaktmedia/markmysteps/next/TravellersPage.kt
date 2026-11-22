@@ -67,7 +67,9 @@ private fun Modifier.tap(onClick: () -> Unit = {}): Modifier = composed {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.96f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "tap")
-    clickable(source, ripple(), onClick = onClick).graphicsLayer { scaleX = scale; scaleY = scale }
+    // A light tick under the finger on every tap, as Tandem and PixelPlayer do.
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    clickable(source, ripple(), onClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick); onClick() }).graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
 private class Stat(val value: Int, val label: String, val icon: List<Shape24>, val shape: androidx.graphics.shapes.RoundedPolygon)

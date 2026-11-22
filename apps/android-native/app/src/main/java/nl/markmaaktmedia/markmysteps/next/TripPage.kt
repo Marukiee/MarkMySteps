@@ -84,11 +84,14 @@ private fun Modifier.press(onClick: () -> Unit = {}): Modifier = composed {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.96f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "press")
-    clickable(source, ripple(), onClick = onClick).graphicsLayer { scaleX = scale; scaleY = scale }
+    // A light tick under the finger on every tap, as Tandem and PixelPlayer do.
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    clickable(source, ripple(), onClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick); onClick() }).graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
 @Composable
 fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? = null) {
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     val cs = MaterialTheme.colorScheme
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     // A trip from the server brings its stops and photos in only when it is opened.
@@ -158,7 +161,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                     listOf("Tijdlijn", "Routeplanner").forEachIndexed { i, label ->
                         ToggleButton(
                             checked = tab == i,
-                            onCheckedChange = { tab = i },
+                            onCheckedChange = { if (tab != i) haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentTick); tab = i },
                             modifier = Modifier.weight(1f).height(48.dp),
                             shapes = if (i == 0) ButtonGroupDefaults.connectedLeadingButtonShapes() else ButtonGroupDefaults.connectedTrailingButtonShapes(),
                             colors = ToggleButtonDefaults.toggleButtonColors(
@@ -315,13 +318,20 @@ private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<St
     "${trip.days}" to "dagen",
     (if (stopsKnown) "${trip.stops.size}" else null) to (if (trip.stops.size == 1) "stop" else "stops"),
     "${trip.people.size + trip.extraPeople}" to "reizigers",
-) else listOfNotNull(
-    trip.km?.takeIf { it > 0 }?.let { "%,d".format(it).replace(',', '.') to "kilometer" },
-    "${trip.days}" to "dagen",
-    (if (stopsKnown) "${trip.stops.size}" else null) to (if (trip.stops.size == 1) "stop" else "stops"),
-    // While a real trip's photos are read the count waits in a quiet shape, never a 0 that jumps.
-    (photos?.toString() ?: if (trip.remoteId != null) null else "${trip.photos}") to "foto's",
-)
+) else if (trip.remoteId != null && (!stopsKnown || photos == null)) List(4) { null to " " } else {
+    // As the web (lib/tripFacts.ts): the first four that have something to say, in a fixed order: distance,
+    // days, stops (only for a route of two or more), photos, travellers (more than you alone), countries.
+    val travellers = trip.members.count { it.role != "GUEST" }.takeIf { it > 0 } ?: (trip.people.size + trip.extraPeople)
+    val countries = trip.stops.mapNotNull { it.flag.takeIf { f -> f.isNotBlank() } }.distinct().size
+    listOfNotNull(
+        trip.km?.takeIf { it > 0 }?.let { "%,d".format(it).replace(',', '.') to "kilometer" },
+        trip.days.takeIf { it > 0 }?.let { "$it" to (if (it == 1) "dag" else "dagen") },
+        trip.stops.size.takeIf { it > 1 }?.let { "$it" to "stops" },
+        (photos ?: trip.photos).takeIf { it > 0 }?.let { "$it" to (if (it == 1) "foto" else "foto's") },
+        travellers.takeIf { it > 1 }?.let { "$it" to "reizigers" },
+        countries.takeIf { it > 0 }?.let { "$it" to (if (it == 1) "land" else "landen") },
+    ).take(4)
+}
 
 /**
  * The trip's cover at the top of the sheet, as on the web: the photo, the name
@@ -370,6 +380,8 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
         (tone ?: trip.color).copy(alpha = if (dark) 0.34f else 0.26f).compositeOver(cs.surfaceContainerLow),
         MaterialTheme.motionScheme.slowEffectsSpec(), label = "factsTone",
     )
+    // Waiting tiles turn into the real ones in one soft fade, even when there are fewer of them.
+    androidx.compose.animation.Crossfade(items, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "facts") { items ->
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         items.forEachIndexed { i, (value, label) ->
             // Joined to the cover above it: tight on top, round only at the outer bottom corners.
@@ -386,9 +398,10 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
                     if (v != null) Text(v, maxLines = 1, style = style)
                     else Text("0000", maxLines = 1, style = style.copy(color = Color.Transparent), modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)))
                 }
-                Text(label, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant))
+                Text(label, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant))
             }
         }
+    }
     }
 }
 

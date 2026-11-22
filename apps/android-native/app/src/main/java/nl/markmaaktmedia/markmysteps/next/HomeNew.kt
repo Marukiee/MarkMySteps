@@ -254,8 +254,9 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                 }
             }
             AnimatedVisibility(
-                // Follows where the pages are going, so it is there (and tappable) as soon as a trip is being left.
-                visible = !Data.all.any { it.id == pages.targetState },
+                // Only once a page without the bar is really gone: during the back gesture from a trip it stays
+                // away, and it slides in after the home page has settled, not at the first touch.
+                visible = !Data.all.any { it.id == pages.targetState || it.id == pages.currentState },
                 modifier = Modifier.align(Alignment.BottomCenter),
                 enter = slideInVertically(motion.defaultSpatialSpec()) { it } + fadeIn(motion.defaultEffectsSpec()),
                 exit = slideOutVertically(motion.fastSpatialSpec()) { it } + fadeOut(motion.fastEffectsSpec()),
@@ -430,7 +431,9 @@ private fun Modifier.bouncyClickable(onClick: () -> Unit = {}): Modifier = compo
         MaterialTheme.motionScheme.fastSpatialSpec(),
         label = "press",
     )
-    clickable(source, ripple(), onClick = onClick).graphicsLayer {
+    // A light tick under the finger on every tap, as Tandem and PixelPlayer do.
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    clickable(source, ripple(), onClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick); onClick() }).graphicsLayer {
         scaleX = scale
         scaleY = scale
     }
@@ -564,12 +567,14 @@ private fun FaceStack(people: List<Person>, extraIn: Int, ring: Color) {
 /** Past or shared: a connected toggle group, the open one filled and fully round. */
 @Composable
 private fun PastOrShared(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+
     val options = listOf("Afgelopen reizen" to Data.past.size, "Gedeeld" to Data.shared)
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
         options.forEachIndexed { i, (label, count) ->
             ToggleButton(
                 checked = tab == i,
-                onCheckedChange = { onTab(i) },
+                onCheckedChange = { if (it) haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentTick); onTab(i) },
                 modifier = Modifier.weight(1f).height(52.dp),
                 shapes = when (i) {
                     0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
@@ -809,9 +814,9 @@ private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modi
                     LineIcon(icon, fg, size = 22.dp, stroke = if (on) 2.1f else 1.9f)
                     AnimatedVisibility(
                         visible = on,
-                        // The label unfolds from the icon's side, so icon and text stay together while it grows.
-                        enter = expandHorizontally(MaterialTheme.motionScheme.fastSpatialSpec(), expandFrom = Alignment.Start) + fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
-                        exit = shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec(), shrinkTowards = Alignment.Start) + fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
+                        // The pill grows out of its middle, both sides at once, while icon and label stay together.
+                        enter = expandHorizontally(MaterialTheme.motionScheme.fastSpatialSpec(), expandFrom = Alignment.CenterHorizontally) + fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
+                        exit = shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec(), shrinkTowards = Alignment.CenterHorizontally) + fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
                     ) {
                         Text(
                             label,

@@ -187,7 +187,13 @@ private fun draw(style: Style, trip: Trip, color: Int, dark: Boolean) {
     val route = GeoJsonSource("route", FeatureCollection.fromFeatures(ground.map { Feature.fromGeometry(lineOf(it)) }))
     val flights = GeoJsonSource("flights", FeatureCollection.fromFeatures(bows.map { Feature.fromGeometry(lineOf(it)) }))
     val stops = GeoJsonSource("stops", FeatureCollection.fromFeatures(trip.stops.map { Feature.fromGeometry(Point.fromLngLat(it.at.first, it.at.second)) }))
-    style.addSource(route); style.addSource(flights); style.addSource(stops)
+    // Where a flight starts and ends, a small grey airport dot, as on the web, unless the city's own pin is
+    // already there (within 55 km), so the bow never starts out of nowhere.
+    val ends = bows.flatMap { listOfNotNull(it.firstOrNull(), it.lastOrNull()) }
+        .distinctBy { "%.2f,%.2f".format(java.util.Locale.ROOT, it.first, it.second) }
+        .filter { p -> trip.stops.none { haversineKm(it.at, p) <= 55.0 } }
+    val airports = GeoJsonSource("airports", FeatureCollection.fromFeatures(ends.map { Feature.fromGeometry(Point.fromLngLat(it.first, it.second)) }))
+    style.addSource(route); style.addSource(flights); style.addSource(stops); style.addSource(airports)
 
     // A soft wide band under the line keeps it readable on busy streets.
     style.addLayer(LineLayer("route-halo", "route").withProperties(
@@ -198,9 +204,15 @@ private fun draw(style: Style, trip: Trip, color: Int, dark: Boolean) {
         lineColor(color), lineWidth(3.5f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         *(if (trip.upcoming) arrayOf(lineDasharray(arrayOf(0.1f, 2.2f))) else emptyArray()),
     ))
-    // A flight is a dashed bow, as on the web: the arc is drawn, not recorded.
+    // A flight is a grey dashed bow, as on the web: the arc is drawn, not recorded, so it never takes the
+    // trip's colour. Short dashes with clear gaps (a round cap adds half the width to each end), so it reads
+    // as dashes and not as one line.
+    val flightGrey = if (dark) AColor.parseColor("#9AA4B3") else AColor.parseColor("#8A94A3")
     style.addLayer(LineLayer("flight-line", "flights").withProperties(
-        lineColor(color), lineWidth(2.4f), lineDasharray(arrayOf(1.4f, 2.6f)), lineCap(Property.LINE_CAP_ROUND),
+        lineColor(flightGrey), lineWidth(2.2f), lineDasharray(arrayOf(1.2f, 3.4f)), lineCap(Property.LINE_CAP_ROUND),
+    ))
+    style.addLayer(CircleLayer("airport-dots", "airports").withProperties(
+        circleRadius(4.5f), circleColor(flightGrey), circleStrokeColor(if (dark) AColor.BLACK else AColor.WHITE), circleStrokeWidth(2f),
     ))
     style.addLayer(CircleLayer("stop-dots", "stops").withProperties(
         circleRadius(6f), circleColor(color), circleStrokeColor(if (dark) AColor.BLACK else AColor.WHITE), circleStrokeWidth(2.5f),
@@ -246,4 +258,12 @@ fun flightArc(from: LonLat, to: LonLat, steps: Int = 48, lift: Double = 1.0): Li
         val k = bow * sin(Math.PI * i / steps)
         (lng + nx * k) to unmercY(mercY(lat) + ny * k)
     }
+}
+
+/** Distance over the earth's surface in kilometres. */
+private fun haversineKm(a: LonLat, b: LonLat): Double {
+    val r = 6371.0
+    val dLat = Math.toRadians(b.second - a.second); val dLon = Math.toRadians(b.first - a.first)
+    val h = kotlin.math.sin(dLat / 2).let { it * it } + kotlin.math.cos(Math.toRadians(a.second)) * kotlin.math.cos(Math.toRadians(b.second)) * kotlin.math.sin(dLon / 2).let { it * it }
+    return 2 * r * kotlin.math.asin(kotlin.math.sqrt(h))
 }
