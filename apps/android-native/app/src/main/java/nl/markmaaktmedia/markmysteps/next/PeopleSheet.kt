@@ -147,14 +147,16 @@ private fun MemberRow(m: Member, i: Int, n: Int, canChange: Boolean, onRole: (St
             val role = when (m.role) { "OWNER" -> "organisator"; "GUEST" -> "gast"; else -> "reisgenoot" }
             val days = if (m.from != null || m.to != null) " · deel van de reis" else ""
             val track = if (m.role != "GUEST" && !m.canTrack) " · trackt niet" else ""
-            Text("@${m.username} · $role$days$track", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+            // The handle on its own line and the role under it, so neither is ever cut off.
+            Text("@${m.username}", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+            Text(role.replaceFirstChar { it.uppercase() } + days + track, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
         }
         if (canChange) {
             Box {
                 Box(Modifier.size(40.dp).clip(CircleShape).clickable { menu = true }, contentAlignment = Alignment.Center) {
                     LineIcon(Glyphs.dotsCircles, cs.onSurfaceVariant, size = 20.dp, filled = true)
                 }
-                DropdownMenu(menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(20.dp), containerColor = cs.surfaceContainerHighest) {
+                DropdownMenu(menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(20.dp), containerColor = cs.surfaceContainerHighest, tonalElevation = 0.dp, shadowElevation = 0.dp) {
                     DropdownMenuItem(
                         text = { Text(if (m.role == "GUEST") "Maak reisgenoot" else "Maak gast", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
                         onClick = { menu = false; onRole(if (m.role == "GUEST") "MEMBER" else "GUEST") },

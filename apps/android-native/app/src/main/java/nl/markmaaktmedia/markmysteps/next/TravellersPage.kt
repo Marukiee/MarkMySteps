@@ -4,6 +4,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -85,21 +87,40 @@ private fun dots(n: Int) = "%,d".format(n).replace(',', '.')
 @Composable
 fun TravellersPage() {
     var openFriend by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Friend?>(null) }
-    // A companion's own page slides in over the list, and back slides it away.
-    val motion = MaterialTheme.motionScheme
-    androidx.compose.animation.AnimatedContent(
-        openFriend,
+    // A companion's own page slides in over the list; back follows the finger with the list already
+    // showing underneath, the same seekable shared-axis transition as Settings, the pages and Tandem.
+    val state = androidx.compose.runtime.remember { androidx.compose.animation.core.SeekableTransitionState<Friend?>(null) }
+    androidx.compose.runtime.LaunchedEffect(openFriend) { if (state.targetState != openFriend) state.animateTo(openFriend) }
+    androidx.activity.compose.PredictiveBackHandler(enabled = openFriend != null) { events ->
+        try {
+            events.collect { state.seekTo(it.progress, null) }
+            state.animateTo(null)
+            openFriend = null
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { state.snapTo(openFriend) }
+            throw e
+        }
+    }
+    val emphasized = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
+    val ease = androidx.compose.animation.core.tween<Float>(350, easing = emphasized)
+    val slide = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(350, easing = emphasized)
+    androidx.compose.animation.core.rememberTransition(state, label = "friend").AnimatedContent(
         transitionSpec = {
-            val forward = targetState != null
-            (androidx.compose.animation.slideInHorizontally(motion.defaultSpatialSpec()) { w -> if (forward) w / 3 else -w / 3 } + androidx.compose.animation.fadeIn(motion.defaultEffectsSpec())) togetherWith
-                (androidx.compose.animation.slideOutHorizontally(motion.defaultSpatialSpec()) { w -> if (forward) -w / 3 else w / 3 } + androidx.compose.animation.fadeOut(motion.fastEffectsSpec()))
+            if (targetState != null) {
+                (androidx.compose.animation.slideInHorizontally(slide) { it / 3 } + androidx.compose.animation.fadeIn(ease)) togetherWith
+                    (androidx.compose.animation.slideOutHorizontally(slide) { -it / 3 } + androidx.compose.animation.scaleOut(ease, targetScale = 0.92f))
+            } else {
+                ((androidx.compose.animation.slideInHorizontally(slide) { -it / 3 } + androidx.compose.animation.fadeIn(ease)) togetherWith
+                    (androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(350, easing = androidx.compose.animation.core.Easing { f -> f * f * f })) { it } +
+                        androidx.compose.animation.scaleOut(ease, targetScale = 0.85f)))
+                    .apply { targetContentZIndex = -1f }
+            }
         },
-        label = "friend",
+        contentKey = { it?.id ?: it?.name },
     ) { friend ->
-        if (friend == null) TravellersList(onFriend = { openFriend = it })
-        else {
-            androidx.activity.compose.BackHandler { openFriend = null }
-            FriendPage(friend, onBack = { openFriend = null })
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            if (friend == null) TravellersList(onFriend = { openFriend = it })
+            else FriendPage(friend, onBack = { openFriend = null })
         }
     }
 }
@@ -170,7 +191,12 @@ private fun TravellersList(onFriend: (Friend) -> Unit) {
             } else StatsGrid(stats)
 
             // The countries you have been to on a slowly turning globe, as on the web.
-            if (!countryFlags.isNullOrEmpty() || !Data.live) {
+            if (Data.live && live == null) {
+                // While the countries are read, the globe's own round shape holds its place, so nothing below jumps.
+                Box(Modifier.fillMaxWidth().padding(top = 22.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(192.dp).clip(CircleShape).background(cs.surfaceContainerHigh))
+                }
+            } else if (!countryFlags.isNullOrEmpty() || !Data.live) {
                 val codes = live?.countries ?: countries.mapNotNull { flagCode(it)?.uppercase() }
                 Box(Modifier.fillMaxWidth().padding(top = 22.dp), contentAlignment = Alignment.Center) {
                     CountryGlobe(codes, dark = cs.background.luminance() < 0.5f, modifier = Modifier.size(200.dp))
@@ -299,7 +325,9 @@ private fun StatsGrid(stats: List<Stat>) {
 private fun FriendPage(f: Friend, onBack: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val stats by androidx.compose.runtime.produceState<Remote.Stats?>(null, f.id) { value = f.id?.let { runCatching { Remote.stats(it) }.getOrNull() } }
-    Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+    val scroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(scroll).padding(horizontal = 16.dp)) {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Box(Modifier.padding(top = 8.dp).size(48.dp).clip(CircleShape).background(cs.surfaceContainerHigh).tap(onBack), contentAlignment = Alignment.Center) {
             LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f)
@@ -340,5 +368,8 @@ private fun FriendPage(f: Friend, onBack: () -> Unit) {
         }
         Spacer(Modifier.height(120.dp))
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+    // Behind the clock once the page scrolls under it, as on every other page.
+    StatusScrim(scroll)
     }
 }

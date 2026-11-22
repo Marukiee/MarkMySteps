@@ -36,6 +36,9 @@ object Glyphs {
     val hourglass = listOf(P("M7 4h10M7 20h10"), P("M7 4c0 4 3 5 5 8 2-3 5-4 5-8"), P("M7 20c0-4 3-5 5-8 2 3 5 4 5 8"))
     val plus = listOf(P("M12 5v14"), P("M5 12h14"))
     val chevronRight = listOf(P("m9 18 6-6-6-6"))
+    /** Opens outside the app, in the browser. */
+    val external = listOf(P("M14 4h6v6"), P("M20 4 11 13"), P("M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"))
+    val signOut = listOf(P("M9 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3"), P("m15 16 4-4-4-4"), P("M19 12H9"))
     val globe = listOf(C(12f, 12f, 9f), P("M3 12h18"), P("M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18Z"))
     val distance = listOf(P("M4 6v12"), P("M20 6v12"), P("M4 12h16"), P("m8 9-3 3 3 3"), P("m16 9 3 3-3 3"))
     val pin = listOf(P("M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"), C(12f, 10f, 3f))

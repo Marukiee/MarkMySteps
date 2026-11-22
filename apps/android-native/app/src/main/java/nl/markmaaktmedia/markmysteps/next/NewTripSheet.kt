@@ -52,6 +52,13 @@ import java.time.ZoneOffset
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewTripSheet(onDismiss: () -> Unit, onCreated: (String) -> Unit) {
+    // The calendar in Dutch, with Monday first, as everywhere else in the app.
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalProvidableLocaleList provides androidx.compose.ui.text.intl.LocaleList("nl-NL")) { NewTripSheetBody(onDismiss, onCreated) }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NewTripSheetBody(onDismiss: () -> Unit, onCreated: (String) -> Unit) {
     val cs = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     var title by remember { mutableStateOf("") }
@@ -73,21 +80,27 @@ fun NewTripSheet(onDismiss: () -> Unit, onCreated: (String) -> Unit) {
                     }
                 }
             }
+            // The sheet is a window of its own with its own configuration, so the Dutch calendar is set in here.
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalProvidableLocaleList provides androidx.compose.ui.text.intl.LocaleList("nl-NL")) {
             DateRangePicker(
                 state = range,
                 modifier = Modifier.fillMaxWidth().height(420.dp),
                 title = null,
                 headline = {
-                    Text(
-                        if (start == null) "Kies de dagen" else if (end == null || end == start) "${start.dayOfMonth} ${start.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL"))}"
-                        else "${start.dayOfMonth} t/m ${end.dayOfMonth} ${end.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL"))} ${end.year}",
-                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 20.sp),
-                        modifier = Modifier.padding(start = 24.dp, bottom = 8.dp),
-                    )
+                    // A label in the same style and on the same line as "Naam", the chosen days under it.
+                    Column(Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)) {
+                        Text("Wanneer", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 6.dp))
+                        Text(
+                            if (start == null) "Kies de dagen" else if (end == null || end == start) "${start.dayOfMonth} ${start.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL"))}"
+                            else "${start.dayOfMonth} ${if (start.month != end.month) start.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL")) + " " else ""}t/m ${end.dayOfMonth} ${end.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL"))} ${end.year}",
+                            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 20.sp, color = cs.onSurface),
+                        )
+                    }
                 },
                 showModeToggle = false,
                 colors = DatePickerDefaults.colors(containerColor = cs.surfaceContainerLow),
             )
+            }
             error?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.error), modifier = Modifier.padding(horizontal = 22.dp)) }
             Button(
                 onClick = {

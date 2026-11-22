@@ -575,7 +575,7 @@ private fun MenuDots(modifier: Modifier = Modifier, onOpen: () -> Unit = {}, onP
             Modifier.size(40.dp).clip(CircleShape).background(if (light) cs.surfaceContainerHighest else Color.Transparent).bouncyClickable { menu = true },
             contentAlignment = Alignment.Center,
         ) { LineIcon(Glyphs.dotsCircles, if (light) cs.onSurface else cs.onSurfaceVariant, size = 20.dp, filled = true) }
-        androidx.compose.material3.DropdownMenu(menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(20.dp), containerColor = cs.surfaceContainerHighest) {
+        androidx.compose.material3.DropdownMenu(menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(20.dp), containerColor = cs.surfaceContainerHighest, tonalElevation = 0.dp, shadowElevation = 0.dp) {
             androidx.compose.material3.DropdownMenuItem(
                 text = { Text("Openen", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
                 onClick = { menu = false; onOpen() }, leadingIcon = { LineIcon(Glyphs.compass, cs.onSurface, size = 20.dp) },

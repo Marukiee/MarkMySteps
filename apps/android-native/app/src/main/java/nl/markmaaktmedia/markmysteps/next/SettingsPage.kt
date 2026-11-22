@@ -89,6 +89,10 @@ private class Item(
     val value: String? = null,
     val toggle: Boolean? = null,
     val action: (() -> Unit)? = null,
+    /** Opens the web version or another site: an "open outside" mark instead of a chevron. */
+    val external: Boolean = false,
+    /** An action that is not a page, like signing out: no mark at the end. */
+    val plain: Boolean = false,
 )
 
 /** A page of settings under the main list: its icon, name, the line that says how it stands, and its rows. */
@@ -234,11 +238,11 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
             fun open(url: String) = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }; Unit }
             when (index) {
                 0 -> Group("Jij", listOf(
-                    Item(Glyphs.person, "Profiel", "naam en foto, in de webversie", action = web("/settings")),
-                    Item(Glyphs.lock, "Wachtwoord", "in de webversie", action = web("/settings")),
-                    Item(Glyphs.shield, "Tweestapsverificatie", tfa?.let { (on, left) -> if (on) "aan, nog $left herstelcodes" else "uit" }, action = web("/settings")),
+                    Item(Glyphs.person, "Profiel", "naam en foto, in de webversie", external = true, action = web("/settings")),
+                    Item(Glyphs.lock, "Wachtwoord", "in de webversie", external = true, action = web("/settings")),
+                    Item(Glyphs.shield, "Tweestapsverificatie", tfa?.let { (on, left) -> if (on) "aan, nog $left herstelcodes" else "uit" }, external = true, action = web("/settings")),
                 )).also {
-                    Group("Server", listOf(Item(Glyphs.globe, "Server", Api.base.removePrefix("https://").trimEnd('/').ifBlank { "voorbeelden" }), Item(Glyphs.arrowRight, if (Data.live) "Uitloggen" else "Inloggen", action = { if (Data.live) confirmSignOut = true else onSignIn() })))
+                    Group("Server", listOf(Item(Glyphs.globe, "Server", Api.base.removePrefix("https://").trimEnd('/').ifBlank { "voorbeelden" }), Item(if (Data.live) Glyphs.signOut else Glyphs.arrowRight, if (Data.live) "Uitloggen" else "Inloggen", plain = true, action = { if (Data.live) confirmSignOut = true else onSignIn() })))
                 }
                 1 -> {
                     Header("Thema")
@@ -268,19 +272,19 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
                     ))
                 }
                 2 -> Group("Plannen", listOf(
-                    Item(Glyphs.plane, "Standaard vliegvelden", "in de webversie", action = web("/settings")),
-                    Item(Glyphs.download, "Route-bestanden en Polarsteps", "importeren in de webversie", action = web("/settings")),
+                    Item(Glyphs.plane, "Standaard vliegvelden", "in de webversie", external = true, action = web("/settings")),
+                    Item(Glyphs.download, "Route-bestanden en Polarsteps", "importeren in de webversie", external = true, action = web("/settings")),
                 ))
                 3 -> Group("Bron", listOf(
                     Item(Glyphs.photo, "Immich", if (!Data.live) "verbonden" else immich?.let { (url, last) ->
                         url.removePrefix("https://").removePrefix("http://").trimEnd('/') + (last?.let { " · bijgewerkt " + runCatching { java.time.LocalDate.parse(it.take(10)).let { d -> "${d.dayOfMonth} ${d.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL")).trimEnd('.')}" } }.getOrDefault("") } ?: "")
-                    } ?: "niet verbonden", action = web("/settings")),
+                    } ?: "niet verbonden", external = true, action = web("/settings")),
                     Item(Glyphs.trash, "Foto-cache leegmaken", if (cacheCleared) "leeg" else "maakt ruimte vrij op dit toestel", action = { Photos.clear(); cacheCleared = true }),
                 ))
                 else -> Group("MarkMySteps", listOf(
                     Item(Glyphs.download, "Versie", "$version (testversie)"),
-                    Item(Glyphs.help, "Wat is er nieuw", action = open("https://github.com/Marukiee/MarkMySteps/releases")),
-                    Item(Glyphs.logo, "Over MarkMySteps", "AGPL-3.0", action = open("https://github.com/Marukiee/MarkMySteps")),
+                    Item(Glyphs.help, "Wat is er nieuw", external = true, action = open("https://github.com/Marukiee/MarkMySteps/releases")),
+                    Item(Glyphs.logo, "Over MarkMySteps", "AGPL-3.0", external = true, action = open("https://github.com/Marukiee/MarkMySteps")),
                 ))
             }
             if (mapStyle) MapSheet(onDismiss = { mapStyle = false })
@@ -348,8 +352,8 @@ private fun Row0(item: Item, i: Int, n: Int, seed: Int, onToggle: () -> Unit = {
                 } else null,
                 colors = SwitchDefaults.colors(checkedTrackColor = cs.primary, checkedThumbColor = cs.onPrimary),
             )
-        } else if (item.action != null) {
-            LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
+        } else if (item.action != null && !item.plain) {
+            LineIcon(if (item.external) Glyphs.external else Glyphs.chevronRight, cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
         }
     }
 }

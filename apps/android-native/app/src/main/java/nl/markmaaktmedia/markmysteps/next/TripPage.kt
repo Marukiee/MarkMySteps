@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -149,7 +150,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
             ) {
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(cs.outlineVariant))
                 CoverCard(trip, photos = media?.size, modifier = Modifier.padding(top = 14.dp), onPeople = if (trip.remoteId != null) ({ people = true }) else null)
-                Facts(trip, Modifier.padding(top = 4.dp), photos = media?.size)
+                Facts(trip, Modifier.padding(top = 4.dp), photos = media?.size, stopsKnown = base.remoteId == null || trip !== base)
 
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
                     listOf("Tijdlijn", "Routeplanner").forEachIndexed { i, label ->
@@ -213,8 +214,12 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
             }
         }
         // Back to the top once the map has scrolled away, as on the web; arriving there shows the whole trip again.
+        // It steps aside while typing and at the very end, where it would sit on the search results and their buttons.
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+        val typing = WindowInsets.isImeVisible
+        val atEnd = scroll.maxValue - scroll.value < with(density) { 140.dp.toPx() }
         androidx.compose.animation.AnimatedVisibility(
-            scroll.value > with(density) { (mapH + 80.dp).toPx() } && viewing == null,
+            scroll.value > with(density) { (mapH + 80.dp).toPx() } && viewing == null && !typing && !atEnd,
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 24.dp).windowInsetsPadding(WindowInsets.navigationBars),
             enter = androidx.compose.animation.fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(MaterialTheme.motionScheme.fastSpatialSpec(), initialScale = 0.6f),
             exit = androidx.compose.animation.fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.6f),
@@ -235,7 +240,10 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                 try { events.collect { backT = it.progress }; bigMap = false } catch (e: kotlin.coroutines.cancellation.CancellationException) { backT = 0f; throw e }
             }
             Box(Modifier.fillMaxSize().graphicsLayer { val k = 1f - 0.12f * backT; scaleX = k; scaleY = k; shape = RoundedCornerShape((32 * backT).dp.toPx()); clip = true }.background(cs.background)) {
-                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 0)
+                // Clear of the clock and the cross at the top and of the gesture bar at the bottom.
+                val topDp = with(density) { WindowInsets.statusBars.getTop(this).toDp().value.toInt() } + 72
+                val bottomDp = with(density) { WindowInsets.navigationBars.getBottom(this).toDp().value.toInt() }
+                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = bottomDp, topInsetDp = topDp, fadeIn = true)
                 Column {
                     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                     Box(Modifier.padding(12.dp)) {
@@ -295,17 +303,17 @@ private fun People(people: List<Person>, extra: Int, ring: Color = MaterialTheme
 }
 
 /** The figures of a trip, as (value, label): before it starts, how long until it does and who comes. */
-private fun factsOf(trip: Trip, photos: Int?): List<Pair<String, String>> = if (trip.upcoming) listOfNotNull(
+private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<String?, String>> = if (trip.upcoming) listOfNotNull(
     trip.startsInDays?.let { "$it" to (if (it == 1) "dag tot vertrek" else "dagen tot vertrek") },
     "${trip.days}" to "dagen",
-    "${trip.stops.size}" to (if (trip.stops.size == 1) "stop" else "stops"),
+    (if (stopsKnown) "${trip.stops.size}" else null) to (if (trip.stops.size == 1) "stop" else "stops"),
     "${trip.people.size + trip.extraPeople}" to "reizigers",
 ) else listOfNotNull(
     trip.km?.takeIf { it > 0 }?.let { "%,d".format(it).replace(',', '.') to "kilometer" },
     "${trip.days}" to "dagen",
-    "${trip.stops.size}" to (if (trip.stops.size == 1) "stop" else "stops"),
-    // While a real trip's photos are read the count waits ("…"), never a 0 that jumps.
-    (photos?.toString() ?: if (trip.remoteId != null) "…" else "${trip.photos}") to "foto's",
+    (if (stopsKnown) "${trip.stops.size}" else null) to (if (trip.stops.size == 1) "stop" else "stops"),
+    // While a real trip's photos are read the count waits in a quiet shape, never a 0 that jumps.
+    (photos?.toString() ?: if (trip.remoteId != null) null else "${trip.photos}") to "foto's",
 )
 
 /**
@@ -345,8 +353,8 @@ private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier, o
 
 /** Days, distance, stops and photos as one connected slab. */
 @Composable
-private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null) {
-    val items = factsOf(trip, photos)
+private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null, stopsKnown: Boolean = true) {
+    val items = factsOf(trip, photos, stopsKnown)
     // The tone of the cover above, so the figures belong to it and stand off the page.
     val cs = MaterialTheme.colorScheme
     val dark = cs.background.luminance() < 0.5f
@@ -365,7 +373,12 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
             Column(
                 Modifier.weight(if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(tile).padding(horizontal = 12.dp, vertical = 12.dp),
             ) {
-                Text(value, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 21.sp, letterSpacing = (-0.02).em, color = MaterialTheme.colorScheme.onSurface))
+                // A value not known yet keeps its exact height as a soft shape, then fades into the number.
+                androidx.compose.animation.Crossfade(value, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "fact") { v ->
+                    val style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 21.sp, letterSpacing = (-0.02).em, color = MaterialTheme.colorScheme.onSurface)
+                    if (v != null) Text(v, maxLines = 1, style = style)
+                    else Text("0000", maxLines = 1, style = style.copy(color = Color.Transparent), modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)))
+                }
                 Text(label, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant))
             }
         }

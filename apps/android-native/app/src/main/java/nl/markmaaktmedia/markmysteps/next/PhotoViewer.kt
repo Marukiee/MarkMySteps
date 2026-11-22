@@ -278,11 +278,12 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
                 val scale = 1f - (1f - MIN_DRAG_SCALE) * progress()
                 translationX = drag.x; translationY = drag.y; scaleX = scale; scaleY = scale
             }) { page ->
-            // The corners round off as the photo is dragged away, up to the tile's rounding at the end,
+            // The corners round off as the photo is dragged away or the back gesture starts, reaching the tile's
+            // rounding in the first part of the way so they read as round straight away,
             // divided by the shrink so they look the same size on screen.
             ViewerPhoto(photos[page], onHdr = { if (page == pager.currentPage) hdr = it }, onTap = { if (picking) picking = false else chrome = !chrome },
                 onZoomed = { if (page == pager.currentPage) zoomed = it },
-                cornerPx = { val k = progress(); val scale = 1f - (1f - MIN_DRAG_SCALE) * k; 14.dp.toPx() * k / scale })
+                cornerPx = { val k = progress(); val scale = 1f - (1f - MIN_DRAG_SCALE) * k; 14.dp.toPx() * (k * 2.5f).coerceAtMost(1f) / scale })
         }
         // Which day and where, and how far through the trip's photos.
         val chromeOn by animateFloatAsState(if (chrome) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "chrome")
@@ -531,7 +532,7 @@ private fun ago(at: java.time.Instant): String {
 private fun CommentsSheet(comments: List<Remote.Comment>, onDismiss: () -> Unit, onSend: (String) -> Unit, onDelete: (Remote.Comment) -> Unit) {
     val cs = MaterialTheme.colorScheme
     var text by remember { mutableStateOf("") }
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), containerColor = cs.surfaceContainerLow) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = cs.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 16.dp)) {
             Text("Reacties", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(bottom = 12.dp))
             if (comments.isEmpty()) {

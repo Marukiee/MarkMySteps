@@ -1,5 +1,9 @@
 package nl.markmaaktmedia.markmysteps.next
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
+
 import android.graphics.Color as AColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -61,7 +65,7 @@ private const val DARK = "https://tiles.openfreemap.org/styles/dark"
 private const val SATELLITE = """{"version":8,"sources":{"sat":{"type":"raster","tiles":["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],"tileSize":256,"maxzoom":19}},"layers":[{"id":"sat","type":"raster","source":"sat"}]}"""
 
 @Composable
-fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInsetDp: Int = 60) {
+fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInsetDp: Int = 60, topInsetDp: Int = 96, fadeIn: Boolean = false) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val density = LocalDensity.current.density
@@ -97,7 +101,20 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
 
     val styleId = MapStylePref.id
     val key = "${trip.id}/${trip.stops.size}/$dark/$styleId"
-    AndroidView(factory = { view }, modifier = modifier, update = { map ->
+    // A map that opens on its own (full screen) waits for its first tiles and then fades in, so the route is
+    // never drawn on an empty background.
+    var ready by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(!fadeIn) }
+    val shown by androidx.compose.animation.core.animateFloatAsState(if (ready) 1f else 0f, androidx.compose.material3.MaterialTheme.motionScheme.defaultEffectsSpec(), label = "mapIn")
+    // Fitting again whenever the view changes size: a fit made before the view had its final size framed the
+    // route wrongly, cut off at the edges.
+    val fit = androidx.compose.runtime.remember { arrayOfNulls<() -> Unit>(1) }
+    DisposableEffect(view) {
+        val l = android.view.View.OnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob -> if (r - l != or - ol || b - t != ob - ot) fit[0]?.invoke() }
+        view.addOnLayoutChangeListener(l)
+        if (fadeIn) view.addOnDidFinishLoadingMapListener { ready = true }
+        onDispose { view.removeOnLayoutChangeListener(l) }
+    }
+    AndroidView(factory = { view }, modifier = modifier.graphicsLayer { alpha = shown }, update = { map ->
         if (map.tag == key) return@AndroidView
         map.tag = key
         map.getMapAsync { m ->
@@ -116,14 +133,19 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
                 val bowPoints = trip.flightLegs.ifEmpty { trip.flights.map { listOf(it.first, it.second) } }.flatMap { hops -> hops.zipWithNext().flatMap { (a, b) -> flightArc(a, b, 12) } }
                 val points = (trip.stops.map { it.at } + trip.route + bowPoints).ifEmpty { listOf(HomeAirport) }
                 val pad = (24 * density).toInt()
-                if (points.size == 1) {
-                    m.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(points[0].second, points[0].first), 9.0))
-                } else {
-                    val bounds = LatLngBounds.Builder().apply { points.forEach { include(LatLng(it.second, it.first)) } }.build()
-                    m.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, (96 * density).toInt(), pad, ((bottomInsetDp + 24) * density).toInt()))
-                    // A city trip opens at city level, not on a street corner.
-                    if (m.cameraPosition.zoom > 11.5) m.moveCamera(CameraUpdateFactory.zoomTo(11.5))
+                fit[0] = {
+                    if (view.width > 0 && view.height > 0) {
+                        if (points.size == 1) {
+                            m.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(points[0].second, points[0].first), 9.0))
+                        } else {
+                            val bounds = LatLngBounds.Builder().apply { points.forEach { include(LatLng(it.second, it.first)) } }.build()
+                            m.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, ((topInsetDp + 24) * density).toInt(), pad, ((bottomInsetDp + 24) * density).toInt()))
+                            // A city trip opens at city level, not on a street corner.
+                            if (m.cameraPosition.zoom > 11.5) m.moveCamera(CameraUpdateFactory.zoomTo(11.5))
+                        }
+                    }
                 }
+                fit[0]?.invoke()
             }
         }
     })

@@ -85,7 +85,7 @@ fun NoticesSheet(onDismiss: () -> Unit, onChanged: () -> Unit) {
         items = runCatching { Remote.notices() }.getOrNull() ?: emptyList()
         runCatching { Remote.markNoticesRead() }.onSuccess { onChanged() }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), containerColor = cs.surfaceContainerLow) {
+    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = cs.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
             Text("Meldingen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface), modifier = Modifier.padding(bottom = 14.dp))
             val list = items
