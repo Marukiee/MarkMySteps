@@ -23,34 +23,48 @@ import androidx.compose.ui.layout.ContentScale
  * signing in the account's own, read from the server.
  */
 object Data {
-    var trips by mutableStateOf<List<Trip>>(DemoPast + DemoUpcoming)
+    // Signed in, the app opens on the trips as last read (never on the invented ones);
+    // the very first time there is nothing yet and the pages show their loading shapes.
+    var trips by mutableStateOf<List<Trip>>(if (Api.signedIn) Remote.cachedTrips().orEmpty() else DemoPast + DemoUpcoming)
         private set
-    var me by mutableStateOf<Remote.Me?>(null)
+    var me by mutableStateOf<Remote.Me?>(if (Api.signedIn) Remote.cachedMe() else null)
         private set
-    var live by mutableStateOf(false)
+    var live by mutableStateOf(Api.signedIn)
         private set
+    /** Signed in but nothing read yet: the pages show placeholders of the right size. */
+    val loading: Boolean get() = live && trips.isEmpty() && error == null
     var error by mutableStateOf<String?>(null)
     /** Bumped on every reload, so pages that read more per trip read it again. */
     var version by mutableIntStateOf(0)
         private set
 
     val all: List<Trip> get() = trips
-    val past: List<Trip> get() = trips.filter { !it.upcoming }
+    val past: List<Trip> get() = trips.filter { !it.upcoming && !it.shared }
+    /** Other people's trips you were added to. */
+    val sharedTrips: List<Trip> get() = trips.filter { it.shared }
     /** The trip under way, or the first one coming. */
     val next: Trip? get() = trips.filter { it.upcoming }.minByOrNull { it.startsInDays ?: 0 }
-    val shared: Int get() = if (live) 0 else DemoSharedCount
+    val shared: Int get() = if (live) sharedTrips.size else DemoSharedCount
 
     suspend fun load() {
         if (!Api.signedIn) return
         try {
             me = Remote.me()
-            trips = Remote.trips()
+            trips = Remote.trips()  // reads `me` from the cache to tell own trips from shared ones
             live = true
             error = null
             version++
         } catch (e: Api.Failure) {
             if (e.status == 401) signOut() else error = e.message
         }
+    }
+
+    /** Just signed in: drop the invented trips at once and wait for the real ones. */
+    fun begin() {
+        trips = emptyList()
+        me = null
+        live = true
+        error = null
     }
 
     fun signOut() {
@@ -85,4 +99,22 @@ fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail") {
             )
         }
     }
+}
+
+/**
+ * The colour a cover photo leans to, for a background that belongs to it: the
+ * muted swatch first (calm behind text), else the dominant one. Null until
+ * the photo is there; the demo's drawn covers use the trip's own colour.
+ */
+@Composable
+fun coverTone(trip: Trip): androidx.compose.ui.graphics.Color? {
+    val id = trip.coverId ?: return trip.color
+    val tone by produceState<androidx.compose.ui.graphics.Color?>(null, id) {
+        val bitmap = Photos.load(id, "thumbnail") ?: return@produceState
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            val p = androidx.palette.graphics.Palette.from(bitmap).maximumColorCount(12).generate()
+            (p.vibrantSwatch ?: p.mutedSwatch ?: p.dominantSwatch)?.rgb?.let { androidx.compose.ui.graphics.Color(it) }
+        }
+    }
+    return tone
 }

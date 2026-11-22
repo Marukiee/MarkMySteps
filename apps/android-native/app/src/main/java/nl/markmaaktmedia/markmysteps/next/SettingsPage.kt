@@ -146,7 +146,9 @@ private fun SettingsMain(onOpen: (Int) -> Unit) {
                 Text(Data.me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
                 Text(if (Data.live) "@${Data.me?.username} · ${Api.base.removePrefix("https://")}" else "voorbeelden, niet ingelogd", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
             }
-            LineIcon(Glyphs.pencil, cs.onSurfaceVariant, size = 20.dp, stroke = 2f)
+            Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+                LineIcon(Glyphs.pencil, cs.onSurface, size = 20.dp, stroke = 2f)
+            }
         }
         Spacer(Modifier.height(18.dp))
         // One slab of sections, each opening a page of its own.

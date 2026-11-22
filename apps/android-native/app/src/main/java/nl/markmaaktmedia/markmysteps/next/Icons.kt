@@ -57,7 +57,8 @@ object Glyphs {
     val moon = listOf(P("M20 14.5A8.5 8.5 0 0 1 9.5 4a7.5 7.5 0 1 0 10.5 10.5Z"))
     val download = listOf(P("M12 3v12"), P("m7 11 5 5 5-5"), P("M4 20h16"))
     val help = listOf(C(12f, 12f, 9f), P("M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"), P("M12 17h.01"))
-    val pencil = listOf(P("M12 20h9"), P("M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"))
+    // Balanced in its box: the tip bottom left, the end top right, nothing sticking out.
+    val pencil = listOf(P("M16.6 4.4a2.1 2.1 0 0 1 3 3L8.2 18.8 4 20l1.2-4.2Z"), P("m14.6 6.4 3 3"))
     val photo = listOf(P("M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"), C(9f, 9.5f, 1.8f), P("m21 15-5-5L5 20"))
     val bus = listOf(P("M7 4h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"), P("M5 11h14"), P("M8 16v2M16 16v2"), P("M7.5 13.5h.01M16.5 13.5h.01"))
     val boat = listOf(P("M3 15h18l-2 4a2 2 0 0 1-1.8 1H6.8A2 2 0 0 1 5 19l-2-4Z"), P("M5 15V9a2 2 0 0 1 2-2h6l4 4v4"), P("M10 7V4"))

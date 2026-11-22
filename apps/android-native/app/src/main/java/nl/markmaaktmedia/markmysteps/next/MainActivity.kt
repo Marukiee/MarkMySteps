@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Api.init(applicationContext)
-        val startStyle = intent.getStringExtra("style") ?: "current"
+        val startStyle = intent.getStringExtra("style") ?: "new"
         val forcedTheme = intent.getStringExtra("theme")
         val startTrip = intent.getStringExtra("trip")
         val startPage = intent.getStringExtra("page")

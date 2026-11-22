@@ -36,9 +36,12 @@ object Api {
 
     val signedIn: Boolean get() = access != null && base.isNotEmpty()
 
+    fun remember(key: String, value: String) = prefs.edit().putString("cache.$key", value).apply()
+    fun recall(key: String): String? = prefs.getString("cache.$key", null)
+
     fun signOut() {
         access = null; refresh = null
-        prefs.edit().remove("access").remove("refresh").apply()
+        prefs.edit().remove("access").remove("refresh").remove("cache.trips").remove("cache.me").apply()
         Photos.clear()
     }
 
@@ -174,9 +177,14 @@ object Remote {
     data class Me(val id: String, val name: String, val username: String)
 
     suspend fun me(): Me {
-        val o = JSONObject(Api.get("/api/users/me"))
-        return Me(o.getString("id"), o.optString("displayName"), o.optString("username"))
+        val raw = Api.get("/api/users/me")
+        Api.remember("me", raw)
+        return parseMe(raw)
     }
+
+    fun cachedMe(): Me? = Api.recall("me")?.let { runCatching { parseMe(it) }.getOrNull() }
+
+    private fun parseMe(raw: String): Me = JSONObject(raw).let { o -> Me(o.getString("id"), o.optString("displayName"), o.optString("username")) }
 
     private val Palette = listOf(0xFFE8613C, 0xFF2BB6A8, 0xFFD08A2A, 0xFF7A5BD6, 0xFFE34B8A, 0xFF5B8DEF, 0xFFC9772E, 0xFF7DA7D9)
 
@@ -198,16 +206,26 @@ object Remote {
     }
 
     suspend fun trips(): List<Trip> {
-        val list = JSONArray(Api.get("/api/trips"))
+        val raw = Api.get("/api/trips")
+        Api.remember("trips", raw)
+        return parseTrips(raw)
+    }
+
+    /** The trips as last read, so the app opens on them straight away. */
+    fun cachedTrips(): List<Trip>? = Api.recall("trips")?.let { runCatching { parseTrips(it) }.getOrNull() }
+
+    private fun parseTrips(raw: String): List<Trip> {
+        val me = cachedMe()?.id
+        val list = JSONArray(raw)
         val today = LocalDate.now()
         return (0 until list.length()).map { i ->
             val o = list.getJSONObject(i)
             val start = LocalDate.parse(o.getString("startDate").take(10))
             val end = LocalDate.parse(o.getString("endDate").take(10))
-            val routes = o.optJSONArray("routePath")?.let { r -> (0 until r.length()).flatMap { points(r.getJSONArray(it)) } }.orEmpty()
-            val flights = o.optJSONArray("flightPath")?.let { r ->
-                (0 until r.length()).mapNotNull { k -> points(r.getJSONArray(k)).takeIf { it.size >= 2 }?.let { it.first() to it.last() } }
-            }.orEmpty()
+            val segments = o.optJSONArray("routePath")?.let { r -> (0 until r.length()).map { points(r.getJSONArray(it)) }.filter { it.size >= 2 } }.orEmpty()
+            val routes = segments.flatten()
+            val flightLegs = o.optJSONArray("flightPath")?.let { r -> (0 until r.length()).map { points(r.getJSONArray(it)) }.filter { it.size >= 2 } }.orEmpty()
+            val flights = flightLegs.map { it.first() to it.last() }
             val stopPoints = points(o.optJSONArray("stopPoints"))
             val color = o.optString("color").takeIf { it.startsWith("#") }?.let { Color(android.graphics.Color.parseColor(it)) }
                 ?: Color(Palette[i % Palette.size])
@@ -234,6 +252,9 @@ object Remote {
                 remoteId = o.getString("id"),
                 coverId = o.optString("resolvedCoverId").takeIf { it.isNotBlank() && it != "null" },
                 start = start,
+                shared = me != null && o.optString("ownerId") != me,
+                segments = segments,
+                flightLegs = flightLegs,
             )
         }.sortedByDescending { it.start }
     }

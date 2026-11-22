@@ -89,6 +89,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
             value = base.copy(stops = stops, outbound = legs.first, back = legs.second)
         }
     }
+    var viewing by remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
     val media by androidx.compose.runtime.produceState<List<Media>?>(null, base.id, Data.version) {
         if (base.remoteId != null) value = runCatching { Remote.media(base) }.getOrNull() ?: emptyList()
     }
@@ -111,21 +112,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
     Box(Modifier.fillMaxSize().background(cs.background)) {
         Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             Box(Modifier.fillMaxWidth().height(mapH)) {
-                Globe(
-                    trips = listOf(trip),
-                    style = GlobeStyle(
-                        sphere = if (dark) Color(0xFF101418) else Color(0xFFDCE6EC),
-                        land = if (dark) Color(0xFF29313A) else Color(0xFFEFE7D8),
-                        dark = dark,
-                        routeWidth = 3f,
-                    ),
-                    modifier = Modifier.fillMaxSize(),
-                    centerLon = lon,
-                    centerLat = lat - spread * 0.18,
-                    zoom = zoom,
-                    showStops = true,
-                    turnable = false,
-                )
+                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 30)
                 Box(
                     Modifier.fillMaxWidth().height(110.dp)
                         .background(Brush.verticalGradient(listOf(cs.background.copy(alpha = 0.55f), Color.Transparent))),
@@ -140,15 +127,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                     .padding(horizontal = 16.dp),
             ) {
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(cs.outlineVariant))
-                Row(Modifier.fillMaxWidth().padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(trip.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 28.sp, letterSpacing = (-0.02).em, color = cs.onBackground))
-                        Text(trip.dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp))
-                    }
-                    People(trip.people, trip.extraPeople)
-                }
-
-                Facts(trip, Modifier.padding(top = 18.dp), photos = media?.size)
+                CoverCard(trip, photos = media?.size, modifier = Modifier.padding(top = 14.dp))
 
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
                     listOf("Tijdlijn", "Routeplanner").forEachIndexed { i, label ->
@@ -168,7 +147,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                 }
 
                 Column(Modifier.padding(top = 16.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
-                    if (tab == 0) Timeline(trip, dark, media) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                    if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.filter { !it.video }?.indexOf(m)?.takeIf { it >= 0 } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
                 }
                 Spacer(Modifier.height(24.dp))
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -188,6 +167,11 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                 RoundButton(onClick = {}) { LineIcon(Glyphs.dotsCircles, cs.onSurface, size = 22.dp, filled = true) }
             }
         }
+        // A tapped photo opens full screen over everything, the toolbar included.
+        viewing?.let { start ->
+            val photos = media.orEmpty().filter { !it.video }
+            if (photos.isNotEmpty()) PhotoViewer(photos, start.coerceIn(0, photos.lastIndex), onClose = { viewing = null })
+        }
     }
 }
 
@@ -198,20 +182,81 @@ private fun RoundButton(onClick: () -> Unit = {}, content: @Composable () -> Uni
 }
 
 @Composable
-private fun People(people: List<Person>, extra: Int) {
+private fun People(people: List<Person>, extra: Int, ring: Color = MaterialTheme.colorScheme.background) {
     val cs = MaterialTheme.colorScheme
     val faces = people.take(3)
     val count = faces.size + if (extra > 0) 1 else 0
     if (count == 0) return
     Box(Modifier.width(36.dp + 24.dp * (count - 1)).height(36.dp)) {
         faces.forEachIndexed { i, p ->
-            Box(Modifier.offset(x = 24.dp * i).size(36.dp).background(cs.background, CircleShape).padding(2.dp).background(p.color, CircleShape), contentAlignment = Alignment.Center) {
+            Box(Modifier.offset(x = 24.dp * i).size(36.dp).background(ring, CircleShape).padding(2.dp).background(p.color, CircleShape), contentAlignment = Alignment.Center) {
                 Text(p.initial, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 13.sp, color = Color.White))
             }
         }
         if (extra > 0) {
-            Box(Modifier.offset(x = 24.dp * faces.size).size(36.dp).background(cs.background, CircleShape).padding(2.dp).background(cs.secondaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+            Box(Modifier.offset(x = 24.dp * faces.size).size(36.dp).background(ring, CircleShape).padding(2.dp).background(cs.secondaryContainer, CircleShape), contentAlignment = Alignment.Center) {
                 Text("+$extra", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 12.sp, color = cs.onSecondaryContainer))
+            }
+        }
+    }
+}
+
+/** The figures of a trip, as (value, label): before it starts, how long until it does and who comes. */
+private fun factsOf(trip: Trip, photos: Int?): List<Pair<String, String>> = if (trip.upcoming) listOfNotNull(
+    trip.startsInDays?.let { "$it" to (if (it == 1) "dag tot vertrek" else "dagen tot vertrek") },
+    "${trip.days}" to "dagen",
+    "${trip.stops.size}" to (if (trip.stops.size == 1) "stop" else "stops"),
+    "${trip.people.size + trip.extraPeople}" to "reizigers",
+) else listOfNotNull(
+    trip.km?.takeIf { it > 0 }?.let { "%,d".format(it).replace(',', '.') to "km" },
+    "${trip.days}" to "dagen",
+    "${trip.stops.size}" to (if (trip.stops.size == 1) "stop" else "stops"),
+    "${photos ?: trip.photos}" to "foto's",
+)
+
+/**
+ * The trip's cover at the top of the sheet, as on the web: the photo, the name
+ * in Fraunces, the dates, and the figures as pills on the photo. Without a
+ * photo the card is the trip's colour with the compass, like the next trip.
+ */
+@Composable
+private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier) {
+    val hasPhoto = trip.coverId != null || trip.cover != null
+    Box(modifier.fillMaxWidth().height(268.dp).clip(RoundedCornerShape(32.dp))) {
+        if (hasPhoto) {
+            Cover(trip, Modifier.fillMaxSize(), size = "preview")
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.12f), 0.45f to Color.Black.copy(alpha = 0.22f), 1f to Color.Black.copy(alpha = 0.6f))))
+        } else {
+            val deep = Color(0xFF1B2440).copy(alpha = 0.55f).compositeOver(trip.color)
+            Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(trip.color, deep))))
+            LineIcon(
+                Glyphs.compass, Color.White, size = 190.dp, stroke = 1.3f,
+                modifier = Modifier.align(Alignment.TopEnd).offset(x = 50.dp, y = (-26).dp).graphicsLayer { rotationZ = -12f; alpha = 0.16f },
+            )
+        }
+        Box(Modifier.align(Alignment.TopEnd).padding(14.dp)) { People(trip.people, trip.extraPeople, ring = Color.White.copy(alpha = 0.9f)) }
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 14.dp, vertical = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                trip.title, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(600), fontSize = 34.sp, lineHeight = 38.sp, letterSpacing = (-0.01).em, color = Color.White,
+                    shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.35f), blurRadius = 12f)),
+            )
+            Text(trip.dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = Color.White.copy(alpha = 0.88f)), modifier = Modifier.padding(top = 4.dp))
+            // The pills wrap to a second line rather than run off the card.
+            androidx.compose.foundation.layout.FlowRow(
+                Modifier.padding(top = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                factsOf(trip, photos).forEach { (value, label) ->
+                    Row(
+                        Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.2f)).padding(horizontal = 11.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        Text(value, maxLines = 1, style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(650), fontSize = 18.sp, lineHeight = 20.sp, color = Color.White))
+                        Text(" $label", maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, lineHeight = 18.sp, color = Color.White.copy(alpha = 0.9f)))
+                    }
+                }
             }
         }
     }
@@ -226,10 +271,11 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
         "${trip.days}" to "dagen",
         "${trip.stops.size}" to "stops",
         "${trip.people.size + trip.extraPeople}" to "reizigers",
-    ) else listOf(
+    ) else listOfNotNull(
         "${trip.days}" to "dagen",
-        (trip.km?.let { "%,d".format(it).replace(',', '.') } ?: "0") to "km",
-        "${trip.stops.size}" to "stops",
+        // Only a measured distance; a trip without a recorded route shows no "0 km".
+        trip.km?.takeIf { it > 0 }?.let { "%,d".format(it).replace(',', '.') to "km" },
+        "${trip.stops.size}" to (if (trip.stops.size == 1) "stop" else "stops"),
         "${photos ?: trip.photos}" to "foto's",
     )
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -239,7 +285,7 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
                 topEnd = if (i == items.lastIndex) 24.dp else 6.dp, bottomEnd = if (i == items.lastIndex) 24.dp else 6.dp,
             )
             Column(
-                Modifier.weight(if (i == 1 && !trip.upcoming) 1.3f else if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(horizontal = 12.dp, vertical = 12.dp),
+                Modifier.weight(if (label == "km") 1.3f else if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(horizontal = 12.dp, vertical = 12.dp),
             ) {
                 Text(value, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 21.sp, letterSpacing = (-0.02).em, color = MaterialTheme.colorScheme.onSurface))
                 Text(label, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant))

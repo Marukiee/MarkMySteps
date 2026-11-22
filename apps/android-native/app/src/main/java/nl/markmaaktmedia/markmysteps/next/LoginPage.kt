@@ -130,9 +130,8 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
         }
         Column(Modifier.padding(horizontal = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(48.dp).clip(MaterialShapes.Cookie9Sided.toShape()).background(cs.primaryContainer), contentAlignment = Alignment.Center) {
-                    LineIcon(Glyphs.logo, cs.onPrimaryContainer, size = 26.dp, stroke = 2.2f)
-                }
+                // The brand mark as everywhere: the compass on its own, in the accent colour.
+                LineIcon(Glyphs.logo, cs.primary, size = 40.dp, stroke = 2.1f)
                 Text(
                     "MarkMySteps",
                     style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 30.sp, letterSpacing = (-0.02).em, color = cs.onBackground),

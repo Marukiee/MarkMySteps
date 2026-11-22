@@ -59,6 +59,12 @@ data class Trip(
     val remoteId: String? = null,
     val coverId: String? = null,
     val start: LocalDate? = null,
+    /** Someone else's trip you were added to: it goes under Gedeeld, not under your own. */
+    val shared: Boolean = false,
+    /** The recorded route as the pieces it really is, each drawn on its own. */
+    val segments: List<List<LonLat>> = emptyList(),
+    /** Every flight with its stopovers, airport to airport. */
+    val flightLegs: List<List<LonLat>> = emptyList(),
 )
 
 /** The home airport: a flight from here gets no dot of its own on the globe. */

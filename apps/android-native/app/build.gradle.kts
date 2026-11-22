@@ -47,4 +47,8 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.animation)
     implementation(libs.androidx.material3)
+    // The same map as the web app: MapLibre with the OpenFreeMap styles.
+    implementation("org.maplibre.gl:android-sdk:11.8.0")
+    // Colours from a cover photo, for the rows that take on the tone of their trip.
+    implementation("androidx.palette:palette-ktx:1.0.0")
 }

@@ -70,6 +70,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.scaleOut
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -167,30 +171,72 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             label = "gate",
         ) { which ->
         if (which == "login") {
-            LoginPage(dark, onDone = { gate = "app"; scope.launch { Data.load() } }, onDemo = { gate = "app" })
+            LoginPage(dark, onDone = { Data.begin(); gate = "app"; scope.launch { Data.load() } }, onDemo = { gate = "app" })
             return@AnimatedContent
         }
         var open by remember { mutableStateOf(Data.all.firstOrNull { it.id == startTrip }) }
         var page by remember { mutableIntStateOf(when (startPage) { "settings" -> 2; "travellers" -> 1; else -> 0 }) }
-        BackHandler(enabled = open != null || page != 0) { if (open != null) open = null else page = 0 }
         val motion = MaterialTheme.motionScheme
+        val target = open?.id ?: "page$page"
+        // Predictive back: the back gesture seeks this transition, so the page under the
+        // finger shrinks and the one it goes back to already shows; letting go finishes
+        // it, pulling back springs it into place again.
+        val pages = remember { androidx.compose.animation.core.SeekableTransitionState(target) }
+        val holder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+        val backScope = androidx.compose.runtime.rememberCoroutineScope()
+        var fromLeft by remember { mutableStateOf(true) }
+        LaunchedEffect(target) { if (pages.targetState != target || pages.currentState != target) pages.animateTo(target) }
+        val backTo: String? = when { open != null -> "page$page"; page != 0 -> "page0"; else -> null }
+        androidx.activity.compose.PredictiveBackHandler(enabled = backTo != null) { events ->
+            val to = backTo ?: return@PredictiveBackHandler
+            try {
+                events.collect { e ->
+                    fromLeft = e.swipeEdge == androidx.activity.BackEventCompat.EDGE_LEFT
+                    pages.seekTo(e.progress, to)
+                }
+                if (open != null) open = null else page = 0
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                backScope.launch { pages.animateTo(pages.currentState) }
+                throw e
+            }
+        }
+        val transition = androidx.compose.animation.core.rememberTransition(pages, label = "page")
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            // Between tabs a fade-through, into a trip a scale and fade from the card: the
-            // expressive motion scheme's own springs and tweens, nothing tuned by hand.
-            AnimatedContent(
-                targetState = open?.id ?: "page$page",
+            transition.AnimatedContent(
                 transitionSpec = {
-                    (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.94f)) togetherWith
-                        fadeOut(motion.fastEffectsSpec())
+                    val back = targetState == "page0" && initialState != "page1" && initialState != "page2" ||
+                        (initialState != targetState && !initialState.startsWith("page") && targetState.startsWith("page"))
+                    if (back) {
+                        // Going back: the page shrinks toward the side the gesture came from, the one below rises.
+                        // One even timeline, so the gesture's progress maps straight onto it: the page
+                        // stays whole while it shrinks and only fades in the last stretch.
+                        // Linear, so the page follows the finger one to one.
+                        val ease = androidx.compose.animation.core.LinearEasing
+                        (fadeIn(androidx.compose.animation.core.tween(400, easing = ease), initialAlpha = 0.6f) +
+                            scaleIn(androidx.compose.animation.core.tween(400, easing = ease), initialScale = 0.95f)) togetherWith
+                            (scaleOut(androidx.compose.animation.core.tween(400, easing = ease), targetScale = 0.88f) +
+                                slideOutHorizontally(androidx.compose.animation.core.tween(400, easing = ease)) { w -> if (fromLeft) w / 8 else -w / 8 } +
+                                fadeOut(androidx.compose.animation.core.tween(120, delayMillis = 280)))
+                    } else {
+                        // Into a trip a scale and fade from the card; between tabs a fade-through.
+                        (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.94f)) togetherWith
+                            fadeOut(motion.fastEffectsSpec())
+                    }.apply { targetContentZIndex = if (back) -1f else 1f }
                 },
-                label = "page",
+                contentKey = { it },
             ) { key ->
-                val trip = Data.all.firstOrNull { it.id == key }
-                when {
-                    trip != null -> TripPage(trip, dark, onBack = { open = null })
-                    key == "page2" -> SettingsPage(onSignIn = { Data.signOut(); page = 0; gate = "login" })
-                    key == "page1" -> TravellersPage()
-                    else -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it })
+                // The leaving page gets round corners as it shrinks, like a card being put away.
+                val corner by this.transition.animateDp(label = "corner") { if (it == androidx.compose.animation.EnterExitState.PostExit) 36.dp else 0.dp }
+                Box(Modifier.fillMaxSize().clip(RoundedCornerShape(corner))) {
+                    holder.SaveableStateProvider(key) {
+                        val trip = Data.all.firstOrNull { it.id == key }
+                        when {
+                            trip != null -> TripPage(trip, dark, onBack = { open = null })
+                            key == "page2" -> SettingsPage(onSignIn = { Data.signOut(); page = 0; gate = "login" })
+                            key == "page1" -> TravellersPage()
+                            else -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it })
+                        }
+                    }
                 }
             }
             AnimatedVisibility(
@@ -250,15 +296,27 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                         Text("Nieuwe reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
                     }
                 }
-                SectionTitle("Aankomend & onderweg", Modifier.padding(top = 22.dp, bottom = 12.dp).arrive(1))
-                Data.next?.let { next -> NextTripCard(next, onOpen = { onOpenTrip(next) }, modifier = Modifier.arrive(2)) }
-                PastOrShared(tab, onTab = { tab = it }, modifier = Modifier.padding(top = 26.dp, bottom = 4.dp).arrive(3))
-                // A trip can be shown big, as the first one here, or as a row with its photo blurred behind it.
-                Data.past.firstOrNull()?.let { first -> BigTripCard(first, onOpen = { onOpenTrip(first) }, modifier = Modifier.padding(top = 14.dp).arrive(4)) }
-                Data.past.drop(1).groupBy { it.year }.forEach { (year, trips) ->
-                    SectionTitle(year, Modifier.padding(top = 18.dp, bottom = 10.dp), small = true)
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        trips.forEachIndexed { i, trip -> TripRow(trip, slab(i, trips.size), dark, onOpen = { onOpenTrip(trip) }, modifier = Modifier.arrive(5 + i)) }
+                // The first time after signing in nothing is read yet: quiet shapes of the
+                // real cards' size stand in, and fade over into the trips once they are there.
+                val listMotion = MaterialTheme.motionScheme
+                AnimatedContent(
+                    Data.loading,
+                    transitionSpec = { fadeIn(listMotion.slowEffectsSpec()) togetherWith fadeOut(listMotion.defaultEffectsSpec()) },
+                    label = "loading",
+                ) { loading ->
+                    if (loading) HomePlaceholders() else Column {
+                        if (Data.next != null) SectionTitle("Aankomend & onderweg", Modifier.padding(top = 22.dp, bottom = 12.dp).arrive(1))
+                        Data.next?.let { next -> NextTripCard(next, onOpen = { onOpenTrip(next) }, modifier = Modifier.arrive(2)) }
+                        PastOrShared(tab, onTab = { tab = it }, modifier = Modifier.padding(top = 26.dp, bottom = 4.dp).arrive(3))
+                        // A trip can be shown big, as the first one here, or as a row with its photo blurred behind it.
+                        val list = if (tab == 0) Data.past else Data.sharedTrips
+                        list.firstOrNull()?.let { first -> BigTripCard(first, onOpen = { onOpenTrip(first) }, modifier = Modifier.padding(top = 14.dp).arrive(4)) }
+                        list.drop(1).groupBy { it.year }.forEach { (year, trips) ->
+                            SectionTitle(year, Modifier.padding(top = 18.dp, bottom = 10.dp), small = true)
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                trips.forEachIndexed { i, trip -> TripRow(trip, slab(i, trips.size), dark, onOpen = { onOpenTrip(trip) }, modifier = Modifier.arrive(5 + i)) }
+                            }
+                        }
                     }
                 }
                 Spacer(Modifier.height(120.dp))
@@ -312,7 +370,7 @@ private fun TopRow(onLogoTap: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            LineIcon(Glyphs.logo, cs.primary, size = 34.dp, stroke = 2.2f)
+            LineIcon(Glyphs.logo, cs.primary, size = 34.dp, stroke = 2.1f)
             Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(620), fontSize = 23.sp, letterSpacing = (-0.02).em, color = cs.onBackground))
         }
         Spacer(Modifier.weight(1f))
@@ -474,7 +532,7 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip("${shortMonthName(trip.month)} ${trip.year}")
                 Chip("${trip.days} dagen")
-                trip.km?.let { Chip("%,d km".format(it).replace(',', '.')) }
+                trip.km?.takeIf { it > 0 }?.let { Chip("%,d km".format(it).replace(',', '.')) }
                 Spacer(Modifier.weight(1f))
                 FaceStack(trip.people, trip.extraPeople, ring = Color(0xFF2A2F36))
             }
@@ -489,19 +547,23 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
 @Composable
 private fun TripRow(trip: Trip, shape: Shape, dark: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
-    Box(modifier.fillMaxWidth().clip(shape).background(cs.surfaceContainerLow).bouncyClickable(onOpen)) {
+    // The row takes on the tone of its cover photo, tinted enough to read on; it flows
+    // over from the plain surface once the photo is there instead of popping in.
+    val tone = coverTone(trip)
+    val bg by animateColorAsState(
+        tone?.let { it.copy(alpha = if (dark) 0.34f else 0.24f).compositeOver(cs.surfaceContainerLow) } ?: cs.surfaceContainerLow,
+        MaterialTheme.motionScheme.slowEffectsSpec(), label = "rowTone",
+    )
+    Box(modifier.fillMaxWidth().clip(shape).background(bg).bouncyClickable(onOpen)) {
         val cover = trip.cover ?: trip.coverId
-        if (cover != null) {
-            Cover(trip, Modifier.matchParentSize().graphicsLayer { scaleX = 1.3f; scaleY = 1.3f }.blur(22.dp))
-            Box(Modifier.matchParentSize().background(if (dark) Color(0xA8101418) else Color(0xBDFFFFFF)))
-        }
         Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (cover != null) {
                 Cover(trip, Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)))
             }
             Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                 Text(trip.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 18.sp, color = cs.onSurface))
-                val km = trip.km?.let { " · " + "%,d".format(it).replace(',', '.') + " km" } ?: ""
+                // No distance measured: say nothing rather than "0 km".
+                val km = trip.km?.takeIf { it > 0 }?.let { " · " + "%,d".format(it).replace(',', '.') + " km" } ?: ""
                 Text("${trip.month} ${trip.year} · ${trip.days} dagen$km", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
             }
             Box(Modifier.size(40.dp).clip(CircleShape).bouncyClickable(), contentAlignment = Alignment.Center) {
@@ -525,9 +587,11 @@ private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modi
     val cs = MaterialTheme.colorScheme
     val items = listOf(Glyphs.compass to "Reizen", Glyphs.friends to "Reizigers", Glyphs.settings to "Instellingen")
     Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        // Its own tone and a soft shadow, so it stands off whatever scrolls under it.
         HorizontalFloatingToolbar(
             expanded = true,
-            colors = FloatingToolbarDefaults.standardFloatingToolbarColors(toolbarContainerColor = cs.surfaceContainerHigh),
+            colors = FloatingToolbarDefaults.standardFloatingToolbarColors(toolbarContainerColor = cs.surfaceContainerHighest),
+            expandedShadowElevation = 8.dp,
         ) {
             items.forEachIndexed { i, (icon, label) ->
                 val on = i == active
@@ -553,5 +617,30 @@ private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modi
         }
         Spacer(Modifier.height(12.dp))
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+}
+
+
+/** Stand-ins of the real cards' size while the trips are read: a slow, soft breathing, no shimmer racing across. */
+@Composable
+private fun HomePlaceholders() {
+    val cs = MaterialTheme.colorScheme
+    val pulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse").animateFloat(
+        initialValue = 0.55f, targetValue = 1f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable<Float>(
+            androidx.compose.animation.core.tween<Float>(1100, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "alpha",
+    )
+    val tone = cs.surfaceContainerHigh
+    Column(Modifier.graphicsLayer { alpha = pulse }) {
+        Box(Modifier.padding(top = 26.dp, bottom = 14.dp).size(width = 180.dp, height = 18.dp).clip(CircleShape).background(tone))
+        Box(Modifier.fillMaxWidth().height(196.dp).clip(RoundedCornerShape(32.dp)).background(tone))
+        Box(Modifier.padding(top = 26.dp).fillMaxWidth().height(52.dp).clip(CircleShape).background(tone))
+        Box(Modifier.padding(top = 18.dp).fillMaxWidth().aspectRatio(16f / 11f).clip(RoundedCornerShape(32.dp)).background(tone))
+        Column(Modifier.padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            repeat(3) { i -> Box(Modifier.fillMaxWidth().height(84.dp).clip(slab(i, 3)).background(tone)) }
+        }
     }
 }

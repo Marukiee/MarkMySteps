@@ -1,0 +1,212 @@
+package nl.markmaaktmedia.markmysteps.next
+
+import android.graphics.Color as AColor
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import org.maplibre.android.MapLibre
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.maps.MapLibreMapOptions
+import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory.circleColor
+import org.maplibre.android.style.layers.PropertyFactory.circleRadius
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
+import org.maplibre.android.style.layers.PropertyFactory.lineCap
+import org.maplibre.android.style.layers.PropertyFactory.lineColor
+import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
+import org.maplibre.android.style.layers.PropertyFactory.lineJoin
+import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
+import org.maplibre.android.style.layers.PropertyFactory.lineWidth
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.LineString
+import org.maplibre.geojson.Point
+import kotlin.math.asin
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
+import kotlin.math.atan
+import kotlin.math.exp
+import kotlin.math.hypot
+import kotlin.math.ln
+import kotlin.math.tan
+
+/*
+ * The trip's map: MapLibre with the same OpenFreeMap styles as the web app
+ * (positron by day, dark at night), so it has the names, borders and roads.
+ * On it the route in the trip's colour, flights as great-circle arcs, and a
+ * dot per stop. An upcoming trip is drawn dashed, as on the web.
+ */
+
+private const val LIGHT = "https://tiles.openfreemap.org/styles/positron"
+private const val DARK = "https://tiles.openfreemap.org/styles/dark"
+
+@Composable
+fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInsetDp: Int = 60) {
+    val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val density = LocalDensity.current.density
+    val color = legibleColor(trip.color, dark).toArgb()
+    val view = remember {
+        MapLibre.getInstance(context)
+        MapView(context, MapLibreMapOptions.createFromAttributes(context).textureMode(true).attributionEnabled(false).logoEnabled(false)).apply {
+            onCreate(null)
+        }
+    }
+
+    // The map follows the screen's life: running while visible, gone with the page.
+    DisposableEffect(lifecycle, view) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> view.onStart()
+                Lifecycle.Event.ON_RESUME -> view.onResume()
+                Lifecycle.Event.ON_PAUSE -> view.onPause()
+                Lifecycle.Event.ON_STOP -> view.onStop()
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) view.onStart()
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) view.onResume()
+        onDispose {
+            lifecycle.removeObserver(observer)
+            view.onPause(); view.onStop(); view.onDestroy()
+        }
+    }
+
+    val key = "${trip.id}/${trip.stops.size}/$dark"
+    AndroidView(factory = { view }, modifier = modifier, update = { map ->
+        if (map.tag == key) return@AndroidView
+        map.tag = key
+        map.getMapAsync { m ->
+            m.uiSettings.isRotateGesturesEnabled = false
+            m.uiSettings.isTiltGesturesEnabled = false
+            m.uiSettings.isCompassEnabled = false
+            m.setStyle(Style.Builder().fromUri(if (dark) DARK else LIGHT)) { style ->
+                draw(style, trip, color, dark)
+                val points = (trip.stops.map { it.at } + trip.route).ifEmpty { listOf(HomeAirport) }
+                val pad = (24 * density).toInt()
+                if (points.size == 1) {
+                    m.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(points[0].second, points[0].first), 9.0))
+                } else {
+                    val bounds = LatLngBounds.Builder().apply { points.forEach { include(LatLng(it.second, it.first)) } }.build()
+                    m.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, (96 * density).toInt(), pad, ((bottomInsetDp + 24) * density).toInt()))
+                }
+            }
+        }
+    })
+}
+
+private fun lineOf(points: List<LonLat>) = LineString.fromLngLats(points.map { Point.fromLngLat(it.first, it.second) })
+
+private fun draw(style: Style, trip: Trip, color: Int, dark: Boolean) {
+    // As the web app (lib/mapRoute.ts splitTrack): the recorded line is cut wherever two
+    // fixes lie more than 400 km apart. A jump the plan calls a flight is left to that
+    // flight's bow, one too far for anything but a plane gets a bow of its own, and the
+    // rest (a train through a tunnel) stays a plain line from one end to the other.
+    val legs = trip.flightLegs.ifEmpty { trip.flights.map { listOf(it.first, it.second) } }
+    val hops = legs.flatMap { it.zipWithNext() }
+    fun near(a: LonLat, b: LonLat, km: Double) = angle(a, b) * 111.2 <= km
+    fun planned(a: LonLat, b: LonLat): Boolean {
+        val reach = maxOf(60.0, angle(a, b) * 111.2 * 0.25)
+        return hops.any { (f, t) -> (near(a, f, reach) && near(b, t, reach)) || (near(a, t, reach) && near(b, f, reach)) }
+    }
+    val ground = mutableListOf<List<LonLat>>()
+    val bows = hops.map { (a, b) -> flightArc(a, b) }.toMutableList()
+    val pieces = trip.segments.ifEmpty { listOf(trip.route.ifEmpty { trip.stops.map { it.at } }) }
+    for (piece in pieces) {
+        var run = mutableListOf<LonLat>()
+        piece.forEachIndexed { i, b ->
+            val a = piece.getOrNull(i - 1)
+            if (a != null) {
+                val km = angle(a, b) * 111.2
+                if (km > 400 || planned(a, b) && km > 150) {
+                    if (run.size >= 2) ground += run
+                    if (!planned(a, b)) { if (km > 1800) bows += flightArc(a, b) else ground += listOf(a, b) }
+                    run = mutableListOf()
+                }
+            }
+            run += b
+        }
+        if (run.size >= 2) ground += run
+    }
+    val route = GeoJsonSource("route", FeatureCollection.fromFeatures(ground.map { Feature.fromGeometry(lineOf(it)) }))
+    val flights = GeoJsonSource("flights", FeatureCollection.fromFeatures(bows.map { Feature.fromGeometry(lineOf(it)) }))
+    val stops = GeoJsonSource("stops", FeatureCollection.fromFeatures(trip.stops.map { Feature.fromGeometry(Point.fromLngLat(it.at.first, it.at.second)) }))
+    style.addSource(route); style.addSource(flights); style.addSource(stops)
+
+    // A soft wide band under the line keeps it readable on busy streets.
+    style.addLayer(LineLayer("route-halo", "route").withProperties(
+        lineColor(if (dark) AColor.BLACK else AColor.WHITE), lineWidth(7f), lineOpacity(0.7f),
+        lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+    ))
+    style.addLayer(LineLayer("route-line", "route").withProperties(
+        lineColor(color), lineWidth(3.5f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+        *(if (trip.upcoming) arrayOf(lineDasharray(arrayOf(0.1f, 2.2f))) else emptyArray()),
+    ))
+    // A flight is a dashed bow, as on the web: the arc is drawn, not recorded.
+    style.addLayer(LineLayer("flight-line", "flights").withProperties(
+        lineColor(color), lineWidth(2.4f), lineDasharray(arrayOf(1.4f, 2.6f)), lineCap(Property.LINE_CAP_ROUND),
+    ))
+    style.addLayer(CircleLayer("stop-dots", "stops").withProperties(
+        circleRadius(6f), circleColor(color), circleStrokeColor(if (dark) AColor.BLACK else AColor.WHITE), circleStrokeWidth(2.5f),
+    ))
+}
+
+/**
+ * A flight as the web app draws it (lib/arc.ts): the great circle, bowed away
+ * from the ground in Mercator space, more for a long flight than a short hop,
+ * always to the north so two flights along one corridor never cross.
+ */
+fun flightArc(from: LonLat, to: LonLat, steps: Int = 48, lift: Double = 1.0): List<LonLat> {
+    val rad = Math.PI / 180
+    val deg = 180 / Math.PI
+    val lon1 = from.first * rad; val lat1 = from.second * rad
+    val lon2 = to.first * rad; val lat2 = to.second * rad
+    val d = 2 * asin(minOf(1.0, sqrt(sin((lat2 - lat1) / 2).let { it * it } + cos(lat1) * cos(lat2) * sin((lon2 - lon1) / 2).let { it * it })))
+    if (d < 1e-9) return listOf(from, to)
+    val base = (0..steps).map { i ->
+        val f = i.toDouble() / steps
+        val a = sin((1 - f) * d) / sin(d)
+        val b = sin(f * d) / sin(d)
+        val x = a * cos(lat1) * cos(lon1) + b * cos(lat2) * cos(lon2)
+        val y = a * cos(lat1) * sin(lon1) + b * cos(lat2) * sin(lon2)
+        val z = a * sin(lat1) + b * sin(lat2)
+        doubleArrayOf(atan2(y, x) * deg, atan2(z, sqrt(x * x + y * y)) * deg)
+    }
+    // Unwrapped, or a flight over the Pacific runs back across the whole map.
+    for (i in 1 until base.size) {
+        while (base[i][0] - base[i - 1][0] > 180) base[i][0] -= 360.0
+        while (base[i][0] - base[i - 1][0] < -180) base[i][0] += 360.0
+    }
+    fun mercY(lat: Double) = ln(tan(Math.PI / 4 + (lat.coerceIn(-85.0, 85.0) * rad) / 2)) * deg
+    fun unmercY(y: Double) = (2 * atan(exp(y * rad)) - Math.PI / 2) * deg
+    val ax = base[0][0]; val ay = mercY(base[0][1])
+    val bx = base[steps][0]; val by = mercY(base[steps][1])
+    val chord = hypot(bx - ax, by - ay).takeIf { it > 0 } ?: 1.0
+    var nx = -(by - ay) / chord
+    var ny = (bx - ax) / chord
+    if (ny < 0) { nx = -nx; ny = -ny }
+    val bow = lift * chord * (0.06 + 0.16 * minOf(1.0, (d * deg) / 70))
+    return base.mapIndexed { i, (lng, lat) ->
+        val k = bow * sin(Math.PI * i / steps)
+        (lng + nx * k) to unmercY(mercY(lat) + ny * k)
+    }
+}
