@@ -333,6 +333,9 @@ object Remote {
         }.getOrDefault(emptyList())
     }
 
+    /** A playable address for a video: the server hands out a short-lived token in the URL. */
+    suspend fun videoUrl(mediaId: String): String = Api.base + JSONObject(Api.get("/api/media/$mediaId/video-url")).getString("url")
+
     suspend fun friends(): List<Friend> {
         val a = JSONArray(Api.get("/api/users/friends"))
         return (0 until a.length()).map { a.getJSONObject(it) }.map {

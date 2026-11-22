@@ -349,6 +349,7 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
 
 @Composable
 private fun ViewerPhoto(media: Media, onHdr: (Boolean) -> Unit, onTap: () -> Unit, cornerPx: androidx.compose.ui.unit.Density.() -> Float = { 0f }) {
+    if (media.video) { ViewerVideo(media, onTap, cornerPx); return }
     // The preview first, so there is something at once; then the original replaces it.
     val preview by produceState<Bitmap?>(Photos.cached("${media.id}/preview"), media.id) {
         if (value == null) value = Photos.load(media.id, "preview")
@@ -533,6 +534,34 @@ private fun CommentsSheet(comments: List<Remote.Comment>, onDismiss: () -> Unit,
                     contentAlignment = Alignment.Center,
                 ) { LineIcon(Glyphs.send, if (ready) cs.onPrimary else cs.onSurfaceVariant, size = 20.dp, stroke = 2f) }
             }
+        }
+    }
+}
+
+
+/** A video plays where the photo would be: the still first, then the film, looping; a tap shows or hides the bars. */
+@Composable
+private fun ViewerVideo(media: Media, onTap: () -> Unit, cornerPx: androidx.compose.ui.unit.Density.() -> Float) {
+    val url by produceState<String?>(null, media.id) { value = runCatching { Remote.videoUrl(media.id) }.getOrNull() }
+    var ready by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = { onTap() }) }, contentAlignment = Alignment.Center) {
+        val still = Photos.cached("${media.id}/preview") ?: Photos.cached("${media.id}/thumbnail")
+        Box(Modifier.aspectRatio(media.ratio).graphicsLayer { shape = RoundedCornerShape(cornerPx()); clip = true }) {
+            url?.let { address ->
+                androidx.compose.ui.viewinterop.AndroidView(
+                    factory = { ctx ->
+                        android.widget.VideoView(ctx).apply {
+                            setVideoURI(android.net.Uri.parse(address))
+                            setOnPreparedListener { mp -> mp.isLooping = true; ready = true; start() }
+                        }
+                    },
+                    onRelease = { it.stopPlayback() },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            val stillAlpha by animateFloatAsState(if (ready) 0f else 1f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "still")
+            if (still != null) Image(still.asImageBitmap(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = stillAlpha })
+            if (!ready) LoadingIndicator(Modifier.align(Alignment.Center).size(48.dp), color = Color.White)
         }
     }
 }

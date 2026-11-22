@@ -205,7 +205,8 @@ private fun Photo(scene: Scene, modifier: Modifier) {
 @Composable
 private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Unit, bounds: TileBounds?, hidden: String?) {
     val cs = MaterialTheme.colorScheme
-    val photos = media.filter { !it.video }
+    // Photos and videos together, as on the web; a video carries a play badge.
+    val photos = media
     fun stopOn(date: LocalDate): Stop? = trip.stops.lastOrNull { s -> s.start != null && !s.start.isAfter(date) } ?: trip.stops.firstOrNull()
 
     // A row of places only when there is more than one: a single place says nothing a row would add.
@@ -289,10 +290,15 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                     Row(Modifier.fillMaxWidth().aspectRatio(ratio), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         row.forEach { m ->
                             // Each photo tells the viewer where it is; the one open in the viewer leaves its place empty.
-                            RemotePhoto(m.id, Modifier.weight(m.ratio).fillMaxSize()
+                            Box(Modifier.weight(m.ratio).fillMaxSize()
                                 .onGloballyPositioned { bounds?.tiles?.set(m.id, it) }
                                 .graphicsLayer { alpha = if (m.id == hidden) 0f else 1f }
-                                .clip(RoundedCornerShape(14.dp)).clickable { onPhoto(m) })
+                                .clip(RoundedCornerShape(14.dp)).clickable { onPhoto(m) }) {
+                                RemotePhoto(m.id, Modifier.fillMaxSize())
+                                if (m.video) Box(Modifier.align(Alignment.Center).size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                                    LineIcon(listOf(P("M9 7.5v9l7.5-4.5Z")), Color.White, size = 22.dp, filled = true)
+                                }
+                            }
                         }
                     }
                 }

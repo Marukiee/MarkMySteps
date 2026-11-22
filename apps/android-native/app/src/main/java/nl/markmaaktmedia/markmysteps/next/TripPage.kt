@@ -95,6 +95,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
     }
     var viewing by remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
     var people by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var bigMap by remember { androidx.compose.runtime.mutableStateOf(false) }
     val tiles = remember(base.id) { TileBounds() }
     var openPhoto by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var menu by remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -121,6 +122,12 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
         Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             Box(Modifier.fillMaxWidth().height(mapH)) {
                 TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 30)
+                // Open the map full screen, from its own corner as on the web.
+                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 44.dp)) {
+                    RoundButton(onClick = { bigMap = true }) {
+                        LineIcon(listOf(P("M4 9V4h5"), P("M20 9V4h-5"), P("M4 15v5h5"), P("M20 15v5h-5")), cs.onSurface, size = 20.dp, stroke = 2.2f)
+                    }
+                }
                 Box(
                     Modifier.fillMaxWidth().height(110.dp)
                         .background(Brush.verticalGradient(listOf(cs.background.copy(alpha = 0.55f), Color.Transparent))),
@@ -156,7 +163,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                 }
 
                 Column(Modifier.padding(top = 16.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
-                    if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.filter { !it.video }?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                    if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
                 }
                 Spacer(Modifier.height(24.dp))
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -187,10 +194,27 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                 }
             }
         }
+        // The map full screen: it grows open and closes with back or the cross.
+        androidx.compose.animation.AnimatedVisibility(
+            bigMap,
+            enter = androidx.compose.animation.fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec(), initialScale = 0.92f),
+            exit = androidx.compose.animation.fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.92f),
+        ) {
+            androidx.activity.compose.BackHandler { bigMap = false }
+            Box(Modifier.fillMaxSize().background(cs.background)) {
+                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 0)
+                Column {
+                    Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+                    Box(Modifier.padding(12.dp)) {
+                        RoundButton(onClick = { bigMap = false }) { LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
+                    }
+                }
+            }
+        }
         if (people) PeopleSheet(trip, onDismiss = { people = false }, onChanged = { scope.launch { Data.load() } })
         // A tapped photo opens full screen over everything, the toolbar included.
         viewing?.let { start ->
-            val photos = media.orEmpty().filter { !it.video }
+            val photos = media.orEmpty()
             if (photos.isNotEmpty()) PhotoViewer(trip, photos, start.coerceIn(0, photos.lastIndex), bounds = tiles, onCurrent = { openPhoto = it }, onClose = { viewing = null })
         }
     }
