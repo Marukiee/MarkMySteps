@@ -140,7 +140,7 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake
 @Composable
 private fun Make(onMake: (String) -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Text("Maken", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 8.dp))
+    Text("Samenvatting en fotoboek", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 8.dp))
     val items = listOf(
         Triple("book", "Fotoboek", "Een boek van de mooiste foto's per dag") to Glyphs.photo,
         Triple("summary", "Samenvatting", "Een poster om te delen") to Glyphs.sun,

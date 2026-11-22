@@ -490,7 +490,7 @@ fun tripFacts(trip: Trip, picked: Picked?): List<Pair<String, String>> {
     val countries = trip.stops.map { it.flag }.distinct().size
     return buildList {
         add("${trip.days}" to "dagen")
-        trip.km?.let { add("%,d".format(it).replace(',', '.') to "km") }
+        trip.km?.takeIf { it > 0 }?.let { add("%,d".format(it).replace(',', '.') to "km") }
         if (trip.stops.size > 1) add("${trip.stops.size}" to "stops")
         if (countries > 1) add("$countries" to "landen")
         else picked?.let { add("${it.photoCount}" to "foto's") }
