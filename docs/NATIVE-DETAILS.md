@@ -33,6 +33,11 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Cijfers wachten in hun eigen vorm tot de server antwoordt, nooit eerst verkeerde getallen of een 0. (klaar Android)
 - Achter de klok komt een achtergrond zodra een pagina eronder scrolt. (klaar Android)
 - Lange tekst wordt netjes afgekapt met een beletselteken, nooit midden in een regel afgesneden. (klaar Android)
+- Elk land heeft een vlag (de volledige flag-icons-set, ook Malta); nooit een leeg vlaggenvakje. (klaar)
+- Alles in het Nederlands, ook de kalender van Nieuwe reis, met maandag als eerste dag. (klaar)
+- Sheets gaan in één keer helemaal open, zodat één keer terug ze sluit. (klaar Android)
+- Menu's zonder schaduw. (klaar Android)
+- Rijen die de webversie openen tonen een "open buiten de app"-icoon, geen pijltje alsof het een eigen pagina is. (klaar Android)
 
 ## Navigatie en gebaren
 
@@ -73,6 +78,9 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Deellinks zoals in de web maar in de nieuwe stijl: de link als oranje (onderstreepte) link, Kopieer, een instellingenknop (wachtwoord, intrekken) in plaats van drie puntjes, en daaronder "wachtwoord (optioneel)" met "+ Deellink". (klaar Android)
 
 ## Routeplanner
+
+- Verplaatsen en toevoegen houden de heen- en terugreis aan de uiteinden: een nieuwe stop komt vóór de terugreis. (klaar)
+- De knop naar boven gaat opzij tijdens typen en onderaan de pagina, zodat hij nooit over de zoekresultaten valt. (klaar Android)
 
 - Nachten tellen goed: een reis van 19 dagen heeft 18 nachten. (klaar Android)
 - Het ringetje voor "x/y nachten gepland" heeft een duidelijke opening, zodat het niet als een fout lijkt. (klaar Android)
