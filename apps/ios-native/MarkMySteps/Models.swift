@@ -19,6 +19,11 @@ struct Person: Hashable {
     var hasAvatar = false
     /// OWNER, MEMBER (reisgenoot) or GUEST.
     var role = "MEMBER"
+    /// A companion whose phone may add to the route.
+    var canTrack = true
+    /// The days they were along, when not the whole trip.
+    var fromDate: Date? = nil
+    var toDate: Date? = nil
 }
 
 /// How a leg is travelled.

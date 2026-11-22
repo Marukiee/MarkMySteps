@@ -403,7 +403,8 @@ enum Remote {
                 return Person(
                     initial: String(name.prefix(1)).uppercased(), color: Color(hex: palette[(k + 3) % palette.count]),
                     name: name, username: user?["username"] as? String ?? "", userId: m["userId"] as? String,
-                    hasAvatar: user?["hasAvatar"] as? Bool ?? false, role: m["role"] as? String ?? "MEMBER"
+                    hasAvatar: user?["hasAvatar"] as? Bool ?? false, role: m["role"] as? String ?? "MEMBER",
+                    canTrack: m["canTrack"] as? Bool ?? true, fromDate: day(m["fromDate"]), toDate: day(m["toDate"])
                 )
             }
             // The faces are the travellers: owner and companions, not guests; yourself left out.
@@ -551,9 +552,29 @@ enum Remote {
         return parseFriends(try await Api.shared.get("/api/users/suggestions?q=\(q)&limit=8"))
     }
 
-    static func addMember(_ trip: Trip, username: String) async throws {
+    static func addMembers(_ trip: Trip, usernames: [String]) async throws {
+        guard let rid = trip.remoteId, !usernames.isEmpty else { return }
+        try await Api.shared.send("POST", "/api/trips/\(rid)/members", body: ["usernames": usernames])
+    }
+
+    /// Only what is given changes; a date of nil means the trip's own first or last day.
+    static func updateMember(_ trip: Trip, userId: String, role: String? = nil, canTrack: Bool? = nil, days: (from: Date?, to: Date?)? = nil) async throws {
         guard let rid = trip.remoteId else { return }
-        try await Api.shared.send("POST", "/api/trips/\(rid)/members", body: ["usernames": [username]])
+        var body: [String: Any] = [:]
+        if let role { body["role"] = role }
+        if let canTrack { body["canTrack"] = canTrack }
+        if let days {
+            body["fromDate"] = days.from.map { PlannerRemote.isoDay($0) } ?? NSNull()
+            body["toDate"] = days.to.map { PlannerRemote.isoDay($0) } ?? NSNull()
+        }
+        try await Api.shared.send("PATCH", "/api/trips/\(rid)/members/\(userId)", body: body)
+    }
+
+    /// A link's password read back; nil with recoverable false for a link from before passwords were kept readable.
+    static func linkPassword(_ trip: Trip, _ link: ShareLink) async throws -> (password: String?, recoverable: Bool) {
+        guard let rid = trip.remoteId else { return (nil, false) }
+        let o = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/share/\(link.id)/password")) as? [String: Any] ?? [:]
+        return ((o["password"] as? String).flatMap { $0.isEmpty ? nil : $0 }, o["recoverable"] as? Bool ?? false)
     }
 
     static func setRole(_ trip: Trip, userId: String, role: String) async throws {
