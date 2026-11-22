@@ -53,7 +53,7 @@ fun rememberLocationRequest(
             // Android asks only twice; after that only the phone's settings can say yes.
             val permanent = activity != null && !activity.shouldShowRequestPermissionRationale(android.Manifest.permission.ACCESS_FINE_LOCATION)
             onRefused(
-                if (permanent) Lang.text(R.string.locacc_off)
+                if (permanent) Lang.text(R.string.locacc_off, Lang.appName)
                 else Lang.text(R.string.locacc_denied),
                 permanent,
             )

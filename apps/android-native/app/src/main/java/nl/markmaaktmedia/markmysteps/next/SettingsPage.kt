@@ -332,7 +332,7 @@ private fun NotifyPanel() {
     var note by remember { mutableStateOf<String?>(null) }
     fun turnOn() { UiPrefs.changeNotify(true); NotifyJob.schedule(context); note = Lang.text(R.string.settings_notify_on) }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) turnOn() else note = Lang.text(R.string.settings_notify_denied)
+        if (granted) turnOn() else note = Lang.text(R.string.settings_notify_denied, Lang.appName)
     }
     Header(stringResource(R.string.settings_notify_title))
     Group(null, listOf(

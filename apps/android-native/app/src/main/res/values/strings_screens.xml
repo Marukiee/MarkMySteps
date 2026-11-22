@@ -48,7 +48,7 @@
     <string name="settings_airports_add">Add an airport</string>
     <string name="settings_airports_add_example">e.g. Gatwick</string>
     <string name="settings_notify_on">On. You\'ll hear about a new message within a quarter of an hour.</string>
-    <string name="settings_notify_denied">Your phone doesn\'t allow notifications for this app. Turn them on in Settings › Apps › MarkMySteps Dev › Notifications.</string>
+    <string name="settings_notify_denied">Your phone doesn\'t allow notifications for this app. Turn them on in Settings › Apps › %1$s › Notifications.</string>
     <string name="settings_notify_title">Notifications on your phone</string>
     <string name="settings_notify_toggle">Check for new notifications</string>
     <string name="settings_notify_toggle_hint">Requests and invitations arrive as notifications, even when the app is closed. Up to a quarter of an hour later.</string>
@@ -56,7 +56,7 @@
     <string name="settings_notify_allow_title">Allow notifications?</string>
     <string name="settings_notify_allow_text">Then the app can let you know when someone wants to follow along or adds you to a trip. Android will ask for permission in a moment.</string>
     <string name="settings_continue">Continue</string>
-    <string name="settings_tracking_denied">Without location the app can\'t record your route. Allow it in Settings › Apps › MarkMySteps Dev › Permissions › Location.</string>
+    <string name="settings_tracking_denied">Without location the app can\'t record your route. Allow it in Settings › Apps › %1$s › Permissions › Location.</string>
     <string name="settings_tracking">Route tracking</string>
     <string name="settings_tracking_hint">Records your route during a trip, even with the screen off. Each time, the app switches the GPS on briefly for one position; if you stay in the same place, that becomes one point. Without a network everything waits on your phone.</string>
     <string name="settings_tracking_interval">Save location every</string>

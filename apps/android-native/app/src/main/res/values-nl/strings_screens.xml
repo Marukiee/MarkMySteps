@@ -48,7 +48,7 @@
     <string name="settings_airports_add">Vliegveld toevoegen</string>
     <string name="settings_airports_add_example">bv. Eindhoven</string>
     <string name="settings_notify_on">Aan. Je hoort het binnen een kwartier na een nieuw bericht.</string>
-    <string name="settings_notify_denied">Je telefoon laat meldingen niet toe voor deze app. Zet ze aan bij Instellingen › Apps › MarkMySteps Dev › Meldingen.</string>
+    <string name="settings_notify_denied">Je telefoon laat meldingen niet toe voor deze app. Zet ze aan bij Instellingen › Apps › %1$s › Meldingen.</string>
     <string name="settings_notify_title">Meldingen op je telefoon</string>
     <string name="settings_notify_toggle">Scan op nieuwe meldingen</string>
     <string name="settings_notify_toggle_hint">Verzoeken en uitnodigingen komen binnen als melding, ook als de app dicht is. Tot een kwartier later.</string>
@@ -56,7 +56,7 @@
     <string name="settings_notify_allow_title">Meldingen toestaan?</string>
     <string name="settings_notify_allow_text">Dan kan de app je laten weten als iemand wil meekijken of je toevoegt aan een reis. Android vraagt je zo om toestemming.</string>
     <string name="settings_continue">Verder</string>
-    <string name="settings_tracking_denied">Zonder locatie kan de app je route niet bijhouden. Geef toegang bij Instellingen › Apps › MarkMySteps Dev › Toegang › Locatie.</string>
+    <string name="settings_tracking_denied">Zonder locatie kan de app je route niet bijhouden. Geef toegang bij Instellingen › Apps › %1$s › Toegang › Locatie.</string>
     <string name="settings_tracking">Route-tracking</string>
     <string name="settings_tracking_hint">Houdt je route bij tijdens een reis, ook met het scherm uit. Elke keer zet de app de GPS heel even aan voor één positie; blijf je op dezelfde plek, dan wordt dat één punt. Zonder netwerk wacht alles op je telefoon.</string>
     <string name="settings_tracking_interval">Locatie opslaan elke</string>

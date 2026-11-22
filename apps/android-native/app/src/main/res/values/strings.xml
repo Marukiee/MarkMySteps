@@ -636,7 +636,7 @@
     <string name="timeline_story_delete_body">Your story of this day disappears. This cannot be undone.</string>
 
     <!-- LocationAccess -->
-    <string name="locacc_off">Location is off for this app. Turn it on under Settings › Apps › MarkMySteps Dev › Access › Location.</string>
+    <string name="locacc_off">Location is off for this app. Turn it on under Settings › Apps › %1$s › Access › Location.</string>
     <string name="locacc_denied">This is not possible without access to your location. You can try again later.</string>
     <string name="locacc_continue">Continue</string>
 

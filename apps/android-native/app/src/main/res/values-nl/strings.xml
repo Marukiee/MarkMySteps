@@ -635,7 +635,7 @@
     <string name="timeline_story_delete_body">Je verhaal van deze dag verdwijnt. Dit kan niet ongedaan worden.</string>
 
     <!-- LocationAccess -->
-    <string name="locacc_off">Locatie staat uit voor deze app. Zet hem aan bij Instellingen › Apps › MarkMySteps Dev › Toegang › Locatie.</string>
+    <string name="locacc_off">Locatie staat uit voor deze app. Zet hem aan bij Instellingen › Apps › %1$s › Toegang › Locatie.</string>
     <string name="locacc_denied">Zonder toegang tot je locatie kan dit niet. Je kunt het later opnieuw proberen.</string>
     <string name="locacc_continue">Verder</string>
 

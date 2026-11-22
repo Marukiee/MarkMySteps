@@ -64,6 +64,9 @@ object Lang {
     /** For dates and country names on screen: Dutch, or British English so the week starts on Monday as well. */
     val locale: java.util.Locale get() = java.util.Locale.forLanguageTag(if (dutch) "nl-NL" else "en-GB")
 
+    /** The app's name as the phone's settings show it ("MarkMySteps", or "MarkMySteps Dev" for the test app). */
+    val appName: String get() = app.applicationInfo.loadLabel(app.packageManager).toString()
+
     /** A word outside a composable (a notification, an error from the server line). */
     fun text(@StringRes id: Int, vararg args: Any): String {
         val res = (if (Build.VERSION.SDK_INT >= 33) app else wrap(app)).resources
