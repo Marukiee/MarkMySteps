@@ -80,19 +80,25 @@ fun AppSheet(onDismiss: () -> Unit, content: @Composable AppSheetScope.() -> Uni
     var back by remember { mutableFloatStateOf(0f) }
     var height by remember { mutableFloatStateOf(1f) }
     var closing by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { down.animateTo(0f, tween(400, easing = EmphasizedDecelerate)) }
-    val close: () -> Unit = {
-        if (!closing) {
-            closing = true
-            scope.launch {
-                down.animateTo(1f, tween((300 * (1f - down.value)).toInt().coerceAtLeast(160), easing = EmphasizedAccelerate))
-                onDismiss()
-            }
+    // In: a short, settled spring, about a third of a second, no overshoot.
+    LaunchedEffect(Unit) { down.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 520f)) }
+    // Out: thrown hard it leaves at the speed of the throw; let go slowly (or by back or a tap) it glides out.
+    fun closeAt(velocity: Float) {
+        if (closing) return
+        closing = true
+        scope.launch {
+            val left = (1f - down.value) * height
+            val ms = if (velocity > 400f) (left / velocity * 1000f * 1.15f).toInt().coerceIn(90, 300)
+            else (320 * (1f - down.value)).toInt().coerceAtLeast(180)
+            val easing = if (velocity > 400f) androidx.compose.animation.core.LinearOutSlowInEasing else EmphasizedAccelerate
+            down.animateTo(1f, tween(ms, easing = easing))
+            onDismiss()
         }
     }
+    val close: () -> Unit = { closeAt(0f) }
     fun settle(velocity: Float) {
-        if (down.value > 0.25f || velocity > 1400f) close()
-        else scope.launch { down.animateTo(0f, tween(260, easing = Emphasized)) }
+        if (down.value > 0.3f || velocity > 1200f) closeAt(velocity)
+        else scope.launch { down.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 600f), initialVelocity = velocity / height) }
     }
     val nested = remember {
         object : NestedScrollConnection {
@@ -123,7 +129,8 @@ fun AppSheet(onDismiss: () -> Unit, content: @Composable AppSheetScope.() -> Uni
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         PredictiveBackHandler { events ->
             try {
-                events.collect { e -> back = e.progress; down.snapTo(e.progress * 0.9f) }
+                // Follows the finger on the emphasized curve: quick at first, then calmer, nearly gone at the end.
+                events.collect { e -> back = e.progress; down.snapTo(Emphasized.transform(e.progress) * 0.85f) }
                 back = 0f
                 close()
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
