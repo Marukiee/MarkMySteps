@@ -1026,7 +1026,10 @@ private fun ViewerVideo(
 private fun Filmstrip(list: List<Media>, current: Int, modifier: Modifier = Modifier, onPick: (Int) -> Unit, onScrub: (Int) -> Unit) {
     val state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = current)
     val haptics = rememberHaptics()
-    val slot = 44.dp
+    // The same 8 dp between every two tiles, also beside the larger one on screen: each slot is its tile plus
+    // that gap, so the slot of the one on screen grows with it.
+    val gap = 8.dp
+    val slot = 44.dp + gap
     val dragged by state.interactionSource.collectIsDraggedAsState()
     // From the finger on the strip until it comes to rest: the strip leads and the photo follows.
     var scrubbing by remember { mutableStateOf(false) }
@@ -1067,12 +1070,11 @@ private fun Filmstrip(list: List<Media>, current: Int, modifier: Modifier = Modi
         ) {
             items(list.size, key = { list[it].id }) { i ->
                 val on = i == current
-                // Every slot is as wide as the next, so the strip never shifts under the finger; only the tile
-                // in it grows. Calm, no overshoot (a bouncing size can go below zero).
+                // Calm, no overshoot (a bouncing size can go below zero).
                 val calm = androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(180, easing = androidx.compose.animation.core.FastOutSlowInEasing)
                 val w by animateDpAsState(if (on) 44.dp else 36.dp, calm, label = "stripW")
                 val h by animateDpAsState(if (on) 58.dp else 50.dp, calm, label = "stripH")
-                Box(Modifier.width(slot).height(60.dp).clickable { onPick(i) }, contentAlignment = Alignment.Center) {
+                Box(Modifier.width(w.coerceAtLeast(1.dp) + gap).height(60.dp).clickable { onPick(i) }, contentAlignment = Alignment.Center) {
                     Box(Modifier.width(w.coerceAtLeast(1.dp)).height(h.coerceAtLeast(1.dp)).clip(RoundedCornerShape(if (on) 10.dp else 7.dp)).background(Color.White.copy(alpha = 0.12f))) {
                         RemotePhoto(list[i].id, Modifier.fillMaxSize())
                     }
