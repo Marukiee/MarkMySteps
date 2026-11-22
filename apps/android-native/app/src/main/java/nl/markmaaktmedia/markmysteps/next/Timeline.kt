@@ -28,6 +28,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -250,7 +251,9 @@ private fun LiveTimeline(
                         // A tap goes to that place's first day, as on the web.
                         // Where that day is, asked again as the page scrolls: rows further down only take their real
                         // height once they come near, so one measured jump landed well short of the place.
-                        pick?.let { p -> val where = { dayAt[p.takenAt]?.takeIf { it.isAttached }?.boundsInRoot()?.top }; if (where() != null) onJump(where) }
+                        // The day's real position, not its visible bounds: those are cut off at the screen edge, so a day
+                        // further down measured 0 and the page scrolled up instead of down to it.
+                        pick?.let { p -> val where = { dayAt[p.takenAt]?.takeIf { it.isAttached }?.positionInRoot()?.y }; if (where() != null) onJump(where) }
                     }) {
                     if (pick != null) {
                         // The small picture the timeline uses too, fetched as soon as the photos are known: they are few.
