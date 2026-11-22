@@ -102,14 +102,24 @@ fun Cover(trip: Trip, modifier: Modifier, size: String = "thumbnail") {
     }
 }
 
-/** A photo from the server, fading in once it is there, on a quiet tone until then. */
+/**
+ * A photo from the server, fading in once it is there, on a quiet tone until then. [eager] fetches it
+ * before it comes on screen (a tile a screen ahead); [onShown] hears which picture it shows, so the
+ * viewer can grow from exactly that one.
+ */
 @Composable
-fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail") {
-    // Only fetched once it comes on screen, so a day with three hundred photos does not ask for all of them at once.
+fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail", eager: Boolean = false, onShown: ((Bitmap) -> Unit)? = null) {
+    // Otherwise only fetched once it comes on screen, so a day with three hundred photos does not ask for all of them at once.
     var seen by androidx.compose.runtime.remember(id) { mutableStateOf(Photos.cached("$id/$size") != null) }
-    val bitmap by produceState<Bitmap?>(Photos.cached("$id/$size"), id, size, seen) {
-        if (value == null && seen) value = Photos.load(id, size)
+    // Kept per photo: produceState remembers its value without keys, so a tile that was handed another
+    // photo (the rows reflowing) went on showing the previous one while a tap opened the new one.
+    val state = androidx.compose.runtime.remember(id, size) { mutableStateOf(Photos.cached("$id/$size")) }
+    val wanted = seen || eager
+    androidx.compose.runtime.LaunchedEffect(id, size, wanted) {
+        if (state.value == null && wanted) Photos.load(id, size)?.let { state.value = it }
     }
+    val bitmap = state.value
+    if (bitmap != null && onShown != null) androidx.compose.runtime.SideEffect { onShown(bitmap) }
     val shown by animateFloatAsState(if (bitmap != null) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "photo")
     // While it loads the frame breathes softly (as on the web), then the photo fades in over it.
     val breathe = if (bitmap == null) androidx.compose.animation.core.rememberInfiniteTransition(label = "breathe").animateFloat(

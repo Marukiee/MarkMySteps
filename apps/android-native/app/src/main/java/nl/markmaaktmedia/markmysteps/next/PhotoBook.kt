@@ -250,9 +250,9 @@ fun PhotoBook(trip: Trip, dark: Boolean, onBack: () -> Unit) {
             }
         }.distinctBy { it.photo.id }
     }
-    val media = remember(all) { all.map { Media(it.photo.id, localDay(it.photo.takenAt, it.photo.at, trip.stops), false, it.aspect) } }
+    val media = remember(all) { all.map { Media(it.photo.id, localDay(it.photo.takenAt, it.photo.at, trip.stops), it.photo.video, it.aspect, userId = it.photo.userId, lat = it.photo.at?.second, lon = it.photo.at?.first) } }
     val tiles = remember(trip.id) { TileBounds() }
-    var viewing by remember { mutableStateOf<Int?>(null) }
+    var viewing by remember { mutableStateOf<String?>(null) }
     var shown by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val accent = legibleColor(trip.color, dark)
@@ -267,7 +267,7 @@ fun PhotoBook(trip: Trip, dark: Boolean, onBack: () -> Unit) {
             } else {
                 BookPages(
                     sheets, pager,
-                    BookContext(trip, ready, dark, accent, tiles, hidden = shown, onPhoto = { r -> viewing = all.indexOf(r).takeIf { it >= 0 } }),
+                    BookContext(trip, ready, dark, accent, tiles, hidden = shown, onPhoto = { r -> viewing = r.photo.id }),
                     onBack = onBack,
                 )
             }

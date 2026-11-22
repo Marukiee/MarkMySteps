@@ -148,6 +148,20 @@ object Api {
     }
 
     /** An image from the server, with the token, as bytes. */
+    /**
+     * A file read as a stream (a download): [block] gets the open connection once the server said yes,
+     * so an original of fifty megabytes goes straight to disk and never sits in memory. Blocking.
+     */
+    fun <T> stream(path: String, retried: Boolean = false, block: (HttpURLConnection) -> T): T? {
+        val c = open("GET", path, auth = true)
+        return try {
+            c.readTimeout = 60_000
+            val code = c.responseCode
+            if (code == 401 && !retried && renew()) return stream(path, true, block)
+            if (code !in 200..299) null else block(c)
+        } catch (_: java.io.IOException) { null } finally { c.disconnect() }
+    }
+
     fun bytes(path: String, retried: Boolean = false): ByteArray? {
         val c = open("GET", path, auth = true)
         return try {
@@ -162,6 +176,8 @@ object Api {
 object Photos {
     /** A timeline asks for a hundred photos at once; six at a time is what the server likes. */
     private val lanes = kotlinx.coroutines.sync.Semaphore(6)
+    /** The photo you just tapped skips that queue: after a fling it would otherwise wait behind hundreds of tiles. */
+    private val urgent = kotlinx.coroutines.sync.Semaphore(3)
     // Small grid photos and big ones in separate caches, so a few previews never push the grid out
     // (that made a tapped photo open without its thumbnail to grow from).
     private val maxMem = Runtime.getRuntime().maxMemory()
@@ -204,14 +220,14 @@ object Photos {
      * screen, "original" for the file as taken, which is the one that still
      * carries an HDR gain map.
      */
-    suspend fun load(id: String, size: String): Bitmap? = loadPath("$id/$size", "/api/media/$id/thumbnail?size=$size")
+    suspend fun load(id: String, size: String, now: Boolean = false): Bitmap? = loadPath("$id/$size", "/api/media/$id/thumbnail?size=$size", now)
 
     /** Someone's profile photo. */
     suspend fun avatar(userId: String): Bitmap? = loadPath("avatar/$userId", "/api/users/$userId/avatar")
 
-    suspend fun loadPath(key: String, path: String): Bitmap? {
+    suspend fun loadPath(key: String, path: String, now: Boolean = false): Bitmap? {
         cache.get(key)?.let { return it }
-        return lanes.withPermitCompat {
+        return (if (now) urgent else lanes).withPermitCompat {
             cache.get(key)?.let { return@withPermitCompat it }
             val data = Api.bytes(path) ?: return@withPermitCompat null
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -231,7 +247,13 @@ object Photos {
 }
 
 /** A photo of a trip, with when it was taken. */
-data class Media(val id: String, val takenAt: LocalDate, val video: Boolean, val ratio: Float, val sized: Boolean = true)
+data class Media(
+    val id: String, val takenAt: LocalDate, val video: Boolean, val ratio: Float, val sized: Boolean = true,
+    /** Whose photo it is, and where it sits in their Immich (for "Openen in Immich"). */
+    val userId: String = "", val immichAssetId: String? = null,
+    /** Where it was taken, when the photo knows: the viewer turns it into a place name. */
+    val lat: Double? = null, val lon: Double? = null,
+)
 
 /** Reads the signed-in account's trips into the same shapes the demo uses. */
 object Remote {
@@ -636,7 +658,11 @@ object Remote {
                 video = o.optString("assetType") == "VIDEO",
                 ratio = if (w > 0 && h > 0) w.toFloat() / h else 1f,
                 sized = w > 0 && h > 0,
+                userId = o.optString("userId"),
+                immichAssetId = o.optString("immichAssetId").takeIf { it.isNotBlank() && it != "null" },
+                lat = o.optDouble("latitude").takeIf { !o.isNull("latitude") && !it.isNaN() },
+                lon = o.optDouble("longitude").takeIf { !o.isNull("longitude") && !it.isNaN() },
             )
-        }.sortedBy { it.takenAt }
+        }.distinctBy { it.id }.sortedBy { it.takenAt }
     }
 }
