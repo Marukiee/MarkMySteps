@@ -135,7 +135,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     val canEdit = trip.remoteId != null && me != null && (trip.ownerId == me || (myRole != null && myRole != "GUEST"))
     val trackingHere = Tracker.tripId != null && Tracker.tripId == trip.remoteId
     // Your own dot (and the button to it) only on a trip that is under way or being recorded, as the web.
-    val showLocate = canEdit && (trackingHere || trip.ongoingDay != null)
+    val ongoing = trip.ongoingDay != null || (Api.dryRun && MapDebug.ongoing)
+    val showLocate = canEdit && (trackingHere || ongoing)
     var cameraInline by remember { androidx.compose.runtime.mutableStateOf<MapCamera?>(null) }
     var cameraBig by remember { androidx.compose.runtime.mutableStateOf<MapCamera?>(null) }
     var mapNote by remember { androidx.compose.runtime.mutableStateOf<Pair<String, Boolean>?>(null) }
@@ -145,6 +146,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     var trainFor by remember { androidx.compose.runtime.mutableStateOf<Pair<LonLat, Pair<String, String>?>?>(null) }
     var pointsFor by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var pickFor by remember { androidx.compose.runtime.mutableStateOf<((Remote.Place) -> Unit)?>(null) }
+    androidx.compose.runtime.LaunchedEffect(canEdit) { if (canEdit && Api.dryRun && MapDebug.openPoints) { MapDebug.openPoints = false; kotlinx.coroutines.delay(800); pointsFor = trip.remoteId } }
     // Whose lines are on at first: the organiser's and your own (when you travel along), as the web; when neither
     // recorded anything, everyone's, so the map is never empty while there is a line to show.
     mapState.defaultUsers = { lines ->
@@ -167,7 +169,11 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
         if (!inFront) return@LaunchedEffect
         while (true) {
             runCatching { MapRemote.live(id) }.onSuccess { mapState.live = it }
-            if (trip.ongoingDay == null && mapState.live.isEmpty()) break
+            // Test mode only: a companion at the last stop, to see a face on the map without a trip under way.
+            if (Api.dryRun && MapDebug.fakeLive && mapState.live.isEmpty()) trip.members.firstOrNull { it.userId != me && it.role != "GUEST" }?.let { m ->
+                trip.stops.lastOrNull()?.let { s -> mapState.live = listOf(MapRemote.LiveFix(m.userId, m.name, m.hasAvatar, s.at, java.time.Instant.now().minusSeconds(420), null)) }
+            }
+            if (!ongoing && mapState.live.isEmpty()) break
             kotlinx.coroutines.delay(30_000)
         }
     }
@@ -230,9 +236,13 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     fun openFromMap(id: String) {
         scope.launch {
             if (tab != 0) { tab = 0; kotlinx.coroutines.delay(450) }
-            tiles.rect(id)?.let { r -> scroll.scrollBy(r.center.y - with(density) { screenH.dp.toPx() } / 2f) }
-            androidx.compose.runtime.withFrameNanos { }
-            androidx.compose.runtime.withFrameNanos { }
+            // Where the tile is, also far below the screen (boundsInRoot is cut off at the screen's edge, so it would be empty).
+            tiles.tiles[id]?.takeIf { it.isAttached }?.let { c ->
+                val middle = c.localToRoot(androidx.compose.ui.geometry.Offset(0f, c.size.height / 2f)).y
+                scroll.scrollBy(middle - with(density) { screenH.dp.toPx() } / 2f)
+            }
+            // A few frames for the rows near it to become real photos, so the viewer grows out of the right tile.
+            repeat(3) { androidx.compose.runtime.withFrameNanos { } }
             viewing = id
         }
     }
@@ -405,7 +415,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 val topDp = with(density) { WindowInsets.statusBars.getTop(this).toDp().value.toInt() } + 72
                 val bottomDp = with(density) { WindowInsets.navigationBars.getBottom(this).toDp().value.toInt() }
                 TripMap(
-                    trip, dark, Modifier.fillMaxSize(), bottomInsetDp = bottomDp, topInsetDp = topDp, fadeIn = true, photos = mapPhotos,
+                    // Clear of the day pill and the buttons at the bottom too.
+                    trip, dark, Modifier.fillMaxSize(), bottomInsetDp = bottomDp + 60, topInsetDp = topDp, fadeIn = true, photos = mapPhotos,
                     onPhoto = { m -> bigMap = false; openFromMap(m.id) }, state = mapState, onCamera = { cameraBig = it },
                     onLongPress = if (canEdit) ({ at -> lineAt = at }) else null,
                     onSelf = if (canEdit) ({ pointsFor = trip.remoteId }) else null,
@@ -453,7 +464,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
         // "X is bezig. Route bijhouden?" floats at the bottom of an ongoing trip until answered.
         TrackPrompt(
             trip,
-            visible = promptReady && !promptGone && !promptAsked && trip.remoteId != null && trip.ongoingDay != null && canTrack(trip) && !trackingHere && viewing == null && !bigMap,
+            visible = promptReady && !promptGone && !promptAsked && trip.remoteId != null && ongoing && canTrack(trip) && !trackingHere && viewing == null && !bigMap,
             onLater = { trip.remoteId?.let { TrackPromptPref.dismiss(context, it) }; promptGone = true },
             onStart = {
                 val id = trip.remoteId

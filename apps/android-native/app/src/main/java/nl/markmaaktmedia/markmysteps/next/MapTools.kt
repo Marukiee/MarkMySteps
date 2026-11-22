@@ -11,6 +11,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -83,7 +84,7 @@ private val PillText = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(60
 
 /** A solid pill over the map (never see-through, so it reads on any map), with an icon and a word. */
 @Composable
-fun MapPill(text: String, icon: List<Shape24>, modifier: Modifier = Modifier, active: Boolean = false, trailing: List<Shape24>? = null, onClick: () -> Unit) {
+fun MapPill(text: String, icon: List<Shape24>, modifier: Modifier = Modifier, active: Boolean = false, trailing: List<Shape24>? = null, maxText: androidx.compose.ui.unit.Dp = 150.dp, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val haptics = rememberHaptics()
     val bg by animateColorAsState(if (active) cs.primary else cs.surfaceContainerHighest, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "pill")
@@ -93,7 +94,7 @@ fun MapPill(text: String, icon: List<Shape24>, modifier: Modifier = Modifier, ac
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LineIcon(icon, fg, size = 16.dp, stroke = 2.1f)
-        Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = PillText.copy(color = fg), modifier = Modifier.padding(start = 6.dp).widthIn(max = 150.dp))
+        Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = PillText.copy(color = fg), modifier = Modifier.padding(start = 6.dp).widthIn(max = maxText))
         if (trailing != null) LineIcon(trailing, fg, size = 15.dp, stroke = 2.2f, modifier = Modifier.padding(start = 4.dp))
     }
 }
@@ -456,11 +457,12 @@ private fun LayerRow(m: Member, me: Boolean, color: Color, on: Boolean, seen: Pa
             Text(m.name + if (me) " (ik)" else "", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 16.sp, color = cs.onSurface))
             if (seen != null) Text(seen.first, style = ValueStyle.copy(color = if (seen.second) cs.primary else cs.onSurfaceVariant))
         }
+        // An empty ring when off, filling with the accent and a tick when on.
+        val ring by animateColorAsState(if (on) cs.primary else cs.outline, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "ring")
         Box(
-            Modifier.size(26.dp).clip(CircleShape).background(fill).then(if (!on) Modifier.background(Color.Transparent) else Modifier),
+            Modifier.size(26.dp).clip(CircleShape).background(fill).border(2.dp, ring, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            if (!on) Box(Modifier.size(26.dp).clip(CircleShape).background(cs.outlineVariant.copy(alpha = 0.5f)).padding(2.dp).clip(CircleShape).background(cs.surfaceContainerHigh))
             LineIcon(Glyphs.check, cs.onPrimary, size = 16.dp, stroke = 2.8f, modifier = Modifier.graphicsLayer { scaleX = tick; scaleY = tick; alpha = tick })
         }
     }
@@ -602,9 +604,11 @@ fun androidx.compose.foundation.layout.BoxScope.MapCorners(
     // Level with the round buttons: a 40 dp pill on a 48 dp button's line.
     Column(Modifier.align(Alignment.BottomStart).padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         AnimatedVisibility(state.photoUsers?.isEmpty() == true, enter = fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.fastSpatialSpec(), initialScale = 0.8f), exit = fadeOut(motion.fastEffectsSpec()) + scaleOut(motion.fastSpatialSpec(), targetScale = 0.8f)) {
-            MapPill("Foto's staan uit op de kaart", Glyphs.camera, onClick = onPhotosOff)
+            MapPill("Foto's staan uit op de kaart", Glyphs.camera, maxText = 260.dp, onClick = onPhotosOff)
         }
         DayPill(state, onDays)
     }
-    MapNote(note?.first, Modifier.align(Alignment.BottomCenter).padding(bottom = 60.dp), onClick = if (note?.second == true) onNote else null)
+    // Above the pills on the left, never over them.
+    val noteLift by androidx.compose.animation.core.animateDpAsState(if (state.photoUsers?.isEmpty() == true) 108.dp else 60.dp, motion.defaultSpatialSpec(), label = "noteLift")
+    MapNote(note?.first, Modifier.align(Alignment.BottomCenter).padding(bottom = noteLift), onClick = if (note?.second == true) onNote else null)
 }

@@ -191,6 +191,14 @@ fun FullScreenLayer(onDismiss: () -> Unit, content: @Composable (close: () -> Un
         }
     }
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        // Its own window: the clock and icons take the page's light or dark, so they never vanish on it.
+        val dialogView = androidx.compose.ui.platform.LocalView.current
+        val darkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f
+        androidx.compose.runtime.SideEffect {
+            (dialogView.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.let { w ->
+                androidx.core.view.WindowCompat.getInsetsController(w, dialogView).apply { isAppearanceLightStatusBars = !darkPage; isAppearanceLightNavigationBars = !darkPage }
+            }
+        }
         androidx.activity.compose.PredictiveBackHandler { events ->
             try { events.collect { back = it.progress }; back = 0f; close() } catch (e: kotlin.coroutines.cancellation.CancellationException) { back = 0f; throw e }
         }
@@ -323,9 +331,9 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
                         Text(clock(sel.time), style = TitleStyle.copy(color = cs.onSurface))
                         Text((SourceName[sel.source] ?: sel.source) + (sel.accuracy?.let { " · ±${it.toInt()} m" } ?: ""), style = ValueStyle.copy(color = cs.onSurfaceVariant))
                     }
-                    SoftButton("Sluiten", { selected = null }, Modifier.width(110.dp))
+                    SoftButton("Sluiten", { selected = null })
                     Spacer(Modifier.width(8.dp))
-                    MainButton("Verwijderen", { remove() }, Modifier.width(140.dp), icon = Glyphs.trash, danger = true, busy = busy)
+                    MainButton("Verwijderen", { remove() }, icon = Glyphs.trash, danger = true, busy = busy)
                 }
             }
         }

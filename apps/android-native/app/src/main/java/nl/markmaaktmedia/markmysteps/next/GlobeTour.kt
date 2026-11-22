@@ -117,7 +117,8 @@ internal class TourTrip(val trip: Trip) {
         else -> emptyList()
     }
     val flights: List<List<LonLat>> = trip.flightLegs.ifEmpty { trip.flights.map { listOf(it.first, it.second) } }
-    val anchor: LonLat = trip.route.firstOrNull() ?: trip.stops.firstOrNull()?.at ?: HomeAirport
+    // The trip's own dot when one was placed by hand (trip settings), else where its route starts.
+    val anchor: LonLat = trip.marker ?: trip.route.firstOrNull() ?: trip.stops.firstOrNull()?.at ?: HomeAirport
     val size: Double = trip.km?.takeIf { it > 0 }?.toDouble() ?: (trip.days * 40.0)
 
     /** What a tap can hit: the route, the stops and the far ends of flights. */

@@ -131,7 +131,7 @@ object MapRemote {
     private fun dutchCountry(cc: String?, fallback: String): String =
         cc?.let { java.util.Locale("", it).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL")) }?.takeIf { it.isNotBlank() && it != cc } ?: fallback
 
-    private val MainStation = listOf("centraal", "central", "hauptbahnhof", "hbf", "centrale", "gare", "termini", "main", "estació", "estación")
+    private val MainStation = listOf("centraal", "central", "centrale", "hauptbahnhof", "hbf", "hovedbanegård", "hlavní nádraží", "termini", "kolodvor", "główny", "principal")
 
     /** Stations only, never towns: a town's point is its centre, and rails drawn from there start off the platform. */
     suspend fun stations(query: String): List<Station> = withContext(Dispatchers.IO) {
@@ -214,4 +214,16 @@ class TripMapState(val tripId: String?) {
             routes = r
         }
     }
+}
+
+/**
+ * Test switches for the trip map, only ever set in test mode (dryRun), from the start intent: "mapOngoing"
+ * treats the opened trip as under way (your own dot, the locate button, the tracking question), "mapPoints"
+ * opens its points editor straight away, and "mapLive" puts a companion on the map, so a screenshot can show
+ * what only a trip under way would. They never write anything; test mode holds every write back anyway.
+ */
+object MapDebug {
+    var ongoing = false
+    var openPoints = false
+    var fakeLive = false
 }

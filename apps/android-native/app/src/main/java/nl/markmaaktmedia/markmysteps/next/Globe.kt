@@ -395,6 +395,12 @@ private fun buildScene(trips: List<Trip>, dark: Boolean): GlobeScene {
     fun snapToStop(trip: Trip, p: LonLat): LonLat =
         trip.stops.map { it.at }.filter { angle(it, p) < AIRPORT_OF_CITY_DEG }.minByOrNull { angle(it, p) } ?: p
     for (trip in trips) {
+        // A spot picked by hand in the trip's settings is its one dot, as on the web: snapped onto the nearest
+        // point of the recorded line, so it always sits on the route and never on empty land.
+        trip.marker?.let { mk ->
+            addEndpoint(trip.segments.flatten().minByOrNull { angle(it, mk) } ?: mk, trip)
+            continue
+        }
         val points = mutableListOf<LonLat>()
         trip.route.firstOrNull()?.let { points += it }
         trip.route.lastOrNull()?.let { points += it }
@@ -421,7 +427,7 @@ private fun buildScene(trips: List<Trip>, dark: Boolean): GlobeScene {
     }
 
     val labelAt = trips.associate { trip ->
-        val want = trip.segments.firstOrNull()?.firstOrNull() ?: trip.route.firstOrNull() ?: trip.stops.firstOrNull()?.at ?: HomeAirport
+        val want = trip.marker ?: trip.segments.firstOrNull()?.firstOrNull() ?: trip.route.firstOrNull() ?: trip.stops.firstOrNull()?.at ?: HomeAirport
         trip.id to (places.filter { trip in it.members }.minByOrNull { angle(it.at, want) }?.at ?: want)
     }
     val freeStops = trips.associate { trip ->

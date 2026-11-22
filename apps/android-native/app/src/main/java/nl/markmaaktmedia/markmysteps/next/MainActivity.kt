@@ -28,6 +28,9 @@ class MainActivity : ComponentActivity() {
             Api.dryRun = true
             // Said at start, so a test can check the flag took before it taps anything that writes.
             android.util.Log.i("MmsDryRun", "dry run on: writes are answered on the phone and never sent")
+            MapDebug.ongoing = intent.getBooleanExtra("mapOngoing", false)
+            MapDebug.openPoints = intent.getBooleanExtra("mapPoints", false)
+            MapDebug.fakeLive = intent.getBooleanExtra("mapLive", false)
         }
         ThemePref.init(applicationContext)
         MapStylePref.init(applicationContext)

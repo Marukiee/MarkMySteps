@@ -175,6 +175,8 @@ fun TripMap(
     // The style that is up now, and a count that goes up each time a new one is, so the data is pushed into it.
     var style by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Style?>(null) }
     var label by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<StopLabel?>(null) }
+    // Once a finger moved the map, it is left where it was put (the stops coming in later do not reframe it).
+    var userMoved by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     // The newest callbacks, read by listeners that are attached only once.
     val calls = androidx.compose.runtime.rememberUpdatedState(Triple(onLongPress, onTap, trip))
     DisposableEffect(view) {
@@ -193,6 +195,7 @@ fun TripMap(
                 mapRef = m
                 m.addOnCameraMoveListener { cameraTick++ }
                 m.addOnCameraIdleListener { cameraTick++ }
+                m.addOnCameraMoveStartedListener { reason -> if (reason == org.maplibre.android.maps.MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) userMoved = true }
                 // A tap on a stop's dot opens its label; anywhere else closes it and goes to the page.
                 m.addOnMapClickListener { ll ->
                     val p = m.projection.toScreenLocation(ll)
@@ -269,6 +272,11 @@ fun TripMap(
     androidx.compose.runtime.LaunchedEffect(style, routes, routeUsers, day, trip.stops, hidden, photos) {
         val st = style ?: return@LaunchedEffect
         runCatching { render(st, trip, state, color, dark, photos) }
+    }
+    // The plan arrives after the map: the trip is framed again with its stops, unless someone moved the map.
+    val stopCount = trip.stops.size
+    androidx.compose.runtime.LaunchedEffect(stopCount) {
+        if (stopCount > 0 && style != null && !userMoved && state?.day == null) fit[0]?.invoke(ready)
     }
     // A stop that went out of the day (or out of the plan) takes its label with it.
     androidx.compose.runtime.LaunchedEffect(day, trip.stops) { label = label?.let { l -> labelFor(trip, l.id)?.takeIf { visibleOn(trip, l.id, day) } } }
@@ -389,7 +397,10 @@ private fun render(style: Style, trip: Trip, state: TripMapState?, color: Int, d
     fun near(a: LonLat, b: LonLat, km: Double) = angle(a, b) * 111.2 <= km
     // One day shows that day's flights only: a hop that starts or ends at a place of that day.
     val allHops = legs.flatMap { it.zipWithNext() }
-    val hops = if (day == null) allHops else allHops.filter { (a, b) -> stops.any { near(it.at, a, 120.0) || near(it.at, b, 120.0) } }
+    // A flight belongs to the day it lands at a stop it arrives at, or leaves the stop it departs from.
+    val hops = if (day == null) allHops else allHops.filter { (a, b) ->
+        stops.any { s -> s.start != null && ((s.start == day && near(s.at, b, 150.0)) || (s.start.plusDays(s.nights.toLong()) == day && near(s.at, a, 150.0))) }
+    }
     fun planned(a: LonLat, b: LonLat): Boolean {
         val reach = maxOf(60.0, angle(a, b) * 111.2 * 0.25)
         return allHops.any { (f, t) -> (near(a, f, reach) && near(b, t, reach)) || (near(a, t, reach) && near(b, f, reach)) }
