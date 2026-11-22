@@ -347,6 +347,18 @@ private struct Filmstrip: View {
     @State private var lastTick = -1
     @State private var width: CGFloat = 402
 
+    init(photos: [Media], pos: CGFloat, scrubbing: Binding<Bool>, onScrub: @escaping (CGFloat) -> Void,
+         onSettle: @escaping (Int) -> Void, onTap: @escaping (Int) -> Void) {
+        self.photos = photos
+        self.pos = pos
+        _scrubbing = scrubbing
+        self.onScrub = onScrub
+        self.onSettle = onSettle
+        self.onTap = onTap
+        // Opened deep in a long trip: the strip starts on that photo from its first frame.
+        _scroll = State(initialValue: ScrollPosition(x: pos * Filmstrip.slot))
+    }
+
     private static let tile: CGFloat = 36
     private static let slot: CGFloat = 44
     private static let grow: CGFloat = 0.26
@@ -355,9 +367,6 @@ private struct Filmstrip: View {
         let side = max(0, (width - Filmstrip.slot) / 2)
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
-                // Room before the first tile and after the last, so every tile can stand in the middle; with it, tile
-                // i stands in the middle at exactly i slots, whatever the width.
-                Color.clear.frame(width: side, height: 1)
                 ForEach(Array(photos.enumerated()), id: \.element.id) { i, m in
                     Button { onTap(i) } label: {
                         MediaView(media: m)
@@ -372,8 +381,12 @@ private struct Filmstrip: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Foto \(i + 1) van \(photos.count)")
                 }
-                Color.clear.frame(width: side, height: 1)
             }
+            .scrollTargetLayout()
+            // Room before the first tile and after the last, so every tile can stand in the middle; with it, tile i
+            // stands in the middle at exactly i slots, whatever the width. Padding, not a spacer in the row: the lazy
+            // row then only holds equal tiles and knows its length exactly, also far from where it is drawn.
+            .padding(.horizontal, side)
         }
         .scrollTargetBehavior(SlotSnap(slot: Filmstrip.slot, count: photos.count))
         .scrollPosition($scroll)
@@ -410,7 +423,14 @@ private struct Filmstrip: View {
         // The photo leads: the strip stands exactly where the pager is, every frame.
         .onChange(of: pos) { _, p in if !scrubbing { place(p) } }
         .onChange(of: width) { place(pos) }
-        .onAppear { place(pos) }
+        .onAppear {
+            place(pos)
+            // Once more after the first layout, by the photo itself, so a strip opened deep in a long trip stands on it.
+            DispatchQueue.main.async {
+                guard !scrubbing, photos.indices.contains(Int(pos.rounded())) else { return }
+                scroll.scrollTo(id: photos[Int(pos.rounded())].id, anchor: .center)
+            }
+        }
     }
 
     /// Tile `p` in the middle.

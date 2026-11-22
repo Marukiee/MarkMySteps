@@ -298,14 +298,20 @@ struct TripView: View {
             withAnimation(.smooth(duration: 0.5)) { proxy.scrollTo(id, anchor: .top) }
             return
         }
-        let inset = scroll.contentInset
-        scroll.contentInset.top = inset.top + bar
+        // The page's own inset is kept once, so a second tap during a glide never makes the extra room stay.
+        let base = pageScroll.baseTop ?? scroll.contentInset.top
+        pageScroll.baseTop = base
+        pageScroll.jumps += 1
+        let jump = pageScroll.jumps
+        scroll.contentInset.top = base + bar
         withAnimation(.smooth(duration: 0.55)) { proxy.scrollTo(id, anchor: .top) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            guard pageScroll.jumps == jump else { return }
             // The inset goes again without moving anything: the content stays where it is.
             let offset = scroll.contentOffset
-            scroll.contentInset.top = inset.top
+            scroll.contentInset.top = base
             scroll.contentOffset = offset
+            pageScroll.baseTop = nil
         }
     }
 
@@ -539,7 +545,12 @@ struct TripView: View {
 
 /// Finds the scroll view a view sits in, so the trip page can glide to an exact offset.
 struct ScrollFinder: UIViewRepresentable {
-    final class Holder { weak var view: UIScrollView? }
+    final class Holder {
+        weak var view: UIScrollView?
+        /// The scroll view's own top inset while a jump lends it extra room, and which jump is the latest.
+        var baseTop: CGFloat?
+        var jumps = 0
+    }
     let holder: Holder
 
     func makeUIView(context: Context) -> UIView {
