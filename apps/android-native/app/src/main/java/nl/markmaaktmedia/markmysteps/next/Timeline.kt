@@ -28,6 +28,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
@@ -233,7 +234,8 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                         pick?.let { p -> dayAt[p.takenAt]?.takeIf { it.isAttached }?.let { onJump(it.boundsInRoot().top) } }
                     }) {
                     if (pick != null) {
-                        RemotePhoto(pick.id, Modifier.fillMaxSize(), "preview")
+                        // The small picture the timeline uses too, fetched as soon as the photos are known: they are few.
+                        RemotePhoto(pick.id, Modifier.fillMaxSize(), eager = true)
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.62f))))
                     } else {
                         // No photo yet: the place in the trip's colour, with its flag, instead of an empty frame.
@@ -263,6 +265,11 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
 
     val line = cs.outlineVariant
     val days = photos.groupBy { it.takenAt }.toSortedMap().entries.toList()
+    // Each photo's place in the timeline, for fetching the first screens before anything is scrolled.
+    val order = androidx.compose.runtime.remember(photos) { days.flatMap { it.value }.withIndex().associate { (i, m) -> m.id to i } }
+    // The photos whose rows are real photos right now (see the rows below).
+    val real = androidx.compose.runtime.remember(photos) { HashSet<String>() }
+    val windowH = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height.toFloat().coerceAtLeast(1f)
     // Pinch the timeline to make the photos bigger or smaller: five sizes, a step per 1.3x of finger distance (web).
     var perRow by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(2) }
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
@@ -289,7 +296,7 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
             }
         }
     }) {
-    days.forEachIndexed { d, (date, list) ->
+    days.forEachIndexed { d, (date, list) -> androidx.compose.runtime.key(date) {
         val last = d == days.lastIndex
         val stop = stopOn(date)
         var all by androidx.compose.runtime.saveable.rememberSaveable(date.toString()) { androidx.compose.runtime.mutableStateOf(false) }
@@ -341,17 +348,51 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
             ) {
                 val shown = list
                 justified(shown, perRow).forEach { row ->
-                    val ratio = row.sumOf { Photos.ratioOf(it).toDouble() }.toFloat().coerceAtLeast(0.8f)
-                    Row(Modifier.fillMaxWidth().aspectRatio(ratio), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        row.forEach { m ->
-                            // Each photo tells the viewer where it is; the one open in the viewer leaves its place empty.
-                            Box(Modifier.weight(Photos.ratioOf(m)).fillMaxSize()
-                                .onGloballyPositioned { bounds?.tiles?.set(m.id, it) }
-                                .graphicsLayer { alpha = if (m.id == hidden) 0f else 1f }
-                                .clip(RoundedCornerShape(14.dp)).clickable { onPhoto(m) }) {
-                                RemotePhoto(m.id, Modifier.fillMaxSize())
-                                if (m.video) Box(Modifier.align(Alignment.Center).size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
-                                    LineIcon(listOf(P("M9 7.5v9l7.5-4.5Z")), Color.White, size = 22.dp, filled = true)
+                    androidx.compose.runtime.key(row.first().id) {
+                        val ratio = row.sumOf { Photos.ratioOf(it).toDouble() }.toFloat().coerceAtLeast(0.8f)
+                        // Only the rows near the screen are real photos (a screen and a half above, two and a half screens past the bottom edge,
+                        // so they are fetched before you get there); the rest are their quiet shapes at the same size, so
+                        // opening a trip with six hundred photos composes one screen and not all of them.
+                        // A row that reflowed (a size learnt, a pinch) stays real if its photos were: no flash of shapes.
+                        var near by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf((order[row.first().id] ?: 0) < EAGER_FIRST || row.any { it.id in real }) }
+                        androidx.compose.runtime.SideEffect { if (near) row.forEach { real += it.id } else row.forEach { real -= it.id } }
+                        val rowModifier = Modifier.fillMaxWidth().aspectRatio(ratio).onGloballyPositioned { c ->
+                            if (!c.isAttached) return@onGloballyPositioned
+                            val top = c.positionInWindow().y
+                            val bottom = top + c.size.height
+                            if (!near && bottom > -windowH * 1.5f && top < windowH * 3.5f) near = true
+                            else if (near && (bottom < -windowH * 4f || top > windowH * 6f)) near = false
+                            // A shape stands in for its photos in TileBounds, so the page can still scroll to one of them.
+                            if (!near) row.forEach { m -> bounds?.tiles?.set(m.id, c) }
+                        }
+                        if (!near) {
+                            val tone = cs.surfaceContainerHigh
+                            Box(rowModifier.drawBehind {
+                                val gap = 6.dp.toPx(); val r = TileRadius.toPx()
+                                val total = row.sumOf { Photos.ratioOf(it).toDouble() }.toFloat()
+                                val room = size.width - gap * (row.size - 1)
+                                var x = 0f
+                                row.forEach { m ->
+                                    val w = room * Photos.ratioOf(m) / total
+                                    drawRoundRect(tone, Offset(x, 0f), androidx.compose.ui.geometry.Size(w, size.height), androidx.compose.ui.geometry.CornerRadius(r))
+                                    x += w + gap
+                                }
+                            })
+                        } else Row(rowModifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            row.forEach { m ->
+                                // Keyed by the photo, so when the rows reflow (a size learnt, a pinch) each tile keeps its own
+                                // photo, its place in TileBounds and its tap, instead of taking over its neighbour's slot.
+                                androidx.compose.runtime.key(m.id) {
+                                    // Each photo tells the viewer where it is; the one open in the viewer leaves its place empty.
+                                    Box(Modifier.weight(Photos.ratioOf(m)).fillMaxSize()
+                                        .onGloballyPositioned { bounds?.tiles?.set(m.id, it) }
+                                        .graphicsLayer { alpha = if (m.id == hidden) 0f else 1f }
+                                        .clip(RoundedCornerShape(TileRadius)).clickable { onPhoto(m) }) {
+                                        RemotePhoto(m.id, Modifier.fillMaxSize(), eager = true, onShown = { b -> bounds?.shown(m.id, b) })
+                                        if (m.video) Box(Modifier.align(Alignment.Center).size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                                            LineIcon(listOf(P("M9 7.5v9l7.5-4.5Z")), Color.White, size = 22.dp, filled = true)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -359,9 +400,15 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                 }
             }
         }
-    }
+    } }
     }
 }
+
+/** How many photos at the top of a timeline are fetched straight away, about the first two screens. */
+private const val EAGER_FIRST = 24
+
+/** The rounding of a timeline photo; the viewer rounds to the same when it grows out of one or goes back. */
+val TileRadius = 14.dp
 
 /**
  * Rows of photos that fill the width at a pleasant height: two side by side

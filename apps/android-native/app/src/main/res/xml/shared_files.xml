@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The one folder the app hands to other apps: a photo's original, for "Openen in" and "Delen". -->
+<paths>
+    <cache-path name="shared" path="shared/" />
+</paths>

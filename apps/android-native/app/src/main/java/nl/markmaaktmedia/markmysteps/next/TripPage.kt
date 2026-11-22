@@ -100,7 +100,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
             value = base.copy(stops = stops, outbound = legs.first, back = legs.second)
         }
     }
-    var viewing by remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
+    // The id of the photo open in the viewer: the tapped photo itself, never a position in a list.
+    var viewing by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var people by remember { androidx.compose.runtime.mutableStateOf(Data.peopleFor == base.id) }
     androidx.compose.runtime.LaunchedEffect(Unit) { if (Data.peopleFor == base.id) Data.peopleFor = null }
     // The photo book or the summary over the page (PhotoBook.kt, Summary.kt), from the people sheet.
@@ -138,7 +139,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 // until then the page colour holds its place, and the map fades in over it.
                 var mapReady by remember { androidx.compose.runtime.mutableStateOf(false) }
                 androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(380); mapReady = true }
-                if (mapReady) TripMap(trip, dark, Modifier.fillMaxSize(), fadeIn = true, bottomInsetDp = 30, topInsetDp = 112, photos = media.orEmpty(), onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } })
+                if (mapReady) TripMap(trip, dark, Modifier.fillMaxSize(), fadeIn = true, bottomInsetDp = 30, topInsetDp = 112, photos = media.orEmpty(), onPhoto = { m -> viewing = m.id })
                 // Open the map full screen, from its own corner as on the web.
                 // Fades away as the map scrolls under the top buttons, so it never overlaps them.
                 Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 44.dp).graphicsLayer { alpha = (1f - scroll.value / (mapH.toPx() * 0.45f)).coerceIn(0f, 1f) }) {
@@ -155,8 +156,9 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
             // The sheet, pulled up over the bottom of the map.
             Column(
                 Modifier.offset(y = (-30).dp).fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                    .background(cs.background)
+                    // Drawn round, not clipped: a clip makes this sheet one rounded layer, and touches far down a long
+                    // timeline (some 8000 px into it) fell outside that layer's outline, so a tap on a photo did nothing.
+                    .background(cs.background, RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
                     .padding(horizontal = 16.dp),
             ) {
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(cs.outlineVariant))
@@ -195,7 +197,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                         label = "tripTab",
                     ) { which ->
                         Column {
-                            if (which == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark, media) }
+                            if (which == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = m.id }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
                         }
                     }
                 }
@@ -272,7 +274,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 // Clear of the clock and the cross at the top and of the gesture bar at the bottom.
                 val topDp = with(density) { WindowInsets.statusBars.getTop(this).toDp().value.toInt() } + 72
                 val bottomDp = with(density) { WindowInsets.navigationBars.getBottom(this).toDp().value.toInt() }
-                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = bottomDp, topInsetDp = topDp, fadeIn = true, photos = media.orEmpty(), onPhoto = { m -> bigMap = false; viewing = media?.indexOf(m)?.takeIf { it >= 0 } })
+                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = bottomDp, topInsetDp = topDp, fadeIn = true, photos = media.orEmpty(), onPhoto = { m -> bigMap = false; viewing = m.id })
                 Column {
                     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                     Box(Modifier.padding(12.dp)) {
@@ -287,16 +289,21 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
             onMake = if (!trip.upcoming && media?.isNotEmpty() == true) ({ which -> people = false; extra = which }) else null,
         )
         // While paging in the viewer the timeline brings that photo to the middle, so closing flies back into it.
+        // Not for the photo just tapped: that tile is on screen already, and the page must not move under the opening photo.
+        var paged by remember { androidx.compose.runtime.mutableStateOf(false) }
+        androidx.compose.runtime.LaunchedEffect(viewing) { paged = false }
         androidx.compose.runtime.LaunchedEffect(openPhoto) {
             val id = openPhoto ?: return@LaunchedEffect
+            if (id != viewing) paged = true
+            if (!paged) return@LaunchedEffect
             val r = tiles.rect(id) ?: return@LaunchedEffect
             val screen = with(density) { screenH.dp.toPx() }
             if (r.top < screen * 0.15f || r.bottom > screen * 0.85f) scroll.animateScrollBy(r.center.y - screen / 2f)
         }
         // A tapped photo opens full screen over everything, the toolbar included.
-        viewing?.let { start ->
+        viewing?.let { id ->
             val photos = media.orEmpty()
-            if (photos.isNotEmpty()) PhotoViewer(trip, photos, start.coerceIn(0, photos.lastIndex), bounds = tiles, onCurrent = { openPhoto = it }, onClose = { viewing = null })
+            if (photos.any { it.id == id }) PhotoViewer(trip, photos, id, bounds = tiles, onCurrent = { openPhoto = it }, onClose = { viewing = null })
         }
 
         TripExtras(trip, dark, extra, onClose = { extra = null })
