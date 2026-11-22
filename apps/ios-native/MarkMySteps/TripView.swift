@@ -9,6 +9,11 @@ struct TripView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var trip: Trip
     @State private var media: [Media]?
+    @State private var notes: [Remote.Note] = []
+    @State private var comments: [Remote.Comment] = []
+    @State private var storyEditor: StoryEditor?
+    @State private var commentsDay: String?
+    @State private var deletingNote: Remote.Note?
     @State private var tab: TripTab
     @State private var plan: PlanState
     @State private var showMap = Launch.map
@@ -45,7 +50,7 @@ struct TripView: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            let days = Timeline.days(trip, media)
+            let days = Timeline.days(trip, media, notes: notes)
             List {
                 mapHeader
                     .id("top")
@@ -73,15 +78,15 @@ struct TripView: View {
 
                 switch tab {
                 case .timeline:
-                    TimelineRows(trip: trip, media: media, days: days, ns: ns, hidden: nil) { item in
+                    TimelineRows(trip: trip, media: media, days: days, ns: ns, hidden: nil, onPhoto: { item in
                         viewerCurrent = item.start.id
                         viewer = item
-                    } onPlace: { name in
+                    }, onPlace: { name in
                         // A place tile goes to the first day spent there.
                         if let i = days.firstIndex(where: { $0.day.stop?.name == name }) {
                             withAnimation(.smooth) { proxy.scrollTo(i == 0 ? "days" : "day\(i)", anchor: UnitPoint(x: 0.5, y: 0.12)) }
                         }
-                    }
+                    }, stories: stories)
                 case .planner:
                     PlannerRows(trip: trip, plan: $plan, onFocusAdd: {
                         // Lift the field and its suggestions above the keyboard.
@@ -190,6 +195,18 @@ struct TripView: View {
                 saver.saveFlight(trip, $plan, target, send: PlannerRows.saves(trip, me: store.me?.id), number: number, from: from, to: to, via: via)
             }
         }
+        .sheet(item: $storyEditor) { editor in StorySheet(editor: editor) { text in await saveStory(editor, text) } }
+        .sheet(isPresented: Binding(get: { commentsDay != nil }, set: { if !$0 { commentsDay = nil } })) {
+            CommentsSheet(trip: trip, mediaId: nil, day: commentsDay, comments: $comments)
+        }
+        .confirmationDialog("Je verhaal van deze dag verwijderen?", isPresented: Binding(get: { deletingNote != nil }, set: { if !$0 { deletingNote = nil } }), titleVisibility: .visible) {
+            Button("Verwijderen", role: .destructive) {
+                guard let note = deletingNote else { return }
+                let before = notes
+                withAnimation(.calm) { notes.removeAll { $0.id == note.id } }
+                Task { do { try await Remote.deleteNote(trip, note.id) } catch { notes = before } }
+            }
+        } message: { Text("Dit kan niet ongedaan worden gemaakt.") }
         .sheet(isPresented: $showPeople) { PeopleSheet(trip: trip) }
         .sheet(isPresented: $showMapStyle) { MapStyleSheet() }
         .navigationDestination(isPresented: $showSettings) {
@@ -218,6 +235,14 @@ struct TripView: View {
                 .navigationTransition(.zoom(sourceID: viewerCurrent, in: ns))
         }
         .task(id: "\(base.id)/\(store.version)") { await loadMore() }
+        .onAppear {
+            // Screenshots only (`-menuPreview YES`): a demo trip shows a day story as yours, to see how it looks.
+            if Launch.menuPreview, base.remoteId == nil, notes.isEmpty, let first = trip.demoDays.first?.date {
+                notes = [Remote.Note(id: "demo", day: PlannerRemote.isoDay(first), title: nil,
+                                     body: "Vroeg op voor de zonsopkomst boven de kliffen. Daarna koffie in het dorp en de hele middag gewandeld langs de kust.",
+                                     authorId: nil, author: "Mark")]
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in withAnimation(.calm) { keyboardUp = true } }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in withAnimation(.calm) { keyboardUp = false } }
         .onAppear {
@@ -225,6 +250,41 @@ struct TripView: View {
                 let photos = Demo.media(trip, day: 0, date: first.date)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { viewerCurrent = photos[0].id; viewer = ViewerItem(trip: trip, photos: photos, start: photos[0]) }
             }
+        }
+    }
+
+    private var role: String? { trip.members.first { $0.userId == store.me?.id }?.role ?? (trip.ownerId == store.me?.id ? "OWNER" : nil) }
+
+    private var stories: DayStories {
+        var counts: [String: Int] = [:]
+        for c in comments where c.mediaId == nil { if let d = c.day { counts[d, default: 0] += 1 } }
+        return DayStories(
+            notes: notes, comments: counts, me: store.me?.id,
+            canWrite: role == "OWNER" || role == "MEMBER" || Launch.menuPreview, canComment: role != nil || Launch.menuPreview,
+            onWrite: { day, note in storyEditor = StoryEditor(day: day, note: note) },
+            onDelete: { note in deletingNote = note },
+            onComments: { day in commentsDay = day }
+        )
+    }
+
+    /// Your story of a day, shown at once; the server's list replaces it when it sends one back.
+    private func saveStory(_ editor: StoryEditor, _ text: String) async -> String? {
+        let day = PlannerRemote.isoDay(editor.day)
+        do {
+            let fresh = try await Remote.saveNote(trip, day: day, body: text)
+            withAnimation(.calm) {
+                if let fresh { notes = fresh } else {
+                    let name = store.me?.name ?? ""
+                    let own = Remote.Note(id: editor.note?.id ?? UUID().uuidString, day: day, title: editor.note?.title, body: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                                          authorId: store.me?.id, author: name)
+                    notes.removeAll { $0.id == own.id }
+                    notes.append(own)
+                }
+            }
+            Haptic.tap()
+            return nil
+        } catch {
+            return (error as? Api.Failure)?.message ?? "Bewaren lukte niet"
         }
     }
 
@@ -319,6 +379,11 @@ struct TripView: View {
         }
         withAnimation(.calm) { stopsKnown = true }
         media = (try? await Remote.media(base)) ?? []
+        // The day stories and the comments on them, after the photos.
+        async let n = Remote.notes(base)
+        async let c = Remote.comments(base)
+        notes = (try? await n) ?? notes
+        comments = (try? await c) ?? comments
     }
 }
 
