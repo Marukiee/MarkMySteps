@@ -5,9 +5,9 @@ enum Demo {
     /// The home airport: a flight from here gets no dot of its own on the globe.
     static let homeAirport = LonLat(4.76, 52.31)
 
-    static let sanne = Person(initial: "S", color: Color(hex: 0xD9A441))
-    static let joris = Person(initial: "J", color: Color(hex: 0x5B8DEF))
-    static let mark = Person(initial: "M", color: Color(hex: 0xE8613C))
+    static let sanne = Person(initial: "S", color: Color(hex: 0xD9A441), name: "Sanne", username: "sanne")
+    static let joris = Person(initial: "J", color: Color(hex: 0x5B8DEF), name: "Joris", username: "joris")
+    static let mark = Person(initial: "M", color: Color(hex: 0xE8613C), name: "Mark", username: "mark", role: "OWNER")
 
     static let upcoming = Trip(
         id: "georgia", title: "Georgië 2026", month: "december", year: "2026", dates: "4 t/m 12 dec 2026", days: 8, km: nil,

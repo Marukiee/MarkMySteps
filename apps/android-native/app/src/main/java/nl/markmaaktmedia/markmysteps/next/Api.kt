@@ -375,6 +375,82 @@ object Remote {
     /** Ask the server to fetch the trip's photos from Immich again now. */
     suspend fun syncPhotos(trip: Trip) { Api.send("POST", "/api/trips/${trip.remoteId}/sync") }
 
+    data class Notice(
+        val id: String, val kind: String, val at: java.time.Instant, val read: Boolean,
+        val actorId: String?, val actor: String?, val actorAvatar: Boolean, val tripId: String?, val trip: String?,
+        val requestId: String?, val requestStatus: String?, val detail: String?,
+    )
+
+    suspend fun noticeCount(): Int {
+        val o = JSONObject(Api.get("/api/notifications/count"))
+        return o.optInt("unread") + o.optInt("pending")
+    }
+
+    suspend fun notices(): List<Notice> {
+        val a = JSONArray(Api.get("/api/notifications"))
+        return (0 until a.length()).map { a.getJSONObject(it) }.map { o ->
+            val actor = o.optJSONObject("actor"); val trip = o.optJSONObject("trip"); val req = o.optJSONObject("request")
+            Notice(
+                o.getString("id"), o.optString("kind"), runCatching { java.time.Instant.parse(o.getString("createdAt")) }.getOrDefault(java.time.Instant.now()), o.optBoolean("read"),
+                actor?.optString("id"), actor?.optString("displayName"), actor?.optBoolean("hasAvatar") == true, trip?.optString("id"), trip?.optString("title"),
+                req?.optString("id"), req?.optString("status"), o.optString("detail").takeIf { it.isNotBlank() && it != "null" },
+            )
+        }
+    }
+
+    suspend fun markNoticesRead() { Api.send("POST", "/api/notifications/read") }
+
+    /** Let someone look along as a guest, or turn them down; making them a companion lives in people and sharing. */
+    suspend fun answerAccess(requestId: String, approve: Boolean) {
+        Api.send("POST", "/api/access-requests/$requestId/${if (approve) "approve" else "deny"}", if (approve) JSONObject().put("role", "GUEST") else null)
+    }
+
+    data class Note(val day: String, val title: String?, val body: String, val author: String)
+
+    suspend fun notes(trip: Trip): List<Note> {
+        val a = JSONArray(Api.get("/api/trips/${trip.remoteId}/notes"))
+        return (0 until a.length()).map { a.getJSONObject(it) }.map {
+            Note(it.optString("day"), it.optString("title").takeIf { t -> t.isNotBlank() && t != "null" }, it.optString("body"), it.optString("authorName"))
+        }
+    }
+
+    /** A day's weather where you were, as the web reads it: open-meteo, the archive for days older than 90. */
+    data class Weather(val maxC: Int, val code: Int)
+
+    private val weatherCache = HashMap<String, Weather?>()
+
+    suspend fun weather(at: LonLat, day: LocalDate): Weather? = withContext(Dispatchers.IO) {
+        val key = "%.2f,%.2f,%s".format(java.util.Locale.ROOT, at.second, at.first, day)
+        if (weatherCache.containsKey(key)) return@withContext weatherCache[key]
+        Api.recall("w.$key")?.split(',')?.let { p -> return@withContext Weather(p[0].toInt(), p[1].toInt()).also { weatherCache[key] = it } }
+        if (day.isAfter(LocalDate.now().plusDays(14))) return@withContext null
+        val old = java.time.temporal.ChronoUnit.DAYS.between(day, LocalDate.now()) > 90
+        val host = if (old) "archive-api.open-meteo.com/v1/archive" else "api.open-meteo.com/v1/forecast"
+        val url = URL("https://$host?latitude=${at.second}&longitude=${at.first}&daily=weather_code,temperature_2m_max,precipitation_sum,precipitation_hours&start_date=$day&end_date=$day&timezone=auto")
+        val w = runCatching {
+            val c = (url.openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+            val d = JSONObject(c.inputStream.bufferedReader().readText()).getJSONObject("daily")
+            val t = d.getJSONArray("temperature_2m_max").optDouble(0); var code = d.getJSONArray("weather_code").optInt(0, -1)
+            val mm = d.optJSONArray("precipitation_sum")?.optDouble(0, 0.0) ?: 0.0
+            val hours = d.optJSONArray("precipitation_hours")?.optDouble(0, 0.0) ?: 0.0
+            // Under half a millimetre nothing meaningful fell: the day was just clouded over (web dayCondition).
+            if (code in 51..86 && code !in 71..77 && code !in 85..86 && (mm < 0.5 || hours < 1)) code = 3
+            if (t.isNaN() || code < 0) null else Weather(kotlin.math.round(t).toInt(), code)
+        }.getOrNull()
+        weatherCache[key] = w
+        if (w != null && !day.isAfter(LocalDate.now().minusDays(2))) Api.remember("w.$key", "${w.maxC},${w.code}")
+        w
+    }
+
+    /** Whether the account has an authenticator app, and how many recovery codes are left. */
+    suspend fun twoFactor(): Pair<Boolean, Int> = JSONObject(Api.get("/api/auth/2fa")).let { it.optBoolean("enabled") to it.optInt("recoveryCodesLeft") }
+
+    /** The Immich connection: where, and when photos were last fetched (null when not connected). */
+    suspend fun immich(): Pair<String, String?>? = runCatching {
+        val o = JSONObject(Api.get("/api/immich/connection"))
+        o.optString("serverUrl").takeIf { it.isNotBlank() }?.let { it to o.optString("lastSyncAt").takeIf { s -> s.isNotBlank() && s != "null" } }
+    }.getOrNull()
+
     suspend fun friends(): List<Friend> {
         val a = JSONArray(Api.get("/api/users/friends"))
         return (0 until a.length()).map { a.getJSONObject(it) }.map {

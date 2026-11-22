@@ -13,6 +13,12 @@ struct LonLat: Hashable {
 struct Person: Hashable {
     let initial: String
     let color: Color
+    var name = ""
+    var username = ""
+    var userId: String? = nil
+    var hasAvatar = false
+    /// OWNER, MEMBER (reisgenoot) or GUEST.
+    var role = "MEMBER"
 }
 
 /// How a leg is travelled.
@@ -93,6 +99,9 @@ struct Trip: Identifiable, Hashable {
     var back: Leg? = nil
     /// You are a guest on it: it shows under Gedeeld, not as your own.
     var shared = false
+    /// Everyone on the trip, guests included, for the people sheet.
+    var members: [Person] = []
+    var ownerId: String? = nil
     /// Set for a trip read from a server.
     var remoteId: String? = nil
     var coverId: String? = nil

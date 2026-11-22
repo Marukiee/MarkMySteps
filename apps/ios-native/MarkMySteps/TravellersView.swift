@@ -111,7 +111,7 @@ struct TravellersView: View {
                 ForEach(all, id: \.self) { flag in
                     let planned = !store.live && !visited.contains(flag)
                     HStack(spacing: 8) {
-                        Text(flag).font(.system(size: 18))
+                        FlagView(flag: flag, height: 16)
                         Text(names[flag] ?? "Land").font(.outfit(14, 600))
                             .foregroundStyle(planned ? Brand.inkSoft : Brand.ink)
                         if planned {
@@ -139,7 +139,7 @@ struct TravellersView: View {
             .padding(.bottom, 10)
         if store.live && !store.friendsLoaded {
             // The people are on their way: their place is kept, so the page does not jump.
-            ProgressView()
+            CompassSpinner()
                 .frame(maxWidth: .infinity, minHeight: 190)
                 .background(Brand.raised, in: .rect(cornerRadius: 22))
         } else if store.live && !store.friends.isEmpty {
@@ -314,7 +314,7 @@ private struct RequestsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(role: .close) { dismiss() }
+                    Button(role: .close) { dismiss() }.tint(.primary)
                 }
             }
         }

@@ -87,25 +87,46 @@ extension Font {
 // MARK: Logo
 
 /// The MarkMySteps compass: a circle and the needle, stroked, nothing behind it.
+/// The needle can turn on its own about the centre (the globe zoom, the spinner).
 struct CompassLogo: View {
     var size: CGFloat = 34
     var color: Color = Brand.logo
     var lineWidth: CGFloat = 2.1
+    /// Degrees the needle is turned from its north-east rest.
+    var needle: Double = 0
 
     var body: some View {
         Canvas { ctx, box in
             let s = box.width / 24
+            let style = StrokeStyle(lineWidth: lineWidth * s, lineCap: .round, lineJoin: .round)
+            ctx.stroke(Path(ellipseIn: CGRect(x: (12 - 9.4) * s, y: (12 - 9.4) * s, width: 18.8 * s, height: 18.8 * s)), with: .color(color), style: style)
             var path = Path()
-            path.addEllipse(in: CGRect(x: (12 - 9.4) * s, y: (12 - 9.4) * s, width: 18.8 * s, height: 18.8 * s))
             path.move(to: CGPoint(x: 16.4 * s, y: 7.6 * s))
             path.addLine(to: CGPoint(x: 13.9 * s, y: 13.9 * s))
             path.addLine(to: CGPoint(x: 7.6 * s, y: 16.4 * s))
             path.addLine(to: CGPoint(x: 10.1 * s, y: 10.1 * s))
             path.closeSubpath()
-            ctx.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: lineWidth * s, lineCap: .round, lineJoin: .round))
+            let c = CGPoint(x: 12 * s, y: 12 * s)
+            let turn = CGAffineTransform(translationX: c.x, y: c.y).rotated(by: needle * .pi / 180).translatedBy(x: -c.x, y: -c.y)
+            ctx.stroke(path.applying(turn), with: .color(color), style: style)
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
+    }
+}
+
+/// The app's own loading indicator, as on the web: the needle makes two turns every
+/// 2.8 s, winding up and easing off (720t minus 52 sin 4 pi t), resting north-east.
+struct CompassSpinner: View {
+    var size: CGFloat = 36
+    var color: Color = Brand.logo
+
+    var body: some View {
+        TimelineView(.animation) { tl in
+            let t = tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2.8) / 2.8
+            CompassLogo(size: size, color: color, needle: 720 * t - 52 * sin(4 * .pi * t))
+        }
+        .accessibilityLabel("Bezig met laden")
     }
 }
 
@@ -186,5 +207,39 @@ enum Format {
     static func shortDay(_ d: Date) -> String {
         let c = calendar
         return "\(c.component(.day, from: d)) \(monthsShort[c.component(.month, from: d) - 1])"
+    }
+}
+
+// MARK: Flags
+
+/// A flat flag from the web's own set (Assets: Flags/<code>), 4:3 with softly rounded
+/// corners and a hairline edge so white flags do not dissolve. The emoji only when a
+/// country has no file.
+struct FlagView: View {
+    /// An emoji flag ("🇳🇱") or a two-letter code ("NL").
+    let flag: String
+    var height: CGFloat = 15
+
+    private var code: String? {
+        let scalars = flag.unicodeScalars.filter { (0x1F1E6...0x1F1FF).contains($0.value) }
+        if scalars.count == 2 {
+            return String(scalars.compactMap { Unicode.Scalar($0.value - 0x1F1E6 + 97) }.map(Character.init))
+        }
+        return flag.count == 2 ? flag.lowercased() : nil
+    }
+
+    var body: some View {
+        if let code, UIImage(named: "Flags/\(code)") != nil {
+            let radius = height * 0.17
+            Image("Flags/\(code)")
+                .resizable()
+                .aspectRatio(4 / 3, contentMode: .fill)
+                .frame(width: height * 4 / 3, height: height)
+                .clipShape(.rect(cornerRadius: radius))
+                .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(.black.opacity(0.1), lineWidth: 0.5) }
+                .accessibilityHidden(true)
+        } else {
+            Text(flag).font(.system(size: height)).accessibilityHidden(true)
+        }
     }
 }

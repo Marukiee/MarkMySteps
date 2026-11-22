@@ -69,6 +69,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -138,6 +142,7 @@ fun Planner(trip: Trip, dark: Boolean) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var saveError by remember { mutableStateOf<String?>(null) }
     val nightJobs = remember { HashMap<Int, kotlinx.coroutines.Job>() }
+    var undo by remember { mutableStateOf<Pair<Pair<PlanStop, Int>, kotlinx.coroutines.Job>?>(null) }
     fun save(block: suspend () -> Unit) { if (live) scope.launch { runCatching { block() }.onSuccess { saveError = null }.onFailure { saveError = "Opslaan mislukt" } } }
     val planned = stops.sumOf { it.nights }
 
@@ -191,10 +196,14 @@ fun Planner(trip: Trip, dark: Boolean) {
                 val lift by animateFloatAsState(if (lifted) 1f else 0f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "lift")
                 Column(
                     Modifier
+                        // Neighbours glide to their new place while a stop is moved past them, instead of jumping.
+                        .then(if (lifted) Modifier else Modifier.glideToPlace())
                         .onSizeChanged { heights[stop.key] = it.height }
                         .graphicsLayer {
                             translationY = if (lifted) dragY else 0f
-                            scaleX = 1f + 0.03f * lift; scaleY = 1f + 0.03f * lift
+                            // Lifted: a little bigger and a slight tilt, as on the web.
+                            scaleX = 1f + 0.02f * lift; scaleY = 1f + 0.02f * lift
+                            rotationZ = -0.4f * lift
                         }
                         .pointerInput(stop.key) {
                             detectDragGesturesAfterLongPress(
@@ -246,8 +255,15 @@ fun Planner(trip: Trip, dark: Boolean) {
             // Gone from the list only once it has folded away.
             if (visible.isIdle && !visible.currentState) {
                 androidx.compose.runtime.LaunchedEffect(Unit) {
+                    val at = stops.indexOf(stop)
                     stops.remove(stop)
-                    stop.id?.let { id -> save { Remote.deleteStop(trip, id) } }
+                    // Kept back for 7 s so "Ongedaan maken" can put it back; only then is it deleted on the server.
+                    undo?.second?.cancel()
+                    undo = (stop to at) to scope.launch {
+                        kotlinx.coroutines.delay(7000)
+                        stop.id?.let { id -> runCatching { Remote.deleteStop(trip, id) }.onFailure { saveError = "Opslaan mislukt" } }
+                        undo = null
+                    }
                 }
             }
         }
@@ -258,6 +274,23 @@ fun Planner(trip: Trip, dark: Boolean) {
         LegCard("Terug", leg, onMode = { back = leg.copy(mode = leg.mode.next()) })
     }
 
+    // The undo pill, in the page's own colours, rising in and folding away.
+    androidx.compose.animation.AnimatedVisibility(
+        undo != null,
+        enter = androidx.compose.animation.slideInVertically(MaterialTheme.motionScheme.fastSpatialSpec()) { it } + fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
+        exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()),
+    ) {
+        Row(
+            Modifier.padding(top = 12.dp).fillMaxWidth().clip(CircleShape).background(cs.inverseSurface).padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("${undo?.first?.first?.name ?: "Stop"} verwijderd", maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.inverseOnSurface), modifier = Modifier.weight(1f))
+            androidx.compose.material3.TextButton(onClick = {
+                undo?.let { (pair, job) -> job.cancel(); val (s, at) = pair; stops.add(at.coerceIn(0, stops.size), PlanStop(nextKey, s.name, s.flag, s.at, s.nights, s.mode, s.id)); nextKey += 1 }
+                undo = null
+            }) { Text("Ongedaan maken", color = cs.inversePrimary, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp)) }
+        }
+    }
     if (saveError != null) Text(saveError ?: "", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.error), modifier = Modifier.padding(top = 12.dp, start = 4.dp))
     AddStop(trip, taken = stops.map { it.name }.toSet(), onAdd = { place ->
         val id = java.util.UUID.randomUUID().toString()
@@ -482,4 +515,24 @@ private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (Remote.Place) -> Uni
             ) { Text("“${query.trim()}” toevoegen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
         }
     }
+}
+
+
+/** Animates a change of place in its parent from where it was to where it is now. */
+private fun Modifier.glideToPlace(): Modifier = composed {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var target by remember { mutableStateOf<androidx.compose.ui.unit.IntOffset?>(null) }
+    val anim = remember { mutableStateOf<androidx.compose.animation.core.Animatable<androidx.compose.ui.unit.IntOffset, androidx.compose.animation.core.AnimationVector2D>?>(null) }
+    val spec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
+    this
+        .onPlaced { c ->
+            val p = c.positionInParent()
+            target = androidx.compose.ui.unit.IntOffset(p.x.toInt(), p.y.toInt())
+        }
+        .offset {
+            val t = target ?: return@offset androidx.compose.ui.unit.IntOffset.Zero
+            val a = anim.value ?: androidx.compose.animation.core.Animatable(t, androidx.compose.ui.unit.IntOffset.VectorConverter).also { anim.value = it }
+            if (a.targetValue != t) scope.launch { a.animateTo(t, spec) }
+            a.value - t
+        }
 }

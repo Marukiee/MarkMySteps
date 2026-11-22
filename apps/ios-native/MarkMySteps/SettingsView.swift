@@ -28,10 +28,10 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         case .account: "Profiel, wachtwoord, tweestapsverificatie"
         case .weergave: "Thema, taal, globe"
         case .reizen: "Tracking, eigen locatie, vliegvelden"
-        case .fotos: "Immich verbonden"
+        case .fotos: "Immich via je server"
         case .meldingen: "Reacties en nieuwe foto's"
-        case .opslag: "Offline kaart, foto-cache"
-        case .updates: "Automatisch, build 267"
+        case .opslag: "Foto-cache op dit toestel"
+        case .updates: "Via TestFlight"
         case .over: "MarkMySteps, AGPL-3.0"
         }
     }
@@ -60,6 +60,14 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         case .updates: Color(hex: 0x5B6BE0)
         case .over: Color(hex: 0x8E8E93)
         }
+    }
+}
+
+enum AppInfo {
+    static var version: String {
+        let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1"
+        let b = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+        return "versie \(v) (\(b))"
     }
 }
 
@@ -133,14 +141,11 @@ private struct SectionPage: View {
     let onSignIn: () -> Void
     @Environment(Store.self) private var store
     @AppStorage("theme") private var theme = "system"
-    @AppStorage("set.twoFactor") private var twoFactor = true
     @AppStorage("set.tracking") private var tracking = true
     @AppStorage("set.selfLocation") private var selfLocation = false
     @AppStorage("set.notify") private var notify = true
-    @AppStorage("set.offlineMap") private var offlineMap = false
-    @AppStorage("set.autoUpdate") private var autoUpdate = true
     @State private var confirmSignOut = false
-    @State private var checking = false
+    @State private var cacheCleared = false
 
     var body: some View {
         Form {
@@ -172,8 +177,7 @@ private struct SectionPage: View {
         Section {
             LabeledContent { Text("naam, foto") } label: { Label("Profiel", systemImage: "person.crop.circle") }
             LabeledContent { Text("verborgen") } label: { Label("Wachtwoord", systemImage: "lock") }
-            Toggle(isOn: $twoFactor) { Label("Tweestapsverificatie", systemImage: "checkmark.shield") }
-                .disabled(true)
+            LabeledContent { Text("in de web-app") } label: { Label("Tweestapsverificatie", systemImage: "checkmark.shield") }
         } header: { Text("Jij") } footer: { readOnly }
         Section("Server") {
             LabeledContent { Text(store.live ? Api.shared.host : "voorbeelden") } label: { Label("Server", systemImage: "server.rack") }
@@ -215,7 +219,7 @@ private struct SectionPage: View {
         Section("Onderweg") {
             Toggle(isOn: $tracking) { Label("Route-tracking", systemImage: "location.north.line") }
             Toggle(isOn: $selfLocation) { Label("Eigen locatie", systemImage: "mappin.and.ellipse") }
-            LabeledContent { Text("AMS, EIN") } label: { Label("Standaard vliegvelden", systemImage: "airplane") }
+            LabeledContent { Text("in de web-app") } label: { Label("Standaard vliegvelden", systemImage: "airplane") }
         }
         Section {
             LabeledContent { Text("GPX, KML") } label: { Label("Route-bestanden", systemImage: "doc") }
@@ -225,7 +229,7 @@ private struct SectionPage: View {
 
     @ViewBuilder private var photos: some View {
         Section {
-            LabeledContent { Text(store.live ? "verbonden" : "voorbeelden") } label: { Label("Immich", systemImage: "photo.on.rectangle") }
+            LabeledContent { Text(store.live ? "via je server" : "voorbeelden") } label: { Label("Immich", systemImage: "photo.on.rectangle") }
             LabeledContent { Text("alles van de dagen samen") } label: { Label("Foto's in je statistieken", systemImage: "camera") }
         } header: { Text("Bron") } footer: {
             Text("Welke foto's bij een reis horen, regel je in Immich: datum en plaats in de foto zelf.")
@@ -240,30 +244,28 @@ private struct SectionPage: View {
     }
 
     @ViewBuilder private var storage: some View {
-        Section("Op dit toestel") {
-            Toggle(isOn: $offlineMap) { Label("Kaart offline bewaren", systemImage: "map") }
-            LabeledContent { Text("412 MB") } label: { Label("Foto-cache", systemImage: "photo.stack") }
-            LabeledContent { Text("laatst gisteren") } label: { Label("Back-up", systemImage: "arrow.clockwise.icloud") }
+        Section {
+            LabeledContent { Text(cacheText) } label: { Label("Foto-cache", systemImage: "photo.stack") }
+            Button(role: .destructive) {
+                ImageLoader.shared.clear()
+                cacheCleared = true
+            } label: {
+                Label(cacheCleared ? "Geleegd" : "Foto-cache legen", systemImage: cacheCleared ? "checkmark" : "trash")
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .disabled(cacheCleared)
+        } header: { Text("Op dit toestel") } footer: {
+            Text("Foto's worden alleen bewaard zolang de app open is; je reizen staan op je server.")
         }
     }
 
+    private var cacheText: String { cacheCleared ? "leeg" : "in het geheugen" }
+
     @ViewBuilder private var updates: some View {
-        Section("Nieuwe versies") {
-            Toggle(isOn: $autoUpdate) { Label("Automatisch controleren", systemImage: "arrow.triangle.2.circlepath") }
-            Button {
-                checking = true
-                Task {
-                    try? await Task.sleep(for: .seconds(1.2))
-                    checking = false
-                }
-            } label: {
-                LabeledContent {
-                    if checking { ProgressView() } else { Text("build 267").foregroundStyle(.secondary) }
-                } label: {
-                    Label("Nu controleren", systemImage: "arrow.down.circle")
-                }
-            }
-            .disabled(checking)
+        Section {
+            LabeledContent { Text(AppInfo.version) } label: { Label("Deze versie", systemImage: "info.circle") }
+        } header: { Text("Nieuwe versies") } footer: {
+            Text("Nieuwe versies van deze testapp komen via TestFlight.")
         }
     }
 
@@ -272,14 +274,14 @@ private struct SectionPage: View {
             VStack(spacing: 10) {
                 CompassLogo(size: 64)
                 Text("MarkMySteps").font(.outfit(26, 700)).foregroundStyle(Brand.ink)
-                Text("Testapp voor iPhone, versie 0.1").font(.inter(14, 500)).foregroundStyle(Brand.inkSoft)
+                Text("Testapp voor iPhone, \(AppInfo.version)").font(.inter(14, 500)).foregroundStyle(Brand.inkSoft)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .listRowBackground(Color.clear)
         }
         Section("MarkMySteps") {
-            LabeledContent { Text("build 267") } label: { Label("Wat is er nieuw", systemImage: "sparkles") }
+            LabeledContent { Text(AppInfo.version) } label: { Label("Versie", systemImage: "sparkles") }
             LabeledContent { Text("AGPL-3.0") } label: { Label("Licentie", systemImage: "doc.text") }
         }
     }
