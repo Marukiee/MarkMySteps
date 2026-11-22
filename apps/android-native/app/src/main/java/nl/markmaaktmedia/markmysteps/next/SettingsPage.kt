@@ -48,6 +48,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.animation.togetherWith
+import kotlinx.coroutines.launch
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -106,19 +108,43 @@ private val Sections = listOf(
 @Composable
 fun SettingsPage(onSignIn: () -> Unit = {}) {
     var open by remember { mutableStateOf<Int?>(null) }
-    androidx.activity.compose.BackHandler(enabled = open != null) { open = null }
     val motion = MaterialTheme.motionScheme
-    // Into a section and back: the shared X axis of Material motion, the list sliding a little and fading.
-    androidx.compose.animation.AnimatedContent(
-        targetState = open,
+    // Predictive back here too: the section follows the finger and the list shows behind it.
+    val state = remember { androidx.compose.animation.core.SeekableTransitionState<Int?>(null) }
+    var gesturing by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val settle = androidx.compose.animation.core.spring<Float>(dampingRatio = 1f, stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)
+    androidx.compose.runtime.LaunchedEffect(open) { if (!gesturing && state.targetState != open) state.animateTo(open) }
+    androidx.activity.compose.PredictiveBackHandler(enabled = open != null) { events ->
+        gesturing = true
+        try {
+            events.collect { state.seekTo(it.progress, null) }
+            state.animateTo(null, settle)
+            open = null
+            gesturing = false
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            scope.launch { state.animateTo(state.currentState, settle); gesturing = false }
+            throw e
+        }
+    }
+    val ease = androidx.compose.animation.core.LinearEasing
+    androidx.compose.animation.core.rememberTransition(state, label = "settings").AnimatedContent(
         transitionSpec = {
             val forward = targetState != null
-            (androidx.compose.animation.slideInHorizontally(motion.defaultSpatialSpec()) { w -> if (forward) w / 5 else -w / 5 } +
-                androidx.compose.animation.fadeIn(motion.defaultEffectsSpec())) togetherWith
-                (androidx.compose.animation.slideOutHorizontally(motion.defaultSpatialSpec()) { w -> if (forward) -w / 5 else w / 5 } +
-                    androidx.compose.animation.fadeOut(motion.fastEffectsSpec()))
+            if (forward) {
+                (androidx.compose.animation.slideInHorizontally(motion.defaultSpatialSpec()) { w -> w / 5 } +
+                    androidx.compose.animation.fadeIn(motion.defaultEffectsSpec())) togetherWith
+                    (androidx.compose.animation.slideOutHorizontally(motion.defaultSpatialSpec()) { w -> -w / 5 } +
+                        androidx.compose.animation.fadeOut(motion.fastEffectsSpec()))
+            } else {
+                (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(400, easing = ease), initialAlpha = 0.6f) +
+                    androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(400, easing = ease), initialScale = 0.95f)) togetherWith
+                    (androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(400, easing = ease), targetScale = 0.88f) +
+                        androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(400, easing = ease)) { w -> w / 8 } +
+                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120, delayMillis = 280))).also { }
+            }.apply { targetContentZIndex = if (forward) 1f else -1f }
         },
-        label = "settings",
+        contentKey = { it },
     ) { which ->
         if (which == null) SettingsMain(onOpen = { open = it }) else SectionPage(which, onBack = { open = null }, onSignIn = onSignIn)
     }

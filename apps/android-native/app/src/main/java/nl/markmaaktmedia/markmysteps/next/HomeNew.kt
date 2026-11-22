@@ -137,16 +137,17 @@ private val DarkScheme = darkColorScheme(
     onSecondaryContainer = Color(0xFFFFDCCB),
     tertiaryContainer = Color(0xFF1C3B37),
     onTertiaryContainer = Color(0xFFB4ECE3),
-    background = Color.Black,
-    onBackground = Color(0xFFF1F3F5),
-    surface = Color.Black,
-    onSurface = Color(0xFFF1F3F5),
-    onSurfaceVariant = Color(0xFFA2ACB6),
-    surfaceContainerLowest = Color(0xFF0B0D0F),
-    surfaceContainerLow = Color(0xFF14171A),
-    surfaceContainer = Color(0xFF181B1F),
-    surfaceContainerHigh = Color(0xFF202429),
-    surfaceContainerHighest = Color(0xFF2A2F35),
+    // The web's dark paper (#14181d), not OLED black: a normal dark mode.
+    background = Color(0xFF14181D),
+    onBackground = Color(0xFFEEF1F4),
+    surface = Color(0xFF14181D),
+    onSurface = Color(0xFFEEF1F4),
+    onSurfaceVariant = Color(0xFFA7B2BD),
+    surfaceContainerLowest = Color(0xFF0F141A),
+    surfaceContainerLow = Color(0xFF1A2027),
+    surfaceContainer = Color(0xFF1D242C),
+    surfaceContainerHigh = Color(0xFF242C35),
+    surfaceContainerHighest = Color(0xFF2D3640),
     outlineVariant = Color(0xFF2B333D),
 )
 
@@ -185,18 +186,27 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         val holder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
         val backScope = androidx.compose.runtime.rememberCoroutineScope()
         var fromLeft by remember { mutableStateOf(true) }
-        LaunchedEffect(target) { if (pages.targetState != target || pages.currentState != target) pages.animateTo(target) }
+        var gesturing by remember { mutableStateOf(false) }
+        // Taps and tabs move the pages here; a back gesture drives them itself, so the two never run at once.
+        LaunchedEffect(target) {
+            if (!gesturing && (pages.targetState != target || pages.currentState != target)) pages.animateTo(target)
+        }
+        val settle = androidx.compose.animation.core.spring<Float>(dampingRatio = 1f, stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)
         val backTo: String? = when { open != null -> "page$page"; page != 0 -> "page0"; else -> null }
         androidx.activity.compose.PredictiveBackHandler(enabled = backTo != null) { events ->
             val to = backTo ?: return@PredictiveBackHandler
+            gesturing = true
             try {
                 events.collect { e ->
                     fromLeft = e.swipeEdge == androidx.activity.BackEventCompat.EDGE_LEFT
                     pages.seekTo(e.progress, to)
                 }
+                // Let go: a spring carries on from where the finger was, no fixed timing.
+                pages.animateTo(to, settle)
                 if (open != null) open = null else page = 0
+                gesturing = false
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                backScope.launch { pages.animateTo(pages.currentState) }
+                backScope.launch { pages.animateTo(pages.currentState, settle); gesturing = false }
                 throw e
             }
         }
