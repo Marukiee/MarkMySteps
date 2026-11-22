@@ -143,7 +143,7 @@ fun NoticesSheet(onDismiss: () -> Unit, onChanged: () -> Unit, onOpenTrip: (Stri
                         when {
                             // Three rows at the height real ones have, so the panel opens at its size.
                             items == null -> Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                repeat(3) { i -> Box(Modifier.fillMaxWidth().height(76.dp).clip(slabShape(i, 3)).background(cs.surfaceContainerHigh)) }
+                                repeat(3) { i -> Box(Modifier.fillMaxWidth().height(76.dp).clip(noticeSlab(i, 3)).background(cs.surfaceContainerHigh)) }
                             }
                             list.isNullOrEmpty() -> Column(Modifier.fillMaxWidth().padding(vertical = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Box(Modifier.size(56.dp).clip(CircleShape).background(cs.secondaryContainer), contentAlignment = Alignment.Center) {
@@ -153,7 +153,7 @@ fun NoticesSheet(onDismiss: () -> Unit, onChanged: () -> Unit, onOpenTrip: (Stri
                             }
                             else -> Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 list.forEachIndexed { i, n ->
-                                    NoticeRow(n, slabShape(i, list.size), answered[n.requestId],
+                                    NoticeRow(n, noticeSlab(i, list.size), answered[n.requestId],
                                         onAnswer = { rid, yes -> scope.launch { runCatching { Remote.answerAccess(rid, yes) }.onSuccess { answered = answered + (rid to yes); onChanged() } } },
                                         onDismiss = { gone = gone + n.id; scope.launch { runCatching { Remote.dismissNotice(n.id) }; onChanged() } },
                                         onOpenTrip = { id -> close { onOpenTrip(id) } },
@@ -169,7 +169,7 @@ fun NoticesSheet(onDismiss: () -> Unit, onChanged: () -> Unit, onOpenTrip: (Stri
     }
 }
 
-private fun slabShape(i: Int, n: Int) = RoundedCornerShape(
+private fun noticeSlab(i: Int, n: Int) = RoundedCornerShape(
     topStart = if (i == 0) 22.dp else 6.dp, topEnd = if (i == 0) 22.dp else 6.dp,
     bottomStart = if (i == n - 1) 22.dp else 6.dp, bottomEnd = if (i == n - 1) 22.dp else 6.dp,
 )
