@@ -120,6 +120,15 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
     }
     var sheet by remember { mutableStateOf(false) }
 
+    // Light status bar icons on the black viewer, back to the page's own when it closes.
+    DisposableEffect(Unit) {
+        val window = activity?.window
+        val bars = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
+        val before = bars?.isAppearanceLightStatusBars
+        bars?.isAppearanceLightStatusBars = false
+        onDispose { if (before != null) bars.isAppearanceLightStatusBars = before }
+    }
+
     // HDR only while a photo with a gain map is up, and only on Android 14 and later.
     DisposableEffect(hdr) {
         val window = activity?.window
@@ -144,6 +153,9 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
     var openT by remember { mutableFloatStateOf(0f) }
     var closing by remember { mutableStateOf(false) }
     var closeFade by remember { mutableFloatStateOf(0f) }
+    // Zoomed in, a drag pans the photo; only at its normal size does dragging down put it away.
+    var zoomed by remember { mutableStateOf(false) }
+    LaunchedEffect(pager.currentPage) { zoomed = false }
     fun progress() = maxOf((drag.y.coerceAtLeast(0f) / (areaHeight * DISMISS_RANGE)).coerceIn(0f, 1f), closeFade)
     fun heroBitmap(id: String) = Photos.cached("$id/preview") ?: Photos.cached("$id/thumbnail")
     fun fitted(b: Bitmap, scale: Float = 1f, shift: Offset = Offset.Zero): androidx.compose.ui.geometry.Rect {
@@ -155,7 +167,8 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
     LaunchedEffect(Unit) {
         snapshotFlow { pagerRect }.first { it.width > 0f && it.height > 0f }
         val m = photos[start]
-        val bitmap = heroBitmap(m.id)
+        // Always grow from the tile: if its small picture fell out of memory, fetch it first (it is tiny).
+        val bitmap = heroBitmap(m.id) ?: kotlinx.coroutines.withTimeoutOrNull(600) { Photos.load(m.id, "thumbnail") }
         val tile = bounds.rect(m.id)
         onCurrent(m.id)
         if (bitmap != null && tile != null) {
@@ -216,17 +229,18 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
             .drawBehind { drawRect(Color.Black, alpha = backdropAlpha()) },
     ) {
         val tracker = remember { androidx.compose.ui.input.pointer.util.VelocityTracker() }
-        HorizontalPager(pager, Modifier.fillMaxSize()
+        HorizontalPager(pager, beyondViewportPageCount = 1, modifier = Modifier.fillMaxSize()
             .onGloballyPositioned { areaHeight = it.size.height.toFloat().coerceAtLeast(1f); pagerRect = it.boundsInRoot() }
             .pointerInput(Unit) {
                 // A drag that starts downward (more down than sideways) moves the photo; sideways stays the pager's.
                 awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                     tracker.resetTracking()
                     var dragging = false
                     var travelled = Offset.Zero
                     while (true) {
-                        val event = awaitPointerEvent()
+                        // Seen before the pager and the photo, so a swipe down is never taken for paging.
+                        val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                         if (event.changes.size > 1) return@awaitEachGesture
                         val change = event.changes.first()
                         if (!change.pressed) break
@@ -235,7 +249,7 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
                         if (!dragging) {
                             travelled += delta
                             if (travelled.getDistance() > viewConfiguration.touchSlop) {
-                                if (travelled.y > 0f && kotlin.math.abs(travelled.y) > kotlin.math.abs(travelled.x)) dragging = true else return@awaitEachGesture
+                                if (travelled.y > 0f && kotlin.math.abs(travelled.y) > kotlin.math.abs(travelled.x) * 0.8f && !opening && !zoomed) dragging = true else return@awaitEachGesture
                             }
                         } else {
                             change.consume()
@@ -255,6 +269,7 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
             // The corners round off as the photo is dragged away, up to the tile's rounding at the end,
             // divided by the shrink so they look the same size on screen.
             ViewerPhoto(photos[page], onHdr = { if (page == pager.currentPage) hdr = it }, onTap = { chrome = !chrome },
+                onZoomed = { if (page == pager.currentPage) zoomed = it },
                 cornerPx = { val k = progress(); val scale = 1f - (1f - MIN_DRAG_SCALE) * k; 14.dp.toPx() * k / scale })
         }
         // Which day and where, and how far through the trip's photos.
@@ -348,11 +363,13 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
 }
 
 @Composable
-private fun ViewerPhoto(media: Media, onHdr: (Boolean) -> Unit, onTap: () -> Unit, cornerPx: androidx.compose.ui.unit.Density.() -> Float = { 0f }) {
+private fun ViewerPhoto(media: Media, onHdr: (Boolean) -> Unit, onTap: () -> Unit, onZoomed: (Boolean) -> Unit = {}, cornerPx: androidx.compose.ui.unit.Density.() -> Float = { 0f }) {
     if (media.video) { ViewerVideo(media, onTap, cornerPx); return }
     // The preview first, so there is something at once; then the original replaces it.
-    val preview by produceState<Bitmap?>(Photos.cached("${media.id}/preview"), media.id) {
-        if (value == null) value = Photos.load(media.id, "preview")
+    // Opens on what is already here (the grid's small version), so there is never an empty frame or a spinner.
+    val preview by produceState<Bitmap?>(Photos.cached("${media.id}/preview") ?: Photos.cached("${media.id}/thumbnail"), media.id) {
+        if (value == null) value = Photos.load(media.id, "thumbnail")
+        Photos.load(media.id, "preview")?.let { value = it }
     }
     val original by produceState<Bitmap?>(Photos.cached("${media.id}/original"), media.id) {
         if (value == null && !media.video) value = Photos.load(media.id, "original")
@@ -362,19 +379,35 @@ private fun ViewerPhoto(media: Media, onHdr: (Boolean) -> Unit, onTap: () -> Uni
     }
     var zoom by remember { mutableFloatStateOf(1f) }
     var pan by remember { mutableStateOf(Offset.Zero) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    LaunchedEffect(zoom > 1.01f) { onZoomed(zoom > 1.01f) }
     val transform = rememberTransformableState { z, p, _ ->
-        zoom = (zoom * z).coerceIn(1f, 5f)
+        zoom = (zoom * z).coerceIn(1f, 6f)
         pan = if (zoom == 1f) Offset.Zero else pan + p
     }
     Box(
         Modifier.fillMaxSize()
-            .pointerInput(Unit) { detectTapGestures(onTap = { onTap() }, onDoubleTap = { zoom = if (zoom > 1f) 1f else 2.5f; pan = Offset.Zero }) }
+            .pointerInput(Unit) {
+                // Double tap zooms 2.5x around the spot you tapped, as on the web, and back out again.
+                detectTapGestures(onTap = { onTap() }, onDoubleTap = { at ->
+                    val c = Offset(size.width / 2f, size.height / 2f)
+                    val toZoom = if (zoom > 1f) 1f else 2.5f
+                    val toPan = if (toZoom == 1f) Offset.Zero else (c - at) * (toZoom - 1f)
+                    scope.launch {
+                        val z0 = zoom; val p0 = pan
+                        androidx.compose.animation.core.animate(0f, 1f, animationSpec = androidx.compose.animation.core.tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { t, _ ->
+                            zoom = z0 + (toZoom - z0) * t; pan = p0 + (toPan - p0) * t
+                        }
+                    }
+                })
+            }
             .transformable(transform, canPan = { zoom > 1f }),
         contentAlignment = Alignment.Center,
     ) {
         val shown = original ?: preview
         if (shown == null) {
-            LoadingIndicator(Modifier.size(56.dp), color = Color.White)
+            // A quiet frame of the photo's own shape until its small picture is here; no spinner.
+            Box(Modifier.aspectRatio(Photos.ratioOf(media)).background(Color.White.copy(alpha = 0.06f)))
         } else {
             // Sized to the photo itself, so rounding its corners rounds the picture and not the screen.
             Image(

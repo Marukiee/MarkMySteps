@@ -326,13 +326,37 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                         if (Data.live && Data.trips.isEmpty()) EmptyTrips()
                         PastOrShared(tab, onTab = { tab = it }, modifier = Modifier.padding(top = 26.dp, bottom = 4.dp).arrive(3))
                         // A trip can be shown big, as the first one here, or as a row with its photo blurred behind it.
-                        val list = if (tab == 0) Data.past else Data.sharedTrips
-                        list.firstOrNull()?.let { first -> BigTripCard(first, onOpen = { onOpenTrip(first) }, modifier = Modifier.padding(top = 14.dp).arrive(4)) }
-                        list.drop(1).groupBy { it.year }.forEach { (year, trips) ->
-                            SectionTitle(year, Modifier.padding(top = 18.dp, bottom = 10.dp), small = true)
-                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                trips.forEachIndexed { i, trip -> TripRow(trip, slab(i, trips.size), dark, onOpen = { onOpenTrip(trip) }, modifier = Modifier.arrive(5 + i)) }
+                        // Between Afgelopen reizen and Gedeeld the list slides the way of the tab you picked
+                        // (Material's shared X axis), instead of swapping in place.
+                        val tabMotion = MaterialTheme.motionScheme
+                        AnimatedContent(
+                            tab,
+                            transitionSpec = {
+                                val dir = if (targetState > initialState) 1 else -1
+                                (slideInHorizontally(tabMotion.defaultSpatialSpec()) { w -> dir * w / 5 } + fadeIn(tabMotion.defaultEffectsSpec())) togetherWith
+                                    (slideOutHorizontally(tabMotion.defaultSpatialSpec()) { w -> -dir * w / 5 } + fadeOut(tabMotion.fastEffectsSpec())) using
+                                    androidx.compose.animation.SizeTransform(clip = false)
+                            },
+                            label = "tabList",
+                        ) { which ->
+                            Column {
+                            val list = if (which == 0) Data.past else Data.sharedTrips
+                            list.firstOrNull()?.let { first -> BigTripCard(first, onOpen = { onOpenTrip(first) }, modifier = Modifier.padding(top = 14.dp).arrive(4)) }
+                            list.drop(1).groupBy { it.year }.forEach { (year, trips) ->
+                                SectionTitle(year, Modifier.padding(top = 18.dp, bottom = 10.dp), small = true)
+                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    trips.forEachIndexed { i, trip -> TripRow(trip, slab(i, trips.size), dark, onOpen = { onOpenTrip(trip) }, modifier = Modifier.arrive(5 + i)) }
+                                }
+
+                                if ((if (which == 0) Data.past else Data.sharedTrips).isEmpty()) {
+                                    Text(
+                                        if (which == 0) "Nog geen afgelopen reizen" else "Nog niemand deelde een reis met je",
+                                        style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant),
+                                        modifier = Modifier.padding(top = 18.dp, start = 4.dp),
+                                    )
+                                }
                             }
+                        }
                         }
                     }
                 }
@@ -443,11 +467,14 @@ private fun NextTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mo
                     Text(bottom, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = Color.White.copy(alpha = 0.8f)))
                 }
             }
-            Text(
-                trip.title,
-                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 25.sp, letterSpacing = (-0.015).em, color = Color.White),
-                modifier = Modifier.padding(top = 26.dp),
-            )
+            Row(Modifier.padding(top = 26.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    trip.title,
+                    style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 25.sp, letterSpacing = (-0.015).em, color = Color.White),
+                )
+                // Under way: a green dot that pulses every 1.8 s, as on the web.
+                if (trip.ongoingDay != null) OngoingDot(Modifier.padding(start = 10.dp))
+            }
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip("${shortMonthName(trip.month)} ${trip.year}")
                 Chip("${trip.days} dagen")
@@ -682,5 +709,18 @@ private fun EmptyTrips() {
         LineIcon(Glyphs.compass, cs.primary, size = 34.dp, stroke = 2f)
         Text("Nog geen reizen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface), modifier = Modifier.padding(top = 12.dp))
         Text("Begin met Nieuwe reis hierboven. Foto's uit Immich komen er vanzelf bij.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+
+/** The web's "onderweg" dot: green, its halo breathing out every 1.8 s. */
+@Composable
+fun OngoingDot(modifier: Modifier = Modifier) {
+    val t by androidx.compose.animation.core.rememberInfiniteTransition(label = "ongoing").animateFloat(
+        0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(1800)), label = "pulse",
+    )
+    Box(modifier.size(18.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(18.dp).graphicsLayer { scaleX = 0.5f + t; scaleY = 0.5f + t; alpha = 1f - t }.clip(CircleShape).background(Color(0xFF3DDC84)))
+        Box(Modifier.size(9.dp).clip(CircleShape).background(Color(0xFF3DDC84)))
     }
 }

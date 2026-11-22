@@ -150,11 +150,40 @@ object Api {
 object Photos {
     /** A timeline asks for a hundred photos at once; six at a time is what the server likes. */
     private val lanes = kotlinx.coroutines.sync.Semaphore(6)
-    private val cache = object : LruCache<String, Bitmap>(64 * 1024 * 1024) {
+    // Small grid photos and big ones in separate caches, so a few previews never push the grid out
+    // (that made a tapped photo open without its thumbnail to grow from).
+    private val maxMem = Runtime.getRuntime().maxMemory()
+    private val small = object : LruCache<String, Bitmap>((maxMem / 8).toInt()) {
         override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
+    }
+    private val large = object : LruCache<String, Bitmap>((maxMem / 6).toInt()) {
+        override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
+    }
+    private val cache = object {
+        fun get(key: String): Bitmap? = (if (key.endsWith("/thumbnail") || key.startsWith("avatar/")) small else large).get(key)
+        fun put(key: String, b: Bitmap) { (if (key.endsWith("/thumbnail") || key.startsWith("avatar/")) small else large).put(key, b) }
+        fun evictAll() { small.evictAll(); large.evictAll() }
+    }
+
+    /** Width over height of photos the server sent no size for, learnt from the picture itself and kept on the phone. */
+    val ratios = androidx.compose.runtime.mutableStateMapOf<String, Float>()
+    private var ratioPrefs: android.content.SharedPreferences? = null
+    fun initRatios(context: android.content.Context) {
+        ratioPrefs = context.getSharedPreferences("mms.next.ratios", android.content.Context.MODE_PRIVATE)
+        ratioPrefs?.all?.forEach { (k, v) -> (v as? Float)?.let { ratios[k] = it } }
+    }
+    private fun learn(key: String, b: Bitmap) {
+        val id = key.substringBefore('/')
+        if (key.startsWith("avatar/") || ratios.containsKey(id) || b.height == 0) return
+        val r = b.width.toFloat() / b.height
+        android.os.Handler(android.os.Looper.getMainLooper()).post { ratios[id] = r }
+        ratioPrefs?.edit()?.putFloat(id, r)?.apply()
     }
 
     fun clear() = cache.evictAll()
+
+    /** A ratio for layout: the server's, or the one learnt from the picture when the server had none. */
+    fun ratioOf(m: Media): Float = if (m.sized) m.ratio else ratios[m.id] ?: m.ratio
 
     fun cached(key: String): Bitmap? = cache.get(key)
 
@@ -179,7 +208,7 @@ object Photos {
             var sample = 1
             while (bounds.outWidth / (sample * 2) >= 2400 || bounds.outHeight / (sample * 2) >= 2400) sample *= 2
             val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
-            bitmap?.also { cache.put(key, it) }
+            bitmap?.also { cache.put(key, it); learn(key, it) }
         }
     }
 
@@ -190,7 +219,7 @@ object Photos {
 }
 
 /** A photo of a trip, with when it was taken. */
-data class Media(val id: String, val takenAt: LocalDate, val video: Boolean, val ratio: Float)
+data class Media(val id: String, val takenAt: LocalDate, val video: Boolean, val ratio: Float, val sized: Boolean = true)
 
 /** Reads the signed-in account's trips into the same shapes the demo uses. */
 object Remote {
@@ -253,14 +282,17 @@ object Remote {
 
     data class ShareLink(val id: String, val url: String, val hasPassword: Boolean, val canManage: Boolean)
 
+    /** The server may answer with a path; a link to copy or send needs the whole address. */
+    private fun fullUrl(u: String) = if (u.startsWith("/")) Api.base + u else u
+
     suspend fun shareLinks(trip: Trip): List<ShareLink> {
         val a = JSONArray(Api.get("/api/trips/${trip.remoteId}/share"))
-        return (0 until a.length()).map { a.getJSONObject(it) }.map { ShareLink(it.getString("id"), it.optString("url"), it.optBoolean("hasPassword"), it.optBoolean("canManage", true)) }
+        return (0 until a.length()).map { a.getJSONObject(it) }.map { ShareLink(it.getString("id"), fullUrl(it.optString("url")), it.optBoolean("hasPassword"), it.optBoolean("canManage", true)) }
     }
 
     suspend fun createShareLink(trip: Trip, password: String?): ShareLink {
         val o = JSONObject(Api.send("POST", "/api/trips/${trip.remoteId}/share", JSONObject().apply { if (!password.isNullOrBlank()) put("password", password) }))
-        return ShareLink(o.getString("id"), o.optString("url"), o.optBoolean("hasPassword"), o.optBoolean("canManage", true))
+        return ShareLink(o.getString("id"), fullUrl(o.optString("url")), o.optBoolean("hasPassword"), o.optBoolean("canManage", true))
     }
 
     suspend fun setSharePassword(trip: Trip, id: String, password: String?) {
@@ -335,6 +367,13 @@ object Remote {
 
     /** A playable address for a video: the server hands out a short-lived token in the URL. */
     suspend fun videoUrl(mediaId: String): String = Api.base + JSONObject(Api.get("/api/media/$mediaId/video-url")).getString("url")
+
+    suspend fun setTripColor(trip: Trip, hex: String?) {
+        Api.send("PATCH", "/api/trips/${trip.remoteId}", JSONObject().put("color", hex ?: JSONObject.NULL))
+    }
+
+    /** Ask the server to fetch the trip's photos from Immich again now. */
+    suspend fun syncPhotos(trip: Trip) { Api.send("POST", "/api/trips/${trip.remoteId}/sync") }
 
     suspend fun friends(): List<Friend> {
         val a = JSONArray(Api.get("/api/users/friends"))
@@ -488,6 +527,7 @@ object Remote {
                 takenAt = LocalDate.parse(o.getString("takenAt").take(10)),
                 video = o.optString("assetType") == "VIDEO",
                 ratio = if (w > 0 && h > 0) w.toFloat() / h else 1f,
+                sized = w > 0 && h > 0,
             )
         }.sortedBy { it.takenAt }
     }

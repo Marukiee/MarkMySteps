@@ -124,7 +124,7 @@ fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Me
                 )
             }
             Row(Modifier.padding(start = 27.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(day.stop.flag, fontSize = 15.sp)
+                FlagIcon(day.stop.flag, 14.dp)
                 Text(
                     day.stop.name,
                     style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurfaceVariant),
@@ -226,7 +226,7 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                     } else {
                         // No photo yet: the place in the trip's colour, with its flag, instead of an empty frame.
                         Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(trip.color.copy(alpha = 0.35f), trip.color.copy(alpha = 0.12f)))))
-                        Text(stop.flag, fontSize = 30.sp, modifier = Modifier.padding(14.dp))
+                        FlagIcon(stop.flag, 24.dp, Modifier.padding(14.dp))
                     }
                     Text(
                         stop.name, maxLines = 2,
@@ -272,7 +272,7 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
             }
             if (stop != null) {
                 Row(Modifier.padding(start = 27.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stop.flag, fontSize = 15.sp)
+                    FlagIcon(stop.flag, 14.dp)
                     Text(
                         stop.name,
                         style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurfaceVariant),
@@ -284,13 +284,13 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                 Modifier.padding(start = 27.dp, top = 12.dp, bottom = 30.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                val shown = if (all) list else list.take(12)
+                val shown = list
                 justified(shown).forEach { row ->
-                    val ratio = row.sumOf { it.ratio.toDouble() }.toFloat().coerceAtLeast(0.8f)
+                    val ratio = row.sumOf { Photos.ratioOf(it).toDouble() }.toFloat().coerceAtLeast(0.8f)
                     Row(Modifier.fillMaxWidth().aspectRatio(ratio), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         row.forEach { m ->
                             // Each photo tells the viewer where it is; the one open in the viewer leaves its place empty.
-                            Box(Modifier.weight(m.ratio).fillMaxSize()
+                            Box(Modifier.weight(Photos.ratioOf(m)).fillMaxSize()
                                 .onGloballyPositioned { bounds?.tiles?.set(m.id, it) }
                                 .graphicsLayer { alpha = if (m.id == hidden) 0f else 1f }
                                 .clip(RoundedCornerShape(14.dp)).clickable { onPhoto(m) }) {
@@ -300,18 +300,6 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                                 }
                             }
                         }
-                    }
-                }
-                if (list.size > 12) {
-                    androidx.compose.material3.FilledTonalButton(
-                        onClick = { all = !all },
-                        shapes = androidx.compose.material3.ButtonDefaults.shapes(),
-                        modifier = Modifier.padding(top = 4.dp),
-                    ) {
-                        Text(
-                            if (all) "Minder tonen" else "Alle ${list.size} foto's van deze dag",
-                            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp),
-                        )
                     }
                 }
             }
@@ -329,8 +317,8 @@ private fun justified(list: List<Media>): List<List<Media>> {
     while (i < list.size) {
         val a = list[i]
         val take = when {
-            a.ratio > 1.6f -> 1
-            i + 2 < list.size && list.subList(i, i + 3).all { it.ratio < 0.9f } -> 3
+            Photos.ratioOf(a) > 1.6f -> 1
+            i + 2 < list.size && list.subList(i, i + 3).all { Photos.ratioOf(it) < 0.9f } -> 3
             else -> 2
         }.coerceAtMost(list.size - i)
         rows += list.subList(i, i + take)
