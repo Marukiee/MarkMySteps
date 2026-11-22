@@ -21,7 +21,7 @@ object Airports {
     var ready by mutableStateOf(false)
         private set
 
-    fun load(context: android.content.Context) {
+    @Synchronized fun load(context: android.content.Context) {
         if (list.isNotEmpty()) return
         val lines = runCatching { context.assets.open("airports.txt").bufferedReader().readLines() }.getOrDefault(emptyList())
         val parsed = lines.mapNotNull { line ->
@@ -34,6 +34,9 @@ object Airports {
         all = parsed.map { (a, words) -> fold("${a.iata} ${a.city} ${a.name} $words") }
         android.os.Handler(android.os.Looper.getMainLooper()).post { ready = true }
     }
+
+    /** On the main thread: reads the list if it is not there yet and marks it ready at once. */
+    @Synchronized fun loadNow(context: android.content.Context) { load(context); ready = true }
 
     private fun fold(text: String) = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").lowercase()
 

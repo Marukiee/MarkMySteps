@@ -1,6 +1,7 @@
 package nl.markmaaktmedia.markmysteps.next
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.SeekableTransitionState
@@ -200,9 +201,12 @@ fun AppSwitch(checked: Boolean, enabled: Boolean = true, onChange: () -> Unit) {
 
 /** A block of its own for a form or a choice: the slab's tone, round corners, room inside. */
 @Composable
-fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun Panel(modifier: Modifier = Modifier, animate: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    val spec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>()
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(16.dp),
+        // Growing inside its own background, so the tone follows the height instead of leaving a gap.
+        modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .then(if (animate) Modifier.animateContentSize(spec) else Modifier).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content,
     )

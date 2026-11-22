@@ -3,6 +3,7 @@ package nl.markmaaktmedia.markmysteps.next
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -256,11 +257,14 @@ private fun PreferencesPage(onBack: () -> Unit) {
 private fun AirportsPanel() {
     val cs = MaterialTheme.colorScheme
     val context = LocalContext.current
-    LaunchedEffect(Unit) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Airports.load(context) } }
+    // Normally read in the background at start; if not yet, once here before the first frame (a few ms), so names never pop in.
+    remember { Airports.loadNow(context) }
     var query by remember { mutableStateOf("") }
     val results = remember(query, AirportPref.codes.toList(), Airports.ready) { Airports.search(query).filter { it.iata !in AirportPref.codes } }
         Header("Standaard vliegvelden", top = true)
-        Panel {
+        val motion = MaterialTheme.motionScheme
+        // The panel grows and shrinks with the chips; the suggestions bring their own height in and out.
+        Panel(animate = true) {
             Hint("Je thuisvliegvelden. Tik er een aan om hem de eerste te maken: die geldt als thuis op de globe.")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AirportPref.codes.forEachIndexed { i, code ->
@@ -282,11 +286,18 @@ private fun AirportsPanel() {
                 }
             }
             FormField("Vliegveld toevoegen", query, { query = it }, hint = "bv. Eindhoven", type = KeyboardType.Text)
-            AnimatedVisibility(results.isNotEmpty(), enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            // While they slide away the last suggestions stay drawn, so they leave instead of vanishing.
+            var shownResults by remember { mutableStateOf(results) }
+            if (results.isNotEmpty()) shownResults = results
+            AnimatedVisibility(
+                results.isNotEmpty(),
+                enter = fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec()),
+                exit = fadeOut(motion.defaultEffectsSpec()) + shrinkVertically(motion.defaultSpatialSpec()),
+            ) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    results.forEachIndexed { i, a ->
+                    shownResults.forEachIndexed { i, a ->
                         Row(
-                            Modifier.fillMaxWidth().clip(slabShape(i, results.size)).background(cs.surfaceContainerHigh)
+                            Modifier.fillMaxWidth().clip(slabShape(i, shownResults.size)).background(cs.surfaceContainerHigh)
                                 .dip { AirportPref.set(AirportPref.codes + a.iata); query = "" }.padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {

@@ -399,7 +399,7 @@ private fun TwoFactorPanel() {
     }
 
     Header("Tweestapsverificatie")
-    Panel(Modifier.animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
+    Panel(animate = true) {
         val motion = MaterialTheme.motionScheme
         AnimatedContent(step, transitionSpec = { fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()) }, label = "2fa") { s ->
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

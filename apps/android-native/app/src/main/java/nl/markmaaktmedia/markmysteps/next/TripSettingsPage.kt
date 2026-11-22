@@ -437,7 +437,7 @@ private fun MarkerPanel(trip: Trip, id: String, info: SettingsRemote.TripInfo?) 
     val motion = MaterialTheme.motionScheme
     val enter = fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec())
     val exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.defaultSpatialSpec())
-    Panel(Modifier.animateContentSize(motion.defaultSpatialSpec())) {
+    Panel(animate = true) {
         // The text changes with a cross-fade and the panel grows to it, so nothing jumps.
         androidx.compose.animation.Crossfade(if (marker != null) 2 else if (placing) 1 else 0, animationSpec = motion.defaultEffectsSpec(), label = "markerHint") { st ->
             Hint(
