@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
+import androidx.compose.ui.res.stringResource
 
 /*
  * Asking for your location, the one way the whole app does it: a short word in Dutch on why first, then
@@ -52,14 +53,14 @@ fun rememberLocationRequest(
             // Android asks only twice; after that only the phone's settings can say yes.
             val permanent = activity != null && !activity.shouldShowRequestPermissionRationale(android.Manifest.permission.ACCESS_FINE_LOCATION)
             onRefused(
-                if (permanent) "Locatie staat uit voor deze app. Zet hem aan bij Instellingen › Apps › MarkMySteps Dev › Toegang › Locatie."
-                else "Zonder toegang tot je locatie kan dit niet. Je kunt het later opnieuw proberen.",
+                if (permanent) Lang.text(R.string.locacc_off)
+                else Lang.text(R.string.locacc_denied),
                 permanent,
             )
         }
     }
     if (request.explain) Confirm(
-        title, text, "Verder", danger = false,
+        title, text, stringResource(R.string.locacc_continue), danger = false,
         onConfirm = {
             val wanted = listOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION) +
                 if (notifications && android.os.Build.VERSION.SDK_INT >= 33) listOf(android.Manifest.permission.POST_NOTIFICATIONS) else emptyList()

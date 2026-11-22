@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 
 /*
  * The home page as it is today, ported from TripsPage.tsx and trips.css.
@@ -98,14 +99,14 @@ fun HomeCurrent(onLogoTap: () -> Unit) {
                 Spacer(Modifier.height(43.2.dp - 32.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "Reizen",
+                        stringResource(R.string.nav_trips),
                         style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = 28.8.sp, letterSpacing = (-0.015).em, color = c.ink),
                         modifier = Modifier.weight(1f),
                     )
-                    PrimaryButton("Nieuwe reis", leading = Glyphs.plus)
+                    PrimaryButton(stringResource(R.string.home_new_trip), leading = Glyphs.plus)
                 }
                 Text(
-                    "Aankomend & onderweg",
+                    stringResource(R.string.home_upcoming),
                     style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = 18.4.sp, letterSpacing = (-0.015).em, color = c.inkSoft),
                     modifier = Modifier.padding(top = 16.dp, bottom = 14.4.dp),
                 )
@@ -207,7 +208,7 @@ private fun BigTripCard(trip: Trip) {
             ) {
                 LineIcon(Glyphs.hourglass, LightPalette.accentInk, size = 13.dp, stroke = 2.2f)
                 Text(
-                    "over ${trip.startsInDays} dagen",
+                    stringResource(R.string.home_in_days, trip.startsInDays),
                     style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = 11.8.sp, color = LightPalette.accentInk),
                 )
             }
@@ -224,7 +225,7 @@ private fun BigTripCard(trip: Trip) {
             Row(Modifier.padding(top = 8.8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Meta(trip.month, trip.year)
                 Spacer(Modifier.width(12.dp))
-                Meta("${trip.days}", "dagen")
+                Meta("${trip.days}", stringResource(R.string.home_days))
                 if (trip.km != null) {
                     Spacer(Modifier.width(12.dp))
                     Meta("%,d".format(trip.km).replace(',', '.'), "km")
@@ -293,8 +294,8 @@ private fun Tabs(tab: Int, past: Int, shared: Int, onTab: (Int) -> Unit, modifie
                 .shadow(1.dp, CircleShape).background(c.raised, CircleShape),
         )
         Row(Modifier.fillMaxWidth()) {
-            TabLabel("Afgelopen reizen", past, tab == 0, Modifier.weight(1f)) { onTab(0) }
-            TabLabel("Gedeeld", shared, tab == 1, Modifier.weight(1f)) { onTab(1) }
+            TabLabel(stringResource(R.string.home_past), past, tab == 0, Modifier.weight(1f)) { onTab(0) }
+            TabLabel(stringResource(R.string.home_shared), shared, tab == 1, Modifier.weight(1f)) { onTab(1) }
         }
     }
 }
@@ -334,7 +335,7 @@ private fun CompactTripCard(trip: Trip) {
             )
             val km = trip.km?.let { " · " + "%,d".format(it).replace(',', '.') + " km" } ?: ""
             Text(
-                "${shortMonth(trip.month)} ${trip.year} · ${trip.days} dagen$km",
+                stringResource(R.string.home_trip_line, shortMonth(trip.month), trip.year, trip.days, km),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.3.sp, color = c.inkFaint),
             )
         }
@@ -349,9 +350,9 @@ private fun BottomNav(modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().background(c.glass)) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(c.line))
         Row(Modifier.fillMaxWidth().padding(vertical = 5.6.dp)) {
-            NavItem(Glyphs.compass, "Reizen", true, Modifier.weight(1f))
-            NavItem(Glyphs.friends, "Reizigers", false, Modifier.weight(1f))
-            NavItem(Glyphs.settings, "Instellingen", false, Modifier.weight(1f))
+            NavItem(Glyphs.compass, stringResource(R.string.nav_trips), true, Modifier.weight(1f))
+            NavItem(Glyphs.friends, stringResource(R.string.nav_travellers), false, Modifier.weight(1f))
+            NavItem(Glyphs.settings, stringResource(R.string.nav_settings), false, Modifier.weight(1f))
         }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }

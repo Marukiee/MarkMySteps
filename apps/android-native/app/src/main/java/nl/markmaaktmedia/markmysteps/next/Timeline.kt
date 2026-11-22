@@ -48,6 +48,7 @@ import java.time.LocalDate
 import kotlinx.coroutines.launch
 import java.time.format.TextStyle as DateStyle
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
 
 /*
  * The timeline as in today's app: the places of the trip as a row of photo
@@ -55,7 +56,7 @@ import java.util.Locale
  * with all of that day's photos underneath, joined by a line down the left.
  */
 
-private val Dutch = Locale.forLanguageTag("nl-NL")
+private val Dutch get() = Locale.forLanguageTag(Lang.current)
 private val MonthIndex = listOf("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec")
 
 /** One day of the trip: its date and the stop it was spent at. */
@@ -88,7 +89,7 @@ fun Timeline(
 
     val places = trip.stops.distinctBy { it.name }
     if (places.size > 1) Text(
-        "Plaatsen",
+        stringResource(R.string.timeline_places),
         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
         modifier = Modifier.padding(bottom = 12.dp),
     )
@@ -154,7 +155,7 @@ fun Timeline(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(cs.surfaceContainerLow).padding(horizontal = 16.dp, vertical = 14.dp),
                     ) {
                         Text(
-                            "De foto's van deze dag komen hier vanzelf",
+                            stringResource(R.string.timeline_day_photos),
                             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant),
                         )
                     }
@@ -237,7 +238,7 @@ private fun LiveTimeline(
     // A row of places only when there is more than one: a single place says nothing a row would add.
     if (trip.stops.distinctBy { it.name }.size > 1) {
         Text(
-            "Plaatsen",
+            stringResource(R.string.timeline_places),
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
             modifier = Modifier.padding(bottom = 12.dp),
         )
@@ -272,7 +273,7 @@ private fun LiveTimeline(
     if (photos.isEmpty() && notes.isEmpty()) {
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerLow).padding(18.dp)) {
             Text(
-                if (trip.upcoming) "De foto's komen hier vanzelf zodra de reis begint" else "Nog geen foto's bij deze reis",
+                if (trip.upcoming) stringResource(R.string.timeline_photos_upcoming) else stringResource(R.string.timeline_no_photos),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant),
             )
         }
@@ -447,7 +448,7 @@ private fun LiveTimeline(
     }
     removing?.let { n ->
         Confirm(
-            "Dagverhaal verwijderen?", "Je verhaal van deze dag verdwijnt. Dit kan niet ongedaan worden.", "Verwijderen",
+            stringResource(R.string.timeline_story_delete), stringResource(R.string.timeline_story_delete_body), stringResource(R.string.home_delete),
             onConfirm = {
                 val before = talk.notes
                 talk.notes = talk.notes.filter { it.id != n.id }

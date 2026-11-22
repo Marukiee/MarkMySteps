@@ -71,6 +71,7 @@ import org.maplibre.geojson.Point
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import androidx.compose.ui.res.stringResource
 
 /*
  * The raw points of one day of your own route, on a map of their own, as the web's TrackPointsEditor: drag a
@@ -215,7 +216,13 @@ fun FullScreenLayer(onDismiss: () -> Unit, content: @Composable (close: () -> Un
     }
 }
 
-private val SourceName = mapOf("TRACKED" to "GPS", "MANUAL" to "Handmatig", "ROUTE_FILL" to "Wegroute", "IMPORTED" to "Import")
+private fun sourceName(source: String): String? = when (source) {
+    "TRACKED" -> "GPS"
+    "MANUAL" -> Lang.text(R.string.points_manual)
+    "ROUTE_FILL" -> Lang.text(R.string.points_road)
+    "IMPORTED" -> Lang.text(R.string.points_import)
+    else -> null
+}
 
 private fun clock(t: Instant): String = t.atZone(ZoneId.systemDefault()).toLocalTime().let { "%02d:%02d".format(it.hour, it.minute) }
 
@@ -235,7 +242,7 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     suspend fun load(which: LocalDate) {
-        runCatching { MapRemote.dayPoints(tripId, which) }.onSuccess { points = it; error = null }.onFailure { error = it.message ?: "Punten laden mislukt" }
+        runCatching { MapRemote.dayPoints(tripId, which) }.onSuccess { points = it; error = null }.onFailure { error = it.message ?: Lang.text(R.string.points_load_failed) }
     }
     LaunchedEffect(Unit) {
         runCatching { MapRemote.pointDays(tripId) }.onSuccess { list ->
@@ -249,7 +256,7 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
 
     fun move(p: MapRemote.TrackPoint, at: LonLat) {
         points = points?.map { if (it.id == p.id) it.copy(at = at) else it }
-        scope.launch { runCatching { MapRemote.movePoint(tripId, p.id, at) }.onFailure { error = it.message ?: "Punt verplaatsen mislukt"; load(day) } }
+        scope.launch { runCatching { MapRemote.movePoint(tripId, p.id, at) }.onFailure { error = it.message ?: Lang.text(R.string.points_move_failed); load(day) } }
     }
     fun insert(at: LonLat) {
         val list = points.orEmpty()
@@ -272,7 +279,7 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
         }
         busy = true
         scope.launch {
-            runCatching { MapRemote.addPoint(tripId, at, time) }.onSuccess { haptics(Haptic.Confirm); load(day); adding = false }.onFailure { error = it.message ?: "Punt toevoegen mislukt" }
+            runCatching { MapRemote.addPoint(tripId, at, time) }.onSuccess { haptics(Haptic.Confirm); load(day); adding = false }.onFailure { error = it.message ?: Lang.text(R.string.points_add_failed) }
             busy = false
         }
     }
@@ -280,7 +287,7 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
         val p = selected ?: return
         busy = true
         scope.launch {
-            runCatching { MapRemote.deletePoint(tripId, p.id) }.onSuccess { selected = null; load(day) }.onFailure { error = it.message ?: "Punt verwijderen mislukt" }
+            runCatching { MapRemote.deletePoint(tripId, p.id) }.onSuccess { selected = null; load(day) }.onFailure { error = it.message ?: Lang.text(R.string.points_remove_failed) }
             busy = false
         }
     }
@@ -292,9 +299,9 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
                     LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), cs.onSurface, size = 22.dp, stroke = 2.2f)
                 }
                 Column(Modifier.padding(start = 14.dp)) {
-                    Text(if (day == today) "Punten van vandaag" else "Punten van ${shortDay(day)}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
+                    Text(if (day == today) stringResource(R.string.points_today) else stringResource(R.string.points_of_day, shortDay(day)), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
                     val n = points?.size
-                    Text(if (n == null) " " else if (n == 1) "1 punt" else "$n punten", style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                    Text(if (n == null) " " else if (n == 1) stringResource(R.string.points_one) else stringResource(R.string.points_many, n), style = ValueStyle.copy(color = cs.onSurfaceVariant))
                 }
             }
             // The days with points, today first; the row runs to the screen's edge.
@@ -305,7 +312,7 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
                     val bg by animateColorAsState(if (on) cs.primary else cs.surfaceContainerHigh, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "dayChip")
                     val fg by animateColorAsState(if (on) cs.onPrimary else cs.onSurface, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "dayChipFg")
                     Row(Modifier.height(40.dp).clip(CircleShape).background(bg).dip { if (!on) haptics(Haptic.Tick); day = d }.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (d == today) "Vandaag" else "%02d-%02d".format(d.dayOfMonth, d.monthValue), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = fg))
+                        Text(if (d == today) stringResource(R.string.points_today_short) else "%02d-%02d".format(d.dayOfMonth, d.monthValue), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = fg))
                         Text("$count", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.sp, color = fg.copy(alpha = 0.75f)), modifier = Modifier.padding(start = 6.dp))
                     }
                 }
@@ -313,7 +320,7 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
             Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(28.dp))) {
                 EditorMap(dark, points.orEmpty(), points != null, day, selected?.id, adding, onSelect = { selected = it; if (it != null) haptics(Haptic.Tap) }, onMove = { p, at -> haptics(Haptic.GestureEnd); move(p, at) }, onAdd = { insert(it) })
                 androidx.compose.animation.AnimatedVisibility(adding, modifier = Modifier.align(Alignment.TopCenter).padding(12.dp), enter = fadeIn() + slideInVertically { -it }, exit = fadeOut() + slideOutVertically { -it }) {
-                    Text("Tik op de kaart om een punt toe te voegen", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(550), fontSize = 13.5.sp, color = cs.inverseOnSurface),
+                    Text(stringResource(R.string.points_tap_to_add), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(550), fontSize = 13.5.sp, color = cs.inverseOnSurface),
                         modifier = Modifier.clip(CircleShape).background(cs.inverseSurface).padding(horizontal = 16.dp, vertical = 10.dp))
                 }
                 MapNote(error, Modifier.align(Alignment.BottomCenter).padding(12.dp))
@@ -322,18 +329,18 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
             androidx.compose.animation.AnimatedContent(selected, label = "teBar", modifier = Modifier.navigationBarsPadding().padding(16.dp)) { sel ->
                 if (sel == null) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     androidx.compose.animation.Crossfade(adding, label = "legend") { a ->
-                        Hint(if (a) "Tik op de kaart waar het punt moet komen." else "Sleep een punt om de route te corrigeren. Tik op een punt voor de details.", Modifier.padding(horizontal = 4.dp))
+                        Hint(if (a) stringResource(R.string.points_tap_where) else stringResource(R.string.points_drag_hint), Modifier.padding(horizontal = 4.dp))
                     }
-                    if (adding) SoftButton("Klaar", { adding = false }, Modifier.fillMaxWidth(), icon = Glyphs.check)
-                    else MainButton("Punt toevoegen", { haptics(Haptic.Tap); adding = true; selected = null }, Modifier.fillMaxWidth(), icon = Glyphs.plus, enabled = !busy)
+                    if (adding) SoftButton(stringResource(R.string.points_done), { adding = false }, Modifier.fillMaxWidth(), icon = Glyphs.check)
+                    else MainButton(stringResource(R.string.points_add), { haptics(Haptic.Tap); adding = true; selected = null }, Modifier.fillMaxWidth(), icon = Glyphs.plus, enabled = !busy)
                 } else Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(cs.surfaceContainerLow).padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(clock(sel.time), style = TitleStyle.copy(color = cs.onSurface))
-                        Text((SourceName[sel.source] ?: sel.source) + (sel.accuracy?.let { " · ±${it.toInt()} m" } ?: ""), style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                        Text((sourceName(sel.source) ?: sel.source) + (sel.accuracy?.let { " · ±${it.toInt()} m" } ?: ""), style = ValueStyle.copy(color = cs.onSurfaceVariant))
                     }
-                    SoftButton("Sluiten", { selected = null })
+                    SoftButton(stringResource(R.string.common_close), { selected = null })
                     Spacer(Modifier.width(8.dp))
-                    MainButton("Verwijderen", { remove() }, icon = Glyphs.trash, danger = true, busy = busy)
+                    MainButton(stringResource(R.string.home_delete), { remove() }, icon = Glyphs.trash, danger = true, busy = busy)
                 }
             }
         }

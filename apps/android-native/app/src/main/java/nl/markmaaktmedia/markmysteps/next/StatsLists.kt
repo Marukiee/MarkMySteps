@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 
 /*
  * What is behind the figures on Reizigers, as on the web: every trip, country or flight with the way into
@@ -43,7 +44,7 @@ import androidx.compose.ui.unit.sp
 /** Which list a tile opens. Distance, days and photos are per trip. */
 enum class StatsKind { Trips, Countries, Flights, Places }
 
-private val Nl = java.util.Locale.forLanguageTag("nl-NL")
+private val Nl get() = java.util.Locale.forLanguageTag(Lang.current)
 private fun countryName(code: String) = java.util.Locale("", code.uppercase()).getDisplayCountry(Nl).ifBlank { code.uppercase() }
 private fun stretch(from: String, to: String): String {
     val a = parseDay(from) ?: return ""; val b = parseDay(to) ?: a
@@ -60,10 +61,10 @@ fun StatsListSheet(kind: StatsKind, lists: SocialRemote.Lists, onDismiss: () -> 
     val cs = MaterialTheme.colorScheme
     val count = when (kind) { StatsKind.Trips -> lists.trips.size; StatsKind.Countries -> lists.countries.size; StatsKind.Flights -> lists.flights.size; StatsKind.Places -> lists.places.size }
     val title = when (kind) {
-        StatsKind.Trips -> plural(count, "reis", "reizen")
-        StatsKind.Countries -> plural(count, "land", "landen")
-        StatsKind.Flights -> plural(count, "vlucht", "vluchten")
-        StatsKind.Places -> plural(count, "plaats", "plaatsen")
+        StatsKind.Trips -> plural(count, stringResource(R.string.stats_trip), stringResource(R.string.stats_trips))
+        StatsKind.Countries -> plural(count, stringResource(R.string.trip_fact_country), stringResource(R.string.summary_fact_countries))
+        StatsKind.Flights -> plural(count, stringResource(R.string.stats_flight), stringResource(R.string.stats_flights))
+        StatsKind.Places -> plural(count, stringResource(R.string.stats_place), stringResource(R.string.stats_places))
     }
     // The whole distance flown, or nothing: one flight without two known airports would make it quietly too low.
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -76,7 +77,7 @@ fun StatsListSheet(kind: StatsKind, lists: SocialRemote.Lists, onDismiss: () -> 
         val sheet = this
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             Text(title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
-            airKm?.let { Text("${"%,d".format(it).replace(',', '.')} km in de lucht", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp)) }
+            airKm?.let { Text(stringResource(R.string.stats_km_air, "%,d".format(it).replace(',', '.')), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp)) }
             val go: (String) -> Unit = { id -> sheet.close(); onGo(id) }
             LazyColumn(Modifier.padding(top = 14.dp).heightIn(max = maxH), verticalArrangement = Arrangement.spacedBy(3.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
                 when (kind) {
@@ -84,7 +85,7 @@ fun StatsListSheet(kind: StatsKind, lists: SocialRemote.Lists, onDismiss: () -> 
                         Slab(i, lists.trips.size) {
                             Visit(
                                 dot = tripColor(t.color, cs.primary), title = t.title, line = stretch(t.from, t.to),
-                                second = listOfNotNull(plural(t.days, "dag", "dagen"), t.km.takeIf { it > 0 }?.let { "${"%,d".format(it).replace(',', '.')} km" }, plural(t.photos, "foto", "foto's")).joinToString(" · "),
+                                second = listOfNotNull(plural(t.days, stringResource(R.string.home_day), stringResource(R.string.home_days)), t.km.takeIf { it > 0 }?.let { "${"%,d".format(it).replace(',', '.')} km" }, plural(t.photos, stringResource(R.string.trip_fact_photo), stringResource(R.string.summary_fact_photos))).joinToString(" · "),
                                 onGo = { go(t.id) },
                             )
                         }
@@ -153,7 +154,7 @@ private fun GoButton(onClick: () -> Unit) {
         Modifier.padding(start = 8.dp).clip(CircleShape).background(cs.secondaryContainer).clickable { haptics(Haptic.Tap); onClick() }.padding(start = 12.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("Ga naar reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.sp, color = cs.onSecondaryContainer))
+        Text(stringResource(R.string.stats_go_trip), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.sp, color = cs.onSecondaryContainer))
         LineIcon(Glyphs.chevronRight, cs.onSecondaryContainer, size = 15.dp, stroke = 2.2f, modifier = Modifier.padding(start = 2.dp))
     }
 }
@@ -198,7 +199,7 @@ fun RecentTrips(trips: List<SocialRemote.Recent>, who: String?, onOpen: (String)
     val cs = MaterialTheme.colorScheme
     val months = listOf("januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december")
     Column(modifier) {
-        Text(if (who != null) "Laatste reizen van $who" else "Je laatste reizen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 10.dp))
+        Text(if (who != null) stringResource(R.string.stats_last_of, who) else stringResource(R.string.stats_last_yours), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 10.dp))
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             trips.forEachIndexed { i, t ->
                 val top = if (i == 0) 26.dp else 6.dp; val bottom = if (i == trips.lastIndex) 26.dp else 6.dp
@@ -234,6 +235,6 @@ fun OngoingPill(count: Int, modifier: Modifier = Modifier) {
             Box(Modifier.size(14.dp).drawBehind { drawCircle(green.copy(alpha = (1f - t) * 0.45f), radius = size.minDimension / 2f * (0.5f + 0.5f * t)) })
             Box(Modifier.size(7.dp).clip(CircleShape).background(green))
         }
-        Text(if (count == 1) "onderweg" else "$count× onderweg", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 13.sp, color = green), modifier = Modifier.padding(start = 6.dp))
+        Text(if (count == 1) stringResource(R.string.stats_under_way) else stringResource(R.string.stats_under_way_count, count), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 13.sp, color = green), modifier = Modifier.padding(start = 6.dp))
     }
 }

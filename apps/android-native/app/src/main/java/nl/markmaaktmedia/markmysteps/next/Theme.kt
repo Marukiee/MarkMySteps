@@ -10,6 +10,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 
 /** The three typefaces of the web app, as the same variable fonts. */
 private fun variable(res: Int, weights: List<Int>) = FontFamily(
@@ -103,7 +104,7 @@ fun betaTitle(title: String, color: androidx.compose.ui.graphics.Color, size: an
     androidx.compose.ui.text.buildAnnotatedString {
         append(title)
         pushStyle(androidx.compose.ui.text.SpanStyle(fontFamily = Inter, fontWeight = androidx.compose.ui.text.font.FontWeight(700), fontSize = size, color = color))
-        append(" (bèta)")
+        append(Lang.text(R.string.theme_beta))
         pop()
     }
 

@@ -80,6 +80,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
@@ -919,7 +920,7 @@ private fun TripRow(trip: Trip, shape: Shape, dark: Boolean, onOpen: () -> Unit,
                 Text(trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 18.sp, lineHeight = 21.sp, color = cs.onSurface))
                 // No distance measured: say nothing rather than "0 km".
                 val km = trip.km?.takeIf { it > 0 }?.let { " · " + "%,d".format(it).replace(',', '.') + " km" } ?: ""
-                Text("${trip.month} ${trip.year} · ${if (trip.days == 1) "1 dag" else "${trip.days} dagen"}$km", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                Text(stringResource(R.string.home_trip_line_new, trip.month, trip.year, pluralStringResource(R.plurals.home_trip_days, trip.days, trip.days), km), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
             }
             MenuDots(trip, onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, light = false, autoBig = autoBig)
         }
@@ -1010,8 +1011,8 @@ private fun EmptyTrips() {
     val cs = MaterialTheme.colorScheme
     Column(Modifier.padding(top = 24.dp).fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(cs.surfaceContainerLow).padding(22.dp)) {
         LineIcon(Glyphs.compass, cs.primary, size = 34.dp, stroke = 2f)
-        Text("Nog geen reizen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface), modifier = Modifier.padding(top = 12.dp))
-        Text("Begin met Nieuwe reis hierboven. Foto's uit Immich komen er vanzelf bij.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp))
+        Text(stringResource(R.string.home_empty_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface), modifier = Modifier.padding(top = 12.dp))
+        Text(stringResource(R.string.home_empty_body), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp))
     }
 }
 

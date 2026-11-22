@@ -69,6 +69,7 @@ import kotlin.math.exp
 import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.tan
+import androidx.compose.ui.res.stringResource
 
 /*
  * The trip's map: MapLibre with the same OpenFreeMap styles as the web app
@@ -345,7 +346,7 @@ private fun labelFor(trip: Trip, id: String): StopLabel? {
     trip.stops.firstOrNull { (it.id ?: "stop:${it.name}") == id }?.let { s -> return StopLabel(id, s.at, s.name, s.dates) }
     for (s in trip.stops) for (dt in s.dayTrips) if (dt.id == id) {
         val at = dt.at ?: return null
-        return StopLabel(id, at, dt.name, dt.day?.let { "Dagtrip · ${it.dayOfMonth} ${Months[it.monthValue - 1]}" } ?: "Dagtrip")
+        return StopLabel(id, at, dt.name, dt.day?.let { Lang.text(R.string.map_day_trip_on, it.dayOfMonth, Months[it.monthValue - 1]) } ?: Lang.text(R.string.planner_day_trip))
     }
     return null
 }
@@ -581,7 +582,7 @@ private fun LiveFaces(map: org.maplibre.android.maps.MapLibreMap?, tick: Int, fi
                 Avatar(fix.userId, fix.name, fix.hasAvatar, ring, Modifier.matchParentSize())
             }
             val mins = ((now - fix.time.toEpochMilli()) / 60_000).coerceAtLeast(0)
-            val age = when { mins < 2 -> "nu"; mins < 60 -> "$mins min"; mins < 48 * 60 -> "${mins / 60} uur"; else -> "${mins / 1440} d" }
+            val age = when { mins < 2 -> stringResource(R.string.map_age_now); mins < 60 -> stringResource(R.string.map_age_min, mins); mins < 48 * 60 -> stringResource(R.string.map_age_hours, mins / 60); else -> "${mins / 1440} d" }
             androidx.compose.material3.Text(
                 age, maxLines = 1,
                 style = androidx.compose.ui.text.TextStyle(fontFamily = Outfit, fontWeight = androidx.compose.ui.text.font.FontWeight(700), fontSize = 10.5.sp, color = cs.onSurface),

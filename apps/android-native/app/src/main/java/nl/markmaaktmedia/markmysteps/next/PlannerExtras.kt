@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 
 /*
  * Two quiet helpers of the route planner, as on the web: the weather where a stop is on its first day, and
@@ -121,8 +123,8 @@ fun StaySuggestions(trip: Trip, onAdd: suspend (SocialRemote.Stay, String, Strin
                     LineIcon(listOf(P("M12 3v4"), P("M12 17v4"), P("M3 12h4"), P("M17 12h4"), P("m6 6 2.5 2.5"), P("m15.5 15.5 2.5 2.5"), P("m6 18 2.5-2.5"), P("m15.5 8.5 2.5-2.5")), cs.onTertiaryContainer, size = 17.dp, stroke = 2f)
                 }
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text("Gevonden in je route", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.5.sp, color = cs.onSurface))
-                    Text(if (live.size == 1) "1 plek waar je bleef slapen" else "${live.size} plekken waar je bleef slapen", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                    Text(stringResource(R.string.plannerx_found), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.5.sp, color = cs.onSurface))
+                    Text(pluralStringResource(R.plurals.plannerx_stays, live.size, live.size), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
                 }
                 val turn by animateFloatAsState(if (open) 180f else 0f, motion.defaultSpatialSpec(), label = "caret")
                 LineIcon(listOf(P("m6 9 6 6 6-6")), cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f, modifier = Modifier.graphicsLayer { rotationZ = turn })
@@ -168,7 +170,7 @@ private fun StayCard(s: NamedStay, onAdd: suspend () -> Unit, onDismiss: () -> U
             }
             val from = parseDay(s.stay.from); val to = parseDay(s.stay.to)
             val dates = if (from != null && to != null) shortRange(from, to) else ""
-            val meta = listOfNotNull(dates.ifBlank { null }, plural(s.stay.nights, "nacht", "nachten")).joinToString(" · ")
+            val meta = listOfNotNull(dates.ifBlank { null }, plural(s.stay.nights, stringResource(R.string.planner_night), stringResource(R.string.planner_nights))).joinToString(" · ")
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
                 Text(meta, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
                 if (s.stay.photos > 0) {
@@ -183,7 +185,7 @@ private fun StayCard(s: NamedStay, onAdd: suspend () -> Unit, onDismiss: () -> U
             contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 12.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
         ) {
             LineIcon(Glyphs.plus, cs.onPrimary, size = 15.dp, stroke = 2.4f)
-            Text("Toevoegen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp), modifier = Modifier.padding(start = 4.dp))
+            Text(stringResource(R.string.common_add), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp), modifier = Modifier.padding(start = 4.dp))
         }
         Box(Modifier.padding(start = 2.dp).size(40.dp).clip(CircleShape).clickable(onClick = onDismiss), contentAlignment = Alignment.Center) {
             LineIcon(listOf(P("M6 6l12 12"), P("M18 6 6 18")), cs.onSurfaceVariant, size = 15.dp, stroke = 2.2f)

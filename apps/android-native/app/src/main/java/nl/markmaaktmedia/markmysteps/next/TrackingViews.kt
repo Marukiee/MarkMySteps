@@ -41,6 +41,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 
 /*
  * What Instellingen › Voorkeuren › Route-tracking shows about tracking itself, as the web: where the last
@@ -74,11 +76,11 @@ fun LastFixCard(fix: Triple<Double, Double, Long>, now: Long, tripId: String?, o
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(9.dp).clip(CircleShape).background(cs.primary))
                 androidx.compose.animation.Crossfade(place, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "place") { p ->
-                    Text(p ?: "Plaats opzoeken…", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
+                    Text(p ?: stringResource(R.string.map_place_looking), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
                 }
             }
             Text(
-                "laatste positie " + (if (age < 2) "zojuist" else if (age < 120) "${age}s geleden" else "${age / 60} min geleden") + (Tracker.lastAccuracy?.let { " · ±${it.toInt()} m" } ?: ""),
+                stringResource(R.string.trackview_last_position) + (if (age < 2) stringResource(R.string.viewer_just_now) else if (age < 120) stringResource(R.string.trackview_seconds_ago, age) else stringResource(R.string.trackview_minutes_ago, age / 60)) + (Tracker.lastAccuracy?.let { " · ±${it.toInt()} m" } ?: ""),
                 style = ValueStyle.copy(color = cs.onSurfaceVariant),
             )
             Text("%.5f, %.5f".format(java.util.Locale.ROOT, fix.second, fix.first), style = ValueStyle.copy(fontSize = 12.sp, color = cs.onSurfaceVariant.copy(alpha = 0.8f)))
@@ -94,7 +96,7 @@ private fun LogRow(e: Tracker.FixLog, now: Long, full: Boolean) {
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.width(58.dp)) {
             Text(clockOf(e.at), style = TitleStyle.copy(fontSize = 14.sp, color = cs.onSurface))
-            if (ago < 3600) Text("${(ago / 60).coerceAtLeast(0)} min", style = ValueStyle.copy(fontSize = 11.5.sp, color = cs.onSurfaceVariant))
+            if (ago < 3600) Text(stringResource(R.string.trackview_minutes, (ago / 60).coerceAtLeast(0)), style = ValueStyle.copy(fontSize = 11.5.sp, color = cs.onSurfaceVariant))
         }
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(e.movedM?.let { "$it m" } ?: "start", style = ValueStyle.copy(fontWeight = FontWeight(650), color = cs.onSurface))
@@ -122,7 +124,7 @@ fun TrackingLog(now: Long) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh)) {
         Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 16.dp, stroke = 2.2f, modifier = Modifier.graphicsLayer { rotationZ = turn })
-            Text("Locatie-log · ${log.size} ${if (log.size == 1) "check" else "checks"}", style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.weight(1f).padding(start = 8.dp))
+            Text(stringResource(R.string.trackview_log) + " · " + pluralStringResource(R.plurals.trackview_checks, log.size, log.size), style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.weight(1f).padding(start = 8.dp))
             Box(Modifier.size(40.dp).clip(CircleShape).clickable { full = true }, contentAlignment = Alignment.Center) {
                 LineIcon(listOf(P("M4 9V4h5"), P("M20 9V4h-5"), P("M4 15v5h5"), P("M20 15v5h-5")), cs.onSurfaceVariant, size = 17.dp, stroke = 2.1f)
             }
@@ -134,8 +136,8 @@ fun TrackingLog(now: Long) {
         }
     }
     if (full) AppSheet(onDismiss = { full = false }) {
-        Text("Locatie-log", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(horizontal = 20.dp))
-        Text("${log.size} checks", style = ValueStyle.copy(color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 20.dp, top = 2.dp, bottom = 8.dp))
+        Text(stringResource(R.string.trackview_log), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(horizontal = 20.dp))
+        Text(pluralStringResource(R.plurals.trackview_checks, log.size, log.size), style = ValueStyle.copy(color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 20.dp, top = 2.dp, bottom = 8.dp))
         LazyColumn(Modifier.heightIn(max = 600.dp).padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
             items(log) { LogRow(it, now, full = true) }
         }

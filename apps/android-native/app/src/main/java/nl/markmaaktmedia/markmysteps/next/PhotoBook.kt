@@ -86,6 +86,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.absoluteValue
 import kotlin.math.min
+import androidx.compose.ui.res.stringResource
 
 /*
  * The photo book, natively: an A4 book (the shape the web app prints) that
@@ -415,7 +416,7 @@ private fun CircleButton(onClick: () -> Unit, content: @Composable () -> Unit) {
 @Composable
 private fun Dp.sp(): TextUnit = with(LocalDensity.current) { this@sp.toSp() }
 
-private val longDate = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.forLanguageTag("nl"))
+private val longDate get() = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.forLanguageTag(Lang.current))
 private val clock = DateTimeFormatter.ofPattern("HH:mm")
 
 @Composable
@@ -492,7 +493,7 @@ private fun RouteSheet(ctx: BookContext, u: Dp) {
     val cs = MaterialTheme.colorScheme
     val (lon, lat, zoom) = remember(ctx.trip) { tripFrame(ctx.trip) }
     Column(Modifier.fillMaxSize().padding(horizontal = u * SIDE, vertical = u * TOP)) {
-        Text("De route", style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = (u * 0.075f).sp(), color = cs.onSurface))
+        Text(stringResource(R.string.photobook_route), style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = (u * 0.075f).sp(), color = cs.onSurface))
         Text(
             ctx.trip.dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.03f).sp(), color = cs.onSurfaceVariant),
             modifier = Modifier.padding(top = u * 0.008f),
@@ -513,7 +514,7 @@ private fun RouteSheet(ctx: BookContext, u: Dp) {
                             Column(Modifier.padding(start = u * 0.025f)) {
                                 Text("${s.flag} ${s.name}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = (u * 0.034f).sp(), color = cs.onSurface))
                                 Text(
-                                    if (s.nights == 1) "1 nacht" else "${s.nights} nachten",
+                                    Lang.plural(R.plurals.nights_count, s.nights),
                                     style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.026f).sp(), color = cs.onSurfaceVariant),
                                 )
                             }
@@ -531,11 +532,11 @@ private fun RouteSheet(ctx: BookContext, u: Dp) {
 fun tripFacts(trip: Trip, picked: Picked?): List<Pair<String, String>> {
     val countries = trip.stops.map { it.flag }.distinct().size
     return buildList {
-        add("${trip.days}" to "dagen")
-        trip.km?.takeIf { it > 0 }?.let { add("%,d".format(it).replace(',', '.') to "kilometer") }
+        add("${trip.days}" to Lang.text(R.string.home_days))
+        trip.km?.takeIf { it > 0 }?.let { add("%,d".format(it).replace(',', '.') to Lang.text(R.string.summary_fact_km)) }
         if (trip.stops.size > 1) add("${trip.stops.size}" to "stops")
-        if (countries > 1) add("$countries" to "landen")
-        else picked?.let { add("${it.photoCount}" to "foto's") }
+        if (countries > 1) add("$countries" to Lang.text(R.string.summary_fact_countries))
+        else picked?.let { add("${it.photoCount}" to Lang.text(R.string.summary_fact_photos)) }
     }.take(4)
 }
 
@@ -574,7 +575,7 @@ private fun OpenerSheet(sheet: Sheet.Opener, ctx: BookContext, u: Dp) {
                 modifier = Modifier.padding(top = u * 0.035f),
             )
             Text(
-                listOfNotNull(day.flag, day.place ?: "Dag ${day.number}").joinToString(" "),
+                listOfNotNull(day.flag, day.place ?: Lang.text(R.string.book_day, day.number)).joinToString(" "),
                 style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = (u * 0.085f).sp(), lineHeight = (u * 0.095f).sp(), color = Color.White),
             )
         }
@@ -597,7 +598,7 @@ private fun PhotosSheet(sheet: Sheet.Photos, index: Int, ctx: BookContext, u: Dp
                         style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.026f).sp(), letterSpacing = 0.08.em, color = cs.onSurfaceVariant),
                     )
                     Text(
-                        listOfNotNull(day.flag, day.place ?: "Dag ${day.number}").joinToString(" "),
+                        listOfNotNull(day.flag, day.place ?: Lang.text(R.string.book_day, day.number)).joinToString(" "),
                         maxLines = 2, overflow = TextOverflow.Ellipsis,
                         style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = (u * 0.075f).sp(), lineHeight = (u * 0.085f).sp(), color = cs.onSurface),
                     )
@@ -616,7 +617,7 @@ private fun PhotosSheet(sheet: Sheet.Photos, index: Int, ctx: BookContext, u: Dp
                 placeholder = Color(r.look.average),
             )
         }
-        Folio("Dag ${day.number}" + (day.place?.let { " · $it" } ?: ""), index + 1, u)
+        Folio(Lang.text(R.string.book_day, day.number) + (day.place?.let { " · $it" } ?: ""), index + 1, u)
     }
 }
 
@@ -638,7 +639,7 @@ private fun EndSheet(ctx: BookContext, u: Dp) {
         Spacer(Modifier.weight(1f))
         Globe(listOf(ctx.trip), globeStyle(ctx.dark, 2.4f), Modifier.size(u * 0.56f), centerLon = lon, centerLat = lat, turnable = false)
         Text(
-            "Tot de volgende reis", textAlign = TextAlign.Center,
+            stringResource(R.string.photobook_until_next), textAlign = TextAlign.Center,
             style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = (u * 0.068f).sp(), color = cs.onSurface),
             modifier = Modifier.padding(top = u * 0.06f),
         )

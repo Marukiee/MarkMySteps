@@ -486,13 +486,13 @@ private fun subtitle(trip: Trip): String {
         stops.isEmpty() -> trip.dates
         stops.map { it.flag }.distinct().size > 1 -> countryNames(stops)
         stops.size == 1 -> "${stops[0].flag} ${stops[0].name}"
-        else -> "${stops[0].flag} ${stops.first().name} tot ${stops.last().name}"
+        else -> "${stops[0].flag} " + Lang.text(R.string.summary_until, stops.first().name, stops.last().name)
     }
 }
 
 /** "Marokko en Spanje", from the stops' flags, in the order the trip went. */
 private fun countryNames(stops: List<Stop>): String {
-    val nl = java.util.Locale.forLanguageTag("nl")
+    val nl = java.util.Locale.forLanguageTag(Lang.current)
     val names = stops.map { it.flag }.distinct().mapNotNull { flag ->
         val cps = flag.codePoints().toArray()
         if (cps.size != 2) null else java.util.Locale.Builder().setRegion(cps.joinToString("") { (it - 0x1F1E6 + 'A'.code).toChar().toString() }).build().getDisplayCountry(nl)
@@ -500,7 +500,7 @@ private fun countryNames(stops: List<Stop>): String {
     return when (names.size) {
         0 -> ""
         1 -> names[0]
-        else -> names.dropLast(1).joinToString(", ") + " en " + names.last()
+        else -> Lang.text(R.string.summary_and, names.dropLast(1).joinToString(", "), names.last())
     }
 }
 

@@ -57,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
 
 /*
  * The talk around a trip, as on the web: each day's stories (yours to write, change and remove, the others'
@@ -179,8 +180,8 @@ fun DayStory(
             else if (body != null && own != null) Column {
                 StoryCard(body, own = true)
                 if (canEdit) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SmallPill("Bewerken", Glyphs.pencil, cs.surfaceContainerHigh, cs.onSurface, onEdit)
-                    SmallPill("Verwijderen", Glyphs.trash, cs.errorContainer.copy(alpha = 0.55f), cs.error) { onDelete(own) }
+                    SmallPill(stringResource(R.string.daystory_edit), Glyphs.pencil, cs.surfaceContainerHigh, cs.onSurface, onEdit)
+                    SmallPill(stringResource(R.string.home_delete), Glyphs.trash, cs.errorContainer.copy(alpha = 0.55f), cs.error) { onDelete(own) }
                 }
             } else Spacer(Modifier.size(0.dp))
         }
@@ -224,7 +225,7 @@ private fun StoryEditor(day: String, start: String, onCancel: () -> Unit, onSave
     Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().heightIn(min = 104.dp).clip(RoundedCornerShape(20.dp)).background(cs.surfaceContainerHighest).padding(16.dp)) {
             val text = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(450), fontSize = 16.sp, lineHeight = 24.sp, color = cs.onSurface)
-            if (draft.isEmpty()) Text("Schrijf iets over deze dag…", style = text.copy(color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
+            if (draft.isEmpty()) Text(stringResource(R.string.daystory_write), style = text.copy(color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
             BasicTextField(
                 draft, { draft = it.take(8000) }, textStyle = text, cursorBrush = SolidColor(cs.primary),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -236,18 +237,18 @@ private fun StoryEditor(day: String, start: String, onCancel: () -> Unit, onSave
         }
         Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             val label = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)
-            FilledTonalButton(onClick = onCancel, shapes = ButtonDefaults.shapes()) { Text("Annuleren", style = label) }
+            FilledTonalButton(onClick = onCancel, shapes = ButtonDefaults.shapes()) { Text(stringResource(R.string.common_cancel), style = label) }
             Button(
                 onClick = {
                     busy = true; error = null
-                    scope.launch { runCatching { onSave(draft.trim()) }.onFailure { error = "Opslaan mislukt" }; busy = false }
+                    scope.launch { runCatching { onSave(draft.trim()) }.onFailure { error = Lang.text(R.string.summary_save_failed) }; busy = false }
                 },
                 enabled = !busy && draft.isNotBlank(), shapes = ButtonDefaults.shapes(),
             ) {
                 Box(Modifier.width(if (busy) 24.dp else 0.dp), contentAlignment = Alignment.CenterStart) {
                     if (busy) androidx.compose.material3.LoadingIndicator(Modifier.size(18.dp), color = cs.onPrimary)
                 }
-                Text("Opslaan", style = label)
+                Text(stringResource(R.string.home_save), style = label)
             }
         }
     }
@@ -293,7 +294,7 @@ fun DayThread(talk: TripTalk, day: String, modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 LineIcon(Glyphs.comment, cs.onSurface, size = 15.dp, stroke = 2f)
-                Text("Reageer", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onSurface), modifier = Modifier.padding(start = 6.dp))
+                Text(stringResource(R.string.comments_react), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onSurface), modifier = Modifier.padding(start = 6.dp))
                 if (comments.isNotEmpty()) Box(Modifier.padding(start = 8.dp).clip(CircleShape).background(cs.primary).padding(horizontal = 7.dp, vertical = 1.dp)) {
                     Text("${comments.size}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 12.sp, color = cs.onPrimary))
                 }
@@ -301,7 +302,7 @@ fun DayThread(talk: TripTalk, day: String, modifier: Modifier = Modifier) {
         } else Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerLow).padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    if (comments.isEmpty()) "Reacties" else plural(comments.size, "reactie", "reacties"),
+                    if (comments.isEmpty()) stringResource(R.string.comments_title) else plural(comments.size, stringResource(R.string.daystory_comment), stringResource(R.string.daystory_comments)),
                     style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 15.5.sp, color = cs.onSurface), modifier = Modifier.weight(1f),
                 )
                 Box(Modifier.size(40.dp).clip(CircleShape).clickable { open = false }, contentAlignment = Alignment.Center) {
@@ -321,7 +322,7 @@ fun DayThread(talk: TripTalk, day: String, modifier: Modifier = Modifier) {
                 val made = SocialRemote.addDayComment(talk.trip, day, text)
                 // In a dry run nothing comes back: the comment still shows, as written, so the flow can be seen.
                 talk.comments = talk.comments + (made ?: SocialRemote.Comment(
-                    "local-" + java.util.UUID.randomUUID(), null, day, Data.me?.name ?: "Jij", text, java.time.Instant.now(), canDelete = true, traveller = true,
+                    "local-" + java.util.UUID.randomUUID(), null, day, Data.me?.name ?: Lang.text(R.string.daystory_you), text, java.time.Instant.now(), canDelete = true, traveller = true,
                 ))
             })
         }
@@ -339,7 +340,7 @@ private fun CommentRow(c: SocialRemote.Comment, talk: TripTalk, onDelete: () -> 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(c.author, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp, color = cs.onSurface), modifier = Modifier.widthIn(max = 170.dp))
             if (c.traveller) Box(Modifier.padding(start = 6.dp).clip(CircleShape).background(cs.secondaryContainer).padding(horizontal = 7.dp, vertical = 1.dp)) {
-                Text("reiziger", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 11.sp, color = cs.onSecondaryContainer))
+                Text(stringResource(R.string.daystory_traveller), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 11.sp, color = cs.onSecondaryContainer))
             }
             Text(commentTime(c.at), style = TextStyle(fontFamily = Inter, fontSize = 12.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 8.dp))
             Spacer(Modifier.weight(1f))
@@ -373,7 +374,7 @@ private fun CommentBox(onSend: suspend (String) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 10.dp, end = 6.dp), verticalAlignment = Alignment.Bottom) {
         Box(Modifier.weight(1f).heightIn(min = 46.dp).clip(RoundedCornerShape(23.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp, vertical = 12.dp)) {
             val text = TextStyle(fontFamily = Inter, fontSize = 15.sp, lineHeight = 21.sp, color = cs.onSurface)
-            if (body.isEmpty()) Text("Schrijf een reactie…", style = text.copy(color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
+            if (body.isEmpty()) Text(stringResource(R.string.daystory_write_comment), style = text.copy(color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
             BasicTextField(body, { body = it.take(2000) }, textStyle = text, cursorBrush = SolidColor(cs.primary), maxLines = 5,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences), modifier = Modifier.fillMaxWidth())
         }
@@ -384,13 +385,13 @@ private fun CommentBox(onSend: suspend (String) -> Unit) {
                 scope.launch {
                     runCatching { onSend(text) }
                         .onSuccess { body = ""; haptics(Haptic.Confirm) }
-                        .onFailure { error = if ((it as? Api.Failure)?.status == 429) "Even geduld, je reageert wat snel. Probeer het zo opnieuw." else "Je reactie is niet verstuurd. Probeer het opnieuw." }
+                        .onFailure { error = if ((it as? Api.Failure)?.status == 429) Lang.text(R.string.daystory_too_fast) else Lang.text(R.string.daystory_not_sent) }
                     busy = false
                 }
             },
             enabled = !busy && body.isNotBlank(), shapes = ButtonDefaults.shapes(),
             modifier = Modifier.padding(start = 8.dp).heightIn(min = 46.dp),
-        ) { Text("Plaats", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
+        ) { Text(stringResource(R.string.daystory_post), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
     }
     AnimatedVisibility(error != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
         Text(error ?: "", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.sp, color = cs.error), modifier = Modifier.padding(top = 6.dp, start = 4.dp))

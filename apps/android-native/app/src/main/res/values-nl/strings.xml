@@ -586,4 +586,98 @@
     <string name="planner_stop">Stop</string>
     <string name="planner_stop_removed">%1$s verwijderd</string>
     <string name="planner_undo">Ongedaan maken</string>
+
+    <!-- StatsLists -->
+    <string name="stats_trip">reis</string>
+    <string name="stats_trips">reizen</string>
+    <string name="stats_flight">vlucht</string>
+    <string name="stats_flights">vluchten</string>
+    <string name="stats_place">plaats</string>
+    <string name="stats_places">plaatsen</string>
+    <string name="stats_km_air">%1$s km in de lucht</string>
+    <string name="stats_go_trip">Ga naar reis</string>
+    <string name="stats_last_of">Laatste reizen van %1$s</string>
+    <string name="stats_last_yours">Je laatste reizen</string>
+    <string name="stats_under_way">onderweg</string>
+    <string name="stats_under_way_count">%1$s× onderweg</string>
+
+    <!-- PointsEditor -->
+    <string name="points_manual">Handmatig</string>
+    <string name="points_road">Wegroute</string>
+    <string name="points_import">Import</string>
+    <string name="points_load_failed">Punten laden mislukt</string>
+    <string name="points_move_failed">Punt verplaatsen mislukt</string>
+    <string name="points_add_failed">Punt toevoegen mislukt</string>
+    <string name="points_remove_failed">Punt verwijderen mislukt</string>
+    <string name="points_today">Punten van vandaag</string>
+    <string name="points_of_day">Punten van %1$s</string>
+    <string name="points_one">1 punt</string>
+    <string name="points_many">%1$s punten</string>
+    <string name="points_today_short">Vandaag</string>
+    <string name="points_tap_to_add">Tik op de kaart om een punt toe te voegen</string>
+    <string name="points_tap_where">Tik op de kaart waar het punt moet komen.</string>
+    <string name="points_drag_hint">Sleep een punt om de route te corrigeren. Tik op een punt voor de details.</string>
+    <string name="points_done">Klaar</string>
+    <string name="points_add">Punt toevoegen</string>
+
+    <!-- DayStory -->
+    <string name="daystory_edit">Bewerken</string>
+    <string name="daystory_write">Schrijf iets over deze dag…</string>
+    <string name="daystory_comment">reactie</string>
+    <string name="daystory_comments">reacties</string>
+    <string name="daystory_you">Jij</string>
+    <string name="daystory_write_comment">Schrijf een reactie…</string>
+    <string name="daystory_too_fast">Even geduld, je reageert wat snel. Probeer het zo opnieuw.</string>
+    <string name="daystory_not_sent">Je reactie is niet verstuurd. Probeer het opnieuw.</string>
+    <string name="daystory_post">Plaats</string>
+    <string name="daystory_traveller">reiziger</string>
+
+    <!-- Timeline -->
+    <string name="timeline_places">Plaatsen</string>
+    <string name="timeline_day_photos">De foto\'s van deze dag komen hier vanzelf</string>
+    <string name="timeline_photos_upcoming">De foto\'s komen hier vanzelf zodra de reis begint</string>
+    <string name="timeline_no_photos">Nog geen foto\'s bij deze reis</string>
+    <string name="timeline_story_delete">Dagverhaal verwijderen?</string>
+    <string name="timeline_story_delete_body">Je verhaal van deze dag verdwijnt. Dit kan niet ongedaan worden.</string>
+
+    <!-- LocationAccess -->
+    <string name="locacc_off">Locatie staat uit voor deze app. Zet hem aan bij Instellingen › Apps › MarkMySteps Dev › Toegang › Locatie.</string>
+    <string name="locacc_denied">Zonder toegang tot je locatie kan dit niet. Je kunt het later opnieuw proberen.</string>
+    <string name="locacc_continue">Verder</string>
+
+    <!-- HomeCurrent -->
+    <string name="home_in_days">over %1$s dagen</string>
+    <string name="home_trip_line">%1$s %2$s · %3$s dagen%4$s</string>
+
+    <!-- HomeNew -->
+    <string name="home_trip_line_new">%1$s %2$s · %3$s%4$s</string>
+    <string name="home_empty_title">Nog geen reizen</string>
+    <string name="home_empty_body">Begin met Nieuwe reis hierboven. Foto\'s uit Immich komen er vanzelf bij.</string>
+
+    <!-- TripMap -->
+    <string name="map_day_trip_on">Dagtrip · %1$s %2$s</string>
+    <string name="map_age_now">nu</string>
+    <string name="map_age_min">%1$s min</string>
+    <string name="map_age_hours">%1$s uur</string>
+    <plurals name="home_trip_days"><item quantity="one">%1$d dag</item><item quantity="other">%1$d dagen</item></plurals>
+
+    <!-- PhotoBook -->
+    <string name="photobook_route">De route</string>
+    <string name="photobook_until_next">Tot de volgende reis</string>
+
+    <!-- TrackingViews -->
+    <string name="trackview_last_position">"laatste positie "</string>
+    <string name="trackview_seconds_ago">%1$ss geleden</string>
+    <string name="trackview_minutes_ago">%1$s min geleden</string>
+    <string name="trackview_minutes">%1$s min</string>
+    <string name="trackview_log">Locatie-log</string>
+
+    <!-- PlannerExtras -->
+    <string name="plannerx_found">Gevonden in je route</string>
+
+    <!-- Theme -->
+    <string name="theme_beta">" (bèta)"</string>
+    <plurals name="nights_count"><item quantity="one">%1$d nacht</item><item quantity="other">%1$d nachten</item></plurals>
+    <plurals name="trackview_checks"><item quantity="one">%1$d check</item><item quantity="other">%1$d checks</item></plurals>
+    <plurals name="plannerx_stays"><item quantity="one">%1$d plek waar je bleef slapen</item><item quantity="other">%1$d plekken waar je bleef slapen</item></plurals>
 </resources>
