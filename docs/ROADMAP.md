@@ -11,22 +11,24 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 
 ### Open
 
-- [ ] ⋯ menu: de ronde hoeken van de regels lopen nog niet gelijk met de hoek
-      van het menu (gemeten: 21 dp in plaats van 24, nu als echte afgeronde
-      rechthoek getekend). iPhone: nee
-- [ ] ⋯ menu: bij het dichtgaan springt de kleur van het rondje in een keer
-      terug naar het doorzichtige glas; nu een overvloei. iPhone: nee
-- [ ] ⋯ menu op de kleine reiskaart: daar kwam een rondje terug dat er niet
-      hoort (de knop heeft geen vlak). iPhone: nee
-- [ ] Reizigers: geen grijze blokjes als plek voor de cijfers, leeg laten tot
-      de cijfers met hun animatie komen. iPhone: nee
 - [ ] iPhone: alle Android-wijzigingen van 22 november overzetten (lijst
       hieronder, kolom iPhone: nee).
+- [ ] iPhone: alle animaties nalopen, gelijk aan Android en mooi (in het
+      werk, twee delen: reispagina/kaart/viewer en de rest).
 - [ ] Release (merge naar main) pas na Marks akkoord, met fotoboek en
       samenvatting erbij.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] ⋯ menu: de ronde hoeken van de regels lopen nog niet gelijk met de hoek
+      van het menu (gemeten: 21 dp in plaats van 24, nu als echte afgeronde
+      rechthoek getekend). iPhone: nee
+- [x] ⋯ menu: bij het dichtgaan springt de kleur van het rondje in een keer
+      terug naar het doorzichtige glas; nu een overvloei. iPhone: nee
+- [x] ⋯ menu op de kleine reiskaart: daar kwam een rondje terug dat er niet
+      hoort (de knop heeft geen vlak). iPhone: nee
+- [x] Reizigers: geen grijze blokjes als plek voor de cijfers, leeg laten tot
+      de cijfers met hun animatie komen. iPhone: nee
 - [x] Auto/Large/Small in het reismenu: gelijke ruimte boven en onder. iPhone: nee
 - [x] Fotomap: groepen voegen soepel samen en vallen uit elkaar bij in- en
       uitzoomen (zoals Hiero). Goedgekeurd. iPhone: nee
