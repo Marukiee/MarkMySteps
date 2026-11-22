@@ -11,7 +11,10 @@ struct TripView: View {
     @State private var tab: TripTab
     @State private var plan: PlanState
     @State private var showMap = Launch.map
+    @State private var showPeople = Launch.page == "people"
     @State private var viewer: ViewerItem?
+    /// The photo the viewer is on, so closing flies back into that one.
+    @State private var viewerCurrent = ""
     @State private var titleShown = false
     @State private var pageHeight: CGFloat = 800
     @Namespace private var ns
@@ -27,6 +30,7 @@ struct TripView: View {
 
     var body: some View {
         ScrollViewReader { proxy in
+            let days = Timeline.days(trip, media)
             List {
                 mapHeader
                     .listRowInsets(EdgeInsets())
@@ -34,9 +38,11 @@ struct TripView: View {
                     .listRowBackground(Color.clear)
 
                 // The cover at the top, the figures joined underneath in its tone.
-                VStack(spacing: 4) {
-                    CoverCard(trip: trip)
-                    FactsRow(trip: trip, photos: media?.count)
+                CoverTone(trip: trip) { tone in
+                    VStack(spacing: 4) {
+                        CoverCard(trip: trip) { showPeople = true }
+                        FactsRow(trip: trip, photos: media?.count, tone: tone)
+                    }
                 }
                 .plainRow(top: 16)
 
@@ -51,7 +57,15 @@ struct TripView: View {
 
                 switch tab {
                 case .timeline:
-                    TimelineRows(trip: trip, media: media, ns: ns) { viewer = $0 }
+                    TimelineRows(trip: trip, media: media, days: days, ns: ns, hidden: nil) { item in
+                        viewerCurrent = item.start.id
+                        viewer = item
+                    } onPlace: { name in
+                        // A place tile goes to the first day spent there.
+                        if let i = days.firstIndex(where: { $0.day.stop?.name == name }) {
+                            withAnimation(.smooth) { proxy.scrollTo(i == 0 ? "days" : "day\(i)", anchor: UnitPoint(x: 0.5, y: 0.12)) }
+                        }
+                    }
                 case .planner:
                     PlannerRows(trip: trip, plan: $plan) {
                         // Lift the field and its suggestions above the keyboard.
@@ -69,6 +83,12 @@ struct TripView: View {
             .background(Brand.paper)
             .ignoresSafeArea(.container, edges: .top)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
+            // While the viewer pages, the timeline behind it keeps that photo in view.
+            .onChange(of: viewerCurrent) {
+                guard viewer != nil, let m = days.flatMap(\.photos).first(where: { $0.id == viewerCurrent }),
+                      let row = Timeline.rowId(m, in: days) else { return }
+                proxy.scrollTo(row, anchor: .center)
+            }
             .onScrollGeometryChange(for: Bool.self) { geo in
                 geo.contentOffset.y + geo.contentInsets.top > 300
             } action: { _, shown in
@@ -93,12 +113,7 @@ struct TripView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("Kaart vergroten", systemImage: "arrow.up.left.and.arrow.down.right") { showMap = true }
-                    Section("Deze testapp leest alleen") {
-                        Button("Bewerken", systemImage: "pencil") {}.disabled(true)
-                        Button("Reizigers toevoegen", systemImage: "person.badge.plus") {}.disabled(true)
-                        Button("Delen", systemImage: "square.and.arrow.up") {}.disabled(true)
-                    }
+                    Button("Mensen en delen", systemImage: "person.2") { showPeople = true }
                 } label: {
                     Image(systemName: "ellipsis")
                 }
@@ -107,19 +122,20 @@ struct TripView: View {
                 .accessibilityLabel("Meer")
             }
         }
+        .sheet(isPresented: $showPeople) { PeopleSheet(trip: trip) }
         .fullScreenCover(isPresented: $showMap) {
             FullMapView(trip: trip)
                 .navigationTransition(.zoom(sourceID: "map", in: ns))
         }
         .fullScreenCover(item: $viewer) { item in
-            PhotoViewer(item: item)
-                .navigationTransition(.zoom(sourceID: item.start.id, in: ns))
+            PhotoViewer(item: item, current: $viewerCurrent)
+                .navigationTransition(.zoom(sourceID: viewerCurrent, in: ns))
         }
         .task(id: "\(base.id)/\(store.version)") { await loadMore() }
         .onAppear {
             if Launch.photo, viewer == nil, let first = trip.demoDays.first {
                 let photos = Demo.media(trip, day: 0, date: first.date)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { viewer = ViewerItem(photos: photos, start: photos[0]) }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { viewerCurrent = photos[0].id; viewer = ViewerItem(trip: trip, photos: photos, start: photos[0]) }
             }
         }
     }
@@ -176,6 +192,7 @@ extension View {
 /// people in the corner. Without a photo it is the trip's colour with the compass.
 struct CoverCard: View {
     let trip: Trip
+    var onPeople: () -> Void = {}
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -192,7 +209,12 @@ struct CoverCard: View {
         .frame(height: 236)
         .frame(maxWidth: .infinity)
         .overlay(alignment: .topTrailing) {
-            FaceStack(people: trip.people, extra: trip.extraPeople, ring: .white.opacity(0.9), size: 34, max: 3).padding(14)
+            Button(action: onPeople) {
+                FaceStack(people: trip.people, extra: trip.extraPeople, ring: .white.opacity(0.9), size: 34)
+            }
+            .buttonStyle(PressStyle(scale: 0.92))
+            .accessibilityLabel("Mensen en delen")
+            .padding(14)
         }
         .clipShape(UnevenRoundedRectangle(topLeadingRadius: 30, bottomLeadingRadius: 6, bottomTrailingRadius: 6, topTrailingRadius: 30))
     }
@@ -203,6 +225,7 @@ struct CoverCard: View {
 struct FactsRow: View {
     let trip: Trip
     var photos: Int?
+    var tone: Color? = nil
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
@@ -210,12 +233,13 @@ struct FactsRow: View {
         var items: [(String, String)] = []
         if trip.upcoming {
             if let d = trip.startsInDays { items.append(("\(d)", d == 1 ? "dag tot vertrek" : "dagen tot vertrek")) }
-            items += [("\(trip.days)", "dagen"), ("\(stops)", stops == 1 ? "stop" : "stops"), ("\(trip.people.count + trip.extraPeople)", "reizigers")]
+            let travellers = trip.remoteId != nil ? trip.people.count + 1 : trip.people.count + trip.extraPeople
+            items += [("\(trip.days)", "dagen"), ("\(stops)", stops == 1 ? "stop" : "stops"), ("\(travellers)", travellers == 1 ? "reiziger" : "reizigers")]
         } else {
             if let km = trip.km, km > 0 { items.append((Format.number(km), "kilometer")) }
             items += [("\(trip.days)", "dagen"), ("\(stops)", stops == 1 ? "stop" : "stops"), (Format.number(photos ?? trip.photos), "foto's")]
         }
-        let tile = trip.color.opacity(scheme == .dark ? 0.34 : 0.22)
+        let tile = (tone ?? trip.color).opacity(scheme == .dark ? 0.34 : 0.24)
         return HStack(spacing: 4) {
             ForEach(Array(items.enumerated()), id: \.offset) { i, item in
                 VStack(alignment: .leading, spacing: 2) {

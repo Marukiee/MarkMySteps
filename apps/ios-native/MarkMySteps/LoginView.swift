@@ -154,8 +154,11 @@ struct LoginView: View {
                                 .focused($focus, equals: .code)
                                 .onChange(of: code) { _, v in
                                     let clean = String(v.filter { $0.isLetter || $0.isNumber }.prefix(12))
-                                    if clean != v { code = clean }
+                                    if clean != v { code = clean; return }
+                                    // Six digits sign in by themselves; a longer recovery code waits for the button.
+                                    if clean.count == 6 && clean.allSatisfy(\.isNumber) { submit() }
                                 }
+                                .onAppear { focus = .code }
                         }
                     }
                     .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .trailing).combined(with: .opacity)))

@@ -43,7 +43,8 @@ struct PlannerRows: View {
 
     var body: some View {
         let color = Geo.legible(trip.color, dark: scheme == .dark)
-        let total = max(1, trip.days)
+        // A trip of 19 days has 18 nights.
+        let total = max(1, trip.days - 1)
         let planned = plan.stops.reduce(0) { $0 + $1.nights }
 
         // Nights planned, out of the trip's: a ring that fills as stops get nights.
@@ -125,13 +126,16 @@ private struct NightsRing: View {
     let color: Color
 
     var body: some View {
+        // A clear opening at the top, so a full ring never reads as an error state.
+        let gap = 0.1
+        let filled = min(1, max(0, share)) * (1 - gap)
         ZStack {
-            Circle().stroke(color.opacity(0.2), lineWidth: 4)
+            Circle().trim(from: gap / 2, to: 1 - gap / 2).stroke(color.opacity(0.2), style: StrokeStyle(lineWidth: 4, lineCap: .round))
             Circle()
-                .trim(from: 0, to: min(1, max(0, share)))
+                .trim(from: gap / 2, to: gap / 2 + filled)
                 .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .rotationEffect(.degrees(-90))
         }
+        .rotationEffect(.degrees(-90))
         .frame(width: 28, height: 28)
         .animation(.spring(duration: 0.5, bounce: 0.2), value: share)
         .accessibilityHidden(true)
@@ -235,7 +239,7 @@ private struct StopRow: View {
                     .frame(width: 44, height: 44)
                     .background(color.opacity(0.16), in: .circle)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(stop.flag)  \(stop.name)").font(.outfit(17, 600)).foregroundStyle(Brand.ink).lineLimit(1)
+                    HStack(spacing: 7) { FlagView(flag: stop.flag, height: 14); Text(stop.name).font(.outfit(17, 600)).foregroundStyle(Brand.ink).lineLimit(1) }
                     Text("\(dates) · \(stop.nights) \(stop.nights == 1 ? "nacht" : "nachten")")
                         .font(.inter(13, 500))
                         .foregroundStyle(Brand.inkSoft)
@@ -298,7 +302,7 @@ private struct AddStopCard: View {
                         add(place.name, place.flag, place.at)
                     } label: {
                         HStack {
-                            Text("\(place.flag)  \(place.name)").font(.outfit(15, 600)).foregroundStyle(Brand.ink)
+                            HStack(spacing: 8) { FlagView(flag: place.flag, height: 13); Text(place.name).font(.outfit(15, 600)).foregroundStyle(Brand.ink) }
                             Spacer()
                             Image(systemName: "plus.circle.fill").font(.system(size: 20)).foregroundStyle(Brand.accent)
                         }

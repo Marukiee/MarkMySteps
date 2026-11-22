@@ -79,6 +79,7 @@ struct RootView: View {
         .task { await store.load() }
         .task {
             if let host = UserDefaults.standard.string(forKey: "nettest") { await Api.netTest(host) }
+            if UserDefaults.standard.bool(forKey: "keychaintest") { Keychain.selfTest() }
         }
     }
 }
@@ -86,6 +87,7 @@ struct RootView: View {
 struct MainTabs: View {
     let onSignIn: () -> Void
     @State private var tab: AppTab = MainTabs.startTab
+    @State private var homeReset = 0
 
     private static var startTab: AppTab {
         switch Launch.page {
@@ -98,7 +100,7 @@ struct MainTabs: View {
     var body: some View {
         TabView(selection: $tab) {
             Tab("Reizen", systemImage: "safari", value: AppTab.trips) {
-                HomeView(onAvatar: { tab = .settings })
+                HomeView(onAvatar: { tab = .settings }, resetToken: homeReset)
             }
             Tab("Reizigers", systemImage: "person.2", value: AppTab.travellers) {
                 TravellersView()
@@ -108,5 +110,7 @@ struct MainTabs: View {
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
+        // Back on Reizen from another tab: the home page starts at the top again.
+        .onChange(of: tab) { old, new in if new == .trips && old != .trips { homeReset += 1 } }
     }
 }

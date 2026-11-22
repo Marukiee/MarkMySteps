@@ -31,7 +31,15 @@ enum Keychain {
         var add = base
         add[kSecValueData as String] = data
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        SecItemAdd(add as CFDictionary, nil)
+        let status = SecItemAdd(add as CFDictionary, nil)
+        if status != errSecSuccess { Api.log.error("keychain write \(account, privacy: .public) failed status=\(status, privacy: .public)") }
+    }
+
+    /// Debug: `-keychaintest YES` writes, reads and removes a dummy item and logs the outcome.
+    static func selfTest() {
+        set("selftest", "ok")
+        Api.log.notice("keychain selftest read=\(get("selftest") ?? "nil", privacy: .public)")
+        set("selftest", nil)
     }
 }
 
@@ -110,6 +118,12 @@ final class Api {
     }
 
     func get(_ path: String) async throws -> Data { try await request("GET", path) }
+
+    /// A change on the server, only ever from something the person tapped.
+    @discardableResult
+    func send(_ method: String, _ path: String, body: [String: Any]? = nil) async throws -> Data {
+        try await request(method, path, body: body)
+    }
 
     /// An image from the server, with the token; nil when it cannot be had.
     func bytes(_ path: String) async -> Data? { try? await request("GET", path, accept: "image/*") }
@@ -264,7 +278,7 @@ enum Remote {
         (any as? [[Double]] ?? (any as? [Any])?.compactMap { $0 as? [Double] } ?? []).compactMap { $0.count >= 2 ? LonLat($0[0], $0[1]) : nil }
     }
 
-    private static func day(_ any: Any?) -> Date? {
+    static func day(_ any: Any?) -> Date? {
         guard let s = any as? String, s.count >= 10 else { return nil }
         let parts = s.prefix(10).split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
@@ -296,10 +310,17 @@ enum Remote {
                 return p.count >= 2 ? Trip.Flight(from: p[0], to: p[p.count - 1]) : nil
             }
             let rows = o["members"] as? [[String: Any]] ?? []
-            let members = rows.enumerated().map { k, m in
-                let name = (m["user"] as? [String: Any])?["displayName"] as? String ?? "?"
-                return Person(initial: String(name.prefix(1)).uppercased(), color: Color(hex: palette[(k + 3) % palette.count]))
+            let everyone = rows.enumerated().map { k, m in
+                let user = m["user"] as? [String: Any]
+                let name = user?["displayName"] as? String ?? "?"
+                return Person(
+                    initial: String(name.prefix(1)).uppercased(), color: Color(hex: palette[(k + 3) % palette.count]),
+                    name: name, username: user?["username"] as? String ?? "", userId: m["userId"] as? String,
+                    hasAvatar: user?["hasAvatar"] as? Bool ?? false, role: m["role"] as? String ?? "MEMBER"
+                )
             }
+            // The faces are the travellers: owner and companions, not guests; yourself left out.
+            let members = everyone.filter { $0.role != "GUEST" && $0.userId != me }
             // Shared with you only when you are a guest on it; as a companion it is your own trip.
             let mine = rows.first { ($0["userId"] as? String ?? ($0["user"] as? [String: Any])?["id"] as? String) == me }
             let guest = (mine?["role"] as? String) == "GUEST"
@@ -321,9 +342,11 @@ enum Remote {
                 flights: flights,
                 upcoming: end >= today,
                 startsInDays: startsIn > 0 ? startsIn : nil,
-                people: Array(members.prefix(3)),
-                extraPeople: max(0, members.count - 3),
+                people: members,
+                extraPeople: 0,
                 shared: guest,
+                members: everyone,
+                ownerId: o["ownerId"] as? String,
                 remoteId: id,
                 coverId: (cover?.isEmpty ?? true) ? nil : cover,
                 start: start
@@ -360,8 +383,9 @@ enum Remote {
                 if index == 0 { outbound = leg } else { back = leg }
                 continue
             }
-            let from = day
-            day = cal.date(byAdding: .day, value: nights, to: day) ?? day
+            // The server's own dates when it gives them, so gaps in the plan do not shift everything after.
+            let from = Remote.day(o["arrivalDate"]) ?? day
+            day = Remote.day(o["departureDate"]) ?? cal.date(byAdding: .day, value: nights, to: from) ?? from
             let at: LonLat = if let lat = o["latitude"] as? Double, let lon = o["longitude"] as? Double { LonLat(lon, lat) } else { trip.route.first ?? LonLat(0, 0) }
             stops.append(Stop(
                 name: name, flag: flag(o["countryCode"] as? String), at: at, nights: nights,
@@ -370,6 +394,108 @@ enum Remote {
             ))
         }
         return (stops, outbound, back)
+    }
+
+    // MARK: People and sharing
+
+    struct ShareLink: Identifiable, Hashable {
+        let id: String
+        let slug: String
+        let hasPassword: Bool
+        var url: String { Api.shared.base + "/s/" + slug }
+    }
+
+    static func shareLinks(_ trip: Trip) async throws -> [ShareLink] {
+        guard let rid = trip.remoteId else { return [] }
+        let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/share")) as? [[String: Any]] ?? []
+        return list.compactMap { o in
+            guard let id = o["id"] as? String, let slug = o["slug"] as? String else { return nil }
+            return ShareLink(id: id, slug: slug, hasPassword: o["hasPassword"] as? Bool ?? false)
+        }
+    }
+
+    static func createShareLink(_ trip: Trip) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("POST", "/api/trips/\(rid)/share", body: [:])
+    }
+
+    static func revokeShareLink(_ trip: Trip, _ link: ShareLink) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("DELETE", "/api/trips/\(rid)/share/\(link.id)")
+    }
+
+    static func suggestions(_ query: String) async throws -> [Friend] {
+        let q = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        return parseFriends(try await Api.shared.get("/api/users/suggestions?q=\(q)&limit=8"))
+    }
+
+    static func addMember(_ trip: Trip, username: String) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("POST", "/api/trips/\(rid)/members", body: ["usernames": [username]])
+    }
+
+    static func setRole(_ trip: Trip, userId: String, role: String) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("PATCH", "/api/trips/\(rid)/members/\(userId)", body: ["role": role])
+    }
+
+    static func removeMember(_ trip: Trip, userId: String) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("DELETE", "/api/trips/\(rid)/members/\(userId)")
+    }
+
+    // MARK: Comments and reactions
+
+    struct Comment: Identifiable, Hashable {
+        let id: String
+        let mediaId: String?
+        let author: String
+        let body: String
+        let at: Date
+    }
+
+    static let reactionKinds = ["heart", "laugh", "wow", "love", "clap"]
+    static let reactionEmoji = ["heart": "❤️", "laugh": "😂", "wow": "😮", "love": "😍", "clap": "👏"]
+
+    struct Reactions {
+        var counts: [String: [String: Int]] = [:]
+        var mine: [String: String] = [:]
+    }
+
+    static func comments(_ trip: Trip) async throws -> [Comment] {
+        guard let rid = trip.remoteId else { return [] }
+        let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/comments")) as? [[String: Any]] ?? []
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return list.compactMap { o in
+            guard let id = o["id"] as? String else { return nil }
+            return Comment(
+                id: id, mediaId: o["mediaId"] as? String, author: o["authorName"] as? String ?? "",
+                body: o["body"] as? String ?? "", at: (o["createdAt"] as? String).flatMap { iso.date(from: $0) } ?? Date()
+            )
+        }
+    }
+
+    static func reactions(_ trip: Trip) async throws -> Reactions {
+        guard let rid = trip.remoteId else { return Reactions() }
+        let o = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/reactions")) as? [String: Any] ?? [:]
+        var out = Reactions()
+        for c in o["counts"] as? [[String: Any]] ?? [] {
+            guard let target = c["target"] as? String, let kind = c["kind"] as? String else { continue }
+            out.counts[target, default: [:]][kind] = (c["count"] as? NSNumber)?.intValue ?? 0
+        }
+        out.mine = o["mine"] as? [String: String] ?? [:]
+        return out
+    }
+
+    static func addComment(_ trip: Trip, mediaId: String, body: String) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("POST", "/api/trips/\(rid)/media/\(mediaId)/comments", body: ["body": body])
+    }
+
+    static func setReaction(_ trip: Trip, mediaId: String, kind: String?) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("PUT", "/api/trips/\(rid)/media/\(mediaId)/reaction", body: ["kind": kind ?? NSNull()])
     }
 
     static func media(_ trip: Trip) async throws -> [Media] {

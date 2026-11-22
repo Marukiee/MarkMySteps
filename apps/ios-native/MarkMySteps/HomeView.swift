@@ -3,16 +3,19 @@ import SwiftUI
 /// Reizen: the globe with every trip on it, the next trip, then the past ones by year.
 struct HomeView: View {
     var onAvatar: () -> Void
+    /// Bumped when Reizen is chosen again from another tab: the page starts at the top.
+    var resetToken = 0
     @Environment(Store.self) private var store
     @State private var path: [String] = {
-        guard let page = Launch.page, page == "trip" || page == "planner" else { return [] }
+        guard let page = Launch.page, ["trip", "planner", "people"].contains(page) else { return [] }
         let fallback = page == "planner" ? "georgia" : "iceland"
         return [Store.shared.trip(for: Launch.trip ?? fallback, upcoming: page == "planner")?.id].compactMap { $0 }
     }()
     @State private var tab = 0
     @State private var readOnly = false
-    /// The status bar and the navigation bar: the globe starts below them, not under the glass.
-    @State private var topInset: CGFloat = 110
+    /// Just the status bar: the globe runs up under it, the logo floats below it.
+    @State private var topInset: CGFloat = 62
+    @State private var scrolled = false
     @Namespace private var zoom
 
     var body: some View {
@@ -20,48 +23,36 @@ struct HomeView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        hero
+                        hero.id("top")
                         content.padding(.horizontal, 16)
                     }
                 }
                 .scrollIndicators(.hidden)
                 .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { if $0 > 0 { topInset = $0 } }
+                .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.contentInsets.top > 40 } action: { _, v in
+                    withAnimation(.easeOut(duration: 0.2)) { scrolled = v }
+                }
                 .ignoresSafeArea(.container, edges: .top)
                 .background(Brand.paper)
+                // Behind the clock and the battery once the page scrolls under them; no bar otherwise.
+                .overlay(alignment: .top) {
+                    LinearGradient(stops: [.init(color: Brand.paper, location: 0), .init(color: Brand.paper, location: 0.7), .init(color: Brand.paper.opacity(0), location: 1)], startPoint: .top, endPoint: .bottom)
+                        .frame(height: topInset + 14)
+                        .ignoresSafeArea(.container, edges: .top)
+                        .opacity(scrolled ? 1 : 0)
+                        .allowsHitTesting(false)
+                }
                 .onAppear {
                     guard Launch.page == "trips" || Launch.page == nil, let anchor = Launch.scroll else { return }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { proxy.scrollTo(anchor, anchor: UnitPoint(x: 0.5, y: 0.13)) }
                 }
+                .onChange(of: resetToken) {
+                    guard path.isEmpty else { return }
+                    proxy.scrollTo("top", anchor: .top)
+                }
             }
             .navigationTitle("Reizen")
-            .toolbarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    HStack(spacing: 8) {
-                        CompassLogo(size: 30)
-                        Text("MarkMySteps").font(.outfit(22, 620)).tracking(-0.4).foregroundStyle(Brand.ink)
-                    }
-                    .fixedSize()
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("MarkMySteps")
-                }
-                .sharedBackgroundVisibility(.hidden)
-                // The title lives in the page itself, under the globe.
-                ToolbarItem(placement: .principal) { Color.clear.frame(width: 1, height: 1) }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: onAvatar) {
-                        if let me = store.me, me.hasAvatar {
-                            Avatar(userId: me.id, hasAvatar: true, initial: String(me.name.prefix(1)), color: .clear, ink: Brand.ink, size: 32)
-                        } else {
-                            Text(String((store.me?.name ?? "Mark").prefix(1)))
-                                .font(.outfit(17, 700))
-                                .foregroundStyle(Brand.ink)
-                                .frame(width: 22)
-                        }
-                    }
-                    .accessibilityLabel("Account en instellingen")
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { id in
                 if let trip = store.trips.first(where: { $0.id == id }) {
                     TripView(base: trip)
@@ -76,19 +67,55 @@ struct HomeView: View {
         }
     }
 
+    /// The globe edge to edge, up under the status bar, with the logo and your face floating on it.
     private var hero: some View {
-        GlobeHero(trips: store.trips)
-            .containerRelativeFrame(.vertical) { length, _ in min(max(length * 0.42, 300), 500) }
-            .frame(maxWidth: .infinity)
-            .padding(.top, topInset - 12)
-            .overlay(alignment: .bottom) {
-                LinearGradient(stops: [.init(color: Brand.paper.opacity(0), location: 0), .init(color: Brand.paper, location: 0.85)], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 130)
-                    .allowsHitTesting(false)
+        // Guest trips stay off the globe, as on the web.
+        GlobeHero(trips: store.live ? store.own : store.trips, onOpen: { path.append($0) }) { zoom in
+            HStack(spacing: 8) {
+                // The compass needle turns with the globe's zoom, as on the web: (scale - 1) x 660 degrees.
+                CompassLogo(size: 34, needle: Double(zoom - 1) * 660)
+                Text("MarkMySteps").font(.outfit(23, 620)).tracking(-0.4).foregroundStyle(Brand.ink)
+                Spacer()
+                Button(action: onAvatar) { profileFace }
+                    .buttonStyle(PressStyle(scale: 0.92))
+                    .accessibilityLabel("Account en instellingen")
             }
+            .padding(.horizontal, 16)
+            .padding(.top, topInset + 4)
+        }
+        .frame(height: topInset + 360)
+        .frame(maxWidth: .infinity)
+        .overlay(alignment: .bottom) {
+            LinearGradient(stops: [.init(color: Brand.paper.opacity(0), location: 0), .init(color: Brand.paper, location: 0.85)], startPoint: .top, endPoint: .bottom)
+                .frame(height: 120)
+                .allowsHitTesting(false)
+        }
+    }
+
+    /// Your real photo in a plain circle; without one, your initial on a quiet disc.
+    private var profileFace: some View {
+        let name = store.me?.name.isEmpty == false ? store.me!.name : "Mark"
+        return Avatar(userId: store.me?.id, hasAvatar: store.me?.hasAvatar ?? false, initial: String(name.prefix(1)),
+                      color: Brand.raised, ink: Brand.accent, size: 42)
     }
 
     @ViewBuilder private var content: some View {
+        if let error = store.error {
+            // A failed reload says so, with a way to try again; the last trips stay on screen.
+            HStack(spacing: 10) {
+                Image(systemName: "wifi.exclamationmark").foregroundStyle(Brand.inkSoft)
+                Text(error).font(.inter(14, 500)).foregroundStyle(Brand.ink).lineLimit(2)
+                Spacer(minLength: 6)
+                Button("Opnieuw") { Task { await store.load() } }
+                    .font(.inter(14, 600))
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+            }
+            .padding(12)
+            .background(Brand.raised, in: .rect(cornerRadius: 18))
+            .padding(.bottom, 12)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
         HStack(alignment: .center) {
             Text("Reizen").font(.outfit(32, 650)).tracking(-0.6).foregroundStyle(Brand.ink)
             Spacer()
@@ -117,7 +144,7 @@ struct HomeView: View {
         }
 
         Picker("Welke reizen", selection: $tab.animation(.snappy)) {
-            Text("Afgelopen  \(store.past.count)").tag(0)
+            Text("Afgelopen reizen  \(store.past.count)").tag(0)
             Text("Gedeeld  \(store.shared)").tag(1)
         }
         .pickerStyle(.segmented)
@@ -199,6 +226,33 @@ struct SectionTitle: View {
     }
 }
 
+/// A trip under way: "onderweg" in green with a dot whose ring grows and fades every 1.8 s.
+struct OngoingPill: View {
+    var text = "onderweg"
+    @State private var pulse = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(Color(hex: 0x0A7D55))
+                .frame(width: 7, height: 7)
+                .background {
+                    Circle()
+                        .stroke(Color(hex: 0x0A7D55).opacity(pulse ? 0 : 0.5), lineWidth: pulse ? 1 : 3)
+                        .frame(width: pulse ? 19 : 7, height: pulse ? 19 : 7)
+                }
+            Text(text).font(.inter(12.5, 650)).foregroundStyle(Color(hex: 0x0A7D55))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.white.opacity(0.94), in: .capsule)
+        .onAppear {
+            guard !Launch.shot else { return }
+            withAnimation(.easeOut(duration: 1.8).repeatForever(autoreverses: false)) { pulse = true }
+        }
+    }
+}
+
 /// White text on a soft white capsule, for cards with colour or a photo behind them.
 struct CardChip: View {
     let text: String
@@ -214,7 +268,8 @@ struct CardChip: View {
     }
 }
 
-/// The people of a trip as overlapping faces, with a count for the rest.
+/// The people of a trip as overlapping faces, their real photos when they have one,
+/// two faces and then "+n" for the rest.
 struct FaceStack: View {
     let people: [Person]
     let extra: Int
@@ -226,22 +281,25 @@ struct FaceStack: View {
 
     var body: some View {
         let faces = Array(people.prefix(max))
+        let rest = Swift.max(0, people.count - faces.count) + extra
         HStack(spacing: -size * 0.34) {
             ForEach(Array(faces.enumerated()), id: \.offset) { _, p in
-                face(Text(p.initial), fill: p.color, ink: .white)
+                Avatar(userId: p.userId, hasAvatar: p.hasAvatar, initial: p.initial, color: p.color, size: size - 4)
+                    .padding(2)
+                    .background(ring, in: .circle)
             }
-            if extra > 0 { face(Text("+\(extra)"), fill: extraFill, ink: extraInk) }
+            if rest > 0 {
+                Text("+\(rest)")
+                    .font(.outfit(size * 0.36, 700))
+                    .foregroundStyle(extraInk)
+                    .frame(width: size - 4, height: size - 4)
+                    .background(extraFill, in: .circle)
+                    .padding(2)
+                    .background(ring, in: .circle)
+            }
         }
-    }
-
-    private func face(_ text: Text, fill: Color, ink: Color) -> some View {
-        text
-            .font(.outfit(size * 0.38, 700))
-            .foregroundStyle(ink)
-            .frame(width: size - 4, height: size - 4)
-            .background(fill, in: .circle)
-            .padding(2)
-            .background(ring, in: .circle)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(people.count + extra) reizigers")
     }
 }
 
@@ -264,12 +322,18 @@ struct NextTripCard<M: View>: View {
     var body: some View {
         let deep = trip.color.mix(with: Color(hex: 0x1B2440), by: 0.55)
         ZStack(alignment: .topLeading) {
-            LinearGradient(colors: [trip.color, deep], startPoint: .topLeading, endPoint: .bottomTrailing)
-            CompassLogo(size: 170, color: .white, lineWidth: 1.3)
-                .rotationEffect(.degrees(-12))
-                .opacity(0.16)
-                .offset(x: 46, y: -22)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            if trip.coverId != nil {
+                // A real cover photo behind the countdown, darkened so the white reads.
+                CoverView(trip: trip, size: "preview")
+                LinearGradient(colors: [.black.opacity(0.25), .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
+            } else {
+                LinearGradient(colors: [trip.color, deep], startPoint: .topLeading, endPoint: .bottomTrailing)
+                CompassLogo(size: 170, color: .white, lineWidth: 1.3)
+                    .rotationEffect(.degrees(-12))
+                    .opacity(0.16)
+                    .offset(x: 46, y: -22)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
             VStack(alignment: .leading, spacing: 0) {
                 // Before the trip the days left; during it, which day of how many: "3e dag van 8".
                 let left = trip.startsInDays
@@ -291,10 +355,11 @@ struct NextTripCard<M: View>: View {
                     .lineLimit(2)
                     .padding(.top, 22)
                 HStack(spacing: 6) {
+                    if trip.startsInDays == nil { OngoingPill() }
                     CardChip(text: "\(Format.shortMonth(trip.month)) \(trip.year)")
                     CardChip(text: "\(trip.days) dagen")
                     Spacer(minLength: 8)
-                    FaceStack(people: trip.people, extra: trip.extraPeople, ring: deep)
+                    FaceStack(people: trip.people, extra: trip.extraPeople, ring: trip.coverId != nil ? .black.opacity(0.35) : deep)
                 }
                 .padding(.top, 10)
             }
@@ -346,37 +411,41 @@ struct TripGroup<M: View>: View {
     let menu: (Trip) -> M
 
     var body: some View {
-        VStack(spacing: 0) {
+        // One slab of rows: outer corners round, inner ones tight, each row in its cover's tone.
+        VStack(spacing: 3) {
             ForEach(Array(trips.enumerated()), id: \.element.id) { i, trip in
-                HStack(spacing: 0) {
-                    NavigationLink(value: trip.id) {
-                        HStack(spacing: 14) {
-                            CoverView(trip: trip)
-                                .frame(width: 60, height: 60)
-                                .clipShape(.rect(cornerRadius: 14))
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(trip.title).font(.outfit(17, 600)).foregroundStyle(Brand.ink).lineLimit(1)
-                                Text(subtitle(trip)).font(.inter(13, 500)).foregroundStyle(Brand.inkSoft).lineLimit(1)
+                CoverTone(trip: trip) { tone in
+                    HStack(spacing: 0) {
+                        NavigationLink(value: trip.id) {
+                            HStack(spacing: 14) {
+                                CoverView(trip: trip)
+                                    .frame(width: 60, height: 60)
+                                    .clipShape(.rect(cornerRadius: 14))
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(trip.title).font(.outfit(17, 600)).foregroundStyle(Brand.ink).lineLimit(1)
+                                    Text(subtitle(trip)).font(.inter(13, 500)).foregroundStyle(Brand.inkSoft).lineLimit(1)
+                                }
+                                Spacer(minLength: 0)
                             }
-                            Spacer(minLength: 0)
+                            .padding(.vertical, 10)
+                            .padding(.leading, 10)
+                            .contentShape(.rect)
                         }
-                        .padding(.vertical, 10)
-                        .padding(.leading, 10)
-                        .contentShape(.rect)
+                        .buttonStyle(PressStyle(scale: 0.98))
+                        .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 14)) }
+                        menu(trip)
+                            .foregroundStyle(Brand.inkSoft)
+                            .frame(width: 44, height: 44)
+                            .padding(.trailing, 6)
                     }
-                    .buttonStyle(PressStyle(scale: 0.98))
-                    .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 14)) }
-                    menu(trip)
-                        .foregroundStyle(Brand.inkSoft)
-                        .frame(width: 44, height: 44)
-                        .padding(.trailing, 6)
-                }
-                if i < trips.count - 1 {
-                    Divider().padding(.leading, 84)
+                    .background { ZStack { Brand.raised; tone.opacity(0.16) } }
+                    .clipShape(UnevenRoundedRectangle(
+                        topLeadingRadius: i == 0 ? 22 : 6, bottomLeadingRadius: i == trips.count - 1 ? 22 : 6,
+                        bottomTrailingRadius: i == trips.count - 1 ? 22 : 6, topTrailingRadius: i == 0 ? 22 : 6
+                    ))
                 }
             }
         }
-        .background(Brand.raised, in: .rect(cornerRadius: 22))
     }
 
     private func subtitle(_ trip: Trip) -> String {
