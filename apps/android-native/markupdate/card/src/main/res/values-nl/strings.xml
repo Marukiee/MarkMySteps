@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="markupdate_title">Nieuwe versie %1$s</string>
+    <string name="markupdate_update">Bijwerken</string>
+    <string name="markupdate_later">Later</string>
+    <string name="markupdate_on_version">Je hebt %1$s</string>
+    <string name="markupdate_progress">%1$s van %2$s MB</string>
+    <string name="markupdate_downloading">Downloaden %1$d%%</string>
+    <string name="markupdate_installing">Installeren…</string>
+    <string name="markupdate_installing_title">%1$s wordt geïnstalleerd</string>
+    <string name="markupdate_installing_sub">De app sluit zo even, daarna is hij bijgewerkt</string>
+    <string name="markupdate_needs_permission">Sta installeren vanuit deze app toe en kom terug</string>
+    <string name="markupdate_allow">Toestaan</string>
+    <string name="markupdate_confirm_hint">Android wil dat je bevestigt</string>
+    <string name="markupdate_failed">De update is mislukt</string>
+    <string name="markupdate_retry">Opnieuw</string>
+</resources>

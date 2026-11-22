@@ -21,8 +21,14 @@ import androidx.compose.runtime.setValue
  * and "trip" (an id from Demo.kt) opens that trip straight away.
  */
 class MainActivity : ComponentActivity() {
+    // Below Android 13 the chosen language is put on the screen's context here (Lang.kt).
+    override fun attachBaseContext(newBase: android.content.Context) = super.attachBaseContext(Lang.wrap(newBase))
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The update card without a release, for a screenshot: "preview" runs the module's own fake 9.9.9 (it
+        // downloads and installs nothing), "fail" the failure card, "clear" puts it away.
+        intent?.getStringExtra("update")?.let { Updates.preview(it) }
         Api.init(applicationContext)
         if (intent?.getBooleanExtra("dryRun", false) == true) {
             Api.dryRun = true

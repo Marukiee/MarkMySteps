@@ -22,3 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "MarkMySteps"
 include(":app")
+// The update card all of Marks apps share, copied unchanged from Keeper with markupdate/sync.sh (see markupdate/BRON).
+include(":markupdate:core", ":markupdate:card")

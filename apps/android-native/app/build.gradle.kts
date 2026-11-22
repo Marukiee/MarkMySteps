@@ -17,6 +17,13 @@ android {
         versionCode = 1
         versionName = "0.0.1"
         ndk { abiFilters += "arm64-v8a" }
+        // Where the update card looks for a newer build: a GitHub repo and the exact name of the apk on its releases.
+        // An empty repo switches it off. The releases of Marukiee/MarkMySteps also carry the old web app
+        // (markmysteps.apk, another package); the app only ever offers a release whose apk has exactly this name
+        // (see Update.kt), so the dev build never installs the web app over itself. Change either with
+        // -Pmms.updateRepo=... -Pmms.updateAsset=... (or in gradle.properties).
+        buildConfigField("String", "UPDATE_REPO", "\"${providers.gradleProperty("mms.updateRepo").getOrElse("Marukiee/MarkMySteps")}\"")
+        buildConfigField("String", "UPDATE_ASSET", "\"${providers.gradleProperty("mms.updateAsset").getOrElse("markmysteps-native.apk")}\"")
     }
 
     compileOptions {
@@ -35,7 +42,7 @@ android {
         }
     }
 
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
 
     // The build that goes on a phone: shrunk and optimised by R8, since a debug build of Compose
     // runs many times slower and makes gestures such as predictive back stutter. Signed with the
@@ -60,6 +67,8 @@ dependencies {
     implementation(libs.androidx.animation)
     implementation(libs.androidx.material3)
     testImplementation("junit:junit:4.13.2")
+    // The update card and its updater, shared by all of Marks apps (markupdate/, a copy of Keeper's module).
+    implementation(project(":markupdate:card"))
     // The same map as the web app: MapLibre with the OpenFreeMap styles.
     implementation("org.maplibre.gl:android-sdk:11.8.0")
     // Colours from a cover photo, for the rows that take on the tone of their trip.

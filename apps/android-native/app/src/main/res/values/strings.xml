@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app's own words in English, the base (a phone in a language without its own list gets these, as on the web).
+     Dutch is in values-nl. Never an em dash or en dash. -->
+<resources>
+    <string name="lang_code" translatable="false">en</string>
+    <string name="update_preview_fail">No connection to GitHub</string>
+</resources>

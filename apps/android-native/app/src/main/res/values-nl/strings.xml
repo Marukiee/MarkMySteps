@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- De eigen woorden van de app in het Nederlands. Nooit een em-dash of en-dash. -->
+<resources>
+    <string name="lang_code" translatable="false">nl</string>
+    <string name="update_preview_fail">Geen verbinding met GitHub</string>
+</resources>

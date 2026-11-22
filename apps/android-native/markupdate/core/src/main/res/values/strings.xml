@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="markupdate_channel_name">Updates</string>
+    <string name="markupdate_channel_description">Notifications about new versions of the app</string>
+    <string name="markupdate_ready_title">%1$s %2$s is ready to install</string>
+    <string name="markupdate_ready_text">Tap to finish the update</string>
+    <string name="markupdate_reason_cancelled">The installation was cancelled</string>
+    <string name="markupdate_reason_damaged">The download is damaged (the checksum does not match)</string>
+    <string name="markupdate_reason_empty">The download was empty</string>
+    <string name="markupdate_reason_installer">The installation could not be completed</string>
+    <string name="markupdate_reason_no_apk">This version has no app file</string>
+    <string name="markupdate_reason_status">The download failed (status %1$d)</string>
+    <string name="markupdate_reason_unreachable">GitHub cannot be reached</string>
+</resources>
