@@ -95,9 +95,9 @@ private class Item(
 private class Section(val icon: List<Shape24>, val title: String, val summary: String)
 
 private val Sections = listOf(
-    Section(Glyphs.person, "Account", "Profiel, wachtwoord, tweestapsverificatie"),
+    Section(Glyphs.person, "Account", "Profiel, wachtwoord, 2FA"),
     Section(Glyphs.sun, "Weergave", "Thema, taal, globe"),
-    Section(Glyphs.distance, "Reizen en route", "Tracking, eigen locatie, vliegvelden"),
+    Section(Glyphs.distance, "Reizen en route", "Tracking en vliegvelden"),
     Section(Glyphs.photo, "Foto's", "Immich en je statistieken"),
     Section(Glyphs.bell, "Meldingen", "Reacties en nieuwe foto's"),
     Section(Glyphs.download, "Opslag en back-up", "Offline kaart, foto-cache"),
@@ -160,12 +160,12 @@ private fun SettingsMain(onOpen: (Int) -> Unit) {
             Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(cs.surfaceContainerLow).dip { onOpen(0) }.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.size(64.dp).clip(MaterialShapes.Cookie12Sided.toShape()).background(cs.primaryContainer), contentAlignment = Alignment.Center) {
-                Text((Data.me?.name ?: "Mark").take(1), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 26.sp, color = cs.onPrimaryContainer))
-            }
+            Avatar(Data.me?.id, Data.me?.name ?: "Mark", Data.me?.hasAvatar == true, cs.primary, Modifier.size(64.dp), MaterialShapes.Cookie12Sided.toShape())
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 Text(Data.me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
-                Text(if (Data.live) "@${Data.me?.username} · ${Api.base.removePrefix("https://")}" else "voorbeelden, niet ingelogd", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
+                // The handle and the server each on a line of their own, never broken halfway.
+                Text(if (Data.live) "@${Data.me?.username}" else "voorbeelden, niet ingelogd", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
+                if (Data.live) Text(Api.base.removePrefix("https://").trimEnd('/'), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant.copy(alpha = 0.8f)))
             }
             Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh), contentAlignment = Alignment.Center) {
                 LineIcon(Glyphs.pencil, cs.onSurface, size = 20.dp, stroke = 2f)
@@ -183,7 +183,7 @@ private fun SettingsMain(onOpen: (Int) -> Unit) {
                     IconTile(sec.icon, i, big = true)
                     Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                         Text(sec.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = cs.onSurface))
-                        Text(sec.summary, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                        Text(sec.summary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
                     }
                     LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
                 }

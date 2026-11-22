@@ -42,6 +42,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -148,6 +149,13 @@ fun TravellersPage() {
             }
         }
 
+        // The countries you have been to on a slowly turning globe, as on the web.
+        if (!countryFlags.isNullOrEmpty() || !Data.live) {
+            val codes = live?.countries ?: countries.mapNotNull { flagCode(it)?.uppercase() }
+            Box(Modifier.fillMaxWidth().padding(top = 22.dp), contentAlignment = Alignment.Center) {
+                CountryGlobe(codes, dark = cs.background.luminance() < 0.5f, modifier = Modifier.size(200.dp))
+            }
+        }
         Text(
             "Landen",
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant),
@@ -185,7 +193,9 @@ fun TravellersPage() {
             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant),
             modifier = Modifier.padding(start = 6.dp, bottom = 12.dp),
         )
-        val people = friends?.map { Friend(it.name, it.username, Color(0xFF5B8DEF), it.sharedTrips, it.id, it.hasAvatar) } ?: if (Data.live) emptyList() else Friends
+        val palette = listOf(Color(0xFFE8613C), Color(0xFF5B8DEF), Color(0xFF2BB6A8), Color(0xFFD9A441), Color(0xFF7A5BD6), Color(0xFFE34B8A), Color(0xFF4CAF50))
+        // Each person their own colour behind their initial, stable per name.
+        val people = friends?.map { Friend(it.name, it.username, palette[(it.username.hashCode() and 0x7fffffff) % palette.size], it.sharedTrips, it.id, it.hasAvatar) } ?: if (Data.live) emptyList() else Friends
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             people.forEachIndexed { i, f ->
                 val shape = RoundedCornerShape(

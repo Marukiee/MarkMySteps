@@ -209,6 +209,8 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                 if (open != null) open = null else page = 0
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { pages.snapTo(target) }
+                // A cancelled gesture must not leave the next tab switch playing the back animation.
+                fromTabBack = false
                 throw e
             }
         }
@@ -256,7 +258,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                 enter = slideInVertically(motion.defaultSpatialSpec()) { it } + fadeIn(motion.defaultEffectsSpec()),
                 exit = slideOutVertically(motion.fastSpatialSpec()) { it } + fadeOut(motion.fastEffectsSpec()),
             ) {
-                Toolbar(page, onNav = { page = it })
+                Toolbar(page, onNav = { fromTabBack = false; page = it })
             }
         }
         }
@@ -662,8 +664,9 @@ private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modi
                     LineIcon(icon, if (on) cs.onPrimary else cs.onSurfaceVariant, size = 22.dp, stroke = if (on) 2.1f else 1.9f)
                     AnimatedVisibility(
                         visible = on,
-                        enter = expandHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
-                        exit = shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
+                        // The label unfolds from the icon's side, so icon and text stay together while it grows.
+                        enter = expandHorizontally(MaterialTheme.motionScheme.fastSpatialSpec(), expandFrom = Alignment.Start) + fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
+                        exit = shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec(), shrinkTowards = Alignment.Start) + fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
                     ) {
                         Text(
                             label,
