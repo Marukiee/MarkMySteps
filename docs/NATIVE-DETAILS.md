@@ -31,8 +31,14 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Uitloggen vraagt eerst om bevestiging. (klaar Android)
 - Geen schakelaars of waarden die niets doen of verzonnen zijn; wat er (nog) niet is, staat er niet. (klaar Android)
 - Cijfers wachten in hun eigen vorm tot de server antwoordt, nooit eerst verkeerde getallen of een 0. (klaar Android)
-- Achter de klok komt een achtergrond zodra een pagina eronder scrolt. (klaar Android)
+- Achter de klok komt een achtergrond zodra een pagina eronder scrolt, behalve op de homepage: daar loopt alles schermvullend onder de klok door, zonder witte band. (klaar Android)
 - Lange tekst wordt netjes afgekapt met een beletselteken, nooit midden in een regel afgesneden. (klaar Android)
+- Eén ⋯-menu voor de hele app: het segmented menu van Material 3 Expressive (afgeronde groepen, geen schaduw, gekozen optie met vinkje in de warme accentkleur). Ook bij Mensen. (klaar Android)
+- Keuzes van één soort staan naast elkaar als verbonden knoppen, de gekozen wordt een pil; zelfde achtergrondkleur als de andere menuregels. (klaar Android)
+- Haptische feedback op knoppen, tabs en schakelaars, zoals Tandem en PixelPlayer. (klaar Android)
+- Eén sheet-gedrag voor de hele app: het terugveeggebaar schuift de sheet met je vinger mee naar beneden tot hij bijna weg is, niet alleen kleiner. (klaar Android, deels: alle sheets na samenvoegen)
+- Foto's en omslagen worden vooruit geladen, zodat je bij scrollen nooit lege vakjes ziet die pas invullen als je er al voorbij bent. (klaar Android voor de homepage, bezig voor plaatsen en tijdlijn)
+- Een test schrijft nooit naar de echte server: de app heeft een testmodus (dryRun) die elke wijziging tegenhoudt. (klaar)
 - Elk land heeft een vlag (de volledige flag-icons-set, ook Malta); nooit een leeg vlaggenvakje. (klaar)
 - Alles in het Nederlands, ook de kalender van Nieuwe reis, met maandag als eerste dag. (klaar)
 - Sheets gaan in één keer helemaal open, zodat één keer terug ze sluit. (klaar Android)
@@ -45,6 +51,10 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Van Instellingen of Reizigers terug naar Reizen: de homepage begint weer bovenaan. Terug uit een reis: hij blijft staan waar je was. (klaar Android)
 - Navigatiebalk: de open tab moet goed te zien zijn (oranje "Reizen" op beige was te zwak). (klaar)
 - Instellingen opgedeeld in categorieën die elk een eigen pagina openen, zoals PixelPlayer; kleuren en letters zoals ze waren. (klaar)
+- Instellingen compleet zoals de vorige versie (Voorkeuren, Services, Data, Accounts en de rest), alles in de app zelf, geen doorstuurlinks naar de website. Account (profiel, wachtwoord, tweestaps) ook in de app, veilig. (bezig)
+- De navigatiebalk komt pas terug als de pagina er echt is, niet al bij het begin van het terugveeggebaar. De pil groeit vanuit het midden. (klaar Android)
+- Wissel je van tab, dan opent een pagina weer bovenaan (Reizigers met de meldingen zichtbaar; Instellingen op de hoofdlijst, niet op een subpagina). Terug van een reisgenoot houdt de lijst wel zijn plek. (klaar Android, iOS open)
+- De profielfoto rechtsboven opent je account. (bezig)
 
 ## Homepage en wereldbol
 
@@ -58,6 +68,10 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Gedeeld = reizen waar je gast bent; reizen van vrienden horen niet bij Afgelopen. (klaar Android)
 - Rijen met een dynamische achtergrondkleur uit de omslagfoto in plaats van een blur. (klaar Android)
 - Gezichten: twee gezichten en dan "+n"; echte profielfoto's. (klaar Android)
+- Grootte per reis via het ⋯-menu: Auto, Groot, Klein naast elkaar; standaard in Weergave. Wisselen animeert de kaart naar rij en terug. ⋯-menu op de homepage heeft alleen grootte, hernoemen en verwijderen. (klaar Android)
+- Reis verwijderen vraagt eerst de naam te typen, zoals de web. (klaar Android)
+- Meldingen als zwevend paneel uit de hoek van de bel, met een kruisje per melding, Toelaten/Afwijzen, Reis openen en Aanvragen bekijken. (klaar Android)
+- Wereldbol en landen samen in één paneel op Reizigers. (klaar Android)
 - iOS: geen aparte balk boven de wereldbol; de bol loopt onder de statusbalk door en het logo en de profielfoto zweven erop, net als op Android. (iOS doorgegeven)
 
 ## Reispagina
@@ -74,7 +88,20 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Bovenaan de reis eigen knoppen zoals in de web: Mensen en delen, kaartinstellingen (kaartstijl) en reisinstellingen; geen ⋯-menu. (klaar Android)
 - Fotoboek en samenvatting horen in de sheet Mensen en delen, niet als losse knoppen op de pagina. (klaar Android, onder "Samenvatting en fotoboek")
 - Kaart vergroten op één plek: een ronde knop rechtsonder op de kaart. (klaar Android, iOS doorgegeven)
+- De drie knoppen bovenin aan elkaar als één verbonden groep; die van het open paneel wordt een oranje pil. (klaar Android)
+- De kaart is te bewegen zonder dat de pagina meescrolt, met je foto's als rondjes erop (gegroepeerd per zoomniveau), plaatsnamen in het Nederlands. (klaar Android)
+- Vluchten als grijze gestippelde boog met duidelijke streepjes en een grijs vliegveldbolletje aan het begin en eind; niet in de reiskleur. 3D-wereldbol zoals de web: wacht op MapLibre (zit nog alleen in testversies). (deels)
+- Cijfers zoals de web: de eerste vier van afstand, dagen, stops (vanaf 2), foto's, reizigers (vanaf 2), landen. (klaar Android)
+- Deellink: tik op de link kopieert hem; volledige adres met beletselteken, op de oude maat. (klaar Android)
 - Deellinks zoals in de web maar in de nieuwe stijl: de link als oranje (onderstreepte) link, Kopieer, een instellingenknop (wachtwoord, intrekken) in plaats van drie puntjes, en daaronder "wachtwoord (optioneel)" met "+ Deellink". (klaar Android)
+
+## Nieuwe reis
+
+- Eigen kalender: maand in het midden met pijltjes, weekdagen klein in hoofdletters, slepen van begin- naar einddatum, daarna elk uiteinde verslepen, tikjes bij elke dag, de band netjes afgerond aan het begin en eind van een week. (klaar Android)
+
+## Opstarten
+
+- Opstartscherm: het oranje kompas in het midden op een rustige beige (of donkere) achtergrond, geen app-icoon; duurt het lang, dan gaat het kompas draaien. (open)
 
 ## Routeplanner
 
@@ -84,6 +111,9 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Nachten tellen goed: een reis van 19 dagen heeft 18 nachten. (klaar Android)
 - Het ringetje voor "x/y nachten gepland" heeft een duidelijke opening, zodat het niet als een fout lijkt. (klaar Android)
 - Datums over een maandgrens kloppen ("30 aug t/m 2 sep"). (klaar Android)
+- Indeling zoals de oude: foto per stop met nummer, nachtenstepper, "+ Dagtrip", Heen/Terug met vliegvelden en duur, vervoer kiezen uit een uitklapmenu en vluchtgegevens invullen. (bezig)
+- De vervoerpil groeit mee zonder dat het woord even afgekapt wordt. (bezig)
+- Wegvegen met precies de physics en haptics van PixelPlayer. (bezig)
 
 ## Fotoviewer
 
@@ -94,6 +124,12 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Geen laadanimatie bij openen: het kleine fotootje groeit altijd vanuit zijn tegel en is de plaatshouder tot de scherpe versie er is. (klaar Android)
 - Foto's van oude reizen (zonder bekende maat) krijgen toch hun eigen verhouding in plaats van vierkanten; die wordt onthouden. (klaar Android)
 - Naar beneden vegen werkt altijd, ook na bladeren; ingezoomd sleep je de foto in plaats van te sluiten. (klaar Android)
+
+- Foto openen vanuit de tijdlijn: altijd de juiste foto, zonder flikkering. Speler met opties rechtsboven (omslag van reis of bestemming, downloaden, openen in), alle emoji-reacties met animatie, locatie onder de datum zonder flitsen, voortgangsbalk bij video. (bezig)
+
+## Reisinstellingen
+
+- Volledige pagina zoals de web, geen klein paneel. Kleur kiezen animeert. Rood loopt van zwak (wissen) naar sterkst (reis verwijderen). "Terug naar automatisch" bij het bolletje komt met een animatie. (bezig)
 
 ## Reizigers
 
