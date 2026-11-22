@@ -14,6 +14,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.layout.onFirstVisible
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.draw.clip
@@ -107,7 +109,12 @@ fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail") {
         if (value == null && seen) value = Photos.load(id, size)
     }
     val shown by animateFloatAsState(if (bitmap != null) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "photo")
-    Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh).onFirstVisible { seen = true }) {
+    // While it loads the frame breathes softly (as on the web), then the photo fades in over it.
+    val breathe = if (bitmap == null) androidx.compose.animation.core.rememberInfiniteTransition(label = "breathe").animateFloat(
+        0.55f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(1100), androidx.compose.animation.core.RepeatMode.Reverse), label = "a",
+    ) else null
+    val tone = MaterialTheme.colorScheme.surfaceContainerHigh
+    Box(modifier.drawBehind { drawRect(tone, alpha = breathe?.value ?: 1f) }.onFirstVisible { seen = true }) {
         bitmap?.let {
             Image(
                 it.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop,
