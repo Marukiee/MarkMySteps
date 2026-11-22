@@ -546,19 +546,36 @@ struct DataPage: View {
 
     /// Puts a backup back trip by trip, as the web's restoreBackup: a trip that is already here is left alone.
     private func restore() {
-        guard let backup = pendingRestore, let entries = backup["trips"] as? [[String: Any]] else { return }
+        guard let backup = pendingRestore, let raw = backup["trips"] as? [Any] else { return }
+        // Entries that are not a trip at all count as skipped instead of stopping the whole restore.
+        let entries = raw.compactMap { $0 as? [String: Any] }
+        let unreadable = raw.count - entries.count
         pendingRestore = nil
         busy = "restore"
         backupNote = nil
         progress = (0.02, "")
         Task {
             let known = Set(((try? await SettingsRemote.tripsRaw()) ?? []).compactMap { $0["id"] as? String })
-            var added = 0, skipped = 0, points = 0
+            var added = 0, skipped = unreadable, points = 0
             func value(_ o: [String: Any], _ k: String) -> Any? { o[k] is NSNull ? nil : o[k] }
-            for (i, e) in entries.enumerated() {
-                guard let trip = e["trip"] as? [String: Any], let id = trip["id"] as? String else { continue }
-                progress = (Double(i) / Double(max(1, entries.count)), trip["title"] as? String ?? "")
-                if known.contains(id) { skipped += 1; continue }
+            // A backup is a file someone may have been sent: only real ids go into a request, coordinates must be
+            // numbers, and a file can not make the app send an endless stream (at most 1000 trips, 2000 stops each,
+            // 500 000 points). What does not pass is skipped, as on Android.
+            func isId(_ any: Any?) -> Bool {
+                guard let s = any as? String, s.count == 36 else { return false }
+                return s.allSatisfy { $0 == "-" || $0.isHexDigit }
+            }
+            func number(_ any: Any?) -> Double? {
+                guard let n = any as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
+                let d = n.doubleValue
+                return d.isFinite ? d : nil
+            }
+            let capped = Array(entries.prefix(1000))
+            skipped += entries.count - capped.count
+            for (i, e) in capped.enumerated() {
+                guard let trip = e["trip"] as? [String: Any], let id = trip["id"] as? String else { skipped += 1; continue }
+                progress = (Double(i) / Double(max(1, capped.count)), trip["title"] as? String ?? "")
+                if known.contains(id) || !isId(id) { skipped += 1; continue }
                 do {
                     var body: [String: Any] = ["id": id, "title": trip["title"] as? String ?? "Reis", "startDate": trip["startDate"] as? String ?? "", "endDate": trip["endDate"] as? String ?? ""]
                     if let d = value(trip, "description") { body["description"] = d }
@@ -569,11 +586,16 @@ struct DataPage: View {
                     "markerLat": value(trip, "markerLat") ?? NSNull(), "autoTrack": trip["autoTrack"] as? Bool ?? false,
                 ])
                 added += 1
-                let all = e["stops"] as? [[String: Any]] ?? []
+                let all = (e["stops"] as? [[String: Any]] ?? []).prefix(2000).filter { s in
+                    guard isId(s["id"]), value(s, "parentStopId").map(isId) ?? true else { return false }
+                    // A place without numbers for where it is would land somewhere invented.
+                    for k in ["latitude", "longitude"] where value(s, k) != nil { if number(s[k]) == nil { return false } }
+                    return true
+                }
                 let route = all.filter { value($0, "parentStopId") == nil }
                 let dayTrips = all.filter { value($0, "parentStopId") != nil }
                 for s in route + dayTrips {
-                    var body: [String: Any] = ["id": s["id"] as? String ?? UUID().uuidString.lowercased(), "name": s["name"] as? String ?? "", "nights": s["nights"] as? Int ?? 0,
+                    var body: [String: Any] = ["id": s["id"] as? String ?? UUID().uuidString.lowercased(), "name": s["name"] as? String ?? "", "nights": min(366, max(0, s["nights"] as? Int ?? 0)),
                                                "travelMode": s["travelMode"] as? String ?? "GROUND"]
                     for k in ["latitude", "longitude", "countryCode", "flightNumber", "fromAirport", "toAirport", "notes", "parentStopId"] { if let v = value(s, k) { body[k] = v } }
                     if let via = s["viaAirports"] as? [String], !via.isEmpty { body["viaAirports"] = via }
@@ -581,13 +603,15 @@ struct DataPage: View {
                     _ = try? await Api.shared.send("POST", "/api/trips/\(id)/stops", body: body)
                 }
                 if route.count > 1 { _ = try? await Api.shared.send("PUT", "/api/trips/\(id)/stops/order", body: ["stopIds": route.compactMap { $0["id"] as? String }]) }
-                let pts = e["points"] as? [[String: Any]] ?? []
+                // Only points with a real place, as numbers.
+                let pts = (e["points"] as? [[String: Any]] ?? []).prefix(500_000).compactMap { p -> [String: Any]? in
+                    guard let lat = number(p["latitude"]), let lon = number(p["longitude"]), abs(lat) <= 90, abs(lon) <= 180 else { return nil }
+                    return ["clientId": isId(p["id"]) ? p["id"] as! String : UUID().uuidString.lowercased(),
+                            "recordedAt": p["recordedAt"] as? String ?? "", "latitude": lat, "longitude": lon]
+                }
                 var k = 0
                 while k < pts.count {
-                    let batch = pts[k..<min(k + 400, pts.count)].map { p -> [String: Any] in
-                        ["clientId": p["id"] as? String ?? UUID().uuidString.lowercased(), "recordedAt": p["recordedAt"] as? String ?? "",
-                         "latitude": p["latitude"] ?? 0, "longitude": p["longitude"] ?? 0]
-                    }
+                    let batch = Array(pts[k..<min(k + 400, pts.count)])
                     _ = try? await Api.shared.send("POST", "/api/trips/\(id)/points/batch", body: ["points": batch])
                     points += batch.count
                     k += 400
