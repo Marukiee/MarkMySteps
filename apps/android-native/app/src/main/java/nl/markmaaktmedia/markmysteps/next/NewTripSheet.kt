@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -73,21 +74,21 @@ private fun NewTripSheetBody(onDismiss: () -> Unit, onCreated: (String) -> Unit)
     AppSheet(onDismiss = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 12.dp)) {
             Column(Modifier.padding(horizontal = 16.dp)) {
-                Text("Nieuwe reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
-                Text("Naam", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 16.dp, bottom = 6.dp))
+                Text(stringResource(R.string.newtrip_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
+                Text(stringResource(R.string.newtrip_name), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 16.dp, bottom = 6.dp))
                 Row(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) {
-                        if (title.isEmpty()) Text("Bijvoorbeeld Japan 2027", style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
+                        if (title.isEmpty()) Text(stringResource(R.string.newtrip_name_hint), style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
                         BasicTextField(title, { title = it.take(120) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
                     }
                 }
                 // The label on the line of "Naam", the chosen days under it in a soft cross-fade.
-                Text("Wanneer", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 18.dp, bottom = 4.dp))
+                Text(stringResource(R.string.newtrip_when), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 18.dp, bottom = 4.dp))
                 val nl = java.util.Locale.forLanguageTag("nl-NL")
                 fun mon(d: java.time.LocalDate) = d.month.getDisplayName(java.time.format.TextStyle.SHORT, nl).trimEnd('.')
                 val s0 = start; val e0 = end
                 val label = when {
-                    s0 == null -> "Kies de dagen"
+                    s0 == null -> stringResource(R.string.newtrip_days_pick)
                     e0 == null || e0 == s0 -> "${s0.dayOfMonth} ${mon(s0)} ${s0.year}"
                     else -> "${s0.dayOfMonth}${if (s0.month != e0.month || s0.year != e0.year) " " + mon(s0) else ""}${if (s0.year != e0.year) " " + s0.year else ""} t/m ${e0.dayOfMonth} ${mon(e0)} ${e0.year}"
                 }
@@ -106,7 +107,7 @@ private fun NewTripSheetBody(onDismiss: () -> Unit, onCreated: (String) -> Unit)
                         runCatching {
                             val body = JSONObject().put("title", title.trim()).put("startDate", s.toString()).put("endDate", (end ?: s).toString())
                             JSONObject(Api.send("POST", "/api/trips", body)).getString("id")
-                        }.onSuccess { id -> haptics(Haptic.Confirm); Data.load(); onCreated(id) }.onFailure { error = "Aanmaken mislukt" }
+                        }.onSuccess { id -> haptics(Haptic.Confirm); Data.load(); onCreated(id) }.onFailure { error = Lang.text(R.string.newtrip_create_failed) }
                         busy = false
                     }
                 },
@@ -118,7 +119,7 @@ private fun NewTripSheetBody(onDismiss: () -> Unit, onCreated: (String) -> Unit)
                 // The spinner takes the label's place in a fixed box, so the button never changes size.
                 Box(Modifier.height(22.dp), contentAlignment = Alignment.Center) {
                     if (busy) LoadingIndicator(Modifier.size(22.dp), color = cs.onPrimary)
-                    else Text("Reis maken", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp))
+                    else Text(stringResource(R.string.newtrip_create), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp))
                 }
             }
             Spacer(Modifier.height(8.dp))

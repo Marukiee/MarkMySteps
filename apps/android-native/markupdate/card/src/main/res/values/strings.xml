@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="markupdate_title">New version %1$s</string>
+    <string name="markupdate_update">Update</string>
+    <string name="markupdate_later">Later</string>
+    <string name="markupdate_on_version">You have %1$s</string>
+    <string name="markupdate_progress">%1$s of %2$s MB</string>
+    <string name="markupdate_downloading">Downloading %1$d%%</string>
+    <string name="markupdate_installing">Installing…</string>
+    <string name="markupdate_installing_title">Installing %1$s</string>
+    <string name="markupdate_installing_sub">The app closes briefly, then it is updated</string>
+    <string name="markupdate_needs_permission">Allow installing from this app and come back</string>
+    <string name="markupdate_allow">Allow</string>
+    <string name="markupdate_confirm_hint">Android wants you to confirm</string>
+    <string name="markupdate_failed">The update failed</string>
+    <string name="markupdate_retry">Retry</string>
+</resources>

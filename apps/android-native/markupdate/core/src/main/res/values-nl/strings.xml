@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="markupdate_channel_name">Updates</string>
+    <string name="markupdate_channel_description">Meldingen over nieuwe versies van de app</string>
+    <string name="markupdate_ready_title">%1$s %2$s staat klaar om te installeren</string>
+    <string name="markupdate_ready_text">Tik om de update af te ronden</string>
+    <string name="markupdate_reason_cancelled">De installatie is geannuleerd</string>
+    <string name="markupdate_reason_damaged">De download is beschadigd (de controlesom klopt niet)</string>
+    <string name="markupdate_reason_empty">De download was leeg</string>
+    <string name="markupdate_reason_installer">De installatie kon niet worden afgerond</string>
+    <string name="markupdate_reason_no_apk">Bij die versie zit geen appbestand</string>
+    <string name="markupdate_reason_status">Het downloaden mislukte (status %1$d)</string>
+    <string name="markupdate_reason_unreachable">GitHub is niet bereikbaar</string>
+</resources>

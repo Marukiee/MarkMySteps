@@ -53,6 +53,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -76,17 +78,19 @@ private class Section(val id: String, val icon: List<Shape24>, val title: String
 @Composable
 fun SettingsPage(onSignIn: () -> Unit = {}) {
     // Straight to a page when asked (Aanvragen bekijken opens Accounts); that page opens even while "admin" is still being read.
-    var open by remember { mutableStateOf<String?>(Data.openSettings.also { Data.openSettings = null }) }
+    var open by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(Data.openSettings.also { Data.openSettings = null }) }
     var admin by remember { mutableStateOf(Data.live && SettingsRemote.cachedAdmin()) }
     LaunchedEffect(Data.live, Data.version) { admin = Data.live && runCatching { SettingsRemote.account().admin }.getOrDefault(false) }
     val sections = listOfNotNull(
-        Section("account", Glyphs.person, "Account", "Profielfoto, naam, wachtwoord, 2FA"),
-        Section("display", Glyphs.sun, "Weergave", "Thema, reiskaarten, kaartstijl"),
-        Section("prefs", Glyphs.plane, "Voorkeuren", "Standaard vliegvelden"),
-        Section("services", Glyphs.cloud, "Diensten", "Server, Immich"),
-        Section("data", Glyphs.download, "Gegevens", "Back-up, importeren, route-bestanden"),
-        if (admin) Section("accounts", Glyphs.friends, "Accounts", "Aanvragen en accounts op je server") else null,
-        Section("about", Glyphs.help, "Over", "Versie, wat is er nieuw"),
+        Section("account", Glyphs.person, stringResource(R.string.settings_account), stringResource(R.string.settings_account_summary)),
+        Section("display", Glyphs.sun, stringResource(R.string.settings_display), stringResource(R.string.settings_display_summary)),
+        Section("prefs", Glyphs.plane, stringResource(R.string.settings_preferences), stringResource(R.string.settings_default_airports)),
+        Section("services", Glyphs.cloud, stringResource(R.string.settings_services), stringResource(R.string.settings_services_summary)),
+        Section("data", Glyphs.download, stringResource(R.string.settings_data), stringResource(R.string.settings_data_summary)),
+        if (admin) Section("accounts", Glyphs.friends, stringResource(R.string.settings_accounts), stringResource(R.string.settings_accounts_summary)) else null,
+        Section("about", Glyphs.help, stringResource(R.string.settings_about), stringResource(R.string.settings_about_summary)),
+        // Five taps on the version in Over bring it; the page itself can hide it again.
+        if (AppPrefs.developer) Section("developer", GlyphCode, stringResource(R.string.dev_title), stringResource(R.string.dev_summary)) else null,
     )
     SlideHost(open, onClose = { open = null }, base = { SettingsMain(sections, onOpen = { open = it }) }) { id ->
         val back = { open = null }
@@ -97,6 +101,7 @@ fun SettingsPage(onSignIn: () -> Unit = {}) {
             "services" -> ServicesPage(back, onSignIn)
             "data" -> DataPage(back)
             "accounts" -> AccountsPage(back)
+            "developer" -> DeveloperPage(back, onPreview = { ScreenPreview.open = it })
             else -> AboutPage(back)
         }
     }
@@ -122,7 +127,7 @@ private fun SettingsMain(sections: List<Section>, onOpen: (String) -> Unit) {
         Column(Modifier.fillMaxSize().verticalScroll(pageScroll).padding(horizontal = 16.dp)) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Text(
-                "Instellingen",
+                stringResource(R.string.settings_title),
                 style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
                 modifier = Modifier.padding(top = 20.dp, bottom = 18.dp),
             )
@@ -134,7 +139,7 @@ private fun SettingsMain(sections: List<Section>, onOpen: (String) -> Unit) {
                 Avatar(Data.me?.id, Data.me?.name ?: "Mark", Data.me?.hasAvatar == true, cs.primary, Modifier.size(64.dp), MaterialShapes.Cookie12Sided.toShape())
                 Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                     Text(Data.me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
-                    Text(if (Data.live) "@${Data.me?.username}" else "voorbeelden, niet ingelogd", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
+                    Text(if (Data.live) "@${Data.me?.username}" else stringResource(R.string.settings_examples_signed_out), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
                 }
                 Box(Modifier.size(44.dp).clip(CircleShape).background(cs.surfaceContainerHigh), contentAlignment = Alignment.Center) {
                     LineIcon(Glyphs.pencil, cs.onSurface, size = 20.dp, stroke = 2f)
@@ -168,30 +173,32 @@ private fun SettingsMain(sections: List<Section>, onOpen: (String) -> Unit) {
 
 @Composable
 private fun DisplayPage(onBack: () -> Unit) {
-    SettingsScaffold("Weergave", onBack) {
-        Header("Thema", top = true)
+    SettingsScaffold(stringResource(R.string.settings_display), onBack) {
+        Header(stringResource(R.string.settings_theme), top = true)
         Panel {
-            Choices(listOf(0 to "Licht", 1 to "Donker", 2 to "Systeem"), ThemePref.mode, { ThemePref.set(it) })
-            Hint("Systeem volgt de licht- of donkerstand van je telefoon.")
+            Choices(listOf(0 to stringResource(R.string.settings_theme_light), 1 to stringResource(R.string.settings_theme_dark), 2 to stringResource(R.string.settings_theme_system)), ThemePref.mode, { ThemePref.set(it) })
+            Hint(stringResource(R.string.settings_theme_hint))
         }
+        LanguagePanel()
         Spacer(Modifier.height(10.dp))
         Group(null, listOf(
-            Item(listOf(P("M12 3a9 9 0 0 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4.2-4-7.5-9-7.5Z"), C(7.5f, 11f, 1f), C(10f, 7.5f, 1f), C(14.5f, 7.5f, 1f)), "Accentkleur van je achtergrond", "Neemt de accentkleur over die Android uit je achtergrond haalt. De rest van de app blijft zoals hij is.",
+            Item(listOf(P("M12 3a9 9 0 0 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4.2-4-7.5-9-7.5Z"), C(7.5f, 11f, 1f), C(10f, 7.5f, 1f), C(14.5f, 7.5f, 1f)), stringResource(R.string.settings_wallpaper_accent), stringResource(R.string.settings_wallpaper_accent_hint),
                 toggle = UiPrefs.wallpaperAccent, action = { UiPrefs.changeWallpaperAccent(!UiPrefs.wallpaperAccent) }),
         ))
-        Header("Reiskaarten op de homepage")
+        Header(stringResource(R.string.settings_cards))
         Panel {
-            Choices(listOf(CardSizePref.AUTO to "Automatisch", CardSizePref.LARGE to "Groot", CardSizePref.COMPACT to "Klein"), CardSizePref.standard, { CardSizePref.choose(it) })
-            Hint("Automatisch: komende reizen en de laatste groot, de rest klein. Per reis kies je het via het ⋯-menu op de kaart.")
+            Choices(listOf(CardSizePref.AUTO to stringResource(R.string.settings_cards_auto), CardSizePref.LARGE to stringResource(R.string.settings_cards_large), CardSizePref.COMPACT to stringResource(R.string.settings_cards_small)), CardSizePref.standard, { CardSizePref.choose(it) })
+            Hint(stringResource(R.string.settings_cards_hint))
             SoftButton(
-                "Handmatige keuzes wissen",
+                stringResource(R.string.settings_cards_reset),
                 { CardSizePref.clear() }, Modifier.fillMaxWidth(), icon = Glyphs.trash, enabled = CardSizePref.overrides.isNotEmpty(),
             )
         }
-        Header("Kaartstijl")
+        NavBarPanel()
+        Header(stringResource(R.string.settings_map_style))
         Panel {
             MapStyleGrid()
-            Hint("Geldt voor alle kaarten in de app. In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.")
+            Hint(stringResource(R.string.settings_map_style_hint))
         }
     }
 }
@@ -232,21 +239,21 @@ fun MapStyleGrid() {
 
 @Composable
 private fun PreferencesPage(onBack: () -> Unit) {
-    SettingsScaffold("Voorkeuren", onBack) {
+    SettingsScaffold(stringResource(R.string.settings_preferences), onBack) {
         AirportsPanel()
-        Header("Globe")
+        Header(stringResource(R.string.settings_globe))
         Panel {
-            Hint("Tussenstops op de globe van de homepage. De reis die uitgelicht wordt laat ze altijd zien; met Altijd ook alle andere reizen.")
-            Choices(listOf(false to "Bij uitlichten", true to "Altijd"), UiPrefs.globeStopsAlways, { UiPrefs.changeGlobeStopsAlways(it) })
+            Hint(stringResource(R.string.settings_globe_hint))
+            Choices(listOf(false to stringResource(R.string.settings_globe_highlight), true to stringResource(R.string.settings_globe_always)), UiPrefs.globeStopsAlways, { UiPrefs.changeGlobeStopsAlways(it) })
         }
-        Header("Foto's in je statistieken")
+        Header(stringResource(R.string.settings_stats_photos))
         Group(null, listOf(
-            Item(Glyphs.camera, "Foto's van reisgenoten meetellen", "Bij Reizigers telt een reis alle foto's van de dagen dat iemand mee was. Uit telt alleen wat iemand zelf toevoegde.",
+            Item(Glyphs.camera, stringResource(R.string.settings_stats_photos_toggle), stringResource(R.string.settings_stats_photos_hint),
                 toggle = !UiPrefs.ownPhotosOnly, action = { UiPrefs.changeOwnPhotosOnly(!UiPrefs.ownPhotosOnly); kotlinx.coroutines.MainScope().launch { Data.load() } }),
         ))
-        Header("Eigen locatie")
+        Header(stringResource(R.string.settings_self_location))
         Group(null, listOf(
-            Item(Glyphs.pin, "Ook op de homepage", "Je positie als stip op de globe, terwijl je een reis trackt. De app vraagt nooit los om je locatie.",
+            Item(Glyphs.pin, stringResource(R.string.settings_self_location_home), stringResource(R.string.settings_self_location_home_hint),
                 toggle = UiPrefs.selfOnHome, action = { UiPrefs.changeSelfOnHome(!UiPrefs.selfOnHome) }),
         ))
         NotifyPanel()
@@ -256,19 +263,19 @@ private fun PreferencesPage(onBack: () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AirportsPanel() {
+internal fun AirportsPanel() {
     val cs = MaterialTheme.colorScheme
     val context = LocalContext.current
     // Normally read in the background at start; if not yet, once here before the first frame (a few ms), so names never pop in.
     remember { Airports.loadNow(context) }
     var query by remember { mutableStateOf("") }
     val results = remember(query, AirportPref.codes.toList(), Airports.ready) { Airports.search(query).filter { it.iata !in AirportPref.codes } }
-        Header("Standaard vliegvelden", top = true)
+        Header(stringResource(R.string.settings_default_airports), top = true)
         val motion = MaterialTheme.motionScheme
         val haptics = rememberHaptics()
         // The panel grows and shrinks with the chips; the suggestions bring their own height in and out.
         Panel(animate = true) {
-            Hint("Je thuisvliegvelden. Tik er een aan om hem de eerste te maken: die geldt als thuis op de globe.")
+            Hint(stringResource(R.string.settings_airports_hint))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AirportPref.codes.forEachIndexed { i, code ->
                     val first = i == 0
@@ -288,7 +295,7 @@ private fun AirportsPanel() {
                     }
                 }
             }
-            FormField("Vliegveld toevoegen", query, { query = it }, hint = "bv. Eindhoven", type = KeyboardType.Text)
+            FormField(stringResource(R.string.settings_airports_add), query, { query = it }, hint = stringResource(R.string.settings_airports_add_example), type = KeyboardType.Text)
             // While they slide away the last suggestions stay drawn, so they leave instead of vanishing.
             var shownResults by remember { mutableStateOf(results) }
             if (results.isNotEmpty()) shownResults = results
@@ -323,17 +330,17 @@ private fun NotifyPanel() {
     val context = LocalContext.current
     var explain by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
-    fun turnOn() { UiPrefs.changeNotify(true); NotifyJob.schedule(context); note = "Aan. Je hoort het binnen een kwartier na een nieuw bericht." }
+    fun turnOn() { UiPrefs.changeNotify(true); NotifyJob.schedule(context); note = Lang.text(R.string.settings_notify_on) }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) turnOn() else note = "Je telefoon laat meldingen niet toe voor deze app. Zet ze aan bij Instellingen › Apps › MarkMySteps Dev › Meldingen."
+        if (granted) turnOn() else note = Lang.text(R.string.settings_notify_denied)
     }
-    Header("Meldingen op je telefoon")
+    Header(stringResource(R.string.settings_notify_title))
     Group(null, listOf(
-        Item(Glyphs.bell, "Scan op nieuwe meldingen", "Verzoeken en uitnodigingen komen binnen als melding, ook als de app dicht is. Tot een kwartier later.",
+        Item(Glyphs.bell, stringResource(R.string.settings_notify_toggle), stringResource(R.string.settings_notify_toggle_hint),
             toggle = UiPrefs.notify && Data.live, dimmed = !Data.live,
             action = {
                 when {
-                    !Data.live -> note = "Log eerst in: de meldingen komen van je server."
+                    !Data.live -> note = Lang.text(R.string.settings_notify_sign_in_first)
                     UiPrefs.notify -> { UiPrefs.changeNotify(false); NotifyJob.cancel(context); note = null }
                     android.os.Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED -> explain = true
                     else -> turnOn()
@@ -344,7 +351,7 @@ private fun NotifyPanel() {
     // The switch already ticked (or said no when grey); the line under it only explains.
     Note(note, feel = null)
     if (explain) Confirm(
-        "Meldingen toestaan?", "Dan kan de app je laten weten als iemand wil meekijken of je toevoegt aan een reis. Android vraagt je zo om toestemming.", "Verder", danger = false,
+        stringResource(R.string.settings_notify_allow_title), stringResource(R.string.settings_notify_allow_text), stringResource(R.string.settings_continue), danger = false,
         onConfirm = { ask.launch(android.Manifest.permission.POST_NOTIFICATIONS) }, onDismiss = { explain = false },
     )
 }
@@ -374,8 +381,8 @@ private fun TrackingPanel() {
     fun begin() { trip?.let { Tracker.start(context, it.remoteId ?: it.id, it.title, it.start?.plusDays((it.days - 1).toLong())); note = null; haptics(Haptic.Confirm) } }
     // The one way the app asks for location (LocationAccess.kt): a word on why, then Android's question.
     val ask = rememberLocationRequest(
-        "Locatie voor je route",
-        "Om je route bij te houden heeft de app je locatie nodig, ook met het scherm uit. Je ziet een melding zolang hij loopt. Android vraagt je zo om toestemming.",
+        stringResource(R.string.track_loc_title),
+        stringResource(R.string.track_loc_body),
         notifications = true,
         onRefused = { msg, _ -> note = msg },
     )
@@ -383,15 +390,15 @@ private fun TrackingPanel() {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Tracker.tripId) { while (Tracker.tripId != null) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
 
-    Header("Route-tracking")
+    Header(stringResource(R.string.settings_tracking))
     Panel {
-        Hint("Houdt je route bij tijdens een reis, ook met het scherm uit. Elke keer zet de app de GPS heel even aan voor één positie; blijf je op dezelfde plek, dan wordt dat één punt. Zonder netwerk wacht alles op je telefoon.")
-        Text("Locatie opslaan elke", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 6.dp))
-        Choices(presets.map { it to "$it min" } + (0 to "Eigen"), if (custom) 0 else UiPrefs.trackMinutes, { v ->
+        Hint(stringResource(R.string.settings_tracking_hint))
+        Text(stringResource(R.string.settings_tracking_interval), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 6.dp))
+        Choices(presets.map { it to stringResource(R.string.settings_tracking_minutes, it) } + (0 to stringResource(R.string.settings_tracking_custom)), if (custom) 0 else UiPrefs.trackMinutes, { v ->
             if (v == 0) { custom = true; customText = UiPrefs.trackMinutes.toString() } else { custom = false; UiPrefs.changeTrackMinutes(v); Tracker.restartIfRunning(context) }
         })
         AnimatedVisibility(custom, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-            FormField("Minuten (1 tot 240)", customText, { t ->
+            FormField(stringResource(R.string.settings_tracking_custom_label), customText, { t ->
                 customText = t.filter { it.isDigit() }.take(3)
                 customText.toIntOrNull()?.takeIf { it in 1..240 }?.let { UiPrefs.changeTrackMinutes(it); Tracker.restartIfRunning(context) }
             }, type = KeyboardType.Number)
@@ -402,19 +409,19 @@ private fun TrackingPanel() {
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh).padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(10.dp).clip(CircleShape).background(cs.primary))
-                            Text("Actief: ${Tracker.tripTitle ?: "reis"}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
+                            Text(stringResource(R.string.settings_tracking_active, Tracker.tripTitle ?: stringResource(R.string.settings_trip_fallback)), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
                         }
                         val fix = Tracker.lastFix
                         // Where the last position landed: its place and a small map with today's line, as the web.
-                        if (fix == null) Text("Wachten op de eerste positie", style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                        if (fix == null) Text(stringResource(R.string.track_waiting_fix), style = ValueStyle.copy(color = cs.onSurfaceVariant))
                         else Box(Modifier.padding(top = 10.dp)) { LastFixCard(fix, now, Tracker.tripId) { editPoints = true } }
-                        if (Tracker.buffered > 0) Text("${Tracker.buffered} ${if (Tracker.buffered == 1) "punt wacht" else "punten wachten"} op netwerk", style = ValueStyle.copy(color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 6.dp))
+                        if (Tracker.buffered > 0) Text(androidx.compose.ui.res.pluralStringResource(R.plurals.track_buffered, Tracker.buffered, Tracker.buffered), style = ValueStyle.copy(color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 6.dp))
                         Tracker.lastError?.let { Text(it, style = ValueStyle.copy(color = cs.error)) }
                     }
                     // The bare points of today, to check and correct what the tracker recorded.
-                    SoftButton("Punten van vandaag op de kaart", { editPoints = true }, Modifier.fillMaxWidth(), icon = Glyphs.pin)
+                    SoftButton(stringResource(R.string.track_points_today), { editPoints = true }, Modifier.fillMaxWidth(), icon = Glyphs.pin)
                     TrackingLog(now)
-                    QuietDangerButton("Stop tracking", { confirmStop = true }, Modifier.fillMaxWidth())
+                    QuietDangerButton(stringResource(R.string.track_stop), { confirmStop = true }, Modifier.fillMaxWidth())
                 } else {
                     Box {
                         Row(
@@ -423,16 +430,16 @@ private fun TrackingPanel() {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             LineIcon(Glyphs.compass, cs.onSurfaceVariant, size = 20.dp)
-                            Text(trip?.title ?: "Geen lopende of komende reizen", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.weight(1f).padding(start = 12.dp))
-                            if (trip?.ongoingDay != null) Text("onderweg", style = ValueStyle.copy(color = cs.primary), modifier = Modifier.padding(horizontal = 8.dp))
+                            Text(trip?.title ?: stringResource(R.string.settings_tracking_no_trips), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.weight(1f).padding(start = 12.dp))
+                            if (trip?.ongoingDay != null) Text(stringResource(R.string.settings_tracking_underway), style = ValueStyle.copy(color = cs.primary), modifier = Modifier.padding(horizontal = 8.dp))
                             LineIcon(listOf(P("m6 9 6 6 6-6")), cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
                         }
-                        AppMenu(picker, { picker = false }, listOf(trips.map { t -> MenuEntry(t.title + if (t.ongoingDay != null) " · onderweg" else "", Glyphs.compass, selected = t.id == tripId) { tripId = t.id } }))
+                        AppMenu(picker, { picker = false }, listOf(trips.map { t -> MenuEntry(t.title + if (t.ongoingDay != null) " · " + stringResource(R.string.settings_tracking_underway) else "", Glyphs.compass, selected = t.id == tripId) { tripId = t.id } }))
                     }
-                    if (!allowed) Hint("De organisator heeft tracken voor jou uitgezet.", Modifier.padding(horizontal = 6.dp))
-                    MainButton("Start tracking", {
+                    if (!allowed) Hint(stringResource(R.string.track_off_by_organiser), Modifier.padding(horizontal = 6.dp))
+                    MainButton(stringResource(R.string.track_start), {
                         when {
-                            !Data.live -> note = "Log eerst in: de route gaat naar je reis op je server."
+                            !Data.live -> note = Lang.text(R.string.track_sign_in_first)
                             else -> ask.run(context) { begin() }
                         }
                     }, Modifier.fillMaxWidth().graphicsLayer { alpha = if (Data.live) 1f else 0.45f }, icon = Glyphs.pin, enabled = (trip != null && allowed) || !Data.live)
@@ -447,7 +454,7 @@ private fun TrackingPanel() {
     val editing = Tracker.tripId
     if (editPoints && editing != null) PointsEditor(editing, onClose = { editPoints = false })
     if (confirmStop) Confirm(
-        "Stoppen met tracken?", "De route van ${Tracker.tripTitle ?: "deze reis"} wordt niet verder bijgehouden. Wat al opgenomen is blijft staan.", "Stoppen",
+        stringResource(R.string.settings_tracking_stop_title), stringResource(R.string.settings_tracking_stop_text, Tracker.tripTitle ?: stringResource(R.string.settings_this_trip)), stringResource(R.string.settings_tracking_stop_confirm),
         onConfirm = { Tracker.stop(context) }, onDismiss = { confirmStop = false },
     )
 }
@@ -456,7 +463,7 @@ private fun TrackingPanel() {
 
 @Composable
 private fun ServicesPage(onBack: () -> Unit, onSignIn: () -> Unit) {
-    SettingsScaffold("Diensten", onBack) {
+    SettingsScaffold(stringResource(R.string.settings_services), onBack) {
         ServerPanel(onSignIn)
         ImmichPanel()
     }
@@ -471,20 +478,20 @@ private fun ServerPanel(onSignIn: () -> Unit) {
     var confirm by remember { mutableStateOf<String?>(null) }
     val trimmed = url.trim().trimEnd('/')
     val changed = trimmed != current
-    Header("Server", top = true)
+    Header(stringResource(R.string.settings_server), top = true)
     Panel {
-        Hint("De server waarmee deze app praat. Een andere kiezen logt je uit; daarna log je daar opnieuw in.")
-        FormField("Adres", url, { url = it; error = null }, hint = "https://jouw-server.nl", type = KeyboardType.Uri)
+        Hint(stringResource(R.string.settings_server_hint))
+        FormField(stringResource(R.string.settings_server_address), url, { url = it; error = null }, hint = stringResource(R.string.settings_server_address_example), type = KeyboardType.Uri)
         Note(error, true)
         ButtonRow {
             AnimatedVisibility(changed, Modifier.weight(1f), enter = fadeIn(), exit = fadeOut()) {
-                SoftButton("Herstellen", { url = current; error = null }, Modifier.fillMaxWidth())
+                SoftButton(stringResource(R.string.settings_server_reset), { url = current; error = null }, Modifier.fillMaxWidth())
             }
-            MainButton("Server wijzigen", {
+            MainButton(stringResource(R.string.settings_server_change), {
                 val u = runCatching { java.net.URI(trimmed) }.getOrNull()
                 error = when {
-                    u?.host.isNullOrBlank() -> "Dat is geen geldig adres. Begin met https:// en vul een domein in."
-                    u?.scheme != "https" && u?.host != "localhost" -> "Gebruik https, anders reist je wachtwoord onversleuteld mee."
+                    u?.host.isNullOrBlank() -> Lang.text(R.string.settings_server_invalid)
+                    u?.scheme != "https" && u?.host != "localhost" -> Lang.text(R.string.settings_server_https)
                     else -> null
                 }
                 if (error == null) confirm = "${u!!.scheme}://${u.host}${if (u.port > 0) ":${u.port}" else ""}"
@@ -493,9 +500,9 @@ private fun ServerPanel(onSignIn: () -> Unit) {
     }
     confirm?.let { origin ->
         Confirm(
-            "Andere server gebruiken?",
-            "De app praat daarna met $origin. Je wordt uitgelogd en logt daar opnieuw in. Reizen op de oude server blijven daar.",
-            "Wisselen",
+            stringResource(R.string.settings_server_confirm_title),
+            stringResource(R.string.settings_server_confirm_text, origin),
+            stringResource(R.string.settings_server_confirm),
             onConfirm = {
                 // Never in test mode: signing out there cannot be undone from the test.
                 if (!Api.dryRun) { Api.setServer(trimmed); onSignIn() } else android.util.Log.i("MmsDryRun", "server change [blocked]")
@@ -523,7 +530,7 @@ private fun ImmichPanel() {
     LaunchedEffect(Data.live) {
         if (!Data.live) return@LaunchedEffect
         runCatching { SettingsRemote.immich() }.onSuccess { s -> status = s; serverUrl = s?.serverUrl ?: ""; publicUrl = s?.publicUrl ?: "" }
-            .onFailure { note = "Kon de Immich-status niet laden" to true }
+            .onFailure { note = Lang.text(R.string.settings_immich_load_failed) to true }
         loaded = true
     }
     Header("Immich")
@@ -536,32 +543,32 @@ private fun ImmichPanel() {
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh).padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(10.dp).clip(CircleShape).background(cs.primary))
-                            Text("Verbonden", style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
+                            Text(stringResource(R.string.settings_immich_connected), style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
                         }
                         Text(
-                            listOfNotNull(st.serverUrl.removePrefix("https://").removePrefix("http://"), "key ${st.keyPreview}".takeIf { st.keyPreview.isNotBlank() }, st.lastSync?.let { "laatste sync ${shortDate(it)}" }).joinToString(" · "),
+                            listOfNotNull(st.serverUrl.removePrefix("https://").removePrefix("http://"), "key ${st.keyPreview}".takeIf { st.keyPreview.isNotBlank() }, st.lastSync?.let { stringResource(R.string.settings_immich_last_sync, shortDate(it)) }).joinToString(" · "),
                             style = ValueStyle.copy(color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp),
                         )
                         st.lastError?.let { Text(it, style = ValueStyle.copy(color = cs.error), modifier = Modifier.padding(top = 4.dp)) }
                     }
                 }
-                else -> Hint("Niet verbonden. Immich is een fotobibliotheek die je zelf draait; je foto's blijven daar, MarkMySteps bewaart alleen verwijzingen.")
+                else -> Hint(stringResource(R.string.settings_immich_not_connected))
             }
         }
-        FormField("Server-URL", serverUrl, { serverUrl = it; note = null }, hint = "https://immich.example.com", type = KeyboardType.Uri)
-        FormField("API-key", apiKey, { apiKey = it; note = null }, hint = if (status != null) "Nieuwe key om te vervangen" else "Immich API-key", secret = true, type = KeyboardType.Password)
-        PathHint("Maak er een in ", listOf("Immich", "Accountinstellingen", "API-keys"), ". Hij wordt versleuteld opgeslagen.")
-        FormField("Publieke URL (optioneel)", publicUrl, { publicUrl = it; note = null }, hint = "Voor de knop Openen in Immich", type = KeyboardType.Uri)
+        FormField(stringResource(R.string.settings_immich_url), serverUrl, { serverUrl = it; note = null }, hint = "https://immich.example.com", type = KeyboardType.Uri)
+        FormField(stringResource(R.string.settings_immich_key), apiKey, { apiKey = it; note = null }, hint = if (status != null) stringResource(R.string.settings_immich_key_replace) else stringResource(R.string.settings_immich_key_placeholder), secret = true, type = KeyboardType.Password)
+        PathHint(stringResource(R.string.settings_immich_key_path_prefix), listOf("Immich", stringResource(R.string.settings_immich_key_path_account), stringResource(R.string.settings_immich_key_path_keys)), stringResource(R.string.settings_immich_key_path_suffix))
+        FormField(stringResource(R.string.settings_immich_public), publicUrl, { publicUrl = it; note = null }, hint = stringResource(R.string.settings_immich_public_hint), type = KeyboardType.Uri)
         ButtonRow {
-            if (status != null) QuietDangerButton("Verbreken", { confirmOff = true }, Modifier.weight(1f))
-            MainButton(if (status != null) "Bijwerken" else "Verbinden", {
+            if (status != null) QuietDangerButton(stringResource(R.string.settings_immich_disconnect), { confirmOff = true }, Modifier.weight(1f))
+            MainButton(if (status != null) stringResource(R.string.settings_immich_update) else stringResource(R.string.settings_immich_connect), {
                 busy = true; note = null
                 val key = apiKey; apiKey = ""
                 scope.launch {
                     note = runCatching { SettingsRemote.connectImmich(serverUrl, key, publicUrl) }.fold({ s ->
                         if (s != null) status = s
-                        "Verbonden met Immich. De key is gecontroleerd en versleuteld opgeslagen." to false
-                    }, { (it.message ?: "Opslaan mislukt") to true })
+                        Lang.text(R.string.settings_immich_connected_note) to false
+                    }, { (it.message ?: Lang.text(R.string.settings_save_failed)) to true })
                     busy = false
                 }
             }, Modifier.weight(1f), busy = busy, enabled = Data.live && serverUrl.isNotBlank() && apiKey.length >= 10)
@@ -569,10 +576,10 @@ private fun ImmichPanel() {
         Note(note?.first, note?.second == true)
     }
     if (confirmOff) Confirm(
-        "Immich loskoppelen?", "Nieuwe foto's komen dan niet meer binnen. Wat al in je reizen staat blijft staan.", "Verbreken",
+        stringResource(R.string.settings_immich_disconnect_title), stringResource(R.string.settings_immich_disconnect_text), stringResource(R.string.settings_immich_disconnect),
         onConfirm = {
             scope.launch {
-                note = runCatching { SettingsRemote.disconnectImmich() }.fold({ status = null; serverUrl = ""; publicUrl = ""; "Verbinding verwijderd." to false }, { (it.message ?: "Mislukt") to true })
+                note = runCatching { SettingsRemote.disconnectImmich() }.fold({ status = null; serverUrl = ""; publicUrl = ""; Lang.text(R.string.settings_immich_disconnected) to false }, { (it.message ?: Lang.text(R.string.settings_failed)) to true })
             }
         },
         onDismiss = { confirmOff = false },
@@ -601,11 +608,11 @@ private fun DataPage(onBack: () -> Unit) {
             (0 until a.length()).map { a.getJSONObject(it) }.map { TripChoice(it.getString("id"), it.optString("title"), it.optString("startDate").take(4)) }
         }.getOrDefault(emptyList())
     }
-    SettingsScaffold("Gegevens", onBack) {
+    SettingsScaffold(stringResource(R.string.settings_data), onBack) {
         BackupPanel()
         PolarstepsPanel()
         TrackFilesPanel(trips)
-        CachePanel()
+        PhotoCachePanel()
     }
 }
 
@@ -625,8 +632,8 @@ private fun BackupPanel() {
         scope.launch {
             note = runCatching {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) } ?: error("") }
-                "Back-up opgeslagen · ${bytes(text.length.toLong())}" to false
-            }.getOrElse { "Back-up mislukt" to true }
+                Lang.text(R.string.settings_backup_saved, bytes(text.length.toLong())) to false
+            }.getOrElse { Lang.text(R.string.settings_backup_failed) to true }
             busy = false
         }
     }
@@ -637,25 +644,25 @@ private fun BackupPanel() {
                 JSONObject(kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: "" })
             }.getOrNull()
             note = when {
-                parsed == null -> "Dit is geen leesbaar back-upbestand." to true
-                parsed.optString("app") != "MarkMySteps" || parsed.optJSONArray("trips") == null -> "Dit bestand komt niet van MarkMySteps." to true
-                parsed.optInt("version") > 1 -> "Deze back-up komt van een nieuwere versie van de app." to true
+                parsed == null -> Lang.text(R.string.settings_backup_unreadable) to true
+                parsed.optString("app") != "MarkMySteps" || parsed.optJSONArray("trips") == null -> Lang.text(R.string.settings_backup_not_ours) to true
+                parsed.optInt("version") > 1 -> Lang.text(R.string.settings_backup_newer) to true
                 else -> { pending = parsed; null }
             }
         }
     }
-    Header("Back-up", top = true)
+    Header(stringResource(R.string.settings_backup), top = true)
     Panel {
-        Hint("Al je reizen, stops, routepunten en notities in één bestand, plus je instellingen. Foto's staan erin als verwijzing. Terugzetten voegt toe wat je nog niet hebt en laat bestaande reizen met rust.")
+        Hint(stringResource(R.string.settings_backup_hint))
         AnimatedVisibility(busy, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 SmoothProgress(progress?.first ?: 0.05f, Modifier.fillMaxWidth())
-                Hint(progress?.second?.takeIf { it.isNotBlank() } ?: "Verzamelen")
+                Hint(progress?.second?.takeIf { it.isNotBlank() } ?: stringResource(R.string.settings_backup_collecting))
             }
         }
         ButtonRow {
-            SoftButton("Terugzetten", { open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, Modifier.weight(1f), enabled = Data.live && !busy)
-            MainButton("Back-up maken", {
+            SoftButton(stringResource(R.string.settings_backup_restore), { open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, Modifier.weight(1f), enabled = Data.live && !busy)
+            MainButton(stringResource(R.string.settings_backup_create), {
                 busy = true; note = null
                 scope.launch {
                     runCatching {
@@ -671,7 +678,7 @@ private fun BackupPanel() {
                         JSONObject().put("version", 1).put("createdAt", java.time.Instant.now().toString()).put("app", "MarkMySteps")
                             .put("trips", out).put("settings", settingsSnapshot()).toString(2)
                     }.onSuccess { made = it; save.launch("markmysteps-backup-${java.time.LocalDate.now()}.json") }
-                        .onFailure { note = (it.message ?: "Back-up mislukt") to true; busy = false }
+                        .onFailure { note = (it.message ?: Lang.text(R.string.settings_backup_failed)) to true; busy = false }
                     progress = null
                 }
             }, Modifier.weight(1f), icon = Glyphs.download, busy = busy, enabled = Data.live)
@@ -681,15 +688,15 @@ private fun BackupPanel() {
     pending?.let { backup ->
         val count = backup.optJSONArray("trips")?.length() ?: 0
         Confirm(
-            "Back-up terugzetten?",
-            "Deze back-up is van ${shortDate(backup.optString("createdAt"))} en bevat $count ${if (count == 1) "reis" else "reizen"}. Reizen die je al hebt blijven zoals ze zijn; de rest wordt toegevoegd.",
-            "Terugzetten", danger = false,
+            stringResource(R.string.settings_restore_title),
+            pluralStringResource(R.plurals.settings_restore_text, count, shortDate(backup.optString("createdAt")), count),
+            stringResource(R.string.settings_backup_restore), danger = false,
             onConfirm = {
                 busy = true; note = null
                 scope.launch {
                     // The airport list, so restored home airports also move the globe's home.
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Airports.load(context) }
-                    note = runCatching { restore(backup) { p, label -> progress = p to label } }.fold({ it to false }, { (it.message ?: "Terugzetten mislukt") to true })
+                    note = runCatching { restore(backup) { p, label -> progress = p to label } }.fold({ it to false }, { (it.message ?: Lang.text(R.string.settings_restore_failed)) to true })
                     busy = false; progress = null
                     Data.load()
                 }
@@ -762,10 +769,10 @@ private suspend fun restore(backup: JSONObject, onProgress: (Float, String) -> U
         s.optString("mms.cardsize").takeIf { it in listOf(CardSizePref.AUTO, CardSizePref.LARGE, CardSizePref.COMPACT) }?.let { CardSizePref.choose(it) }
     }
     return listOfNotNull(
-        "$added ${if (added == 1) "reis" else "reizen"} teruggezet",
-        if (skipped > 0) "$skipped overgeslagen" else null,
-        if (points > 0) "$points ${if (points == 1) "routepunt" else "routepunten"}" else null,
-        if (coversLost > 0) "covers komen terug zodra je foto's gekoppeld zijn" else null,
+        Lang.plural(R.plurals.settings_restored_trips, added),
+        if (skipped > 0) Lang.text(R.string.settings_restored_skipped, skipped) else null,
+        if (points > 0) Lang.plural(R.plurals.settings_restored_points, points) else null,
+        if (coversLost > 0) Lang.text(R.string.settings_restored_covers_lost) else null,
     ).joinToString(" · ") + "."
 }
 
@@ -788,34 +795,34 @@ private fun PolarstepsPanel() {
         if (uri != null) file = uri to (displayName(context, uri) ?: "polarsteps.zip")
     }
     val cs = MaterialTheme.colorScheme
-    Header("Polarsteps importeren")
+    Header(stringResource(R.string.settings_polarsteps))
     Panel {
-        PathHint("Vraag je export op via ", listOf("polarsteps.com", "Settings", "Privacy", "Download my data"), " en kies de zip hier. Elke reis erin wordt aangemaakt met de volledige GPS-route.")
+        PathHint(stringResource(R.string.settings_polarsteps_hint_prefix), listOf("polarsteps.com", "Settings", "Privacy", "Download my data"), stringResource(R.string.settings_polarsteps_hint_suffix))
         Row(
             Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh)
                 .dip { pick.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")) }.padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             LineIcon(Glyphs.download, cs.primary, size = 22.dp)
-            Text(file?.second ?: "Kies je Polarsteps-zip", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 12.dp))
+            Text(file?.second ?: stringResource(R.string.settings_polarsteps_pick), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 12.dp))
         }
-        MainButton("Importeren", {
+        MainButton(stringResource(R.string.settings_import), {
             val (uri, _) = file ?: return@MainButton
             busy = true; error = null; result = null
             scope.launch {
                 runCatching {
-                    val data = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } } ?: error("Bestand kon niet gelezen worden")
+                    val data = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } } ?: error(Lang.text(R.string.settings_read_failed))
                     SettingsRemote.importPolarsteps(data)
-                }.onSuccess { result = it; Data.load() }.onFailure { error = it.message ?: "Import mislukt" }
+                }.onSuccess { result = it; Data.load() }.onFailure { error = it.message ?: Lang.text(R.string.settings_polarsteps_failed) }
                 busy = false
             }
         }, Modifier.fillMaxWidth(), busy = busy, enabled = Data.live && file != null)
         result?.let { list ->
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (list.isEmpty()) Hint("Klaar.")
+                if (list.isEmpty()) Hint(stringResource(R.string.settings_polarsteps_done))
                 list.forEach { t ->
                     Text(
-                        pathText("", listOf(t.title), " · ${shortDate(t.start)} t/m ${shortDate(t.end)}, ${t.points} ${if (t.points == 1) "routepunt" else "routepunten"}", cs.onSurface),
+                        pathText("", listOf(t.title), pluralStringResource(R.plurals.settings_polarsteps_result, t.points, shortDate(t.start), shortDate(t.end), t.points), cs.onSurface),
                         style = ValueStyle.copy(color = cs.onSurfaceVariant),
                     )
                 }
@@ -848,8 +855,8 @@ private fun TrackFilesPanel(trips: List<TripChoice>?) {
         if (uri != null && data != null) scope.launch {
             note = runCatching {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { context.contentResolver.openOutputStream(uri)?.use { it.write(data) } }
-                "Bewaard" to false
-            }.getOrElse { "Exporteren lukte niet" to true }
+                Lang.text(R.string.settings_track_saved) to false
+            }.getOrElse { Lang.text(R.string.settings_track_export_failed) to true }
         }
     }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -858,20 +865,20 @@ private fun TrackFilesPanel(trips: List<TripChoice>?) {
         busy = "import"; note = null
         scope.launch {
             note = runCatching {
-                val data = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } } ?: error("Bestand kon niet gelezen worden")
+                val data = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } } ?: error(Lang.text(R.string.settings_read_failed))
                 val r = SettingsRemote.importTrack(id, displayName(context, uri) ?: "track.gpx", data)
                 listOfNotNull(
-                    "${r.added} van ${r.found} punten toegevoegd",
-                    if (r.outside > 0) "${r.outside} buiten de reisdagen" else null,
-                    if (r.undated > 0) "${r.undated} zonder tijd" else null,
-                ).joinToString(", ") + (if (r.added == 0 && r.found > 0) " (stonden er al in)" else "") to false
-            }.getOrElse { (it.message ?: "Importeren mislukt") to true }
+                    Lang.text(R.string.settings_track_added, r.added, r.found),
+                    if (r.outside > 0) Lang.text(R.string.settings_track_outside, r.outside) else null,
+                    if (r.undated > 0) Lang.text(R.string.settings_track_undated, r.undated) else null,
+                ).joinToString(", ") + (if (r.added == 0 && r.found > 0) Lang.text(R.string.settings_track_already) else "") to false
+            }.getOrElse { (it.message ?: Lang.text(R.string.settings_track_import_failed)) to true }
             busy = null
         }
     }
-    Header("Route-bestanden")
+    Header(stringResource(R.string.settings_track_files))
     Panel {
-        Hint("Exporteer een reis als GPX of KML, of voeg een track toe die je ergens anders opnam. Punten buiten de reisdagen worden overgeslagen.")
+        Hint(stringResource(R.string.settings_track_files_hint))
         Box {
             Row(
                 Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh)
@@ -880,7 +887,7 @@ private fun TrackFilesPanel(trips: List<TripChoice>?) {
             ) {
                 LineIcon(Glyphs.compass, cs.onSurfaceVariant, size = 20.dp)
                 if (trips == null) Placeholder(Modifier.padding(start = 12.dp).weight(1f).height(18.dp).clip(RoundedCornerShape(6.dp)))
-                else Text(trip?.title ?: "Geen reizen", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.weight(1f).padding(start = 12.dp))
+                else Text(trip?.title ?: stringResource(R.string.settings_track_no_trips), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.weight(1f).padding(start = 12.dp))
                 trip?.let { Text(it.year, style = ValueStyle.copy(color = cs.onSurfaceVariant), modifier = Modifier.padding(horizontal = 8.dp)) }
                 LineIcon(listOf(P("m6 9 6 6 6-6")), cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
             }
@@ -888,21 +895,21 @@ private fun TrackFilesPanel(trips: List<TripChoice>?) {
         }
         ButtonRow {
             Box(Modifier.weight(1f)) {
-                SoftButton("Exporteren", { formats = true }, Modifier.fillMaxWidth(), icon = Glyphs.download, busy = busy == "export", enabled = trip != null && busy == null)
-                AppMenu(formats, { formats = false }, listOf(listOf("gpx" to "GPX, voor apps en horloges", "kml" to "KML, voor Google Earth").map { (f, label) ->
+                SoftButton(stringResource(R.string.settings_track_export), { formats = true }, Modifier.fillMaxWidth(), icon = Glyphs.download, busy = busy == "export", enabled = trip != null && busy == null)
+                AppMenu(formats, { formats = false }, listOf(listOf("gpx" to stringResource(R.string.settings_track_gpx), "kml" to stringResource(R.string.settings_track_kml)).map { (f, label) ->
                     MenuEntry(label, Glyphs.download) {
                         val id = tripId ?: return@MenuEntry
                         busy = "export"; note = null
                         scope.launch {
                             val data = SettingsRemote.exportTrack(id, f)
                             busy = null
-                            if (data == null) note = "Exporteren lukte niet" to true
+                            if (data == null) note = Lang.text(R.string.settings_track_export_failed) to true
                             else { export = data; save.launch("${slug(trip?.title ?: "reis")}.$f") }
                         }
                     }
                 }))
             }
-            MainButton("Importeren", { pick.launch(arrayOf("*/*")) }, Modifier.weight(1f), icon = Glyphs.plus, busy = busy == "import", enabled = trip != null && busy == null)
+            MainButton(stringResource(R.string.settings_import), { pick.launch(arrayOf("*/*")) }, Modifier.weight(1f), icon = Glyphs.plus, busy = busy == "import", enabled = trip != null && busy == null)
         }
         Note(note?.first, note?.second == true)
     }
@@ -912,21 +919,6 @@ private fun slug(text: String): String = java.text.Normalizer.normalize(text.low
     .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9]+"), "-").trim('-').take(60).ifBlank { "reis" }
 
 /** The photos kept in memory while the app runs. */
-@Composable
-private fun CachePanel() {
-    var used by remember { mutableStateOf(Photos.usedBytes()) }
-    var confirm by remember { mutableStateOf(false) }
-    Header("Foto-cache")
-    Panel {
-        Hint("Foto's die je bekijkt blijven in het geheugen zolang de app open is. Nu ${bytes(used)} in gebruik.")
-        SoftButton("Cache leegmaken", { confirm = true }, Modifier.fillMaxWidth(), icon = Glyphs.trash, enabled = used > 0)
-    }
-    if (confirm) Confirm(
-        "Cache leegmaken?", "Bewaarde foto's worden gewist en opnieuw opgehaald als je ze bekijkt. Er gaat niets van je reizen verloren.", "Leegmaken",
-        onConfirm = { Photos.clear(); used = Photos.usedBytes() }, onDismiss = { confirm = false },
-    )
-}
-
 // Accounts (admins only).
 
 @Composable
@@ -945,24 +937,24 @@ private fun AccountsPage(onBack: () -> Unit) {
     DisposableEffect(Unit) { onDispose { tempForReset = "" } }
     fun act(done: String, block: suspend () -> Unit) {
         note = null
-        scope.launch { note = runCatching { block() }.fold({ reload++; done to false }, { (it.message ?: "Mislukt") to true }) }
+        scope.launch { note = runCatching { block() }.fold({ reload++; done to false }, { (it.message ?: Lang.text(R.string.settings_failed)) to true }) }
     }
-    SettingsScaffold("Accounts", onBack) {
+    SettingsScaffold(stringResource(R.string.settings_accounts), onBack) {
         val requests = users.orEmpty().filter { it.status == "PENDING" }
         AnimatedVisibility(requests.isNotEmpty(), enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             Column {
-                Header(if (requests.size == 1) "1 aanvraag" else "${requests.size} aanvragen", top = true)
+                Header(pluralStringResource(R.plurals.settings_requests, requests.size, requests.size), top = true)
                 Panel {
-                    Hint("Deze mensen hebben zich aangemeld op je server. Tot je ze toelaat kunnen ze niets.")
+                    Hint(stringResource(R.string.settings_requests_hint))
                     requests.forEach { u ->
                         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Column {
                                 Text("${u.displayName}  @${u.username}", style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface))
-                                Text("${u.email} · aangemeld ${shortDate(u.createdAt)}", style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                                Text(stringResource(R.string.settings_requests_signed_up, u.email, shortDate(u.createdAt)), style = ValueStyle.copy(color = cs.onSurfaceVariant))
                             }
                             ButtonRow {
-                                SoftButton("Afwijzen", { ask = "reject" to u }, Modifier.weight(1f))
-                                MainButton("Toelaten", { act("${u.displayName} is toegelaten.") { SettingsRemote.decide(u.id, true) } }, Modifier.weight(1f), icon = Glyphs.check)
+                                SoftButton(stringResource(R.string.settings_requests_decline), { ask = "reject" to u }, Modifier.weight(1f))
+                                MainButton(stringResource(R.string.settings_requests_let_in), { act(Lang.text(R.string.settings_requests_let_in_done, u.displayName)) { SettingsRemote.decide(u.id, true) } }, Modifier.weight(1f), icon = Glyphs.check)
                             }
                         }
                     }
@@ -970,21 +962,21 @@ private fun AccountsPage(onBack: () -> Unit) {
             }
         }
         CreateAccountPanel(onCreated = { reload++ })
-        Header("Accounts")
+        Header(stringResource(R.string.settings_accounts))
         Panel {
-            FormField("Zoeken", query, { query = it }, hint = "Naam, gebruikersnaam of e-mail")
+            FormField(stringResource(R.string.settings_accounts_search), query, { query = it }, hint = stringResource(R.string.settings_accounts_search_hint))
             val settled = users.orEmpty().filter { it.status != "PENDING" }
             val needle = query.trim().lowercase()
             val shown = if (needle.isEmpty()) settled else settled.filter { u -> listOf(u.displayName, u.username, u.email).any { it.lowercase().contains(needle) } }
             if (users == null) repeat(3) { Placeholder(Modifier.fillMaxWidth().height(72.dp).clip(RoundedCornerShape(18.dp))) }
-            else if (shown.isEmpty()) Hint("Geen account gevonden met die naam.")
+            else if (shown.isEmpty()) Hint(stringResource(R.string.settings_accounts_empty))
             shown.forEach { u ->
                 var menu by remember(u.id) { mutableStateOf(false) }
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh).padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("${u.displayName}  @${u.username}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface))
                         Text(
-                            listOfNotNull(u.email, "${u.trips} ${if (u.trips == 1) "reis" else "reizen"}", if (u.admin) "admin" else null, if (u.status == "REJECTED") "afgewezen" else null, if (u.tempPassword) "tijdelijk wachtwoord" else null, if (u.twoFactor) "2FA" else null).joinToString(" · "),
+                            listOfNotNull(u.email, pluralStringResource(R.plurals.settings_accounts_trips, u.trips, u.trips), if (u.admin) "admin" else null, if (u.status == "REJECTED") stringResource(R.string.settings_accounts_declined) else null, if (u.tempPassword) stringResource(R.string.settings_accounts_temp_password) else null, if (u.twoFactor) "2FA" else null).joinToString(" · "),
                             style = ValueStyle.copy(color = cs.onSurfaceVariant),
                         )
                     }
@@ -994,11 +986,11 @@ private fun AccountsPage(onBack: () -> Unit) {
                         }
                         AppMenu(menu, { menu = false }, listOf(
                             listOfNotNull(
-                                MenuEntry("Wachtwoord resetten", Glyphs.lock) { tempForReset = tempPassword(); ask = "reset" to u },
-                                if (u.twoFactor) MenuEntry("2FA resetten", Glyphs.shield) { ask = "2fa" to u } else null,
-                                MenuEntry(if (u.admin) "Geen admin meer" else "Maak admin", Glyphs.person) { act(if (u.admin) "@${u.username} is geen admin meer." else "@${u.username} is nu admin.") { SettingsRemote.setRole(u.id, !u.admin) } },
+                                MenuEntry(stringResource(R.string.settings_accounts_reset_password), Glyphs.lock) { tempForReset = tempPassword(); ask = "reset" to u },
+                                if (u.twoFactor) MenuEntry(stringResource(R.string.settings_accounts_reset_2fa), Glyphs.shield) { ask = "2fa" to u } else null,
+                                MenuEntry(if (u.admin) stringResource(R.string.settings_accounts_demote) else stringResource(R.string.settings_accounts_make_admin), Glyphs.person) { act(if (u.admin) Lang.text(R.string.settings_accounts_demoted, u.username) else Lang.text(R.string.settings_accounts_made_admin, u.username)) { SettingsRemote.setRole(u.id, !u.admin) } },
                             ),
-                            listOf(MenuEntry("Account verwijderen", Glyphs.trash, danger = true) { ask = "delete" to u }),
+                            listOf(MenuEntry(stringResource(R.string.settings_accounts_delete), Glyphs.trash, danger = true) { ask = "delete" to u }),
                         ))
                     }
                 }
@@ -1008,16 +1000,16 @@ private fun AccountsPage(onBack: () -> Unit) {
     }
     ask?.let { (what, u) ->
         when (what) {
-            "reject" -> Confirm("Aanvraag van ${u.displayName} afwijzen?", "Diegene kan niet inloggen. Het account blijft bestaan, zodat dezelfde naam en e-mail niet meteen opnieuw gebruikt worden.", "Afwijzen",
-                onConfirm = { act("Aanvraag van ${u.displayName} afgewezen.") { SettingsRemote.decide(u.id, false) } }, onDismiss = { ask = null })
-            "reset" -> Confirm("Nieuw tijdelijk wachtwoord", "@${u.username} wordt overal uitgelogd en kiest bij de volgende keer inloggen zelf een nieuw wachtwoord.", "Resetten",
-                onConfirm = { val t = tempForReset; tempForReset = ""; act("Wachtwoord van @${u.username} gereset. Geef het tijdelijke wachtwoord door: $t") { SettingsRemote.resetPassword(u.id, t) } },
+            "reject" -> Confirm(stringResource(R.string.settings_reject_title, u.displayName), stringResource(R.string.settings_reject_text), stringResource(R.string.settings_requests_decline),
+                onConfirm = { act(Lang.text(R.string.settings_rejected, u.displayName)) { SettingsRemote.decide(u.id, false) } }, onDismiss = { ask = null })
+            "reset" -> Confirm(stringResource(R.string.settings_reset_title), stringResource(R.string.settings_reset_text, u.username), stringResource(R.string.settings_reset_confirm),
+                onConfirm = { val t = tempForReset; tempForReset = ""; act(Lang.text(R.string.settings_reset_done, u.username, t)) { SettingsRemote.resetPassword(u.id, t) } },
                 onDismiss = { ask = null; tempForReset = "" }, confirmEnabled = tempForReset.length >= 10,
-                extra = { FormField("Tijdelijk wachtwoord", tempForReset, { tempForReset = it }, type = KeyboardType.Ascii, support = if (tempForReset.length < 10) "Minstens 10 tekens" else null, supportError = true) })
-            "2fa" -> Confirm("2FA resetten?", "@${u.username} kan daarna weer inloggen met alleen een wachtwoord en wordt overal uitgelogd. Doe dit alleen als diegene telefoon én herstelcodes kwijt is.", "Resetten",
-                onConfirm = { act("2FA van @${u.username} is uitgezet.") { SettingsRemote.resetTwoFactor(u.id) } }, onDismiss = { ask = null })
-            else -> Confirm("Account verwijderen?", "Account @${u.username} wordt verwijderd, samen met hun eigen reizen en routes.", "Verwijderen",
-                onConfirm = { act("Account @${u.username} verwijderd.") { SettingsRemote.deleteUser(u.id) } }, onDismiss = { ask = null })
+                extra = { FormField(stringResource(R.string.settings_accounts_temp_password_label), tempForReset, { tempForReset = it }, type = KeyboardType.Ascii, support = if (tempForReset.length < 10) stringResource(R.string.settings_accounts_min_length) else null, supportError = true) })
+            "2fa" -> Confirm(stringResource(R.string.settings_reset_2fa_title), stringResource(R.string.settings_reset_2fa_text, u.username), stringResource(R.string.settings_reset_confirm),
+                onConfirm = { act(Lang.text(R.string.settings_reset_2fa_done, u.username)) { SettingsRemote.resetTwoFactor(u.id) } }, onDismiss = { ask = null })
+            else -> Confirm(stringResource(R.string.settings_delete_title), stringResource(R.string.settings_delete_text, u.username), stringResource(R.string.settings_delete_confirm),
+                onConfirm = { act(Lang.text(R.string.settings_deleted, u.username)) { SettingsRemote.deleteUser(u.id) } }, onDismiss = { ask = null })
         }
     }
 }
@@ -1039,16 +1031,16 @@ private fun CreateAccountPanel(onCreated: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     DisposableEffect(Unit) { onDispose { temp = "" } }
-    Header("Account aanmaken")
+    Header(stringResource(R.string.settings_create))
     Panel {
-        Hint("Voor een reisgenoot, met een tijdelijk wachtwoord. Bij de eerste keer inloggen kiezen ze zelf iets anders.")
-        FormField("Naam", name, { name = it }, capitalize = true)
-        FormField("Gebruikersnaam", username, { username = it.filter { c -> !c.isWhitespace() }.take(30) }, prefix = "@", type = KeyboardType.Ascii)
-        FormField("E-mail", email, { email = it.trim() }, type = KeyboardType.Email)
-        FormField("Tijdelijk wachtwoord", temp, { temp = it }, type = KeyboardType.Ascii, support = if (temp.isNotEmpty() && temp.length < 10) "Minstens 10 tekens" else null, supportError = true)
+        Hint(stringResource(R.string.settings_create_hint))
+        FormField(stringResource(R.string.settings_create_name), name, { name = it }, capitalize = true)
+        FormField(stringResource(R.string.settings_create_username), username, { username = it.filter { c -> !c.isWhitespace() }.take(30) }, prefix = "@", type = KeyboardType.Ascii)
+        FormField(stringResource(R.string.settings_create_email), email, { email = it.trim() }, type = KeyboardType.Email)
+        FormField(stringResource(R.string.settings_accounts_temp_password_label), temp, { temp = it }, type = KeyboardType.Ascii, support = if (temp.isNotEmpty() && temp.length < 10) stringResource(R.string.settings_accounts_min_length) else null, supportError = true)
         ButtonRow {
-            SoftButton("Genereer", { temp = tempPassword() }, Modifier.weight(1f))
-            MainButton("Aanmaken", {
+            SoftButton(stringResource(R.string.settings_create_generate), { temp = tempPassword() }, Modifier.weight(1f))
+            MainButton(stringResource(R.string.settings_create_button), {
                 busy = true; note = null
                 val t = temp
                 scope.launch {
@@ -1056,8 +1048,8 @@ private fun CreateAccountPanel(onCreated: () -> Unit) {
                         val u = username
                         name = ""; username = ""; email = ""; temp = ""
                         onCreated()
-                        "Account @$u aangemaakt. Geef het tijdelijke wachtwoord door: $t" to false
-                    }, { (it.message ?: "Aanmaken mislukt") to true })
+                        Lang.text(R.string.settings_created, u, t) to false
+                    }, { (it.message ?: Lang.text(R.string.settings_create_failed)) to true })
                     busy = false
                 }
             }, Modifier.weight(1f), busy = busy, enabled = name.isNotBlank() && Regex("^[a-zA-Z0-9._-]{3,30}$").matches(username) && email.contains('@') && temp.length >= 10)
@@ -1074,33 +1066,38 @@ private fun AboutPage(onBack: () -> Unit) {
     val context = LocalContext.current
     val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "" }
     fun open(url: String) = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }; Unit }
-    var privacy by remember { mutableStateOf<Boolean?>(null) }
-    SlideHost(privacy, onClose = { privacy = null }, base = { AboutBody(onBack, version, ::open, onPrivacy = { privacy = true }) }) { PrivacyPage(onBack = { privacy = null }) }
+    var sub by remember { mutableStateOf<String?>(null) }
+    SlideHost(sub, onClose = { sub = null }, base = { AboutBody(onBack, version, ::open, onPrivacy = { sub = "privacy" }, onWhatsNew = { sub = "new" }) }) { which ->
+        if (which == "new") WhatsNewPage(onBack = { sub = null }) else PrivacyPage(onBack = { sub = null })
+    }
 }
 
 @Composable
-private fun AboutBody(onBack: () -> Unit, version: String, open: (String) -> () -> Unit, onPrivacy: () -> Unit) {
+private fun AboutBody(onBack: () -> Unit, version: String, open: (String) -> () -> Unit, onPrivacy: () -> Unit, onWhatsNew: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    SettingsScaffold("Over", onBack) {
+    SettingsScaffold(stringResource(R.string.settings_about), onBack) {
         Spacer(Modifier.height(12.dp))
         Panel {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(52.dp).clip(MaterialShapes.Cookie9Sided.toShape()).background(cs.primary), contentAlignment = Alignment.Center) {
                     LineIcon(Glyphs.logo, cs.onPrimary, size = 28.dp, stroke = 2f)
                 }
-                Column(Modifier.padding(start = 14.dp)) {
-                    Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
-                    Text("Versie $version", style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                VersionTaps(version) { taps ->
+                    Column(Modifier.padding(start = 14.dp).then(taps)) {
+                        Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
+                        Text(stringResource(R.string.settings_about_version, version), style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                    }
                 }
             }
-            Hint("Self-hosted reistracker op je eigen Immich-server. Open source (AGPL-3.0).")
+            Hint(stringResource(R.string.settings_about_tagline))
         }
-        Group("Meer", listOf(
-            Item(Glyphs.help, "Wat is er nieuw", "op GitHub", external = true, action = open("https://github.com/Marukiee/MarkMySteps/releases")),
-            Item(Glyphs.logo, "Broncode", "github.com/Marukiee/MarkMySteps", external = true, action = open("https://github.com/Marukiee/MarkMySteps")),
-            Item(Glyphs.shield, "Licentie", "AGPL-3.0", external = true, action = open("https://www.gnu.org/licenses/agpl-3.0.html")),
-            Item(Glyphs.lock, "Privacy", "Wat de app bewaart en wie het ziet", action = onPrivacy),
+        Group(stringResource(R.string.settings_about_more), listOf(
+            Item(Glyphs.help, stringResource(R.string.whatsnew_title), stringResource(R.string.whatsnew_summary), action = onWhatsNew),
+            Item(Glyphs.logo, stringResource(R.string.settings_about_source), "github.com/Marukiee/MarkMySteps", external = true, action = open("https://github.com/Marukiee/MarkMySteps")),
+            Item(Glyphs.shield, stringResource(R.string.settings_about_licence), "AGPL-3.0", external = true, action = open("https://www.gnu.org/licenses/agpl-3.0.html")),
+            Item(Glyphs.lock, stringResource(R.string.settings_privacy), stringResource(R.string.settings_privacy_summary), action = onPrivacy),
         ))
+        UpdatePanel()
     }
 }
 
@@ -1120,36 +1117,36 @@ private fun PrivacyPage(onBack: () -> Unit) {
             }
         }
     }
-    SettingsScaffold("Privacy", onBack) {
+    SettingsScaffold(stringResource(R.string.settings_privacy), onBack) {
         Spacer(Modifier.height(8.dp))
-        Hint("MarkMySteps is een reis-app van Mark Maakt Media. Je route, je reizen en je foto's zijn van jou. Hier staat wat de app bewaart, waarom, en wie het kan zien. Bijgewerkt op 25 oktober 2026.")
-        Section("Wat de app bewaart",
-            "Je account" to "je naam, gebruikersnaam, e-mailadres en profielfoto. Je wachtwoord wordt alleen versleuteld bewaard.",
-            "Je route" to "de locatiepunten die de app vastlegt terwijl je een reis bijhoudt.",
-            "Je reizen" to "titels, data, stops, dagverhalen en notities.",
-            "Reacties en likes" to "op foto's en dagverhalen.",
-            "Je Immich-koppeling" to "het adres van je Immich-server en de sleutel daarvoor, versleuteld. De foto's zelf blijven in jouw Immich; de app haalt ze daar op om ze te tonen.",
-            "Meldingen" to "een versleuteld kenmerk van je telefoon, zodat die nieuwe meldingen kan ophalen.",
+        Hint(stringResource(R.string.settings_privacy_intro))
+        Section(stringResource(R.string.settings_privacy_keeps),
+            stringResource(R.string.settings_privacy_account) to stringResource(R.string.settings_privacy_account_text),
+            stringResource(R.string.settings_privacy_route) to stringResource(R.string.settings_privacy_route_text),
+            stringResource(R.string.settings_privacy_trips) to stringResource(R.string.settings_privacy_trips_text),
+            stringResource(R.string.settings_privacy_comments) to stringResource(R.string.settings_privacy_comments_text),
+            stringResource(R.string.settings_privacy_immich) to stringResource(R.string.settings_privacy_immich_text),
+            stringResource(R.string.settings_privacy_notices) to stringResource(R.string.settings_privacy_notices_text),
         )
-        Section("Je locatie", null to "De app legt je locatie alleen vast als je zelf tracking aanzet voor een reis. Zolang dat loopt neemt de app ook met het scherm uit één meting per interval, tot je tracking weer uitzet. Je locatie gaat naar de server van MarkMySteps en nergens anders heen.")
-        Section("Wie het ziet",
-            null to "De reisgenoten die je aan een reis toevoegt.",
-            null to "Iedereen met een deellink die je zelf maakt, eventueel met een wachtwoord. Wie daar reageert, geeft een naam op; likes van bezoekers worden onthouden met een willekeurige code in hun eigen browser.",
-            null to "De beheerder van de server, voor onderhoud en als je om hulp vraagt.",
+        Section(stringResource(R.string.settings_privacy_location), null to stringResource(R.string.settings_privacy_location_text))
+        Section(stringResource(R.string.settings_privacy_who),
+            null to stringResource(R.string.settings_privacy_who_companions),
+            null to stringResource(R.string.settings_privacy_who_links),
+            null to stringResource(R.string.settings_privacy_who_admin),
         )
-        Section("Diensten van anderen",
-            null to "Een paar dingen haalt de app bij andere diensten op. Die zien dan je IP-adres en:",
-            "Kaarten" to "OpenFreeMap, en Esri voor de satellietkaart: welk stuk kaart je bekijkt.",
-            "Plaatsen zoeken" to "Photon van Komoot: wat je intypt.",
-            "Weer" to "Open-Meteo: de coördinaten van een plaats.",
-            "Foto's van plaatsen" to "Wikipedia: de naam van een plaats.",
-            "Routes tussen stops" to "OSRM voor de auto en signal.eu.org voor de trein: de coördinaten van je stops.",
-            null to "Geen advertenties, geen analytics en geen tracking. Er wordt niets verkocht of gedeeld met adverteerders.",
+        Section(stringResource(R.string.settings_privacy_others),
+            null to stringResource(R.string.settings_privacy_others_intro),
+            stringResource(R.string.settings_privacy_maps) to stringResource(R.string.settings_privacy_maps_text),
+            stringResource(R.string.settings_privacy_search) to stringResource(R.string.settings_privacy_search_text),
+            stringResource(R.string.settings_privacy_weather) to stringResource(R.string.settings_privacy_weather_text),
+            stringResource(R.string.settings_privacy_place_photos) to stringResource(R.string.settings_privacy_place_photos_text),
+            stringResource(R.string.settings_privacy_routes) to stringResource(R.string.settings_privacy_routes_text),
+            null to stringResource(R.string.settings_privacy_no_ads),
         )
-        Section("Waar het staat en hoe lang", null to "Alles staat op de server van MarkMySteps en gaat er versleuteld (https) naartoe. Je gegevens blijven bewaard zolang je account bestaat.")
-        Section("Je rechten", null to "Je mag je gegevens inzien, laten verbeteren of je account met alles erop laten verwijderen. Mail daarvoor; het is binnen een maand geregeld. Ben je het ergens niet mee eens, dan kun je een klacht indienen bij de Autoriteit Persoonsgegevens.")
+        Section(stringResource(R.string.settings_privacy_where), null to stringResource(R.string.settings_privacy_where_text))
+        Section(stringResource(R.string.settings_privacy_rights), null to stringResource(R.string.settings_privacy_rights_text))
         Spacer(Modifier.height(10.dp))
-        Group(null, listOf(Item(Glyphs.send, "Mail Mark Maakt Media", "mark@markmaaktmedia.nl", external = true, action = {
+        Group(null, listOf(Item(Glyphs.send, stringResource(R.string.settings_privacy_mail), "mark@markmaaktmedia.nl", external = true, action = {
             runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:mark@markmaaktmedia.nl"))) }; Unit
         })))
     }

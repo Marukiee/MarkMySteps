@@ -13,6 +13,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 /**
  * Test app: the MarkMySteps home page in Compose, in today's style and in a
@@ -21,8 +23,14 @@ import androidx.compose.runtime.setValue
  * and "trip" (an id from Demo.kt) opens that trip straight away.
  */
 class MainActivity : ComponentActivity() {
+    // Below Android 13 the chosen language is put on the screen's context here (Lang.kt).
+    override fun attachBaseContext(newBase: android.content.Context) = super.attachBaseContext(Lang.wrap(newBase))
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The update card without a release, for a screenshot: "preview" runs the module's own fake 9.9.9 (it
+        // downloads and installs nothing), "fail" the failure card, "clear" puts it away.
+        intent?.getStringExtra("update")?.let { Updates.preview(it) }
         Api.init(applicationContext)
         DeepLink.linkHost = getString(R.string.link_host)
         // A share or trip link that opened the app: handled once the home page and the trips are there.
@@ -42,6 +50,12 @@ class MainActivity : ComponentActivity() {
         AirportPref.init(applicationContext)
         TripFactsPref.init(applicationContext)
         UiPrefs.init(applicationContext)
+        AppPrefs.init(applicationContext)
+        Onboarding.init(applicationContext)
+        LocalMode.init(applicationContext)
+        PhotoDisk.init(applicationContext)
+        DeviceMedia.init(applicationContext)
+        Offline.init(applicationContext)
         Tracker.init(applicationContext)
         MapPhotosPref.init(applicationContext)
         // A trip that ended while the phone was in a pocket stops recording now, as on the web.
@@ -66,6 +80,12 @@ class MainActivity : ComponentActivity() {
         val forcedTheme = intent.getStringExtra("theme")
         val startTrip = intent.getStringExtra("trip")
         val startPage = intent.getStringExtra("page")
+        lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+            // Back in the app: whatever waited for a connection goes out now (never in a dry run).
+            override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
+                lifecycleScope.launch { Offline.probe(); Offline.flush() }
+            }
+        })
         // Looks at screens that cannot be reached safely on a real account; none of them sends anything.
         val previews = Previews(
             invite = intent.getBooleanExtra("invitePreview", false),

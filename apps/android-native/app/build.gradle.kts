@@ -19,6 +19,10 @@ android {
         versionCode = 1
         versionName = "0.0.1"
         ndk { abiFilters += "arm64-v8a" }
+        // Where the update card looks for a newer build: a GitHub repo (empty switches it off), and per build the exact
+        // name of the apk on its releases (see androidComponents below and Update.kt). Change the repo with
+        // -Pmms.updateRepo=... (or in gradle.properties).
+        buildConfigField("String", "UPDATE_REPO", "\"${providers.gradleProperty("mms.updateRepo").getOrElse("Marukiee/MarkMySteps")}\"")
         // The host whose share and trip links open in the app: linkHost in local.properties, else the public default server.
         val props = Properties().apply { rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) } }
         val linkHost = props.getProperty("linkHost") ?: "reis.markmaaktmedia.nl"
@@ -42,7 +46,7 @@ android {
         }
     }
 
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
 
     // The build that goes on a phone: shrunk and optimised by R8, since a debug build of Compose
     // runs many times slower and makes gestures such as predictive back stutter. Signed with the
@@ -57,6 +61,19 @@ android {
     }
 }
 
+
+// The apk the update card looks for, per build. The app that replaces the old one (package nl.markmaaktmedia.markmysteps)
+// looks for markmysteps.apk, the release asset that is marked latest. A dev build (package ...next) looks for a name that
+// is never published, so it never offers an update and never installs the old app over itself. -Pmms.updateAsset=...
+// overrides both. The app only ever offers a release whose apk has exactly this name (Update.kt).
+androidComponents {
+    onVariants { variant ->
+        val dev = variant.applicationId.get().endsWith(".next")
+        val asset = providers.gradleProperty("mms.updateAsset").orNull ?: if (dev) "markmysteps-dev-never-published.apk" else "markmysteps.apk"
+        variant.buildConfigFields?.put("UPDATE_ASSET", com.android.build.api.variant.BuildConfigField("String", "\"$asset\"", "the apk the update card looks for"))
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -67,6 +84,8 @@ dependencies {
     implementation(libs.androidx.animation)
     implementation(libs.androidx.material3)
     testImplementation("junit:junit:4.13.2")
+    // The update card and its updater, shared by all of Marks apps (markupdate/, a copy of Keeper's module).
+    implementation(project(":markupdate:card"))
     // The same map as the web app: MapLibre with the OpenFreeMap styles.
     implementation("org.maplibre.gl:android-sdk:11.8.0")
     // Colours from a cover photo, for the rows that take on the tone of their trip.

@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Words of the screens, in Dutch. English (the base) is in values/strings_screens.xml. Never an em dash or en dash. -->
+<resources>
+
+    <!-- SettingsPage.kt -->
+    <string name="settings_title">Instellingen</string>
+    <string name="settings_account">Account</string>
+    <string name="settings_account_summary">Profielfoto, naam, wachtwoord, 2FA</string>
+    <string name="settings_display">Weergave</string>
+    <string name="settings_display_summary">Thema, reiskaarten, kaartstijl</string>
+    <string name="settings_preferences">Voorkeuren</string>
+    <string name="settings_default_airports">Standaard vliegvelden</string>
+    <string name="settings_services">Diensten</string>
+    <string name="settings_services_summary">Server, Immich</string>
+    <string name="settings_data">Gegevens</string>
+    <string name="settings_data_summary">Back-up, importeren, route-bestanden</string>
+    <string name="settings_accounts">Accounts</string>
+    <string name="settings_accounts_summary">Aanvragen en accounts op je server</string>
+    <string name="settings_about">Over</string>
+    <string name="settings_about_summary">Versie, wat is er nieuw</string>
+    <string name="settings_examples_signed_out">voorbeelden, niet ingelogd</string>
+    <string name="settings_theme">Thema</string>
+    <string name="settings_theme_light">Licht</string>
+    <string name="settings_theme_dark">Donker</string>
+    <string name="settings_theme_system">Systeem</string>
+    <string name="settings_theme_hint">Systeem volgt de licht- of donkerstand van je telefoon.</string>
+    <string name="settings_wallpaper_accent">Accentkleur van je achtergrond</string>
+    <string name="settings_wallpaper_accent_hint">Neemt de accentkleur over die Android uit je achtergrond haalt. De rest van de app blijft zoals hij is.</string>
+    <string name="settings_cards">Reiskaarten op de homepage</string>
+    <string name="settings_cards_auto">Automatisch</string>
+    <string name="settings_cards_large">Groot</string>
+    <string name="settings_cards_small">Klein</string>
+    <string name="settings_cards_hint">Automatisch: komende reizen en de laatste groot, de rest klein. Per reis kies je het via het ⋯-menu op de kaart.</string>
+    <string name="settings_cards_reset">Handmatige keuzes wissen</string>
+    <string name="settings_map_style">Kaartstijl</string>
+    <string name="settings_map_style_hint">Geldt voor alle kaarten in de app. In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.</string>
+    <string name="settings_globe">Globe</string>
+    <string name="settings_globe_hint">Tussenstops op de globe van de homepage. De reis die uitgelicht wordt laat ze altijd zien; met Altijd ook alle andere reizen.</string>
+    <string name="settings_globe_highlight">Bij uitlichten</string>
+    <string name="settings_globe_always">Altijd</string>
+    <string name="settings_stats_photos">Foto\'s in je statistieken</string>
+    <string name="settings_stats_photos_toggle">Foto\'s van reisgenoten meetellen</string>
+    <string name="settings_stats_photos_hint">Bij Reizigers telt een reis alle foto\'s van de dagen dat iemand mee was. Uit telt alleen wat iemand zelf toevoegde.</string>
+    <string name="settings_self_location">Eigen locatie</string>
+    <string name="settings_self_location_home">Ook op de homepage</string>
+    <string name="settings_self_location_home_hint">Je positie als stip op de globe, terwijl je een reis trackt. De app vraagt nooit los om je locatie.</string>
+    <string name="settings_airports_hint">Je thuisvliegvelden. Tik er een aan om hem de eerste te maken: die geldt als thuis op de globe.</string>
+    <string name="settings_airports_add">Vliegveld toevoegen</string>
+    <string name="settings_airports_add_example">bv. Eindhoven</string>
+    <string name="settings_notify_on">Aan. Je hoort het binnen een kwartier na een nieuw bericht.</string>
+    <string name="settings_notify_denied">Je telefoon laat meldingen niet toe voor deze app. Zet ze aan bij Instellingen › Apps › MarkMySteps Dev › Meldingen.</string>
+    <string name="settings_notify_title">Meldingen op je telefoon</string>
+    <string name="settings_notify_toggle">Scan op nieuwe meldingen</string>
+    <string name="settings_notify_toggle_hint">Verzoeken en uitnodigingen komen binnen als melding, ook als de app dicht is. Tot een kwartier later.</string>
+    <string name="settings_notify_sign_in_first">Log eerst in: de meldingen komen van je server.</string>
+    <string name="settings_notify_allow_title">Meldingen toestaan?</string>
+    <string name="settings_notify_allow_text">Dan kan de app je laten weten als iemand wil meekijken of je toevoegt aan een reis. Android vraagt je zo om toestemming.</string>
+    <string name="settings_continue">Verder</string>
+    <string name="settings_tracking_denied">Zonder locatie kan de app je route niet bijhouden. Geef toegang bij Instellingen › Apps › MarkMySteps Dev › Toegang › Locatie.</string>
+    <string name="settings_tracking">Route-tracking</string>
+    <string name="settings_tracking_hint">Houdt je route bij tijdens een reis, ook met het scherm uit. Elke keer zet de app de GPS heel even aan voor één positie; blijf je op dezelfde plek, dan wordt dat één punt. Zonder netwerk wacht alles op je telefoon.</string>
+    <string name="settings_tracking_interval">Locatie opslaan elke</string>
+    <string name="settings_tracking_minutes">%1$d min</string>
+    <string name="settings_tracking_custom">Eigen</string>
+    <string name="settings_tracking_custom_label">Minuten (1 tot 240)</string>
+    <string name="settings_tracking_active">Actief: %1$s</string>
+    <string name="settings_trip_fallback">reis</string>
+    <string name="settings_tracking_waiting">Wachten op de eerste positie</string>
+    <string name="settings_tracking_last_now">laatste positie zojuist</string>
+    <string name="settings_tracking_last_seconds">laatste positie %1$ds geleden</string>
+    <string name="settings_tracking_last_minutes">laatste positie %1$d min geleden</string>
+    <string name="settings_tracking_stop">Stop tracking</string>
+    <string name="settings_tracking_no_trips">Geen lopende of komende reizen</string>
+    <string name="settings_tracking_underway">onderweg</string>
+    <string name="settings_tracking_start">Start tracking</string>
+    <string name="settings_tracking_sign_in_first">Log eerst in: de route gaat naar je reis op je server.</string>
+    <string name="settings_tracking_allow_title">Locatie voor je route</string>
+    <string name="settings_tracking_allow_text">Om je route bij te houden heeft de app je locatie nodig, ook met het scherm uit. Je ziet een melding zolang hij loopt. Android vraagt je zo om toestemming.</string>
+    <string name="settings_tracking_stop_title">Stoppen met tracken?</string>
+    <string name="settings_tracking_stop_text">De route van %1$s wordt niet verder bijgehouden. Wat al opgenomen is blijft staan.</string>
+    <string name="settings_this_trip">deze reis</string>
+    <string name="settings_tracking_stop_confirm">Stoppen</string>
+    <string name="settings_server">Server</string>
+    <string name="settings_server_hint">De server waarmee deze app praat. Een andere kiezen logt je uit; daarna log je daar opnieuw in.</string>
+    <string name="settings_server_address">Adres</string>
+    <string name="settings_server_address_example">https://jouw-server.nl</string>
+    <string name="settings_server_reset">Herstellen</string>
+    <string name="settings_server_change">Server wijzigen</string>
+    <string name="settings_server_invalid">Dat is geen geldig adres. Begin met https:// en vul een domein in.</string>
+    <string name="settings_server_https">Gebruik https, anders reist je wachtwoord onversleuteld mee.</string>
+    <string name="settings_server_confirm_title">Andere server gebruiken?</string>
+    <string name="settings_server_confirm_text">De app praat daarna met %1$s. Je wordt uitgelogd en logt daar opnieuw in. Reizen op de oude server blijven daar.</string>
+    <string name="settings_server_confirm">Wisselen</string>
+    <string name="settings_immich_load_failed">Kon de Immich-status niet laden</string>
+    <string name="settings_immich_connected">Verbonden</string>
+    <string name="settings_immich_last_sync">laatste sync %1$s</string>
+    <string name="settings_immich_not_connected">Niet verbonden. Immich is een fotobibliotheek die je zelf draait; je foto\'s blijven daar, MarkMySteps bewaart alleen verwijzingen.</string>
+    <string name="settings_immich_url">Server-URL</string>
+    <string name="settings_immich_key">API-key</string>
+    <string name="settings_immich_key_replace">Nieuwe key om te vervangen</string>
+    <string name="settings_immich_key_placeholder">Immich API-key</string>
+    <string name="settings_immich_key_path_prefix">"Maak er een in "</string>
+    <string name="settings_immich_key_path_account">Accountinstellingen</string>
+    <string name="settings_immich_key_path_keys">API-keys</string>
+    <string name="settings_immich_key_path_suffix">. Hij wordt versleuteld opgeslagen.</string>
+    <string name="settings_immich_public">Publieke URL (optioneel)</string>
+    <string name="settings_immich_public_hint">Voor de knop Openen in Immich</string>
+    <string name="settings_immich_disconnect">Verbreken</string>
+    <string name="settings_immich_update">Bijwerken</string>
+    <string name="settings_immich_connect">Verbinden</string>
+    <string name="settings_immich_connected_note">Verbonden met Immich. De key is gecontroleerd en versleuteld opgeslagen.</string>
+    <string name="settings_save_failed">Opslaan mislukt</string>
+    <string name="settings_immich_disconnect_title">Immich loskoppelen?</string>
+    <string name="settings_immich_disconnect_text">Nieuwe foto\'s komen dan niet meer binnen. Wat al in je reizen staat blijft staan.</string>
+    <string name="settings_immich_disconnected">Verbinding verwijderd.</string>
+    <string name="settings_failed">Mislukt</string>
+    <string name="settings_backup_saved">Back-up opgeslagen · %1$s</string>
+    <string name="settings_backup_failed">Back-up mislukt</string>
+    <string name="settings_backup_unreadable">Dit is geen leesbaar back-upbestand.</string>
+    <string name="settings_backup_not_ours">Dit bestand komt niet van MarkMySteps.</string>
+    <string name="settings_backup_newer">Deze back-up komt van een nieuwere versie van de app.</string>
+    <string name="settings_backup">Back-up</string>
+    <string name="settings_backup_hint">Al je reizen, stops, routepunten en notities in één bestand, plus je instellingen. Foto\'s staan erin als verwijzing. Terugzetten voegt toe wat je nog niet hebt en laat bestaande reizen met rust.</string>
+    <string name="settings_backup_collecting">Verzamelen</string>
+    <string name="settings_backup_restore">Terugzetten</string>
+    <string name="settings_backup_create">Back-up maken</string>
+    <string name="settings_restore_title">Back-up terugzetten?</string>
+    <string name="settings_restore_failed">Terugzetten mislukt</string>
+    <string name="settings_restored_skipped">%1$d overgeslagen</string>
+    <string name="settings_restored_covers_lost">covers komen terug zodra je foto\'s gekoppeld zijn</string>
+    <string name="settings_polarsteps">Polarsteps importeren</string>
+    <string name="settings_polarsteps_hint_prefix">"Vraag je export op via "</string>
+    <string name="settings_polarsteps_hint_suffix">" en kies de zip hier. Elke reis erin wordt aangemaakt met de volledige GPS-route."</string>
+    <string name="settings_polarsteps_pick">Kies je Polarsteps-zip</string>
+    <string name="settings_import">Importeren</string>
+    <string name="settings_read_failed">Bestand kon niet gelezen worden</string>
+    <string name="settings_polarsteps_failed">Import mislukt</string>
+    <string name="settings_polarsteps_done">Klaar.</string>
+    <string name="settings_track_saved">Bewaard</string>
+    <string name="settings_track_export_failed">Exporteren lukte niet</string>
+    <string name="settings_track_added">%1$d van %2$d punten toegevoegd</string>
+    <string name="settings_track_outside">%1$d buiten de reisdagen</string>
+    <string name="settings_track_undated">%1$d zonder tijd</string>
+    <string name="settings_track_already">" (stonden er al in)"</string>
+    <string name="settings_track_import_failed">Importeren mislukt</string>
+    <string name="settings_track_files">Route-bestanden</string>
+    <string name="settings_track_files_hint">Exporteer een reis als GPX of KML, of voeg een track toe die je ergens anders opnam. Punten buiten de reisdagen worden overgeslagen.</string>
+    <string name="settings_track_no_trips">Geen reizen</string>
+    <string name="settings_track_export">Exporteren</string>
+    <string name="settings_track_gpx">GPX, voor apps en horloges</string>
+    <string name="settings_track_kml">KML, voor Google Earth</string>
+    <string name="settings_photo_cache">Foto-cache</string>
+    <string name="settings_photo_cache_hint">Foto\'s die je bekijkt blijven in het geheugen zolang de app open is. Nu %1$s in gebruik.</string>
+    <string name="settings_photo_cache_clear">Cache leegmaken</string>
+    <string name="settings_photo_cache_clear_title">Cache leegmaken?</string>
+    <string name="settings_photo_cache_clear_text">Bewaarde foto\'s worden gewist en opnieuw opgehaald als je ze bekijkt. Er gaat niets van je reizen verloren.</string>
+    <string name="settings_photo_cache_clear_confirm">Leegmaken</string>
+    <string name="settings_requests_hint">Deze mensen hebben zich aangemeld op je server. Tot je ze toelaat kunnen ze niets.</string>
+    <string name="settings_requests_signed_up">%1$s · aangemeld %2$s</string>
+    <string name="settings_requests_decline">Afwijzen</string>
+    <string name="settings_requests_let_in">Toelaten</string>
+    <string name="settings_requests_let_in_done">%1$s is toegelaten.</string>
+    <string name="settings_accounts_search">Zoeken</string>
+    <string name="settings_accounts_search_hint">Naam, gebruikersnaam of e-mail</string>
+    <string name="settings_accounts_empty">Geen account gevonden met die naam.</string>
+    <string name="settings_accounts_declined">afgewezen</string>
+    <string name="settings_accounts_temp_password">tijdelijk wachtwoord</string>
+    <string name="settings_accounts_reset_password">Wachtwoord resetten</string>
+    <string name="settings_accounts_reset_2fa">2FA resetten</string>
+    <string name="settings_accounts_demote">Geen admin meer</string>
+    <string name="settings_accounts_make_admin">Maak admin</string>
+    <string name="settings_accounts_demoted">\@%1$s is geen admin meer.</string>
+    <string name="settings_accounts_made_admin">\@%1$s is nu admin.</string>
+    <string name="settings_accounts_delete">Account verwijderen</string>
+    <string name="settings_reject_title">Aanvraag van %1$s afwijzen?</string>
+    <string name="settings_reject_text">Diegene kan niet inloggen. Het account blijft bestaan, zodat dezelfde naam en e-mail niet meteen opnieuw gebruikt worden.</string>
+    <string name="settings_rejected">Aanvraag van %1$s afgewezen.</string>
+    <string name="settings_reset_title">Nieuw tijdelijk wachtwoord</string>
+    <string name="settings_reset_text">\@%1$s wordt overal uitgelogd en kiest bij de volgende keer inloggen zelf een nieuw wachtwoord.</string>
+    <string name="settings_reset_confirm">Resetten</string>
+    <string name="settings_reset_done">Wachtwoord van @%1$s gereset. Geef het tijdelijke wachtwoord door: %2$s</string>
+    <string name="settings_accounts_temp_password_label">Tijdelijk wachtwoord</string>
+    <string name="settings_accounts_min_length">Minstens 10 tekens</string>
+    <string name="settings_reset_2fa_title">2FA resetten?</string>
+    <string name="settings_reset_2fa_text">\@%1$s kan daarna weer inloggen met alleen een wachtwoord en wordt overal uitgelogd. Doe dit alleen als diegene telefoon én herstelcodes kwijt is.</string>
+    <string name="settings_reset_2fa_done">2FA van @%1$s is uitgezet.</string>
+    <string name="settings_delete_title">Account verwijderen?</string>
+    <string name="settings_delete_text">Account @%1$s wordt verwijderd, samen met hun eigen reizen en routes.</string>
+    <string name="settings_delete_confirm">Verwijderen</string>
+    <string name="settings_deleted">Account @%1$s verwijderd.</string>
+    <string name="settings_create">Account aanmaken</string>
+    <string name="settings_create_hint">Voor een reisgenoot, met een tijdelijk wachtwoord. Bij de eerste keer inloggen kiezen ze zelf iets anders.</string>
+    <string name="settings_create_name">Naam</string>
+    <string name="settings_create_username">Gebruikersnaam</string>
+    <string name="settings_create_email">E-mail</string>
+    <string name="settings_create_generate">Genereer</string>
+    <string name="settings_create_button">Aanmaken</string>
+    <string name="settings_created">Account @%1$s aangemaakt. Geef het tijdelijke wachtwoord door: %2$s</string>
+    <string name="settings_create_failed">Aanmaken mislukt</string>
+    <string name="settings_about_version">Versie %1$s</string>
+    <string name="settings_about_tagline">Self-hosted reistracker op je eigen Immich-server. Open source (AGPL-3.0).</string>
+    <string name="settings_about_more">Meer</string>
+    <string name="settings_about_whats_new">Wat is er nieuw</string>
+    <string name="settings_about_on_github">op GitHub</string>
+    <string name="settings_about_source">Broncode</string>
+    <string name="settings_about_licence">Licentie</string>
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_privacy_summary">Wat de app bewaart en wie het ziet</string>
+    <string name="settings_privacy_intro">MarkMySteps is een reis-app van Mark Maakt Media. Je route, je reizen en je foto\'s zijn van jou. Hier staat wat de app bewaart, waarom, en wie het kan zien. Bijgewerkt op 25 oktober 2026.</string>
+    <string name="settings_privacy_keeps">Wat de app bewaart</string>
+    <string name="settings_privacy_account">Je account</string>
+    <string name="settings_privacy_account_text">je naam, gebruikersnaam, e-mailadres en profielfoto. Je wachtwoord wordt alleen versleuteld bewaard.</string>
+    <string name="settings_privacy_route">Je route</string>
+    <string name="settings_privacy_route_text">de locatiepunten die de app vastlegt terwijl je een reis bijhoudt.</string>
+    <string name="settings_privacy_trips">Je reizen</string>
+    <string name="settings_privacy_trips_text">titels, data, stops, dagverhalen en notities.</string>
+    <string name="settings_privacy_comments">Reacties en likes</string>
+    <string name="settings_privacy_comments_text">op foto\'s en dagverhalen.</string>
+    <string name="settings_privacy_immich">Je Immich-koppeling</string>
+    <string name="settings_privacy_immich_text">het adres van je Immich-server en de sleutel daarvoor, versleuteld. De foto\'s zelf blijven in jouw Immich; de app haalt ze daar op om ze te tonen.</string>
+    <string name="settings_privacy_notices">Meldingen</string>
+    <string name="settings_privacy_notices_text">een versleuteld kenmerk van je telefoon, zodat die nieuwe meldingen kan ophalen.</string>
+    <string name="settings_privacy_location">Je locatie</string>
+    <string name="settings_privacy_location_text">De app legt je locatie alleen vast als je zelf tracking aanzet voor een reis. Zolang dat loopt neemt de app ook met het scherm uit één meting per interval, tot je tracking weer uitzet. Je locatie gaat naar de server van MarkMySteps en nergens anders heen.</string>
+    <string name="settings_privacy_who">Wie het ziet</string>
+    <string name="settings_privacy_who_companions">De reisgenoten die je aan een reis toevoegt.</string>
+    <string name="settings_privacy_who_links">Iedereen met een deellink die je zelf maakt, eventueel met een wachtwoord. Wie daar reageert, geeft een naam op; likes van bezoekers worden onthouden met een willekeurige code in hun eigen browser.</string>
+    <string name="settings_privacy_who_admin">De beheerder van de server, voor onderhoud en als je om hulp vraagt.</string>
+    <string name="settings_privacy_others">Diensten van anderen</string>
+    <string name="settings_privacy_others_intro">Een paar dingen haalt de app bij andere diensten op. Die zien dan je IP-adres en:</string>
+    <string name="settings_privacy_maps">Kaarten</string>
+    <string name="settings_privacy_maps_text">OpenFreeMap, en Esri voor de satellietkaart: welk stuk kaart je bekijkt.</string>
+    <string name="settings_privacy_search">Plaatsen zoeken</string>
+    <string name="settings_privacy_search_text">Photon van Komoot: wat je intypt.</string>
+    <string name="settings_privacy_weather">Weer</string>
+    <string name="settings_privacy_weather_text">Open-Meteo: de coördinaten van een plaats.</string>
+    <string name="settings_privacy_place_photos">Foto\'s van plaatsen</string>
+    <string name="settings_privacy_place_photos_text">Wikipedia: de naam van een plaats.</string>
+    <string name="settings_privacy_routes">Routes tussen stops</string>
+    <string name="settings_privacy_routes_text">OSRM voor de auto en signal.eu.org voor de trein: de coördinaten van je stops.</string>
+    <string name="settings_privacy_no_ads">Geen advertenties, geen analytics en geen tracking. Er wordt niets verkocht of gedeeld met adverteerders.</string>
+    <string name="settings_privacy_where">Waar het staat en hoe lang</string>
+    <string name="settings_privacy_where_text">Alles staat op de server van MarkMySteps en gaat er versleuteld (https) naartoe. Je gegevens blijven bewaard zolang je account bestaat.</string>
+    <string name="settings_privacy_rights">Je rechten</string>
+    <string name="settings_privacy_rights_text">Je mag je gegevens inzien, laten verbeteren of je account met alles erop laten verwijderen. Mail daarvoor; het is binnen een maand geregeld. Ben je het ergens niet mee eens, dan kun je een klacht indienen bij de Autoriteit Persoonsgegevens.</string>
+    <string name="settings_privacy_mail">Mail Mark Maakt Media</string>
+    <plurals name="settings_tracking_buffered">
+        <item quantity="one">%1$d punt wacht op netwerk</item>
+        <item quantity="other">%1$d punten wachten op netwerk</item>
+    </plurals>
+    <plurals name="settings_restore_text">
+        <item quantity="one">Deze back-up is van %1$s en bevat %2$d reis. Reizen die je al hebt blijven zoals ze zijn; de rest wordt toegevoegd.</item>
+        <item quantity="other">Deze back-up is van %1$s en bevat %2$d reizen. Reizen die je al hebt blijven zoals ze zijn; de rest wordt toegevoegd.</item>
+    </plurals>
+    <plurals name="settings_restored_trips">
+        <item quantity="one">%1$d reis teruggezet</item>
+        <item quantity="other">%1$d reizen teruggezet</item>
+    </plurals>
+    <plurals name="settings_restored_points">
+        <item quantity="one">%1$d routepunt</item>
+        <item quantity="other">%1$d routepunten</item>
+    </plurals>
+    <plurals name="settings_polarsteps_result">
+        <item quantity="one">" · %1$s t/m %2$s, %3$d routepunt"</item>
+        <item quantity="other">" · %1$s t/m %2$s, %3$d routepunten"</item>
+    </plurals>
+    <plurals name="settings_requests">
+        <item quantity="one">%1$d aanvraag</item>
+        <item quantity="other">%1$d aanvragen</item>
+    </plurals>
+    <plurals name="settings_accounts_trips">
+        <item quantity="one">%1$d reis</item>
+        <item quantity="other">%1$d reizen</item>
+    </plurals>
+
+    <!-- AccountPage.kt -->
+    <string name="account_title">Account</string>
+    <string name="account_sign_out">Uitloggen</string>
+    <string name="account_sign_in">Inloggen</string>
+    <string name="account_sign_out_hint">Daarna log je opnieuw in</string>
+    <string name="account_sign_in_hint">met je eigen server</string>
+    <string name="account_sign_out_title">Uitloggen?</string>
+    <string name="account_sign_out_text">Je reizen blijven op je server. Daarna log je opnieuw in.</string>
+    <string name="account_photo_unreadable">Deze foto kon niet gelezen worden</string>
+    <string name="account_photo">Profielfoto</string>
+    <string name="account_photo_view">Foto bekijken</string>
+    <string name="account_photo_choose_other">Andere foto kiezen</string>
+    <string name="account_photo_choose">Foto kiezen</string>
+    <string name="account_photo_crop">Foto bijsnijden</string>
+    <string name="account_photo_remove">Foto verwijderen</string>
+    <string name="account_photo_removed">Profielfoto verwijderd.</string>
+    <string name="account_photo_remove_failed">Verwijderen mislukt</string>
+    <string name="account_examples_signed_out">voorbeelden, niet ingelogd</string>
+    <string name="account_photo_hint">Wat reisgenoten van je zien op kaarten en in tijdlijnen. Tik op je foto om hem te wijzigen.</string>
+    <string name="account_photo_saved">Profielfoto opgeslagen.</string>
+    <string name="account_photo_upload_failed">Upload mislukt</string>
+    <string name="account_crop_hint">Sleep en knijp om de foto in de cirkel te zetten.</string>
+    <string name="account_cancel">Annuleren</string>
+    <string name="account_crop_save">Opslaan</string>
+    <string name="account_name_title">Naam en gebruikersnaam</string>
+    <string name="account_name">Naam</string>
+    <string name="account_username">Gebruikersnaam</string>
+    <string name="account_username_invalid">3 tot 30 tekens: letters, cijfers, punt, streepje of underscore</string>
+    <string name="account_username_checking">Even kijken of deze vrij is</string>
+    <string name="account_username_free">Vrij. Daarna log je in met deze naam of met je e-mailadres.</string>
+    <string name="account_username_taken">Deze gebruikersnaam is al bezet</string>
+    <string name="account_username_hint">Hiermee voegen vrienden je toe aan reizen</string>
+    <string name="account_save_profile">Profiel opslaan</string>
+    <string name="account_username_saved">Opgeslagen. Je bent nu @%1$s.</string>
+    <string name="account_profile_saved">Profiel bijgewerkt.</string>
+    <string name="account_save_failed">Opslaan mislukt</string>
+    <string name="account_password">Wachtwoord</string>
+    <string name="account_password_hint">Minimaal tien tekens.</string>
+    <string name="account_password_current">Huidig wachtwoord</string>
+    <string name="account_password_new">Nieuw wachtwoord</string>
+    <string name="account_password_again">Nieuw wachtwoord nog eens</string>
+    <string name="account_password_mismatch">Dit is niet hetzelfde als hierboven</string>
+    <string name="account_password_change">Wachtwoord wijzigen</string>
+    <string name="account_password_changed">Wachtwoord gewijzigd. Log opnieuw in.</string>
+    <string name="account_password_change_failed">Wijzigen mislukt</string>
+    <string name="account_strength_short">Te kort: minimaal 10 tekens</string>
+    <string name="account_strength_personal">Je naam of e-mailadres erin maakt het makkelijk te raden</string>
+    <string name="account_strength_distinct">Te weinig verschillende tekens</string>
+    <string name="account_strength_very_strong">Zeer sterk</string>
+    <string name="account_strength_strong">Sterk</string>
+    <string name="account_strength_fair">Matig: langer helpt meer dan ingewikkelder, probeer een zin</string>
+    <string name="account_2fa_failed">Dat lukte niet</string>
+    <string name="account_2fa">Tweestapsverificatie</string>
+    <string name="account_2fa_on">Aan</string>
+    <string name="account_2fa_off">Uit</string>
+    <string name="account_2fa_no_codes">Geen herstelcodes meer</string>
+    <string name="account_2fa_on_hint">Bij het inloggen vragen we naast je wachtwoord om een code uit je authenticator-app. Verlies je je telefoon, dan kom je erin met een herstelcode.</string>
+    <string name="account_2fa_off_hint">Een gestolen of geraden wachtwoord is dan niet genoeg: wie inlogt heeft ook de code uit je authenticator-app nodig.</string>
+    <string name="account_2fa_new_codes">Nieuwe codes</string>
+    <string name="account_2fa_disable">Uitschakelen</string>
+    <string name="account_2fa_enable">Inschakelen</string>
+    <string name="account_2fa_password_first">Eerst je wachtwoord, om te laten zien dat jij het bent en niet iemand met je telefoon in handen.</string>
+    <string name="account_continue">Verder</string>
+    <string name="account_2fa_no_key">Geen sleutel ontvangen van de server</string>
+    <string name="account_2fa_scan_app">Authenticator-app</string>
+    <string name="account_2fa_scan_add">Account toevoegen</string>
+    <string name="account_2fa_scan_qr">QR-code scannen</string>
+    <string name="account_2fa_scan_suffix">, en vul daarna de code in die de app laat zien.</string>
+    <string name="account_2fa_copy_hint">Staat de app op deze telefoon? Tik op de sleutel om hem te kopiëren en plak hem in je app.</string>
+    <string name="account_2fa_key_label">Sleutel</string>
+    <string name="account_2fa_code">Code uit de app</string>
+    <string name="account_2fa_save_codes">Bewaar deze herstelcodes nu.</string>
+    <string name="account_2fa_save_codes_text">" Je ziet ze maar één keer. Elke code werkt één keer en brengt je binnen als je je telefoon kwijt bent. Bewaar ze ergens anders, bijvoorbeeld in je wachtwoordmanager."</string>
+    <string name="account_2fa_no_codes_back">Er kwamen geen codes terug.</string>
+    <string name="account_2fa_copied">Gekopieerd</string>
+    <string name="account_2fa_copy">Kopiëren</string>
+    <string name="account_2fa_codes_label">Herstelcodes</string>
+    <string name="account_2fa_saved_them">Ik heb ze bewaard</string>
+    <string name="account_2fa_disable_hint">Uitzetten vraagt je wachtwoord én een code, zodat een open sessie niet genoeg is.</string>
+    <string name="account_2fa_renew_hint">De oude herstelcodes werken daarna niet meer. Dit vraagt je wachtwoord én een code.</string>
+    <string name="account_2fa_code_or_recovery">Code uit de app, of een herstelcode</string>
+    <string name="account_2fa_is_off">Tweestapsverificatie staat uit.</string>
+    <plurals name="account_2fa_codes_left">
+        <item quantity="one">%1$d herstelcode over</item>
+        <item quantity="other">%1$d herstelcodes over</item>
+    </plurals>
+
+    <!-- TripSettingsPage.kt -->
+    <string name="tripsettings_save_failed">Opslaan mislukt</string>
+    <string name="tripsettings_title">Reisinstellingen</string>
+    <string name="tripsettings_trip">Reis</string>
+    <string name="tripsettings_name">Naam</string>
+    <string name="tripsettings_color">Kleur op de globe en de kaart</string>
+    <string name="tripsettings_color_failed">Kleur opslaan mislukt</string>
+    <string name="tripsettings_owner_only">Alleen de organisator kan de naam, datums en kleur wijzigen.</string>
+    <string name="tripsettings_guest">Je bent gast op deze reis: je kunt hem bekijken, niet aanpassen.</string>
+    <string name="tripsettings_tracking">Tracking</string>
+    <string name="tripsettings_auto_track">Automatisch tracken</string>
+    <string name="tripsettings_auto_track_ended">Deze reis is afgelopen</string>
+    <string name="tripsettings_auto_track_hint">Start route-tracking vanzelf zodra de reis begint, in de app op je telefoon</string>
+    <string name="tripsettings_people">Mensen</string>
+    <string name="tripsettings_people_item">Reisgenoten en delen</string>
+    <string name="tripsettings_people_summary">%1$d reizigers · %2$d gasten</string>
+    <string name="tripsettings_cover_choose">Cover kiezen</string>
+    <string name="tripsettings_cover_photo">Coverfoto</string>
+    <string name="tripsettings_automatic">Automatisch</string>
+    <string name="tripsettings_cover_hint">Tik een foto aan om hem de cover van deze reis te maken.</string>
+    <string name="tripsettings_cover_none">Nog geen foto\'s in deze reis.</string>
+    <string name="tripsettings_dates">Datums</string>
+    <string name="tripsettings_dates_pick">Kies de datums</string>
+    <string name="tripsettings_dates_title">Datums van de reis</string>
+    <string name="tripsettings_days_pick">Kies de dagen</string>
+    <string name="tripsettings_done">Klaar</string>
+    <string name="tripsettings_color_auto">Auto</string>
+    <string name="tripsettings_color_auto_hint">Auto kiest een kleur die past bij je andere reizen.</string>
+    <string name="tripsettings_facts">Feitjes op de cover</string>
+    <string name="tripsettings_facts_hint">Er is plek voor vier. Kies je niets, dan neemt de app de eerste vier die deze reis heeft.</string>
+    <string name="tripsettings_photos">Foto\'s</string>
+    <string name="tripsettings_photos_hint">Kijkt in Immich welke foto\'s op de dagen van deze reis genomen zijn en zet ze in de tijdlijn; met een locatie ook op de kaart.</string>
+    <string name="tripsettings_photos_sync">Foto\'s syncen</string>
+    <string name="tripsettings_sync_result">%1$s (%2$d gevonden, %3$s)</string>
+    <string name="tripsettings_sync_failed">Sync mislukt</string>
+    <string name="tripsettings_marker_failed">Markering opslaan mislukt</string>
+    <string name="tripsettings_marker">Bolletje op de globe</string>
+    <string name="tripsettings_marker_set">Eigen plek ingesteld. Tik op de kaart om hem te verplaatsen.</string>
+    <string name="tripsettings_marker_placing">Tik op de kaart om de plek te kiezen.</string>
+    <string name="tripsettings_marker_hint">Op de globe staat deze reis met een bolletje op het begin en het eind. Kies hier één eigen plek, handig bij een rondreis.</string>
+    <string name="tripsettings_marker_reset">Terug naar automatisch</string>
+    <string name="tripsettings_marker_place">Bolletje zelf plaatsen</string>
+    <string name="tripsettings_cancel">Annuleren</string>
+    <string name="tripsettings_delete">Verwijderen</string>
+    <string name="tripsettings_wipe_tracked">Getrackte data wissen</string>
+    <string name="tripsettings_wipe_tracked_hint">Verwijdert jouw GPS-route; de reis en de foto\'s blijven. Kies een dag, of wis alles.</string>
+    <string name="tripsettings_day_pick">Kies een dag</string>
+    <string name="tripsettings_wipe_day">Wis dag</string>
+    <string name="tripsettings_wipe_all">Alles wissen</string>
+    <string name="tripsettings_wipe_routes">Getekende routes wissen</string>
+    <string name="tripsettings_wipe_routes_prefix">"Alleen de routes die je tekende via "</string>
+    <string name="tripsettings_wipe_routes_step_hold">Ingedrukt houden</string>
+    <string name="tripsettings_wipe_routes_step_roads">Route via wegen</string>
+    <string name="tripsettings_wipe_routes_suffix">. Je eigen getrackte GPS blijft staan.</string>
+    <string name="tripsettings_wipe">Wissen</string>
+    <string name="tripsettings_delete_trip">Reis verwijderen</string>
+    <string name="tripsettings_leave_trip">Reis verlaten</string>
+    <string name="tripsettings_wipe_failed">Wissen mislukt</string>
+    <string name="tripsettings_wipe_tracking_title">Tracking wissen?</string>
+    <string name="tripsettings_wipe_day_text">Weet je zeker dat je de tracking van %1$s wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</string>
+    <string name="tripsettings_wipe_all_text">Weet je zeker dat je alle getrackte data van deze reis wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</string>
+    <string name="tripsettings_wipe_routes_title">Getekende routes wissen?</string>
+    <string name="tripsettings_wipe_routes_text">Alleen de automatisch getekende routes worden verwijderd. Je eigen getrackte GPS blijft staan.</string>
+    <string name="tripsettings_delete_title">Reis verwijderen?</string>
+    <string name="tripsettings_delete_text">%1$s wordt verwijderd met alle stops, routes en notities. Je foto\'s blijven in Immich. Typ de naam van de reis om te bevestigen.</string>
+    <string name="tripsettings_delete_name">Naam van de reis</string>
+    <string name="tripsettings_delete_failed">Verwijderen mislukt</string>
+    <string name="tripsettings_leave_title">Reis verlaten?</string>
+    <string name="tripsettings_leave_text">Je verdwijnt uit %1$s. De organisator kan je later opnieuw toevoegen.</string>
+    <string name="tripsettings_leave">Verlaten</string>
+    <string name="tripsettings_leave_failed">Verlaten mislukt</string>
+    <string name="tripsettings_day_title">Dag om te wissen</string>
+    <string name="tripsettings_day_pick_trip">Kies een dag van de reis</string>
+    <string name="tripsettings_fact_km">kilometer</string>
+    <string name="tripsettings_fact_day">dag</string>
+    <string name="tripsettings_fact_days">dagen</string>
+    <string name="tripsettings_fact_stop">stop</string>
+    <string name="tripsettings_fact_stops">stops</string>
+    <string name="tripsettings_fact_photos">foto\'s</string>
+    <string name="tripsettings_fact_travellers">reizigers</string>
+    <string name="tripsettings_fact_countries">landen</string>
+    <plurals name="tripsettings_sync_photos">
+        <item quantity="one">%1$d nieuwe foto</item>
+        <item quantity="other">%1$d nieuwe foto\'s</item>
+    </plurals>
+    <plurals name="tripsettings_sync_travellers">
+        <item quantity="one">%1$d reiziger</item>
+        <item quantity="other">%1$d reizigers</item>
+    </plurals>
+    <plurals name="tripsettings_wiped_track">
+        <item quantity="one">%1$d trackpunt verwijderd.</item>
+        <item quantity="other">%1$d trackpunten verwijderd.</item>
+    </plurals>
+    <plurals name="tripsettings_wiped_routes">
+        <item quantity="one">%1$d routepunt verwijderd.</item>
+        <item quantity="other">%1$d routepunten verwijderd.</item>
+    </plurals>
+
+    <!-- TravellersPage.kt -->
+    <string name="travellers_stat_trips">reizen</string>
+    <string name="travellers_stat_countries">landen</string>
+    <string name="travellers_stat_km">kilometer</string>
+    <string name="travellers_stat_days">dagen op reis</string>
+    <string name="travellers_stat_photos">foto\'s</string>
+    <string name="travellers_stat_flights">vluchten</string>
+    <string name="travellers_title">Reizigers</string>
+    <string name="travellers_your_stats">Jouw statistieken</string>
+    <string name="travellers_countries">Landen</string>
+    <string name="travellers_visited">%1$d bezocht</string>
+    <string name="travellers_planned">" · %1$d gepland"</string>
+    <string name="travellers_people">Mensen op je reizen</string>
+    <string name="travellers_people_hint">Toevoegen doe je per reis: open een reis en tik op de mensen.</string>
+    <plurals name="travellers_shared">
+        <item quantity="one">\@%1$s · %2$d gedeelde reis</item>
+        <item quantity="other">\@%1$s · %2$d gedeelde reizen</item>
+    </plurals>
+    <plurals name="travellers_together">
+        <item quantity="one">\@%1$s · %2$d reis samen</item>
+        <item quantity="other">\@%1$s · %2$d reizen samen</item>
+    </plurals>
+
+    <!-- NoticesSheet.kt -->
+    <string name="notices_now">net</string>
+    <string name="notices_minutes_ago">%1$d min geleden</string>
+    <string name="notices_yesterday">gisteren</string>
+    <string name="notices_days_ago">%1$d dagen geleden</string>
+    <string name="notices_someone">Iemand</string>
+    <string name="notices_a_trip">een reis</string>
+    <string name="notices_trip_added">%1$s heeft je toegevoegd aan %2$s.</string>
+    <string name="notices_access_requested">%1$s vraagt toegang tot %2$s.</string>
+    <string name="notices_access_approved">%1$s heeft je toegelaten tot %2$s.</string>
+    <string name="notices_access_denied">%1$s heeft je verzoek voor %2$s afgewezen.</string>
+    <string name="notices_login_attempts">Er zijn veel mislukte inlogpogingen geweest.</string>
+    <string name="notices_account_requested">%1$s wil een account op je server.</string>
+    <string name="notices_title">Meldingen</string>
+    <string name="notices_empty">Niets nieuws. Hier komen verzoeken en uitnodigingen.</string>
+    <string name="notices_let_in">Toelaten</string>
+    <string name="notices_decline">Afwijzen</string>
+    <string name="notices_approved">%1$s kijkt nu mee als gast.</string>
+    <string name="notices_that_person">Die persoon</string>
+    <string name="notices_declined">Afgewezen.</string>
+    <string name="notices_open_requests">Aanvragen bekijken</string>
+    <string name="notices_open_trip">Reis openen</string>
+    <plurals name="notices_hours_ago">
+        <item quantity="one">%1$d uur geleden</item>
+        <item quantity="other">%1$d uur geleden</item>
+    </plurals>
+
+    <!-- NewTripSheet.kt -->
+    <string name="newtrip_title">Nieuwe reis</string>
+    <string name="newtrip_name">Naam</string>
+    <string name="newtrip_name_hint">Bijvoorbeeld Japan 2027</string>
+    <string name="newtrip_when">Wanneer</string>
+    <string name="newtrip_days_pick">Kies de dagen</string>
+    <string name="newtrip_create_failed">Aanmaken mislukt</string>
+    <string name="newtrip_create">Reis maken</string>
+
+    <!-- RangeCalendar.kt -->
+    <string-array name="calendar_months">
+        <item>januari</item>
+        <item>februari</item>
+        <item>maart</item>
+        <item>april</item>
+        <item>mei</item>
+        <item>juni</item>
+        <item>juli</item>
+        <item>augustus</item>
+        <item>september</item>
+        <item>oktober</item>
+        <item>november</item>
+        <item>december</item>
+    </string-array>
+    <string-array name="calendar_weekdays">
+        <item>MA</item>
+        <item>DI</item>
+        <item>WO</item>
+        <item>DO</item>
+        <item>VR</item>
+        <item>ZA</item>
+        <item>ZO</item>
+    </string-array>
+
+    <!-- TripSheets.kt -->
+    <string name="tripsheets_map">Kaart</string>
+    <string name="tripsheets_map_style">Stijl van de kaart</string>
+    <string name="tripsheets_map_style_hint">In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.</string>
+
+    <!-- NewLook.kt -->
+    <string name="newlook_title">MarkMySteps heeft een nieuwe look</string>
+    <string name="newlook_text">Alles blijft hetzelfde, alleen even een opfrisbeurt.</string>
+    <string name="newlook_ok">Mooi</string>
+
+    <!-- SettingsForms.kt -->
+    <string name="forms_cancel">Annuleren</string>
+</resources>

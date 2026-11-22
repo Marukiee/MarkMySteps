@@ -66,7 +66,47 @@ object Api {
         data class NeedsCode(val mfaToken: String) : Login
     }
 
+    /**
+     * A screen of a new user opened as a preview from the developer page: signing in or up is refused on the
+     * phone, before anything is sent or the server is changed.
+     */
+    @Volatile var previewing = false
+
+    /** Whether the signed-in account still waits for an admin: its token says so ("pending"). */
+    val pending: Boolean get() = access?.let { token ->
+        runCatching {
+            val part = token.split('.')[1]
+            JSONObject(String(android.util.Base64.decode(part, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING))).optBoolean("pending")
+        }.getOrDefault(false)
+    } ?: false
+
+    /**
+     * Asks the server for an account (POST /api/auth/register: email, username, displayName, password). The first
+     * account of a server is approved at once, the rest wait for an admin. Never sent in a dry run or a preview.
+     */
+    suspend fun register(server: String, email: String, username: String, displayName: String, password: String): String = withContext(Dispatchers.IO) {
+        if (previewing || dryRun) {
+            android.util.Log.i("MmsDryRun", "POST /api/auth/register {email,username,displayName,password}")
+            throw Failure(Lang.text(R.string.auth_preview_note), -1)
+        }
+        base = server.trim().trimEnd('/').let { if (it.startsWith("http")) it else "https://$it" }
+        val body = JSONObject().put("email", email.trim()).put("username", username.trim()).put("displayName", displayName.trim()).put("password", password)
+        val answer = JSONObject(request("POST", "/api/auth/register", body.toString(), auth = false))
+        tokens(answer)
+        answer.optString("status", "PENDING")
+    }
+
+    /** A waiting account asks where it stands (GET /api/auth/status): PENDING, APPROVED or REJECTED, and whether it was just approved. */
+    suspend fun approval(): Pair<String, Boolean> = withContext(Dispatchers.IO) {
+        val o = JSONObject(request("GET", "/api/auth/status"))
+        o.optString("status") to o.optBoolean("justApproved")
+    }
+
+    /** Approved: a fresh token without "pending", so the rest of the server opens. */
+    suspend fun upgrade(): Boolean = withContext(Dispatchers.IO) { renew() }
+
     suspend fun login(server: String, identifier: String, password: String): Login = withContext(Dispatchers.IO) {
+        if (previewing) throw Failure(Lang.text(R.string.auth_preview_note), -1)
         base = server.trim().trimEnd('/').let { if (it.startsWith("http")) it else "https://$it" }
         val body = JSONObject().put("identifier", identifier.trim()).put("password", password)
         val answer = JSONObject(request("POST", "/api/auth/login", body.toString(), auth = false))
@@ -76,6 +116,7 @@ object Api {
     }
 
     suspend fun loginCode(mfaToken: String, code: String) = withContext(Dispatchers.IO) {
+        if (previewing) throw Failure(Lang.text(R.string.auth_preview_note), -1)
         val body = JSONObject().put("mfaToken", mfaToken).put("code", code.trim())
         tokens(JSONObject(request("POST", "/api/auth/login/mfa", body.toString(), auth = false)))
     }
@@ -116,7 +157,16 @@ object Api {
         }
     }
 
+    /** "Doorgaan zonder server": from now on the app's server is the phone itself (Local.kt). */
+    fun startLocal() {
+        base = LocalMode.BASE
+        access = LocalMode.BASE
+        refresh = null
+        save()
+    }
+
     private fun request(method: String, path: String, body: String? = null, auth: Boolean = true, retried: Boolean = false): String {
+        if (base == LocalMode.BASE) return LocalBackend.handle(method, path, body)
         val c = open(method, path, auth)
         try {
             if (body != null) {
@@ -125,15 +175,19 @@ object Api {
                 c.outputStream.use { it.write(body.toByteArray()) }
             }
             val code = c.responseCode
+            Offline.heard(true)
             if (code == 401 && auth && !retried && renew()) return request(method, path, body, auth, retried = true)
             if (code !in 200..299) {
                 val text = c.errorStream?.bufferedReader()?.readText().orEmpty()
                 val message = runCatching { JSONObject(text).optString("message") }.getOrNull()?.takeIf { it.isNotBlank() }
-                throw Failure(message ?: "De server gaf $code", code)
+                ApiLog.add(method, path, code, message)
+                throw Failure(message ?: Lang.text(R.string.common_server_gave, code), code)
             }
             return c.inputStream.bufferedReader().readText()
         } catch (e: java.io.IOException) {
-            throw Failure("Kan de server niet bereiken")
+            Offline.heard(false)
+            ApiLog.add(method, path, 0, e.javaClass.simpleName)
+            throw Failure(Lang.text(R.string.common_unreachable))
         } finally {
             c.disconnect()
         }
@@ -154,7 +208,20 @@ object Api {
             android.util.Log.i("MmsDryRun", "$method ${path.substringBefore('?')} ${body?.keys()?.asSequence()?.toList()?.joinToString(",", "{", "}") ?: ""}")
             return@withContext "{}"
         }
-        request(method, path, body?.toString())
+        try {
+            request(method, path, body?.toString())
+        } catch (e: Failure) {
+            // No connection: a planner change waits on the phone and goes out once the server is back (AppCore.kt).
+            if (e.status != 0 || !Offline.queues(method, path)) throw e
+            Offline.enqueue(method, path, body?.toString())
+            "{}"
+        }
+    }
+
+    /** A queued change going out at last; never queued again, and never sent in a dry run. */
+    suspend fun replay(method: String, path: String, body: String?): String = withContext(Dispatchers.IO) {
+        if (dryRun) return@withContext "{}"
+        request(method, path, body)
     }
 
     /**
@@ -167,6 +234,51 @@ object Api {
             return@withContext "{}"
         }
         multipart(path, field, filename, mime, data)
+    }
+
+    /**
+     * Several files under one field plus plain fields, as the web's FormData for a summary (pages, title, template,
+     * scopeLabel, spec, widths, heights). In test mode or without a server nothing is sent.
+     */
+    suspend fun uploadMany(path: String, field: String, files: List<Pair<String, ByteArray>>, mime: String, fields: Map<String, String>): String = withContext(Dispatchers.IO) {
+        if (dryRun || previewing) {
+            android.util.Log.i("MmsDryRun", "POST ${path.substringBefore('?')} [${files.size} files, ${files.sumOf { it.second.size }} bytes] ${fields.keys.joinToString(",", "{", "}")}")
+            return@withContext "{}"
+        }
+        if (base == LocalMode.BASE) throw Failure(Lang.text(R.string.local_unsupported), 501)
+        fun send(retried: Boolean): String {
+            val boundary = "mms" + java.util.UUID.randomUUID().toString().replace("-", "")
+            val c = open("POST", path, auth = true)
+            try {
+                c.doOutput = true
+                c.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                c.outputStream.use { out ->
+                    fields.forEach { (k, v) -> out.write("--$boundary\r\nContent-Disposition: form-data; name=\"$k\"\r\n\r\n$v\r\n".toByteArray()) }
+                    files.forEach { (name, data) ->
+                        out.write("--$boundary\r\nContent-Disposition: form-data; name=\"$field\"; filename=\"${name.replace(Regex("[\\r\\n\"]"), "_")}\"\r\nContent-Type: $mime\r\n\r\n".toByteArray())
+                        out.write(data); out.write("\r\n".toByteArray())
+                    }
+                    out.write("--$boundary--\r\n".toByteArray())
+                }
+                val code = c.responseCode
+                Offline.heard(true)
+                if (code == 401 && !retried && renew()) return send(true)
+                if (code !in 200..299) {
+                    val text = c.errorStream?.bufferedReader()?.readText().orEmpty()
+                    val message = runCatching { JSONObject(text).optString("message") }.getOrNull()?.takeIf { it.isNotBlank() }
+                    ApiLog.add("POST", path, code, message)
+                    throw Failure(message ?: Lang.text(R.string.common_server_gave, code), code)
+                }
+                return c.inputStream.bufferedReader().readText()
+            } catch (e: java.io.IOException) {
+                Offline.heard(false)
+                ApiLog.add("POST", path, 0, e.javaClass.simpleName)
+                throw Failure(Lang.text(R.string.common_unreachable))
+            } finally {
+                c.disconnect()
+            }
+        }
+        send(false)
     }
 
     private fun multipart(path: String, field: String, filename: String, mime: String, data: ByteArray, retried: Boolean = false): String {
@@ -186,11 +298,11 @@ object Api {
             if (code !in 200..299) {
                 val text = c.errorStream?.bufferedReader()?.readText().orEmpty()
                 val message = runCatching { JSONObject(text).optString("message") }.getOrNull()?.takeIf { it.isNotBlank() }
-                throw Failure(message ?: "De server gaf $code", code)
+                throw Failure(message ?: Lang.text(R.string.common_server_gave, code), code)
             }
             return c.inputStream.bufferedReader().readText()
         } catch (e: java.io.IOException) {
-            throw Failure("Kan de server niet bereiken")
+            throw Failure(Lang.text(R.string.common_unreachable))
         } finally {
             c.disconnect()
         }
@@ -202,6 +314,7 @@ object Api {
      * so an original of fifty megabytes goes straight to disk and never sits in memory. Blocking.
      */
     fun <T> stream(path: String, retried: Boolean = false, block: (HttpURLConnection) -> T): T? {
+        if (base == LocalMode.BASE) return null
         val c = open("GET", path, auth = true)
         return try {
             c.readTimeout = 60_000
@@ -212,6 +325,7 @@ object Api {
     }
 
     fun bytes(path: String, retried: Boolean = false): ByteArray? {
+        if (base == LocalMode.BASE) return null
         val c = open("GET", path, auth = true)
         return try {
             val code = c.responseCode
@@ -270,13 +384,14 @@ object Photos {
     private val learnt = HashMap<String, Float>()
     private var flushing = false
 
-    fun clear() = cache.evictAll()
+    /** Every photo in memory and on disk (signing out, or Gegevens › Cache leegmaken). */
+    fun clear() { cache.evictAll(); PhotoDisk.clear() }
 
     /** What the photos in memory take now, in bytes. */
     fun usedBytes(): Long = small.size().toLong() + large.size().toLong()
 
     /** Drops one picture (a profile photo just replaced), so the next look fetches it anew. */
-    fun forget(key: String) { small.remove(key); large.remove(key); if (key.startsWith("avatar/")) avatarStamp++ }
+    fun forget(key: String) { small.remove(key); large.remove(key); PhotoDisk.remove(key); if (key.startsWith("avatar/")) avatarStamp++ }
 
     /** Bumped when a profile photo changed, so every face on screen reads it again. */
     var avatarStamp by androidx.compose.runtime.mutableIntStateOf(0)
@@ -308,7 +423,8 @@ object Photos {
         cache.get(key)?.let { return it }
         return (if (now) urgent else lanes).withPermitCompat {
             cache.get(key)?.let { return@withPermitCompat it }
-            val data = Api.bytes(path) ?: return@withPermitCompat null
+            // From the phone's own copy when there is one, else from the server and then kept (AppCore.kt).
+            val data = DeviceMedia.bytes(key) ?: PhotoDisk.get(key) ?: Api.bytes(path)?.also { PhotoDisk.put(key, it) } ?: return@withPermitCompat null
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
             // An original can be 50 megapixels: bring it down to about a screen and a half.
@@ -487,7 +603,8 @@ object Remote {
     }
 
     /** A playable address for a video: the server hands out a short-lived token in the URL. */
-    suspend fun videoUrl(mediaId: String): String = Api.base + JSONObject(Api.get("/api/media/$mediaId/video-url")).getString("url")
+    suspend fun videoUrl(mediaId: String): String =
+        if (DeviceMedia.isDevice(mediaId)) DeviceMedia.videoUri(mediaId) else Api.base + JSONObject(Api.get("/api/media/$mediaId/video-url")).getString("url")
 
     suspend fun renameTrip(trip: Trip, title: String) {
         Api.send("PATCH", "/api/trips/${trip.remoteId}", JSONObject().put("title", title.trim()))
@@ -774,6 +891,6 @@ object Remote {
                 lat = o.optDouble("latitude").takeIf { !o.isNull("latitude") && !it.isNaN() },
                 lon = o.optDouble("longitude").takeIf { !o.isNull("longitude") && !it.isNaN() },
             )
-        }.distinctBy { it.id }.sortedBy { it.takenAt }
+        }.plus(DeviceMedia.list(trip)).distinctBy { it.id }.sortedBy { it.takenAt }
     }
 }

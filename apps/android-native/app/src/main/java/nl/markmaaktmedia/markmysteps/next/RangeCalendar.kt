@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -52,9 +53,6 @@ import java.time.YearMonth
  * passes gives a light tick. The month changes with the arrows (a calendar you can scroll was not clear),
  * sliding the way you go. The weekday letters are small and quiet, so they never look like dates.
  */
-
-private val Months = listOf("januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december")
-private val Weekdays = listOf("MA", "DI", "WO", "DO", "VR", "ZA", "ZO")
 
 @Composable
 /** [bounds]: only these days can be chosen (the days of a trip); the rest stay quiet and do nothing. */
@@ -80,13 +78,13 @@ fun RangeCalendar(start: LocalDate?, end: LocalDate?, onChange: (LocalDate?, Loc
                 (slideInHorizontally(motion.defaultSpatialSpec()) { w -> dir * w / 3 } + fadeIn(motion.defaultEffectsSpec())) togetherWith
                     (slideOutHorizontally(motion.defaultSpatialSpec()) { w -> -dir * w / 3 } + fadeOut(motion.fastEffectsSpec()))
             }, label = "monthName", modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) { m ->
-                Text("${Months[m.monthValue - 1]} ${m.year}", textAlign = TextAlign.Center, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 19.sp, color = cs.onSurface), modifier = Modifier.fillMaxWidth())
+                Text("${stringArrayResource(R.array.calendar_months)[m.monthValue - 1]} ${m.year}", textAlign = TextAlign.Center, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 19.sp, color = cs.onSurface), modifier = Modifier.fillMaxWidth())
             }
             Arrow(1)
         }
         // The weekdays: small capitals in a quiet tone, so they read as labels and not as days.
         Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-            Weekdays.forEach { d ->
+            stringArrayResource(R.array.calendar_weekdays).forEach { d ->
                 Text(d, textAlign = TextAlign.Center, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 12.sp, letterSpacing = 0.04.sp, color = cs.onSurfaceVariant.copy(alpha = 0.75f)), modifier = Modifier.weight(1f))
             }
         }

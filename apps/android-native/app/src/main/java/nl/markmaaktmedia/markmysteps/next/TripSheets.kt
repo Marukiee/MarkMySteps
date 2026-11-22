@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,18 +60,18 @@ fun MapSheet(onDismiss: () -> Unit, layers: MapLayers? = null) {
     val cs = MaterialTheme.colorScheme
     AppSheet(onDismiss = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
-            Text(if (layers != null) "Kaartinstellingen" else "Kaart", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
+            Text(if (layers != null) stringResource(R.string.mapsheet_settings) else stringResource(R.string.mapsheet_map), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             // Whose routes and photos are on this map, then its style, as the web's map settings.
             if (layers != null) {
                 Spacer(Modifier.height(14.dp))
                 MapLayersSections(layers)
                 Spacer(Modifier.height(24.dp))
-                Text("Kaartstijl", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp))
+                Text(stringResource(R.string.mapsheet_style), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp))
             }
-            Text(if (layers != null) "Geldt voor alle kaarten op dit apparaat." else "Stijl van de kaart", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
+            Text(if (layers != null) stringResource(R.string.mapsheet_style_all) else stringResource(R.string.mapsheet_style_of), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
             MapStyleGrid()
             Text(
-                "In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.",
+                stringResource(R.string.tripsheets_map_style_hint),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant),
                 modifier = Modifier.padding(top = 12.dp, start = 4.dp),
             )

@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material3.toPath
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -128,7 +129,7 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
         saving = true; error = null
         runCatching { SettingsRemote.saveTrip(id, title, start, end, autoTrack) }
             .onSuccess { info = i.copy(title = title, start = start, end = end, autoTrack = autoTrack); saved = true; onChanged() }
-            .onFailure { error = it.message ?: "Opslaan mislukt" }
+            .onFailure { error = it.message ?: Lang.text(R.string.tripsettings_save_failed) }
         saving = false
     }
     LaunchedEffect(title, start, end, autoTrack, info) {
@@ -144,7 +145,7 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
     val pickedColor = color?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: trip.color
     val accent by animateColorAsState(pickedColor, MaterialTheme.motionScheme.slowEffectsSpec(), label = "accent")
 
-    SettingsScaffold("Reisinstellingen", onBack, trailing = {
+    SettingsScaffold(stringResource(R.string.tripsettings_title), onBack, trailing = {
         // Whether the last change is saved: an hourglass while it goes, a tick once it is there.
         AnimatedContent(if (saving) 1 else if (saved) 2 else 0, transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.6f)) togetherWith (fadeOut() + scaleOut(targetScale = 0.6f)) }, label = "autosave") { s ->
             Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
@@ -159,44 +160,46 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
         })
 
         if (isOwner) {
-            Header("Reis")
+            Header(stringResource(R.string.tripsettings_trip))
             Panel {
-                FormField("Naam", title, { title = it.take(120) }, capitalize = true)
+                FormField(stringResource(R.string.tripsettings_name), title, { title = it.take(120) }, capitalize = true)
                 DatesField(start, end) { s, e -> start = s; end = e }
                 Note(error, true)
             }
-            Header("Kleur op de globe en de kaart")
+            Header(stringResource(R.string.tripsettings_color))
             Panel {
                 ColorPicker(color, onPick = { hex ->
                     color = hex
-                    scope.launch { runCatching { SettingsRemote.setColor(id, hex) }.onSuccess { onChanged() }.onFailure { error = it.message ?: "Kleur opslaan mislukt" } }
+                    scope.launch { runCatching { SettingsRemote.setColor(id, hex) }.onSuccess { onChanged() }.onFailure { error = it.message ?: Lang.text(R.string.tripsettings_color_failed) } }
                 })
             }
             FactsPanel(trip, id, accent)
         } else {
             Spacer(Modifier.height(16.dp))
-            Panel { Hint(if (canEdit) "Alleen de organisator kan de naam, datums en kleur wijzigen." else "Je bent gast op deze reis: je kunt hem bekijken, niet aanpassen.") }
+            Panel { Hint(if (canEdit) stringResource(R.string.tripsettings_owner_only) else stringResource(R.string.tripsettings_guest)) }
         }
 
         if (canEdit) SyncPanel(id, onChanged)
+        // Photos from this phone's gallery in the timeline and on the map, without uploading (AppScreens.kt).
+        DevicePhotosPanel(trip, onChanged)
         if (isOwner) MarkerPanel(trip, id, info)
         // The map of where the trip went, kept on the phone for a trip without signal.
         OfflineMapPanel(trip, id)
 
-        Header("Tracking")
+        Header(stringResource(R.string.tripsettings_tracking))
         TrackNowPanel(trip, id, ended, myRole)
         Spacer(Modifier.height(8.dp))
         Group(null, listOf(
             Item(
-                Glyphs.pin, "Automatisch tracken",
-                if (ended) "Deze reis is afgelopen" else "Start route-tracking vanzelf zodra de reis begint, in de app op je telefoon",
+                Glyphs.pin, stringResource(R.string.tripsettings_auto_track),
+                if (ended) stringResource(R.string.tripsettings_auto_track_ended) else stringResource(R.string.tripsettings_auto_track_hint),
                 toggle = autoTrack, enabled = isOwner && !ended && info != null,
                 action = { autoTrack = !autoTrack },
             ),
         ))
 
-        Header("Mensen")
-        Group(null, listOf(Item(Glyphs.friends, "Reisgenoten en delen", "${trip.members.count { it.role != "GUEST" }} reizigers · ${trip.members.count { it.role == "GUEST" }} gasten", action = onPeople)))
+        Header(stringResource(R.string.tripsettings_people))
+        Group(null, listOf(Item(Glyphs.friends, stringResource(R.string.tripsettings_people_item), stringResource(R.string.tripsettings_people_summary, trip.members.count { it.role != "GUEST" }, trip.members.count { it.role == "GUEST" }), action = onPeople)))
 
         DangerPanel(trip, id, isOwner, canEdit, onGone)
     }
@@ -216,38 +219,38 @@ private fun TrackNowPanel(trip: Trip, id: String, ended: Boolean, myRole: String
     var confirmStop by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
     val ask = rememberLocationRequest(
-        "Locatie voor je route",
-        "Om je route bij te houden heeft de app je locatie nodig, ook met het scherm uit. Je ziet een melding zolang hij loopt. Android vraagt je zo om toestemming.",
+        stringResource(R.string.track_loc_title),
+        stringResource(R.string.track_loc_body),
         notifications = true,
         onRefused = { msg, _ -> note = msg },
     )
     Panel(animate = true) {
         if (allowed || here) {
-            Text("Route nu bijhouden", style = TitleStyle.copy(color = MaterialTheme.colorScheme.onSurface))
-            Hint(if (allowed) "Start of stop het volgen van je route voor deze reis." else "Deze reis is afgelopen. Tracking loopt nog en stopt vanzelf, of nu.")
+            Text(stringResource(R.string.track_now_title), style = TitleStyle.copy(color = MaterialTheme.colorScheme.onSurface))
+            Hint(if (allowed) stringResource(R.string.track_now_hint) else stringResource(R.string.track_now_ended_running))
             AnimatedContent(here, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "trackNow") { on ->
-                if (on) QuietDangerButton("Stop tracking", { confirmStop = true }, Modifier.fillMaxWidth())
-                else MainButton("Start tracking", {
+                if (on) QuietDangerButton(stringResource(R.string.track_stop), { confirmStop = true }, Modifier.fillMaxWidth())
+                else MainButton(stringResource(R.string.track_start), {
                     ask.run(context) {
                         Tracker.start(context, id, trip.title, trip.start?.plusDays((trip.days - 1).toLong()))
                         haptics(Haptic.Confirm); note = null
                     }
                 }, Modifier.fillMaxWidth(), icon = Glyphs.pin)
             }
-            if (!here && allowed && Tracker.tripId != null) Hint("Er loopt nog tracking voor een andere reis; die stopt als je hier start.")
+            if (!here && allowed && Tracker.tripId != null) Hint(stringResource(R.string.track_now_other))
             Note(note, true)
         } else {
             Hint(
                 when {
-                    ended -> "Deze reis is afgelopen, tracken kan niet meer."
-                    myRole == "GUEST" -> "Je bent gast op deze reis en kunt alleen meekijken."
-                    else -> "De organisator heeft tracken voor jou uitgezet."
+                    ended -> stringResource(R.string.track_now_ended)
+                    myRole == "GUEST" -> stringResource(R.string.track_now_guest)
+                    else -> stringResource(R.string.track_off_by_organiser)
                 },
             )
         }
     }
     if (confirmStop) Confirm(
-        "Stoppen met tracken?", "De route van ${trip.title} wordt niet verder bijgehouden. Wat al opgenomen is blijft staan.", "Stoppen",
+        stringResource(R.string.track_stop_title), stringResource(R.string.track_stop_body, trip.title), stringResource(R.string.track_stop_confirm),
         onConfirm = { Tracker.stop(context) }, onDismiss = { confirmStop = false },
     )
 }
@@ -267,7 +270,7 @@ private fun CoverHeader(trip: Trip, coverId: String?, title: String, start: Stri
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LineIcon(Glyphs.photo, Color.White, size = 16.dp, stroke = 2f)
-                    Text("Cover kiezen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = Color.White), modifier = Modifier.padding(start = 6.dp))
+                    Text(stringResource(R.string.tripsettings_cover_choose), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = Color.White), modifier = Modifier.padding(start = 6.dp))
                 }
             }
         }
@@ -306,14 +309,14 @@ private fun CoverSheet(trip: Trip, current: String?, onDismiss: () -> Unit, onPi
     AppSheet(onDismiss = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Coverfoto", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
-                SoftButton("Automatisch", { choose(null) }, icon = Glyphs.cardAuto)
+                Text(stringResource(R.string.tripsettings_cover_photo), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
+                SoftButton(stringResource(R.string.tripsettings_automatic), { choose(null) }, icon = Glyphs.cardAuto)
             }
-            Hint("Tik een foto aan om hem de cover van deze reis te maken.", Modifier.padding(top = 6.dp, bottom = 12.dp))
+            Hint(stringResource(R.string.tripsettings_cover_hint), Modifier.padding(top = 6.dp, bottom = 12.dp))
             val list = media
             if (list == null) LazyVerticalGrid(GridCells.Fixed(3), Modifier.height(360.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp), userScrollEnabled = false) {
                 items(List(9) { it }) { Placeholder(Modifier.aspectRatio(1f).clip(RoundedCornerShape(10.dp))) }
-            } else if (list.isEmpty()) Hint("Nog geen foto's in deze reis.", Modifier.padding(bottom = 24.dp))
+            } else if (list.isEmpty()) Hint(stringResource(R.string.tripsettings_cover_none), Modifier.padding(bottom = 24.dp))
             else LazyVerticalGrid(GridCells.Fixed(3), Modifier.height(480.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(list.filter { !it.video }, key = { it.id }) { m ->
                     val on = m.id == chosen
@@ -336,12 +339,12 @@ private fun DatesField(start: String, end: String, onChange: (String, String) ->
     val cs = MaterialTheme.colorScheme
     var open by remember { mutableStateOf(false) }
     Column {
-        Text("Datums", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
+        Text(stringResource(R.string.tripsettings_dates), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
         Row(
             Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).dip { open = true }.padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(rangeText(start, end).ifBlank { "Kies de datums" }, style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
+            Text(rangeText(start, end).ifBlank { stringResource(R.string.tripsettings_dates_pick) }, style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
             LineIcon(listOf(P("M8 2v4"), P("M16 2v4"), P("M3 10h18"), P("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z")), cs.onSurfaceVariant, size = 20.dp)
         }
     }
@@ -351,14 +354,14 @@ private fun DatesField(start: String, end: String, onChange: (String, String) ->
         var b by remember { mutableStateOf(runCatching { LocalDate.parse(end) }.getOrNull()) }
         AppSheet(onDismiss = { open = false }) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-                Text("Datums van de reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant))
-                val label = a?.let { s0 -> rangeText(s0.toString(), (b ?: s0).toString()) } ?: "Kies de dagen"
+                Text(stringResource(R.string.tripsettings_dates_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant))
+                val label = a?.let { s0 -> rangeText(s0.toString(), (b ?: s0).toString()) } ?: stringResource(R.string.tripsettings_days_pick)
                 AnimatedContent(label, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "range") { t ->
                     Text(t, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
                 }
                 RangeCalendar(a, b, onChange = { x, y -> a = x; b = y }, modifier = Modifier.padding(top = 16.dp))
                 Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
-                    DialogButtons("Klaar", danger = false, enabled = a != null, onConfirm = {
+                    DialogButtons(stringResource(R.string.tripsettings_done), danger = false, enabled = a != null, onConfirm = {
                         a?.let { s0 -> onChange(s0.toString(), (b ?: s0).toString()) }; open = false
                     }, onDismiss = { open = false })
                 }
@@ -402,7 +405,7 @@ private fun ColorPicker(current: String?, onPick: (String?) -> Unit) {
                             contentAlignment = Alignment.Center,
                         ) {
                             Box(Modifier.graphicsLayer { rotationZ = -40f * t }, contentAlignment = Alignment.Center) {
-                                if (hex == null && t < 0.5f) Text("Auto", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 12.sp, color = cs.onSurface))
+                                if (hex == null && t < 0.5f) Text(stringResource(R.string.tripsettings_color_auto), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 12.sp, color = cs.onSurface))
                                 if (t > 0.01f) LineIcon(listOf(P("m5 12 5 5 9-10")), if (hex == null) cs.onSurface else Color.White, size = 20.dp, stroke = 2.6f, modifier = Modifier.graphicsLayer { scaleX = t; scaleY = t; alpha = t.coerceIn(0f, 1f) })
                             }
                         }
@@ -411,7 +414,7 @@ private fun ColorPicker(current: String?, onPick: (String?) -> Unit) {
                 repeat(5 - row.size) { Spacer(Modifier.size(56.dp)) }
             }
         }
-        Hint("Auto kiest een kleur die past bij je andere reizen.")
+        Hint(stringResource(R.string.tripsettings_color_auto_hint))
     }
 }
 
@@ -421,11 +424,11 @@ private fun ColorPicker(current: String?, onPick: (String?) -> Unit) {
 private fun FactsPanel(trip: Trip, id: String, accent: Color) {
     val cs = MaterialTheme.colorScheme
     val chosen = TripFactsPref.chosen[trip.id]
-    Header("Feitjes op de cover")
+    Header(stringResource(R.string.tripsettings_facts))
     Panel {
-        Hint("Er is plek voor vier. Kies je niets, dan neemt de app de eerste vier die deze reis heeft.")
+        Hint(stringResource(R.string.tripsettings_facts_hint))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            FactChip("Automatisch", chosen == null, enabled = true) { TripFactsPref.set(trip.id, null) }
+            FactChip(stringResource(R.string.tripsettings_automatic), chosen == null, enabled = true) { TripFactsPref.set(trip.id, null) }
             TripFactsPref.Ids.forEach { f ->
                 val on = chosen?.contains(f) == true
                 val full = !on && (chosen?.size ?: 0) >= TripFactsPref.MAX
@@ -461,16 +464,16 @@ private fun SyncPanel(id: String, onChanged: () -> Unit) {
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
-    Header("Foto's")
+    Header(stringResource(R.string.tripsettings_photos))
     Panel {
-        Hint("Kijkt in Immich welke foto's op de dagen van deze reis genomen zijn en zet ze in de tijdlijn; met een locatie ook op de kaart.")
-        MainButton("Foto's syncen", {
+        Hint(stringResource(R.string.tripsettings_photos_hint))
+        MainButton(stringResource(R.string.tripsettings_photos_sync), {
             busy = true; note = null
             scope.launch {
                 note = runCatching { SettingsRemote.sync(id) }.fold({ r ->
                     onChanged()
-                    "${r.added} ${if (r.added == 1) "nieuwe foto" else "nieuwe foto's"} (${r.found} gevonden, ${r.users} ${if (r.users == 1) "reiziger" else "reizigers"})" to false
-                }, { (it.message ?: "Sync mislukt") to true })
+                    Lang.text(R.string.tripsettings_sync_result, Lang.plural(R.plurals.tripsettings_sync_photos, r.added), r.found, Lang.plural(R.plurals.tripsettings_sync_travellers, r.users)) to false
+                }, { (it.message ?: Lang.text(R.string.tripsettings_sync_failed)) to true })
                 busy = false
             }
         }, Modifier.fillMaxWidth(), icon = Glyphs.download, busy = busy)
@@ -489,9 +492,9 @@ private fun MarkerPanel(trip: Trip, id: String, info: SettingsRemote.TripInfo?) 
     fun save(p: LonLat?) {
         marker = p
         // The globe on the homepage draws the new spot once the trips are read again.
-        scope.launch { runCatching { SettingsRemote.setMarker(id, p) }.onSuccess { Data.load() }.onFailure { error = it.message ?: "Markering opslaan mislukt" } }
+        scope.launch { runCatching { SettingsRemote.setMarker(id, p) }.onSuccess { Data.load() }.onFailure { error = it.message ?: Lang.text(R.string.tripsettings_marker_failed) } }
     }
-    Header("Bolletje op de globe")
+    Header(stringResource(R.string.tripsettings_marker))
     val motion = MaterialTheme.motionScheme
     val enter = fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec())
     val exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.defaultSpatialSpec())
@@ -500,9 +503,9 @@ private fun MarkerPanel(trip: Trip, id: String, info: SettingsRemote.TripInfo?) 
         androidx.compose.animation.Crossfade(if (marker != null) 2 else if (placing) 1 else 0, animationSpec = motion.defaultEffectsSpec(), label = "markerHint") { st ->
             Hint(
                 when (st) {
-                    2 -> "Eigen plek ingesteld. Tik op de kaart om hem te verplaatsen."
-                    1 -> "Tik op de kaart om de plek te kiezen."
-                    else -> "Op de globe staat deze reis met een bolletje op het begin en het eind. Kies hier één eigen plek, handig bij een rondreis."
+                    2 -> stringResource(R.string.tripsettings_marker_set)
+                    1 -> stringResource(R.string.tripsettings_marker_placing)
+                    else -> stringResource(R.string.tripsettings_marker_hint)
                 },
             )
         }
@@ -512,13 +515,13 @@ private fun MarkerPanel(trip: Trip, id: String, info: SettingsRemote.TripInfo?) 
         // One button at a time: each comes in and goes out on its own, growing and fading.
         Column {
             AnimatedVisibility(marker != null, enter = enter, exit = exit) {
-                SoftButton("Terug naar automatisch", { save(null); placing = false }, Modifier.fillMaxWidth())
+                SoftButton(stringResource(R.string.tripsettings_marker_reset), { save(null); placing = false }, Modifier.fillMaxWidth())
             }
             AnimatedVisibility(marker == null && !placing, enter = enter, exit = exit) {
-                SoftButton("Bolletje zelf plaatsen", { placing = true }, Modifier.fillMaxWidth(), icon = Glyphs.pin, enabled = info != null)
+                SoftButton(stringResource(R.string.tripsettings_marker_place), { placing = true }, Modifier.fillMaxWidth(), icon = Glyphs.pin, enabled = info != null)
             }
             AnimatedVisibility(marker == null && placing, enter = enter, exit = exit) {
-                SoftButton("Annuleren", { placing = false }, Modifier.fillMaxWidth())
+                SoftButton(stringResource(R.string.tripsettings_cancel), { placing = false }, Modifier.fillMaxWidth())
             }
         }
         Note(error, true)
@@ -536,49 +539,49 @@ private fun DangerPanel(trip: Trip, id: String, isOwner: Boolean, canEdit: Boole
     var busy by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var typed by remember { mutableStateOf("") }
-    Header("Verwijderen")
+    Header(stringResource(R.string.tripsettings_delete))
     if (canEdit) Panel {
-        Text("Getrackte data wissen", style = TitleStyle.copy(color = cs.onSurface))
-        Hint("Verwijdert jouw GPS-route; de reis en de foto's blijven. Kies een dag, of wis alles.")
+        Text(stringResource(R.string.tripsettings_wipe_tracked), style = TitleStyle.copy(color = cs.onSurface))
+        Hint(stringResource(R.string.tripsettings_wipe_tracked_hint))
         ButtonRow {
-            SoftButton(day?.let { shortDate(it) } ?: "Kies een dag", { pickDay = true }, Modifier.weight(1f), icon = listOf(P("M8 2v4"), P("M16 2v4"), P("M3 10h18"), P("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z")))
-            QuietDangerButton("Wis dag", { ask = "day" }, Modifier.weight(1f), enabled = day != null && !busy)
+            SoftButton(day?.let { shortDate(it) } ?: stringResource(R.string.tripsettings_day_pick), { pickDay = true }, Modifier.weight(1f), icon = listOf(P("M8 2v4"), P("M16 2v4"), P("M3 10h18"), P("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z")))
+            QuietDangerButton(stringResource(R.string.tripsettings_wipe_day), { ask = "day" }, Modifier.weight(1f), enabled = day != null && !busy)
         }
-        QuietDangerButton("Alles wissen", { ask = "all" }, Modifier.fillMaxWidth(), enabled = !busy)
+        QuietDangerButton(stringResource(R.string.tripsettings_wipe_all), { ask = "all" }, Modifier.fillMaxWidth(), enabled = !busy)
     }
     if (canEdit) {
         Spacer(Modifier.height(10.dp))
         Panel {
-            Text("Getekende routes wissen", style = TitleStyle.copy(color = cs.onSurface))
-            PathHint("Alleen de routes die je tekende via ", listOf("Ingedrukt houden", "Route via wegen"), ". Je eigen getrackte GPS blijft staan.")
-            QuietDangerButton("Wissen", { ask = "routes" }, Modifier.fillMaxWidth(), enabled = !busy)
+            Text(stringResource(R.string.tripsettings_wipe_routes), style = TitleStyle.copy(color = cs.onSurface))
+            PathHint(stringResource(R.string.tripsettings_wipe_routes_prefix), listOf(stringResource(R.string.tripsettings_wipe_routes_step_hold), stringResource(R.string.tripsettings_wipe_routes_step_roads)), stringResource(R.string.tripsettings_wipe_routes_suffix))
+            QuietDangerButton(stringResource(R.string.tripsettings_wipe), { ask = "routes" }, Modifier.fillMaxWidth(), enabled = !busy)
         }
     }
     Note(note?.first, note?.second == true)
     Spacer(Modifier.height(10.dp))
-    if (isOwner) MainButton("Reis verwijderen", { typed = ""; ask = "delete" }, Modifier.fillMaxWidth(), icon = Glyphs.trash, danger = true)
-    else MainButton("Reis verlaten", { ask = "leave" }, Modifier.fillMaxWidth(), icon = Glyphs.signOut, danger = true)
+    if (isOwner) MainButton(stringResource(R.string.tripsettings_delete_trip), { typed = ""; ask = "delete" }, Modifier.fillMaxWidth(), icon = Glyphs.trash, danger = true)
+    else MainButton(stringResource(R.string.tripsettings_leave_trip), { ask = "leave" }, Modifier.fillMaxWidth(), icon = Glyphs.signOut, danger = true)
 
     fun run(block: suspend () -> String) {
         busy = true; note = null
-        scope.launch { note = runCatching { block() }.fold({ it to false }, { (it.message ?: "Wissen mislukt") to true }); busy = false }
+        scope.launch { note = runCatching { block() }.fold({ it to false }, { (it.message ?: Lang.text(R.string.tripsettings_wipe_failed)) to true }); busy = false }
     }
     when (ask) {
-        "day" -> Confirm("Tracking wissen?", "Weet je zeker dat je de tracking van ${day?.let { shortDate(it) }} wilt verwijderen? Dit kan niet ongedaan worden gemaakt.", "Wissen",
-            onConfirm = { val d = day; run { val n = SettingsRemote.wipeTracked(id, d); day = null; "$n ${if (n == 1) "trackpunt" else "trackpunten"} verwijderd." } }, onDismiss = { ask = null })
-        "all" -> Confirm("Tracking wissen?", "Weet je zeker dat je alle getrackte data van deze reis wilt verwijderen? Dit kan niet ongedaan worden gemaakt.", "Wissen",
-            onConfirm = { run { val n = SettingsRemote.wipeTracked(id, null); "$n ${if (n == 1) "trackpunt" else "trackpunten"} verwijderd." } }, onDismiss = { ask = null })
-        "routes" -> Confirm("Getekende routes wissen?", "Alleen de automatisch getekende routes worden verwijderd. Je eigen getrackte GPS blijft staan.", "Wissen",
-            onConfirm = { run { val n = SettingsRemote.wipeRouteFills(id); "$n ${if (n == 1) "routepunt" else "routepunten"} verwijderd." } }, onDismiss = { ask = null })
+        "day" -> Confirm(stringResource(R.string.tripsettings_wipe_tracking_title), stringResource(R.string.tripsettings_wipe_day_text, "${day?.let { shortDate(it) }}"), stringResource(R.string.tripsettings_wipe),
+            onConfirm = { val d = day; run { val n = SettingsRemote.wipeTracked(id, d); day = null; Lang.plural(R.plurals.tripsettings_wiped_track, n) } }, onDismiss = { ask = null })
+        "all" -> Confirm(stringResource(R.string.tripsettings_wipe_tracking_title), stringResource(R.string.tripsettings_wipe_all_text), stringResource(R.string.tripsettings_wipe),
+            onConfirm = { run { val n = SettingsRemote.wipeTracked(id, null); Lang.plural(R.plurals.tripsettings_wiped_track, n) } }, onDismiss = { ask = null })
+        "routes" -> Confirm(stringResource(R.string.tripsettings_wipe_routes_title), stringResource(R.string.tripsettings_wipe_routes_text), stringResource(R.string.tripsettings_wipe),
+            onConfirm = { run { val n = SettingsRemote.wipeRouteFills(id); Lang.plural(R.plurals.tripsettings_wiped_routes, n) } }, onDismiss = { ask = null })
         "delete" -> Confirm(
-            "Reis verwijderen?", "${trip.title} wordt verwijderd met alle stops, routes en notities. Je foto's blijven in Immich. Typ de naam van de reis om te bevestigen.", "Verwijderen",
+            stringResource(R.string.tripsettings_delete_title), stringResource(R.string.tripsettings_delete_text, trip.title), stringResource(R.string.tripsettings_delete),
             confirmEnabled = typed.trim() == trip.title.trim(),
-            extra = { FormField("Naam van de reis", typed, { typed = it }, hint = trip.title) },
-            onConfirm = { scope.launch { runCatching { Remote.deleteTrip(trip) }.onSuccess { Data.load(); onGone() }.onFailure { note = (it.message ?: "Verwijderen mislukt") to true } } },
+            extra = { FormField(stringResource(R.string.tripsettings_delete_name), typed, { typed = it }, hint = trip.title) },
+            onConfirm = { scope.launch { runCatching { Remote.deleteTrip(trip) }.onSuccess { Data.load(); onGone() }.onFailure { note = (it.message ?: Lang.text(R.string.tripsettings_delete_failed)) to true } } },
             onDismiss = { ask = null },
         )
-        "leave" -> Confirm("Reis verlaten?", "Je verdwijnt uit ${trip.title}. De organisator kan je later opnieuw toevoegen.", "Verlaten",
-            onConfirm = { scope.launch { runCatching { Remote.leaveTrip(trip) }.onSuccess { Data.load(); onGone() }.onFailure { note = (it.message ?: "Verlaten mislukt") to true } } },
+        "leave" -> Confirm(stringResource(R.string.tripsettings_leave_title), stringResource(R.string.tripsettings_leave_text, trip.title), stringResource(R.string.tripsettings_leave),
+            onConfirm = { scope.launch { runCatching { Remote.leaveTrip(trip) }.onSuccess { Data.load(); onGone() }.onFailure { note = (it.message ?: Lang.text(R.string.tripsettings_leave_failed)) to true } } },
             onDismiss = { ask = null })
     }
     if (pickDay) {
@@ -587,12 +590,12 @@ private fun DangerPanel(trip: Trip, id: String, isOwner: Boolean, canEdit: Boole
         var chosen by remember { mutableStateOf(day?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: first) }
         AppSheet(onDismiss = { pickDay = false }) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-                Text("Dag om te wissen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant))
-                Text(chosen?.let { shortDate(it.toString()) } ?: "Kies een dag van de reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
+                Text(stringResource(R.string.tripsettings_day_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant))
+                Text(chosen?.let { shortDate(it.toString()) } ?: stringResource(R.string.tripsettings_day_pick_trip), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
                 // One day: the last tap wins, and only days of the trip count.
                 RangeCalendar(chosen, null, onChange = { x, y -> (y ?: x)?.takeIf { !it.isBefore(first) && !it.isAfter(last) }?.let { chosen = it } }, modifier = Modifier.padding(top = 16.dp))
                 Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
-                    DialogButtons("Klaar", danger = false, enabled = chosen != null, onConfirm = { day = chosen?.toString(); pickDay = false }, onDismiss = { pickDay = false })
+                    DialogButtons(stringResource(R.string.tripsettings_done), danger = false, enabled = chosen != null, onConfirm = { day = chosen?.toString(); pickDay = false }, onDismiss = { pickDay = false })
                 }
             }
         }
@@ -670,12 +673,12 @@ fun chosenFacts(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<String
     val ids = TripFactsPref.chosen[trip.id] ?: return null
     return ids.map { f ->
         when (f) {
-            "km" -> (trip.km?.let { "%,d".format(it).replace(',', '.') } ?: "0") to "kilometer"
-            "days" -> "${trip.days}" to (if (trip.days == 1) "dag" else "dagen")
-            "stops" -> (if (stopsKnown) "${trip.stops.size}" else null) to (if (trip.stops.size == 1) "stop" else "stops")
-            "photos" -> (photos?.toString() ?: if (trip.remoteId != null) null else "${trip.photos}") to "foto's"
-            "travellers" -> "${trip.people.size + trip.extraPeople}" to "reizigers"
-            else -> (if (stopsKnown) "${trip.stops.map { it.flag }.distinct().size}" else null) to "landen"
+            "km" -> (trip.km?.let { "%,d".format(it).replace(',', '.') } ?: "0") to Lang.text(R.string.tripsettings_fact_km)
+            "days" -> "${trip.days}" to (if (trip.days == 1) Lang.text(R.string.tripsettings_fact_day) else Lang.text(R.string.tripsettings_fact_days))
+            "stops" -> (if (stopsKnown) "${trip.stops.size}" else null) to (if (trip.stops.size == 1) Lang.text(R.string.tripsettings_fact_stop) else Lang.text(R.string.tripsettings_fact_stops))
+            "photos" -> (photos?.toString() ?: if (trip.remoteId != null) null else "${trip.photos}") to Lang.text(R.string.tripsettings_fact_photos)
+            "travellers" -> "${trip.people.size + trip.extraPeople}" to Lang.text(R.string.tripsettings_fact_travellers)
+            else -> (if (stopsKnown) "${trip.stops.map { it.flag }.distinct().size}" else null) to Lang.text(R.string.tripsettings_fact_countries)
         }
     }
 }

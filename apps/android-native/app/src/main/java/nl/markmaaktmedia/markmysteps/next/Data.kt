@@ -80,6 +80,8 @@ object Data {
     }
 
     fun signOut() {
+        // Leaving "zonder server": the sign-in page opens with an empty server field, not "local". The trips stay on the phone.
+        if (LocalMode.on) Api.setServer("")
         Api.signOut()
         trips = DemoPast + DemoUpcoming
         me = null
