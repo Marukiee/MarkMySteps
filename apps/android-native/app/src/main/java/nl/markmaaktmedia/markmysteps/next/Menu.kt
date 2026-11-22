@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.DropdownMenuGroup
@@ -67,7 +68,8 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
         enter = androidx.compose.animation.scaleIn(motion.fastSpatialSpec(), initialScale = 0.85f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0f)) + androidx.compose.animation.fadeIn(motion.fastEffectsSpec()),
         exit = androidx.compose.animation.scaleOut(motion.fastSpatialSpec(), targetScale = 0.9f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0f)) + androidx.compose.animation.fadeOut(motion.fastEffectsSpec()),
       ) {
-      androidx.compose.foundation.layout.Column {
+      // As wide as its widest line needs, within a calm range; never the width of the screen.
+      androidx.compose.foundation.layout.Column(Modifier.width(androidx.compose.foundation.layout.IntrinsicSize.Max).widthIn(min = 200.dp, max = 300.dp)) {
         val text = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp)
         val edge = BorderStroke(1.dp, cs.outlineVariant.copy(alpha = 0.55f))
         shown.forEachIndexed { g, entries ->
@@ -75,7 +77,7 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
             DropdownMenuGroup(
                 shapes = MenuDefaults.groupShape(g, shown.size),
                 // Room to breathe: the choices side by side never squeeze.
-                modifier = Modifier.widthIn(min = 248.dp),
+                modifier = Modifier.fillMaxWidth().widthIn(min = 248.dp),
                 containerColor = cs.surfaceContainerHigh,
                 tonalElevation = 0.dp,
                 shadowElevation = 0.dp,

@@ -540,10 +540,15 @@ private fun NightsPill(planned: Int, total: Int, color: Color) {
     val motion = MaterialTheme.motionScheme
     val dot by animateColorAsState(if (planned == total) Teal else color, motion.defaultEffectsSpec(), label = "dot")
     Row(
-        Modifier.padding(bottom = 14.dp).clip(CircleShape).background(cs.surfaceContainerHigh).padding(start = 12.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
+        Modifier.padding(bottom = 14.dp).clip(CircleShape).background(cs.surfaceContainerHigh).padding(start = 8.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
+        // The wavy ring fills with the nights planned; a clear opening until every night is planned.
+        val share by androidx.compose.animation.core.animateFloatAsState((planned.toFloat() / total.coerceAtLeast(1)).coerceIn(0f, 1f), motion.slowSpatialSpec(), label = "nights")
+        androidx.compose.material3.CircularWavyProgressIndicator(
+            progress = { share }, modifier = Modifier.size(24.dp), color = dot, trackColor = dot.copy(alpha = 0.18f),
+            gapSize = if (share >= 1f) 0.dp else 5.dp,
+        )
         val style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurface)
         AnimatedContent(
             planned,
@@ -770,12 +775,13 @@ private fun StopCard(
             .padding(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(62.dp)) {
-                Thumb(photo, stop.flag, color, dark, Modifier.align(Alignment.BottomEnd).size(56.dp), RoundedCornerShape(16.dp))
+            // The photo itself sits in the middle of the card's height; the number hangs on its corner.
+            Box(Modifier.size(56.dp)) {
+                Thumb(photo, stop.flag, color, dark, Modifier.matchParentSize(), RoundedCornerShape(16.dp))
                 // The number on the photo's corner, ringed in the card's tone so it stands off any photo.
                 val badge = color
                 Box(
-                    Modifier.size(24.dp).clip(CircleShape).background(lerp(cs.surfaceContainerLow, cs.secondaryContainer, lifted)).padding(2.dp).clip(CircleShape).background(badge),
+                    Modifier.offset(x = (-6).dp, y = (-6).dp).size(24.dp).clip(CircleShape).background(lerp(cs.surfaceContainerLow, cs.secondaryContainer, lifted)).padding(2.dp).clip(CircleShape).background(badge),
                     contentAlignment = Alignment.Center,
                 ) { Text("${index + 1}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 11.5.sp, lineHeight = 12.sp, color = onBadge(badge))) }
             }
@@ -999,14 +1005,13 @@ private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (Remote.Place) -> Uni
 private fun FlightSheet(target: FlightTarget, color: Color, dark: Boolean, onDismiss: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
-    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // An empty airport starts at the one nearest the city it leaves from or flies to, as on the web.
     var number by remember { mutableStateOf(target.number.orEmpty()) }
     var from by remember { mutableStateOf(target.from ?: FlightAirports.nearest(target.nearFrom)?.iata.orEmpty()) }
     var to by remember { mutableStateOf(target.to ?: FlightAirports.nearest(target.nearTo)?.iata.orEmpty()) }
     fun valid(code: String) = code.isBlank() || PlannerRemote.cleanCode(code) != null
-    fun close() { scope.launch { sheet.hide() }.invokeOnCompletion { onDismiss() } }
-    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), sheetState = sheet, containerColor = cs.surfaceContainerLow) {
+    AppSheet(onDismiss = onDismiss) {
+        val sheet = this
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
             Text(target.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             target.subtitle?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp)) }
@@ -1031,7 +1036,7 @@ private fun FlightSheet(target: FlightTarget, color: Color, dark: Boolean, onDis
                 }
             }
             Button(
-                onClick = { target.onSave(number, from, to); close() },
+                onClick = { target.onSave(number, from, to); sheet.close() },
                 enabled = ok,
                 shapes = ButtonDefaults.shapes(),
                 contentPadding = PaddingValues(vertical = 16.dp),

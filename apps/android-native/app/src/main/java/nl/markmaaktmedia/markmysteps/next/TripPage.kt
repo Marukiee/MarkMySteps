@@ -117,6 +117,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     val screenH = LocalConfiguration.current.screenHeightDp
     val mapH = (screenH * 0.46f).dp
     var tab by remember { mutableIntStateOf(0) }
+    // Back from the Routeplanner goes to the Tijdlijn first, then out of the trip.
+    androidx.activity.compose.BackHandler(enabled = tab == 1) { tab = 0 }
     val scroll = rememberScrollState()
     val density = LocalDensity.current
     // Once the map has scrolled away, a bar with the trip's name takes its place under the buttons.

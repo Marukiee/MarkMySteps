@@ -162,6 +162,8 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         colorScheme = animatedScheme(if (dark) DarkScheme else LightScheme),
         motionScheme = MotionScheme.expressive(),
     ) {
+        // Once, signed in: the new look note, inside the theme so it has the app's own colours.
+        if (Data.live) NewLookDialog()
         // First the sign-in, unless signed in already or a test opens a page straight away.
         var gate by androidx.compose.runtime.saveable.rememberSaveable {
             mutableStateOf(if (Api.signedIn || startTrip != null || startPage != null) "app" else "login")

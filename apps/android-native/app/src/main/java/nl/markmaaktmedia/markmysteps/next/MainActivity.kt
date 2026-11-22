@@ -32,6 +32,7 @@ class MainActivity : ComponentActivity() {
         ThemePref.init(applicationContext)
         MapStylePref.init(applicationContext)
         CardSizePref.init(applicationContext)
+        NewLook.init(applicationContext, force = intent?.getBooleanExtra("newLook", false) == true)
         AirportPref.init(applicationContext)
         TripFactsPref.init(applicationContext)
         Photos.initRatios(applicationContext)
