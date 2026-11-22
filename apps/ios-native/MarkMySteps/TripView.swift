@@ -38,9 +38,13 @@ struct TripView: View {
     @State private var dayRoute: [[LonLat]] = []
     @State private var serverDays: [(day: Date, points: Int, photos: Int)] = []
     @State private var mapSize: CGSize = .zero
-    /// Room kept free on the map: the bar with the buttons on top, the sheet's edge, the day pill and the expand
-    /// button below, and half a photo pin with its count on every side (as Android's 52 dp padding).
-    private static let mapInsets = EdgeInsets(top: 146, leading: 48, bottom: 104, trailing: 48)
+    /// Whose photos the map shows (nil: everyone's), kept per trip; and the choice from before "Allemaal aan" or
+    /// "uit", so a second tap on it goes back to that.
+    @State private var photoUsers: Set<String>?
+    @State private var photosBefore: Set<String>?
+    /// Room kept free on the map, as Android's padding: the bar with the buttons on top, the sheet's edge below, and
+    /// half a photo pin with its count at the sides. More would leave the trip a small strip on this short map.
+    private static let mapInsets = EdgeInsets(top: 124, leading: 48, bottom: 72, trailing: 48)
     @Namespace private var ns
 
     enum TripTab: Hashable { case timeline, planner }
@@ -52,6 +56,7 @@ struct TripView: View {
         _plan = State(initialValue: PlanState(trip: base))
         _stopsKnown = State(initialValue: base.remoteId == nil)
         _mapPosition = State(initialValue: .rect(base.mapRect()))
+        _photoUsers = State(initialValue: base.remoteId.flatMap { MapPhotosPref.get($0) })
     }
 
     /// The map's height: as on Android a bit under half the screen, and low enough that the Tijdlijn and
@@ -241,7 +246,7 @@ struct TripView: View {
             }
         } message: { Text("Dit kan niet ongedaan worden gemaakt.") }
         .sheet(isPresented: $showPeople) { PeopleSheet(trip: trip) }
-        .sheet(isPresented: $showMapStyle) { MapStyleSheet() }
+        .sheet(isPresented: $showMapStyle) { MapStyleSheet(layers: photoLayers) }
         .navigationDestination(isPresented: $showSettings) {
             TripSettingsPage(trip: store.trips.first { $0.id == trip.id }.map { fresh in
                 var t = fresh
@@ -336,10 +341,40 @@ struct TripView: View {
         .accessibilityAddTraits(open ? .isSelected : [])
     }
 
-    /// Your photos where they were taken, for the map: the real ones once read, in the demo the drawn ones at
-    /// the day's stop.
+    /// "Foto's op de kaart" in the map settings: only travellers who put photos on this map (a switch for someone
+    /// with nothing on it does nothing).
+    private var photoLayers: MapPhotoLayers? {
+        guard let rid = trip.remoteId, let media else { return nil }
+        let contributed = Set(media.compactMap(\.userId))
+        let members = trip.members.filter { $0.userId.map(contributed.contains) ?? false }
+        guard !members.isEmpty else { return nil }
+        let on = photoUsers ?? Set(trip.members.compactMap(\.userId))
+        func save(_ set: Set<String>?) {
+            photoUsers = set
+            MapPhotosPref.set(rid, set)
+        }
+        return MapPhotoLayers(members: members, me: store.me?.id, on: on, onToggle: { id in
+            photosBefore = nil
+            save(on.contains(id) ? on.subtracting([id]) : on.union([id]))
+        }, onAll: { all, press in
+            if press {
+                if photosBefore == nil { photosBefore = on }
+                save(all ? nil : [])
+            } else if let before = photosBefore {
+                save(before)
+                photosBefore = nil
+            }
+        })
+    }
+
+    /// Your photos where they were taken, for the map: the real ones once read (those of the travellers picked in
+    /// the map settings), in the demo the drawn ones at the day's stop.
     private var mapPhotos: [Media] {
-        if let media { return media.filter { $0.lat != nil && $0.lon != nil && !$0.video } }
+        if let media {
+            return media.filter { m in
+                m.lat != nil && m.lon != nil && !m.video && (photoUsers.map { users in m.userId.map(users.contains) ?? true } ?? true)
+            }
+        }
         guard trip.remoteId == nil, !trip.upcoming else { return [] }
         return Timeline.days(trip, nil).flatMap { day -> [Media] in
             guard let at = day.day.stop?.at else { return [] }
@@ -449,7 +484,7 @@ struct TripView: View {
             .overlay(alignment: .bottomLeading) {
                 // The day on the map, level with the expand button, as on Android.
                 if mapDays.count >= 2 {
-                    MapDayPill(days: mapDays, day: $mapDay)
+                    MapDayPill(trip: trip, days: mapDays, day: $mapDay)
                         .padding(.leading, 14)
                         .padding(.bottom, 42)
                 }
@@ -880,35 +915,32 @@ struct MapFocus: Equatable {
     var stops: Set<String>
 }
 
-/// "Hele reis" or the day the map shows, as on Android: a glass pill on the map, lit in the accent while one day
-/// is picked, that unfolds the list of days (a menu shows one line per day, so without the photo counts).
+/// "Hele reis" or the day the map shows, as on Android: a glass pill on the map, lit in the accent while one day is
+/// picked, that opens the list of days in a sheet.
 struct MapDayPill: View {
+    let trip: Trip
     let days: [(day: Date, photos: Int)]
     @Binding var day: Date?
+    @State private var open = false
 
     private static let weekdays = ["zo", "ma", "di", "wo", "do", "vr", "za"]
 
-    /// "di 7 jul": short enough for the pill, clear in the list.
+    /// "di 7 jul": short enough for the pill.
     static func label(_ d: Date) -> String {
-        "\(weekdays[(Format.calendar.component(.weekday, from: d) - 1) % 7]) \(Format.shortDay(d))"
+        "\(weekday(d)) \(Format.shortDay(d))"
     }
 
+    static func weekday(_ d: Date) -> String { weekdays[(Format.calendar.component(.weekday, from: d) - 1) % 7] }
+
     var body: some View {
-        Menu {
-            Picker("Dag op de kaart", selection: Binding(get: { day }, set: { v in
-                Haptic.select()
-                withAnimation(.calm) { day = v }
-            })) {
-                Text("Hele reis").tag(Date?.none)
-                ForEach(days, id: \.day) { d in
-                    Text(MapDayPill.label(d.day)).tag(Optional(d.day))
-                }
-            }
-            .pickerStyle(.inline)
+        Button {
+            Haptic.tap()
+            open = true
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "calendar").font(.system(size: 14, weight: .semibold))
                 Text(day.map(MapDayPill.label) ?? "Hele reis").font(.outfit(15, 600)).lineLimit(1)
+                    .contentTransition(.interpolate)
                 Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold))
             }
             .foregroundStyle(day == nil ? Brand.ink : .white)
@@ -916,9 +948,101 @@ struct MapDayPill: View {
             .frame(height: 48)
             .contentShape(.capsule)
         }
+        .buttonStyle(.plain)
         .glassEffect(day == nil ? .regular.interactive() : .regular.tint(Brand.accent).interactive(), in: .capsule)
         .animation(.calm, value: day)
         .accessibilityLabel("Dag op de kaart")
+        .sheet(isPresented: $open) {
+            MapDaySheet(trip: trip, days: days, day: day) { picked in
+                Haptic.select()
+                withAnimation(.calm) { day = picked }
+            }
+        }
+    }
+}
+
+/// The list of days, as on Android: the whole trip above a line, every day under it. Each row: a date tile on the left
+/// (the number big, the weekday small), where you were that day as the title with "Dag 3" under it, and its photos on
+/// the right; the chosen row turns warm, its tile fills with the accent and a check takes the place of the count.
+/// The rows' corners follow the sheet's own.
+struct MapDaySheet: View {
+    let trip: Trip
+    let days: [(day: Date, photos: Int)]
+    let day: Date?
+    let onPick: (Date?) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        let first = trip.start ?? days.first?.day
+        ScrollView {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Dag op de kaart").font(.outfit(22, 650)).foregroundStyle(Brand.ink)
+                    .padding(.horizontal, 8)
+                Text("Kies één dag om alleen die route en die foto's te zien.")
+                    .font(.inter(13.5, 500)).foregroundStyle(Brand.inkSoft)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 12)
+                row(chosen: day == nil, title: "Hele reis", subtitle: "\(days.count) dagen", photos: nil, value: nil) { fg in
+                    Image(systemName: "calendar").font(.system(size: 20, weight: .semibold)).foregroundStyle(fg)
+                }
+                Rectangle().fill(Brand.line).frame(height: 1).padding(.horizontal, 12).padding(.vertical, 8)
+                ForEach(days, id: \.day) { d in
+                    // The tile already says the date; the line under the place says which day of the trip it was.
+                    let nth = first.map { (Format.calendar.dateComponents([.day], from: Format.calendar.startOfDay(for: $0), to: d.day).day ?? 0) + 1 }
+                    let dayN = nth.map { "Dag \($0)" } ?? ""
+                    let place = Timeline.stopOn(trip, d.day)?.name
+                    row(chosen: day == d.day, title: place ?? dayN, subtitle: place != nil ? dayN : Format.shortDay(d.day), photos: d.photos, value: d.day) { fg in
+                        VStack(spacing: 0) {
+                            Text("\(Format.calendar.component(.day, from: d.day))").font(.outfit(18, 700))
+                            Text(MapDayPill.weekday(d.day)).font(.inter(10.5, 600)).opacity(0.8)
+                        }
+                        .foregroundStyle(fg)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 22)
+            .padding(.bottom, 16)
+        }
+        .scrollIndicators(.hidden)
+        .presentationDetents(days.count > 6 ? [.medium, .large] : [.medium])
+        .presentationBackground(Brand.paper)
+    }
+
+    private func row(chosen: Bool, title: String, subtitle: String, photos: Int?, value: Date?, @ViewBuilder tile: (Color) -> some View) -> some View {
+        Button {
+            onPick(value)
+            dismiss()
+        } label: {
+            HStack(spacing: 14) {
+                tile(chosen ? .white : Brand.ink)
+                    .frame(width: 46, height: 46)
+                    .background(chosen ? Brand.accent : Brand.sunken, in: .rect(cornerRadius: 14))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.outfit(16, 600)).foregroundStyle(Brand.ink).lineLimit(1)
+                    Text(subtitle).font(.inter(13, 500)).foregroundStyle(Brand.inkSoft).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                if chosen {
+                    Image(systemName: "checkmark").font(.system(size: 17, weight: .bold)).foregroundStyle(Brand.accent)
+                        .transition(.scale(scale: 0.7).combined(with: .opacity))
+                } else if let photos, photos > 0 {
+                    HStack(spacing: 5) {
+                        Image(systemName: "camera").font(.system(size: 13, weight: .semibold))
+                        Text("\(photos)").font(.inter(13, 600)).monospacedDigit()
+                    }
+                    .foregroundStyle(Brand.inkSoft)
+                }
+            }
+            .padding(.leading, 10)
+            .padding(.trailing, 16)
+            .padding(.vertical, 10)
+            .background(chosen ? Brand.accent.opacity(0.16) : Brand.raised,
+                        in: ConcentricRectangle(corners: .concentric(minimum: .fixed(20)), isUniform: true))
+            .contentShape(.rect)
+        }
+        .buttonStyle(PressStyle(scale: 0.98))
+        .accessibilityAddTraits(chosen ? .isSelected : [])
     }
 }
 
@@ -1130,7 +1254,7 @@ struct FullMapView: View {
             .onChange(of: focus) { withAnimation(.smooth(duration: 0.5)) { position = .rect(frame) } }
             .overlay(alignment: .bottomLeading) {
                 if let day, days.count >= 2 {
-                    MapDayPill(days: days, day: day)
+                    MapDayPill(trip: trip, days: days, day: day)
                         .padding(.leading, 16)
                         .padding(.bottom, 8)
                 }
