@@ -350,7 +350,7 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
             Row(Modifier.padding(top = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f).height(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) {
-                        if (newPassword.isEmpty()) Text("wachtwoord (optioneel)", style = TextStyle(fontFamily = Inter, fontSize = 14.5.sp, color = cs.onSurfaceVariant))
+                        if (newPassword.isEmpty()) Text("Wachtwoord (optioneel)", style = TextStyle(fontFamily = Inter, fontSize = 14.5.sp, color = cs.onSurfaceVariant))
                         BasicTextField(newPassword, { newPassword = it.take(128) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 14.5.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
                     }
                 }
