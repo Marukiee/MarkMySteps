@@ -24,7 +24,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Api.init(applicationContext)
-        if (intent?.getBooleanExtra("dryRun", false) == true) Api.dryRun = true
+        if (intent?.getBooleanExtra("dryRun", false) == true) {
+            Api.dryRun = true
+            // Said at start, so a test can check the flag took before it taps anything that writes.
+            android.util.Log.i("MmsDryRun", "dry run on: writes are answered on the phone and never sent")
+        }
         ThemePref.init(applicationContext)
         MapStylePref.init(applicationContext)
         CardSizePref.init(applicationContext)

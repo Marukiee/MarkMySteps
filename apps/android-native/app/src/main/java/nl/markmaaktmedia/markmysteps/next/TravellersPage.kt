@@ -72,7 +72,9 @@ private fun Modifier.tap(onClick: () -> Unit = {}): Modifier = composed {
     clickable(source, ripple(), onClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick); onClick() }).graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
-private class Stat(val value: Int, val label: String, val icon: List<Shape24>, val shape: androidx.graphics.shapes.RoundedPolygon)
+private class Stat(val value: Int?, val label: String, val icon: List<Shape24>, val shape: androidx.graphics.shapes.RoundedPolygon)
+
+private var lastStats: Remote.Stats? = null
 
 private data class Friend(val name: String, val handle: String, val color: Color, val shared: Int, val id: String? = null, val hasAvatar: Boolean = false)
 
@@ -92,8 +94,9 @@ fun TravellersPage(onOpenTrip: (String) -> Unit = {}, onOpenRequests: () -> Unit
     // you left it (scroll, figures, no counting up again). Switching tabs makes a new page, so that opens at the top.
     val listScroll = androidx.compose.foundation.rememberScrollState()
     val me0 = Data.me
-    val liveStats by androidx.compose.runtime.produceState<Remote.Stats?>(null, me0?.id, Data.version) {
-        if (Data.live && me0 != null) value = runCatching { Remote.stats(me0.id) }.getOrNull()
+    // The last figures are kept, so coming back to Reizigers shows them at once while fresh ones are read.
+    val liveStats by androidx.compose.runtime.produceState(lastStats, me0?.id, Data.version) {
+        if (Data.live && me0 != null) runCatching { Remote.stats(me0.id) }.getOrNull()?.let { value = it; lastStats = it }
     }
     val friendList by androidx.compose.runtime.produceState<List<Remote.Friend>?>(null, Data.version) {
         value = if (Data.live) runCatching { Remote.friends() }.getOrNull() else null
@@ -192,11 +195,9 @@ private fun TravellersList(
                 }
             }
 
-            if (Data.live && live == null) {
-                // Signed in, the server's figures are awaited in the tiles' own shape, so nothing shows wrong numbers first.
-                val tone = cs.surfaceContainerHigh
-                repeat(3) { Row(Modifier.fillMaxWidth().padding(bottom = 3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) { repeat(2) { Box(Modifier.weight(1f).height(112.dp).clip(RoundedCornerShape(8.dp)).background(tone)) } } }
-            } else StatsGrid(stats)
+            // The tiles are always there with their icon, colour and label; only a figure not known yet waits as a
+            // soft shape in its own place, so nothing shows a grey block or a wrong number first.
+            StatsGrid(if (Data.live && live == null) stats.map { Stat(null, it.label, it.icon, it.shape) } else stats)
 
             // Where you have been, in one panel: the slowly turning globe with those countries filled in, and the
             // same countries as chips under it, because that is what the globe shows.
@@ -288,11 +289,13 @@ private fun TravellersList(
 
 /** A big number on a tonal tile, counting up when the page arrives; a small shape in the corner. */
 @Composable
-private fun StatTile(value: Int, label: String, icon: List<Shape24>, mark: Shape, shape: Shape, order: Int, modifier: Modifier) {
+private fun StatTile(value: Int?, label: String, icon: List<Shape24>, mark: Shape, shape: Shape, order: Int, modifier: Modifier) {
     val cs = MaterialTheme.colorScheme
-    val count = remember { Animatable(0f) }
+    // Figures already known (kept from the last visit) stand at once; only new ones count up.
+    val count = remember { Animatable(value?.toFloat() ?: 0f) }
     val spec = MaterialTheme.motionScheme.slowEffectsSpec<Float>()
     LaunchedEffect(value) {
+        if (value == null) return@LaunchedEffect
         kotlinx.coroutines.delay(60L * order)
         count.animateTo(value.toFloat(), spec)
     }
@@ -302,10 +305,11 @@ private fun StatTile(value: Int, label: String, icon: List<Shape24>, mark: Shape
         // The figure's icon on its own in the top right corner, as on the web.
         LineIcon(icon, fg.copy(alpha = 0.85f), size = 26.dp, stroke = 1.9f, modifier = Modifier.align(Alignment.TopEnd))
         Column(Modifier.align(Alignment.BottomStart)) {
-            Text(
-                dots(count.value.roundToInt()),
-                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 34.sp, letterSpacing = (-0.03).em, color = fg),
-            )
+            val figure = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 34.sp, letterSpacing = (-0.03).em, color = fg)
+            androidx.compose.animation.Crossfade(value == null, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "figure") { waiting ->
+                if (waiting) Text("0000", style = figure.copy(color = Color.Transparent), modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(fg.copy(alpha = 0.12f)))
+                else Text(dots(count.value.roundToInt()), style = figure)
+            }
             Text(label, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.sp, color = fg.copy(alpha = 0.8f)))
         }
     }

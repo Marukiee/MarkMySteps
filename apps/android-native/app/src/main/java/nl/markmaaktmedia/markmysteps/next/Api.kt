@@ -442,8 +442,10 @@ object Remote {
             (0 until f.length()).map { f.getJSONObject(it) }.mapNotNull { x ->
                 val p = x.getJSONObject("properties"); val g = x.getJSONObject("geometry").getJSONArray("coordinates")
                 val name = p.optString("name").takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                Place(name, listOf(p.optString("state"), p.optString("country")).filter { it.isNotBlank() }.joinToString(", "),
-                    p.optString("countrycode").takeIf { it.isNotBlank() }?.uppercase(), g.getDouble(0) to g.getDouble(1))
+                val cc = p.optString("countrycode").takeIf { it.isNotBlank() }?.uppercase()
+                // Photon only speaks English, German and French: the country is named in Dutch from its code, the region stays as given.
+                val country = cc?.let { java.util.Locale("", it).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL")) }?.takeIf { it.isNotBlank() && it != cc } ?: p.optString("country")
+                Place(name, listOf(p.optString("state"), country).filter { it.isNotBlank() }.joinToString(", "), cc, g.getDouble(0) to g.getDouble(1))
             }.distinctBy { it.name + it.region }.take(6)
         }.getOrDefault(emptyList())
     }
@@ -654,7 +656,7 @@ object Remote {
         }.sortedByDescending { it.start }
     }
 
-    /** The planned stops of a trip, day trips left out, with their dates worked out from the trip's start. */
+    /** The planned stops of a trip, each with its day trips, with their dates worked out from the trip's start. */
     suspend fun stops(trip: Trip): Pair<List<Stop>, Pair<Leg?, Leg?>> {
         val list = JSONArray(Api.get("/api/trips/${trip.remoteId}/stops"))
         val start = trip.start ?: LocalDate.now()
@@ -664,9 +666,20 @@ object Remote {
         var back: Leg? = null
         var outboundId: String? = null
         var backId: String? = null
-        val rows = (0 until list.length()).map { list.getJSONObject(it) }
-            .filter { it.isNull("parentStopId") }
-            .sortedBy { it.optInt("orderIndex") }
+        val all = (0 until list.length()).map { list.getJSONObject(it) }
+        val rows = all.filter { it.isNull("parentStopId") }.sortedBy { it.optInt("orderIndex") }
+        // Day trips hang under their stop in the planner; the route, the map and the nights leave them out.
+        fun text(o: JSONObject, key: String) = o.optString(key).takeIf { it.isNotBlank() && it != "null" }
+        val dayTrips = all.filter { !it.isNull("parentStopId") }.sortedBy { it.optInt("orderIndex") }.groupBy { it.optString("parentStopId") }.mapValues { (_, list) ->
+            list.map { o ->
+                val la = o.optDouble("latitude"); val lo = o.optDouble("longitude")
+                DayTrip(
+                    o.optString("id"), o.optString("name"), flag(text(o, "countryCode")),
+                    if (la.isNaN() || lo.isNaN()) null else lo to la,
+                    (text(o, "dayTripDate") ?: text(o, "arrivalDate"))?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() },
+                )
+            }
+        }
         rows.forEachIndexed { index, o ->
             val mode = when (o.optString("travelMode")) {
                 "FLIGHT" -> Mode.Flight; "TRAIN" -> Mode.Train; "BUS" -> Mode.Bus; "BOAT" -> Mode.Boat; else -> Mode.Car
@@ -676,7 +689,10 @@ object Remote {
             val lat = o.optDouble("latitude"); val lon = o.optDouble("longitude")
             // The way there and back are stops of their own with no nights, at the ends.
             if (nights == 0 && (index == 0 || index == rows.lastIndex) && (name.startsWith("Heen") || name.startsWith("Terug"))) {
-                val leg = Leg(mode, o.optString("fromAirport").ifBlank { "Thuis" }, o.optString("toAirport").ifBlank { "" }, 0)
+                val leg = Leg(
+                    mode, o.optString("fromAirport").ifBlank { "Thuis" }, o.optString("toAirport").ifBlank { "" }, 0,
+                    id = o.optString("id"), flightNumber = text(o, "flightNumber"), fromAirport = text(o, "fromAirport"), toAirport = text(o, "toAirport"),
+                )
                 if (index == 0) { outbound = leg; outboundId = o.optString("id") } else { back = leg; backId = o.optString("id") }
                 return@forEachIndexed
             }
@@ -691,6 +707,10 @@ object Remote {
                 mode = mode,
                 start = from,
                 id = o.optString("id"),
+                flightNumber = text(o, "flightNumber"),
+                fromAirport = text(o, "fromAirport"),
+                toAirport = text(o, "toAirport"),
+                dayTrips = dayTrips[o.optString("id")].orEmpty(),
             )
         }
         trip.remoteId?.let { legStopIds[it] = outboundId to backId }

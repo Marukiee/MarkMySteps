@@ -362,7 +362,9 @@ private fun buildScene(trips: List<Trip>, dark: Boolean): GlobeScene {
             }
         }
         flush()
-        for (f in trip.flights) {
+        // The same legs the plane flies (with a layover as its own hop), so it always flies over its line.
+        val hops = trip.flightLegs.flatMap { it.zipWithNext() }.ifEmpty { trip.flights }
+        for (f in hops) {
             bows += Triple(f.first, f.second, trip.id)
             airports += f.first
             airports += f.second

@@ -182,7 +182,7 @@ private fun NoticeRow(
     val cs = MaterialTheme.colorScheme
     val rid = n.requestId
     val pending = n.kind == "ACCESS_REQUESTED" && rid != null && n.requestStatus == "PENDING" && answered == null
-    Row(Modifier.fillMaxWidth().clip(shape).background(if (n.read) cs.surfaceContainerHigh else cs.secondaryContainer).padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)) {
+    Row(Modifier.fillMaxWidth().clip(shape).background(if (n.read) cs.surfaceContainerHigh else cs.secondaryContainer).padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 2.dp)) {
         // The person, with a small mark of what happened on the corner of their photo.
         Box {
             Avatar(n.actorId, n.actor ?: "?", n.actorAvatar, personColor(n.actorId), Modifier.size(40.dp))
@@ -219,7 +219,8 @@ private fun NoticeRow(
             }
         }
         // Taking the line away: for a request only the line goes, the request itself stays open.
-        Box(Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onDismiss), contentAlignment = Alignment.Center) {
+        // In the line's top right corner.
+        Box(Modifier.offset(x = 2.dp, y = (-8).dp).size(36.dp).clip(CircleShape).clickable(onClick = onDismiss), contentAlignment = Alignment.Center) {
             LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), cs.onSurfaceVariant, size = 16.dp, stroke = 2.2f)
         }
     }

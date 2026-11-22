@@ -248,7 +248,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                         when {
                             trip != null -> TripPage(trip, dark, onBack = { open = null }, startExtra = startPage)
                             key == "page2" -> SettingsPage(onSignIn = { Data.signOut(); page = 0; gate = "login" })
-                            key == "page1" -> TravellersPage(onOpenTrip = { id -> Data.all.firstOrNull { it.id == id || it.remoteId == id }?.let { open = it } }, onOpenRequests = { page = 2 })
+                            key == "page1" -> TravellersPage(onOpenTrip = { id -> Data.all.firstOrNull { it.id == id || it.remoteId == id }?.let { open = it } }, onOpenRequests = { Data.openSettings = "accounts"; page = 2 })
                             else -> AccountHost(onSignIn = { Data.signOut(); page = 0; gate = "login" }) { openAccount -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it }, onProfile = openAccount, onPeople = { Data.peopleFor = it.id; open = it }) }
                         }
                     }
@@ -290,7 +290,7 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                     onTripTap = onOpenTrip,
                     onScale = { globeScale = it },
                     centerLon = 14.0,
-                    trips = Data.all,
+                    trips = Data.all.filter { !it.shared },
                     style = GlobeStyle(
                         sphere = if (dark) Color(0xFF101418) else Color(0xFFEADFCE),
                         land = if (dark) Color(0xFF29313A) else Color(0xFFD8C9AD),
@@ -333,11 +333,24 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                     if (loading) HomePlaceholders() else Column {
                         if (Data.upcoming.isNotEmpty()) SectionTitle("Aankomend & onderweg", Modifier.padding(top = 22.dp, bottom = 12.dp).arrive(1))
                         // Every trip of your own under way or to come, not only the first.
+                        val upMotion = MaterialTheme.motionScheme
                         Data.upcoming.forEachIndexed { i, next ->
-                            // Big by default; "Klein" from its menu makes it a row like the trips below.
-                            val m = Modifier.padding(top = if (i == 0) 0.dp else 10.dp).arrive(2 + i)
-                            if (CardSizePref.big(next.id, autoBig = true)) NextTripCard(next, onOpen = { onOpenTrip(next) }, onPeopleTrip = onPeople, modifier = m)
-                            else TripRow(next, RoundedCornerShape(28.dp), dark, onOpen = { onOpenTrip(next) }, onPeopleTrip = onPeople, modifier = m, autoBig = true)
+                            // Big by default; "Klein" from its menu makes it a row like the trips below. The change
+                            // morphs in place and everything under it slides along.
+                            androidx.compose.runtime.key(next.id) {
+                                AnimatedContent(
+                                    CardSizePref.big(next.id, autoBig = true),
+                                    modifier = Modifier.padding(top = if (i == 0) 0.dp else 10.dp).arrive(2 + i),
+                                    transitionSpec = {
+                                        (fadeIn(upMotion.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(upMotion.defaultSpatialSpec(), initialScale = 0.94f)) togetherWith
+                                            fadeOut(upMotion.fastEffectsSpec()) using androidx.compose.animation.SizeTransform(clip = false) { _, _ -> upMotion.defaultSpatialSpec() }
+                                    },
+                                    label = "upSize",
+                                ) { big ->
+                                    if (big) NextTripCard(next, onOpen = { onOpenTrip(next) }, onPeopleTrip = onPeople)
+                                    else TripRow(next, RoundedCornerShape(28.dp), dark, onOpen = { onOpenTrip(next) }, onPeopleTrip = onPeople, autoBig = true)
+                                }
+                            }
                         }
                         if (Data.live && Data.trips.isEmpty()) EmptyTrips()
                         PastOrShared(tab, onTab = { tab = it }, modifier = Modifier.padding(top = 26.dp, bottom = 4.dp).arrive(3))
@@ -390,9 +403,10 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                                     }
                                 }
                             }
-                            val firstBig = first != null && isBig(first)
-                            if (first != null && firstBig) Box(Modifier.padding(top = 14.dp)) { Item(first, true, null, null, 0) }
-                            (if (firstBig) list.drop(1) else list).groupBy { it.year }.forEach { (year, trips) ->
+                            // The latest trip keeps its own place above the years, big or small, so changing its size
+                            // morphs it where it is instead of moving it into another list.
+                            if (first != null) Box(Modifier.padding(top = 14.dp)) { Item(first, isBig(first), null, null, 0) }
+                            list.drop(1).groupBy { it.year }.forEach { (year, trips) ->
                                 SectionTitle(year, Modifier.padding(top = 18.dp, bottom = 10.dp), small = true)
                                 Column {
                                     trips.forEachIndexed { i, trip ->

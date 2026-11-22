@@ -75,7 +75,8 @@ private class Section(val id: String, val icon: List<Shape24>, val title: String
 
 @Composable
 fun SettingsPage(onSignIn: () -> Unit = {}) {
-    var open by remember { mutableStateOf<String?>(null) }
+    // Straight to a page when asked (Aanvragen bekijken opens Accounts); that page opens even while "admin" is still being read.
+    var open by remember { mutableStateOf<String?>(Data.openSettings.also { Data.openSettings = null }) }
     var admin by remember { mutableStateOf(Data.live && SettingsRemote.cachedAdmin()) }
     LaunchedEffect(Data.live, Data.version) { admin = Data.live && runCatching { SettingsRemote.account().admin }.getOrDefault(false) }
     val sections = listOfNotNull(

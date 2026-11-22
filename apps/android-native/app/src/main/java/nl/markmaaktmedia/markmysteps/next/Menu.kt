@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
@@ -43,8 +44,30 @@ class MenuEntry(
 fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntry>>, anchorHeight: androidx.compose.ui.unit.Dp = 40.dp) {
     val cs = MaterialTheme.colorScheme
     val shown = groups.filter { it.isNotEmpty() }
-    // It opens over the button it came from, not hanging just below it.
-    DropdownMenuPopup(expanded = expanded, onDismissRequest = onDismiss, offset = androidx.compose.ui.unit.DpOffset(0.dp, -anchorHeight)) {
+    // It opens over the button it came from: its top on the button's top and its right edge on the button's
+    // right edge, moved up only as far as needed to stay on screen. (The material popup shifted itself by the
+    // room below, so a fixed offset landed differently on every card.)
+    val visible = androidx.compose.runtime.remember { androidx.compose.animation.core.MutableTransitionState(false) }
+    visible.targetState = expanded
+    if (!visible.currentState && !visible.targetState) return
+    val margin = with(androidx.compose.ui.platform.LocalDensity.current) { 12.dp.roundToPx() }
+    val position = androidx.compose.runtime.remember(margin) {
+        object : androidx.compose.ui.window.PopupPositionProvider {
+            override fun calculatePosition(anchorBounds: androidx.compose.ui.unit.IntRect, windowSize: androidx.compose.ui.unit.IntSize, layoutDirection: androidx.compose.ui.unit.LayoutDirection, popupContentSize: androidx.compose.ui.unit.IntSize): androidx.compose.ui.unit.IntOffset {
+                val x = (anchorBounds.right - popupContentSize.width).coerceIn(margin, maxOf(margin, windowSize.width - popupContentSize.width - margin))
+                val y = anchorBounds.top.coerceIn(margin, maxOf(margin, windowSize.height - popupContentSize.height - margin))
+                return androidx.compose.ui.unit.IntOffset(x, y)
+            }
+        }
+    }
+    val motion = MaterialTheme.motionScheme
+    androidx.compose.ui.window.Popup(popupPositionProvider = position, onDismissRequest = onDismiss, properties = androidx.compose.ui.window.PopupProperties(focusable = true)) {
+      androidx.compose.animation.AnimatedVisibility(
+        visible,
+        enter = androidx.compose.animation.scaleIn(motion.fastSpatialSpec(), initialScale = 0.85f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0f)) + androidx.compose.animation.fadeIn(motion.fastEffectsSpec()),
+        exit = androidx.compose.animation.scaleOut(motion.fastSpatialSpec(), targetScale = 0.9f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0f)) + androidx.compose.animation.fadeOut(motion.fastEffectsSpec()),
+      ) {
+      androidx.compose.foundation.layout.Column {
         val text = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp)
         val edge = BorderStroke(1.dp, cs.outlineVariant.copy(alpha = 0.55f))
         shown.forEachIndexed { g, entries ->
@@ -52,7 +75,7 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
             DropdownMenuGroup(
                 shapes = MenuDefaults.groupShape(g, shown.size),
                 // Room to breathe: the choices side by side never squeeze.
-                modifier = Modifier.widthIn(min = 280.dp),
+                modifier = Modifier.widthIn(min = 248.dp),
                 containerColor = cs.surfaceContainerHigh,
                 tonalElevation = 0.dp,
                 shadowElevation = 0.dp,
@@ -65,7 +88,8 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                     // One choice out of a few: connected buttons side by side, the chosen one filled.
                     androidx.compose.foundation.layout.Row(
                         // On the same edges as the lines under it (each line keeps a small inset inside its group).
-                        Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        // The same gap above and below it as between the lines under it.
+                        Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 2.dp).offset(y = (-1.5).dp),
                         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.material3.ButtonGroupDefaults.ConnectedSpaceBetween),
                     ) {
                         inlines.forEachIndexed { i, e ->
@@ -93,7 +117,6 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                             }
                         }
                     }
-                    if (lines.isNotEmpty()) Spacer(Modifier.height(4.dp))
                 }
                 lines.forEachIndexed { i, e ->
                     val on = e.selected == true
@@ -111,5 +134,7 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                 }
             }
         }
+    }
+      }
     }
 }
