@@ -16,6 +16,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -54,13 +57,22 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
     // It opens over the button it came from: its top on the button's top and its right edge on the button's
     // right edge, moved up only as far as needed to stay on screen. (The material popup shifted itself by the
     // room below, so a fixed offset landed differently on every card.)
-    val visible = androidx.compose.runtime.remember { androidx.compose.animation.core.MutableTransitionState(false) }
-    visible.targetState = expanded
-    if (!visible.currentState && !visible.targetState) return
+    // It grows out of the ⋯ button itself: at the start the shape is exactly that round button, then it opens
+    // from the button's corner into the menu; closing (a choice, or a tap beside it) folds it back into the
+    // button. So button and menu are one movement, not a block that appears next to a circle.
+    val open = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(expanded) {
+        if (expanded) open.animateTo(1f, androidx.compose.animation.core.tween(320, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)))
+        else open.animateTo(0f, androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+    }
+    if (!expanded && open.value <= 0f) return
+    // The button it came from, as the popup is placed on it.
+    var anchor by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     val margin = with(androidx.compose.ui.platform.LocalDensity.current) { 12.dp.roundToPx() }
     val position = androidx.compose.runtime.remember(margin) {
         object : androidx.compose.ui.window.PopupPositionProvider {
             override fun calculatePosition(anchorBounds: androidx.compose.ui.unit.IntRect, windowSize: androidx.compose.ui.unit.IntSize, layoutDirection: androidx.compose.ui.unit.LayoutDirection, popupContentSize: androidx.compose.ui.unit.IntSize): androidx.compose.ui.unit.IntOffset {
+                if (anchor != anchorBounds.size) anchor = anchorBounds.size
                 val x = (anchorBounds.right - popupContentSize.width).coerceIn(margin, maxOf(margin, windowSize.width - popupContentSize.width - margin))
                 val y = anchorBounds.top.coerceIn(margin, maxOf(margin, windowSize.height - popupContentSize.height - margin))
                 return androidx.compose.ui.unit.IntOffset(x, y)
@@ -69,11 +81,25 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
     }
     val motion = MaterialTheme.motionScheme
     androidx.compose.ui.window.Popup(popupPositionProvider = position, onDismissRequest = onDismiss, properties = androidx.compose.ui.window.PopupProperties(focusable = true)) {
-      androidx.compose.animation.AnimatedVisibility(
-        visible,
-        enter = androidx.compose.animation.scaleIn(motion.fastSpatialSpec(), initialScale = 0.85f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0f)) + androidx.compose.animation.fadeIn(motion.fastEffectsSpec()),
-        exit = androidx.compose.animation.scaleOut(motion.fastSpatialSpec(), targetScale = 0.9f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0f)) + androidx.compose.animation.fadeOut(motion.fastEffectsSpec()),
+      val density = androidx.compose.ui.platform.LocalDensity.current
+      val cornerFull = with(density) { 20.dp.toPx() }
+      androidx.compose.foundation.layout.Box(
+        Modifier.graphicsLayer {
+            val k = open.value
+            val aw = anchor.width.toFloat().coerceAtLeast(1f); val ah = anchor.height.toFloat().coerceAtLeast(1f)
+            val full = this.size
+            val w = aw + (full.width - aw) * k
+            val h = ah + (full.height - ah) * k
+            val r = ah / 2f + (cornerFull - ah / 2f) * k
+            // A rounded box from the button's top right corner, growing to the whole menu.
+            shape = object : androidx.compose.ui.graphics.Shape {
+                override fun createOutline(size: androidx.compose.ui.geometry.Size, layoutDirection: androidx.compose.ui.unit.LayoutDirection, density: androidx.compose.ui.unit.Density) =
+                    androidx.compose.ui.graphics.Outline.Rounded(androidx.compose.ui.geometry.RoundRect(size.width - w, 0f, size.width, h, androidx.compose.ui.geometry.CornerRadius(r)))
+            }
+            clip = true
+        },
       ) {
+      androidx.compose.foundation.layout.Box(Modifier.graphicsLayer { alpha = ((open.value - 0.1f) / 0.6f).coerceIn(0f, 1f) }) {
       // As wide as its widest line needs, within a calm range; never the width of the screen.
       androidx.compose.foundation.layout.Column(Modifier.width(androidx.compose.foundation.layout.IntrinsicSize.Max).widthIn(min = 200.dp, max = 300.dp)) {
         val text = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp)
@@ -144,6 +170,7 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
             }
         }
     }
+      }
       }
     }
 }
