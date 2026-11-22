@@ -403,7 +403,7 @@ struct GlobeHero<Overlay: View>: View {
                 if d < reach && d < (best?.1 ?? .infinity) { best = (trip.id, d) }
             }
         }
-        withAnimation(.snappy) { selected = (best?.0 == selected) ? nil : best?.0 }
+        withAnimation(.calm) { selected = (best?.0 == selected) ? nil : best?.0 }
     }
 
     @ViewBuilder private var card: some View {

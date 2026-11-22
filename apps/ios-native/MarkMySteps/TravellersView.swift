@@ -6,9 +6,16 @@ import SwiftUI
  */
 
 struct TravellersView: View {
+    /// Bumped when another tab is chosen: next time the page opens at its top, the bell in view.
+    var resetToken = 0
+    var onOpenRequests: () -> Void = {}
     @Environment(Store.self) private var store
-    @State private var path: [Demo.Friend] = Launch.friend.flatMap { h in Demo.friends.first { $0.handle == h } }.map { [$0] } ?? []
-    @State private var requests = false
+    @State private var path: NavigationPath = {
+        var p = NavigationPath()
+        if let f = Launch.friend.flatMap({ h in Demo.friends.first { $0.handle == h } }) { p.append(f) }
+        return p
+    }()
+    @State private var requests = Launch.page == "notices"
     @State private var unread = 0
     @Namespace private var zoom
 
@@ -17,7 +24,7 @@ struct TravellersView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        profile.arrive(0)
+                        profile.arrive(0).id("top")
                         stats.padding(.top, 14)
                         countries
                         people
@@ -29,6 +36,17 @@ struct TravellersView: View {
                     guard Launch.page == "travellers", let anchor = Launch.scroll else { return }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { proxy.scrollTo(anchor, anchor: UnitPoint(x: 0.5, y: 0.13)) }
                 }
+                .onChange(of: resetToken) {
+                    // Out of sight: back to the list and its top without any animation. Coming back from a
+                    // companion's page within the tab keeps the place, as that never bumps the token.
+                    var quiet = Transaction()
+                    quiet.disablesAnimations = true
+                    withTransaction(quiet) {
+                        path = NavigationPath()
+                        requests = false
+                        proxy.scrollTo("top", anchor: .top)
+                    }
+                }
             }
             .background(Brand.paper)
             .navigationTitle("Reizigers")
@@ -37,17 +55,32 @@ struct TravellersView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     // The dot only when there really is something new.
                     let dot = store.live ? unread > 0 : true
-                    Button { requests = true } label: {
+                    Button { Haptic.tap(); requests = true } label: {
                         Image(systemName: dot ? "bell.badge" : "bell")
                             .symbolRenderingMode(.palette)
                             .foregroundStyle(Brand.accent, Brand.ink)
                     }
                     .tint(.primary)
                     .accessibilityLabel(dot ? "Meldingen, iets nieuws" : "Meldingen")
+                    // A floating panel out of the bell's corner, not a sheet from the bottom.
+                    .popover(isPresented: $requests, arrowEdge: .top) {
+                        NoticesPanel(
+                            demo: !store.live,
+                            onChanged: { unread = 0 },
+                            onOpenTrip: { id in
+                                requests = false
+                                if let trip = store.trips.first(where: { $0.id == id || $0.remoteId == id }) {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { path.append(trip.id) }
+                                }
+                            },
+                            onOpenRequests: {
+                                requests = false
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onOpenRequests() }
+                            }
+                        )
+                        .presentationCompactAdaptation(.popover)
+                    }
                 }
-            }
-            .sheet(isPresented: $requests) {
-                if store.live { NoticesSheet { unread = 0 } } else { RequestsSheet(live: false) }
             }
             .task(id: store.live) {
                 if store.live { unread = (try? await Remote.noticeCount()) ?? 0 }
@@ -116,11 +149,12 @@ struct TravellersView: View {
             : Demo.countryNames
         if !all.isEmpty {
             Header(text: "Landen").padding(.top, 26).id("countries")
-            // Your countries on a small globe that turns slowly, each in its flag's hue.
+            // The globe and the countries in one panel: your countries on a small globe that turns slowly, each in
+            // its flag's hue, and below it the same countries by name.
+            VStack(spacing: 14) {
             CountryGlobe(codes: all.compactMap { Remote.code(fromFlag: $0) }.filter { code in !store.live ? visited.contains(Remote.flag(code)) : true })
-                .frame(maxWidth: 260)
+                .frame(maxWidth: 240)
                 .frame(maxWidth: .infinity)
-                .padding(.bottom, 14)
             FlowLayout(spacing: 8) {
                 ForEach(all, id: \.self) { flag in
                     let planned = !store.live && !visited.contains(flag)
@@ -136,10 +170,14 @@ struct TravellersView: View {
                     .padding(.leading, 10)
                     .padding(.trailing, 14)
                     .frame(height: 38)
-                    .background(planned ? Brand.sunken : Brand.raised, in: .capsule)
+                    .background(planned ? Brand.raised : Brand.sunken, in: .capsule)
                     .overlay { if planned { Capsule().strokeBorder(Brand.line, style: StrokeStyle(lineWidth: 1, dash: [3, 3])) } }
                 }
             }
+            }
+            .padding(.top, 16)
+            .padding([.horizontal, .bottom], 14)
+            .background(Brand.raised, in: .rect(cornerRadius: 26))
             .arrive(7)
         }
     }
@@ -301,43 +339,6 @@ struct FlowLayout: Layout {
             x += size.width + spacing
             row = max(row, size.height)
         }
-    }
-}
-
-/// Requests and invitations: in the demo one request, after signing in what the server has.
-private struct RequestsSheet: View {
-    let live: Bool
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                if live {
-                    Text("Geen nieuwe meldingen.").foregroundStyle(.secondary)
-                } else {
-                    Section {
-                        HStack(spacing: 12) {
-                            Text("L").font(.outfit(15, 700)).foregroundStyle(.white)
-                                .frame(width: 36, height: 36).background(Color(hex: 0x2BB6A8), in: .circle)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Lotte wil mee naar Georgië 2026").font(.inter(15, 550))
-                                Text("Beantwoorden doe je in de web-app.").font(.inter(13, 450)).foregroundStyle(.secondary)
-                            }
-                        }
-                    } footer: {
-                        Text("Deze testapp leest alleen.")
-                    }
-                }
-            }
-            .navigationTitle("Meldingen")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(role: .close) { dismiss() }.tint(.primary)
-                }
-            }
-        }
-        .presentationDetents([.medium])
     }
 }
 

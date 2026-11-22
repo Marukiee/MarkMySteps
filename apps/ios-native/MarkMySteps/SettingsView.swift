@@ -86,6 +86,8 @@ struct SettingsIcon: View {
 
 struct SettingsView: View {
     let onSignIn: () -> Void
+    /// Bumped when another tab is chosen: next time Instellingen opens on its main list.
+    var resetToken = 0
     @Environment(Store.self) private var store
     @State private var path: [SettingsSection] = Launch.section.flatMap { s in SettingsSection.allCases.first { $0.rawValue == s } }.map { [$0] } ?? []
 
@@ -131,6 +133,12 @@ struct SettingsView: View {
             .navigationTitle("Instellingen")
             .navigationDestination(for: SettingsSection.self) { SectionPage(section: $0, onSignIn: onSignIn) }
         }
+        .onChange(of: resetToken) {
+            // Out of sight, so without the back animation.
+            var quiet = Transaction()
+            quiet.disablesAnimations = true
+            withTransaction(quiet) { path = [] }
+        }
     }
 
     private var name: String { store.me?.name.isEmpty == false ? store.me!.name : "Mark" }
@@ -145,6 +153,7 @@ private struct SectionPage: View {
     @AppStorage("set.selfLocation") private var selfLocation = false
     @AppStorage("set.notify") private var notify = true
     @State private var confirmSignOut = false
+    private let sizes = CardSizes.shared
     @State private var cacheCleared = false
 
     var body: some View {
@@ -208,7 +217,28 @@ private struct SectionPage: View {
             .pickerStyle(.segmented)
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())
+            .sensoryFeedback(.selection, trigger: theme)
         } header: { Text("Thema") }
+        Section {
+            Picker("Kaartgrootte", selection: Binding(get: { sizes.standard }, set: { v in withAnimation(.calm) { sizes.standard = v } })) {
+                Text("Automatisch").tag(CardSizes.auto)
+                Text("Groot").tag(CardSizes.large)
+                Text("Klein").tag(CardSizes.compact)
+            }
+            .pickerStyle(.segmented)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
+            .sensoryFeedback(.selection, trigger: sizes.standard)
+            Button(role: .destructive) {
+                withAnimation(.calm) { sizes.clear() }
+                Haptic.tap()
+            } label: {
+                Label("Handmatige keuzes wissen", systemImage: "trash").foregroundStyle(sizes.overrides.isEmpty ? Brand.inkSoft : .red)
+            }
+            .disabled(sizes.overrides.isEmpty)
+        } header: { Text("Reizen op de homepage") } footer: {
+            Text("Automatisch: aankomende reizen en de laatste reis groot, de rest als rij. Per reis kies je het ook in het ⋯-menu.")
+        }
         Section("Taal en kaart") {
             LabeledContent { Text("Nederlands") } label: { Label("Taal", systemImage: "globe") }
             LabeledContent { Text("draait mee met je vinger") } label: { Label("Globe", systemImage: "globe.europe.africa") }

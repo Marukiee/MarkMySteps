@@ -140,10 +140,10 @@ struct Arrive: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(shown ? 1 : 0)
-            .offset(y: shown ? 0 : 24)
+            .offset(y: shown ? 0 : 14)
             .onAppear {
                 guard !shown else { return }
-                withAnimation(.spring(duration: 0.5, bounce: 0.18).delay(Double(order) * 0.045)) { shown = true }
+                withAnimation(.smooth(duration: 0.45).delay(Double(order) * 0.04)) { shown = true }
             }
     }
 }
@@ -152,14 +152,25 @@ extension View {
     func arrive(_ order: Int) -> some View { modifier(Arrive(order: order)) }
 }
 
-/// Cards dip a little under the finger, on a quick spring.
+/// Cards dip a little under the finger and settle back without a wobble, as in Apple's own apps.
 struct PressStyle: ButtonStyle {
-    var scale: CGFloat = 0.97
+    var scale: CGFloat = 0.98
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? scale : 1)
-            .animation(.spring(duration: 0.25, bounce: 0.3), value: configuration.isPressed)
+            .animation(.smooth(duration: 0.22), value: configuration.isPressed)
     }
+}
+
+extension Animation {
+    /// The app's one motion for content changes: Apple's smooth spring, no overshoot.
+    static let calm = Animation.smooth(duration: 0.32)
+}
+
+/// Light, tasteful taps: a selection that changes, a switch, a pull to an action. Never on scrolling.
+enum Haptic {
+    static func tap() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+    static func select() { UISelectionFeedbackGenerator().selectionChanged() }
 }
 
 // MARK: Text helpers

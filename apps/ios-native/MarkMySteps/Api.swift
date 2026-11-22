@@ -119,10 +119,21 @@ final class Api {
 
     func get(_ path: String) async throws -> Data { try await request("GET", path) }
 
+    /// Test mode: started with `-dryRun YES`, every write is answered here and never leaves the phone, so a
+    /// test can tap delete, rename or answer a request on real data without changing anything. Like Android's `Api.dryRun`.
+    static let dryRun: Bool = UserDefaults.standard.bool(forKey: "dryRun")
+
     /// A change on the server, only ever from something the person tapped.
     @discardableResult
     func send(_ method: String, _ path: String, body: [String: Any]? = nil) async throws -> Data {
-        try await request(method, path, body: body)
+        if Api.dryRun && method != "GET" {
+            // Only the names of the fields: a body can hold a password, a code or a key, and the log is no place for them.
+            let bare = path.split(separator: "?").first.map(String.init) ?? path
+            let fields = body.map { "{" + $0.keys.sorted().joined(separator: ",") + "}" } ?? ""
+            Api.log.notice("MmsDryRun \(method, privacy: .public) \(bare, privacy: .public) \(fields, privacy: .public)")
+            return Data("{}".utf8)
+        }
+        return try await request(method, path, body: body)
     }
 
     /// An image from the server, with the token; nil when it cannot be had.
@@ -583,6 +594,22 @@ enum Remote {
         try await Api.shared.send("PATCH", "/api/trips/\(rid)", body: ["color": hex ?? NSNull()])
     }
 
+    static func renameTrip(_ trip: Trip, _ title: String) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("PATCH", "/api/trips/\(rid)", body: ["title": title.trimmingCharacters(in: .whitespacesAndNewlines)])
+    }
+
+    static func deleteTrip(_ trip: Trip) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("DELETE", "/api/trips/\(rid)")
+    }
+
+    /// Leaving a trip someone else made: you take yourself off its members.
+    static func leaveTrip(_ trip: Trip, me: String) async throws {
+        guard let rid = trip.remoteId, !me.isEmpty else { return }
+        try await Api.shared.send("DELETE", "/api/trips/\(rid)/members/\(me)")
+    }
+
     static func syncPhotos(_ trip: Trip) async throws {
         guard let rid = trip.remoteId else { return }
         try await Api.shared.send("POST", "/api/trips/\(rid)/sync")
@@ -640,6 +667,9 @@ enum Remote {
 
     static func markNoticesRead() async throws { try await Api.shared.send("POST", "/api/notifications/read") }
 
+    /// Takes one line off the list; an unanswered request itself stays open, as on the web.
+    static func dismissNotice(_ id: String) async throws { try await Api.shared.send("DELETE", "/api/notifications/\(id)") }
+
     /// Let someone look along as a guest, or turn them down.
     static func answerAccess(_ requestId: String, approve: Bool) async throws {
         try await Api.shared.send("POST", "/api/access-requests/\(requestId)/\(approve ? "approve" : "deny")", body: approve ? ["role": "GUEST"] : nil)
@@ -651,7 +681,9 @@ enum Remote {
         return list.compactMap { o -> Media? in
             guard let id = o["id"] as? String, let taken = day(o["takenAt"]) else { return nil }
             let w = o["width"] as? Double ?? 0, h = o["height"] as? Double ?? 0
-            return Media(id: id, takenAt: taken, video: (o["assetType"] as? String) == "VIDEO", ratio: w > 0 && h > 0 ? w / h : 1)
+            // Where it was taken, for the photos on the trip map.
+            let lat = (o["latitude"] as? NSNumber)?.doubleValue, lon = (o["longitude"] as? NSNumber)?.doubleValue
+            return Media(id: id, takenAt: taken, video: (o["assetType"] as? String) == "VIDEO", ratio: w > 0 && h > 0 ? w / h : 1, lat: lat, lon: lon)
         }
         .sorted { $0.takenAt < $1.takenAt }
     }

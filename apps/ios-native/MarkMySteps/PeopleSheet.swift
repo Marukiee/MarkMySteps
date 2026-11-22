@@ -126,8 +126,8 @@ struct PeopleSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() }.tint(.primary) }
             }
-            .animation(.snappy, value: suggestions.map(\.id))
-            .animation(.snappy, value: links?.map(\.id))
+            .animation(.calm, value: suggestions.map(\.id))
+            .animation(.calm, value: links?.map(\.id))
             .task { await loadLinks() }
             .task(id: query) {
                 guard canManage else { return }
@@ -220,10 +220,10 @@ struct PeopleSheet: View {
             Spacer(minLength: 6)
             Button {
                 UIPasteboard.general.string = full
-                withAnimation(.snappy) { copied = link.id }
+                withAnimation(.calm) { copied = link.id }
                 Task {
                     try? await Task.sleep(for: .seconds(1.6))
-                    withAnimation(.snappy) { if copied == link.id { copied = nil } }
+                    withAnimation(.calm) { if copied == link.id { copied = nil } }
                 }
             } label: {
                 Text(copied == link.id ? "Gekopieerd" : "Kopieer").font(.inter(14, 600)).contentTransition(.opacity)

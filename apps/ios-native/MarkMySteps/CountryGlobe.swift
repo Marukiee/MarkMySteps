@@ -196,39 +196,94 @@ struct StatsGrid: View {
     }
 }
 
-/// Notifications behind the bell: who added you, who asks to look along (approve as a
-/// guest or turn down), answers to your own requests. Opening marks them read.
-struct NoticesSheet: View {
+/// The bell's list as a floating panel out of the bell's corner, as on Android and the web: who did what and how
+/// long ago, an × per line to take it away (for a request only the line goes, the request stays open),
+/// Toelaten / Afwijzen for a request to look along, and a way straight to the trip or the account requests.
+/// Opening it marks everything read.
+struct NoticesPanel: View {
+    var demo = false
+    var onChanged: () -> Void = {}
+    var onOpenTrip: (String) -> Void = { _ in }
+    var onOpenRequests: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
     @State private var notices: [Remote.Notice]?
     @State private var answered: [String: Bool] = [:]
+    @State private var gone: Set<String> = []
     @State private var busy: String?
-    var onRead: () -> Void = {}
 
     var body: some View {
-        NavigationStack {
-            List {
-                if let notices {
-                    if notices.isEmpty {
-                        Text("Geen meldingen.").foregroundStyle(Brand.inkSoft)
+        let list = notices?.filter { !gone.contains($0.id) }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Meldingen").font(.outfit(21, 650)).foregroundStyle(Brand.ink)
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Brand.ink).frame(width: 30, height: 30)
+                }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .accessibilityLabel("Sluiten")
+            }
+            .padding(.leading, 18)
+            .padding(.trailing, 12)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            Group {
+                if list == nil {
+                    // Three rows at the height real ones have, so the panel opens at its size.
+                    VStack(spacing: 3) {
+                        ForEach(0..<3, id: \.self) { i in
+                            Brand.sunken.frame(height: 72).clipShape(slab(i, 3))
+                        }
                     }
-                    ForEach(notices) { n in row(n) }
-                } else {
-                    CompassSpinner(size: 30).frame(maxWidth: .infinity, minHeight: 120).listRowBackground(Color.clear)
+                    .padding(.horizontal, 12)
+                } else if let list, list.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "bell").font(.system(size: 24, weight: .semibold)).foregroundStyle(Brand.inkSoft)
+                            .frame(width: 54, height: 54).background(Brand.sunken, in: .circle)
+                        Text("Niets nieuws. Hier komen verzoeken en uitnodigingen.")
+                            .font(.inter(14, 500)).foregroundStyle(Brand.inkSoft).multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 20)
+                    .transition(.opacity)
+                } else if let list {
+                    ScrollView {
+                        VStack(spacing: 3) {
+                            ForEach(Array(list.enumerated()), id: \.element.id) { i, n in
+                                row(n).clipShape(slab(i, list.count))
+                                    .transition(.asymmetric(insertion: .opacity, removal: .opacity.combined(with: .scale(scale: 0.96))))
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .frame(maxHeight: 460)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(Brand.paper)
-            .navigationTitle("Meldingen")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() }.tint(.primary) } }
-            .task {
-                notices = (try? await Remote.notices()) ?? []
-                try? await Remote.markNoticesRead()
-                onRead()
-            }
+            .padding(.bottom, 12)
         }
-        .presentationDetents([.medium, .large])
+        .frame(width: 360)
+        .animation(.calm, value: gone)
+        .animation(.calm, value: answered)
+        .animation(.calm, value: notices == nil)
+        .task {
+            if demo {
+                notices = NoticesPanel.demoNotices
+                return
+            }
+            notices = (try? await Remote.notices()) ?? []
+            // Opening the list is reading it, except for questions still unanswered (the server keeps those).
+            if (try? await Remote.markNoticesRead()) != nil { onChanged() }
+        }
+    }
+
+    private func slab(_ i: Int, _ n: Int) -> UnevenRoundedRectangle {
+        UnevenRoundedRectangle(topLeadingRadius: i == 0 ? 20 : 6, bottomLeadingRadius: i == n - 1 ? 20 : 6,
+                               bottomTrailingRadius: i == n - 1 ? 20 : 6, topTrailingRadius: i == 0 ? 20 : 6)
     }
 
     private func text(_ n: Remote.Notice) -> String {
@@ -244,37 +299,111 @@ struct NoticesSheet: View {
         }
     }
 
+    private func mark(_ kind: String) -> String {
+        switch kind {
+        case "ACCESS_REQUESTED": "person.2.fill"
+        case "ACCESS_APPROVED": "checkmark"
+        case "ACCESS_DENIED": "xmark"
+        case "SECURITY_LOGIN_ATTEMPTS": "lock.shield.fill"
+        case "ACCOUNT_REQUESTED": "person.fill"
+        default: "safari"
+        }
+    }
+
     @ViewBuilder private func row(_ n: Remote.Notice) -> some View {
+        let rid = n.requestId
+        let done = rid.flatMap { answered[$0] }
+        let pending = n.kind == "ACCESS_REQUESTED" && rid != nil && n.requestStatus == "PENDING" && done == nil
+        let fill = n.read ? Brand.sunken : Brand.accent.opacity(0.14)
         HStack(alignment: .top, spacing: 12) {
-            Avatar(userId: n.actorId, hasAvatar: n.actorAvatar, initial: String((n.actor ?? "?").prefix(1)).uppercased(), color: Color(hex: 0x2BB6A8), size: 36)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(text(n)).font(.inter(15, n.read ? 450 : 600)).foregroundStyle(Brand.ink)
+            Avatar(userId: n.actorId, hasAvatar: n.actorAvatar, initial: String((n.actor ?? "?").prefix(1)).uppercased(), color: Color(hex: 0x2BB6A8), size: 40)
+                .overlay(alignment: .bottomTrailing) {
+                    // A small mark of what happened, on the corner of their photo.
+                    Image(systemName: mark(n.kind))
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 18, height: 18)
+                        .background(Brand.accent, in: .circle)
+                        .padding(2)
+                        .background(Brand.raised, in: .circle)
+                        .offset(x: 5, y: 5)
+                }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(text(n)).font(.inter(14.5, 500)).foregroundStyle(Brand.ink).fixedSize(horizontal: false, vertical: true)
                 Text(n.at.formatted(.relative(presentation: .named).locale(Format.dutch))).font(.inter(12.5, 450)).foregroundStyle(Brand.inkSoft)
-                if n.kind == "ACCESS_REQUESTED", let rid = n.requestId, n.requestStatus == "PENDING" {
-                    if let done = answered[rid] {
-                        Text(done ? "\(n.actor ?? "Die persoon") kijkt nu mee als gast." : "Afgewezen.")
-                            .font(.inter(13.5, 500)).foregroundStyle(Brand.inkSoft)
-                    } else {
-                        HStack(spacing: 8) {
-                            Button("Toelaten als gast") { answer(rid, true) }.buttonStyle(.borderedProminent)
-                            Button("Afwijzen") { answer(rid, false) }.buttonStyle(.bordered)
-                        }
-                        .buttonBorderShape(.capsule)
-                        .font(.inter(14, 600))
-                        .disabled(busy != nil)
-                        .padding(.top, 2)
+                if pending, let rid {
+                    HStack(spacing: 8) {
+                        Button("Toelaten") { answer(rid, true) }.buttonStyle(.glassProminent)
+                        Button("Afwijzen") { answer(rid, false) }.buttonStyle(.glass)
                     }
+                    .font(.outfit(14, 600))
+                    .controlSize(.small)
+                    .disabled(busy != nil)
+                    .padding(.top, 6)
+                }
+                if let done {
+                    Label(done ? "\(n.actor ?? "Die persoon") kijkt nu mee als gast." : "Afgewezen.", systemImage: done ? "checkmark" : "xmark")
+                        .font(.inter(13.5, 600)).foregroundStyle(Brand.inkSoft)
+                        .padding(.top, 4)
+                        .transition(.opacity)
+                }
+                if n.kind == "ACCOUNT_REQUESTED" {
+                    link("Aanvragen bekijken") { onOpenRequests() }
+                } else if let trip = n.tripId, n.kind != "ACCESS_DENIED", !pending {
+                    link("Reis openen") { onOpenTrip(trip) }
                 }
             }
+            Spacer(minLength: 0)
+            // Taking the line away: for a request only the line goes, the request itself stays open.
+            Button { dismissLine(n) } label: {
+                Image(systemName: "xmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(Brand.inkSoft)
+                    .frame(width: 36, height: 36).contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Melding weghalen")
         }
-        .listRowBackground(Brand.raised)
+        .padding(.leading, 12)
+        .padding(.vertical, 12)
+        .padding(.trailing, 2)
+        .background(fill)
+    }
+
+    private func link(_ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 3) {
+                Text(label).font(.outfit(14, 600))
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold))
+            }
+            .foregroundStyle(Brand.accent)
+            .padding(.vertical, 4)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 2)
+    }
+
+    private func dismissLine(_ n: Remote.Notice) {
+        Haptic.tap()
+        gone.insert(n.id)
+        guard !demo else { return }
+        Task { if (try? await Remote.dismissNotice(n.id)) != nil { onChanged() } }
     }
 
     private func answer(_ id: String, _ approve: Bool) {
+        Haptic.tap()
+        if demo { answered[id] = approve; return }
         busy = id
         Task {
-            if (try? await Remote.answerAccess(id, approve: approve)) != nil { withAnimation(.snappy) { answered[id] = approve } }
+            if (try? await Remote.answerAccess(id, approve: approve)) != nil { answered[id] = approve; onChanged() }
             busy = nil
         }
     }
+
+    /// In the demo, what the bell can hold: a request to look along and a trip someone added you to.
+    static let demoNotices: [Remote.Notice] = [
+        Remote.Notice(id: "demo-1", kind: "ACCESS_REQUESTED", at: Date().addingTimeInterval(-3_600 * 2), read: false, actorId: nil, actor: "Lotte",
+                      actorAvatar: false, tripId: "georgia", trip: "Georgië 2026", requestId: "demo-r1", requestStatus: "PENDING", detail: nil),
+        Remote.Notice(id: "demo-2", kind: "TRIP_ADDED", at: Date().addingTimeInterval(-86_400 * 3), read: true, actorId: nil, actor: "Sanne",
+                      actorAvatar: false, tripId: "iceland", trip: "IJsland", requestId: nil, requestStatus: nil, detail: nil),
+    ]
 }

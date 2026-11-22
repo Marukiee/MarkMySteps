@@ -129,6 +129,9 @@ struct Media: Identifiable, Hashable {
     /// Width over height.
     let ratio: Double
     var scene: Landscape? = nil
+    /// Where it was taken, when the photo knows.
+    var lat: Double? = nil
+    var lon: Double? = nil
 }
 
 // MARK: Geometry, ported from Globe.kt

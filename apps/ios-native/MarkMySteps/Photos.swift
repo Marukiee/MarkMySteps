@@ -273,7 +273,7 @@ struct PhotoViewer: View {
         .ignoresSafeArea()
         .overlay(alignment: .top) { topBar }
         .overlay(alignment: .bottom) { if !zoomed { bottomBar.transition(.opacity.combined(with: .move(edge: .bottom))) } }
-        .animation(.snappy, value: zoomed)
+        .animation(.calm, value: zoomed)
         .sheet(isPresented: $showComments) {
             CommentsSheet(trip: item.trip, mediaId: current, comments: $comments)
         }
@@ -319,7 +319,7 @@ struct PhotoViewer: View {
             .accessibilityLabel("Sluiten")
         }
         .padding(.horizontal, 16)
-        .animation(.snappy, value: current)
+        .animation(.calm, value: current)
     }
 
     private var bottomBar: some View {

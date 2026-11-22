@@ -51,7 +51,7 @@ struct TripView: View {
                 }
                 .plainRow(top: 16)
 
-                Picker("Weergave", selection: $tab.animation(.snappy)) {
+                Picker("Weergave", selection: $tab.animation(.calm)) {
                     Text("Tijdlijn").tag(TripTab.timeline)
                     Text("Routeplanner").tag(TripTab.planner)
                 }
@@ -102,7 +102,7 @@ struct TripView: View {
             .onScrollGeometryChange(for: Bool.self) { geo in
                 geo.contentOffset.y + geo.contentInsets.top > max(340, pageHeight * 0.5) + 80
             } action: { _, past in
-                withAnimation(.spring(duration: 0.28)) { pastMap = past }
+                withAnimation(.calm) { pastMap = past }
             }
             .overlay(alignment: .bottomTrailing) {
                 // Back to the top once the map has scrolled away.
@@ -459,7 +459,7 @@ struct FullMapView: View {
 
     private func styleButton(_ label: String, symbol: String, on: Bool, action: @escaping () -> Void) -> some View {
         Button {
-            withAnimation(.snappy) { action() }
+            withAnimation(.calm) { action() }
         } label: {
             Image(systemName: symbol)
                 .font(.system(size: 16, weight: .semibold))
