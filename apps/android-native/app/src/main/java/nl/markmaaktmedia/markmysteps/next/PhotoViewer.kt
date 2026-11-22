@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
@@ -483,11 +484,7 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBo
                 val handle = if (current.video) videos[current.id] else null
                 if (current.video) VideoControls(handle, Modifier.padding(bottom = 12.dp))
                 // Opened from the map: every photo of that spot in a strip, as a gallery app has it.
-                if (strip && list.size > 1) Filmstrip(
-                    list, pager.currentPage, Modifier.padding(bottom = 12.dp),
-                    onPick = { i -> scope.launch { pager.animateScrollToPage(i) } },
-                    onScrub = { i -> scope.launch { pager.scrollToPage(i) } },
-                )
+                if (list.size > 1) Filmstrip(list, pager, Modifier.padding(bottom = 12.dp))
                 // A photo linked from this phone lives only here: no reactions or comments on the server.
                 if (!DeviceMedia.isDevice(current.id)) SocialBar(
                     mine = reactions.mine[current.id],
@@ -1017,38 +1014,65 @@ private fun ViewerVideo(
 
 
 /**
- * The photos of one spot as a strip of small tiles, as a phone's gallery shows them under a photo. The one on
- * screen stands in the middle, a little wider, the first one too. Sliding the strip pages the photo along with
- * it (the tile in the middle is the photo shown), with a tick for each one, and it comes to rest on a tile; a tap
- * goes to that photo. It runs to the screen's edges.
+ * The photos as a strip of small tiles under the photo, as a phone's gallery has it. The strip and the photo are
+ * one movement: swiping the photo slides the strip along exactly (halfway through a swipe, the strip is halfway
+ * too), and sliding the strip slides the photo along, with a tick for each photo it passes; it comes to rest on a
+ * tile, and a tap goes to that photo. Every tile keeps the same slot; the one in the middle only grows on screen
+ * while its neighbours step aside as far, so the gaps stay equal and nothing in the strip ever shifts or jumps.
  */
 @Composable
-private fun Filmstrip(list: List<Media>, current: Int, modifier: Modifier = Modifier, onPick: (Int) -> Unit, onScrub: (Int) -> Unit) {
-    val state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = current)
+private fun Filmstrip(list: List<Media>, pager: androidx.compose.foundation.pager.PagerState, modifier: Modifier = Modifier) {
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
     val haptics = rememberHaptics()
-    // The same 8 dp between every two tiles, also beside the larger one on screen: each slot is its tile plus
-    // that gap, so the slot of the one on screen grows with it.
-    val gap = 8.dp
-    val slot = 44.dp + gap
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val tileW = 36.dp; val gap = 8.dp
+    val slot = tileW + gap
+    val slotPx = with(density) { slot.toPx() }
+    val grow = 0.26f
     val dragged by state.interactionSource.collectIsDraggedAsState()
     // From the finger on the strip until it comes to rest: the strip leads and the photo follows.
     var scrubbing by remember { mutableStateOf(false) }
-    LaunchedEffect(dragged, state.isScrollInProgress) {
-        if (dragged) scrubbing = true else if (!state.isScrollInProgress) scrubbing = false
+    // The empty space before the first tile (and after the last), so every tile can stand in the middle.
+    var sidePx by remember { mutableStateOf(0f) }
+    // How far the strip is scrolled, in pixels; tile i stands in the middle at i slots.
+    fun scrolled(): Float = if (state.firstVisibleItemIndex == 0) state.firstVisibleItemScrollOffset.toFloat()
+        else sidePx + (state.firstVisibleItemIndex - 1) * slotPx + state.firstVisibleItemScrollOffset
+    fun stripPos(): Float = scrolled() / slotPx
+    suspend fun scrollTo(pos: Float) {
+        val px = pos.coerceIn(0f, list.lastIndex.toFloat()) * slotPx
+        if (px < sidePx) state.scrollToItem(0, px.toInt())
+        else { val k = ((px - sidePx) / slotPx).toInt(); state.scrollToItem(1 + k, (px - sidePx - k * slotPx).toInt()) }
     }
-    // The tile under the middle of the strip.
-    val centred by remember {
-        androidx.compose.runtime.derivedStateOf {
-            val info = state.layoutInfo
-            val middle = (info.viewportStartOffset + info.viewportEndOffset) / 2
-            info.visibleItemsInfo.minByOrNull { kotlin.math.abs(it.offset + it.size / 2 - middle) }?.index ?: current
+    LaunchedEffect(dragged) { if (dragged) scrubbing = true }
+    // Let go: the strip glides to the nearest tile, and that is the photo.
+    LaunchedEffect(scrubbing, state.isScrollInProgress) {
+        if (scrubbing && !dragged && !state.isScrollInProgress) {
+            val target = kotlin.math.round(stripPos()).coerceIn(0f, list.lastIndex.toFloat())
+            state.animateScrollBy(target * slotPx - scrolled(), androidx.compose.animation.core.tween(180, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+            pager.scrollToPage(target.toInt())
+            scrubbing = false
         }
     }
-    LaunchedEffect(centred, scrubbing) {
-        if (scrubbing && centred != current) { haptics(Haptic.Tick); onScrub(centred) }
+    // The photo leads: the strip stands exactly where the pager is, every frame.
+    LaunchedEffect(sidePx) {
+        if (sidePx <= 0f) return@LaunchedEffect
+        snapshotFlow { pager.currentPage + pager.currentPageOffsetFraction }.collect { pos -> if (!scrubbing) scrollTo(pos) }
     }
-    // Paged by swiping the photo (or a tap): the strip brings that tile to the middle.
-    LaunchedEffect(current) { if (!scrubbing) state.animateScrollToItem(current) }
+    // The strip leads: the photo stands where the strip is, with a tick for each photo passed.
+    LaunchedEffect(Unit) {
+        var last = -1
+        snapshotFlow { if (scrubbing) stripPos() else null }.collect { pos ->
+            if (pos == null) { last = -1; return@collect }
+            // The pager takes the nearest page and a fraction of -0.5 to 0.5 from it.
+            val near = kotlin.math.round(pos).toInt().coerceIn(0, list.lastIndex)
+            if (last >= 0 && near != last) haptics(Haptic.Tick)
+            last = near
+            pager.scrollToPage(near, (pos - near).coerceIn(-0.5f, 0.5f))
+        }
+    }
+    // Where to draw the emphasis: where the photo is (or the strip, while it leads).
+    val focus by remember { androidx.compose.runtime.derivedStateOf { if (scrubbing) stripPos() else pager.currentPage + pager.currentPageOffsetFraction } }
     BoxWithConstraints(
         modifier.fillMaxWidth().layout { m, c ->
             // Past the padding of the bar it sits in, to the screen's edges.
@@ -1057,29 +1081,40 @@ private fun Filmstrip(list: List<Media>, current: Int, modifier: Modifier = Modi
             layout(p.width - extra, p.height) { p.place(-extra / 2, 0) }
         },
     ) {
-        // Room on both sides, so the first and the last tile can stand in the middle too.
-        val side = (maxWidth + 32.dp - slot) / 2
+        // maxWidth here is already the widened, full screen width.
+        val side = (maxWidth - slot) / 2
+        val newSide = with(density) { side.toPx() }
+        if (sidePx != newSide) sidePx = newSide
+        val tilePx = with(density) { tileW.toPx() }
         androidx.compose.foundation.lazy.LazyRow(
             state = state,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = side),
-            flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(
-                state, androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
-            ),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().height(60.dp),
+            modifier = Modifier.fillMaxWidth().height(64.dp),
         ) {
+            item(key = "start") { Spacer(Modifier.width(side)) }
             items(list.size, key = { list[it].id }) { i ->
-                val on = i == current
-                // Calm, no overshoot (a bouncing size can go below zero).
-                val calm = androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(180, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-                val w by animateDpAsState(if (on) 44.dp else 36.dp, calm, label = "stripW")
-                val h by animateDpAsState(if (on) 58.dp else 50.dp, calm, label = "stripH")
-                Box(Modifier.width(w.coerceAtLeast(1.dp) + gap).height(60.dp).clickable { onPick(i) }, contentAlignment = Alignment.Center) {
-                    Box(Modifier.width(w.coerceAtLeast(1.dp)).height(h.coerceAtLeast(1.dp)).clip(RoundedCornerShape(if (on) 10.dp else 7.dp)).background(Color.White.copy(alpha = 0.12f))) {
-                        RemotePhoto(list[i].id, Modifier.fillMaxSize())
-                    }
+                Box(Modifier.width(slot).height(64.dp).clickable { scope.launch { pager.animateScrollToPage(i) } }, contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier.width(tileW).height(48.dp)
+                            .graphicsLayer {
+                                val f = focus
+                                // How much this tile is the one in the middle (1 right there, 0 one photo away).
+                                val e = (1f - kotlin.math.abs(i - f)).coerceIn(0f, 1f)
+                                val sc = 1f + grow * e
+                                scaleX = sc; scaleY = sc
+                                // The neighbours step aside by half of what the tiles near the middle grew.
+                                val a = kotlin.math.floor(f).toInt(); val b = a + 1
+                                fun growth(j: Int) = tilePx * grow * (1f - kotlin.math.abs(j - f)).coerceIn(0f, 1f) / 2f
+                                var shift = 0f
+                                for (j in listOf(a, b)) if (j != i) shift += growth(j) * kotlin.math.sign((i - j).toFloat())
+                                translationX = shift
+                                shape = RoundedCornerShape(7.dp); clip = true
+                            }
+                            .background(Color.White.copy(alpha = 0.12f)),
+                    ) { RemotePhoto(list[i].id, Modifier.fillMaxSize()) }
                 }
             }
+            item(key = "end") { Spacer(Modifier.width(side)) }
         }
     }
 }

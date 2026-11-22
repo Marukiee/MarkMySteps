@@ -244,15 +244,9 @@ private fun LiveTimeline(
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
             modifier = Modifier.padding(bottom = 12.dp),
         )
-        // Four in view as on the web, with a soft fade at both sides where the row runs off the screen.
+        // Four in view, as on the web.
         Row(
-            Modifier.bleed(16.dp)
-                .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
-                .drawWithContent {
-                    drawContent()
-                    drawRect(Brush.horizontalGradient(0f to Color.Transparent, 0.05f to Color.Black, 0.95f to Color.Black, 1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
-                }
-                .horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             trip.stops.distinctBy { it.name }.forEach { stop ->
