@@ -92,10 +92,10 @@ object Data {
 
 /** A trip's cover: its photo from the server, or the drawn landscape of the demo. */
 @Composable
-fun Cover(trip: Trip, modifier: Modifier, size: String = "thumbnail") {
+fun Cover(trip: Trip, modifier: Modifier, size: String = "thumbnail", placeholder: String? = null) {
     val id = trip.coverId
     when {
-        id != null -> RemotePhoto(id, modifier, size)
+        id != null -> RemotePhoto(id, modifier, size, placeholder = placeholder)
         // A real trip without a photo: its own colour with the compass, as on the web, never a made-up landscape.
         trip.remoteId != null -> androidx.compose.foundation.layout.BoxWithConstraints(modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(trip.color, androidx.compose.ui.graphics.Color(0xFF1B2440).copy(alpha = 0.5f).compositeOver(trip.color)))), contentAlignment = androidx.compose.ui.Alignment.Center) {
             // The compass grows with the card: small on a thumbnail, large on the big card.
@@ -109,10 +109,12 @@ fun Cover(trip: Trip, modifier: Modifier, size: String = "thumbnail") {
 /**
  * A photo from the server, fading in once it is there, on a quiet tone until then. [eager] fetches it
  * before it comes on screen (a tile a screen ahead); [onShown] hears which picture it shows, so the
- * viewer can grow from exactly that one.
+ * viewer can grow from exactly that one. [placeholder]: another size of the same photo that is already in
+ * memory stands in until this one is there (a card growing out of its row shows the row's thumbnail at once
+ * instead of an empty tone, and the sharper photo fades in over it).
  */
 @Composable
-fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail", eager: Boolean = false, onShown: ((Bitmap) -> Unit)? = null) {
+fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail", eager: Boolean = false, onShown: ((Bitmap) -> Unit)? = null, placeholder: String? = null) {
     // Otherwise only fetched once it comes on screen, so a day with three hundred photos does not ask for all of them at once.
     var seen by androidx.compose.runtime.remember(id) { mutableStateOf(Photos.cached("$id/$size") != null) }
     // Kept per photo: produceState remembers its value without keys, so a tile that was handed another
@@ -124,13 +126,16 @@ fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail", eage
     }
     val bitmap = state.value
     if (bitmap != null && onShown != null) androidx.compose.runtime.SideEffect { onShown(bitmap) }
+    val under = placeholder?.takeIf { it != size }?.let { p -> androidx.compose.runtime.remember(id, p) { Photos.cached("$id/$p") } }
+    // Already there at the first frame (or stood in for): no fade, it simply shows.
     val shown by animateFloatAsState(if (bitmap != null) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "photo")
     // While it loads the frame breathes softly (as on the web), then the photo fades in over it.
-    val breathe = if (bitmap == null) androidx.compose.animation.core.rememberInfiniteTransition(label = "breathe").animateFloat(
+    val breathe = if (bitmap == null && under == null) androidx.compose.animation.core.rememberInfiniteTransition(label = "breathe").animateFloat(
         0.55f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(1100), androidx.compose.animation.core.RepeatMode.Reverse), label = "a",
     ) else null
     val tone = MaterialTheme.colorScheme.surfaceContainerHigh
-    Box(modifier.drawBehind { drawRect(tone, alpha = breathe?.value ?: 1f) }.onFirstVisible { seen = true }) {
+    Box(modifier.drawBehind { if (under == null) drawRect(tone, alpha = breathe?.value ?: 1f) }.onFirstVisible { seen = true }) {
+        under?.let { Image(it.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
         bitmap?.let {
             Image(
                 it.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop,
@@ -160,8 +165,11 @@ fun coverTone(trip: Trip): androidx.compose.ui.graphics.Color? {
 
 /** A person's face: their photo from the server when they have one, else their initial on a colour. */
 @Composable
-fun Avatar(userId: String?, name: String, hasAvatar: Boolean, color: androidx.compose.ui.graphics.Color, modifier: Modifier, shape: androidx.compose.ui.graphics.Shape = androidx.compose.foundation.shape.CircleShape) {
-    val bitmap by produceState<Bitmap?>(userId?.let { Photos.cached("avatar/$it") }, userId, hasAvatar, Photos.avatarStamp) {
+fun Avatar(userId: String?, name: String, hasAvatar: Boolean, color: androidx.compose.ui.graphics.Color, modifier: Modifier, shape: androidx.compose.ui.graphics.Shape = androidx.compose.foundation.shape.CircleShape, instant: Boolean = false) {
+    // [instant]: the face is read from the phone's copy in the first frame, so a cold start shows the photo at
+    // once instead of the initial first and the photo jumping in a moment later. Only for one face, not lists.
+    val first = androidx.compose.runtime.remember(userId, hasAvatar) { userId?.let { if (instant && hasAvatar) Photos.cachedOrDisk("avatar/$it") else Photos.cached("avatar/$it") } }
+    val bitmap by produceState<Bitmap?>(first, userId, hasAvatar, Photos.avatarStamp) {
         // Read again when the photo changed or went (Photos.avatarStamp), else from the cache.
         value = if (userId != null && hasAvatar) Photos.cached("avatar/$userId") ?: Photos.avatar(userId) else null
     }

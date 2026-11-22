@@ -475,8 +475,22 @@ object Photos {
      */
     suspend fun load(id: String, size: String, now: Boolean = false): Bitmap? = loadPath("$id/$size", "/api/media/$id/thumbnail?size=$size", now)
 
-    /** Someone's profile photo. */
-    suspend fun avatar(userId: String): Bitmap? = loadPath("avatar/$userId", "/api/users/$userId/avatar")
+    /**
+     * Someone's profile photo. A face is small and on screen at once, so it skips the queue the covers and
+     * grid photos wait in: at a cold start fifty covers are fetched ahead, and the faces waited behind them.
+     */
+    suspend fun avatar(userId: String): Bitmap? = loadPath("avatar/$userId", "/api/users/$userId/avatar", now = true)
+
+    /**
+     * A picture from memory, else straight from the phone's own copy on disk, read right here. Only for a
+     * single small picture that must be there in the first frame (your own face at the top of the homepage),
+     * never for a list: each call reads a file on the calling thread.
+     */
+    fun cachedOrDisk(key: String): Bitmap? {
+        cache.get(key)?.let { return it }
+        val data = PhotoDisk.get(key) ?: return null
+        return runCatching { BitmapFactory.decodeByteArray(data, 0, data.size) }.getOrNull()?.also { cache.put(key, it) }
+    }
 
     suspend fun loadPath(key: String, path: String, now: Boolean = false): Bitmap? {
         cache.get(key)?.let { return it }

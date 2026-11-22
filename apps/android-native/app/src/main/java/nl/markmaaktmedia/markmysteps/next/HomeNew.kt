@@ -434,18 +434,11 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                             // Big by default; "Klein" from its menu makes it a row like the trips below. The change
                             // morphs in place and everything under it slides along.
                             androidx.compose.runtime.key(next.id) {
-                                AnimatedContent(
-                                    CardSizePref.big(next.id, autoBig = true),
+                                TripCardMorph(
+                                    next, big = CardSizePref.big(next.id, autoBig = true), dark = dark, upcoming = true, autoBig = true,
+                                    rowTop = 28.dp, rowBottom = 28.dp, onOpen = { onOpenTrip(next) }, onPeopleTrip = onPeople,
                                     modifier = Modifier.padding(top = if (i == 0) 0.dp else 10.dp).arrive(2 + i),
-                                    transitionSpec = {
-                                        (fadeIn(upMotion.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(upMotion.defaultSpatialSpec(), initialScale = 0.94f)) togetherWith
-                                            fadeOut(upMotion.fastEffectsSpec()) using androidx.compose.animation.SizeTransform(clip = false) { _, _ -> upMotion.defaultSpatialSpec() }
-                                    },
-                                    label = "upSize",
-                                ) { big ->
-                                    if (big) NextTripCard(next, onOpen = { onOpenTrip(next) }, onPeopleTrip = onPeople)
-                                    else TripRow(next, RoundedCornerShape(28.dp), dark, onOpen = { onOpenTrip(next) }, onPeopleTrip = onPeople, autoBig = true)
-                                }
+                                )
                             }
                         }
                         if (Data.live && Data.trips.isEmpty()) EmptyTrips()
@@ -478,25 +471,15 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                             fun Item(trip: Trip, big: Boolean, prevBig: Boolean?, nextBig: Boolean?, order: Int) {
                                 val gap by animateDpAsState(when { prevBig == null -> 0.dp; big || prevBig -> 10.dp; else -> 3.dp }, sizeMotion.defaultSpatialSpec(), label = "gap")
                                 androidx.compose.runtime.key(trip.id) {
-                                    AnimatedContent(
-                                        big,
-                                        modifier = Modifier.padding(top = gap),
-                                        transitionSpec = {
-                                            (fadeIn(sizeMotion.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(sizeMotion.defaultSpatialSpec(), initialScale = 0.94f)) togetherWith
-                                                fadeOut(sizeMotion.fastEffectsSpec()) using androidx.compose.animation.SizeTransform(clip = false) { _, _ -> sizeMotion.defaultSpatialSpec() }
-                                        },
-                                        label = "size",
-                                    ) { b ->
-                                        if (b) BigTripCard(trip, onOpen = { onOpenTrip(trip) }, onPeopleTrip = onPeople, modifier = Modifier.arrive(4 + order), autoBig = trip.id == first?.id)
-                                        else {
-                                            val startOfRun = prevBig != false; val endOfRun = nextBig != false
-                                            val shape = RoundedCornerShape(
-                                                topStart = if (startOfRun) 26.dp else 6.dp, topEnd = if (startOfRun) 26.dp else 6.dp,
-                                                bottomStart = if (endOfRun) 26.dp else 6.dp, bottomEnd = if (endOfRun) 26.dp else 6.dp,
-                                            )
-                                            TripRow(trip, shape, dark, onOpen = { onOpenTrip(trip) }, onPeopleTrip = onPeople, modifier = Modifier.arrive(5 + order), autoBig = trip.id == first?.id)
-                                        }
-                                    }
+                                    // Rows next to each other join into a slab: tight corners inside, round at its ends.
+                                    val startOfRun = prevBig != false; val endOfRun = nextBig != false
+                                    TripCardMorph(
+                                        trip, big = big, dark = dark, upcoming = false, autoBig = trip.id == first?.id,
+                                        rowTop = if (startOfRun) 26.dp else 6.dp, rowBottom = if (endOfRun) 26.dp else 6.dp,
+                                        onOpen = { onOpenTrip(trip) }, onPeopleTrip = onPeople,
+                                        // Arrives once with the page; changing its size never plays that again.
+                                        modifier = Modifier.padding(top = gap).arrive(4 + order),
+                                    )
                                 }
                             }
                             // The latest trip keeps its own place above the years, big or small, so changing its size
@@ -598,7 +581,7 @@ private fun TopRow(onLogoTap: () -> Unit, needle: () -> Float = { 0f }, onProfil
             Modifier.size(42.dp).clip(MaterialShapes.Cookie9Sided.toShape()).background(cs.primaryContainer).bouncyClickable(onProfile),
             contentAlignment = Alignment.Center,
         ) {
-            Avatar(Data.me?.id, Data.me?.name ?: "Mark", Data.me?.hasAvatar == true, cs.primary, Modifier.matchParentSize(), MaterialShapes.Cookie9Sided.toShape())
+            Avatar(Data.me?.id, Data.me?.name ?: "Mark", Data.me?.hasAvatar == true, cs.primary, Modifier.matchParentSize(), MaterialShapes.Cookie9Sided.toShape(), instant = true)
         }
     }
 }
@@ -617,10 +600,15 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier, small: Boo
     )
 }
 
-/** The next trip: its colour edge to edge, the days left as a big number and a wavy bar. */
+/** About the next-trip card's shape (its height follows its content), for where its corner lies on the photo. */
+private const val NextCardRatio = 1.6f
+
+/**
+ * The next trip as a big card: its colour edge to edge (or its photo, drawn by [TripCardMorph] under this), the
+ * days left as a big number, the name and the chips. Its own height follows its content.
+ */
 @Composable
-private fun NextTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Modifier, onPeopleTrip: (Trip) -> Unit = {}, autoBig: Boolean = true) {
-    val shape = RoundedCornerShape(32.dp)
+private fun NextTripContent(trip: Trip, onOpen: () -> Unit, onPeopleTrip: (Trip) -> Unit, autoBig: Boolean) {
     val base = trip.color
     val deep = Color(0xFF1B2440).copy(alpha = 0.55f).compositeOver(base)
     // Under way it counts the days of the trip, before it the days to go; one day is "dag", not "dagen".
@@ -628,15 +616,17 @@ private fun NextTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mo
         trip.ongoingDay != null -> Triple("${trip.ongoingDay}", stringResource(R.string.home_day_nth), stringResource(R.string.home_of_days, trip.days))
         else -> (trip.startsInDays ?: 0).let { n -> Triple("$n", if (n == 1) stringResource(R.string.home_day) else stringResource(R.string.home_days), stringResource(R.string.home_to_go)) }
     }
-    Box(modifier.fillMaxWidth().clip(shape).background(Brush.linearGradient(listOf(base, deep))).bouncyClickable(onOpen)) {
+    Box(Modifier.fillMaxWidth()) {
         if (trip.coverId != null) {
-            Cover(trip, Modifier.matchParentSize(), size = "preview")
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.35f), 0.5f to Color.Black.copy(alpha = 0.2f), 1f to Color.Black.copy(alpha = 0.62f))))
-        } else LineIcon(
-            Glyphs.compass, Color.White, size = 170.dp, stroke = 1.3f,
-            modifier = Modifier.align(Alignment.TopEnd).offset(x = 46.dp, y = (-22).dp).rotate(-12f).alpha(0.16f),
-        )
-        MenuDots(trip, Modifier.align(Alignment.TopEnd).padding(14.dp), onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, autoBig = autoBig)
+        } else {
+            Box(Modifier.matchParentSize().background(Brush.linearGradient(listOf(base, deep))))
+            LineIcon(
+                Glyphs.compass, Color.White, size = 170.dp, stroke = 1.3f,
+                modifier = Modifier.align(Alignment.TopEnd).offset(x = 46.dp, y = (-22).dp).rotate(-12f).alpha(0.16f),
+            )
+        }
+        MenuDots(trip, Modifier.align(Alignment.TopEnd).padding(14.dp), onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, autoBig = autoBig, lightCover = lightCorner(trip, NextCardRatio, shade = 0.35f))
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(big, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(800), fontSize = 60.sp, lineHeight = 60.sp, letterSpacing = (-0.03).em, color = Color.White))
@@ -675,16 +665,67 @@ private fun Chip(text: String) {
 /** The photo behind a card's pills and ⋯, when the card has one, so they can blur it a little. */
 private val LocalCardHaze = androidx.compose.runtime.staticCompositionLocalOf<dev.chrisbanes.haze.HazeState?> { null }
 
-/** White and half see-through, over a light blur of the photo behind it where there is one. */
+/**
+ * White and half see-through, over a light blur of the photo behind it where there is one. [veil] is how
+ * white: the approved 0.18, more where the photo behind is light, so what sits on it stays readable.
+ */
 @Composable
-private fun Modifier.glass(shape: Shape): Modifier {
+private fun Modifier.glass(shape: Shape, veil: Float = GlassVeil): Modifier {
     val haze = LocalCardHaze.current
     return this.clip(shape).then(
         if (haze != null) Modifier.hazeEffect(haze) {
             blurRadius = 14.dp
-            tints = listOf(dev.chrisbanes.haze.HazeTint(Color.White.copy(alpha = 0.18f)))
-        } else Modifier.background(Color.White.copy(alpha = 0.18f)),
+            tints = listOf(dev.chrisbanes.haze.HazeTint(Color.White.copy(alpha = veil)))
+        } else Modifier.background(Color.White.copy(alpha = veil)),
     )
+}
+
+/** The glass's own white, and the stronger one over a light corner of a photo. */
+private const val GlassVeil = 0.18f
+private const val GlassVeilLight = 0.66f
+/** The dots on the stronger glass: the dark ink of the "+n" faces, the same in light and dark mode (the photo decides). */
+private val GlassInk = Color(0xFF1B2530)
+
+/**
+ * Whether the top right corner of a card's cover, where the ⋯ sits, is too light for white dots: the corner of
+ * the thumbnail as the card crops it, under the card's own darkening at the top ([shade], black alpha) and the
+ * glass's white, measured as relative luminance. White dots need 3:1, so above a luminance of 0.3 the glass
+ * turns whiter and the dots dark. A light sky behind white dots read at 1.44:1.
+ */
+@Composable
+private fun lightCorner(trip: Trip, cardRatio: Float, shade: Float = 0f): Boolean {
+    val id = trip.coverId ?: return false
+    val light by androidx.compose.runtime.produceState(false, id, cardRatio, shade) {
+        val bitmap = Photos.load(id, "thumbnail") ?: return@produceState
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { cornerLuminance(bitmap, cardRatio, shade) > 0.3f }
+    }
+    return light
+}
+
+/** The mean relative luminance of where the ⋯ sits on a card of [cardRatio] (width over height), as drawn. */
+private fun cornerLuminance(b: android.graphics.Bitmap, cardRatio: Float, shade: Float): Float {
+    val bw = b.width.toFloat(); val bh = b.height.toFloat()
+    if (bw <= 0f || bh <= 0f) return 0f
+    // ContentScale.Crop: the part of the picture that shows on the card.
+    val (vw, vh) = if (bw / bh > cardRatio) bh * cardRatio to bh else bw to bw / cardRatio
+    val ox = (bw - vw) / 2f; val oy = (bh - vh) / 2f
+    // The disc on a card about 380 dp wide: 14 dp from the edges, 40 dp across, with a little room around it.
+    val cardW = 380f; val cardH = cardW / cardRatio
+    val x0 = (ox + vw * (1f - 58f / cardW)).toInt().coerceIn(0, b.width - 1)
+    val x1 = (ox + vw * (1f - 10f / cardW)).toInt().coerceIn(x0 + 1, b.width)
+    val y0 = (oy + vh * (10f / cardH)).toInt().coerceIn(0, b.height - 1)
+    val y1 = (oy + vh * (58f / cardH)).toInt().coerceIn(y0 + 1, b.height)
+    fun lin(c: Float) = if (c <= 0.04045f) c / 12.92f else Math.pow(((c + 0.055f) / 1.055f).toDouble(), 2.4).toFloat()
+    var sum = 0f; var n = 0
+    val step = maxOf(1, (x1 - x0) / 12)
+    for (y in y0 until y1 step step) for (x in x0 until x1 step step) {
+        val p = b.getPixel(x, y)
+        // Blended as Compose draws them, in sRGB: the card's darkening first, then the glass's white over it.
+        fun ch(v: Int) = lin(GlassVeil + (1f - GlassVeil) * (v / 255f) * (1f - shade))
+        sum += 0.2126f * ch((p shr 16) and 0xFF) + 0.7152f * ch((p shr 8) and 0xFF) + 0.0722f * ch(p and 0xFF)
+        n++
+    }
+    return if (n == 0) 0f else sum / n
 }
 
 @Composable
@@ -749,7 +790,7 @@ private fun PastOrShared(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Mo
  * someone else made). No shadow: the groups stand off the page by their own tone and a fine edge.
  */
 @Composable
-private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Unit = {}, onPeople: (() -> Unit)? = null, light: Boolean = true, autoBig: Boolean = false) {
+private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Unit = {}, onPeople: (() -> Unit)? = null, light: Boolean = true, autoBig: Boolean = false, lightCover: Boolean = false) {
     var menu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
@@ -758,12 +799,16 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val remote = trip.remoteId != null
     val mine = remote && (trip.ownerId.isNullOrBlank() || trip.ownerId == Data.me?.id)
+    val motion = MaterialTheme.motionScheme
+    val veil by animateFloatAsState(if (lightCover) GlassVeilLight else GlassVeil, motion.defaultEffectsSpec(), label = "dotsVeil")
+    val dots by animateColorAsState(if (lightCover) GlassInk else Color.White, motion.defaultEffectsSpec(), label = "dotsInk")
     Box(modifier) {
         Box(
             // A solid tonal disc on photos, so the dots read on a bright sky too.
-            Modifier.size(40.dp).then(if (light) Modifier.glass(CircleShape) else Modifier.clip(CircleShape)).bouncyClickable({ menu = true }, feel = null), // the menu ticks as it opens
+            // Same white glass on every photo; over a light corner it is less see-through and the dots go dark.
+            Modifier.size(40.dp).then(if (light) Modifier.glass(CircleShape, veil = veil) else Modifier.clip(CircleShape)).bouncyClickable({ menu = true }, feel = null), // the menu ticks as it opens
             contentAlignment = Alignment.Center,
-        ) { LineIcon(Glyphs.dotsCircles, if (light) Color.White else cs.onSurfaceVariant, size = 20.dp, filled = true) }
+        ) { LineIcon(Glyphs.dotsCircles, if (light) dots else cs.onSurfaceVariant, size = 20.dp, filled = true) }
         val chosen = CardSizePref.overrides[trip.id] ?: CardSizePref.AUTO
         AppMenu(menu, onDismiss = { menu = false }, groups = listOf(
             listOf(
@@ -861,12 +906,13 @@ private fun Modifier.arrive(order: Int): Modifier = composed {
     }
 }
 
-/** A trip shown big: its photo edge to edge, the name and facts on it. */
+/**
+ * A trip shown big, over its photo (drawn by [TripCardMorph] under this): the name and facts at the bottom, the
+ * menu in the corner. It fills the height it is given, so while the card grows the name stays at its foot.
+ */
 @Composable
-private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Modifier, onPeopleTrip: (Trip) -> Unit = {}, autoBig: Boolean = true) {
-    val shape = RoundedCornerShape(32.dp)
-    val haze = dev.chrisbanes.haze.rememberHazeState()
-    Box(modifier.fillMaxWidth().aspectRatio(16f / 11f).clip(shape).bouncyClickable(onOpen)) {
+private fun BigTripContent(trip: Trip, onOpen: () -> Unit, onPeopleTrip: (Trip) -> Unit, autoBig: Boolean) {
+    Box(Modifier.fillMaxSize()) {
         if (trip.coverId == null && trip.remoteId != null) {
             // No photo: the trip's own colour with the compass in the corner, as the next-trip card, clear of the title.
             val deep = Color(0xFF1B2440).copy(alpha = 0.55f).compositeOver(trip.color)
@@ -876,11 +922,9 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
                 modifier = Modifier.align(Alignment.TopEnd).offset(x = 50.dp, y = (-26).dp).rotate(-12f).alpha(0.16f),
             )
         } else {
-            Cover(trip, Modifier.matchParentSize().hazeSource(haze), size = "preview")
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color(0xC010151B))))
         }
-        androidx.compose.runtime.CompositionLocalProvider(LocalCardHaze provides haze.takeIf { trip.coverId != null || trip.remoteId == null }) {
-        MenuDots(trip, Modifier.align(Alignment.TopEnd).padding(14.dp), onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, autoBig = autoBig)
+        MenuDots(trip, Modifier.align(Alignment.TopEnd).padding(14.dp), onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, autoBig = autoBig, lightCover = lightCorner(trip, 16f / 11f))
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
             Text(trip.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 26.sp, letterSpacing = (-0.015).em, color = Color.White))
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -891,38 +935,117 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
                 FaceStack(trip.people, trip.extraPeople, ring = Color(0xFF2A2F36))
             }
         }
-        }
     }
 }
 
 /**
- * A trip as a row in its year's slab: its photo blurred behind it under a veil
- * in the page colour, the photo itself as a thumbnail, the facts and a menu.
+ * A trip as a row in its year's slab, without its thumbnail: [TripCardMorph] draws that photo in the empty slot
+ * at the start, so it can grow into the big card's photo. The facts and a menu.
  */
 @Composable
-private fun TripRow(trip: Trip, shape: Shape, dark: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier, onPeopleTrip: (Trip) -> Unit = {}, autoBig: Boolean = false) {
+private fun TripRowContent(trip: Trip, onOpen: () -> Unit, onPeopleTrip: (Trip) -> Unit, autoBig: Boolean) {
     val cs = MaterialTheme.colorScheme
+    Row(Modifier.fillMaxWidth().padding(RowInset), verticalAlignment = Alignment.CenterVertically) {
+        // Every row has its thumbnail, so all titles line up; a trip without a photo shows its colour and compass.
+        Spacer(Modifier.size(RowThumb))
+        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+            Text(trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 18.sp, lineHeight = 21.sp, color = cs.onSurface))
+            // No distance measured: say nothing rather than "0 km".
+            val km = trip.km?.takeIf { it > 0 }?.let { " · " + "%,d".format(Lang.locale, it) + " km" } ?: ""
+            Text(stringResource(R.string.home_trip_line_new, DateText.longMonth(trip.month), trip.year, pluralStringResource(R.plurals.home_trip_days, trip.days, trip.days), km), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+        }
+        MenuDots(trip, onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, light = false, autoBig = autoBig)
+    }
+}
+
+/** The row's thumbnail and the room around it, shared by the row and the morph that draws the photo. */
+private val RowThumb = 64.dp
+private val RowInset = 10.dp
+
+/**
+ * A trip that changes size from its menu (Auto, Groot, Klein) as one element, not as one card fading out and
+ * another fading in: its height runs from the row's to the big card's, its photo grows out of the row's
+ * thumbnail to edge to edge, the corners round off, and the row's text fades over into the card's. The trips
+ * under it move along with its height, so nothing jumps; the thumbnail already on screen stands in while the
+ * sharper photo of the big card loads, so the photo never pops in late. [rowTop] and [rowBottom] are the row's
+ * corners (tight inside a slab of rows, round at its ends); they follow the neighbours softly too.
+ */
+@Composable
+private fun TripCardMorph(
+    trip: Trip, big: Boolean, dark: Boolean, upcoming: Boolean, autoBig: Boolean,
+    rowTop: androidx.compose.ui.unit.Dp, rowBottom: androidx.compose.ui.unit.Dp,
+    onOpen: () -> Unit, onPeopleTrip: (Trip) -> Unit, modifier: Modifier = Modifier,
+) {
+    val cs = MaterialTheme.colorScheme
+    val motion = MaterialTheme.motionScheme
+    val t by animateFloatAsState(if (big) 1f else 0f, motion.defaultSpatialSpec(), label = "cardSize")
+    val k = t.coerceIn(0f, 1f)
+    val top by animateDpAsState(rowTop, motion.defaultSpatialSpec(), label = "rowTop")
+    val bottom by animateDpAsState(rowBottom, motion.defaultSpatialSpec(), label = "rowBottom")
+    val round = 32.dp
+    val shape = RoundedCornerShape(
+        topStart = androidx.compose.ui.unit.lerp(top, round, k), topEnd = androidx.compose.ui.unit.lerp(top, round, k),
+        bottomStart = androidx.compose.ui.unit.lerp(bottom, round, k), bottomEnd = androidx.compose.ui.unit.lerp(bottom, round, k),
+    )
     // The row takes on the tone of its cover photo, tinted enough to read on; it flows
     // over from the plain surface once the photo is there instead of popping in.
     val tone = coverTone(trip)
     val bg by animateColorAsState(
         tone?.let { it.copy(alpha = if (dark) 0.34f else 0.24f).compositeOver(cs.surfaceContainerLow) } ?: cs.surfaceContainerLow,
-        MaterialTheme.motionScheme.slowEffectsSpec(), label = "rowTone",
+        motion.slowEffectsSpec(), label = "rowTone",
     )
-    Box(modifier.fillMaxWidth().clip(shape).background(bg).bouncyClickable(onOpen)) {
-        val cover = trip.cover ?: trip.coverId
-        Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Every row has its thumbnail, so all titles line up; a trip without a photo shows its colour and compass.
-            if (cover != null || trip.remoteId != null) {
-                Cover(trip, Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)))
-            }
-            Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                Text(trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 18.sp, lineHeight = 21.sp, color = cs.onSurface))
-                // No distance measured: say nothing rather than "0 km".
-                val km = trip.km?.takeIf { it > 0 }?.let { " · " + "%,d".format(Lang.locale, it) + " km" } ?: ""
-                Text(stringResource(R.string.home_trip_line_new, DateText.longMonth(trip.month), trip.year, pluralStringResource(R.plurals.home_trip_days, trip.days, trip.days), km), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
-            }
-            MenuDots(trip, onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, light = false, autoBig = autoBig)
+    // Both faces are there only while it changes; at rest just the one on show (one menu, one set of texts).
+    val moving = if (big) t < 0.999f else t > 0.001f
+    val showRow = !big || moving
+    val showCard = big || moving
+    val rowAlpha = (1f - k / 0.5f).coerceIn(0f, 1f)
+    val cardAlpha = ((k - 0.4f) / 0.6f).coerceIn(0f, 1f)
+    // The big past card blurs its photo behind its pills and the ⋯; the next-trip card never did.
+    val haze = dev.chrisbanes.haze.rememberHazeState()
+    val blurs = !upcoming && (trip.coverId != null || trip.remoteId == null)
+    // The last height of each face, for the frames in which one of them is not there.
+    val heights = remember { intArrayOf(0, 0) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val thumb = with(density) { RowThumb.roundToPx() }
+    val inset = with(density) { RowInset.roundToPx() }
+    androidx.compose.ui.layout.Layout(
+        contents = listOf(
+            {
+                // The one photo: the thumbnail in the row, the sharper one on the big card, the thumbnail standing in.
+                Cover(
+                    trip, Modifier.clip(RoundedCornerShape(androidx.compose.ui.unit.lerp(18.dp, 0.dp, k))).then(if (blurs) Modifier.hazeSource(haze) else Modifier),
+                    size = if (big || moving) "preview" else "thumbnail", placeholder = "thumbnail",
+                )
+            },
+            { if (showRow) TripRowContent(trip, onOpen, onPeopleTrip, autoBig) },
+            {
+                if (showCard) androidx.compose.runtime.CompositionLocalProvider(LocalCardHaze provides haze.takeIf { blurs }) {
+                    if (upcoming) NextTripContent(trip, onOpen, onPeopleTrip, autoBig) else BigTripContent(trip, onOpen, onPeopleTrip, autoBig)
+                }
+            },
+        ),
+        modifier = modifier.fillMaxWidth().clip(shape).background(bg).bouncyClickable(onOpen),
+    ) { (cover, row, card), c ->
+        val w = c.maxWidth
+        val loose = androidx.compose.ui.unit.Constraints(minWidth = w, maxWidth = w)
+        val rowP = row.firstOrNull()?.measure(loose)
+        if (rowP != null) heights[0] = rowP.height
+        val hr = heights[0].takeIf { it > 0 } ?: (thumb + 2 * inset)
+        // The past card is 16:11 and is laid out at the height of the moment; the next-trip card is as tall as
+        // its content and is cut off by the corners while it grows.
+        val cardLoose = if (upcoming) card.firstOrNull()?.measure(loose) else null
+        if (cardLoose != null) heights[1] = cardLoose.height
+        val hb = if (upcoming) heights[1].takeIf { it > 0 } ?: (w * 0.6f).roundToInt() else (w * 11f / 16f).roundToInt()
+        val h = (hr + (hb - hr) * t).roundToInt().coerceAtLeast(1)
+        val cardP = if (upcoming) cardLoose else card.firstOrNull()?.measure(androidx.compose.ui.unit.Constraints.fixed(w, h))
+        // The photo: from the row's thumbnail spot to the whole card.
+        val cw = (thumb + (w - thumb) * k).roundToInt()
+        val ch = (thumb + (h - thumb) * k).roundToInt()
+        val coverP = cover.firstOrNull()?.measure(androidx.compose.ui.unit.Constraints.fixed(cw, ch))
+        layout(w, h) {
+            coverP?.place((inset * (1f - k)).roundToInt(), ((hr - thumb) / 2f * (1f - k)).roundToInt())
+            rowP?.placeWithLayer(0, 0) { alpha = rowAlpha }
+            cardP?.placeWithLayer(0, 0) { alpha = cardAlpha }
         }
     }
 }
