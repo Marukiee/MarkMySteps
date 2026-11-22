@@ -160,6 +160,8 @@ private const val TAG = "MmsViewer"
 fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBounds = TileBounds(), onCurrent: (String?) -> Unit = {}, onClose: () -> Unit) {
     // The list as it was when tapped: a refresh of the trip underneath never shifts the pages.
     val list = remember { photos }
+    // Full screen: the navigation bar on "Altijd" still stays away (AppCore.kt).
+    Chrome.Immersive()
     val start = remember { list.indexOfFirst { it.id == startId }.coerceAtLeast(0) }
     val pager = rememberPagerState(initialPage = start) { list.size }
     val context = LocalContext.current
@@ -468,7 +470,8 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBo
             ) {
                 val handle = if (current.video) videos[current.id] else null
                 if (current.video) VideoControls(handle, Modifier.padding(bottom = 12.dp))
-                SocialBar(
+                // A photo linked from this phone lives only here: no reactions or comments on the server.
+                if (!DeviceMedia.isDevice(current.id)) SocialBar(
                     mine = reactions.mine[current.id],
                     counts = reactions.counts[current.id].orEmpty(),
                     names = reactions.names[current.id].orEmpty(),
@@ -597,12 +600,12 @@ private fun ViewerMenu(trip: Trip, media: Media, stops: List<ViewerApi.StopRow>?
         }
     }
     AppMenu(expanded, onDismiss, groups = listOf(
-        if (owner) listOfNotNull(
+        if (owner && !DeviceMedia.isDevice(media.id)) listOfNotNull(
             MenuEntry("Omslag van de reis", Glyphs.photo) { cover("Omslag van de reis") { ViewerApi.setTripCover(trip, media.id) } },
             stop?.let { s -> MenuEntry("Omslag van ${s.name}", Glyphs.pin) { cover("Omslag van ${s.name}") { ViewerApi.setStopCover(trip, s.id, media.id) } } },
         ) else emptyList(),
-        listOf(
-            MenuEntry("$what downloaden", Glyphs.download) {
+        listOfNotNull(
+            if (DeviceMedia.isDevice(media.id)) null else MenuEntry("$what downloaden", Glyphs.download) {
                 scope.launch {
                     onNote("Downloaden…", true)
                     val uri = ViewerApi.download(context, media)

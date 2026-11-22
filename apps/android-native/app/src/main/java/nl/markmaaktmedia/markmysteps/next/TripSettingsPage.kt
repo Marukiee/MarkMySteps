@@ -180,6 +180,8 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
         }
 
         if (canEdit) SyncPanel(id, onChanged)
+        // Photos from this phone's gallery in the timeline and on the map, without uploading (AppScreens.kt).
+        DevicePhotosPanel(trip, onChanged)
         if (isOwner) MarkerPanel(trip, id, info)
 
         Header(stringResource(R.string.tripsettings_tracking))

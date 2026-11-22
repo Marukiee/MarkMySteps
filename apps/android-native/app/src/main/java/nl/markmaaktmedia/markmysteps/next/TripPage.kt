@@ -107,12 +107,14 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     // The photo book or the summary over the page (PhotoBook.kt, Summary.kt), from the people sheet.
     var extra by remember { androidx.compose.runtime.mutableStateOf(startExtra?.takeIf { it == "book" || it == "summary" }) }
     var bigMap by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // The big map is full screen: the navigation bar on "Altijd" stays away from it (AppCore.kt).
+    Chrome.Immersive(bigMap)
     val tiles = remember(base.id) { TileBounds() }
     var openPhoto by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var mapSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
     // The trip's settings, a page that slides over this one (TripSettingsPage.kt).
     var tripSettings by remember { androidx.compose.runtime.mutableStateOf<Boolean?>(null) }
-    val media by androidx.compose.runtime.produceState<List<Media>?>(null, base.id, Data.version) {
+    val media by androidx.compose.runtime.produceState<List<Media>?>(null, base.id, Data.version, DeviceMedia.version.intValue) {
         if (base.remoteId != null) value = runCatching { Remote.media(base) }.getOrNull() ?: emptyList()
     }
     val screenH = LocalConfiguration.current.screenHeightDp

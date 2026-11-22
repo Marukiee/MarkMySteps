@@ -53,6 +53,8 @@ object NewLook {
         if (!p.contains("seenNewLook")) p.edit().putBoolean("seenNewLook", !Api.signedIn).apply()
         show = force || !p.getBoolean("seenNewLook", true)
     }
+    /** The developer page: the note once more, as for someone who just moved to the new app. */
+    fun again() { show = true }
     fun seen() { show = false; prefs?.edit()?.putBoolean("seenNewLook", true)?.apply() }
 }
 

@@ -89,6 +89,8 @@ fun SettingsPage(onSignIn: () -> Unit = {}) {
         Section("data", Glyphs.download, stringResource(R.string.settings_data), stringResource(R.string.settings_data_summary)),
         if (admin) Section("accounts", Glyphs.friends, stringResource(R.string.settings_accounts), stringResource(R.string.settings_accounts_summary)) else null,
         Section("about", Glyphs.help, stringResource(R.string.settings_about), stringResource(R.string.settings_about_summary)),
+        // Five taps on the version in Over bring it; the page itself can hide it again.
+        if (AppPrefs.developer) Section("developer", GlyphCode, stringResource(R.string.dev_title), stringResource(R.string.dev_summary)) else null,
     )
     SlideHost(open, onClose = { open = null }, base = { SettingsMain(sections, onOpen = { open = it }) }) { id ->
         val back = { open = null }
@@ -99,6 +101,7 @@ fun SettingsPage(onSignIn: () -> Unit = {}) {
             "services" -> ServicesPage(back, onSignIn)
             "data" -> DataPage(back)
             "accounts" -> AccountsPage(back)
+            "developer" -> DeveloperPage(back, onPreview = { Previews.open = it })
             else -> AboutPage(back)
         }
     }
@@ -176,6 +179,7 @@ private fun DisplayPage(onBack: () -> Unit) {
             Choices(listOf(0 to stringResource(R.string.settings_theme_light), 1 to stringResource(R.string.settings_theme_dark), 2 to stringResource(R.string.settings_theme_system)), ThemePref.mode, { ThemePref.set(it) })
             Hint(stringResource(R.string.settings_theme_hint))
         }
+        LanguagePanel()
         Spacer(Modifier.height(10.dp))
         Group(null, listOf(
             Item(listOf(P("M12 3a9 9 0 0 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4.2-4-7.5-9-7.5Z"), C(7.5f, 11f, 1f), C(10f, 7.5f, 1f), C(14.5f, 7.5f, 1f)), stringResource(R.string.settings_wallpaper_accent), stringResource(R.string.settings_wallpaper_accent_hint),
@@ -190,6 +194,7 @@ private fun DisplayPage(onBack: () -> Unit) {
                 { CardSizePref.clear() }, Modifier.fillMaxWidth(), icon = Glyphs.trash, enabled = CardSizePref.overrides.isNotEmpty(),
             )
         }
+        NavBarPanel()
         Header(stringResource(R.string.settings_map_style))
         Panel {
             MapStyleGrid()
@@ -609,7 +614,7 @@ private fun DataPage(onBack: () -> Unit) {
         BackupPanel()
         PolarstepsPanel()
         TrackFilesPanel(trips)
-        CachePanel()
+        PhotoCachePanel()
     }
 }
 
@@ -916,21 +921,6 @@ private fun slug(text: String): String = java.text.Normalizer.normalize(text.low
     .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^a-z0-9]+"), "-").trim('-').take(60).ifBlank { "reis" }
 
 /** The photos kept in memory while the app runs. */
-@Composable
-private fun CachePanel() {
-    var used by remember { mutableStateOf(Photos.usedBytes()) }
-    var confirm by remember { mutableStateOf(false) }
-    Header(stringResource(R.string.settings_photo_cache))
-    Panel {
-        Hint(stringResource(R.string.settings_photo_cache_hint, bytes(used)))
-        SoftButton(stringResource(R.string.settings_photo_cache_clear), { confirm = true }, Modifier.fillMaxWidth(), icon = Glyphs.trash, enabled = used > 0)
-    }
-    if (confirm) Confirm(
-        stringResource(R.string.settings_photo_cache_clear_title), stringResource(R.string.settings_photo_cache_clear_text), stringResource(R.string.settings_photo_cache_clear_confirm),
-        onConfirm = { Photos.clear(); used = Photos.usedBytes() }, onDismiss = { confirm = false },
-    )
-}
-
 // Accounts (admins only).
 
 @Composable
@@ -1078,12 +1068,14 @@ private fun AboutPage(onBack: () -> Unit) {
     val context = LocalContext.current
     val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "" }
     fun open(url: String) = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }; Unit }
-    var privacy by remember { mutableStateOf<Boolean?>(null) }
-    SlideHost(privacy, onClose = { privacy = null }, base = { AboutBody(onBack, version, ::open, onPrivacy = { privacy = true }) }) { PrivacyPage(onBack = { privacy = null }) }
+    var sub by remember { mutableStateOf<String?>(null) }
+    SlideHost(sub, onClose = { sub = null }, base = { AboutBody(onBack, version, ::open, onPrivacy = { sub = "privacy" }, onWhatsNew = { sub = "new" }) }) { which ->
+        if (which == "new") WhatsNewPage(onBack = { sub = null }) else PrivacyPage(onBack = { sub = null })
+    }
 }
 
 @Composable
-private fun AboutBody(onBack: () -> Unit, version: String, open: (String) -> () -> Unit, onPrivacy: () -> Unit) {
+private fun AboutBody(onBack: () -> Unit, version: String, open: (String) -> () -> Unit, onPrivacy: () -> Unit, onWhatsNew: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     SettingsScaffold(stringResource(R.string.settings_about), onBack) {
         Spacer(Modifier.height(12.dp))
@@ -1092,19 +1084,22 @@ private fun AboutBody(onBack: () -> Unit, version: String, open: (String) -> () 
                 Box(Modifier.size(52.dp).clip(MaterialShapes.Cookie9Sided.toShape()).background(cs.primary), contentAlignment = Alignment.Center) {
                     LineIcon(Glyphs.logo, cs.onPrimary, size = 28.dp, stroke = 2f)
                 }
-                Column(Modifier.padding(start = 14.dp)) {
-                    Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
-                    Text(stringResource(R.string.settings_about_version, version), style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                VersionTaps(version) { taps ->
+                    Column(Modifier.padding(start = 14.dp).then(taps)) {
+                        Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
+                        Text(stringResource(R.string.settings_about_version, version), style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                    }
                 }
             }
             Hint(stringResource(R.string.settings_about_tagline))
         }
         Group(stringResource(R.string.settings_about_more), listOf(
-            Item(Glyphs.help, stringResource(R.string.settings_about_whats_new), stringResource(R.string.settings_about_on_github), external = true, action = open("https://github.com/Marukiee/MarkMySteps/releases")),
+            Item(Glyphs.help, stringResource(R.string.whatsnew_title), stringResource(R.string.whatsnew_summary), action = onWhatsNew),
             Item(Glyphs.logo, stringResource(R.string.settings_about_source), "github.com/Marukiee/MarkMySteps", external = true, action = open("https://github.com/Marukiee/MarkMySteps")),
             Item(Glyphs.shield, stringResource(R.string.settings_about_licence), "AGPL-3.0", external = true, action = open("https://www.gnu.org/licenses/agpl-3.0.html")),
             Item(Glyphs.lock, stringResource(R.string.settings_privacy), stringResource(R.string.settings_privacy_summary), action = onPrivacy),
         ))
+        UpdatePanel()
     }
 }
 

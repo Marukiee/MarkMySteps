@@ -80,6 +80,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -172,6 +173,8 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         }
         val scope = androidx.compose.runtime.rememberCoroutineScope()
         LaunchedEffect(Unit) { Data.load() }
+        // At most every six hours, as the shared updater wants; it only ever offers this app's own apk (Update.kt).
+        LaunchedEffect(Unit) { Updates.checkIfDue() }
         val gateMotion = MaterialTheme.motionScheme
         AnimatedContent(
             gate,
@@ -260,14 +263,17 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             }
             AnimatedVisibility(
                 // Only once a page without the bar is really gone: during the back gesture from a trip it stays
-                // away, and it slides in after the home page has settled, not at the first touch.
-                visible = !Data.all.any { it.id == pages.targetState || it.id == pages.currentState },
+                // away, and it slides in after the home page has settled, not at the first touch. With "Altijd" in
+                // Weergave it stays on the trip page too, but never over something full screen (AppCore.kt).
+                visible = if (AppPrefs.navBarAlways) Chrome.immersive == 0 else !Data.all.any { it.id == pages.targetState || it.id == pages.currentState },
                 modifier = Modifier.align(Alignment.BottomCenter),
                 enter = slideInVertically(motion.defaultSpatialSpec()) { it } + fadeIn(motion.defaultEffectsSpec()),
                 exit = slideOutVertically(motion.fastSpatialSpec()) { it } + fadeOut(motion.fastEffectsSpec()),
             ) {
-                Toolbar(page, onNav = { fromTabBack = false; page = it })
+                Toolbar(page, onNav = { fromTabBack = false; open = null; page = it })
             }
+            // No connection: a strip at the top says so, with the changes that wait (AppScreens.kt).
+            OfflineBanner(Modifier.align(Alignment.TopCenter))
         }
         }
     }
@@ -313,6 +319,8 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
             }
 
             Column(Modifier.padding(horizontal = Pad)) {
+                // A newer build: the update card all of Marks apps share, at the top of the page (Update.kt).
+                MmsUpdateCard(Modifier.padding(top = 8.dp, bottom = 6.dp))
                 // The new-trip button stays where it was: beside the heading.
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp).arrive(0), verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -847,7 +855,7 @@ fun shortMonthName(month: String): String = mapOf(
 @Composable
 private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
-    val items = listOf(Glyphs.compass to "Reizen", Glyphs.friends to "Reizigers", Glyphs.settings to "Instellingen")
+    val items = listOf(Glyphs.compass to stringResource(R.string.nav_trips), Glyphs.friends to stringResource(R.string.nav_travellers), Glyphs.settings to stringResource(R.string.nav_settings))
     val haptics = rememberHaptics()
     Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         // Its own light tone and the floating toolbar's soft shadow, so it stands off

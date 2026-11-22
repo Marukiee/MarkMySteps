@@ -114,6 +114,8 @@ enum class Format(val label: String, val aspect: Float) { Story("Verhaal", 9f / 
 @Composable
 fun TripExtras(trip: Trip, dark: Boolean, open: String?, onClose: () -> Unit) {
     val motion = MaterialTheme.motionScheme
+    // The book and the summary are full screen: never the navigation bar over them (AppCore.kt).
+    Chrome.Immersive(open != null)
     AnimatedContent(
         open,
         transitionSpec = {

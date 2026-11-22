@@ -13,6 +13,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 /**
  * Test app: the MarkMySteps home page in Compose, in today's style and in a
@@ -42,6 +44,10 @@ class MainActivity : ComponentActivity() {
         AirportPref.init(applicationContext)
         TripFactsPref.init(applicationContext)
         UiPrefs.init(applicationContext)
+        AppPrefs.init(applicationContext)
+        PhotoDisk.init(applicationContext)
+        DeviceMedia.init(applicationContext)
+        Offline.init(applicationContext)
         Tracker.init(applicationContext)
         // The airport list in the background, so Voorkeuren opens complete.
         Thread { Airports.load(applicationContext) }.start()
@@ -63,6 +69,12 @@ class MainActivity : ComponentActivity() {
         val forcedTheme = intent.getStringExtra("theme")
         val startTrip = intent.getStringExtra("trip")
         val startPage = intent.getStringExtra("page")
+        lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+            // Back in the app: whatever waited for a connection goes out now (never in a dry run).
+            override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
+                lifecycleScope.launch { Offline.probe(); Offline.flush() }
+            }
+        })
         setContent {
             val system = isSystemInDarkTheme()
             val dark = when (forcedTheme) {

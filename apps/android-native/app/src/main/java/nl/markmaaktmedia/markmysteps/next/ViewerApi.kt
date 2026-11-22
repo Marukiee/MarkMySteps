@@ -186,6 +186,8 @@ object ViewerApi {
 
     /** The original in the app's own cache, to hand to another app (open in, share). Null when it failed. */
     suspend fun shared(context: Context, media: Media): Pair<Uri, String>? = withContext(Dispatchers.IO) {
+        // A photo linked from this phone is handed over as the gallery's own file.
+        if (DeviceMedia.isDevice(media.id)) return@withContext Uri.parse(DeviceMedia.videoUri(media.id)) to (if (media.video) "video/*" else "image/*")
         val dir = File(context.cacheDir, "shared").apply { mkdirs() }
         // One file at a time is enough: the last one shared is the only one another app may still be reading.
         dir.listFiles()?.forEach { it.delete() }

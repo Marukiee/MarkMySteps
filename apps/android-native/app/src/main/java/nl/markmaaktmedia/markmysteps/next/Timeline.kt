@@ -271,7 +271,9 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
     val real = androidx.compose.runtime.remember(photos) { HashSet<String>() }
     val windowH = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height.toFloat().coerceAtLeast(1f)
     // Pinch the timeline to make the photos bigger or smaller: five sizes, a step per 1.3x of finger distance (web).
-    var perRow by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(2) }
+    // Remembered on the phone, as the web's gridZoom: the next trip opens at the size the last pinch left (AppCore.kt).
+    var perRow by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(AppPrefs.timelinePerRow) }
+    androidx.compose.runtime.LaunchedEffect(perRow) { AppPrefs.changeTimelinePerRow(perRow) }
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     Column(Modifier.pointerInput(Unit) {
         awaitEachGesture {
