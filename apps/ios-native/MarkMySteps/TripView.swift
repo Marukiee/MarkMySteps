@@ -42,6 +42,8 @@ struct TripView: View {
     /// "uit", so a second tap on it goes back to that.
     @State private var photoUsers: Set<String>?
     @State private var photosBefore: Set<String>?
+    /// The page's own scroll view, for a jump that lands exactly.
+    @State private var pageScroll = ScrollFinder.Holder()
     /// Room kept free on the map, as Android's padding: the bar with the buttons on top, the sheet's edge below, and
     /// half a photo pin with its count at the sides. More would leave the trip a small strip on this short map.
     private static let mapInsets = EdgeInsets(top: 124, leading: 48, bottom: 72, trailing: 48)
@@ -68,6 +70,7 @@ struct TripView: View {
             let days = Timeline.days(trip, media, notes: notes)
             List {
                 mapHeader
+                    .background { ScrollFinder(holder: pageScroll).frame(width: 0, height: 0) }
                     .id("top")
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
@@ -102,12 +105,7 @@ struct TripView: View {
                         // exactly once the first one has brought them in.
                         guard let i = days.firstIndex(where: { $0.day.stop?.name == name }) else { return }
                         Haptic.tap()
-                        let id = i == 0 ? "days" : "day\(i)"
-                        let anchor = UnitPoint(x: 0.5, y: min(0.5, (topInset + 58 + 10) / max(pageHeight, 1)))
-                        withAnimation(.smooth(duration: 0.5)) { proxy.scrollTo(id, anchor: anchor) }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-                            withAnimation(.smooth(duration: 0.25)) { proxy.scrollTo(id, anchor: anchor) }
-                        }
+                        jump(to: i == 0 ? "days" : "day\(i)", proxy: proxy)
                     }, stories: stories)
                 case .planner:
                     PlannerRows(trip: trip, plan: $plan, onFocusAdd: {
@@ -286,6 +284,28 @@ struct TripView: View {
                 let photos = Demo.media(trip, day: 0, date: first.date)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { viewerCurrent = photos[0].id; viewer = ViewerItem(trip: trip, photos: photos, start: photos[0]) }
             }
+        }
+    }
+
+    /// Scrolls the page so the row `id` stands just under the solid bar, in one glide. A List only lines rows up at
+    /// its top, middle or bottom (an anchor of 0.12 became the middle, so a place landed mid screen). Its own glide to
+    /// the top is exact, also past rows that only take their real height on the way, and it keeps clear of the
+    /// scroll view's inset: so for the length of the glide the page gets an inset as tall as the bar, and the day
+    /// lands right under it.
+    private func jump(to id: String, proxy: ScrollViewProxy) {
+        let bar = topInset + 58 + 8
+        guard let scroll = pageScroll.view else {
+            withAnimation(.smooth(duration: 0.5)) { proxy.scrollTo(id, anchor: .top) }
+            return
+        }
+        let inset = scroll.contentInset
+        scroll.contentInset.top = inset.top + bar
+        withAnimation(.smooth(duration: 0.55)) { proxy.scrollTo(id, anchor: .top) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            // The inset goes again without moving anything: the content stays where it is.
+            let offset = scroll.contentOffset
+            scroll.contentInset.top = inset.top
+            scroll.contentOffset = offset
         }
     }
 
@@ -502,7 +522,8 @@ struct TripView: View {
             t.back = back
             trip = t
             plan = PlanState(trip: t)
-            withAnimation(.calm) { mapPosition = .rect(t.fittedRect(size: mapSize, insets: TripView.mapInsets)) }
+            // The camera glides to the stops at the pace of Android's 700 ms fly, not in a quick jump.
+            if mapDay == nil { withAnimation(.smooth(duration: 0.6)) { mapPosition = .rect(t.fittedRect(size: mapSize, insets: TripView.mapInsets)) } }
         }
         withAnimation(.calm) { stopsKnown = true }
         media = (try? await Remote.media(base)) ?? []
@@ -513,6 +534,26 @@ struct TripView: View {
         async let c = Remote.comments(base)
         notes = (try? await n) ?? notes
         comments = (try? await c) ?? comments
+    }
+}
+
+/// Finds the scroll view a view sits in, so the trip page can glide to an exact offset.
+struct ScrollFinder: UIViewRepresentable {
+    final class Holder { weak var view: UIScrollView? }
+    let holder: Holder
+
+    func makeUIView(context: Context) -> UIView {
+        let v = UIView()
+        v.isUserInteractionEnabled = false
+        return v
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        DispatchQueue.main.async {
+            var next = view.superview
+            while let s = next, !(s is UIScrollView) { next = s.superview }
+            if let found = next as? UIScrollView { holder.view = found }
+        }
     }
 }
 
@@ -1252,6 +1293,8 @@ struct FullMapView: View {
                 position = .rect(frame)
             }
             .onChange(of: focus) { withAnimation(.smooth(duration: 0.5)) { position = .rect(frame) } }
+            // Opened before the stops were read: framed again on them once they are there.
+            .onChange(of: trip.stops.count) { withAnimation(.smooth(duration: 0.6)) { position = .rect(frame) } }
             .overlay(alignment: .bottomLeading) {
                 if let day, days.count >= 2 {
                     MapDayPill(trip: trip, days: days, day: day)

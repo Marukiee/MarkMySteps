@@ -90,7 +90,8 @@ struct PhotoViewer: View {
         .overlay(alignment: .top) { if chrome { topBar.transition(.opacity) } }
         .overlay(alignment: .bottom) { if chrome && !zoomed { bottomBar.transition(.opacity) } }
         .overlay(alignment: .top) { noteView }
-        .animation(.easeOut(duration: 0.2), value: chrome)
+        // The buttons come in at a calm pace and go a little quicker, as on Android.
+        .animation(chrome ? .easeOut(duration: 0.22) : .easeIn(duration: 0.15), value: chrome)
         .animation(.calm, value: zoomed)
         .sheet(isPresented: $showComments) {
             CommentsSheet(trip: item.trip, mediaId: current, comments: $comments)
@@ -267,7 +268,8 @@ struct PhotoViewer: View {
             .frame(height: 44)
             .glassEffect(.regular, in: .capsule)
             .padding(.top, 70)
-            .transition(.move(edge: .top).combined(with: .opacity))
+            // As on Android: it grows a little and fades in where it stands, instead of travelling down from the edge.
+            .transition(.scale(scale: 0.85).combined(with: .opacity))
         }
     }
 
