@@ -113,6 +113,14 @@ final class Api {
         try tokens(answer)
     }
 
+    /// Another server, from Diensten: the login page then opens on it. Tokens belong to the old one, so sign out after.
+    func setServer(_ address: String) {
+        var b = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        while b.hasSuffix("/") { b.removeLast() }
+        base = b
+        UserDefaults.standard.set(b, forKey: "server")
+    }
+
     func signOut() {
         access = nil
         refresh = nil
@@ -938,6 +946,10 @@ final class Store {
     }
 
     func signOut() {
+        // Nothing of this account keeps running: tracking stops, its waiting points go, the notifications check ends.
+        Tracker.shared.reset()
+        Notices.enabled = false
+        Notices.cancel()
         Api.shared.signOut()
         Cache.clear()
         plannedCountries = []

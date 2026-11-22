@@ -99,6 +99,15 @@ final class Tracker: NSObject {
         flush()
     }
 
+    /// Signing out: tracking stops and what waited for this account is thrown away, so it never reaches another.
+    func reset() {
+        writeBuffer([])
+        for k in ["track.bufferTrip", "track.last"] { d.removeObject(forKey: k) }
+        stop()
+        lastFix = nil
+        autoStopped = nil
+    }
+
     /// Picks up again after a launch: tracking that was on stays on, and a trip that is over stops it.
     func resume() {
         guard tripId != nil else { return }

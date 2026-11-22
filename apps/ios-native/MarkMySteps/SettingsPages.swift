@@ -209,7 +209,7 @@ struct ServicesPage: View {
             Api.log.notice("MmsDryRun server change [blocked]")
             return
         }
-        UserDefaults.standard.set(trimmed, forKey: "server")
+        Api.shared.setServer(trimmed)
         onSignIn()
     }
 

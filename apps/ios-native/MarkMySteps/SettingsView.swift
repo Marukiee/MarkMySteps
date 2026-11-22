@@ -155,7 +155,7 @@ struct SettingsView: View {
             quiet.disablesAnimations = true
             withTransaction(quiet) { path = [] }
         }
-        .onChange(of: request) { _, r in
+        .onChange(of: request, initial: true) { _, r in
             guard let r else { return }
             var quiet = Transaction()
             quiet.disablesAnimations = true
