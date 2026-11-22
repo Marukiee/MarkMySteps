@@ -614,8 +614,11 @@ private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<St
     trip.days.takeIf { it > 0 }?.let { facts["days"] = "$it" to (if (it == 1) Lang.text(R.string.home_day) else Lang.text(R.string.home_days)) }
     // While the page's own stops and photos are on their way, the numbers the trip list already has stand in, so
     // the tiles are filled from the first frame (only a number the list does not know waits).
-    if (!stopsKnown) facts["stops"] = trip.stopPoints.size.takeIf { it > 1 }?.let { "$it" } to "stops" else trip.stops.size.takeIf { it > 1 }?.let { facts["stops"] = "$it" to "stops" }
-    if (photosWaiting) facts["photos"] = trip.photos.takeIf { it > 0 }?.let { "$it" } to (if (trip.photos == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos))
+    // Best of all the figures this page itself counted last time (the list's own count of stops includes the day
+    // trips, so 8 turned into 5 a moment after opening).
+    if (!stopsKnown) facts["stops"] = (FactsMemory.stops(trip.id) ?: trip.stopPoints.size).takeIf { it > 1 }?.let { "$it" } to "stops" else trip.stops.size.takeIf { it > 1 }?.let { facts["stops"] = "$it" to "stops" }
+    val photoGuess = FactsMemory.photos(trip.id) ?: trip.photos
+    if (photosWaiting) facts["photos"] = photoGuess.takeIf { it > 0 }?.let { "$it" } to (if (photoGuess == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos))
     else (photos ?: trip.photos).takeIf { it > 0 }?.let { facts["photos"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos)) }
     travellers.takeIf { it > 1 }?.let { facts["travellers"] = "$it" to Lang.text(R.string.trip_fact_travellers) }
     countries.takeIf { it > 0 }?.let { facts["countries"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_country) else Lang.text(R.string.summary_fact_countries)) }
@@ -662,6 +665,12 @@ private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier, o
 @Composable
 private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null, stopsKnown: Boolean = true) {
     val items = chosenFacts(trip, photos, stopsKnown) ?: factsOf(trip, photos, stopsKnown)
+    // What this page counted, kept for the next time it opens, so its figures stand right from the first frame.
+    androidx.compose.runtime.LaunchedEffect(trip.id, stopsKnown, trip.stops.size, photos) {
+        if (stopsKnown && trip.remoteId != null) FactsMemory.keep(trip.id, stops = trip.stops.size)
+        if (photos != null) FactsMemory.keep(trip.id, photos = photos)
+    }
+    val opened = remember { android.os.SystemClock.uptimeMillis() }
     // The tone of the cover above, so the figures belong to it and stand off the page.
     val cs = MaterialTheme.colorScheme
     val dark = cs.background.luminance() < 0.5f
@@ -689,7 +698,30 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
                 // A value not known yet is simply empty space of the number's exact height (no grey block for a
                 // split second), so the tile keeps its size; the number is there the moment it is known.
                 val style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 21.sp, letterSpacing = (-0.02).em, color = MaterialTheme.colorScheme.onSurface)
-                Text(value ?: "0", maxLines = 1, style = if (value != null) style else style.copy(color = Color.Transparent))
+                // A figure that changes once the page is open waits until the page has settled, then rolls to its
+                // new value; the first one to arrive simply stands there.
+                var shown by remember(label) { androidx.compose.runtime.mutableStateOf<String?>(value) }
+                androidx.compose.runtime.LaunchedEffect(value) {
+                    if (value == null || shown == null) { if (value != null) shown = value; return@LaunchedEffect }
+                    if (value != shown) {
+                        val wait = 900L - (android.os.SystemClock.uptimeMillis() - opened)
+                        if (wait > 0) kotlinx.coroutines.delay(wait)
+                        shown = value
+                    }
+                }
+                androidx.compose.animation.AnimatedContent(
+                    shown,
+                    transitionSpec = {
+                        if (initialState == null) androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
+                        else {
+                            val up = (targetState?.replace(".", "")?.replace(",", "")?.toIntOrNull() ?: 0) > (initialState?.replace(".", "")?.replace(",", "")?.toIntOrNull() ?: 0)
+                            val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(420, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))
+                            (androidx.compose.animation.slideInVertically(spec) { if (up) it else -it } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300))) togetherWith
+                                (androidx.compose.animation.slideOutVertically(spec) { if (up) -it else it } + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)))
+                        }.using(androidx.compose.animation.SizeTransform(clip = true))
+                    },
+                    label = "fact",
+                ) { v -> Text(v ?: "0", maxLines = 1, style = if (v != null) style else style.copy(color = Color.Transparent)) }
                 Text(label, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant))
             }
         }
@@ -717,5 +749,24 @@ private fun PhotoGrid(trip: Trip) {
                 }
             }
         }
+    }
+}
+
+/**
+ * The figures a trip's page counted the last time it was open (stops, photos), kept on the phone so the page
+ * opens with them at once instead of a guess from the trip list that changes a moment later.
+ */
+object FactsMemory {
+    private var prefs: android.content.SharedPreferences? = null
+    private val cache = HashMap<String, Int>()
+    fun init(context: android.content.Context) { prefs = context.getSharedPreferences("mms.next.facts", android.content.Context.MODE_PRIVATE) }
+    private fun get(key: String): Int? = cache[key] ?: prefs?.getInt(key, -1)?.takeIf { it >= 0 }?.also { cache[key] = it }
+    fun stops(id: String): Int? = get("$id.stops")
+    fun photos(id: String): Int? = get("$id.photos")
+    fun keep(id: String, stops: Int? = null, photos: Int? = null) {
+        val e = prefs?.edit() ?: return
+        stops?.let { if (cache["$id.stops"] != it) { cache["$id.stops"] = it; e.putInt("$id.stops", it) } }
+        photos?.let { if (cache["$id.photos"] != it) { cache["$id.photos"] = it; e.putInt("$id.photos", it) } }
+        e.apply()
     }
 }

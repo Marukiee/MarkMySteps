@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
         NewLook.init(applicationContext, force = intent?.getBooleanExtra("newLook", false) == true)
         AirportPref.init(applicationContext)
         TripFactsPref.init(applicationContext)
+        FactsMemory.init(applicationContext)
         UiPrefs.init(applicationContext)
         AppPrefs.init(applicationContext)
         Onboarding.init(applicationContext)

@@ -15,9 +15,6 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       hieronder, kolom iPhone: nee).
 - [ ] iPhone: alle animaties nalopen, gelijk aan Android en mooi (in het
       werk, twee delen: reispagina/kaart/viewer en de rest).
-- [ ] Reis openen vanaf de homepage: stops en foto's flitsen kort (laden).
-      Getallen bewaren zodat ze meteen staan; verandert er later iets, dan
-      pas na een moment met een animatie van het getal. iPhone: nee
 - [ ] Navigatiebalk: twee soorten animatie (gewoon tikken is snel, een paar
       keer heen en weer is anders). Opnemen en gelijk maken. iPhone: nee
 - [ ] Release (merge naar main) pas na Marks akkoord, met fotoboek en
@@ -25,6 +22,10 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] Reis openen: de cijfers (stops, foto's) die de pagina vorige keer telde
+      staan meteen goed (de lijst telde dagtrips mee: 8 werd 5); verandert er
+      later iets, dan rolt het getal na een moment naar de nieuwe waarde.
+      iPhone: nee
 - [x] Homepage-globe: de naam en de stip van een reis staan waar de reis
       begint, niet op Schiphol waar de GPS al aanstond; alle thuisvliegvelden
       tellen als thuis. iPhone: nee
