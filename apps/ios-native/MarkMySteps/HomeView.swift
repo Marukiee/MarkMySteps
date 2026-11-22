@@ -249,7 +249,7 @@ struct HomeView: View {
         tripMenu(trip) {
             Image(systemName: "ellipsis")
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Brand.ink)
                 .frame(width: 26, height: 26)
         }
         .buttonStyle(.glass)
