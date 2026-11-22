@@ -90,7 +90,9 @@ fun AppSheet(onDismiss: () -> Unit, content: @Composable AppSheetScope.() -> Uni
     LaunchedEffect(drawn) {
         if (!drawn) return@LaunchedEffect
         androidx.compose.runtime.withFrameNanos { }
-        down.animateTo(0f, tween(320, easing = Emphasized))
+        // The same motion as PixelPlayer's panels (Material's own sheet in the standard motion scheme): a spring
+        // with damping 0.9 and stiffness 700. It gets going at once and settles smoothly, with just a hint of give.
+        down.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 0.9f, stiffness = 700f))
     }
     // Out: thrown hard it leaves at the speed of the throw; let go slowly (or by back or a tap) it glides out.
     fun closeAt(velocity: Float) {
