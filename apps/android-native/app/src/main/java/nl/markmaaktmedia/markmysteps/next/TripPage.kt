@@ -106,7 +106,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     val tiles = remember(base.id) { TileBounds() }
     var openPhoto by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var mapSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
-    var tripSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // The trip's settings, a page that slides over this one (TripSettingsPage.kt).
+    var tripSettings by remember { androidx.compose.runtime.mutableStateOf<Boolean?>(null) }
     val media by androidx.compose.runtime.produceState<List<Media>?>(null, base.id, Data.version) {
         if (base.remoteId != null) value = runCatching { Remote.media(base) }.getOrNull() ?: emptyList()
     }
@@ -126,6 +127,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     val spread = points.maxOf { p -> angle(p, lon to lat) }.coerceAtLeast(0.6)
     val zoom = (34.0 / spread).coerceIn(4.0, 70.0).toFloat()
 
+    SlideHost(tripSettings, onClose = { tripSettings = null }, base = {
     Box(Modifier.fillMaxSize().background(cs.background)) {
         Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             Box(Modifier.fillMaxWidth().height(mapH)) {
@@ -211,7 +213,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (trip.remoteId != null) RoundButton(onClick = { people = true }) { LineIcon(Glyphs.friends, cs.onSurface, size = 22.dp, stroke = 1.9f) }
                     RoundButton(onClick = { mapSheet = true }) { LineIcon(listOf(P("M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5Z"), P("M9 4v13.5"), P("M15 6.5V20")), cs.onSurface, size = 21.dp, stroke = 1.9f) }
-                    if (trip.remoteId != null) RoundButton(onClick = { tripSheet = true }) { LineIcon(Glyphs.settings, cs.onSurface, size = 21.dp, stroke = 1.8f) }
+                    if (trip.remoteId != null) RoundButton(onClick = { tripSettings = true }) { LineIcon(Glyphs.settings, cs.onSurface, size = 21.dp, stroke = 1.8f) }
                 }
             }
         }
@@ -255,7 +257,6 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
             }
         }
         if (mapSheet) MapSheet(onDismiss = { mapSheet = false })
-        if (tripSheet) TripSettingsSheet(trip, onDismiss = { tripSheet = false }, onChanged = { scope.launch { Data.load() } })
         if (people) PeopleSheet(
             trip, onDismiss = { people = false }, onChanged = { scope.launch { Data.load() } },
             onMake = if (!trip.upcoming && media?.isNotEmpty() == true) ({ which -> people = false; extra = which }) else null,
@@ -274,6 +275,12 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
         }
 
         TripExtras(trip, dark, extra, onClose = { extra = null })
+    }
+    }) {
+        TripSettingsPage(
+            trip, onBack = { tripSettings = null }, onChanged = { scope.launch { Data.load() } },
+            onPeople = { people = true }, onGone = { tripSettings = null; onBack() },
+        )
     }
 }
 
@@ -361,7 +368,7 @@ private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier, o
 /** Days, distance, stops and photos as one connected slab. */
 @Composable
 private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null, stopsKnown: Boolean = true) {
-    val items = factsOf(trip, photos, stopsKnown)
+    val items = chosenFacts(trip, photos, stopsKnown) ?: factsOf(trip, photos, stopsKnown)
     // The tone of the cover above, so the figures belong to it and stand off the page.
     val cs = MaterialTheme.colorScheme
     val dark = cs.background.luminance() < 0.5f

@@ -28,6 +28,8 @@ class MainActivity : ComponentActivity() {
         ThemePref.init(applicationContext)
         MapStylePref.init(applicationContext)
         CardSizePref.init(applicationContext)
+        AirportPref.init(applicationContext)
+        TripFactsPref.init(applicationContext)
         Photos.initRatios(applicationContext)
         val startStyle = intent.getStringExtra("style") ?: "new"
         val forcedTheme = intent.getStringExtra("theme")
