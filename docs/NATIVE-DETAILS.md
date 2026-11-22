@@ -136,6 +136,15 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Echte statistieken, landen en reisgenoten van de server met profielfoto's. (klaar Android)
 - Labels: reizen, landen, kilometer, dagen op reis, foto's, vluchten. (klaar Android)
 
+## iOS
+
+- Minder bouncy: veren rustiger, zoals Apple's eigen apps. (open)
+- ⋯-menu goed leesbaar, geen lichtgrijze letters. (open)
+- De tabbalk blijft altijd volledig staan, ook bij scrollen; nooit krimpen tot een rondje. (open)
+- Geen Apple Kaarten-logo en "Juridische informatie" in beeld; minder lege ruimte tussen de blokken. (open)
+- Na wisselen van tab opent Instellingen weer op de hoofdlijst, niet op de subpagina van daarnet. (open)
+- Alles wat hierboven voor Android klaar is, ook op iOS in Apple's stijl. (open)
+
 ## Werkwijze
 
 - Een controle-agent kijkt elke ronde na op contrast, uitlijning, verspringen, iconen, afkappen, scrollrijen tot de rand, laadmomenten en toetsenbord.
