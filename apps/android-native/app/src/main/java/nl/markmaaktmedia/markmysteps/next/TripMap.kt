@@ -238,7 +238,10 @@ fun TripMap(
                     // One day picked: everything drawn for that day, so the map in the page and the one full
                     // screen open on the same view (the full one showed all of western Europe).
                     state?.day?.let { d -> dayPoints(t, state, d, shownPhotos.value).takeIf { it.isNotEmpty() }?.let { return it } }
-                    val own = t.stops.map { it.at } + t.route
+                    // With two stops or more, the stops alone: the travelled route usually starts and ends at home
+                    // (the drive to the airport), which pulled Amsterdam in and left Morocco small in a corner.
+                    val stopsAt = t.stops.map { it.at }
+                    val own = if (stopsAt.size >= 2) stopsAt else stopsAt + t.route
                     return (if (own.size >= 2) own else own + bowPoints).ifEmpty { listOf(HomeAirport) }
                 }
                 // Room on every side, more at the bottom for the panel's corner and the expand button, so the
@@ -716,27 +719,38 @@ private fun haversineKm(a: LonLat, b: LonLat): Double {
 
 
 /**
- * Your photos on the map, as on the web: round thumbnails where they were taken, grouped on a grid that
- * gets finer as you zoom in (the level rounded, so a pan never regroups them), with a count on a group. A
- * single photo opens it; a group zooms in to split it. Each sits on its first photo's own spot.
+ * Your photos on the map, exactly as the web does it: round thumbnails where they were taken, grouped on a
+ * grid that gets finer as you zoom in, with a count on a group. A single photo opens it; a group zooms in to
+ * split it. Each sits on its first photo's own spot.
+ *
+ * The grouping only changes once a zoom has come to rest and the rounded level really changed (as the web's
+ * zoomend), never halfway through a pinch. Then a group that stays keeps its marker, a new one is simply
+ * there (no fade, or every marker blinks at each level), and one that went fades out where it stood in
+ * 200 ms. Only when the photos themselves change (a day picked, someone's photos switched on) do the new
+ * markers fade in, over 320 ms.
  */
 @androidx.compose.runtime.Composable
 private fun PhotoMarkers(map: org.maplibre.android.maps.MapLibreMap?, tick: Int, photos: List<Media>, trip: Trip, onPhoto: (Media) -> Unit, onCluster: ((Media) -> Unit)? = null) {
     val m = map ?: return
     val located = androidx.compose.runtime.remember(photos) { photos.filter { it.lat != null && it.lon != null && !it.video } }
-    if (located.isEmpty()) return
     @Suppress("UNUSED_EXPRESSION") tick
-    // The grouping only changes on a whole zoom step, so it is worked out once per step, not on every frame;
-    // a frame only moves the markers to their places on screen.
-    val level = kotlin.math.round(m.cameraPosition.zoom).toInt()
+    // The level the photos are grouped at: set when the camera comes to rest, not on every frame of a pinch.
+    var level by androidx.compose.runtime.remember(m) { androidx.compose.runtime.mutableIntStateOf(kotlin.math.round(m.cameraPosition.zoom).toInt()) }
+    androidx.compose.runtime.DisposableEffect(m) {
+        val idle = org.maplibre.android.maps.MapLibreMap.OnCameraIdleListener {
+            val z = kotlin.math.round(m.cameraPosition.zoom).toInt()
+            if (z != level) level = z
+        }
+        m.addOnCameraIdleListener(idle)
+        onDispose { m.removeOnCameraIdleListener(idle) }
+    }
     val clusters = androidx.compose.runtime.remember(located, level) {
         val cell = 40.0 / Math.pow(2.0, level.toDouble())
         val grid = located.groupBy { "${kotlin.math.round(it.lat!! / cell)}:${kotlin.math.round(it.lon!! / cell)}" }.toList()
         // A marker sits on its first photo's own spot, not in the middle of its cell, so two groups from cells
         // side by side could land on top of each other and hide a count. Groups closer than a marker and its
-        // badge are joined, the biggest taking the smaller ones in. Measured on screen at the lowest zoom this
-        // level is shown at (half a step below), so they stay apart until the next regrouping.
-        val world = 512.0 * Math.pow(2.0, level - 0.5)
+        // badge are joined, the biggest taking the smaller ones in, measured at this level.
+        val world = 512.0 * Math.pow(2.0, level.toDouble())
         fun screen(m: Media): Pair<Double, Double> {
             val lat = Math.toRadians(m.lat!!.coerceIn(-85.0, 85.0))
             return (m.lon!! + 180.0) / 360.0 * world to (1.0 - ln(tan(Math.PI / 4 + lat / 2)) / Math.PI) / 2.0 * world
@@ -745,60 +759,76 @@ private fun PhotoMarkers(map: org.maplibre.android.maps.MapLibreMap?, tick: Int,
         val spots = mutableListOf<Pair<Double, Double>>()
         for ((key, items) in grid.sortedByDescending { it.second.size }) {
             val at = screen(items.first())
-            val near = spots.indexOfFirst { hypot(it.first - at.first, it.second - at.second) < 56.0 }
+            val near = spots.indexOfFirst { hypot(it.first - at.first, it.second - at.second) < 48.0 }
             if (near >= 0) joined[near].second += items else { joined += key to items.toMutableList(); spots += at }
         }
-        joined.map { (key, items) -> key to items.toList() }
+        // Keyed by its first photo, so a group still led by the same photo at the next level keeps its marker
+        // (only its count changes) instead of being swapped for a new one.
+        joined.map { (_, items) -> items.first().id to items.toList() }
     }
-    // A group that splits or merges does so softly: the new markers grow out of the spot of the group they came
-    // from (or towards the one they join) instead of blinking in and out.
-    val previous = androidx.compose.runtime.remember { mutableMapOf<String, LonLat>() }
+    // What was drawn last time: a change of level alone is a regrouping (no fade in), a change of photos is not.
+    val drawn = androidx.compose.runtime.remember { object { var located: List<Media>? = null; var level = -1; var clusters: List<Pair<String, List<Media>>> = emptyList() } }
+    val regroup = drawn.located === located && drawn.level != level
+    // Groups that went: they fade out where they stood, then leave.
+    val leaving = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateListOf<Pair<String, List<Media>>>() }
+    androidx.compose.runtime.LaunchedEffect(clusters) {
+        val now = clusters.map { it.first }.toSet()
+        drawn.clusters.filter { it.first !in now }.forEach { gone -> if (leaving.none { it.first == gone.first }) leaving += gone }
+        leaving.removeAll { it.first in now }
+    }
+    androidx.compose.runtime.SideEffect { drawn.located = located; drawn.level = level; drawn.clusters = clusters }
     val density = androidx.compose.ui.platform.LocalDensity.current
     val cs = androidx.compose.material3.MaterialTheme.colorScheme
     val ring = legibleColor(trip.color, cs.background.luminance() < 0.5f)
-    val motion = androidx.compose.material3.MaterialTheme.motionScheme
-    clusters.forEach { (key, items) ->
+
+    @androidx.compose.runtime.Composable
+    fun Marker(items: List<Media>, alpha: Float, live: Boolean) {
         val first = items.first()
-        val target = first.lon!! to first.lat!!
-        androidx.compose.runtime.key(key) {
-            // Where it starts: the nearest marker of the last grouping, so it slides out of (or into) it.
-            val from = androidx.compose.runtime.remember { previous.values.minByOrNull { (it.first - target.first) * (it.first - target.first) + (it.second - target.second) * (it.second - target.second) } ?: target }
-            val t = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(if (from == target) 1f else 0f) }
-            androidx.compose.runtime.LaunchedEffect(Unit) { t.animateTo(1f, motion.defaultSpatialSpec()) }
-            val k = t.value
-            val at = org.maplibre.android.geometry.LatLng(from.second + (target.second - from.second) * k, from.first + (target.first - from.first) * k)
-            val p = m.projection.toScreenLocation(at)
-            val size = 44.dp
-            val half = with(density) { (size / 2).toPx() }
-            // Layers over the map: photos at the bottom, every count over every photo (so a neighbour never
-            // covers one), the companions' faces over those, your own dot and a stop's label on top.
-            androidx.compose.foundation.layout.Box(
-                Modifier.zIndex(0f).offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(size)
-                    .graphicsLayer { val sc = 0.6f + 0.4f * k; scaleX = sc; scaleY = sc; alpha = (0.3f + 0.7f * k).coerceIn(0f, 1f) }
-                    .clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh)
-                    .border(3.dp, ring, androidx.compose.foundation.shape.CircleShape)
-                    .clickable {
-                        if (items.size == 1) onPhoto(first)
-                        else {
-                            m.animateCamera(org.maplibre.android.camera.CameraUpdateFactory.newLatLngZoom(org.maplibre.android.geometry.LatLng(first.lat, first.lon), (m.cameraPosition.zoom + 2.5).coerceAtMost(16.0)), 450)
-                            onCluster?.invoke(first)
-                        }
-                    },
-            ) {
-                RemotePhoto(first.id, Modifier.matchParentSize())
+        val p = m.projection.toScreenLocation(org.maplibre.android.geometry.LatLng(first.lat!!, first.lon!!))
+        val size = 44.dp
+        val half = with(density) { (size / 2).toPx() }
+        // Layers over the map: photos at the bottom, every count over every photo (so a neighbour never
+        // covers one), the companions' faces over those, your own dot and a stop's label on top.
+        androidx.compose.foundation.layout.Box(
+            Modifier.zIndex(0f).offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(size)
+                .graphicsLayer { this.alpha = alpha }
+                .clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh)
+                .border(3.dp, ring, androidx.compose.foundation.shape.CircleShape)
+                .then(if (!live) Modifier else Modifier.clickable {
+                    if (items.size == 1) onPhoto(first)
+                    else {
+                        m.animateCamera(org.maplibre.android.camera.CameraUpdateFactory.newLatLngZoom(org.maplibre.android.geometry.LatLng(first.lat, first.lon), (m.cameraPosition.zoom + 2.5).coerceAtMost(16.0)), 450)
+                        onCluster?.invoke(first)
+                    }
+                }),
+        ) {
+            RemotePhoto(first.id, Modifier.matchParentSize())
+        }
+        if (items.size > 1) androidx.compose.material3.Text(
+            if (items.size > 99) "99+" else "${items.size}",
+            style = androidx.compose.ui.text.TextStyle(fontFamily = Outfit, fontWeight = androidx.compose.ui.text.font.FontWeight(700), fontSize = 11.sp, color = cs.onPrimary),
+            modifier = Modifier.zIndex(1f).offset { androidx.compose.ui.unit.IntOffset((p.x + half * 0.45f).toInt(), (p.y - half * 1.15f).toInt()) }
+                .graphicsLayer { this.alpha = alpha }
+                .clip(androidx.compose.foundation.shape.CircleShape).background(ring).padding(horizontal = 6.dp, vertical = 1.dp),
+        )
+    }
+
+    leaving.toList().forEach { (key, items) ->
+        androidx.compose.runtime.key("gone:$key") {
+            val a = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(1f) }
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                a.animateTo(0f, androidx.compose.animation.core.tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+                leaving.removeAll { it.first == key }
             }
-            if (items.size > 1) androidx.compose.material3.Text(
-                if (items.size > 99) "99+" else "${items.size}",
-                style = androidx.compose.ui.text.TextStyle(fontFamily = Outfit, fontWeight = androidx.compose.ui.text.font.FontWeight(700), fontSize = 11.sp, color = cs.onPrimary),
-                modifier = Modifier.zIndex(1f).offset { androidx.compose.ui.unit.IntOffset((p.x + half * 0.45f).toInt(), (p.y - half * 1.15f).toInt()) }
-                    .graphicsLayer { alpha = k }
-                    .clip(androidx.compose.foundation.shape.CircleShape).background(ring).padding(horizontal = 6.dp, vertical = 1.dp),
-            )
+            Marker(items, a.value, live = false)
         }
     }
-    androidx.compose.runtime.SideEffect {
-        previous.clear()
-        clusters.forEach { (key, items) -> previous[key] = items.first().lon!! to items.first().lat!! }
+    clusters.forEach { (key, items) ->
+        androidx.compose.runtime.key(key) {
+            val a = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(if (regroup) 1f else 0f) }
+            androidx.compose.runtime.LaunchedEffect(Unit) { a.animateTo(1f, androidx.compose.animation.core.tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+            Marker(items, a.value, live = true)
+        }
     }
 }
 

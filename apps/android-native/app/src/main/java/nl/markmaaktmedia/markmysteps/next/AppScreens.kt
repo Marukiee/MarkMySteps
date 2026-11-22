@@ -296,6 +296,9 @@ fun DeveloperPage(onBack: () -> Unit, onPreview: (String) -> Unit) {
             SoftButton(stringResource(R.string.dev_update_clear), { Updates.preview("clear") }, Modifier.fillMaxWidth())
             Hint(stringResource(R.string.dev_update_preview_hint))
         }
+        // The card itself, right here: it normally sits at the top of the homepage, so a preview from this page
+        // seemed to do nothing.
+        MmsUpdateCard(Modifier.padding(top = 8.dp))
         UpdatePanel()
 
         Header(stringResource(R.string.dev_look))

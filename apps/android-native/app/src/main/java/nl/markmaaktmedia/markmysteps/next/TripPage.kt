@@ -346,7 +346,15 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                     ) { which ->
                         Column {
                             if (which == 0) Timeline(
-                                trip, dark, media, onPhoto = { m -> viewing = m.id }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } },
+                                trip, dark, media, onPhoto = { m -> viewing = m.id }, bounds = tiles, hidden = openPhoto, onJump = { where -> scope.launch {
+                                    // Up to three passes: each one lands where the day is now, until it is in place.
+                                    repeat(3) {
+                                        val y = where() ?: return@launch
+                                        val by = y - with(density) { 120.dp.toPx() }
+                                        if (kotlin.math.abs(by) < with(density) { 6.dp.toPx() }) return@launch
+                                        scroll.animateScrollBy(by)
+                                    }
+                                } },
                                 talk = talk, onComments = { m -> viewingComments = true; viewing = m.id }, marks = marks,
                             ) else androidx.compose.runtime.key(trip.stops.size) {
                                 Planner(
@@ -664,12 +672,10 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
             Column(
                 Modifier.weight(if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(tile).padding(horizontal = 12.dp, vertical = 12.dp),
             ) {
-                // A value not known yet keeps its exact height as a soft shape, then fades into the number.
-                androidx.compose.animation.Crossfade(value, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "fact") { v ->
-                    val style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 21.sp, letterSpacing = (-0.02).em, color = MaterialTheme.colorScheme.onSurface)
-                    if (v != null) Text(v, maxLines = 1, style = style)
-                    else Text("0000", maxLines = 1, style = style.copy(color = Color.Transparent), modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)))
-                }
+                // A value not known yet is simply empty space of the number's exact height (no grey block for a
+                // split second), so the tile keeps its size; the number is there the moment it is known.
+                val style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 21.sp, letterSpacing = (-0.02).em, color = MaterialTheme.colorScheme.onSurface)
+                Text(value ?: "0", maxLines = 1, style = if (value != null) style else style.copy(color = Color.Transparent))
                 Text(label, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant))
             }
         }

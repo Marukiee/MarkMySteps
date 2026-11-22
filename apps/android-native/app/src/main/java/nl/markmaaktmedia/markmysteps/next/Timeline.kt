@@ -79,7 +79,7 @@ private fun daysOf(trip: Trip): List<Day> {
 
 @Composable
 fun Timeline(
-    trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Media) -> Unit = {}, bounds: TileBounds? = null, hidden: String? = null, onJump: (Float) -> Unit = {},
+    trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Media) -> Unit = {}, bounds: TileBounds? = null, hidden: String? = null, onJump: (() -> Float?) -> Unit = {},
     talk: TripTalk? = null, onComments: (Media) -> Unit = {}, marks: TimelineMarks? = null,
 ) {
     if (media != null) { LiveTimeline(trip, media, onPhoto, bounds, hidden, onJump, talk, onComments, marks); return }
@@ -214,7 +214,7 @@ private fun Photo(scene: Scene, modifier: Modifier) {
 /** For a trip from the server: the real photos, day by day, laid out by their own shape. */
 @Composable
 private fun LiveTimeline(
-    trip: Trip, media: List<Media>, onPhoto: (Media) -> Unit, bounds: TileBounds?, hidden: String?, onJump: (Float) -> Unit,
+    trip: Trip, media: List<Media>, onPhoto: (Media) -> Unit, bounds: TileBounds?, hidden: String?, onJump: (() -> Float?) -> Unit,
     talk0: TripTalk?, onComments: (Media) -> Unit, marks: TimelineMarks?,
 ) {
     // Where each day's heading sits, so a place tile can scroll to its first day.
@@ -248,7 +248,9 @@ private fun LiveTimeline(
                 Box(Modifier.width(138.dp).height(168.dp).clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerHigh)
                     .clickable(enabled = pick != null) {
                         // A tap goes to that place's first day, as on the web.
-                        pick?.let { p -> dayAt[p.takenAt]?.takeIf { it.isAttached }?.let { onJump(it.boundsInRoot().top) } }
+                        // Where that day is, asked again as the page scrolls: rows further down only take their real
+                        // height once they come near, so one measured jump landed well short of the place.
+                        pick?.let { p -> val where = { dayAt[p.takenAt]?.takeIf { it.isAttached }?.boundsInRoot()?.top }; if (where() != null) onJump(where) }
                     }) {
                     if (pick != null) {
                         // The small picture the timeline uses too, fetched as soon as the photos are known: they are few.

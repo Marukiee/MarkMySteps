@@ -80,8 +80,9 @@ fun AppSheet(onDismiss: () -> Unit, content: @Composable AppSheetScope.() -> Uni
     var back by remember { mutableFloatStateOf(0f) }
     var height by remember { mutableFloatStateOf(1f) }
     var closing by remember { mutableStateOf(false) }
-    // In: a short, settled spring, about a third of a second, no overshoot.
-    LaunchedEffect(Unit) { down.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 520f)) }
+    // In: under 0.4 s on the emphasized decelerate curve, so it is moving at once and settles calmly at the
+    // top (a spring from standstill got going too slowly).
+    LaunchedEffect(Unit) { down.animateTo(0f, tween(380, easing = EmphasizedDecelerate)) }
     // Out: thrown hard it leaves at the speed of the throw; let go slowly (or by back or a tap) it glides out.
     fun closeAt(velocity: Float) {
         if (closing) return

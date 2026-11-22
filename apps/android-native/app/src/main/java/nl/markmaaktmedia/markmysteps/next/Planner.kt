@@ -433,6 +433,16 @@ fun Planner(
         onPlace = { leg, p -> pickLegPlace(leg, p) }, km = { legKm(it) }, trip = trip)
 
     var day = firstDate
+    // While a stop is held and moved, the line runs on behind the whole list: the spot it left and the gaps
+    // around it keep their line instead of showing bare background.
+    val spine = color.copy(alpha = 0.35f)
+    val density = LocalDensity.current
+    Column(Modifier.fillMaxWidth().drawBehind {
+        if (dragKey == null && settleKey == null) return@drawBehind
+        val x = with(density) { 45.dp.toPx() }
+        val inset = with(density) { 40.dp.toPx() }
+        if (size.height > inset * 2) drawRect(spine, topLeft = Offset(x, inset), size = Size(with(density) { 2.dp.toPx() }, size.height - inset * 2))
+    }) {
     stops.forEachIndexed { index, stop ->
         val from = day
         day = day.plusDays(stop.nights.toLong())
@@ -538,6 +548,7 @@ fun Planner(
                 }
             }
         }
+    }
     }
 
     if (back != null && stops.isNotEmpty()) Line(color)

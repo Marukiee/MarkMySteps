@@ -79,6 +79,9 @@ private class Section(val id: String, val icon: List<Shape24>, val title: String
 fun SettingsPage(onSignIn: () -> Unit = {}) {
     // Straight to a page when asked (Aanvragen bekijken opens Accounts); that page opens even while "admin" is still being read.
     var open by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(Data.openSettings.also { Data.openSettings = null }) }
+    // Also when Settings was opened before: its remembered page would win over the request otherwise, and
+    // "Aanvragen bekijken" landed on the settings list instead of Accounts.
+    LaunchedEffect(Data.openSettings) { Data.openSettings?.let { open = it; Data.openSettings = null } }
     var admin by remember { mutableStateOf(Data.live && SettingsRemote.cachedAdmin()) }
     LaunchedEffect(Data.live, Data.version) { admin = Data.live && runCatching { SettingsRemote.account().admin }.getOrDefault(false) }
     val sections = listOfNotNull(
