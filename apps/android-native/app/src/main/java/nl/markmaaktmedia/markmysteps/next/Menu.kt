@@ -50,7 +50,7 @@ class MenuEntry(
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntry>>, anchorHeight: androidx.compose.ui.unit.Dp = 40.dp, buttonColor: Color? = null) {
+fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntry>>, anchorHeight: androidx.compose.ui.unit.Dp = 40.dp, buttonColor: Color? = null, onShowing: ((Boolean) -> Unit)? = null) {
     val cs = MaterialTheme.colorScheme
     val shown = groups.filter { it.isNotEmpty() }
     // Taken here, outside the popup: the popup's own view is gone by the time an entry acts.
@@ -67,7 +67,11 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
         if (expanded) open.animateTo(1f, androidx.compose.animation.core.tween(240, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)))
         else open.animateTo(0f, androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing))
     }
-    if (!expanded && open.value <= 0f) return
+    // While it is out, the button it grows from is hidden (the menu is that button now), so the round button
+    // never peeks out past the menu's corner; it is back the moment the menu has folded into it.
+    val showing = expanded || open.value > 0f
+    androidx.compose.runtime.SideEffect { onShowing?.invoke(showing) }
+    if (!showing) return
     // The button it came from, as the popup is placed on it.
     var anchor by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     val margin = with(androidx.compose.ui.platform.LocalDensity.current) { 12.dp.roundToPx() }
@@ -133,13 +137,16 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                 // Choices of one kind side by side, then the plain lines, all in the same group.
                 val inlines = entries.filter { it.inline }
                 val lines = entries.filterNot { it.inline }
+                // Measured on screen: the group's own edge above and below its items was 9 px against 11 px at the
+                // sides. A little more top and bottom makes all four the same.
+                if (inlines.isEmpty()) Spacer(Modifier.height(0.75.dp))
                 if (inlines.isNotEmpty()) {
                     // One choice out of a few: connected buttons side by side, the chosen one filled.
                     androidx.compose.foundation.layout.Row(
                         // On the same edges as the lines under it, and the same gap above and below it as beside it
                         // and between the lines (measured on the phone: 10 px all round). The group already adds a
                         // little at its top and between items, hence the uneven numbers.
-                        Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 2.5.dp, bottom = 1.5.dp),
+                        Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 2.1.dp, bottom = 1.5.dp),
                         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.material3.ButtonGroupDefaults.ConnectedSpaceBetween),
                     ) {
                         inlines.forEachIndexed { i, e ->
@@ -190,6 +197,7 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                         colors = MenuDefaults.selectableItemColors(containerColor = cs.surfaceContainerLow, selectedContainerColor = cs.primaryContainer),
                     )
                 }
+                Spacer(Modifier.height(0.75.dp))
             }
         }
     }

@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -444,8 +445,11 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBo
                         )
                     }
                     if (trip.remoteId != null) Box {
-                        RoundButton(onClick = { menu = true }) { LineIcon(Glyphs.dotsCircles, Color.White, size = 20.dp, filled = true) }
-                        ViewerMenu(trip, current, stops, immich, expanded = menu, onDismiss = { menu = false }, onNote = { text, sticky -> note = text; noteSticky = sticky })
+                        var menuOut by remember { mutableStateOf(false) }
+                        Box(Modifier.graphicsLayer { alpha = if (menuOut) 0f else 1f }) {
+                            RoundButton(onClick = { menu = true }) { LineIcon(Glyphs.dotsCircles, Color.White, size = 20.dp, filled = true) }
+                        }
+                        ViewerMenu(trip, current, stops, immich, expanded = menu, onDismiss = { menu = false }, onNote = { text, sticky -> note = text; noteSticky = sticky }, onShowing = { menuOut = it })
                     }
                 }
                 Spacer(Modifier.height(28.dp))
@@ -595,7 +599,7 @@ private fun PlaceLine(current: Media, list: List<Media>, page: Int, stops: List<
  * the original saved to the phone, opened in or shared with another app, and your own photo in Immich.
  */
 @Composable
-private fun ViewerMenu(trip: Trip, media: Media, stops: List<ViewerApi.StopRow>?, immich: String?, expanded: Boolean, onDismiss: () -> Unit, onNote: (String?, Boolean) -> Unit) {
+private fun ViewerMenu(trip: Trip, media: Media, stops: List<ViewerApi.StopRow>?, immich: String?, expanded: Boolean, onDismiss: () -> Unit, onNote: (String?, Boolean) -> Unit, onShowing: (Boolean) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val me = Data.me?.id
@@ -617,6 +621,8 @@ private fun ViewerMenu(trip: Trip, media: Media, stops: List<ViewerApi.StopRow>?
             else { onNote(null, false); runCatching { block(file.first, file.second) }.onFailure { onNote(Lang.text(R.string.viewer_no_app), false) } }
         }
     }
+    // Over a dark photo in the dark scheme's tones, not the light ones (white was harsh over a photo at night).
+    MaterialTheme(colorScheme = DarkScheme) {
     AppMenu(expanded, onDismiss, groups = listOf(
         if (owner && !DeviceMedia.isDevice(media.id)) listOfNotNull(
             MenuEntry(stringResource(R.string.viewer_cover_trip), Glyphs.photo) { cover(Lang.text(R.string.viewer_cover_trip)) { ViewerApi.setTripCover(trip, media.id) } },
@@ -637,7 +643,8 @@ private fun ViewerMenu(trip: Trip, media: Media, stops: List<ViewerApi.StopRow>?
         if (immich != null && media.immichAssetId != null && media.userId.isNotBlank() && media.userId == me)
             listOf(MenuEntry(stringResource(R.string.viewer_open_immich), Glyphs.globe) { ViewerApi.browse(context, "$immich/photos/${media.immichAssetId}") })
         else emptyList(),
-    ), buttonColor = Color(0xFF2E2E2E))
+    ), buttonColor = Color(0xFF2E2E2E), onShowing = onShowing)
+    }
 }
 
 @Composable
@@ -670,18 +677,31 @@ private fun ViewerPhoto(
     Box(
         Modifier.fillMaxSize()
             .pointerInput(Unit) {
-                // Double tap zooms 2.5x around the spot you tapped, as on the web, and back out again.
-                detectTapGestures(onTap = { onTap() }, onDoubleTap = { at ->
-                    val c = Offset(size.width / 2f, size.height / 2f)
-                    val toZoom = if (zoom > 1f) 1f else 2.5f
-                    val toPan = if (toZoom == 1f) Offset.Zero else (c - at) * (toZoom - 1f)
-                    scope.launch {
-                        val z0 = zoom; val p0 = pan
-                        animate(0f, 1f, animationSpec = motion.defaultSpatialSpec()) { t, _ ->
-                            zoom = (z0 + (toZoom - z0) * t).coerceAtLeast(1f); pan = p0 + (toPan - p0) * t
+                // A tap shows or hides the buttons at once (waiting to see whether a second tap follows made it
+                // lag); a second tap right after puts them back and zooms 2.5x around that spot, as on the web, and
+                // back out again.
+                var lastUp = 0L
+                var lastAt = Offset.Zero
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val up = waitForUpOrCancellation() ?: return@awaitEachGesture
+                    if (up.uptimeMillis - down.uptimeMillis > viewConfiguration.longPressTimeoutMillis) return@awaitEachGesture
+                    val at = up.position
+                    val double = up.uptimeMillis - lastUp < viewConfiguration.doubleTapTimeoutMillis && (at - lastAt).getDistance() < viewConfiguration.touchSlop * 4
+                    onTap()
+                    if (double) {
+                        lastUp = 0L
+                        val c = Offset(size.width / 2f, size.height / 2f)
+                        val toZoom = if (zoom > 1f) 1f else 2.5f
+                        val toPan = if (toZoom == 1f) Offset.Zero else (c - at) * (toZoom - 1f)
+                        scope.launch {
+                            val z0 = zoom; val p0 = pan
+                            animate(0f, 1f, animationSpec = motion.defaultSpatialSpec()) { t, _ ->
+                                zoom = (z0 + (toZoom - z0) * t).coerceAtLeast(1f); pan = p0 + (toPan - p0) * t
+                            }
                         }
-                    }
-                })
+                    } else { lastUp = up.uptimeMillis; lastAt = at }
+                }
             }
             .transformable(transform, canPan = { zoom > 1f }),
         contentAlignment = Alignment.Center,
@@ -736,10 +756,13 @@ private fun SocialBar(
     var picked by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(picking) { if (picking) picked = null }
     Column {
+        // Its room opens and closes smoothly too, so the photo strip above glides up and back down with it.
         AnimatedVisibility(
             picking,
-            enter = scaleIn(motion.fastSpatialSpec(), initialScale = 0.6f, transformOrigin = TransformOrigin(0f, 1f)) + fadeIn(motion.fastEffectsSpec()),
-            exit = scaleOut(motion.fastSpatialSpec(), targetScale = 0.6f, transformOrigin = TransformOrigin(0f, 1f)) + fadeOut(motion.fastEffectsSpec()),
+            enter = androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(260, easing = androidx.compose.animation.core.FastOutSlowInEasing), expandFrom = Alignment.Bottom) +
+                scaleIn(motion.fastSpatialSpec(), initialScale = 0.6f, transformOrigin = TransformOrigin(0f, 1f)) + fadeIn(motion.fastEffectsSpec()),
+            exit = androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing), shrinkTowards = Alignment.Bottom) +
+                scaleOut(motion.fastSpatialSpec(), targetScale = 0.6f, transformOrigin = TransformOrigin(0f, 1f)) + fadeOut(motion.fastEffectsSpec()),
         ) {
             Column(Modifier.padding(bottom = 10.dp)) {
                 // Who gave what, when the server says.
@@ -784,7 +807,9 @@ private fun SocialBar(
             Row(
                 Modifier.height(48.dp).graphicsLayer { scaleX = press; scaleY = press }.clip(CircleShape)
                     .background(if (mine != null || picking) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.18f))
-                    .pointerInput(enabled) {
+                    // Keyed on whether the choices are open: a handler that kept the first value always opened
+                    // them again, so a second tap never closed them.
+                    .pointerInput(enabled, picking) {
                         if (enabled) detectTapGestures(
                             onPress = { pressed = true; tryAwaitRelease(); pressed = false },
                             onTap = { haptics.performHapticFeedback(HapticFeedbackType.ContextClick); onPicking(!picking) },
@@ -1046,7 +1071,9 @@ private fun Filmstrip(list: List<Media>, pager: androidx.compose.foundation.page
     }
     LaunchedEffect(dragged) { if (dragged) scrubbing = true }
     // Let go: the strip glides to the nearest tile, and that is the photo.
-    LaunchedEffect(scrubbing, state.isScrollInProgress) {
+    // Keyed on the finger too: a slow drag that just stops ends the drag after the scroll, and then it still
+    // has to come to rest on a photo instead of staying between two.
+    LaunchedEffect(scrubbing, state.isScrollInProgress, dragged) {
         if (scrubbing && !dragged && !state.isScrollInProgress) {
             val target = kotlin.math.round(stripPos()).coerceIn(0f, list.lastIndex.toFloat())
             state.animateScrollBy(target * slotPx - scrolled(), androidx.compose.animation.core.tween(180, easing = androidx.compose.animation.core.FastOutSlowInEasing))
