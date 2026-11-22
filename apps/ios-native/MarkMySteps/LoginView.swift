@@ -35,11 +35,11 @@ struct LoginView: View {
         ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // A fixed height: the globe must not shrink when the keyboard takes room.
+                // A fixed height: the globe must not shrink when the keyboard takes room. It runs up under the
+                // status bar, edge to edge, so there is no band of page colour above it.
                 GlobeHero(trips: Demo.past + [Demo.upcoming])
-                    .frame(height: 270)
+                    .frame(height: 270 + topInset)
                     .frame(maxWidth: .infinity)
-                    .padding(.top, topInset)
                     .overlay(alignment: .bottom) {
                         LinearGradient(colors: [Brand.paper.opacity(0), Brand.paper], startPoint: .top, endPoint: .bottom)
                             .frame(height: 90)
