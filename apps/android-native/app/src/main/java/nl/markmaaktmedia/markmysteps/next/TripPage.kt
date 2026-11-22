@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.rememberScrollState
@@ -166,7 +167,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
 
                 // No animateContentSize here: it clips, which cut the places row off before the screen edge.
                 Column(Modifier.padding(top = 16.dp)) {
-                    if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                    if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
                 }
                 Spacer(Modifier.height(24.dp))
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -191,6 +192,17 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                     RoundButton(onClick = { mapSheet = true }) { LineIcon(listOf(P("M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5Z"), P("M9 4v13.5"), P("M15 6.5V20")), cs.onSurface, size = 21.dp, stroke = 1.9f) }
                     if (trip.remoteId != null) RoundButton(onClick = { tripSheet = true }) { LineIcon(Glyphs.settings, cs.onSurface, size = 21.dp, stroke = 1.8f) }
                 }
+            }
+        }
+        // Back to the top once the map has scrolled away, as on the web; arriving there shows the whole trip again.
+        androidx.compose.animation.AnimatedVisibility(
+            scroll.value > with(density) { (mapH + 80.dp).toPx() } && viewing == null,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 24.dp).windowInsetsPadding(WindowInsets.navigationBars),
+            enter = androidx.compose.animation.fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(MaterialTheme.motionScheme.fastSpatialSpec(), initialScale = 0.6f),
+            exit = androidx.compose.animation.fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.6f),
+        ) {
+            Box(Modifier.size(52.dp).clip(CircleShape).background(cs.primaryContainer).press { scope.launch { scroll.animateScrollTo(0) } }, contentAlignment = Alignment.Center) {
+                LineIcon(listOf(P("M12 19V5"), P("m5 12 7-7 7 7")), cs.onPrimaryContainer, size = 22.dp, stroke = 2.2f)
             }
         }
         // The map full screen: it grows open and closes with back or the cross.

@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,8 +72,8 @@ private fun daysOf(trip: Trip): List<Day> {
 }
 
 @Composable
-fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Media) -> Unit = {}, bounds: TileBounds? = null, hidden: String? = null) {
-    if (media != null) { LiveTimeline(trip, media, onPhoto, bounds, hidden); return }
+fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Media) -> Unit = {}, bounds: TileBounds? = null, hidden: String? = null, onJump: (Float) -> Unit = {}) {
+    if (media != null) { LiveTimeline(trip, media, onPhoto, bounds, hidden, onJump); return }
     if (trip.remoteId != null) { TimelinePlaceholder(); return }
     val cs = MaterialTheme.colorScheme
     val scenes = Scene.entries
@@ -203,7 +204,9 @@ private fun Photo(scene: Scene, modifier: Modifier) {
 
 /** For a trip from the server: the real photos, day by day, laid out by their own shape. */
 @Composable
-private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Unit, bounds: TileBounds?, hidden: String?) {
+private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Unit, bounds: TileBounds?, hidden: String?, onJump: (Float) -> Unit) {
+    // Where each day's heading sits, so a place tile can scroll to its first day.
+    val dayAt = androidx.compose.runtime.remember { HashMap<LocalDate, androidx.compose.ui.layout.LayoutCoordinates>() }
     val cs = MaterialTheme.colorScheme
     // Photos and videos together, as on the web; a video carries a play badge.
     val photos = media
@@ -219,7 +222,11 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
         Row(Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             trip.stops.distinctBy { it.name }.forEach { stop ->
                 val pick = photos.firstOrNull { stopOn(it.takenAt)?.name == stop.name }
-                Box(Modifier.width(138.dp).height(168.dp).clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerHigh)) {
+                Box(Modifier.width(138.dp).height(168.dp).clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerHigh)
+                    .clickable(enabled = pick != null) {
+                        // A tap goes to that place's first day, as on the web.
+                        pick?.let { p -> dayAt[p.takenAt]?.takeIf { it.isAttached }?.let { onJump(it.boundsInRoot().top) } }
+                    }) {
                     if (pick != null) {
                         RemotePhoto(pick.id, Modifier.fillMaxSize(), "preview")
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.62f))))
@@ -261,7 +268,7 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                 drawLine(line, Offset(x, 22.dp.toPx()), Offset(x, if (last) 40.dp.toPx() else size.height), strokeWidth = 2.dp.toPx())
             },
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.onGloballyPositioned { dayAt[date] = it }) {
                 Box(Modifier.size(13.dp).clip(CircleShape).background(cs.primary))
                 val weekday = date.dayOfWeek.getDisplayName(DateStyle.FULL, Dutch).replaceFirstChar { it.uppercase() }
                 Text(

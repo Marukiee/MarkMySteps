@@ -138,6 +138,7 @@ fun Planner(trip: Trip, dark: Boolean) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var saveError by remember { mutableStateOf<String?>(null) }
     val nightJobs = remember { HashMap<Int, kotlinx.coroutines.Job>() }
+    var undo by remember { mutableStateOf<Pair<Pair<PlanStop, Int>, kotlinx.coroutines.Job>?>(null) }
     fun save(block: suspend () -> Unit) { if (live) scope.launch { runCatching { block() }.onSuccess { saveError = null }.onFailure { saveError = "Opslaan mislukt" } } }
     val planned = stops.sumOf { it.nights }
 
@@ -246,8 +247,15 @@ fun Planner(trip: Trip, dark: Boolean) {
             // Gone from the list only once it has folded away.
             if (visible.isIdle && !visible.currentState) {
                 androidx.compose.runtime.LaunchedEffect(Unit) {
+                    val at = stops.indexOf(stop)
                     stops.remove(stop)
-                    stop.id?.let { id -> save { Remote.deleteStop(trip, id) } }
+                    // Kept back for 7 s so "Ongedaan maken" can put it back; only then is it deleted on the server.
+                    undo?.second?.cancel()
+                    undo = (stop to at) to scope.launch {
+                        kotlinx.coroutines.delay(7000)
+                        stop.id?.let { id -> runCatching { Remote.deleteStop(trip, id) }.onFailure { saveError = "Opslaan mislukt" } }
+                        undo = null
+                    }
                 }
             }
         }
@@ -258,6 +266,23 @@ fun Planner(trip: Trip, dark: Boolean) {
         LegCard("Terug", leg, onMode = { back = leg.copy(mode = leg.mode.next()) })
     }
 
+    // The undo pill, in the page's own colours, rising in and folding away.
+    androidx.compose.animation.AnimatedVisibility(
+        undo != null,
+        enter = androidx.compose.animation.slideInVertically(MaterialTheme.motionScheme.fastSpatialSpec()) { it } + fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
+        exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()),
+    ) {
+        Row(
+            Modifier.padding(top = 12.dp).fillMaxWidth().clip(CircleShape).background(cs.inverseSurface).padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("${undo?.first?.first?.name ?: "Stop"} verwijderd", maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.inverseOnSurface), modifier = Modifier.weight(1f))
+            androidx.compose.material3.TextButton(onClick = {
+                undo?.let { (pair, job) -> job.cancel(); val (s, at) = pair; stops.add(at.coerceIn(0, stops.size), PlanStop(nextKey, s.name, s.flag, s.at, s.nights, s.mode, s.id)); nextKey += 1 }
+                undo = null
+            }) { Text("Ongedaan maken", color = cs.inversePrimary, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp)) }
+        }
+    }
     if (saveError != null) Text(saveError ?: "", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.error), modifier = Modifier.padding(top = 12.dp, start = 4.dp))
     AddStop(trip, taken = stops.map { it.name }.toSet(), onAdd = { place ->
         val id = java.util.UUID.randomUUID().toString()

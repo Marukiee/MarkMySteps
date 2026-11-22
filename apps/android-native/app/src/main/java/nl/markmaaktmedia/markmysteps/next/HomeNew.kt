@@ -271,6 +271,7 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
     val heroH = (screenH * 0.5f).coerceIn(320f, 560f).dp
     var tab by remember { mutableIntStateOf(0) }
     var globeScale by remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
+    var newTrip by remember { mutableStateOf(false) }
     val scroll = rememberScrollState()
 
     Box(Modifier.fillMaxSize().background(cs.background)) {
@@ -307,7 +308,7 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
                         modifier = Modifier.weight(1f),
                     )
-                    Button(onClick = {}, shapes = ButtonDefaults.shapes(), contentPadding = PaddingValues(start = 16.dp, end = 20.dp, top = 12.dp, bottom = 12.dp)) {
+                    Button(onClick = { if (Data.live) newTrip = true }, shapes = ButtonDefaults.shapes(), contentPadding = PaddingValues(start = 16.dp, end = 20.dp, top = 12.dp, bottom = 12.dp)) {
                         LineIcon(Glyphs.plus, cs.onPrimary, size = 18.dp, stroke = 2.6f)
                         Spacer(Modifier.width(8.dp))
                         Text("Nieuwe reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
@@ -367,6 +368,10 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
             }
         }
 
+        if (newTrip) NewTripSheet(onDismiss = { newTrip = false }, onCreated = { id ->
+            newTrip = false
+            Data.all.firstOrNull { it.id == id }?.let(onOpenTrip)
+        })
         // Behind the clock and the battery once the page scrolls under them.
         val scrim by animateFloatAsState(if (scroll.value > 40) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "scrim")
         Column(Modifier.fillMaxWidth().alpha(scrim)) {
