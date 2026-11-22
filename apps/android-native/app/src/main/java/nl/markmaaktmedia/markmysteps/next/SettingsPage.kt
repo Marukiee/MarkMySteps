@@ -201,6 +201,7 @@ private fun DisplayPage(onBack: () -> Unit) {
 fun MapStyleGrid() {
     val cs = MaterialTheme.colorScheme
     val dark = cs.background.luminance() < 0.5f
+    val haptics = rememberHaptics()
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         MapStylePref.ids.chunked(2).forEach { pair ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -211,7 +212,7 @@ fun MapStyleGrid() {
                     Column(
                         Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(fill)
                             .border(2.dp, edge, RoundedCornerShape(22.dp))
-                            .dip { MapStylePref.set(id) }.padding(8.dp),
+                            .dip { if (!on) haptics(Haptic.Tick); MapStylePref.set(id) }.padding(8.dp),
                     ) {
                         MapStylePreview(id, dark, Modifier.fillMaxWidth().height(84.dp).clip(RoundedCornerShape(16.dp)))
                         Row(Modifier.padding(top = 8.dp, bottom = 2.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -264,6 +265,7 @@ private fun AirportsPanel() {
     val results = remember(query, AirportPref.codes.toList(), Airports.ready) { Airports.search(query).filter { it.iata !in AirportPref.codes } }
         Header("Standaard vliegvelden", top = true)
         val motion = MaterialTheme.motionScheme
+        val haptics = rememberHaptics()
         // The panel grows and shrinks with the chips; the suggestions bring their own height in and out.
         Panel(animate = true) {
             Hint("Je thuisvliegvelden. Tik er een aan om hem de eerste te maken: die geldt als thuis op de globe.")
@@ -273,7 +275,7 @@ private fun AirportsPanel() {
                     val a = Airports.byCode(code)
                     Row(
                         Modifier.height(48.dp).clip(CircleShape).background(if (first) cs.primary else cs.secondaryContainer)
-                            .dip { if (!first) AirportPref.set(listOf(code) + AirportPref.codes.filter { it != code }) }
+                            .dip { if (!first) { haptics(Haptic.Tick); AirportPref.set(listOf(code) + AirportPref.codes.filter { it != code }) } }
                             .padding(start = 16.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -299,7 +301,7 @@ private fun AirportsPanel() {
                     shownResults.forEachIndexed { i, a ->
                         Row(
                             Modifier.fillMaxWidth().clip(slabShape(i, shownResults.size)).background(cs.surfaceContainerHigh)
-                                .dip { AirportPref.set(AirportPref.codes + a.iata); query = "" }.padding(horizontal = 14.dp, vertical = 12.dp),
+                                .dip { haptics(Haptic.Confirm); AirportPref.set(AirportPref.codes + a.iata); query = "" }.padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(a.iata, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.width(48.dp))
@@ -339,7 +341,8 @@ private fun NotifyPanel() {
             }),
     ))
     Spacer(Modifier.height(8.dp))
-    Note(note)
+    // The switch already ticked (or said no when grey); the line under it only explains.
+    Note(note, feel = null)
     if (explain) Confirm(
         "Meldingen toestaan?", "Dan kan de app je laten weten als iemand wil meekijken of je toevoegt aan een reis. Android vraagt je zo om toestemming.", "Verder", danger = false,
         onConfirm = { ask.launch(android.Manifest.permission.POST_NOTIFICATIONS) }, onDismiss = { explain = false },
@@ -365,7 +368,8 @@ private fun TrackingPanel() {
         .sortedWith(compareBy<Trip> { if (it.ongoingDay != null) 0 else 1 }.thenBy { it.startsInDays ?: 0 })
     LaunchedEffect(trips) { if (tripId == null || trips.none { it.id == tripId }) tripId = trips.firstOrNull()?.id }
     val trip = trips.firstOrNull { it.id == tripId }
-    fun begin() { trip?.let { Tracker.start(context, it.remoteId ?: it.id, it.title); note = null } }
+    val haptics = rememberHaptics()
+    fun begin() { trip?.let { Tracker.start(context, it.remoteId ?: it.id, it.title); note = null; haptics(Haptic.Confirm) } }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { got ->
         if (got[android.Manifest.permission.ACCESS_FINE_LOCATION] == true || got[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true) begin()
         else note = "Zonder locatie kan de app je route niet bijhouden. Geef toegang bij Instellingen › Apps › MarkMySteps Dev › Toegang › Locatie."
@@ -430,7 +434,8 @@ private fun TrackingPanel() {
                 }
             }
         }
-        Note(note)
+        // Every line here says why tracking could not start.
+        Note(note, feel = Haptic.Reject)
     }
     if (explain) Confirm(
         "Locatie voor je route",

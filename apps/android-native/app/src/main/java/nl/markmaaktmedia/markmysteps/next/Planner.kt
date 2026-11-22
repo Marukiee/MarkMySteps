@@ -114,8 +114,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import androidx.core.view.HapticFeedbackConstantsCompat
-import androidx.core.view.ViewCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -438,7 +436,7 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
                             detectDragGesturesAfterLongPress(
                                 onDragStart = {
                                     dragKey = stop.key; dragY = 0f
-                                    ViewCompat.performHapticFeedback(view, HapticFeedbackConstantsCompat.LONG_PRESS)
+                                    view.haptic(Haptic.LongPress)
                                 },
                                 onDragEnd = {
                                     val left = dragY
@@ -456,11 +454,11 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
                                     if (below != null && dragY > (heights[below.key] ?: 0) / 2f) {
                                         dragY -= heights[below.key] ?: 0
                                         stops.add(i + 1, stops.removeAt(i))
-                                        ViewCompat.performHapticFeedback(view, HapticFeedbackConstantsCompat.SEGMENT_TICK)
+                                        view.haptic(Haptic.Tick)
                                     } else if (above != null && dragY < -(heights[above.key] ?: 0) / 2f) {
                                         dragY += heights[above.key] ?: 0
                                         stops.add(i - 1, stops.removeAt(i))
-                                        ViewCompat.performHapticFeedback(view, HapticFeedbackConstantsCompat.SEGMENT_TICK)
+                                        view.haptic(Haptic.Tick)
                                     }
                                 },
                             )
@@ -480,7 +478,7 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
                             trip = trip, stop = stop, index = index, from = from, to = to, color = color, dark = dark, lifted = lift,
                             photo = photoFor(media, from, stop.nights), media = media,
                             onNights = {
-                                stop.nights = (stop.nights + it).coerceIn(0, 60)
+                                stop.nights = (stop.nights + it).coerceIn(NightsRange.first, NightsRange.last)
                                 // Taps in a row become one save, after a short pause.
                                 stop.id?.let { id ->
                                     nightJobs[stop.key]?.cancel()
@@ -488,6 +486,7 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
                                 }
                             },
                             onAddDayTrip = { place, d ->
+                                view.haptic(Haptic.Confirm)
                                 val id = java.util.UUID.randomUUID().toString()
                                 stop.dayTrips.add(PlanDayTrip(dayTripKey++, if (live) id else null, place.name, Remote.flag(place.countryCode), place.at, d))
                                 val parent = stop.id
@@ -521,8 +520,10 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
         undo?.let { p -> p.job?.cancel(); p.restore() }
         undo = null
     }) } }
+    HapticOn(saveError, Haptic.Reject)
     if (saveError != null) Text(saveError ?: "", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.error), modifier = Modifier.padding(top = 12.dp, start = 4.dp))
     AddStop(trip, taken = stops.map { it.name }.toSet(), onAdd = { place ->
+        view.haptic(Haptic.Confirm)
         val id = java.util.UUID.randomUUID().toString()
         // Before the way back, never after it.
         val after = stops.lastOrNull()?.id ?: outbound?.id
@@ -643,7 +644,8 @@ private fun AddLegRow(label: String, onAdd: (Mode) -> Unit) {
             LineIcon(Glyphs.plus, cs.primary, size = 18.dp, stroke = 2.4f)
             Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.5.sp, color = cs.primary), modifier = Modifier.padding(start = 8.dp))
         }
-        AppMenu(open, { open = false }, listOf(Mode.entries.map { m -> MenuEntry(m.label, m.icon()) { onAdd(m) } }))
+        val haptics = rememberHaptics()
+        AppMenu(open, { open = false }, listOf(Mode.entries.map { m -> MenuEntry(m.label, m.icon()) { haptics(Haptic.Confirm); onAdd(m) } }))
     }
 }
 
@@ -855,6 +857,7 @@ private fun DayTripPanel(trip: Trip, parent: String, from: LocalDate, nights: In
     var query by remember { mutableStateOf("") }
     val days = (0 until nights.coerceAtLeast(1)).map { from.plusDays(it.toLong()) }
     var chosen by remember { mutableStateOf(days.first()) }
+    val haptics = rememberHaptics()
     val matches = placeMatches(trip, query, taken)
     val focus = remember { FocusRequester() }
     val above = rememberAboveKeyboard()
@@ -869,7 +872,7 @@ private fun DayTripPanel(trip: Trip, parent: String, from: LocalDate, nights: In
                 days.forEach { d ->
                     val on = d == chosen
                     val bg by animateColorAsState(if (on) cs.secondaryContainer else cs.surfaceContainerHighest, MaterialTheme.motionScheme.fastEffectsSpec(), label = "day")
-                    Row(Modifier.height(34.dp).clip(CircleShape).background(bg).squish { chosen = d }.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.height(34.dp).clip(CircleShape).background(bg).squish { if (!on) haptics(Haptic.Tick); chosen = d }.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         AnimatedVisibility(on) { LineIcon(Glyphs.check, cs.onSecondaryContainer, size = 15.dp, stroke = 2.4f, modifier = Modifier.padding(end = 5.dp)) }
                         Text(day(d), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.sp, color = if (on) cs.onSecondaryContainer else cs.onSurface))
                     }
@@ -884,13 +887,18 @@ private fun DayTripPanel(trip: Trip, parent: String, from: LocalDate, nights: In
     }
 }
 
-/** Fewer, the count, more: one pill, the number rolling. */
+/** How many nights a stop can have. */
+private val NightsRange = 0..60
+
+/** Fewer, the count, more: one pill, the number rolling. Each step clicks like a dial; past either end it says no. */
 @Composable
 private fun Stepper(nights: Int, onChange: (Int) -> Unit) {
     val cs = MaterialTheme.colorScheme
     val motion = MaterialTheme.motionScheme
+    val haptics = rememberHaptics()
+    fun step(by: Int) { haptics(if (nights + by in NightsRange) Haptic.Step else Haptic.Reject); onChange(by) }
     Row(Modifier.height(40.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(3.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(34.dp).clip(CircleShape).background(cs.surfaceContainerLow).squish { onChange(-1) }, contentAlignment = Alignment.Center) {
+        Box(Modifier.size(34.dp).clip(CircleShape).background(cs.surfaceContainerLow).squish { step(-1) }, contentAlignment = Alignment.Center) {
             LineIcon(Glyphs.minus, cs.onSurface, size = 15.dp, stroke = 2.4f)
         }
         Box(Modifier.width(50.dp), contentAlignment = Alignment.Center) {
@@ -909,7 +917,7 @@ private fun Stepper(nights: Int, onChange: (Int) -> Unit) {
                 }
             }
         }
-        Box(Modifier.size(34.dp).clip(CircleShape).background(cs.surfaceContainerLow).squish { onChange(1) }, contentAlignment = Alignment.Center) {
+        Box(Modifier.size(34.dp).clip(CircleShape).background(cs.surfaceContainerLow).squish { step(1) }, contentAlignment = Alignment.Center) {
             LineIcon(Glyphs.plus, cs.onSurface, size = 15.dp, stroke = 2.4f)
         }
     }
@@ -1155,7 +1163,6 @@ private class SwipeRemove(private val scope: CoroutineScope, private val density
     private var dragged = 0f
     private var inZone = false
 
-    private fun haptic(constant: Int) { ViewCompat.performHapticFeedback(view, constant) }
 
     fun start() {
         phase = SwipePhase.Tension
@@ -1181,7 +1188,7 @@ private class SwipeRemove(private val scope: CoroutineScope, private val density
                 } else phase = SwipePhase.Snapping
             }
             SwipePhase.Snapping -> {
-                haptic(HapticFeedbackConstantsCompat.GESTURE_THRESHOLD_ACTIVATE)
+                view.haptic(Haptic.ThresholdOn)
                 scope.launch { offset.animateTo(dragged, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessLow)) }
                 phase = SwipePhase.FreeDrag
             }
@@ -1189,7 +1196,7 @@ private class SwipeRemove(private val scope: CoroutineScope, private val density
                 val now = abs(dragged) > width * 0.40f
                 if (now != inZone) {
                     inZone = now
-                    haptic(if (now) HapticFeedbackConstantsCompat.GESTURE_THRESHOLD_ACTIVATE else HapticFeedbackConstantsCompat.GESTURE_THRESHOLD_DEACTIVATE)
+                    view.haptic(if (now) Haptic.ThresholdOn else Haptic.ThresholdOff)
                 }
                 scope.launch { offset.animateTo(dragged, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh)) }
             }
@@ -1202,7 +1209,7 @@ private class SwipeRemove(private val scope: CoroutineScope, private val density
         phase = SwipePhase.Idle
         inZone = false
         if (committed) {
-            haptic(HapticFeedbackConstantsCompat.GESTURE_END)
+            view.haptic(Haptic.GestureEnd)
             dragged = 0f
             // Flung off to the left while the height folds in step; only then is it removed.
             scope.launch { collapse.animateTo(0f, tween(260, easing = FastOutSlowInEasing)) }

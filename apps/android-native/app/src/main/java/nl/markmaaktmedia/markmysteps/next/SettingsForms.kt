@@ -165,9 +165,17 @@ fun IconTile(icon: List<Shape24>, seed: Int, big: Boolean = false, danger: Boole
 fun SettingRow(item: Item, i: Int, n: Int, seed: Int) {
     val cs = MaterialTheme.colorScheme
     val alpha by animateFloatAsState(if (item.enabled && !item.dimmed) 1f else 0.45f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "enabled")
+    val haptics = rememberHaptics()
     Row(
         Modifier.fillMaxWidth().clip(slabShape(i, n)).background(cs.surfaceContainerLow)
-            .then(if (item.enabled && (item.action != null || item.toggle != null)) Modifier.dip { item.action?.invoke() } else Modifier)
+            .then(if (item.enabled && (item.action != null || item.toggle != null)) Modifier.dip {
+                // A switch row feels like its switch; a grey one says no. Rows that open a page stay quiet.
+                when {
+                    item.dimmed -> haptics(Haptic.Reject)
+                    item.toggle != null -> haptics.toggle(!item.toggle)
+                }
+                item.action?.invoke()
+            } else Modifier)
             .graphicsLayer { this.alpha = alpha }
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -178,7 +186,7 @@ fun SettingRow(item: Item, i: Int, n: Int, seed: Int) {
             if (item.value != null) Text(item.value, style = ValueStyle.copy(color = cs.onSurfaceVariant))
         }
         if (item.toggle != null) {
-            AppSwitch(item.toggle, enabled = item.enabled) { item.action?.invoke() }
+            AppSwitch(item.toggle, enabled = item.enabled, dimmed = item.dimmed) { item.action?.invoke() }
         } else if (item.action != null && !item.plain) {
             LineIcon(if (item.external) Glyphs.external else Glyphs.chevronRight, cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
         }
@@ -186,11 +194,12 @@ fun SettingRow(item: Item, i: Int, n: Int, seed: Int) {
 }
 
 @Composable
-fun AppSwitch(checked: Boolean, enabled: Boolean = true, onChange: () -> Unit) {
+fun AppSwitch(checked: Boolean, enabled: Boolean = true, dimmed: Boolean = false, onChange: () -> Unit) {
     val cs = MaterialTheme.colorScheme
+    val haptics = rememberHaptics()
     Switch(
         checked = checked,
-        onCheckedChange = { onChange() },
+        onCheckedChange = { if (dimmed) haptics(Haptic.Reject) else haptics.toggle(it); onChange() },
         enabled = enabled,
         thumbContent = if (checked) {
             { LineIcon(listOf(P("m5 12 5 5 9-10")), cs.primary, size = 14.dp, stroke = 2.6f) }
@@ -234,10 +243,14 @@ fun PathHint(prefix: String, steps: List<String>, suffix: String = "") {
     Text(pathText(prefix, steps, suffix, cs.onSurface), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, lineHeight = 18.sp, color = cs.onSurfaceVariant))
 }
 
-/** The answer to a save: green-ish when it went well, red when not; it grows in and out. */
+/**
+ * The answer to a save: green-ish when it went well, red when not; it grows in and out. It is felt too, a
+ * confirm or a short no, or as [feel] says (null for a line that only explains what a tap already said).
+ */
 @Composable
-fun Note(text: String?, error: Boolean = false) {
+fun Note(text: String?, error: Boolean = false, feel: Haptic? = if (error) Haptic.Reject else Haptic.Confirm) {
     val cs = MaterialTheme.colorScheme
+    if (feel != null) HapticOn(text, feel)
     var last by remember { mutableStateOf(text ?: "") }
     if (text != null) last = text
     AnimatedVisibility(
@@ -359,11 +372,12 @@ fun ButtonRow(content: @Composable androidx.compose.foundation.layout.RowScope.(
 @Composable
 fun <T> Choices(options: List<Pair<T, String>>, selected: T?, onSelect: (T) -> Unit, enabled: Boolean = true) {
     val cs = MaterialTheme.colorScheme
+    val haptics = rememberHaptics()
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
         options.forEachIndexed { i, (value, label) ->
             ToggleButton(
                 checked = selected == value,
-                onCheckedChange = { onSelect(value) },
+                onCheckedChange = { if (selected != value) haptics(Haptic.Tick); onSelect(value) },
                 enabled = enabled,
                 // A long word gets more of the row, so no label is ever cut off.
                 modifier = Modifier.weight(maxOf(1f, label.length / 9f)).height(52.dp),

@@ -39,12 +39,18 @@ class MenuEntry(
  * small gap to the next, the corners between items tighter than the outer ones, a chosen option filled with
  * a tick. No shadow (the app has none apart from the bottom bar): the groups stand off what is under them by
  * their own tone and a fine edge. Every entry closes the menu before it acts.
+ *
+ * Felt: a light tick as it opens (so the button that opens it stays quiet), and a segment tick when a new
+ * choice is picked. Plain actions leave the feel to what they do.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntry>>, anchorHeight: androidx.compose.ui.unit.Dp = 40.dp) {
     val cs = MaterialTheme.colorScheme
     val shown = groups.filter { it.isNotEmpty() }
+    // Taken here, outside the popup: the popup's own view is gone by the time an entry acts.
+    val haptics = rememberHaptics()
+    androidx.compose.runtime.LaunchedEffect(expanded) { if (expanded) haptics(Haptic.Tap) }
     // It opens over the button it came from: its top on the button's top and its right edge on the button's
     // right edge, moved up only as far as needed to stay on screen. (The material popup shifted itself by the
     // room below, so a fixed offset landed differently on every card.)
@@ -98,7 +104,7 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                             val on = e.selected == true
                             androidx.compose.material3.ToggleButton(
                                 checked = on,
-                                onCheckedChange = { onDismiss(); e.onClick() },
+                                onCheckedChange = { if (!on) haptics(Haptic.Tick); onDismiss(); e.onClick() },
                                 modifier = Modifier.weight(1f).height(52.dp),
                                 // Squarer where they meet, and the chosen one morphs into a full pill.
                                 shapes = run {
@@ -125,7 +131,7 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                     val tint = when { e.danger -> cs.error; on -> cs.onPrimaryContainer; else -> cs.onSurface }
                     DropdownMenuItem(
                         selected = on,
-                        onClick = { onDismiss(); e.onClick() },
+                        onClick = { if (e.selected == false) haptics(Haptic.Tick); onDismiss(); e.onClick() },
                         text = { Text(e.label, style = text, color = tint) },
                         shapes = MenuDefaults.itemShape(i, lines.size),
                         leadingIcon = { LineIcon(e.icon, tint, size = 20.dp) },
