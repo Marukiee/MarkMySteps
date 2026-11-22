@@ -162,7 +162,9 @@ internal class TourTrip(val trip: Trip) {
         if (all.size <= 1) return@lazy all
         val rest = all.toMutableList()
         var first = rest.indexOfFirst { leg -> rest.all { o -> o === leg || angle(o.end(), leg.start()) > LEG_JOIN_DEG } }
-        if (first < 0) first = 0
+        // A trip there and back has no leg that nothing ends at: then it starts with the leg that leaves
+        // nearest home (the way out), never with the way back.
+        if (first < 0) first = rest.indices.minByOrNull { angle(rest[it].start(), HomeAirport) } ?: 0
         val chain = arrayListOf(rest.removeAt(first))
         while (rest.isNotEmpty()) {
             val tail = chain.last().end()

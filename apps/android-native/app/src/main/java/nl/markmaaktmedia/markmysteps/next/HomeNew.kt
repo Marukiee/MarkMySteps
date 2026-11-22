@@ -27,6 +27,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -574,7 +576,22 @@ private fun Chip(text: String) {
     Text(
         text,
         style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 12.5.sp, color = Color.White),
-        modifier = Modifier.background(Color.White.copy(alpha = 0.18f), CircleShape).padding(horizontal = 11.dp, vertical = 6.dp),
+        modifier = Modifier.glass(CircleShape).padding(horizontal = 11.dp, vertical = 6.dp),
+    )
+}
+
+/** The photo behind a card's pills and ⋯, when the card has one, so they can blur it a little. */
+private val LocalCardHaze = androidx.compose.runtime.staticCompositionLocalOf<dev.chrisbanes.haze.HazeState?> { null }
+
+/** White and half see-through, over a light blur of the photo behind it where there is one. */
+@Composable
+private fun Modifier.glass(shape: Shape): Modifier {
+    val haze = LocalCardHaze.current
+    return this.clip(shape).then(
+        if (haze != null) Modifier.hazeEffect(haze) {
+            blurRadius = 14.dp
+            tints = listOf(dev.chrisbanes.haze.HazeTint(Color.White.copy(alpha = 0.18f)))
+        } else Modifier.background(Color.White.copy(alpha = 0.18f)),
     )
 }
 
@@ -653,9 +670,9 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
     Box(modifier) {
         Box(
             // A solid tonal disc on photos, so the dots read on a bright sky too.
-            Modifier.size(40.dp).clip(CircleShape).background(if (light) cs.surfaceContainerHighest else Color.Transparent).bouncyClickable { menu = true },
+            Modifier.size(40.dp).then(if (light) Modifier.glass(CircleShape) else Modifier.clip(CircleShape)).bouncyClickable { menu = true },
             contentAlignment = Alignment.Center,
-        ) { LineIcon(Glyphs.dotsCircles, if (light) cs.onSurface else cs.onSurfaceVariant, size = 20.dp, filled = true) }
+        ) { LineIcon(Glyphs.dotsCircles, if (light) Color.White else cs.onSurfaceVariant, size = 20.dp, filled = true) }
         val chosen = CardSizePref.overrides[trip.id] ?: CardSizePref.AUTO
         AppMenu(menu, onDismiss = { menu = false }, groups = listOf(
             listOf(
@@ -757,6 +774,7 @@ private fun Modifier.arrive(order: Int): Modifier = composed {
 @Composable
 private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Modifier, onPeopleTrip: (Trip) -> Unit = {}, autoBig: Boolean = true) {
     val shape = RoundedCornerShape(32.dp)
+    val haze = dev.chrisbanes.haze.rememberHazeState()
     Box(modifier.fillMaxWidth().aspectRatio(16f / 11f).clip(shape).bouncyClickable(onOpen)) {
         if (trip.coverId == null && trip.remoteId != null) {
             // No photo: the trip's own colour with the compass in the corner, as the next-trip card, clear of the title.
@@ -767,9 +785,10 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
                 modifier = Modifier.align(Alignment.TopEnd).offset(x = 50.dp, y = (-26).dp).rotate(-12f).alpha(0.16f),
             )
         } else {
-            Cover(trip, Modifier.matchParentSize(), size = "preview")
+            Cover(trip, Modifier.matchParentSize().hazeSource(haze), size = "preview")
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color(0xC010151B))))
         }
+        androidx.compose.runtime.CompositionLocalProvider(LocalCardHaze provides haze.takeIf { trip.coverId != null || trip.remoteId == null }) {
         MenuDots(trip, Modifier.align(Alignment.TopEnd).padding(14.dp), onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, autoBig = autoBig)
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
             Text(trip.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 26.sp, letterSpacing = (-0.015).em, color = Color.White))
@@ -780,6 +799,7 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
                 Spacer(Modifier.weight(1f))
                 FaceStack(trip.people, trip.extraPeople, ring = Color(0xFF2A2F36))
             }
+        }
         }
     }
 }
