@@ -327,10 +327,12 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
             nearFrom = if (leg.outbound) HomeAirport else stops.lastOrNull()?.at, nearTo = if (leg.outbound) stops.firstOrNull()?.at else HomeAirport,
         ) { n, f, t ->
             leg.mode = Mode.Flight
-            PlannerRemote.cleanNumber(n)?.let { leg.flightNumber = it }
+            // An emptied number is cleared, here and on the server.
+            val number = if (n.isNullOrBlank() && leg.flightNumber != null) "" else n
+            leg.flightNumber = PlannerRemote.cleanNumber(n) ?: if (number == "") null else leg.flightNumber
             PlannerRemote.cleanCode(f)?.let { leg.fromAirport = it }
             PlannerRemote.cleanCode(t)?.let { leg.toAirport = it }
-            leg.id?.let { id -> save { PlannerRemote.saveFlight(trip, id, n, f, t) } }
+            leg.id?.let { id -> save { PlannerRemote.saveFlight(trip, id, number, f, t) } }
         }
     }
     fun stopFlight(stop: PlanStop) {
@@ -340,10 +342,12 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
             nearFrom = prev?.at, nearTo = stop.at,
         ) { n, f, t ->
             stop.mode = Mode.Flight
-            PlannerRemote.cleanNumber(n)?.let { stop.flightNumber = it }
+            // An emptied number is cleared, here and on the server.
+            val number = if (n.isNullOrBlank() && stop.flightNumber != null) "" else n
+            stop.flightNumber = PlannerRemote.cleanNumber(n) ?: if (number == "") null else stop.flightNumber
             PlannerRemote.cleanCode(f)?.let { stop.fromAirport = it }
             PlannerRemote.cleanCode(t)?.let { stop.toAirport = it }
-            stop.id?.let { id -> save { PlannerRemote.saveFlight(trip, id, n, f, t) } }
+            stop.id?.let { id -> save { PlannerRemote.saveFlight(trip, id, number, f, t) } }
         }
     }
     fun pickLegMode(leg: PlanLeg, m: Mode) {
@@ -583,7 +587,10 @@ private fun LegSlot(
                 SwipeSurface(swipe, enabled = { true }) { LegRow(l, color, dark, airports, onMode = { onMode(l, it) }, onFlight = { onFlight(l) }) }
             }
         } else if (hasStops || outboundSide) {
-            AddLegRow(if (outboundSide) "Heenreis toevoegen" else "Terugreis toevoegen", onAdd)
+            // The way there's button keeps the same gap to the first stop as the stops keep to each other.
+            Box(Modifier.padding(bottom = if (outboundSide && hasStops) 12.dp else 0.dp)) {
+                AddLegRow(if (outboundSide) "Heenreis toevoegen" else "Terugreis toevoegen", onAdd)
+            }
         } else Spacer(Modifier.height(0.dp))
     }
 }

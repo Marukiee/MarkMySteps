@@ -34,7 +34,8 @@ object PlannerRemote {
     suspend fun saveFlight(trip: Trip, stopId: String, number: String?, from: String?, to: String?) {
         Api.send("PATCH", "/api/trips/${trip.remoteId}/stops/$stopId", JSONObject().apply {
             put("travelMode", "FLIGHT")
-            cleanNumber(number)?.let { put("flightNumber", it) }
+            // An empty string clears a number that was there; nothing at all leaves it as it is.
+            if (number == "") put("flightNumber", "") else cleanNumber(number)?.let { put("flightNumber", it) }
             cleanCode(from)?.let { put("fromAirport", it) }
             cleanCode(to)?.let { put("toAirport", it) }
         })
