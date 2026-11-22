@@ -177,7 +177,7 @@ private fun DisplayPage(onBack: () -> Unit) {
             Choices(listOf(CardSizePref.AUTO to "Automatisch", CardSizePref.LARGE to "Groot", CardSizePref.COMPACT to "Klein"), CardSizePref.standard, { CardSizePref.choose(it) })
             Hint("Automatisch: komende reizen en de laatste groot, de rest klein. Per reis kies je het via het ⋯-menu op de kaart.")
             SoftButton(
-                if (CardSizePref.overrides.isEmpty()) "Geen handmatige keuzes" else "Handmatige keuzes wissen (${CardSizePref.overrides.size})",
+                "Handmatige keuzes wissen",
                 { CardSizePref.clear() }, Modifier.fillMaxWidth(), icon = Glyphs.trash, enabled = CardSizePref.overrides.isNotEmpty(),
             )
         }
@@ -508,6 +508,8 @@ private fun BackupPanel() {
             onConfirm = {
                 busy = true; note = null
                 scope.launch {
+                    // The airport list, so restored home airports also move the globe's home.
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Airports.load(context) }
                     note = runCatching { restore(backup) { p, label -> progress = p to label } }.fold({ it to false }, { (it.message ?: "Terugzetten mislukt") to true })
                     busy = false; progress = null
                     Data.load()

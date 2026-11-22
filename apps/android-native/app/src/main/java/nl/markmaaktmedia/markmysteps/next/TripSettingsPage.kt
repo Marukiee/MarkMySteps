@@ -150,7 +150,11 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
             }
         }
     }) {
-        CoverHeader(trip, info?.coverId ?: trip.coverId, title, start, end, accent, canPick = isOwner, onPicked = { onChanged() })
+        CoverHeader(trip, info?.coverId ?: trip.coverId, title, start, end, accent, canPick = isOwner, onPicked = {
+            onChanged()
+            // Only the cover from the server (Automatisch is resolved there), never the fields still being typed.
+            scope.launch { runCatching { SettingsRemote.trip(id) }.onSuccess { fresh -> info = info?.copy(coverId = fresh.coverId) } }
+        })
 
         if (isOwner) {
             Header("Reis")
@@ -331,7 +335,9 @@ private fun ColorPicker(current: String?, onPick: (String?) -> Unit) {
     val cs = MaterialTheme.colorScheme
     val morph = remember { androidx.graphics.shapes.Morph(MaterialShapes.Circle, MaterialShapes.Cookie9Sided) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        val all = listOf<String?>(null) + TripColors
+        // A colour from before these eight (the old palette) comes first, so the current choice is always marked.
+        val own = current?.takeIf { c -> TripColors.none { it.equals(c, ignoreCase = true) } && runCatching { android.graphics.Color.parseColor(c) }.isSuccess }
+        val all = listOf<String?>(null) + listOfNotNull(own) + TripColors
         all.chunked(5).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 row.forEach { hex ->

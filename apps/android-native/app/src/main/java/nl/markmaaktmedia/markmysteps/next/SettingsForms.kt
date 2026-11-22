@@ -400,7 +400,7 @@ fun Confirm(title: String, text: String, confirm: String, danger: Boolean = true
             }
         },
         confirmButton = {
-            androidx.compose.material3.TextButton(onClick = { onDismiss(); onConfirm() }, enabled = confirmEnabled) {
+            androidx.compose.material3.TextButton(onClick = { onConfirm(); onDismiss() }, enabled = confirmEnabled) {
                 Text(confirm, color = if (!confirmEnabled) cs.onSurface.copy(alpha = 0.38f) else if (danger) cs.error else cs.primary, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600)))
             }
         },
