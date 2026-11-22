@@ -48,6 +48,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -156,12 +158,12 @@ private fun TravellersList(
     // Signed in, the figures come from the server (as on the web); the demo counts its own trips.
     val me = Data.me
     val stats = listOf(
-        Stat(live?.trips ?: trips.size, "reizen", Glyphs.compass, MaterialShapes.Cookie9Sided),
-        Stat(live?.countries?.size ?: visited.size, "landen", Glyphs.globe, MaterialShapes.Clover4Leaf),
-        Stat(live?.km ?: trips.sumOf { it.km ?: 0 }, "kilometer", Glyphs.distance, MaterialShapes.Cookie6Sided),
-        Stat(live?.days ?: trips.sumOf { it.days }, "dagen op reis", Glyphs.hourglass, MaterialShapes.Sunny),
-        Stat(live?.photos ?: trips.sumOf { it.photos }, "foto's", Glyphs.camera, MaterialShapes.Flower),
-        Stat(live?.flights ?: trips.sumOf { it.flights.size }, "vluchten", Glyphs.plane, MaterialShapes.SoftBurst),
+        Stat(live?.trips ?: trips.size, stringResource(R.string.travellers_stat_trips), Glyphs.compass, MaterialShapes.Cookie9Sided),
+        Stat(live?.countries?.size ?: visited.size, stringResource(R.string.travellers_stat_countries), Glyphs.globe, MaterialShapes.Clover4Leaf),
+        Stat(live?.km ?: trips.sumOf { it.km ?: 0 }, stringResource(R.string.travellers_stat_km), Glyphs.distance, MaterialShapes.Cookie6Sided),
+        Stat(live?.days ?: trips.sumOf { it.days }, stringResource(R.string.travellers_stat_days), Glyphs.hourglass, MaterialShapes.Sunny),
+        Stat(live?.photos ?: trips.sumOf { it.photos }, stringResource(R.string.travellers_stat_photos), Glyphs.camera, MaterialShapes.Flower),
+        Stat(live?.flights ?: trips.sumOf { it.flights.size }, stringResource(R.string.travellers_stat_flights), Glyphs.plane, MaterialShapes.SoftBurst),
     )
     val countryFlags = live?.countries?.map { Remote.flag(it) to java.util.Locale("", it).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL")) }
 
@@ -170,7 +172,7 @@ private fun TravellersList(
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Row(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Reizigers",
+                    stringResource(R.string.travellers_title),
                     style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
                     modifier = Modifier.weight(1f),
                 )
@@ -191,7 +193,7 @@ private fun TravellersList(
                 Avatar(me?.id, me?.name ?: "Mark", me?.hasAvatar == true, cs.primary, Modifier.size(52.dp), MaterialShapes.Cookie12Sided.toShape())
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
                     Text(me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
-                    Text("Jouw statistieken", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                    Text(stringResource(R.string.travellers_your_stats), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
                 }
             }
 
@@ -212,9 +214,9 @@ private fun TravellersList(
                 val list: List<Pair<String, String>> = countryFlags ?: countries.map { it to (names[it] ?: "") }
                 val plannedList = plannedCodes.map { Remote.flag(it) to java.util.Locale("", it).getDisplayCountry(nl) }
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("Landen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.travellers_countries), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
                     if (!(Data.live && live == null)) Text(
-                        "${list.count { countryFlags != null || it.first in visited }} bezocht" + if (plannedList.isNotEmpty()) " · ${plannedList.size} gepland" else "",
+                        stringResource(R.string.travellers_visited, list.count { countryFlags != null || it.first in visited }) + if (plannedList.isNotEmpty()) stringResource(R.string.travellers_planned, plannedList.size) else "",
                         style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant),
                     )
                 }
@@ -250,12 +252,12 @@ private fun TravellersList(
             }
 
             Text(
-                "Mensen op je reizen",
+                stringResource(R.string.travellers_people),
                 style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant),
                 modifier = Modifier.padding(top = 28.dp, bottom = 4.dp),
             )
             Text(
-                "Toevoegen doe je per reis: open een reis en tik op de mensen.",
+                stringResource(R.string.travellers_people_hint),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant),
                 modifier = Modifier.padding(bottom = 12.dp),
             )
@@ -276,7 +278,7 @@ private fun TravellersList(
                         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                             Text(f.name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = cs.onSurface))
                             Text(
-                                "@${f.handle} · ${f.shared} ${if (f.shared == 1) "gedeelde reis" else "gedeelde reizen"}",
+                                pluralStringResource(R.plurals.travellers_shared, f.shared, f.handle, f.shared),
                                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant),
                             )
                         }
@@ -359,7 +361,7 @@ private fun FriendPage(f: Friend, onBack: () -> Unit) {
             Avatar(f.id, f.name, f.hasAvatar, f.color, Modifier.size(64.dp))
             Column(Modifier.padding(start = 16.dp)) {
                 Text(f.name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 28.sp, letterSpacing = (-0.02).em, color = cs.onBackground))
-                Text("@${f.handle} · ${f.shared} ${if (f.shared == 1) "reis samen" else "reizen samen"}", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
+                Text(pluralStringResource(R.plurals.travellers_together, f.shared, f.handle, f.shared), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
             }
         }
         val st = stats
@@ -368,12 +370,12 @@ private fun FriendPage(f: Friend, onBack: () -> Unit) {
             repeat(3) { Row(Modifier.fillMaxWidth().padding(bottom = 3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) { repeat(2) { Box(Modifier.weight(1f).height(112.dp).clip(RoundedCornerShape(8.dp)).background(cs.surfaceContainerHigh)) } } }
         } else {
             StatsGrid(listOf(
-                Stat(st.trips, "reizen", Glyphs.compass, MaterialShapes.Cookie9Sided),
-                Stat(st.countries.size, "landen", Glyphs.globe, MaterialShapes.Clover4Leaf),
-                Stat(st.km, "kilometer", Glyphs.distance, MaterialShapes.Cookie6Sided),
-                Stat(st.days, "dagen op reis", Glyphs.hourglass, MaterialShapes.Sunny),
-                Stat(st.photos, "foto's", Glyphs.camera, MaterialShapes.Flower),
-                Stat(st.flights, "vluchten", Glyphs.plane, MaterialShapes.SoftBurst),
+                Stat(st.trips, stringResource(R.string.travellers_stat_trips), Glyphs.compass, MaterialShapes.Cookie9Sided),
+                Stat(st.countries.size, stringResource(R.string.travellers_stat_countries), Glyphs.globe, MaterialShapes.Clover4Leaf),
+                Stat(st.km, stringResource(R.string.travellers_stat_km), Glyphs.distance, MaterialShapes.Cookie6Sided),
+                Stat(st.days, stringResource(R.string.travellers_stat_days), Glyphs.hourglass, MaterialShapes.Sunny),
+                Stat(st.photos, stringResource(R.string.travellers_stat_photos), Glyphs.camera, MaterialShapes.Flower),
+                Stat(st.flights, stringResource(R.string.travellers_stat_flights), Glyphs.plane, MaterialShapes.SoftBurst),
             ))
             if (st.countries.isNotEmpty()) {
                 Box(Modifier.fillMaxWidth().padding(top = 22.dp), contentAlignment = Alignment.Center) {

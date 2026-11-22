@@ -56,6 +56,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -85,19 +87,19 @@ fun AccountPage(onBack: () -> Unit, onSignIn: () -> Unit) {
     LaunchedEffect(live, Data.version) { if (live) runCatching { SettingsRemote.account() }.onSuccess { account = it } }
     var confirmSignOut by remember { mutableStateOf(false) }
 
-    SettingsScaffold("Account", onBack) {
+    SettingsScaffold(stringResource(R.string.account_title), onBack) {
         PhotoPanel(account)
         NamePanel(account, onSaved = { scope.launch { Data.load() } })
         PasswordPanel(account, onSignIn)
         TwoFactorPanel()
         Spacer(Modifier.size(24.dp))
         Group(null, listOf(
-            Item(if (live) Glyphs.signOut else Glyphs.arrowRight, if (live) "Uitloggen" else "Inloggen", if (live) "Daarna log je opnieuw in" else "met je eigen server", plain = true, danger = live,
+            Item(if (live) Glyphs.signOut else Glyphs.arrowRight, if (live) stringResource(R.string.account_sign_out) else stringResource(R.string.account_sign_in), if (live) stringResource(R.string.account_sign_out_hint) else stringResource(R.string.account_sign_in_hint), plain = true, danger = live,
                 action = { if (live) confirmSignOut = true else onSignIn() }),
         ))
     }
     if (confirmSignOut) Confirm(
-        "Uitloggen?", "Je reizen blijven op je server. Daarna log je opnieuw in.", "Uitloggen",
+        stringResource(R.string.account_sign_out_title), stringResource(R.string.account_sign_out_text), stringResource(R.string.account_sign_out),
         onConfirm = onSignIn, onDismiss = { confirmSignOut = false },
     )
 }
@@ -118,10 +120,10 @@ private fun PhotoPanel(account: SettingsRemote.Account?) {
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) scope.launch {
             crop = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { decodeScaled(context, uri) }
-            if (crop == null) note = "Deze foto kon niet gelezen worden" to true
+            if (crop == null) note = Lang.text(R.string.account_photo_unreadable) to true
         }
     }
-    Header("Profielfoto", top = true)
+    Header(stringResource(R.string.account_photo), top = true)
     Panel {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box {
@@ -137,18 +139,18 @@ private fun PhotoPanel(account: SettingsRemote.Account?) {
                 }
                 AppMenu(menu, { menu = false }, listOf(
                     listOfNotNull(
-                        if (hasAvatar) MenuEntry("Foto bekijken", Glyphs.photo) { view = true } else null,
-                        MenuEntry(if (hasAvatar) "Andere foto kiezen" else "Foto kiezen", Glyphs.camera) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                        if (hasAvatar) MenuEntry("Foto bijsnijden", Glyphs.pencil) {
+                        if (hasAvatar) MenuEntry(stringResource(R.string.account_photo_view), Glyphs.photo) { view = true } else null,
+                        MenuEntry(if (hasAvatar) stringResource(R.string.account_photo_choose_other) else stringResource(R.string.account_photo_choose), Glyphs.camera) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        if (hasAvatar) MenuEntry(stringResource(R.string.account_photo_crop), Glyphs.pencil) {
                             scope.launch { crop = me?.id?.let { Photos.cached("avatar/$it") ?: Photos.avatar(it) } }
                         } else null,
                     ),
-                    if (hasAvatar) listOf(MenuEntry("Foto verwijderen", Glyphs.trash, danger = true) {
+                    if (hasAvatar) listOf(MenuEntry(stringResource(R.string.account_photo_remove), Glyphs.trash, danger = true) {
                         scope.launch {
                             busy = true
                             note = runCatching { SettingsRemote.removeAvatar() }.fold({
-                                me?.id?.let { Photos.forget("avatar/$it") }; Data.load(); "Profielfoto verwijderd." to false
-                            }, { (it.message ?: "Verwijderen mislukt") to true })
+                                me?.id?.let { Photos.forget("avatar/$it") }; Data.load(); Lang.text(R.string.account_photo_removed) to false
+                            }, { (it.message ?: Lang.text(R.string.account_photo_remove_failed)) to true })
                             busy = false
                         }
                     }) else emptyList(),
@@ -156,10 +158,10 @@ private fun PhotoPanel(account: SettingsRemote.Account?) {
             }
             Column(Modifier.weight(1f).padding(start = 16.dp)) {
                 Text(me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
-                Text(if (Data.live) "@${me?.username ?: ""}" else "voorbeelden, niet ingelogd", style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                Text(if (Data.live) "@${me?.username ?: ""}" else stringResource(R.string.account_examples_signed_out), style = ValueStyle.copy(color = cs.onSurfaceVariant))
             }
         }
-        Hint("Wat reisgenoten van je zien op kaarten en in tijdlijnen. Tik op je foto om hem te wijzigen.")
+        Hint(stringResource(R.string.account_photo_hint))
         Note(note?.first, note?.second == true)
     }
     crop?.let { source ->
@@ -168,8 +170,8 @@ private fun PhotoPanel(account: SettingsRemote.Account?) {
             scope.launch {
                 busy = true
                 note = runCatching { SettingsRemote.uploadAvatar(jpeg) }.fold({
-                    me?.id?.let { Photos.forget("avatar/$it") }; Data.load(); "Profielfoto opgeslagen." to false
-                }, { (it.message ?: "Upload mislukt") to true })
+                    me?.id?.let { Photos.forget("avatar/$it") }; Data.load(); Lang.text(R.string.account_photo_saved) to false
+                }, { (it.message ?: Lang.text(R.string.account_photo_upload_failed)) to true })
                 busy = false
             }
         })
@@ -177,7 +179,7 @@ private fun PhotoPanel(account: SettingsRemote.Account?) {
     if (view && me != null) Dialog(onDismissRequest = { view = false }) {
         val bitmap by produceState(Photos.cached("avatar/${me.id}")) { if (value == null) value = Photos.avatar(me.id) }
         Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(32.dp)).background(cs.surfaceContainerHigh).dip { view = false }) {
-            bitmap?.let { Image(it.asImageBitmap(), "Profielfoto", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+            bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.account_photo), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
         }
     }
 }
@@ -203,7 +205,7 @@ private fun CropDialog(source: Bitmap, onCancel: () -> Unit, onDone: (ByteArray)
             Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(32.dp)).background(cs.surfaceContainerLow).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text("Foto bijsnijden", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
+            Text(stringResource(R.string.account_photo_crop), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
             val base = maxOf(box / source.width, box / source.height)
             fun clamp(p: Offset, z: Float): Offset {
                 val w = source.width * base * z; val h = source.height * base * z
@@ -231,10 +233,10 @@ private fun CropDialog(source: Bitmap, onCancel: () -> Unit, onDone: (ByteArray)
                     drawCircle(Color.White.copy(alpha = 0.8f), radius = size.minDimension / 2f, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
                 }
             }
-            Hint("Sleep en knijp om de foto in de cirkel te zetten.")
+            Hint(stringResource(R.string.account_crop_hint))
             ButtonRow {
-                SoftButton("Annuleren", onCancel, Modifier.weight(1f))
-                MainButton("Opslaan", {
+                SoftButton(stringResource(R.string.account_cancel), onCancel, Modifier.weight(1f))
+                MainButton(stringResource(R.string.account_crop_save), {
                     // The square on screen, back in the photo's own pixels.
                     val k = base * zoom
                     val side = box / k
@@ -274,29 +276,29 @@ private fun NamePanel(account: SettingsRemote.Account?, onSaved: () -> Unit) {
     }
     var note by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var busy by remember { mutableStateOf(false) }
-    Header("Naam en gebruikersnaam")
+    Header(stringResource(R.string.account_name_title))
     Panel {
-        FormField("Naam", name, { name = it; note = null }, capitalize = true, autofill = androidx.compose.ui.autofill.ContentType.PersonFullName)
+        FormField(stringResource(R.string.account_name), name, { name = it; note = null }, capitalize = true, autofill = androidx.compose.ui.autofill.ContentType.PersonFullName)
         FormField(
-            "Gebruikersnaam", username, { username = it.lowercase().filter { c -> !c.isWhitespace() }.take(30); note = null },
+            stringResource(R.string.account_username), username, { username = it.lowercase().filter { c -> !c.isWhitespace() }.take(30); note = null },
             prefix = "@", type = KeyboardType.Ascii,
             support = when (check) {
-                "invalid" -> "3 tot 30 tekens: letters, cijfers, punt, streepje of underscore"
-                "checking" -> "Even kijken of deze vrij is"
-                "free" -> "Vrij. Daarna log je in met deze naam of met je e-mailadres."
-                "taken" -> "Deze gebruikersnaam is al bezet"
-                else -> "Hiermee voegen vrienden je toe aan reizen"
+                "invalid" -> stringResource(R.string.account_username_invalid)
+                "checking" -> stringResource(R.string.account_username_checking)
+                "free" -> stringResource(R.string.account_username_free)
+                "taken" -> stringResource(R.string.account_username_taken)
+                else -> stringResource(R.string.account_username_hint)
             },
             supportError = check == "invalid" || check == "taken",
         )
-        MainButton("Profiel opslaan", {
+        MainButton(stringResource(R.string.account_save_profile), {
             busy = true; note = null
             scope.launch {
                 val before = current
                 note = runCatching { SettingsRemote.saveProfile(name, username) }.fold({ saved ->
                     onSaved()
-                    if (saved != null && saved != before) "Opgeslagen. Je bent nu @$saved." to false else "Profiel bijgewerkt." to false
-                }, { (it.message ?: "Opslaan mislukt") to true })
+                    if (saved != null && saved != before) Lang.text(R.string.account_username_saved, saved) to false else Lang.text(R.string.account_profile_saved) to false
+                }, { (it.message ?: Lang.text(R.string.account_save_failed)) to true })
                 busy = false
             }
         }, Modifier.fillMaxWidth(), busy = busy, enabled = Data.live && name.isNotBlank() && check != "invalid" && check != "taken")
@@ -316,15 +318,15 @@ private fun PasswordPanel(account: SettingsRemote.Account?, onSignIn: () -> Unit
     DisposableEffect(Unit) { onDispose { current = ""; new = ""; again = "" } }
     val strength = passwordStrength(new, listOfNotNull(account?.username, account?.displayName, account?.email?.substringBefore('@')))
     val mismatch = again.isNotEmpty() && again != new
-    Header("Wachtwoord")
+    Header(stringResource(R.string.account_password))
     Panel {
-        Hint("Minimaal tien tekens.")
-        FormField("Huidig wachtwoord", current, { current = it; note = null }, secret = true, autofill = androidx.compose.ui.autofill.ContentType.Password)
-        FormField("Nieuw wachtwoord", new, { new = it; note = null }, secret = true, autofill = androidx.compose.ui.autofill.ContentType.NewPassword,
+        Hint(stringResource(R.string.account_password_hint))
+        FormField(stringResource(R.string.account_password_current), current, { current = it; note = null }, secret = true, autofill = androidx.compose.ui.autofill.ContentType.Password)
+        FormField(stringResource(R.string.account_password_new), new, { new = it; note = null }, secret = true, autofill = androidx.compose.ui.autofill.ContentType.NewPassword,
             support = strength.first, supportError = strength.second)
-        FormField("Nieuw wachtwoord nog eens", again, { again = it; note = null }, secret = true, autofill = androidx.compose.ui.autofill.ContentType.NewPassword,
-            support = if (mismatch) "Dit is niet hetzelfde als hierboven" else null, supportError = mismatch)
-        MainButton("Wachtwoord wijzigen", {
+        FormField(stringResource(R.string.account_password_again), again, { again = it; note = null }, secret = true, autofill = androidx.compose.ui.autofill.ContentType.NewPassword,
+            support = if (mismatch) stringResource(R.string.account_password_mismatch) else null, supportError = mismatch)
+        MainButton(stringResource(R.string.account_password_change), {
             busy = true; note = null
             val c = current; val n = new
             current = ""; new = ""; again = ""
@@ -333,8 +335,8 @@ private fun PasswordPanel(account: SettingsRemote.Account?, onSignIn: () -> Unit
                     // The server ends the other sessions; as on the web you sign in again with the new one.
                     // Never in test mode: that "success" is only a blocked write.
                     if (!Api.dryRun) scope.launch { delay(2500); onSignIn() }
-                    "Wachtwoord gewijzigd. Log opnieuw in." to false
-                }, { (it.message ?: "Wijzigen mislukt") to true })
+                    Lang.text(R.string.account_password_changed) to false
+                }, { (it.message ?: Lang.text(R.string.account_password_change_failed)) to true })
                 busy = false
             }
         }, Modifier.fillMaxWidth(), busy = busy, enabled = Data.live && current.isNotEmpty() && new.length >= 10 && new == again)
@@ -345,16 +347,16 @@ private fun PasswordPanel(account: SettingsRemote.Account?, onSignIn: () -> Unit
 /** A short verdict on a new password, after the web's PasswordStrength: the text and whether it is a warning. */
 private fun passwordStrength(p: String, personal: List<String>): Pair<String?, Boolean> {
     if (p.isEmpty()) return null to false
-    if (p.length < 10) return "Te kort: minimaal 10 tekens" to true
+    if (p.length < 10) return Lang.text(R.string.account_strength_short) to true
     val lower = p.lowercase()
-    if (personal.any { it.length >= 3 && lower.contains(it.lowercase()) }) return "Je naam of e-mailadres erin maakt het makkelijk te raden" to true
-    if (p.toSet().size < 5) return "Te weinig verschillende tekens" to true
+    if (personal.any { it.length >= 3 && lower.contains(it.lowercase()) }) return Lang.text(R.string.account_strength_personal) to true
+    if (p.toSet().size < 5) return Lang.text(R.string.account_strength_distinct) to true
     val kinds = listOf(p.any { it.isLowerCase() }, p.any { it.isUpperCase() }, p.any { it.isDigit() }, p.any { !it.isLetterOrDigit() }).count { it }
     return when {
-        p.length >= 16 && kinds >= 2 -> "Zeer sterk" to false
-        p.length >= 12 && kinds >= 2 -> "Sterk" to false
-        kinds >= 3 -> "Sterk" to false
-        else -> "Matig: langer helpt meer dan ingewikkelder, probeer een zin" to false
+        p.length >= 16 && kinds >= 2 -> Lang.text(R.string.account_strength_very_strong) to false
+        p.length >= 12 && kinds >= 2 -> Lang.text(R.string.account_strength_strong) to false
+        kinds >= 3 -> Lang.text(R.string.account_strength_strong) to false
+        else -> Lang.text(R.string.account_strength_fair) to false
     }
 }
 
@@ -394,12 +396,12 @@ private fun TwoFactorPanel() {
     fun run(action: suspend () -> Unit) {
         busy = true; error = null; message = null
         scope.launch {
-            try { action() } catch (e: Exception) { error = e.message?.takeIf { it.isNotBlank() } ?: "Dat lukte niet" }
+            try { action() } catch (e: Exception) { error = e.message?.takeIf { it.isNotBlank() } ?: Lang.text(R.string.account_2fa_failed) }
             busy = false
         }
     }
 
-    Header("Tweestapsverificatie")
+    Header(stringResource(R.string.account_2fa))
     Panel(animate = true) {
         val motion = MaterialTheme.motionScheme
         AnimatedContent(step, transitionSpec = { fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()) }, label = "2fa") { s ->
@@ -417,56 +419,56 @@ private fun TwoFactorPanel() {
                                     ) {
                                         LineIcon(if (st.enabled) Glyphs.check else Glyphs.lock, if (st.enabled) cs.onPrimaryContainer else cs.onSurfaceVariant, size = 14.dp, stroke = 2.4f)
                                         Spacer(Modifier.size(6.dp))
-                                        Text(if (st.enabled) "Aan" else "Uit", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = if (st.enabled) cs.onPrimaryContainer else cs.onSurfaceVariant))
+                                        Text(if (st.enabled) stringResource(R.string.account_2fa_on) else stringResource(R.string.account_2fa_off), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = if (st.enabled) cs.onPrimaryContainer else cs.onSurfaceVariant))
                                     }
                                     if (st.enabled) Text(
-                                        when (st.codesLeft) { 0 -> "Geen herstelcodes meer"; 1 -> "1 herstelcode over"; else -> "${st.codesLeft} herstelcodes over" },
+                                        when (st.codesLeft) { 0 -> stringResource(R.string.account_2fa_no_codes); else -> pluralStringResource(R.plurals.account_2fa_codes_left, st.codesLeft, st.codesLeft) },
                                         style = ValueStyle.copy(color = if (st.codesLeft <= 3) cs.error else cs.onSurfaceVariant), modifier = Modifier.padding(start = 12.dp),
                                     )
                                 }
                             }
                             Hint(
-                                if (st?.enabled == true) "Bij het inloggen vragen we naast je wachtwoord om een code uit je authenticator-app. Verlies je je telefoon, dan kom je erin met een herstelcode."
-                                else "Een gestolen of geraden wachtwoord is dan niet genoeg: wie inlogt heeft ook de code uit je authenticator-app nodig.",
+                                if (st?.enabled == true) stringResource(R.string.account_2fa_on_hint)
+                                else stringResource(R.string.account_2fa_off_hint),
                             )
                             if (st?.enabled == true) ButtonRow {
-                                SoftButton("Nieuwe codes", { go("renew") }, Modifier.weight(1f))
-                                QuietDangerButton("Uitschakelen", { go("disable") }, Modifier.weight(1f))
-                            } else MainButton("Inschakelen", { go("password") }, Modifier.fillMaxWidth(), icon = Glyphs.shield, enabled = Data.live && st != null)
+                                SoftButton(stringResource(R.string.account_2fa_new_codes), { go("renew") }, Modifier.weight(1f))
+                                QuietDangerButton(stringResource(R.string.account_2fa_disable), { go("disable") }, Modifier.weight(1f))
+                            } else MainButton(stringResource(R.string.account_2fa_enable), { go("password") }, Modifier.fillMaxWidth(), icon = Glyphs.shield, enabled = Data.live && st != null)
                         }
                     }
                     "password" -> {
-                        Hint("Eerst je wachtwoord, om te laten zien dat jij het bent en niet iemand met je telefoon in handen.")
-                        FormField("Wachtwoord", password, { password = it }, secret = true, autofill = androidx.compose.ui.autofill.ContentType.Password)
+                        Hint(stringResource(R.string.account_2fa_password_first))
+                        FormField(stringResource(R.string.account_password), password, { password = it }, secret = true, autofill = androidx.compose.ui.autofill.ContentType.Password)
                         Note(error, true)
                         ButtonRow {
-                            SoftButton("Annuleren", { go("idle") }, Modifier.weight(1f))
-                            MainButton("Verder", {
+                            SoftButton(stringResource(R.string.account_cancel), { go("idle") }, Modifier.weight(1f))
+                            MainButton(stringResource(R.string.account_continue), {
                                 val p = password; password = ""
                                 run {
-                                    val got = SettingsRemote.twoFactorSetup(p) ?: throw Exception("Geen sleutel ontvangen van de server")
+                                    val got = SettingsRemote.twoFactorSetup(p) ?: throw Exception(Lang.text(R.string.account_2fa_no_key))
                                     go("scan"); setup = got
                                 }
                             }, Modifier.weight(1f), busy = busy, enabled = password.isNotEmpty())
                         }
                     }
                     "scan" -> setup?.let { su ->
-                        PathHint("", listOf("Authenticator-app", "Account toevoegen", "QR-code scannen"), ", en vul daarna de code in die de app laat zien.")
+                        PathHint("", listOf(stringResource(R.string.account_2fa_scan_app), stringResource(R.string.account_2fa_scan_add), stringResource(R.string.account_2fa_scan_qr)), stringResource(R.string.account_2fa_scan_suffix))
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { QrCode(su.uri, Modifier.size(200.dp)) }
-                        Hint("Staat de app op deze telefoon? Tik op de sleutel om hem te kopiëren en plak hem in je app.")
+                        Hint(stringResource(R.string.account_2fa_copy_hint))
                         Row(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainerHigh)
-                                .dip { copySecret(context, "Sleutel", su.secret); haptics(Haptic.Confirm); copied = true }.padding(horizontal = 14.dp, vertical = 12.dp),
+                                .dip { copySecret(context, Lang.text(R.string.account_2fa_key_label), su.secret); haptics(Haptic.Confirm); copied = true }.padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(su.secret.chunked(4).joinToString(" "), style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
                             LineIcon(if (copied) Glyphs.check else listOf(P("M9 9h11v11H9Z"), P("M5 15H4V4h11v1")), cs.primary, size = 18.dp, stroke = 2f)
                         }
-                        FormField("Code uit de app", code, { code = it.filter { c -> c.isDigit() || c == ' ' }.take(7) }, hint = "123 456", type = KeyboardType.NumberPassword, autofill = androidx.compose.ui.autofill.ContentType.SmsOtpCode)
+                        FormField(stringResource(R.string.account_2fa_code), code, { code = it.filter { c -> c.isDigit() || c == ' ' }.take(7) }, hint = "123 456", type = KeyboardType.NumberPassword, autofill = androidx.compose.ui.autofill.ContentType.SmsOtpCode)
                         Note(error, true)
                         ButtonRow {
-                            SoftButton("Annuleren", { go("idle") }, Modifier.weight(1f))
-                            MainButton("Inschakelen", {
+                            SoftButton(stringResource(R.string.account_cancel), { go("idle") }, Modifier.weight(1f))
+                            MainButton(stringResource(R.string.account_2fa_enable), {
                                 val c = code; code = ""
                                 run { val got = SettingsRemote.twoFactorEnable(c); reload(); go("codes"); codes = got }
                             }, Modifier.weight(1f), busy = busy, enabled = code.count { it.isDigit() } == 6)
@@ -474,10 +476,10 @@ private fun TwoFactorPanel() {
                     }
                     "codes" -> {
                         Text(
-                            pathText("", listOf("Bewaar deze herstelcodes nu."), " Je ziet ze maar één keer. Elke code werkt één keer en brengt je binnen als je je telefoon kwijt bent. Bewaar ze ergens anders, bijvoorbeeld in je wachtwoordmanager.", cs.onSurface),
+                            pathText("", listOf(stringResource(R.string.account_2fa_save_codes)), stringResource(R.string.account_2fa_save_codes_text), cs.onSurface),
                             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, lineHeight = 19.sp, color = cs.onSurfaceVariant),
                         )
-                        if (codes.isEmpty()) Hint("Er kwamen geen codes terug.")
+                        if (codes.isEmpty()) Hint(stringResource(R.string.account_2fa_no_codes_back))
                         codes.chunked(2).forEach { pair ->
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 pair.forEach { c ->
@@ -488,21 +490,21 @@ private fun TwoFactorPanel() {
                             }
                         }
                         ButtonRow {
-                            SoftButton(if (copied) "Gekopieerd" else "Kopiëren", { copySecret(context, "Herstelcodes", codes.joinToString("\n")); haptics(Haptic.Confirm); copied = true }, Modifier.weight(1f), icon = if (copied) Glyphs.check else null, enabled = codes.isNotEmpty())
-                            MainButton("Ik heb ze bewaard", { go("idle") }, Modifier.weight(1f))
+                            SoftButton(if (copied) stringResource(R.string.account_2fa_copied) else stringResource(R.string.account_2fa_copy), { copySecret(context, Lang.text(R.string.account_2fa_codes_label), codes.joinToString("\n")); haptics(Haptic.Confirm); copied = true }, Modifier.weight(1f), icon = if (copied) Glyphs.check else null, enabled = codes.isNotEmpty())
+                            MainButton(stringResource(R.string.account_2fa_saved_them), { go("idle") }, Modifier.weight(1f))
                         }
                     }
                     else -> {
-                        Hint(if (s == "disable") "Uitzetten vraagt je wachtwoord én een code, zodat een open sessie niet genoeg is." else "De oude herstelcodes werken daarna niet meer. Dit vraagt je wachtwoord én een code.")
-                        FormField("Wachtwoord", password, { password = it }, secret = true, autofill = androidx.compose.ui.autofill.ContentType.Password)
-                        FormField("Code uit de app, of een herstelcode", code, { code = it.take(24) }, secret = true, type = KeyboardType.Password, autofill = androidx.compose.ui.autofill.ContentType.SmsOtpCode)
+                        Hint(if (s == "disable") stringResource(R.string.account_2fa_disable_hint) else stringResource(R.string.account_2fa_renew_hint))
+                        FormField(stringResource(R.string.account_password), password, { password = it }, secret = true, autofill = androidx.compose.ui.autofill.ContentType.Password)
+                        FormField(stringResource(R.string.account_2fa_code_or_recovery), code, { code = it.take(24) }, secret = true, type = KeyboardType.Password, autofill = androidx.compose.ui.autofill.ContentType.SmsOtpCode)
                         Note(error, true)
                         ButtonRow {
-                            SoftButton("Annuleren", { go("idle") }, Modifier.weight(1f))
-                            MainButton(if (s == "disable") "Uitschakelen" else "Nieuwe codes", {
+                            SoftButton(stringResource(R.string.account_cancel), { go("idle") }, Modifier.weight(1f))
+                            MainButton(if (s == "disable") stringResource(R.string.account_2fa_disable) else stringResource(R.string.account_2fa_new_codes), {
                                 val p = password; val c = code; password = ""; code = ""
                                 run {
-                                    if (s == "disable") { SettingsRemote.twoFactorDisable(p, c); reload(); go("idle"); message = "Tweestapsverificatie staat uit." }
+                                    if (s == "disable") { SettingsRemote.twoFactorDisable(p, c); reload(); go("idle"); message = Lang.text(R.string.account_2fa_is_off) }
                                     else { val got = SettingsRemote.twoFactorNewCodes(p, c); reload(); go("codes"); codes = got }
                                 }
                             }, Modifier.weight(1f), busy = busy, danger = s == "disable", enabled = password.isNotEmpty() && code.trim().length >= 6)

@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -430,7 +431,7 @@ fun DialogButtons(confirm: String, danger: Boolean, enabled: Boolean = true, onC
     val cs = MaterialTheme.colorScheme
     val label = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        FilledTonalButton(onClick = onDismiss, shapes = ButtonDefaults.shapes(), modifier = Modifier.height(44.dp)) { Text("Annuleren", style = label) }
+        FilledTonalButton(onClick = onDismiss, shapes = ButtonDefaults.shapes(), modifier = Modifier.height(44.dp)) { Text(stringResource(R.string.forms_cancel), style = label) }
         Button(
             onClick = onConfirm, enabled = enabled, shapes = ButtonDefaults.shapes(), modifier = Modifier.height(44.dp),
             colors = if (danger) ButtonDefaults.buttonColors(containerColor = cs.error, contentColor = cs.onError) else ButtonDefaults.buttonColors(),

@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -76,13 +77,13 @@ fun NewLookDialog() {
         ) {
             LineIcon(Glyphs.logo, cs.primary, size = 64.dp, stroke = 2.1f, modifier = Modifier.graphicsLayer { rotationZ = turn.value })
             Text(
-                "MarkMySteps heeft een nieuwe look",
+                stringResource(R.string.newlook_title),
                 textAlign = TextAlign.Center,
                 style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, lineHeight = 28.sp, letterSpacing = (-0.01).em, color = cs.onSurface),
                 modifier = Modifier.padding(top = 18.dp),
             )
             Text(
-                "Alles blijft hetzelfde, alleen even een opfrisbeurt.",
+                stringResource(R.string.newlook_text),
                 textAlign = TextAlign.Center,
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, lineHeight = 21.sp, color = cs.onSurfaceVariant),
                 modifier = Modifier.padding(top = 10.dp),
@@ -91,7 +92,7 @@ fun NewLookDialog() {
                 onClick = { NewLook.seen() },
                 shapes = ButtonDefaults.shapes(),
                 modifier = Modifier.padding(top = 24.dp).fillMaxWidth().height(52.dp),
-            ) { Text("Mooi", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp)) }
+            ) { Text(stringResource(R.string.newlook_ok), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp)) }
         }
     }
 }

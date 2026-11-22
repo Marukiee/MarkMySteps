@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Words of the screens, in English (the base). Dutch is in values-nl/strings_screens.xml. Never an em dash or en dash. -->
+<resources>
+
+    <!-- SettingsPage.kt -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_account">Account</string>
+    <string name="settings_account_summary">Profile photo, name, password, 2FA</string>
+    <string name="settings_display">Display</string>
+    <string name="settings_display_summary">Theme, trip cards, map style</string>
+    <string name="settings_preferences">Preferences</string>
+    <string name="settings_default_airports">Default airports</string>
+    <string name="settings_services">Services</string>
+    <string name="settings_services_summary">Server, Immich</string>
+    <string name="settings_data">Data</string>
+    <string name="settings_data_summary">Backup, import, route files</string>
+    <string name="settings_accounts">Accounts</string>
+    <string name="settings_accounts_summary">Requests and accounts on your server</string>
+    <string name="settings_about">About</string>
+    <string name="settings_about_summary">Version, what\'s new</string>
+    <string name="settings_examples_signed_out">examples, not signed in</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_hint">System follows your phone\'s light or dark mode.</string>
+    <string name="settings_wallpaper_accent">Accent colour from your wallpaper</string>
+    <string name="settings_wallpaper_accent_hint">Uses the accent colour Android takes from your wallpaper. The rest of the app stays as it is.</string>
+    <string name="settings_cards">Trip cards on the home page</string>
+    <string name="settings_cards_auto">Automatic</string>
+    <string name="settings_cards_large">Large</string>
+    <string name="settings_cards_small">Small</string>
+    <string name="settings_cards_hint">Automatic: upcoming trips and the latest one large, the rest small. You choose it per trip in the ⋯ menu on its card.</string>
+    <string name="settings_cards_reset">Clear manual choices</string>
+    <string name="settings_map_style">Map style</string>
+    <string name="settings_map_style_hint">Applies to every map in the app. In dark mode the light styles turn into the dark map by themselves.</string>
+    <string name="settings_globe">Globe</string>
+    <string name="settings_globe_hint">Stops along the way on the home page globe. The highlighted trip always shows them; with Always, every other trip does too.</string>
+    <string name="settings_globe_highlight">On highlight</string>
+    <string name="settings_globe_always">Always</string>
+    <string name="settings_stats_photos">Photos in your stats</string>
+    <string name="settings_stats_photos_toggle">Count companions\' photos</string>
+    <string name="settings_stats_photos_hint">Under Travellers a trip counts all photos from the days someone was there. Off counts only what someone added themselves.</string>
+    <string name="settings_self_location">Your location</string>
+    <string name="settings_self_location_home">On the home page too</string>
+    <string name="settings_self_location_home_hint">Your position as a dot on the globe while you track a trip. The app never asks for your location separately.</string>
+    <string name="settings_airports_hint">Your home airports. Tap one to make it the first: that one counts as home on the globe.</string>
+    <string name="settings_airports_add">Add an airport</string>
+    <string name="settings_airports_add_example">e.g. Gatwick</string>
+    <string name="settings_notify_on">On. You\'ll hear about a new message within a quarter of an hour.</string>
+    <string name="settings_notify_denied">Your phone doesn\'t allow notifications for this app. Turn them on in Settings › Apps › MarkMySteps Dev › Notifications.</string>
+    <string name="settings_notify_title">Notifications on your phone</string>
+    <string name="settings_notify_toggle">Check for new notifications</string>
+    <string name="settings_notify_toggle_hint">Requests and invitations arrive as notifications, even when the app is closed. Up to a quarter of an hour later.</string>
+    <string name="settings_notify_sign_in_first">Sign in first: notifications come from your server.</string>
+    <string name="settings_notify_allow_title">Allow notifications?</string>
+    <string name="settings_notify_allow_text">Then the app can let you know when someone wants to follow along or adds you to a trip. Android will ask for permission in a moment.</string>
+    <string name="settings_continue">Continue</string>
+    <string name="settings_tracking_denied">Without location the app can\'t record your route. Allow it in Settings › Apps › MarkMySteps Dev › Permissions › Location.</string>
+    <string name="settings_tracking">Route tracking</string>
+    <string name="settings_tracking_hint">Records your route during a trip, even with the screen off. Each time, the app switches the GPS on briefly for one position; if you stay in the same place, that becomes one point. Without a network everything waits on your phone.</string>
+    <string name="settings_tracking_interval">Save location every</string>
+    <string name="settings_tracking_minutes">%1$d min</string>
+    <string name="settings_tracking_custom">Custom</string>
+    <string name="settings_tracking_custom_label">Minutes (1 to 240)</string>
+    <string name="settings_tracking_active">Active: %1$s</string>
+    <string name="settings_trip_fallback">trip</string>
+    <string name="settings_tracking_waiting">Waiting for the first position</string>
+    <string name="settings_tracking_last_now">last position just now</string>
+    <string name="settings_tracking_last_seconds">last position %1$ds ago</string>
+    <string name="settings_tracking_last_minutes">last position %1$d min ago</string>
+    <string name="settings_tracking_stop">Stop tracking</string>
+    <string name="settings_tracking_no_trips">No current or upcoming trips</string>
+    <string name="settings_tracking_underway">ongoing</string>
+    <string name="settings_tracking_start">Start tracking</string>
+    <string name="settings_tracking_sign_in_first">Sign in first: the route goes to your trip on your server.</string>
+    <string name="settings_tracking_allow_title">Location for your route</string>
+    <string name="settings_tracking_allow_text">To record your route the app needs your location, even with the screen off. You see a notification while it runs. Android will ask for permission in a moment.</string>
+    <string name="settings_tracking_stop_title">Stop tracking?</string>
+    <string name="settings_tracking_stop_text">The route of %1$s is no longer recorded. What was already recorded stays.</string>
+    <string name="settings_this_trip">this trip</string>
+    <string name="settings_tracking_stop_confirm">Stop</string>
+    <string name="settings_server">Server</string>
+    <string name="settings_server_hint">The server this app talks to. Choosing another one signs you out; then you sign in again there.</string>
+    <string name="settings_server_address">Address</string>
+    <string name="settings_server_address_example">https://your-server.com</string>
+    <string name="settings_server_reset">Reset</string>
+    <string name="settings_server_change">Change server</string>
+    <string name="settings_server_invalid">That\'s not a valid address. Start with https:// and add a domain.</string>
+    <string name="settings_server_https">Use https, otherwise your password travels unencrypted.</string>
+    <string name="settings_server_confirm_title">Use a different server?</string>
+    <string name="settings_server_confirm_text">The app will then talk to %1$s. You\'ll be signed out and sign in again there. Trips on the old server stay there.</string>
+    <string name="settings_server_confirm">Switch</string>
+    <string name="settings_immich_load_failed">Couldn\'t load the Immich status</string>
+    <string name="settings_immich_connected">Connected</string>
+    <string name="settings_immich_last_sync">last sync %1$s</string>
+    <string name="settings_immich_not_connected">Not connected. Immich is a photo library you run yourself; your photos stay there, MarkMySteps only keeps references.</string>
+    <string name="settings_immich_url">Server URL</string>
+    <string name="settings_immich_key">API key</string>
+    <string name="settings_immich_key_replace">New key to replace it</string>
+    <string name="settings_immich_key_placeholder">Immich API key</string>
+    <string name="settings_immich_key_path_prefix">"Create one in "</string>
+    <string name="settings_immich_key_path_account">Account Settings</string>
+    <string name="settings_immich_key_path_keys">API Keys</string>
+    <string name="settings_immich_key_path_suffix">. It\'s stored encrypted.</string>
+    <string name="settings_immich_public">Public URL (optional)</string>
+    <string name="settings_immich_public_hint">For the Open in Immich button</string>
+    <string name="settings_immich_disconnect">Disconnect</string>
+    <string name="settings_immich_update">Update</string>
+    <string name="settings_immich_connect">Connect</string>
+    <string name="settings_immich_connected_note">Connected to Immich. The key is checked and stored encrypted.</string>
+    <string name="settings_save_failed">Couldn\'t save</string>
+    <string name="settings_immich_disconnect_title">Disconnect Immich?</string>
+    <string name="settings_immich_disconnect_text">New photos then stop coming in. What\'s already in your trips stays.</string>
+    <string name="settings_immich_disconnected">Connection removed.</string>
+    <string name="settings_failed">That didn\'t work</string>
+    <string name="settings_backup_saved">Backup saved · %1$s</string>
+    <string name="settings_backup_failed">Backup failed</string>
+    <string name="settings_backup_unreadable">This isn\'t a readable backup file.</string>
+    <string name="settings_backup_not_ours">This file isn\'t from MarkMySteps.</string>
+    <string name="settings_backup_newer">This backup is from a newer version of the app.</string>
+    <string name="settings_backup">Backup</string>
+    <string name="settings_backup_hint">All your trips, stops, route points and notes in one file, plus your settings. Photos are in it as references. Restoring adds what you don\'t have yet and leaves existing trips alone.</string>
+    <string name="settings_backup_collecting">Collecting</string>
+    <string name="settings_backup_restore">Restore</string>
+    <string name="settings_backup_create">Create backup</string>
+    <string name="settings_restore_title">Restore backup?</string>
+    <string name="settings_restore_failed">Restore failed</string>
+    <string name="settings_restored_skipped">%1$d skipped</string>
+    <string name="settings_restored_covers_lost">covers come back once your photos are linked</string>
+    <string name="settings_polarsteps">Import from Polarsteps</string>
+    <string name="settings_polarsteps_hint_prefix">"Request your export at "</string>
+    <string name="settings_polarsteps_hint_suffix">" and choose the zip here. Every trip in it is created with its full GPS route."</string>
+    <string name="settings_polarsteps_pick">Choose your Polarsteps zip</string>
+    <string name="settings_import">Import</string>
+    <string name="settings_read_failed">Couldn\'t read the file</string>
+    <string name="settings_polarsteps_failed">Import failed</string>
+    <string name="settings_polarsteps_done">Done.</string>
+    <string name="settings_track_saved">Saved</string>
+    <string name="settings_track_export_failed">Couldn\'t export</string>
+    <string name="settings_track_added">%1$d of %2$d points added</string>
+    <string name="settings_track_outside">%1$d outside the trip dates</string>
+    <string name="settings_track_undated">%1$d without a time</string>
+    <string name="settings_track_already">" (already there)"</string>
+    <string name="settings_track_import_failed">Import failed</string>
+    <string name="settings_track_files">Route files</string>
+    <string name="settings_track_files_hint">Export a trip as GPX or KML, or add a track you recorded somewhere else. Points outside the trip dates are skipped.</string>
+    <string name="settings_track_no_trips">No trips</string>
+    <string name="settings_track_export">Export</string>
+    <string name="settings_track_gpx">GPX, for apps and watches</string>
+    <string name="settings_track_kml">KML, for Google Earth</string>
+    <string name="settings_photo_cache">Photo cache</string>
+    <string name="settings_photo_cache_hint">Photos you look at stay in memory while the app is open. %1$s in use now.</string>
+    <string name="settings_photo_cache_clear">Clear cache</string>
+    <string name="settings_photo_cache_clear_title">Clear the cache?</string>
+    <string name="settings_photo_cache_clear_text">Saved photos are cleared and fetched again when you look at them. Nothing from your trips is lost.</string>
+    <string name="settings_photo_cache_clear_confirm">Clear</string>
+    <string name="settings_requests_hint">These people signed up on your server. Until you let them in they can\'t do anything.</string>
+    <string name="settings_requests_signed_up">%1$s · signed up %2$s</string>
+    <string name="settings_requests_decline">Decline</string>
+    <string name="settings_requests_let_in">Let in</string>
+    <string name="settings_requests_let_in_done">%1$s has been let in.</string>
+    <string name="settings_accounts_search">Search</string>
+    <string name="settings_accounts_search_hint">Name, username or email</string>
+    <string name="settings_accounts_empty">No account found with that name.</string>
+    <string name="settings_accounts_declined">declined</string>
+    <string name="settings_accounts_temp_password">temporary password</string>
+    <string name="settings_accounts_reset_password">Reset password</string>
+    <string name="settings_accounts_reset_2fa">Reset 2FA</string>
+    <string name="settings_accounts_demote">Remove admin</string>
+    <string name="settings_accounts_make_admin">Make admin</string>
+    <string name="settings_accounts_demoted">\@%1$s is no longer an admin.</string>
+    <string name="settings_accounts_made_admin">\@%1$s is now an admin.</string>
+    <string name="settings_accounts_delete">Delete account</string>
+    <string name="settings_reject_title">Decline %1$s\'s request?</string>
+    <string name="settings_reject_text">They won\'t be able to sign in. The account stays, so the same name and email aren\'t used again straight away.</string>
+    <string name="settings_rejected">Declined %1$s\'s request.</string>
+    <string name="settings_reset_title">New temporary password</string>
+    <string name="settings_reset_text">\@%1$s is signed out everywhere and picks a new password at the next sign-in.</string>
+    <string name="settings_reset_confirm">Reset</string>
+    <string name="settings_reset_done">Password for @%1$s reset. Pass on the temporary password: %2$s</string>
+    <string name="settings_accounts_temp_password_label">Temporary password</string>
+    <string name="settings_accounts_min_length">At least 10 characters</string>
+    <string name="settings_reset_2fa_title">Reset 2FA?</string>
+    <string name="settings_reset_2fa_text">\@%1$s can then sign in again with just a password and is signed out everywhere. Only do this if they have lost both their phone and their recovery codes.</string>
+    <string name="settings_reset_2fa_done">2FA for @%1$s is off.</string>
+    <string name="settings_delete_title">Delete account?</string>
+    <string name="settings_delete_text">Account @%1$s will be deleted, along with their own trips and routes.</string>
+    <string name="settings_delete_confirm">Delete</string>
+    <string name="settings_deleted">Account @%1$s deleted.</string>
+    <string name="settings_create">Create account</string>
+    <string name="settings_create_hint">For a travel companion, with a temporary password. They choose their own the first time they sign in.</string>
+    <string name="settings_create_name">Name</string>
+    <string name="settings_create_username">Username</string>
+    <string name="settings_create_email">Email</string>
+    <string name="settings_create_generate">Generate</string>
+    <string name="settings_create_button">Create</string>
+    <string name="settings_created">Account @%1$s created. Pass on the temporary password: %2$s</string>
+    <string name="settings_create_failed">Couldn\'t create the account</string>
+    <string name="settings_about_version">Version %1$s</string>
+    <string name="settings_about_tagline">Self-hosted travel tracker on your own Immich server. Open source (AGPL-3.0).</string>
+    <string name="settings_about_more">More</string>
+    <string name="settings_about_whats_new">What\'s new</string>
+    <string name="settings_about_on_github">on GitHub</string>
+    <string name="settings_about_source">Source code</string>
+    <string name="settings_about_licence">Licence</string>
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_privacy_summary">What the app keeps and who sees it</string>
+    <string name="settings_privacy_intro">MarkMySteps is a travel app by Mark Maakt Media. Your route, your trips and your photos are yours. This is what the app keeps, why, and who can see it. Updated on 25 October 2026.</string>
+    <string name="settings_privacy_keeps">What the app keeps</string>
+    <string name="settings_privacy_account">Your account</string>
+    <string name="settings_privacy_account_text">your name, username, email address and profile photo. Your password is only kept encrypted.</string>
+    <string name="settings_privacy_route">Your route</string>
+    <string name="settings_privacy_route_text">the location points the app records while you track a trip.</string>
+    <string name="settings_privacy_trips">Your trips</string>
+    <string name="settings_privacy_trips_text">titles, dates, stops, day stories and notes.</string>
+    <string name="settings_privacy_comments">Comments and likes</string>
+    <string name="settings_privacy_comments_text">on photos and day stories.</string>
+    <string name="settings_privacy_immich">Your Immich link</string>
+    <string name="settings_privacy_immich_text">the address of your Immich server and the key for it, encrypted. The photos themselves stay in your Immich; the app fetches them from there to show them.</string>
+    <string name="settings_privacy_notices">Notifications</string>
+    <string name="settings_privacy_notices_text">an encrypted identifier of your phone, so it can fetch new notifications.</string>
+    <string name="settings_privacy_location">Your location</string>
+    <string name="settings_privacy_location_text">The app only records your location when you turn on tracking for a trip yourself. While that runs, the app takes one reading per interval, even with the screen off, until you turn tracking off again. Your location goes to the MarkMySteps server and nowhere else.</string>
+    <string name="settings_privacy_who">Who sees it</string>
+    <string name="settings_privacy_who_companions">The travel companions you add to a trip.</string>
+    <string name="settings_privacy_who_links">Anyone with a share link you make yourself, optionally with a password. Whoever comments there gives a name; likes from visitors are remembered with a random code in their own browser.</string>
+    <string name="settings_privacy_who_admin">The administrator of the server, for maintenance and when you ask for help.</string>
+    <string name="settings_privacy_others">Services from others</string>
+    <string name="settings_privacy_others_intro">The app fetches a few things from other services. They then see your IP address and:</string>
+    <string name="settings_privacy_maps">Maps</string>
+    <string name="settings_privacy_maps_text">OpenFreeMap, and Esri for the satellite map: which part of the map you\'re looking at.</string>
+    <string name="settings_privacy_search">Place search</string>
+    <string name="settings_privacy_search_text">Photon by Komoot: what you type.</string>
+    <string name="settings_privacy_weather">Weather</string>
+    <string name="settings_privacy_weather_text">Open-Meteo: the coordinates of a place.</string>
+    <string name="settings_privacy_place_photos">Photos of places</string>
+    <string name="settings_privacy_place_photos_text">Wikipedia: the name of a place.</string>
+    <string name="settings_privacy_routes">Routes between stops</string>
+    <string name="settings_privacy_routes_text">OSRM for the car and signal.eu.org for the train: the coordinates of your stops.</string>
+    <string name="settings_privacy_no_ads">No ads, no analytics and no tracking. Nothing is sold or shared with advertisers.</string>
+    <string name="settings_privacy_where">Where it\'s kept and for how long</string>
+    <string name="settings_privacy_where_text">Everything is on the MarkMySteps server and travels there encrypted (https). Your data is kept as long as your account exists.</string>
+    <string name="settings_privacy_rights">Your rights</string>
+    <string name="settings_privacy_rights_text">You may view your data, have it corrected, or have your account deleted with everything on it. Send an email for that; it\'s sorted within a month. If you disagree with something, you can file a complaint with the Dutch Data Protection Authority (Autoriteit Persoonsgegevens).</string>
+    <string name="settings_privacy_mail">Email Mark Maakt Media</string>
+    <plurals name="settings_tracking_buffered">
+        <item quantity="one">%1$d point waiting for network</item>
+        <item quantity="other">%1$d points waiting for network</item>
+    </plurals>
+    <plurals name="settings_restore_text">
+        <item quantity="one">This backup is from %1$s and holds %2$d trip. Trips you already have stay as they are; the rest is added.</item>
+        <item quantity="other">This backup is from %1$s and holds %2$d trips. Trips you already have stay as they are; the rest is added.</item>
+    </plurals>
+    <plurals name="settings_restored_trips">
+        <item quantity="one">%1$d trip restored</item>
+        <item quantity="other">%1$d trips restored</item>
+    </plurals>
+    <plurals name="settings_restored_points">
+        <item quantity="one">%1$d route point</item>
+        <item quantity="other">%1$d route points</item>
+    </plurals>
+    <plurals name="settings_polarsteps_result">
+        <item quantity="one">" · %1$s to %2$s, %3$d route point"</item>
+        <item quantity="other">" · %1$s to %2$s, %3$d route points"</item>
+    </plurals>
+    <plurals name="settings_requests">
+        <item quantity="one">%1$d request</item>
+        <item quantity="other">%1$d requests</item>
+    </plurals>
+    <plurals name="settings_accounts_trips">
+        <item quantity="one">%1$d trip</item>
+        <item quantity="other">%1$d trips</item>
+    </plurals>
+
+    <!-- AccountPage.kt -->
+    <string name="account_title">Account</string>
+    <string name="account_sign_out">Sign out</string>
+    <string name="account_sign_in">Sign in</string>
+    <string name="account_sign_out_hint">You sign in again afterwards</string>
+    <string name="account_sign_in_hint">with your own server</string>
+    <string name="account_sign_out_title">Sign out?</string>
+    <string name="account_sign_out_text">Your trips stay on your server. Then you sign in again.</string>
+    <string name="account_photo_unreadable">Couldn\'t read this photo</string>
+    <string name="account_photo">Profile photo</string>
+    <string name="account_photo_view">View photo</string>
+    <string name="account_photo_choose_other">Choose another photo</string>
+    <string name="account_photo_choose">Choose photo</string>
+    <string name="account_photo_crop">Crop photo</string>
+    <string name="account_photo_remove">Remove photo</string>
+    <string name="account_photo_removed">Profile photo removed.</string>
+    <string name="account_photo_remove_failed">Couldn\'t remove it</string>
+    <string name="account_examples_signed_out">examples, not signed in</string>
+    <string name="account_photo_hint">What travel companions see of you on maps and in timelines. Tap your photo to change it.</string>
+    <string name="account_photo_saved">Profile photo saved.</string>
+    <string name="account_photo_upload_failed">Upload failed</string>
+    <string name="account_crop_hint">Drag and pinch to fit the photo in the circle.</string>
+    <string name="account_cancel">Cancel</string>
+    <string name="account_crop_save">Save</string>
+    <string name="account_name_title">Name and username</string>
+    <string name="account_name">Name</string>
+    <string name="account_username">Username</string>
+    <string name="account_username_invalid">3 to 30 characters: letters, digits, dot, hyphen or underscore</string>
+    <string name="account_username_checking">Checking whether it\'s free</string>
+    <string name="account_username_free">Free. After that you sign in with this name or with your email address.</string>
+    <string name="account_username_taken">This username is taken</string>
+    <string name="account_username_hint">Friends use this to add you to trips</string>
+    <string name="account_save_profile">Save profile</string>
+    <string name="account_username_saved">Saved. You\'re now @%1$s.</string>
+    <string name="account_profile_saved">Profile updated.</string>
+    <string name="account_save_failed">Couldn\'t save</string>
+    <string name="account_password">Password</string>
+    <string name="account_password_hint">At least ten characters.</string>
+    <string name="account_password_current">Current password</string>
+    <string name="account_password_new">New password</string>
+    <string name="account_password_again">New password again</string>
+    <string name="account_password_mismatch">This isn\'t the same as above</string>
+    <string name="account_password_change">Change password</string>
+    <string name="account_password_changed">Password changed. Sign in again.</string>
+    <string name="account_password_change_failed">Couldn\'t change it</string>
+    <string name="account_strength_short">Too short: at least 10 characters</string>
+    <string name="account_strength_personal">Having your name or email address in it makes it easy to guess</string>
+    <string name="account_strength_distinct">Too few different characters</string>
+    <string name="account_strength_very_strong">Very strong</string>
+    <string name="account_strength_strong">Strong</string>
+    <string name="account_strength_fair">Fair: longer helps more than complicated, try a sentence</string>
+    <string name="account_2fa_failed">That didn\'t work</string>
+    <string name="account_2fa">Two-step verification</string>
+    <string name="account_2fa_on">On</string>
+    <string name="account_2fa_off">Off</string>
+    <string name="account_2fa_no_codes">No recovery codes left</string>
+    <string name="account_2fa_on_hint">When you sign in, we ask for a code from your authenticator app as well as your password. If you lose your phone, you get in with a recovery code.</string>
+    <string name="account_2fa_off_hint">A stolen or guessed password is then not enough: whoever signs in also needs the code from your authenticator app.</string>
+    <string name="account_2fa_new_codes">New codes</string>
+    <string name="account_2fa_disable">Turn off</string>
+    <string name="account_2fa_enable">Turn on</string>
+    <string name="account_2fa_password_first">Your password first, to show it\'s you and not someone holding your phone.</string>
+    <string name="account_continue">Continue</string>
+    <string name="account_2fa_no_key">No key received from the server</string>
+    <string name="account_2fa_scan_app">Authenticator app</string>
+    <string name="account_2fa_scan_add">Add account</string>
+    <string name="account_2fa_scan_qr">Scan QR code</string>
+    <string name="account_2fa_scan_suffix">, then enter the code the app shows.</string>
+    <string name="account_2fa_copy_hint">Is the app on this phone? Tap the key to copy it and paste it into your app.</string>
+    <string name="account_2fa_key_label">Key</string>
+    <string name="account_2fa_code">Code from the app</string>
+    <string name="account_2fa_save_codes">Save these recovery codes now.</string>
+    <string name="account_2fa_save_codes_text">" You only see them once. Each code works once and gets you in if you lose your phone. Keep them somewhere else, for example in your password manager."</string>
+    <string name="account_2fa_no_codes_back">No codes came back.</string>
+    <string name="account_2fa_copied">Copied</string>
+    <string name="account_2fa_copy">Copy</string>
+    <string name="account_2fa_codes_label">Recovery codes</string>
+    <string name="account_2fa_saved_them">I\'ve saved them</string>
+    <string name="account_2fa_disable_hint">Turning it off asks for your password and a code, so an open session isn\'t enough.</string>
+    <string name="account_2fa_renew_hint">The old recovery codes stop working after this. It asks for your password and a code.</string>
+    <string name="account_2fa_code_or_recovery">Code from the app, or a recovery code</string>
+    <string name="account_2fa_is_off">Two-step verification is off.</string>
+    <plurals name="account_2fa_codes_left">
+        <item quantity="one">%1$d recovery code left</item>
+        <item quantity="other">%1$d recovery codes left</item>
+    </plurals>
+
+    <!-- TripSettingsPage.kt -->
+    <string name="tripsettings_save_failed">Couldn\'t save</string>
+    <string name="tripsettings_title">Trip settings</string>
+    <string name="tripsettings_trip">Trip</string>
+    <string name="tripsettings_name">Name</string>
+    <string name="tripsettings_color">Colour on the globe and the map</string>
+    <string name="tripsettings_color_failed">Couldn\'t save the colour</string>
+    <string name="tripsettings_owner_only">Only the organiser can change the name, dates and colour.</string>
+    <string name="tripsettings_guest">You\'re a guest on this trip: you can view it, not change it.</string>
+    <string name="tripsettings_tracking">Tracking</string>
+    <string name="tripsettings_auto_track">Track automatically</string>
+    <string name="tripsettings_auto_track_ended">This trip has ended</string>
+    <string name="tripsettings_auto_track_hint">Starts route tracking by itself as soon as the trip begins, in the app on your phone</string>
+    <string name="tripsettings_people">People</string>
+    <string name="tripsettings_people_item">Travel companions and sharing</string>
+    <string name="tripsettings_people_summary">%1$d travellers · %2$d guests</string>
+    <string name="tripsettings_cover_choose">Choose cover</string>
+    <string name="tripsettings_cover_photo">Cover photo</string>
+    <string name="tripsettings_automatic">Automatic</string>
+    <string name="tripsettings_cover_hint">Tap a photo to make it this trip\'s cover.</string>
+    <string name="tripsettings_cover_none">No photos in this trip yet.</string>
+    <string name="tripsettings_dates">Dates</string>
+    <string name="tripsettings_dates_pick">Choose the dates</string>
+    <string name="tripsettings_dates_title">Trip dates</string>
+    <string name="tripsettings_days_pick">Choose the days</string>
+    <string name="tripsettings_done">Done</string>
+    <string name="tripsettings_color_auto">Auto</string>
+    <string name="tripsettings_color_auto_hint">Auto picks a colour that suits your other trips.</string>
+    <string name="tripsettings_facts">Facts on the cover</string>
+    <string name="tripsettings_facts_hint">There\'s room for four. If you choose nothing, the app takes the first four this trip has.</string>
+    <string name="tripsettings_photos">Photos</string>
+    <string name="tripsettings_photos_hint">Looks in Immich for photos taken on the days of this trip and puts them in the timeline; with a location, on the map too.</string>
+    <string name="tripsettings_photos_sync">Sync photos</string>
+    <string name="tripsettings_sync_result">%1$s (%2$d found, %3$s)</string>
+    <string name="tripsettings_sync_failed">Sync failed</string>
+    <string name="tripsettings_marker_failed">Couldn\'t save the marker</string>
+    <string name="tripsettings_marker">Dot on the globe</string>
+    <string name="tripsettings_marker_set">Own place set. Tap the map to move it.</string>
+    <string name="tripsettings_marker_placing">Tap the map to choose the place.</string>
+    <string name="tripsettings_marker_hint">On the globe this trip has a dot at the start and one at the end. Choose one place of your own here, handy for a round trip.</string>
+    <string name="tripsettings_marker_reset">Back to automatic</string>
+    <string name="tripsettings_marker_place">Place the dot yourself</string>
+    <string name="tripsettings_cancel">Cancel</string>
+    <string name="tripsettings_delete">Delete</string>
+    <string name="tripsettings_wipe_tracked">Clear tracked data</string>
+    <string name="tripsettings_wipe_tracked_hint">Removes your GPS route; the trip and the photos stay. Choose a day, or clear everything.</string>
+    <string name="tripsettings_day_pick">Choose a day</string>
+    <string name="tripsettings_wipe_day">Clear day</string>
+    <string name="tripsettings_wipe_all">Clear everything</string>
+    <string name="tripsettings_wipe_routes">Clear drawn routes</string>
+    <string name="tripsettings_wipe_routes_prefix">"Only the routes you drew via "</string>
+    <string name="tripsettings_wipe_routes_step_hold">Press and hold</string>
+    <string name="tripsettings_wipe_routes_step_roads">Route via roads</string>
+    <string name="tripsettings_wipe_routes_suffix">. Your own tracked GPS stays.</string>
+    <string name="tripsettings_wipe">Clear</string>
+    <string name="tripsettings_delete_trip">Delete trip</string>
+    <string name="tripsettings_leave_trip">Leave trip</string>
+    <string name="tripsettings_wipe_failed">Couldn\'t clear it</string>
+    <string name="tripsettings_wipe_tracking_title">Clear tracking?</string>
+    <string name="tripsettings_wipe_day_text">Are you sure you want to delete the tracking of %1$s? This can\'t be undone.</string>
+    <string name="tripsettings_wipe_all_text">Are you sure you want to delete all tracked data of this trip? This can\'t be undone.</string>
+    <string name="tripsettings_wipe_routes_title">Clear drawn routes?</string>
+    <string name="tripsettings_wipe_routes_text">Only the automatically drawn routes are deleted. Your own tracked GPS stays.</string>
+    <string name="tripsettings_delete_title">Delete trip?</string>
+    <string name="tripsettings_delete_text">%1$s will be deleted with all its stops, routes and notes. Your photos stay in Immich. Type the trip\'s name to confirm.</string>
+    <string name="tripsettings_delete_name">Trip name</string>
+    <string name="tripsettings_delete_failed">Couldn\'t delete it</string>
+    <string name="tripsettings_leave_title">Leave trip?</string>
+    <string name="tripsettings_leave_text">You\'ll be removed from %1$s. The organiser can add you again later.</string>
+    <string name="tripsettings_leave">Leave</string>
+    <string name="tripsettings_leave_failed">Couldn\'t leave</string>
+    <string name="tripsettings_day_title">Day to clear</string>
+    <string name="tripsettings_day_pick_trip">Choose a day of the trip</string>
+    <string name="tripsettings_fact_km">kilometres</string>
+    <string name="tripsettings_fact_day">day</string>
+    <string name="tripsettings_fact_days">days</string>
+    <string name="tripsettings_fact_stop">stop</string>
+    <string name="tripsettings_fact_stops">stops</string>
+    <string name="tripsettings_fact_photos">photos</string>
+    <string name="tripsettings_fact_travellers">travellers</string>
+    <string name="tripsettings_fact_countries">countries</string>
+    <plurals name="tripsettings_sync_photos">
+        <item quantity="one">%1$d new photo</item>
+        <item quantity="other">%1$d new photos</item>
+    </plurals>
+    <plurals name="tripsettings_sync_travellers">
+        <item quantity="one">%1$d traveller</item>
+        <item quantity="other">%1$d travellers</item>
+    </plurals>
+    <plurals name="tripsettings_wiped_track">
+        <item quantity="one">%1$d track point deleted.</item>
+        <item quantity="other">%1$d track points deleted.</item>
+    </plurals>
+    <plurals name="tripsettings_wiped_routes">
+        <item quantity="one">%1$d route point deleted.</item>
+        <item quantity="other">%1$d route points deleted.</item>
+    </plurals>
+
+    <!-- TravellersPage.kt -->
+    <string name="travellers_stat_trips">trips</string>
+    <string name="travellers_stat_countries">countries</string>
+    <string name="travellers_stat_km">kilometres</string>
+    <string name="travellers_stat_days">days away</string>
+    <string name="travellers_stat_photos">photos</string>
+    <string name="travellers_stat_flights">flights</string>
+    <string name="travellers_title">Travellers</string>
+    <string name="travellers_your_stats">Your stats</string>
+    <string name="travellers_countries">Countries</string>
+    <string name="travellers_visited">%1$d visited</string>
+    <string name="travellers_planned">" · %1$d planned"</string>
+    <string name="travellers_people">People on your trips</string>
+    <string name="travellers_people_hint">You add people per trip: open a trip and tap the people.</string>
+    <plurals name="travellers_shared">
+        <item quantity="one">\@%1$s · %2$d shared trip</item>
+        <item quantity="other">\@%1$s · %2$d shared trips</item>
+    </plurals>
+    <plurals name="travellers_together">
+        <item quantity="one">\@%1$s · %2$d trip together</item>
+        <item quantity="other">\@%1$s · %2$d trips together</item>
+    </plurals>
+
+    <!-- NoticesSheet.kt -->
+    <string name="notices_now">just now</string>
+    <string name="notices_minutes_ago">%1$d min ago</string>
+    <string name="notices_yesterday">yesterday</string>
+    <string name="notices_days_ago">%1$d days ago</string>
+    <string name="notices_someone">Someone</string>
+    <string name="notices_a_trip">a trip</string>
+    <string name="notices_trip_added">%1$s added you to %2$s.</string>
+    <string name="notices_access_requested">%1$s is asking for access to %2$s.</string>
+    <string name="notices_access_approved">%1$s let you into %2$s.</string>
+    <string name="notices_access_denied">%1$s declined your request for %2$s.</string>
+    <string name="notices_login_attempts">There have been many failed sign-in attempts.</string>
+    <string name="notices_account_requested">%1$s would like an account on your server.</string>
+    <string name="notices_title">Notifications</string>
+    <string name="notices_empty">Nothing new. Requests and invitations show up here.</string>
+    <string name="notices_let_in">Let in</string>
+    <string name="notices_decline">Decline</string>
+    <string name="notices_approved">%1$s can now follow along as a guest.</string>
+    <string name="notices_that_person">That person</string>
+    <string name="notices_declined">Declined.</string>
+    <string name="notices_open_requests">View requests</string>
+    <string name="notices_open_trip">Open trip</string>
+    <plurals name="notices_hours_ago">
+        <item quantity="one">%1$d hour ago</item>
+        <item quantity="other">%1$d hours ago</item>
+    </plurals>
+
+    <!-- NewTripSheet.kt -->
+    <string name="newtrip_title">New trip</string>
+    <string name="newtrip_name">Name</string>
+    <string name="newtrip_name_hint">For example Japan 2027</string>
+    <string name="newtrip_when">When</string>
+    <string name="newtrip_days_pick">Choose the days</string>
+    <string name="newtrip_create_failed">Couldn\'t create the trip</string>
+    <string name="newtrip_create">Create trip</string>
+
+    <!-- RangeCalendar.kt -->
+    <string-array name="calendar_months">
+        <item>January</item>
+        <item>February</item>
+        <item>March</item>
+        <item>April</item>
+        <item>May</item>
+        <item>June</item>
+        <item>July</item>
+        <item>August</item>
+        <item>September</item>
+        <item>October</item>
+        <item>November</item>
+        <item>December</item>
+    </string-array>
+    <string-array name="calendar_weekdays">
+        <item>MO</item>
+        <item>TU</item>
+        <item>WE</item>
+        <item>TH</item>
+        <item>FR</item>
+        <item>SA</item>
+        <item>SU</item>
+    </string-array>
+
+    <!-- TripSheets.kt -->
+    <string name="tripsheets_map">Map</string>
+    <string name="tripsheets_map_style">Map style</string>
+    <string name="tripsheets_map_style_hint">In dark mode the light styles turn into the dark map by themselves.</string>
+
+    <!-- NewLook.kt -->
+    <string name="newlook_title">MarkMySteps has a new look</string>
+    <string name="newlook_text">Everything stays the same, it just got a little refresh.</string>
+    <string name="newlook_ok">Nice</string>
+
+    <!-- SettingsForms.kt -->
+    <string name="forms_cancel">Cancel</string>
+</resources>

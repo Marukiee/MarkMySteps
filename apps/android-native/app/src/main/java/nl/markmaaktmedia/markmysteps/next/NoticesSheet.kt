@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,24 +58,24 @@ private fun ago(at: Instant): String {
     val s = Duration.between(at, Instant.now()).seconds
     val d = s / 86400
     return when {
-        s < 60 -> "net"
-        s < 3600 -> "${s / 60} min geleden"
-        s < 86400 -> "${s / 3600} uur geleden"
-        d == 1L -> "gisteren"
-        else -> "$d dagen geleden"
+        s < 60 -> Lang.text(R.string.notices_now)
+        s < 3600 -> Lang.text(R.string.notices_minutes_ago, s / 60)
+        s < 86400 -> Lang.plural(R.plurals.notices_hours_ago, (s / 3600).toInt())
+        d == 1L -> Lang.text(R.string.notices_yesterday)
+        else -> Lang.text(R.string.notices_days_ago, d)
     }
 }
 
 private fun describe(n: Remote.Notice): String {
-    val who = n.actor ?: "Iemand"
-    val trip = n.trip ?: "een reis"
+    val who = n.actor ?: Lang.text(R.string.notices_someone)
+    val trip = n.trip ?: Lang.text(R.string.notices_a_trip)
     return when (n.kind) {
-        "TRIP_ADDED" -> "$who heeft je toegevoegd aan $trip."
-        "ACCESS_REQUESTED" -> "$who vraagt toegang tot $trip."
-        "ACCESS_APPROVED" -> "$who heeft je toegelaten tot $trip."
-        "ACCESS_DENIED" -> "$who heeft je verzoek voor $trip afgewezen."
-        "SECURITY_LOGIN_ATTEMPTS" -> n.detail ?: "Er zijn veel mislukte inlogpogingen geweest."
-        "ACCOUNT_REQUESTED" -> "$who wil een account op je server."
+        "TRIP_ADDED" -> Lang.text(R.string.notices_trip_added, who, trip)
+        "ACCESS_REQUESTED" -> Lang.text(R.string.notices_access_requested, who, trip)
+        "ACCESS_APPROVED" -> Lang.text(R.string.notices_access_approved, who, trip)
+        "ACCESS_DENIED" -> Lang.text(R.string.notices_access_denied, who, trip)
+        "SECURITY_LOGIN_ATTEMPTS" -> n.detail ?: Lang.text(R.string.notices_login_attempts)
+        "ACCOUNT_REQUESTED" -> Lang.text(R.string.notices_account_requested, who)
         else -> "$who · $trip"
     }
 }
@@ -133,7 +134,7 @@ fun NoticesSheet(onDismiss: () -> Unit, onChanged: () -> Unit, onOpenTrip: (Stri
                         .padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 14.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Meldingen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.notices_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
                         Box(Modifier.size(44.dp).clip(CircleShape).clickable { close() }, contentAlignment = Alignment.Center) {
                             LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), cs.onSurfaceVariant, size = 20.dp, stroke = 2.2f)
                         }
@@ -149,7 +150,7 @@ fun NoticesSheet(onDismiss: () -> Unit, onChanged: () -> Unit, onOpenTrip: (Stri
                                 Box(Modifier.size(56.dp).clip(CircleShape).background(cs.secondaryContainer), contentAlignment = Alignment.Center) {
                                     LineIcon(Glyphs.bell, cs.onSecondaryContainer, size = 26.dp)
                                 }
-                                Text("Niets nieuws. Hier komen verzoeken en uitnodigingen.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center), modifier = Modifier.padding(top = 12.dp, start = 16.dp, end = 16.dp))
+                                Text(stringResource(R.string.notices_empty), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center), modifier = Modifier.padding(top = 12.dp, start = 16.dp, end = 16.dp))
                             }
                             else -> Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 list.forEachIndexed { i, n ->
@@ -199,16 +200,16 @@ private fun NoticeRow(
             n.message?.let { Text("\u201C$it\u201D", style = TextStyle(fontFamily = Inter, fontSize = 13.5.sp, lineHeight = 19.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp)) }
             Text(ago(n.at), style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp))
             if (pending) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onAnswer(rid!!, true) }, shapes = ButtonDefaults.shapes()) { Text("Toelaten", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
-                FilledTonalButton(onClick = { onAnswer(rid!!, false) }, shapes = ButtonDefaults.shapes()) { Text("Afwijzen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
+                Button(onClick = { onAnswer(rid!!, true) }, shapes = ButtonDefaults.shapes()) { Text(stringResource(R.string.notices_let_in), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
+                FilledTonalButton(onClick = { onAnswer(rid!!, false) }, shapes = ButtonDefaults.shapes()) { Text(stringResource(R.string.notices_decline), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
             }
             if (answered != null) Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 LineIcon(if (answered) Glyphs.check else listOf(P("M18 6 6 18"), P("m6 6 12 12")), cs.onSurfaceVariant, size = 14.dp, stroke = 2.4f)
-                Text(if (answered) "${n.actor ?: "Die persoon"} kijkt nu mee als gast." else "Afgewezen.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 6.dp))
+                Text(if (answered) stringResource(R.string.notices_approved, n.actor ?: stringResource(R.string.notices_that_person)) else stringResource(R.string.notices_declined), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 6.dp))
             }
             val link: Pair<String, () -> Unit>? = when {
-                n.kind == "ACCOUNT_REQUESTED" -> "Aanvragen bekijken" to onOpenRequests
-                n.tripId != null && n.kind != "ACCESS_DENIED" && !pending -> "Reis openen" to { onOpenTrip(n.tripId) }
+                n.kind == "ACCOUNT_REQUESTED" -> stringResource(R.string.notices_open_requests) to onOpenRequests
+                n.tripId != null && n.kind != "ACCESS_DENIED" && !pending -> stringResource(R.string.notices_open_trip) to { onOpenTrip(n.tripId) }
                 else -> null
             }
             link?.let { (label, go) ->
