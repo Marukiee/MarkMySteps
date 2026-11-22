@@ -262,3 +262,32 @@ struct FlagView: View {
         }
     }
 }
+
+// MARK: Locked controls
+
+/// Something you cannot change here (you are a guest, or only the organiser may): the control shows grey, and only a
+/// tap on it says why, with a soft knock. Never a standing warning under it. `nil` leaves the control as it is.
+struct LockedExplained: ViewModifier {
+    let reason: String?
+    var title = "Niet aan te passen"
+    @State private var asked = false
+
+    func body(content: Content) -> some View {
+        content
+            .disabled(reason != nil)
+            .overlay {
+                if reason != nil {
+                    Color.clear
+                        .contentShape(.rect)
+                        .onTapGesture { Haptic.reject(); asked = true }
+                }
+            }
+            .alert(title, isPresented: $asked) { Button("OK", role: .cancel) {} } message: { Text(reason ?? "") }
+    }
+}
+
+extension View {
+    func locked(_ reason: String?, title: String = "Niet aan te passen") -> some View {
+        modifier(LockedExplained(reason: reason, title: title))
+    }
+}

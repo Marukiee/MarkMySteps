@@ -128,6 +128,10 @@ struct TripSettingsPage: View {
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .background(Brand.paper)
+        // An error, a sync result or the spinner comes and goes with the rows instead of popping.
+        .animation(.calm, value: error)
+        .animation(.calm, value: syncNote)
+        .animation(.calm, value: syncing)
         .navigationTitle("Reisinstellingen")
         .navigationBarTitleDisplayMode(.inline)
         .modifier(PageChrome(page: self))
@@ -169,9 +173,10 @@ struct TripSettingsPage: View {
                     .padding(.vertical, 6)
                 } header: { Text("Feitjes op de cover") } footer: { Text("Er is plek voor vier. Kies je niets, dan neemt de app de eerste vier die deze reis heeft.") }
             } else {
-                Section {
-                    Text(canEdit ? "Alleen de organisator kan de naam, datums en kleur wijzigen." : "Je bent gast op deze reis: je kunt hem bekijken, niet aanpassen.")
-                        .font(.inter(15, 450)).foregroundStyle(Brand.inkSoft)
+                // The name and dates as grey rows; a tap says why they cannot be changed, no standing notice.
+                Section("Reis") {
+                    lockedRow("Naam", symbol: "textformat", value: title.isEmpty ? trip.title : title)
+                    lockedRow("Datums", symbol: "calendar", value: rangeText)
                 }
             }
 
@@ -193,18 +198,25 @@ struct TripSettingsPage: View {
 
             if isOwner { markerSection }
 
-            Section {
-                Toggle(isOn: $autoTrack.animation(.calm)) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Automatisch tracken")
-                        Text(ended ? "Deze reis is afgelopen" : "Start route-tracking vanzelf zodra de reis begint, in de app op je telefoon")
-                            .font(.inter(13, 450)).foregroundStyle(Brand.inkSoft)
+            // A trip that is over has nothing left to track: no panel, unless tracking still runs for it (to stop).
+            let runningHere = Tracker.shared.active && Tracker.shared.tripId == trip.remoteId
+            if !ended || runningHere {
+                Section {
+                    if !ended {
+                        Toggle(isOn: $autoTrack.animation(.calm)) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Automatisch tracken")
+                                Text("Start route-tracking vanzelf zodra de reis begint, in de app op je telefoon")
+                                    .font(.inter(13, 450)).foregroundStyle(Brand.inkSoft)
+                            }
+                        }
+                        .disabled(live && info == nil)
+                        .locked(isOwner ? nil : "Alleen de organisator zet automatisch tracken aan of uit.")
+                        .sensoryFeedback(.selection, trigger: autoTrack)
                     }
-                }
-                .disabled(!isOwner || ended || (live && info == nil))
-                .sensoryFeedback(.selection, trigger: autoTrack)
-                trackNowRow
-            } header: { Text("Tracking") }
+                    trackNowRow
+                } header: { Text("Tracking") }
+            }
 
             Section("Mensen") {
                 Button(action: onPeople) {
@@ -283,14 +295,12 @@ struct TripSettingsPage: View {
         let tracker = Tracker.shared
         if tracker.active && tracker.tripId == trip.remoteId {
             Button(role: .destructive) { confirmStopTracking = true } label: { Label("Stop met bijhouden", systemImage: "location.slash") }
-        } else if ended {
-            Text("Deze reis is afgelopen; er valt geen route meer bij te houden.").font(.inter(14, 450)).foregroundStyle(Brand.inkSoft)
-        } else if mine?.role == "GUEST" {
-            Text("Als gast kijk je mee; je route bijhouden doen de reisgenoten.").font(.inter(14, 450)).foregroundStyle(Brand.inkSoft)
-        } else if mine?.canTrack == false {
-            Text("De organisator heeft route-tracking voor jou uitgezet.").font(.inter(14, 450)).foregroundStyle(Brand.inkSoft)
-        } else if live {
+        } else if !ended && live {
+            // Grey for whoever may not, and only a tap says why.
+            let why: String? = mine?.role == "GUEST" ? "Als gast kijk je mee; je route bijhouden doen de reisgenoten."
+                : mine?.canTrack == false ? "De organisator heeft route-tracking voor jou uitgezet." : nil
             Button { explainTracking = true } label: { Label("Route nu bijhouden", systemImage: "location.fill") }
+                .locked(why, title: "Route bijhouden")
         }
     }
 
@@ -307,6 +317,18 @@ struct TripSettingsPage: View {
         }
     }
 
+    /// A setting shown but not yours to change: grey, and a tap says who can.
+    private func lockedRow(_ label: String, symbol: String, value: String) -> some View {
+        HStack {
+            Label(label, systemImage: symbol)
+            Spacer()
+            Text(value).lineLimit(1)
+        }
+        .foregroundStyle(Brand.inkSoft)
+        .contentShape(.rect)
+        .locked(canEdit ? "Alleen de organisator kan de naam, datums en kleur wijzigen." : "Je bent gast op deze reis: je kunt hem bekijken, niet aanpassen.")
+    }
+
     private var rangeText: String {
         guard let start else { return "Kies de datums" }
         return Format.range(start, end ?? start, withYear: true)
@@ -314,32 +336,50 @@ struct TripSettingsPage: View {
 
     // MARK: Cover
 
+    /// The same front as the trip page's cover, as on Android: the photo edge to edge with a soft dark fade, the
+    /// name in Outfit and the dates, 236 pt high; no faces. Choosing another cover sits top right. Without a photo
+    /// the chosen colour itself, gliding to a new pick.
     private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .bottomTrailing) {
-                CoverView(trip: { var t = trip; t.coverId = info?.coverId ?? trip.coverId; return t }(), size: "preview")
-                    .frame(height: 180)
-                    .clipped()
-                if isOwner && live {
-                    Button { pickCover = true } label: {
-                        Label("Cover kiezen", systemImage: "photo").font(.outfit(14, 600)).foregroundStyle(.white)
-                            .padding(.horizontal, 14).frame(height: 38)
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.tint(.black.opacity(0.25)).interactive(), in: .capsule)
-                    .padding(12)
-                }
+        let shown: Trip = { var t = trip; t.coverId = info?.coverId ?? trip.coverId; return t }()
+        let hasPhoto = shown.coverId != nil || shown.cover != nil
+        return ZStack(alignment: .bottomLeading) {
+            if hasPhoto {
+                CoverView(trip: shown, size: "preview")
+                LinearGradient(stops: [.init(color: .clear, location: 0.35), .init(color: .black.opacity(0.62), location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+            } else {
+                LinearGradient(colors: [accent, accent.mix(with: Color(hex: 0x1B2440), by: 0.55)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                CompassLogo(size: 190, color: .white, lineWidth: 1.3)
+                    .rotationEffect(.degrees(-12))
+                    .opacity(0.16)
+                    .offset(x: 52, y: -26)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title.isEmpty ? trip.title : title).font(.fraunces(22, 600)).foregroundStyle(.white).lineLimit(1)
-                Text(rangeText).font(.inter(13.5, 550)).foregroundStyle(.white.opacity(0.85))
+                Text(title.isEmpty ? trip.title : title)
+                    .font(.outfit(32, 700))
+                    .tracking(-0.64)
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                    .shadow(color: .black.opacity(0.3), radius: 5)
+                Text(rangeText).font(.inter(15, 500)).foregroundStyle(.white.opacity(0.88))
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
+            .padding(20)
         }
-        // Darkened a little, so the white name reads on every colour; the colour glides to a new pick.
-        .background(accent.mix(with: .black, by: 0.3))
-        .clipShape(.rect(cornerRadius: 28))
+        .frame(maxWidth: .infinity)
+        .frame(height: 236)
+        .overlay(alignment: .topTrailing) {
+            if isOwner && live {
+                Button { pickCover = true } label: {
+                    Label("Cover kiezen", systemImage: "photo").font(.outfit(14, 600)).foregroundStyle(.white)
+                        .padding(.horizontal, 14).frame(height: 38)
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.tint(.black.opacity(0.25)).interactive(), in: .capsule)
+                .padding(14)
+            }
+        }
+        .clipShape(.rect(cornerRadius: 32, style: .continuous))
     }
 
     // MARK: Colour
@@ -365,8 +405,8 @@ struct TripSettingsPage: View {
                     }
                     .scaleEffect(on ? 1.12 : 1)
                     .frame(width: 56, height: 56)
-                    // The chosen one grows into a softer square with a tick, with a little life.
-                    .animation(.spring(response: 0.4, dampingFraction: 0.62), value: on)
+                    // The chosen one turns into a softer square with a tick: Apple's smooth spring, no wobble.
+                    .animation(.smooth(duration: 0.4), value: on)
                 }
                 .buttonStyle(.plain)
                 .disabled(!live && trip.remoteId != nil)
