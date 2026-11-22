@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -414,7 +415,7 @@ private fun TrackingPanel() {
                             Tracker.hasPermission(context) -> begin()
                             else -> explain = true
                         }
-                    }, Modifier.fillMaxWidth(), icon = Glyphs.pin, enabled = trip != null || !Data.live)
+                    }, Modifier.fillMaxWidth().graphicsLayer { alpha = if (Data.live) 1f else 0.45f }, icon = Glyphs.pin, enabled = trip != null || !Data.live)
                 }
             }
         }

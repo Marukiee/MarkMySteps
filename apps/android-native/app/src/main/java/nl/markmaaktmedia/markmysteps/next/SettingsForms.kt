@@ -362,7 +362,7 @@ fun <T> Choices(options: List<Pair<T, String>>, selected: T?, onSelect: (T) -> U
                 onCheckedChange = { onSelect(value) },
                 enabled = enabled,
                 // A long word gets more of the row, so no label is ever cut off.
-                modifier = Modifier.weight(maxOf(1f, label.length / 7f)).height(52.dp),
+                modifier = Modifier.weight(maxOf(1f, label.length / 9f)).height(52.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
                 shapes = when (i) {
                     0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
