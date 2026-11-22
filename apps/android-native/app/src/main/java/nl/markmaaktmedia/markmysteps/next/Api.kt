@@ -452,7 +452,8 @@ data class Media(
 
 /** Reads the signed-in account's trips into the same shapes the demo uses. */
 object Remote {
-    data class Me(val id: String, val name: String, val username: String, val hasAvatar: Boolean = false)
+    /** [mustChange]: still on a temporary password an admin set; the app asks for an own one. */
+    data class Me(val id: String, val name: String, val username: String, val hasAvatar: Boolean = false, val mustChange: Boolean = false)
 
     /** Your travelling in numbers, as the web's Reizigers page shows it. */
     data class Stats(
@@ -719,7 +720,7 @@ object Remote {
 
     fun cachedMe(): Me? = Api.recall("me")?.let { runCatching { parseMe(it) }.getOrNull() }
 
-    private fun parseMe(raw: String): Me = JSONObject(raw).let { o -> Me(o.getString("id"), o.optString("displayName"), o.optString("username"), o.optBoolean("hasAvatar")) }
+    private fun parseMe(raw: String): Me = JSONObject(raw).let { o -> Me(o.getString("id"), o.optString("displayName"), o.optString("username"), o.optBoolean("hasAvatar"), o.optBoolean("mustChangePassword")) }
 
     private val Palette = listOf(0xFFE8613C, 0xFF2BB6A8, 0xFFD08A2A, 0xFF7A5BD6, 0xFFE34B8A, 0xFF5B8DEF, 0xFFC9772E, 0xFF7DA7D9)
 
@@ -804,6 +805,8 @@ object Remote {
                 flightLegs = flightLegs,
                 ownerId = o.optString("ownerId"),
                 members = memberList,
+                marker = if (o.isNull("markerLng") || o.isNull("markerLat") || !o.has("markerLng")) null
+                    else (o.optDouble("markerLng") to o.optDouble("markerLat")).takeIf { !it.first.isNaN() && !it.second.isNaN() },
             )
         }.sortedByDescending { it.start }
     }
@@ -822,6 +825,7 @@ object Remote {
         val rows = all.filter { it.isNull("parentStopId") }.sortedBy { it.optInt("orderIndex") }
         // Day trips hang under their stop in the planner; the route, the map and the nights leave them out.
         fun text(o: JSONObject, key: String) = o.optString(key).takeIf { it.isNotBlank() && it != "null" }
+        fun vias(o: JSONObject) = o.optJSONArray("viaAirports")?.let { v -> (0 until v.length()).map { v.optString(it) }.filter { it.isNotBlank() } }.orEmpty()
         val dayTrips = all.filter { !it.isNull("parentStopId") }.sortedBy { it.optInt("orderIndex") }.groupBy { it.optString("parentStopId") }.mapValues { (_, list) ->
             list.map { o ->
                 val la = o.optDouble("latitude"); val lo = o.optDouble("longitude")
@@ -844,6 +848,7 @@ object Remote {
                 val leg = Leg(
                     mode, o.optString("fromAirport").ifBlank { "Thuis" }, o.optString("toAirport").ifBlank { "" }, 0,
                     id = o.optString("id"), flightNumber = text(o, "flightNumber"), fromAirport = text(o, "fromAirport"), toAirport = text(o, "toAirport"),
+                    viaAirports = vias(o), placeName = text(o, "notes"), place = if (lat.isNaN() || lon.isNaN()) null else lon to lat,
                 )
                 if (index == 0) { outbound = leg; outboundId = o.optString("id") } else { back = leg; backId = o.optString("id") }
                 return@forEachIndexed
@@ -863,6 +868,8 @@ object Remote {
                 fromAirport = text(o, "fromAirport"),
                 toAirport = text(o, "toAirport"),
                 dayTrips = dayTrips[o.optString("id")].orEmpty(),
+                viaAirports = vias(o),
+                hideLeg = o.optBoolean("hideLeg"),
             )
         }
         trip.remoteId?.let { legStopIds[it] = outboundId to backId }

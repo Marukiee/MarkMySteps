@@ -46,6 +46,12 @@ object Tracker {
     var lastFix by mutableStateOf<Triple<Double, Double, Long>?>(null); private set
     var buffered by mutableIntStateOf(0); private set
     var lastError by mutableStateOf<String?>(null); private set
+    /** How sure the last position was, in metres. */
+    var lastAccuracy by mutableStateOf<Float?>(null); private set
+    /** The last thing tracking said about itself, such as that it stopped by itself after the trip. */
+    var lastStatus by mutableStateOf<String?>(null); private set
+    /** Every check, newest first, as the web's location log: where, how far it moved, how sure it was. */
+    var log by mutableStateOf<List<FixLog>>(emptyList()); private set
     private var prefs: android.content.SharedPreferences? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -56,21 +62,86 @@ object Tracker {
         tripTitle = p.getString("title", null)
         buffered = runCatching { JSONArray(p.getString("buffer", "[]")).length() }.getOrDefault(0)
         p.getString("last", null)?.split(',')?.takeIf { it.size == 3 }?.let { lastFix = Triple(it[0].toDouble(), it[1].toDouble(), it[2].toLong()) }
+        lastAccuracy = p.getFloat("lastAcc", -1f).takeIf { it >= 0f }
+        lastStatus = p.getString("status", null)
+        log = runCatching { JSONArray(p.getString("log", "[]")).let { a -> (0 until a.length()).map { FixLog.from(a.getJSONObject(it)) } } }.getOrDefault(emptyList())
+    }
+
+    /** One check of the location log. [movedM] is null for the first one after starting. */
+    data class FixLog(val at: Long, val lng: Double, val lat: Double, val movedM: Int?, val accuracyM: Int?, val stayCount: Int = 0) {
+        fun json(): JSONObject = JSONObject().put("at", at).put("lng", lng).put("lat", lat).put("moved", movedM ?: JSONObject.NULL).put("acc", accuracyM ?: JSONObject.NULL).put("stay", stayCount)
+        companion object {
+            fun from(o: JSONObject) = FixLog(o.getLong("at"), o.getDouble("lng"), o.getDouble("lat"), if (o.isNull("moved")) null else o.optInt("moved"), if (o.isNull("acc")) null else o.optInt("acc"), o.optInt("stay"))
+        }
+    }
+
+    private fun pushLog(entry: FixLog, mergeStay: Boolean) {
+        val now = log.toMutableList()
+        if (mergeStay && now.isNotEmpty()) {
+            val top = now[0]
+            now[0] = top.copy(at = entry.at, accuracyM = entry.accuracyM, stayCount = top.stayCount + 1)
+        } else now.add(0, entry)
+        log = now.take(60)
+        prefs?.edit()?.putString("log", JSONArray(log.map { it.json() }).toString())?.apply()
     }
 
     fun hasPermission(context: Context) =
         context.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
             context.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
-    fun start(context: Context, id: String, title: String) {
-        tripId = id; tripTitle = title; lastError = null
-        prefs?.edit()?.putString("trip", id)?.putString("title", title)?.putString("bufferTrip", id)?.apply()
+    /**
+     * Starts recording for a trip. [lastDay] is the trip's last day; without it the trip list on the phone is
+     * asked, so tracking always knows when to stop by itself, also with no signal.
+     */
+    fun start(context: Context, id: String, title: String, lastDay: java.time.LocalDate? = null) {
+        tripId = id; tripTitle = title; lastError = null; lastStatus = null
+        val end = lastDay ?: lastDayOf(id)
+        // The last day is a day you are still on: a trip that ends today is under way until tonight.
+        val until = end?.plusDays(1)?.atStartOfDay(java.time.ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
+        prefs?.edit()?.putString("trip", id)?.putString("title", title)?.putString("bufferTrip", id)?.remove("status")
+            ?.apply { if (until != null) putLong("until", until) else remove("until") }?.apply()
         context.startForegroundService(Intent(context, TrackingService::class.java))
+        stopIfOver(context)
+    }
+
+    /** The last day of a trip from the trip list kept on the phone. */
+    private fun lastDayOf(id: String): java.time.LocalDate? = runCatching {
+        val a = JSONArray(Api.recall("trips") ?: return null)
+        (0 until a.length()).map { a.getJSONObject(it) }.firstOrNull { it.optString("id") == id }?.getString("endDate")?.take(10)?.let { java.time.LocalDate.parse(it) }
+    }.getOrNull()
+
+    /**
+     * Switches tracking off once its trip is over, as the web does: a tracker left running records the drive
+     * home and every commute after it. Checked at start, on every position and whenever the app opens; says so
+     * with a notification, since the app is rarely on screen when a trip ends.
+     */
+    fun stopIfOver(context: Context): Boolean {
+        if (tripId == null) return false
+        var until = prefs?.getLong("until", 0L) ?: 0L
+        if (until <= 0L) {
+            // Started before the end date was known: learn it now from the trip list.
+            val end = lastDayOf(tripId!!) ?: return false
+            until = end.plusDays(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            prefs?.edit()?.putLong("until", until)?.apply()
+        }
+        if (System.currentTimeMillis() <= until) return false
+        stop(context)
+        val message = "Tracking is automatisch gestopt."
+        lastStatus = message
+        prefs?.edit()?.putString("status", message)?.apply()
+        runCatching {
+            val nm = context.getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(NotificationChannel("tracking-done", "Tracking gestopt", NotificationManager.IMPORTANCE_DEFAULT))
+            val open = PendingIntent.getActivity(context, 2, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
+            nm.notify(8, Notification.Builder(context, "tracking-done").setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                .setContentTitle("Tracking gestopt").setContentText(message).setContentIntent(open).setAutoCancel(true).build())
+        }
+        return true
     }
 
     fun stop(context: Context) {
         tripId = null; tripTitle = null
-        prefs?.edit()?.remove("trip")?.remove("title")?.apply()
+        prefs?.edit()?.remove("trip")?.remove("title")?.remove("until")?.apply()
         context.stopService(Intent(context, TrackingService::class.java))
         flush()
     }
@@ -99,13 +170,16 @@ object Tracker {
         val now = System.currentTimeMillis()
         val prev = lastFix
         lastFix = Triple(loc.longitude, loc.latitude, now)
-        prefs?.edit()?.putString("last", "${loc.longitude},${loc.latitude},$now")?.apply()
+        lastAccuracy = if (loc.hasAccuracy()) loc.accuracy else null
+        prefs?.edit()?.putString("last", "${loc.longitude},${loc.latitude},$now")?.putFloat("lastAcc", lastAccuracy ?: -1f)?.apply()
+        val acc = if (loc.hasAccuracy()) loc.accuracy.toInt() else null
         if (prev != null) {
             val d = FloatArray(1)
             Location.distanceBetween(prev.second, prev.first, loc.latitude, loc.longitude, d)
             // Standing still: one point, not a cloud of them (as the web merges a stay into one).
+            pushLog(FixLog(now, loc.longitude, loc.latitude, d[0].toInt(), acc), mergeStay = d[0] < 40f)
             if (d[0] < 40f && buffered > 0) return
-        }
+        } else pushLog(FixLog(now, loc.longitude, loc.latitude, null, acc), mergeStay = false)
         val buffer = runCatching { JSONArray(prefs?.getString("buffer", "[]")) }.getOrDefault(JSONArray())
         buffer.put(JSONObject().put("clientId", java.util.UUID.randomUUID().toString()).put("recordedAt", java.time.Instant.ofEpochMilli(loc.time.takeIf { it > 0 } ?: now).toString())
             .put("latitude", loc.latitude).put("longitude", loc.longitude))
@@ -144,6 +218,7 @@ class TrackingService : Service(), LocationListener {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Api.init(applicationContext); UiPrefs.init(applicationContext); Tracker.init(applicationContext)
         if (Tracker.tripId == null || !Tracker.hasPermission(this)) { stopSelf(); return START_NOT_STICKY }
+        if (Tracker.stopIfOver(applicationContext)) { stopSelf(); return START_NOT_STICKY }
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel("tracking", "Route-tracking", NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
@@ -169,7 +244,11 @@ class TrackingService : Service(), LocationListener {
         return START_STICKY
     }
 
-    override fun onLocationChanged(location: Location) { Tracker.record(location) }
+    override fun onLocationChanged(location: Location) {
+        // The trip is over: no more points for it, and the service goes.
+        if (Tracker.stopIfOver(applicationContext)) return
+        Tracker.record(location)
+    }
 
     override fun onDestroy() {
         manager?.removeUpdates(this)

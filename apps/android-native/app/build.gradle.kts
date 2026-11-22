@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -17,13 +19,15 @@ android {
         versionCode = 1
         versionName = "0.0.1"
         ndk { abiFilters += "arm64-v8a" }
-        // Where the update card looks for a newer build: a GitHub repo and the exact name of the apk on its releases.
-        // An empty repo switches it off. The releases of Marukiee/MarkMySteps also carry the old web app
-        // (markmysteps.apk, another package); the app only ever offers a release whose apk has exactly this name
-        // (see Update.kt), so the dev build never installs the web app over itself. Change either with
-        // -Pmms.updateRepo=... -Pmms.updateAsset=... (or in gradle.properties).
+        // Where the update card looks for a newer build: a GitHub repo (empty switches it off), and per build the exact
+        // name of the apk on its releases (see androidComponents below and Update.kt). Change the repo with
+        // -Pmms.updateRepo=... (or in gradle.properties).
         buildConfigField("String", "UPDATE_REPO", "\"${providers.gradleProperty("mms.updateRepo").getOrElse("Marukiee/MarkMySteps")}\"")
-        buildConfigField("String", "UPDATE_ASSET", "\"${providers.gradleProperty("mms.updateAsset").getOrElse("markmysteps-native.apk")}\"")
+        // The host whose share and trip links open in the app: linkHost in local.properties, else the public default server.
+        val props = Properties().apply { rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) } }
+        val linkHost = props.getProperty("linkHost") ?: "reis.markmaaktmedia.nl"
+        manifestPlaceholders["linkHost"] = linkHost
+        resValue("string", "link_host", linkHost)
     }
 
     compileOptions {
@@ -54,6 +58,19 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+}
+
+
+// The apk the update card looks for, per build. The app that replaces the old one (package nl.markmaaktmedia.markmysteps)
+// looks for markmysteps.apk, the release asset that is marked latest. A dev build (package ...next) looks for a name that
+// is never published, so it never offers an update and never installs the old app over itself. -Pmms.updateAsset=...
+// overrides both. The app only ever offers a release whose apk has exactly this name (Update.kt).
+androidComponents {
+    onVariants { variant ->
+        val dev = variant.applicationId.get().endsWith(".next")
+        val asset = providers.gradleProperty("mms.updateAsset").orNull ?: if (dev) "markmysteps-dev-never-published.apk" else "markmysteps.apk"
+        variant.buildConfigFields?.put("UPDATE_ASSET", com.android.build.api.variant.BuildConfigField("String", "\"$asset\"", "the apk the update card looks for"))
     }
 }
 

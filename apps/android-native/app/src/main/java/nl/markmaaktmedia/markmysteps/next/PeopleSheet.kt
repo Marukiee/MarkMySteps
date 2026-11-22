@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,6 +91,10 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake
     var error by remember { mutableStateOf<String?>(null) }
     HapticOn(error, Haptic.Reject)
     var removing by remember { mutableStateOf<Member?>(null) }
+    // Whose days along are being picked.
+    var daysFor by remember { mutableStateOf<Member?>(null) }
+    val tripFirst = trip.start
+    val tripLast = trip.start?.plusDays((trip.days - 1).toLong().coerceAtLeast(0))
 
     AppSheet(onDismiss = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
@@ -101,7 +106,7 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake
             )
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 members.forEachIndexed { i, m ->
-                    MemberRow(m, i, members.size, canChange = owner && m.role != "OWNER", onRole = { role ->
+                    MemberRow(m, i, members.size, canChange = owner && m.role != "OWNER", tripFirst = tripFirst, tripLast = tripLast, onDays = if (owner && m.role != "GUEST" && tripFirst != null) ({ daysFor = m }) else null, onRole = { role ->
                         val before = members
                         members = members.map { if (it.userId == m.userId) it.copy(role = role) else it }
                         scope.launch { runCatching { Remote.updateMember(trip, m.userId, role = role) }.onSuccess { onChanged() }.onFailure { members = before; error = "Opslaan mislukt" } }
@@ -118,6 +123,16 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake
             if (owner) AddPeople(trip, existing = members.map { it.username }.toSet(), onAdded = onChanged)
             if (editor) ShareLinks(trip, owner)
             if (onMake != null) Make(onMake)
+        }
+    }
+
+    daysFor?.let { m ->
+        if (tripFirst != null && tripLast != null) DaysAlongSheet(m, tripFirst, tripLast, onDismiss = { daysFor = null }) { from, to ->
+            // The whole trip is stored as nothing on that side, so moving the trip keeps meaning the whole trip.
+            val f = from.takeIf { it != tripFirst }?.toString(); val t = to.takeIf { it != tripLast }?.toString()
+            val before = members
+            members = members.map { if (it.userId == m.userId) it.copy(from = f, to = t) else it }
+            scope.launch { runCatching { SocialRemote.setMemberDays(trip, m.userId, f, t) }.onSuccess { onChanged() }.onFailure { members = before; error = (it as? Api.Failure)?.message ?: "Opslaan mislukt" } }
         }
     }
 
@@ -167,7 +182,10 @@ private fun Make(onMake: (String) -> Unit) {
 }
 
 @Composable
-private fun MemberRow(m: Member, i: Int, n: Int, canChange: Boolean, onRole: (String) -> Unit, onTrack: (Boolean) -> Unit, onRemove: () -> Unit) {
+private fun MemberRow(
+    m: Member, i: Int, n: Int, canChange: Boolean, tripFirst: java.time.LocalDate?, tripLast: java.time.LocalDate?, onDays: (() -> Unit)?,
+    onRole: (String) -> Unit, onTrack: (Boolean) -> Unit, onRemove: () -> Unit,
+) {
     val cs = MaterialTheme.colorScheme
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().clip(slab(i, n)).background(cs.surfaceContainerHigh).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -175,7 +193,11 @@ private fun MemberRow(m: Member, i: Int, n: Int, canChange: Boolean, onRole: (St
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(m.name, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 16.5.sp, color = cs.onSurface))
             val role = when (m.role) { "OWNER" -> "organisator"; "GUEST" -> "gast"; else -> "reisgenoot" }
-            val days = if (m.from != null || m.to != null) " · deel van de reis" else ""
+            // A companion who was only there part of the time: which days, as the web writes them.
+            val days = if (m.role != "GUEST" && (m.from != null || m.to != null)) {
+                val a = parseDay(m.from) ?: tripFirst; val b = parseDay(m.to) ?: tripLast
+                if (a != null && b != null) " · ${shortRange(a, b)}" else " · deel van de reis"
+            } else ""
             val track = if (m.role != "GUEST" && !m.canTrack) " · trackt niet" else ""
             // The handle on its own line and the role under it, so neither is ever cut off.
             Text("@${m.username}", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
@@ -192,7 +214,10 @@ private fun MemberRow(m: Member, i: Int, n: Int, canChange: Boolean, onRole: (St
                         MenuEntry("Reisgenoot", Glyphs.friends, selected = m.role != "GUEST") { if (m.role == "GUEST") onRole("MEMBER") },
                         MenuEntry("Gast", Glyphs.person, selected = m.role == "GUEST") { if (m.role != "GUEST") onRole("GUEST") },
                     ),
-                    if (m.role != "GUEST") listOf(MenuEntry("Mag tracken", Glyphs.distance, selected = m.canTrack) { onTrack(!m.canTrack) }) else emptyList(),
+                    if (m.role != "GUEST") listOfNotNull(
+                        MenuEntry("Mag tracken", Glyphs.distance, selected = m.canTrack) { onTrack(!m.canTrack) },
+                        onDays?.let { go -> MenuEntry("Dagen mee", CalendarGlyph) { go() } },
+                    ) else emptyList(),
                     listOf(MenuEntry("Verwijderen", Glyphs.trash, danger = true) { onRemove() }),
                 ))
             }
@@ -330,10 +355,7 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                                 drawLine(line, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), strokeWidth = 1.5.dp.toPx())
                             },
                         )
-                        if (link.hasPassword) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
-                            LineIcon(Glyphs.lock, cs.onSurfaceVariant, size = 13.dp, stroke = 2f)
-                            Text("Met wachtwoord", style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier)
-                        }
+                        if (link.hasPassword) LinkPassword(trip, link)
                     }
                     // A clear primary button, so "Kopieer" reads on the row's tone.
                     androidx.compose.material3.Button(onClick = {
@@ -429,4 +451,85 @@ private fun LinkSettings(trip: Trip, link: Remote.ShareLink, onDismiss: () -> Un
         },
         dismissButton = { TextButton(onClick = { if (confirmRevoke) confirmRevoke = false else onDismiss() }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
     )
+}
+
+
+/** A calendar, for the days someone was along. */
+private val CalendarGlyph = listOf(
+    P("M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"), P("M4 10h16"), P("M8 3v4"), P("M16 3v4"),
+)
+
+/**
+ * "Met wachtwoord", and beside it "Bekijken": whoever is on the trip may read the password back, since the link
+ * is already out there. Shown, a tap on it copies it. A password from before this could be read back says so.
+ */
+@Composable
+private fun LinkPassword(trip: Trip, link: Remote.ShareLink) {
+    val cs = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val haptics = rememberHaptics()
+    // Null until asked; then the password, or null inside when it cannot be read back.
+    var secret by remember(link.id) { mutableStateOf<Pair<String?, Boolean>?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var copied by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied) { delay(1600); copied = false } }
+    Column(Modifier.padding(top = 3.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LineIcon(Glyphs.lock, cs.onSurfaceVariant, size = 13.dp, stroke = 2f)
+            Text("Met wachtwoord", style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp))
+            if (secret == null) Text(
+                if (failed) "Ophalen mislukt" else "Bekijken",
+                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.sp, color = if (failed) cs.error else cs.primary),
+                modifier = Modifier.padding(start = 6.dp).clip(CircleShape).clickable(enabled = !busy) {
+                    haptics(Haptic.Tap); busy = true; failed = false
+                    scope.launch { runCatching { SocialRemote.sharePassword(trip, link.id) }.onSuccess { secret = it }.onFailure { failed = true }; busy = false }
+                }.padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
+        val shown = secret
+        if (shown != null) {
+            val (pw, recoverable) = shown
+            if (pw == null || !recoverable) Text(
+                "Dit wachtwoord is van voor deze functie en niet meer terug te lezen." + if (link.canManage) " Stel een nieuw wachtwoord in." else "",
+                style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, lineHeight = 17.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp),
+            ) else Row(
+                Modifier.padding(top = 6.dp).clip(CircleShape).background(cs.surfaceContainerHighest).clickable {
+                    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("MarkMySteps", pw))
+                    haptics(Haptic.Confirm); copied = true
+                }.padding(start = 12.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(pw, style = TextStyle(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurface))
+                androidx.compose.animation.Crossfade(copied, label = "copied") { done ->
+                    LineIcon(if (done) Glyphs.check else listOf(P("M9 9h10v10H9z"), P("M5 15V5h10")), if (done) cs.primary else cs.onSurfaceVariant, size = 15.dp, stroke = 2f, modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+    }
+}
+
+/** "Dagen mee": the days someone was along, picked on the trip's own calendar, or the whole trip again. */
+@Composable
+private fun DaysAlongSheet(m: Member, first: java.time.LocalDate, last: java.time.LocalDate, onDismiss: () -> Unit, onPick: (java.time.LocalDate, java.time.LocalDate) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    var a by remember { mutableStateOf(parseDay(m.from) ?: first) }
+    var b by remember { mutableStateOf<java.time.LocalDate?>(parseDay(m.to) ?: last) }
+    AppSheet(onDismiss = onDismiss) {
+        val sheet = this
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
+            Text("Dagen mee", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
+            Text(
+                "Welke dagen was ${m.name} erbij? ${shortRange(a, b ?: a)}",
+                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp),
+            )
+            RangeCalendar(a, b, onChange = { x, y -> if (x != null) { a = x; b = y } }, modifier = Modifier.padding(top = 16.dp), bounds = first..last)
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val label = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)
+                FilledTonalButton(onClick = { onPick(first, last); sheet.close() }, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1f).height(50.dp)) { Text("Hele reis", style = label) }
+                androidx.compose.material3.Button(onClick = { onPick(a, b ?: a); sheet.close() }, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1f).height(50.dp)) { Text("Opslaan", style = label) }
+            }
+        }
+    }
 }

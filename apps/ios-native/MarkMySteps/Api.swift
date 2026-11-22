@@ -113,6 +113,14 @@ final class Api {
         try tokens(answer)
     }
 
+    /// Another server, from Diensten: the login page then opens on it. Tokens belong to the old one, so sign out after.
+    func setServer(_ address: String) {
+        var b = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        while b.hasSuffix("/") { b.removeLast() }
+        base = b
+        UserDefaults.standard.set(b, forKey: "server")
+    }
+
     func signOut() {
         access = nil
         refresh = nil
@@ -142,6 +150,59 @@ final class Api {
 
     /// An image from the server, with the token; nil when it cannot be had.
     func bytes(_ path: String) async -> Data? { try? await request("GET", path, accept: "image/*") }
+
+    /// A whole file from the server (an original photo or a film), streamed to a temporary file instead of held in
+    /// memory, with the token and one retry after a refresh. Answers the file and the server's response.
+    func file(_ path: String, retried: Bool = false) async throws -> (URL, HTTPURLResponse) {
+        guard let url = URL(string: base + path) else { throw Failure(message: "Dat serveradres klopt niet") }
+        var req = URLRequest(url: url, timeoutInterval: 120)
+        req.setValue("*/*", forHTTPHeaderField: "Accept")
+        if let access { req.setValue("Bearer \(access)", forHTTPHeaderField: "Authorization") }
+        let (temp, response): (URL, URLResponse)
+        do { (temp, response) = try await URLSession.shared.download(for: req) } catch { throw Failure(message: "Kan de server niet bereiken") }
+        guard let http = response as? HTTPURLResponse else { throw Failure(message: "Onverwacht antwoord van de server") }
+        if http.statusCode == 401 && !retried, await renew() == .renewed { return try await file(path, retried: true) }
+        guard (200..<300).contains(http.statusCode) else { throw Failure(message: "De server gaf \(http.statusCode)", status: http.statusCode) }
+        // The system removes its own temporary file once this call returns: moved somewhere that stays.
+        let kept = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.moveItem(at: temp, to: kept)
+        return (kept, http)
+    }
+
+    /// A file sent as multipart form data (an avatar, a Polarsteps zip, a track). Test mode stops it here like `send`.
+    @discardableResult
+    func upload(_ path: String, field: String = "file", filename: String, mime: String, data: Data) async throws -> Data {
+        if Api.dryRun {
+            Api.log.notice("MmsDryRun POST \(path, privacy: .public) {multipart:\(field, privacy: .public)}")
+            return Data("{}".utf8)
+        }
+        return try await multipart(path, field: field, filename: filename, mime: mime, data: data, retried: false)
+    }
+
+    private func multipart(_ path: String, field: String, filename: String, mime: String, data: Data, retried: Bool) async throws -> Data {
+        guard let url = URL(string: base + path) else { throw Failure(message: "Dat serveradres klopt niet") }
+        let boundary = "mms-\(UUID().uuidString)"
+        var req = URLRequest(url: url, timeoutInterval: 300)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        if let access { req.setValue("Bearer \(access)", forHTTPHeaderField: "Authorization") }
+        var body = Data()
+        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(field)\"; filename=\"\(filename)\"\r\nContent-Type: \(mime)\r\n\r\n".utf8))
+        body.append(data)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        let (answer, response): (Data, URLResponse)
+        do { (answer, response) = try await URLSession.shared.upload(for: req, from: body) } catch { throw Failure(message: "Kan de server niet bereiken") }
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if code == 401 && !retried, await renew() == .renewed {
+            return try await multipart(path, field: field, filename: filename, mime: mime, data: data, retried: true)
+        }
+        guard (200..<300).contains(code) else {
+            let message = (try? JSONSerialization.jsonObject(with: answer) as? [String: Any])?["message"] as? String
+            throw Failure(message: message.flatMap { $0.isEmpty ? nil : $0 } ?? "De server gaf \(code)", status: code)
+        }
+        return answer
+    }
 
     private func tokens(_ o: [String: Any]) throws {
         guard let a = o["accessToken"] as? String, let r = o["refreshToken"] as? String else { throw Failure(message: "Onverwacht antwoord van de server") }
@@ -222,6 +283,7 @@ enum Remote {
         let name: String
         let username: String
         var hasAvatar = false
+        var admin = false
     }
 
     /// Your travelling in numbers, as the web's Reizigers page shows it.
@@ -254,7 +316,8 @@ enum Remote {
         func int(_ k: String) -> Int { (o[k] as? NSNumber)?.intValue ?? 0 }
         return Stats(
             trips: int("trips"), days: int("days"), countries: o["countries"] as? [String] ?? [], places: int("places"),
-            flights: int("flights"), km: int("distanceKm"), photos: int("photoCount")
+            // Companions' photos count unless Voorkeuren says only your own.
+            flights: int("flights"), km: int("distanceKm"), photos: Prefs.ownPhotosOnly && o["ownPhotoCount"] != nil ? int("ownPhotoCount") : int("photoCount")
         )
     }
 
@@ -290,7 +353,8 @@ enum Remote {
 
     static func parseMe(_ data: Data) -> Me {
         let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-        return Me(id: o["id"] as? String ?? "", name: o["displayName"] as? String ?? "", username: o["username"] as? String ?? "", hasAvatar: o["hasAvatar"] as? Bool ?? false)
+        return Me(id: o["id"] as? String ?? "", name: o["displayName"] as? String ?? "", username: o["username"] as? String ?? "",
+                  hasAvatar: o["hasAvatar"] as? Bool ?? false, admin: (o["role"] as? String) == "ADMIN")
     }
 
     /// "🇳🇱" back to "NL".
@@ -347,7 +411,8 @@ enum Remote {
                 return Person(
                     initial: String(name.prefix(1)).uppercased(), color: Color(hex: palette[(k + 3) % palette.count]),
                     name: name, username: user?["username"] as? String ?? "", userId: m["userId"] as? String,
-                    hasAvatar: user?["hasAvatar"] as? Bool ?? false, role: m["role"] as? String ?? "MEMBER"
+                    hasAvatar: user?["hasAvatar"] as? Bool ?? false, role: m["role"] as? String ?? "MEMBER",
+                    canTrack: m["canTrack"] as? Bool ?? true, fromDate: day(m["fromDate"]), toDate: day(m["toDate"])
                 )
             }
             // The faces are the travellers: owner and companions, not guests; yourself left out.
@@ -381,23 +446,35 @@ enum Remote {
                 ownerId: o["ownerId"] as? String,
                 remoteId: id,
                 coverId: (cover?.isEmpty ?? true) ? nil : cover,
-                start: start
+                start: start,
+                marker: {
+                    guard let lng = (o["markerLng"] as? NSNumber)?.doubleValue, let lat = (o["markerLat"] as? NSNumber)?.doubleValue else { return nil }
+                    return LonLat(lng, lat)
+                }(),
+                autoTrack: o["autoTrack"] as? Bool ?? false
             )
         }
         .sorted { ($0.start ?? .distantPast) > ($1.start ?? .distantPast) }
     }
 
-    /// The planned stops, day trips left out, with their dates worked out from the trip's start.
+    /// The planned stops with their day trips under them, and the way there and back, with their dates worked out
+    /// from the trip's start.
     static func stops(_ trip: Trip) async throws -> (stops: [Stop], outbound: Leg?, back: Leg?) {
         guard let rid = trip.remoteId else { return (trip.stops, trip.outbound, trip.back) }
         let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/stops")) as? [[String: Any]] ?? []
-        let rows = list.filter { $0["parentStopId"] == nil || $0["parentStopId"] is NSNull }
-            .sorted { ($0["orderIndex"] as? Int ?? 0) < ($1["orderIndex"] as? Int ?? 0) }
+        func isChild(_ o: [String: Any]) -> Bool { !(o["parentStopId"] == nil || o["parentStopId"] is NSNull) }
+        let rows = list.filter { !isChild($0) }.sorted { ($0["orderIndex"] as? Int ?? 0) < ($1["orderIndex"] as? Int ?? 0) }
+        let children = Dictionary(grouping: list.filter(isChild), by: { $0["parentStopId"] as? String ?? "" })
         let cal = Format.calendar
         var day = trip.start ?? cal.startOfDay(for: Date())
         var stops: [Stop] = []
         var outbound: Leg?
         var back: Leg?
+        func text(_ o: [String: Any], _ k: String) -> String? { (o[k] as? String).flatMap { $0.isEmpty ? nil : $0 } }
+        func point(_ o: [String: Any]) -> LonLat? {
+            guard let lat = (o["latitude"] as? NSNumber)?.doubleValue, let lon = (o["longitude"] as? NSNumber)?.doubleValue else { return nil }
+            return LonLat(lon, lat)
+        }
         for (index, o) in rows.enumerated() {
             let mode: Mode = switch o["travelMode"] as? String {
             case "FLIGHT": .flight
@@ -408,21 +485,30 @@ enum Remote {
             }
             let nights = o["nights"] as? Int ?? 0
             let name = o["name"] as? String ?? ""
+            let via = (o["viaAirports"] as? [String] ?? []).filter { !$0.isEmpty }
             // The way there and back are stops of their own with no nights, at the ends.
             if nights == 0 && (index == 0 || index == rows.count - 1) && (name.hasPrefix("Heen") || name.hasPrefix("Terug")) {
-                let from = (o["fromAirport"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Thuis"
-                let leg = Leg(mode: mode, from: from, to: o["toAirport"] as? String ?? "", km: 0, serverId: o["id"] as? String)
+                let from = text(o, "fromAirport") ?? "Thuis"
+                let leg = Leg(mode: mode, from: from, to: text(o, "toAirport") ?? "", km: 0, serverId: o["id"] as? String,
+                              flightNumber: text(o, "flightNumber"), fromAirport: text(o, "fromAirport"), toAirport: text(o, "toAirport"), via: via)
                 if index == 0 { outbound = leg } else { back = leg }
                 continue
             }
             // The server's own dates when it gives them, so gaps in the plan do not shift everything after.
             let from = Remote.day(o["arrivalDate"]) ?? day
             day = Remote.day(o["departureDate"]) ?? cal.date(byAdding: .day, value: nights, to: from) ?? from
-            let at: LonLat = if let lat = o["latitude"] as? Double, let lon = o["longitude"] as? Double { LonLat(lon, lat) } else { trip.route.first ?? LonLat(0, 0) }
+            let at = point(o) ?? trip.route.first ?? LonLat(0, 0)
+            let outings = (children[o["id"] as? String ?? ""] ?? []).compactMap { c -> DayTrip? in
+                guard let p = point(c) else { return nil }
+                return DayTrip(name: c["name"] as? String ?? "", flag: flag(c["countryCode"] as? String), at: p,
+                               day: Remote.day(c["dayTripDate"]) ?? Remote.day(c["arrivalDate"]), serverId: c["id"] as? String)
+            }.sorted { ($0.day ?? .distantPast) < ($1.day ?? .distantPast) }
             stops.append(Stop(
                 name: name, flag: flag(o["countryCode"] as? String), at: at, nights: nights,
                 dates: nights == 0 ? Format.shortDay(from) : Format.range(from, day, withYear: false),
-                mode: mode, start: from, serverId: o["id"] as? String
+                mode: mode, start: from, serverId: o["id"] as? String,
+                flightNumber: text(o, "flightNumber"), fromAirport: text(o, "fromAirport"), toAirport: text(o, "toAirport"), via: via,
+                dayTrips: outings
             ))
         }
         return (stops, outbound, back)
@@ -474,9 +560,29 @@ enum Remote {
         return parseFriends(try await Api.shared.get("/api/users/suggestions?q=\(q)&limit=8"))
     }
 
-    static func addMember(_ trip: Trip, username: String) async throws {
+    static func addMembers(_ trip: Trip, usernames: [String]) async throws {
+        guard let rid = trip.remoteId, !usernames.isEmpty else { return }
+        try await Api.shared.send("POST", "/api/trips/\(rid)/members", body: ["usernames": usernames])
+    }
+
+    /// Only what is given changes; a date of nil means the trip's own first or last day.
+    static func updateMember(_ trip: Trip, userId: String, role: String? = nil, canTrack: Bool? = nil, days: (from: Date?, to: Date?)? = nil) async throws {
         guard let rid = trip.remoteId else { return }
-        try await Api.shared.send("POST", "/api/trips/\(rid)/members", body: ["usernames": [username]])
+        var body: [String: Any] = [:]
+        if let role { body["role"] = role }
+        if let canTrack { body["canTrack"] = canTrack }
+        if let days {
+            body["fromDate"] = days.from.map { PlannerRemote.isoDay($0) } ?? NSNull()
+            body["toDate"] = days.to.map { PlannerRemote.isoDay($0) } ?? NSNull()
+        }
+        try await Api.shared.send("PATCH", "/api/trips/\(rid)/members/\(userId)", body: body)
+    }
+
+    /// A link's password read back; nil with recoverable false for a link from before passwords were kept readable.
+    static func linkPassword(_ trip: Trip, _ link: ShareLink) async throws -> (password: String?, recoverable: Bool) {
+        guard let rid = trip.remoteId else { return (nil, false) }
+        let o = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/share/\(link.id)/password")) as? [String: Any] ?? [:]
+        return ((o["password"] as? String).flatMap { $0.isEmpty ? nil : $0 }, o["recoverable"] as? Bool ?? false)
     }
 
     static func setRole(_ trip: Trip, userId: String, role: String) async throws {
@@ -494,9 +600,13 @@ enum Remote {
     struct Comment: Identifiable, Hashable {
         let id: String
         let mediaId: String?
+        /// Set for a comment under a day's story ("2026-05-04") instead of under a photo.
+        var day: String? = nil
         let author: String
         let body: String
         let at: Date
+        /// Your own, or as the trip's organiser anyone's.
+        var canDelete = false
     }
 
     static let reactionKinds = ["heart", "laugh", "wow", "love", "clap"]
@@ -505,20 +615,30 @@ enum Remote {
     struct Reactions {
         var counts: [String: [String: Int]] = [:]
         var mine: [String: String] = [:]
+        /// Who gave what, per target, when the server says.
+        var names: [String: [(kind: String, name: String)]] = [:]
+    }
+
+    private static func parseComment(_ o: [String: Any]) -> Comment? {
+        guard let id = o["id"] as? String else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return Comment(
+            id: id, mediaId: o["mediaId"] as? String, day: (o["day"] as? String).map { String($0.prefix(10)) },
+            author: o["authorName"] as? String ?? "", body: o["body"] as? String ?? "",
+            at: (o["createdAt"] as? String).flatMap { iso.date(from: $0) } ?? Date(), canDelete: o["canDelete"] as? Bool ?? false
+        )
     }
 
     static func comments(_ trip: Trip) async throws -> [Comment] {
         guard let rid = trip.remoteId else { return [] }
         let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/comments")) as? [[String: Any]] ?? []
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return list.compactMap { o in
-            guard let id = o["id"] as? String else { return nil }
-            return Comment(
-                id: id, mediaId: o["mediaId"] as? String, author: o["authorName"] as? String ?? "",
-                body: o["body"] as? String ?? "", at: (o["createdAt"] as? String).flatMap { iso.date(from: $0) } ?? Date()
-            )
-        }
+        return list.compactMap(parseComment)
+    }
+
+    static func deleteComment(_ trip: Trip, _ id: String) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("DELETE", "/api/trips/\(rid)/comments/\(id)")
     }
 
     static func reactions(_ trip: Trip) async throws -> Reactions {
@@ -530,12 +650,29 @@ enum Remote {
             out.counts[target, default: [:]][kind] = (c["count"] as? NSNumber)?.intValue ?? 0
         }
         out.mine = o["mine"] as? [String: String] ?? [:]
+        for (target, list) in o["names"] as? [String: [[String: Any]]] ?? [:] {
+            out.names[target] = list.compactMap { n in
+                guard let kind = n["kind"] as? String, let name = n["name"] as? String else { return nil }
+                return (kind, name)
+            }
+        }
         return out
     }
 
-    static func addComment(_ trip: Trip, mediaId: String, body: String) async throws {
-        guard let rid = trip.remoteId else { return }
-        try await Api.shared.send("POST", "/api/trips/\(rid)/media/\(mediaId)/comments", body: ["body": body])
+    /// The comment as the server made it; nil when the answer holds none (test mode answers "{}").
+    @discardableResult
+    static func addComment(_ trip: Trip, mediaId: String, body: String) async throws -> Comment? {
+        guard let rid = trip.remoteId else { return nil }
+        let data = try await Api.shared.send("POST", "/api/trips/\(rid)/media/\(mediaId)/comments", body: ["body": body])
+        return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]).flatMap(parseComment)
+    }
+
+    /// A comment under a day's story.
+    @discardableResult
+    static func addDayComment(_ trip: Trip, day: String, body: String) async throws -> Comment? {
+        guard let rid = trip.remoteId else { return nil }
+        let data = try await Api.shared.send("POST", "/api/trips/\(rid)/days/\(day)/comments", body: ["body": body])
+        return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]).flatMap(parseComment)
     }
 
     static func setReaction(_ trip: Trip, mediaId: String, kind: String?) async throws {
@@ -696,7 +833,9 @@ enum Remote {
             let w = o["width"] as? Double ?? 0, h = o["height"] as? Double ?? 0
             // Where it was taken, for the photos on the trip map.
             let lat = (o["latitude"] as? NSNumber)?.doubleValue, lon = (o["longitude"] as? NSNumber)?.doubleValue
-            return Media(id: id, takenAt: taken, video: (o["assetType"] as? String) == "VIDEO", ratio: w > 0 && h > 0 ? w / h : 1, lat: lat, lon: lon)
+            let asset = (o["immichAssetId"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            return Media(id: id, takenAt: taken, video: (o["assetType"] as? String) == "VIDEO", ratio: w > 0 && h > 0 ? w / h : 1, lat: lat, lon: lon,
+                         userId: o["userId"] as? String, immichAssetId: asset)
         }
         .sorted { $0.takenAt < $1.takenAt }
     }
@@ -807,6 +946,10 @@ final class Store {
     }
 
     func signOut() {
+        // Nothing of this account keeps running: tracking stops, its waiting points go, the notifications check ends.
+        Tracker.shared.reset()
+        Notices.enabled = false
+        Notices.cancel()
         Api.shared.signOut()
         Cache.clear()
         plannedCountries = []

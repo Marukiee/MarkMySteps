@@ -101,7 +101,7 @@ fun SettingsPage(onSignIn: () -> Unit = {}) {
             "services" -> ServicesPage(back, onSignIn)
             "data" -> DataPage(back)
             "accounts" -> AccountsPage(back)
-            "developer" -> DeveloperPage(back, onPreview = { Previews.open = it })
+            "developer" -> DeveloperPage(back, onPreview = { ScreenPreview.open = it })
             else -> AboutPage(back)
         }
     }
@@ -366,9 +366,9 @@ private fun TrackingPanel() {
     var customText by remember { mutableStateOf(UiPrefs.trackMinutes.toString()) }
     var tripId by remember { mutableStateOf<String?>(null) }
     var picker by remember { mutableStateOf(false) }
-    var explain by remember { mutableStateOf(false) }
     var confirmStop by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
+    var editPoints by remember { mutableStateOf(false) }
     val me = Data.me?.id
     // Trips you could still be travelling on, the ones under way first; guests do not record.
     val trips = Data.all.filter { it.upcoming && it.remoteId != null && it.members.none { m -> m.userId == me && m.role == "GUEST" } }
@@ -376,11 +376,16 @@ private fun TrackingPanel() {
     LaunchedEffect(trips) { if (tripId == null || trips.none { it.id == tripId }) tripId = trips.firstOrNull()?.id }
     val trip = trips.firstOrNull { it.id == tripId }
     val haptics = rememberHaptics()
-    fun begin() { trip?.let { Tracker.start(context, it.remoteId ?: it.id, it.title); note = null; haptics(Haptic.Confirm) } }
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { got ->
-        if (got[android.Manifest.permission.ACCESS_FINE_LOCATION] == true || got[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true) begin()
-        else note = Lang.text(R.string.settings_tracking_denied)
-    }
+    // The organiser can switch tracking off for a companion; then this trip says so instead of starting.
+    val allowed = trip == null || canTrack(trip)
+    fun begin() { trip?.let { Tracker.start(context, it.remoteId ?: it.id, it.title, it.start?.plusDays((it.days - 1).toLong())); note = null; haptics(Haptic.Confirm) } }
+    // The one way the app asks for location (LocationAccess.kt): a word on why, then Android's question.
+    val ask = rememberLocationRequest(
+        stringResource(R.string.track_loc_title),
+        stringResource(R.string.track_loc_body),
+        notifications = true,
+        onRefused = { msg, _ -> note = msg },
+    )
     // The age of the last position stays current while you look.
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Tracker.tripId) { while (Tracker.tripId != null) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
@@ -407,16 +412,16 @@ private fun TrackingPanel() {
                             Text(stringResource(R.string.settings_tracking_active, Tracker.tripTitle ?: stringResource(R.string.settings_trip_fallback)), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
                         }
                         val fix = Tracker.lastFix
-                        Text(
-                            listOfNotNull(
-                                if (fix == null) stringResource(R.string.settings_tracking_waiting) else ((now - fix.third) / 1000).let { s -> if (s < 10) stringResource(R.string.settings_tracking_last_now) else if (s < 120) stringResource(R.string.settings_tracking_last_seconds, s) else stringResource(R.string.settings_tracking_last_minutes, s / 60) },
-                                if (Tracker.buffered > 0) pluralStringResource(R.plurals.settings_tracking_buffered, Tracker.buffered, Tracker.buffered) else null,
-                            ).joinToString(" · "),
-                            style = ValueStyle.copy(color = cs.onSurfaceVariant),
-                        )
+                        // Where the last position landed: its place and a small map with today's line, as the web.
+                        if (fix == null) Text(stringResource(R.string.track_waiting_fix), style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                        else Box(Modifier.padding(top = 10.dp)) { LastFixCard(fix, now, Tracker.tripId) { editPoints = true } }
+                        if (Tracker.buffered > 0) Text(androidx.compose.ui.res.pluralStringResource(R.plurals.track_buffered, Tracker.buffered, Tracker.buffered), style = ValueStyle.copy(color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 6.dp))
                         Tracker.lastError?.let { Text(it, style = ValueStyle.copy(color = cs.error)) }
                     }
-                    QuietDangerButton(stringResource(R.string.settings_tracking_stop), { confirmStop = true }, Modifier.fillMaxWidth())
+                    // The bare points of today, to check and correct what the tracker recorded.
+                    SoftButton(stringResource(R.string.track_points_today), { editPoints = true }, Modifier.fillMaxWidth(), icon = Glyphs.pin)
+                    TrackingLog(now)
+                    QuietDangerButton(stringResource(R.string.track_stop), { confirmStop = true }, Modifier.fillMaxWidth())
                 } else {
                     Box {
                         Row(
@@ -431,30 +436,23 @@ private fun TrackingPanel() {
                         }
                         AppMenu(picker, { picker = false }, listOf(trips.map { t -> MenuEntry(t.title + if (t.ongoingDay != null) " · " + stringResource(R.string.settings_tracking_underway) else "", Glyphs.compass, selected = t.id == tripId) { tripId = t.id } }))
                     }
-                    MainButton(stringResource(R.string.settings_tracking_start), {
+                    if (!allowed) Hint(stringResource(R.string.track_off_by_organiser), Modifier.padding(horizontal = 6.dp))
+                    MainButton(stringResource(R.string.track_start), {
                         when {
-                            !Data.live -> note = Lang.text(R.string.settings_tracking_sign_in_first)
-                            Tracker.hasPermission(context) -> begin()
-                            else -> explain = true
+                            !Data.live -> note = Lang.text(R.string.track_sign_in_first)
+                            else -> ask.run(context) { begin() }
                         }
-                    }, Modifier.fillMaxWidth().graphicsLayer { alpha = if (Data.live) 1f else 0.45f }, icon = Glyphs.pin, enabled = trip != null || !Data.live)
+                    }, Modifier.fillMaxWidth().graphicsLayer { alpha = if (Data.live) 1f else 0.45f }, icon = Glyphs.pin, enabled = (trip != null && allowed) || !Data.live)
+                    Tracker.lastStatus?.let { Hint(it, Modifier.padding(horizontal = 6.dp)) }
+                    TrackingLog(now)
                 }
             }
         }
         // Every line here says why tracking could not start.
         Note(note, feel = Haptic.Reject)
     }
-    if (explain) Confirm(
-        stringResource(R.string.settings_tracking_allow_title),
-        stringResource(R.string.settings_tracking_allow_text),
-        stringResource(R.string.settings_continue), danger = false,
-        onConfirm = {
-            val wanted = listOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION) +
-                if (android.os.Build.VERSION.SDK_INT >= 33) listOf(android.Manifest.permission.POST_NOTIFICATIONS) else emptyList()
-            ask.launch(wanted.toTypedArray())
-        },
-        onDismiss = { explain = false },
-    )
+    val editing = Tracker.tripId
+    if (editPoints && editing != null) PointsEditor(editing, onClose = { editPoints = false })
     if (confirmStop) Confirm(
         stringResource(R.string.settings_tracking_stop_title), stringResource(R.string.settings_tracking_stop_text, Tracker.tripTitle ?: stringResource(R.string.settings_this_trip)), stringResource(R.string.settings_tracking_stop_confirm),
         onConfirm = { Tracker.stop(context) }, onDismiss = { confirmStop = false },

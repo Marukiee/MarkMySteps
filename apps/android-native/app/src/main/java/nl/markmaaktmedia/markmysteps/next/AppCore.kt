@@ -73,7 +73,7 @@ object Chrome {
 }
 
 /** A screen of a new user opened from the developer page as a preview: it changes and sends nothing. */
-object Previews {
+object ScreenPreview {
     var open by mutableStateOf<String?>(null)
 }
 

@@ -77,14 +77,17 @@ import kotlinx.coroutines.launch
  */
 
 @Composable
-fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, onRegister: () -> Unit = {}, onLocal: () -> Unit = {}) {
+fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, mfaPreview: Boolean = false, onRegister: () -> Unit = {}, onLocal: () -> Unit = {}) {
     val cs = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     var server by rememberSaveable { mutableStateOf(Api.base) }
     var name by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
-    var mfaToken by remember { mutableStateOf<String?>(null) }
+    // A test can open the second step straight away (adb extra mfaPreview) to look at it; that step then never sends anything.
+    var mfaToken by remember { mutableStateOf(if (mfaPreview) PreviewToken else null) }
+    // No phone at hand: one of the recovery codes instead of the app's code, as on the web.
+    var recovery by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val heroH = (LocalConfiguration.current.screenHeightDp * 0.36f).dp
@@ -96,6 +99,7 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, onRegister:
         scope.launch {
             try {
                 val token = mfaToken
+                if (token == PreviewToken) { error = Lang.text(R.string.login_preview_note); return@launch }
                 if (token == null) {
                     when (val answer = Api.login(server, name, password)) {
                         is Api.Login.NeedsCode -> mfaToken = answer.mfaToken
@@ -108,8 +112,8 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, onRegister:
                 }
             } catch (e: Api.Failure) {
                 error = when (e.status) {
-                    401 -> if (mfaToken == null) "Naam of wachtwoord klopt niet" else "Die code klopt niet"
-                    429 -> "Even te vaak geprobeerd, wacht een minuut"
+                    401 -> if (mfaToken == null) Lang.text(R.string.login_wrong) else Lang.text(R.string.login_code_wrong)
+                    429 -> Lang.text(R.string.login_too_often)
                     else -> e.message
                 }
             } finally {
@@ -143,7 +147,7 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, onRegister:
                 )
             }
             Text(
-                "Log in op je eigen server om je reizen te zien.",
+                androidx.compose.ui.res.stringResource(R.string.login_tagline),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurfaceVariant),
                 modifier = Modifier.padding(top = 10.dp, bottom = 20.dp),
             )
@@ -161,19 +165,29 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, onRegister:
                 ) { second ->
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (!second) {
-                            Field("Server", server, { server = it }, "jouw-server.nl", KeyboardType.Uri)
-                            Field("Gebruikersnaam of e-mail", name, { name = it }, "", KeyboardType.Email, autofill = androidx.compose.ui.autofill.ContentType.Username)
-                            Field("Wachtwoord", password, { password = it }, "", KeyboardType.Password, secret = true, done = ::submit, autofill = androidx.compose.ui.autofill.ContentType.Password)
+                            Field(androidx.compose.ui.res.stringResource(R.string.auth_server), server, { server = it }, androidx.compose.ui.res.stringResource(R.string.auth_server_hint), KeyboardType.Uri)
+                            Field(androidx.compose.ui.res.stringResource(R.string.login_identifier), name, { name = it }, "", KeyboardType.Email, autofill = androidx.compose.ui.autofill.ContentType.Username)
+                            Field(androidx.compose.ui.res.stringResource(R.string.auth_password), password, { password = it }, "", KeyboardType.Password, secret = true, done = ::submit, autofill = androidx.compose.ui.autofill.ContentType.Password)
                         } else {
-                            Text(
-                                "Vul de code uit je authenticator-app in.",
-                                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant),
-                            )
-                            // Focus at once, and sign in by itself on the sixth digit, as on the web.
-                            Field("Code", code, { v ->
-                                code = v.filter(Char::isLetterOrDigit).take(12)
-                                if (code.length == 6 && code.all(Char::isDigit)) submit()
-                            }, "123456", KeyboardType.Number, done = ::submit, autofill = androidx.compose.ui.autofill.ContentType.SmsOtpCode, focusNow = true)
+                            // The app's code or a recovery code: each its own words and field, sliding into place.
+                            AnimatedContent(recovery, transitionSpec = { (fadeIn() + slideInHorizontally { it / 6 }) togetherWith fadeOut() }, label = "codeKind") { useRecovery ->
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text(
+                                        if (useRecovery) androidx.compose.ui.res.stringResource(R.string.login_recovery_hint)
+                                        else androidx.compose.ui.res.stringResource(R.string.login_app_hint),
+                                        style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, lineHeight = 20.sp, color = cs.onSurfaceVariant),
+                                    )
+                                    if (useRecovery) Field(androidx.compose.ui.res.stringResource(R.string.login_recovery_label), code, { v ->
+                                        // As typed (the server drops spaces and dashes and ignores case); changing it here fights the keyboard. Never sent by itself.
+                                        code = v.take(24)
+                                    }, "XXXX-XXXX-XXXX-XXXX", KeyboardType.Ascii, done = ::submit, focusNow = true)
+                                    // Focus at once, and sign in by itself on the sixth digit, as on the web.
+                                    else Field(androidx.compose.ui.res.stringResource(R.string.login_code_label), code, { v ->
+                                        code = v.filter(Char::isLetterOrDigit).take(12)
+                                        if (code.length == 6 && code.all(Char::isDigit)) submit()
+                                    }, "123456", KeyboardType.Number, done = ::submit, autofill = androidx.compose.ui.autofill.ContentType.SmsOtpCode, focusNow = true)
+                                }
+                            }
                         }
                     }
                 }
@@ -186,25 +200,38 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, onRegister:
                 }
                 Button(
                     onClick = ::submit,
-                    enabled = !busy && (if (mfaToken == null) server.isNotBlank() && name.isNotBlank() && password.isNotEmpty() else code.length >= 6),
+                    enabled = !busy && (if (mfaToken == null) server.isNotBlank() && name.isNotBlank() && password.isNotEmpty() else code.count(Char::isLetterOrDigit) >= 6),
                     shapes = ButtonDefaults.shapes(),
                     contentPadding = PaddingValues(vertical = 16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (busy) LoadingIndicator(Modifier.size(24.dp), color = cs.onPrimary)
-                    else Text(if (mfaToken == null) "Inloggen" else "Bevestigen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp))
+                    else Text(if (mfaToken == null) androidx.compose.ui.res.stringResource(R.string.login_sign_in) else androidx.compose.ui.res.stringResource(R.string.login_confirm), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp))
+                }
+            }
+            // On the second step: switch between the app's code and a recovery code.
+            AnimatedVisibility(mfaToken != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut(), modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                val haptics = rememberHaptics()
+                TextButton(onClick = { haptics(Haptic.Tick); recovery = !recovery; code = ""; error = null }, modifier = Modifier.padding(top = 10.dp)) {
+                    Text(
+                        androidx.compose.ui.res.stringResource(if (recovery) R.string.auth_use_app_code else R.string.auth_use_recovery),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp),
+                    )
                 }
             }
             // The other ways in, as on the web: ask for an account, or keep everything on this phone (Auth.kt).
-            Row(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp)) {
-                TextButton(onClick = onRegister) { Text(androidx.compose.ui.res.stringResource(R.string.auth_create_account), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
-                TextButton(onClick = onLocal) { Text(androidx.compose.ui.res.stringResource(R.string.auth_no_server), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
+            AnimatedVisibility(mfaToken == null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut(), modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                Row(Modifier.padding(top = 10.dp)) {
+                    TextButton(onClick = onRegister) { Text(androidx.compose.ui.res.stringResource(R.string.auth_create_account), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
+                    TextButton(onClick = onLocal) { Text(androidx.compose.ui.res.stringResource(R.string.auth_no_server), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
+                }
             }
-            TextButton(onClick = onDemo, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                Text("Bekijk met voorbeelden", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
+            if (mfaToken == null) TextButton(onClick = onDemo, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                Text(androidx.compose.ui.res.stringResource(R.string.login_demo), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
             }
             Text(
-                "Deze testapp leest alleen. Hij verandert niets aan je reizen.",
+                androidx.compose.ui.res.stringResource(R.string.login_test_note),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant),
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 24.dp),
             )
@@ -255,3 +282,6 @@ private fun Field(
         }
     }
 }
+
+/** The second step opened by a test to look at it: nothing is ever sent with it. */
+private const val PreviewToken = "preview"

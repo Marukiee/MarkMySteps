@@ -19,6 +19,11 @@ struct Person: Hashable {
     var hasAvatar = false
     /// OWNER, MEMBER (reisgenoot) or GUEST.
     var role = "MEMBER"
+    /// A companion whose phone may add to the route.
+    var canTrack = true
+    /// The days they were along, when not the whole trip.
+    var fromDate: Date? = nil
+    var toDate: Date? = nil
 }
 
 /// How a leg is travelled.
@@ -50,10 +55,28 @@ enum Mode: String, CaseIterable, Identifiable, Hashable {
 /// The way there or back.
 struct Leg: Hashable {
     var mode: Mode
-    let from: String
-    let to: String
-    let km: Int
+    var from: String
+    var to: String
+    var km: Int
     /// The way there and back are stops on the server too.
+    var serverId: String? = nil
+    var flightNumber: String? = nil
+    var fromAirport: String? = nil
+    var toAirport: String? = nil
+    /// Layovers, as airport codes, in the order flown.
+    var via: [String] = []
+
+    /// The airports of a flight: the server's fields, or in the demo the codes in from and to.
+    var airportFrom: String? { fromAirport ?? (serverId == nil && mode == .flight && from.count == 3 && from == from.uppercased() ? from : nil) }
+    var airportTo: String? { toAirport ?? (serverId == nil && mode == .flight && to.count == 3 && to == to.uppercased() ? to : nil) }
+}
+
+/// An outing from a stop and back the same day.
+struct DayTrip: Hashable {
+    let name: String
+    let flag: String
+    let at: LonLat
+    var day: Date?
     var serverId: String? = nil
 }
 
@@ -75,6 +98,12 @@ struct Stop: Hashable {
     var start: Date? = nil
     /// The stop's id on the server, for saving planner changes.
     var serverId: String? = nil
+    /// When the way here was flown.
+    var flightNumber: String? = nil
+    var fromAirport: String? = nil
+    var toAirport: String? = nil
+    var via: [String] = []
+    var dayTrips: [DayTrip] = []
 }
 
 /// One trip, in the shape the API hands the app.
@@ -112,6 +141,10 @@ struct Trip: Identifiable, Hashable {
     var remoteId: String? = nil
     var coverId: String? = nil
     var start: Date? = nil
+    /// One dot of its own on the globe instead of one at the start and one at the end (trip settings).
+    var marker: LonLat? = nil
+    /// Route tracking starts by itself while the trip is under way, on a phone that allowed it.
+    var autoTrack = false
 
     struct Flight: Hashable {
         let from: LonLat
@@ -132,6 +165,9 @@ struct Media: Identifiable, Hashable {
     /// Where it was taken, when the photo knows.
     var lat: Double? = nil
     var lon: Double? = nil
+    /// Whose photo it is, and its id in their Immich, for "Openen in Immich" on your own.
+    var userId: String? = nil
+    var immichAssetId: String? = nil
 }
 
 // MARK: Geometry, ported from Globe.kt

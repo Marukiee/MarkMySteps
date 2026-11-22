@@ -35,7 +35,7 @@ enum Timeline {
         trip.stops.last { s in s.start.map { $0 <= date } ?? false } ?? trip.stops.first
     }
 
-    static func days(_ trip: Trip, _ media: [Media]?) -> [TimelineDay] {
+    static func days(_ trip: Trip, _ media: [Media]?, notes: [Remote.Note] = []) -> [TimelineDay] {
         guard let media else {
             // A real trip shows its own photos or placeholders, never the demo's.
             if trip.remoteId != nil { return [] }
@@ -44,7 +44,9 @@ enum Timeline {
             }
         }
         let groups = Dictionary(grouping: media, by: \.takenAt)
-        return groups.keys.sorted().enumerated().map { i, date in
+        // A day with a story but no photos still has its place.
+        let storyDays = notes.compactMap { Remote.day($0.day) }
+        return Set(groups.keys).union(storyDays).sorted().enumerated().map { i, date in
             TimelineDay(day: TripDay(date: date, stop: stopOn(trip, date), index: i), photos: groups[date] ?? [], weather: nil)
         }
     }
@@ -67,6 +69,7 @@ struct TimelineRows: View {
     var hidden: String?
     let onPhoto: (ViewerItem) -> Void
     let onPlace: (String) -> Void
+    var stories = DayStories()
 
     var body: some View {
         // The places row only earns its place when there are several.
@@ -99,9 +102,21 @@ struct TimelineRows: View {
         ForEach(Array(days.enumerated()), id: \.element.id) { i, day in
             let lastDay = i == days.count - 1
             let rows = day.rows
-            DayHeader(day: day, line: !(lastDay && rows.isEmpty && !trip.upcoming))
+            let iso = PlannerRemote.isoDay(day.day.date)
+            let notes = stories.notes.filter { $0.day == iso }
+            DayHeader(day: day, live: trip.remoteId != nil, line: !(lastDay && rows.isEmpty && !trip.upcoming && notes.isEmpty))
                 .plainRow(top: i == 0 ? 26 : 0)
                 .id(i == 0 ? "days" : "day\(i)")
+            if (trip.remoteId != nil || Launch.menuPreview) && (!notes.isEmpty || stories.canWrite) {
+                DayStoryRow(
+                    day: day.day.date, notes: notes, comments: stories.comments[iso] ?? 0, me: stories.me,
+                    canWrite: stories.canWrite, canComment: stories.canComment,
+                    onWrite: { n in stories.onWrite(day.day.date, n) }, onDelete: stories.onDelete,
+                    onComments: { stories.onComments(iso) }
+                )
+                .timelineLine(show: !(lastDay && rows.isEmpty), bottom: rows.isEmpty ? 30 : 12)
+                .plainRow()
+            }
             if trip.upcoming {
                 // Nothing taken yet: the photos arrive here by themselves once the trip starts.
                 Text("De foto's van deze dag komen hier vanzelf")
@@ -184,8 +199,22 @@ extension View {
     }
 }
 
+/// What the timeline needs for the day stories: the stories, how many comments each day has, who you are, what
+/// you may do, and what happens on a tap.
+struct DayStories {
+    var notes: [Remote.Note] = []
+    var comments: [String: Int] = [:]
+    var me: String?
+    var canWrite = false
+    var canComment = false
+    var onWrite: (Date, Remote.Note?) -> Void = { _, _ in }
+    var onDelete: (Remote.Note) -> Void = { _ in }
+    var onComments: (String) -> Void = { _ in }
+}
+
 private struct DayHeader: View {
     let day: TimelineDay
+    var live = false
     let line: Bool
 
     var body: some View {
@@ -203,7 +232,10 @@ private struct DayHeader: View {
                 HStack(spacing: 6) {
                     FlagView(flag: stop.flag, height: 13)
                     Text(stop.name).font(.inter(15, 500)).foregroundStyle(Brand.inkSoft).lineLimit(1)
-                    if let t = day.weather {
+                    if live {
+                        // That day's real weather where you were.
+                        WeatherBadge(at: stop.at, day: day.day.date)
+                    } else if let t = day.weather {
                         Image(systemName: t >= 20 ? "sun.max" : t >= 12 ? "cloud.sun" : "cloud")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(Brand.inkSoft)

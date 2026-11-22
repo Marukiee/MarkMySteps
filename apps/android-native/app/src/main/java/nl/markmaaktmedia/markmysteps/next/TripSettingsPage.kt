@@ -183,8 +183,12 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
         // Photos from this phone's gallery in the timeline and on the map, without uploading (AppScreens.kt).
         DevicePhotosPanel(trip, onChanged)
         if (isOwner) MarkerPanel(trip, id, info)
+        // The map of where the trip went, kept on the phone for a trip without signal.
+        OfflineMapPanel(trip, id)
 
         Header(stringResource(R.string.tripsettings_tracking))
+        TrackNowPanel(trip, id, ended, myRole)
+        Spacer(Modifier.height(8.dp))
         Group(null, listOf(
             Item(
                 Glyphs.pin, stringResource(R.string.tripsettings_auto_track),
@@ -199,6 +203,56 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
 
         DangerPanel(trip, id, isOwner, canEdit, onGone)
     }
+}
+
+/**
+ * "Route nu bijhouden": start or stop recording this trip from here, as the web's trip settings. A trip that is
+ * over can still be stopped; otherwise the panel says why it cannot start (over, a guest, or the organiser
+ * switched tracking off for you).
+ */
+@Composable
+private fun TrackNowPanel(trip: Trip, id: String, ended: Boolean, myRole: String?) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val haptics = rememberHaptics()
+    val here = Tracker.tripId == id
+    val allowed = !ended && canTrack(trip)
+    var confirmStop by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf<String?>(null) }
+    val ask = rememberLocationRequest(
+        stringResource(R.string.track_loc_title),
+        stringResource(R.string.track_loc_body),
+        notifications = true,
+        onRefused = { msg, _ -> note = msg },
+    )
+    Panel(animate = true) {
+        if (allowed || here) {
+            Text(stringResource(R.string.track_now_title), style = TitleStyle.copy(color = MaterialTheme.colorScheme.onSurface))
+            Hint(if (allowed) stringResource(R.string.track_now_hint) else stringResource(R.string.track_now_ended_running))
+            AnimatedContent(here, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "trackNow") { on ->
+                if (on) QuietDangerButton(stringResource(R.string.track_stop), { confirmStop = true }, Modifier.fillMaxWidth())
+                else MainButton(stringResource(R.string.track_start), {
+                    ask.run(context) {
+                        Tracker.start(context, id, trip.title, trip.start?.plusDays((trip.days - 1).toLong()))
+                        haptics(Haptic.Confirm); note = null
+                    }
+                }, Modifier.fillMaxWidth(), icon = Glyphs.pin)
+            }
+            if (!here && allowed && Tracker.tripId != null) Hint(stringResource(R.string.track_now_other))
+            Note(note, true)
+        } else {
+            Hint(
+                when {
+                    ended -> stringResource(R.string.track_now_ended)
+                    myRole == "GUEST" -> stringResource(R.string.track_now_guest)
+                    else -> stringResource(R.string.track_off_by_organiser)
+                },
+            )
+        }
+    }
+    if (confirmStop) Confirm(
+        stringResource(R.string.track_stop_title), stringResource(R.string.track_stop_body, trip.title), stringResource(R.string.track_stop_confirm),
+        onConfirm = { Tracker.stop(context) }, onDismiss = { confirmStop = false },
+    )
 }
 
 /** The cover as the trip's card shows it, with the trip's colour under it gliding to a new pick. */
@@ -437,7 +491,8 @@ private fun MarkerPanel(trip: Trip, id: String, info: SettingsRemote.TripInfo?) 
     var error by remember { mutableStateOf<String?>(null) }
     fun save(p: LonLat?) {
         marker = p
-        scope.launch { runCatching { SettingsRemote.setMarker(id, p) }.onFailure { error = it.message ?: Lang.text(R.string.tripsettings_marker_failed) } }
+        // The globe on the homepage draws the new spot once the trips are read again.
+        scope.launch { runCatching { SettingsRemote.setMarker(id, p) }.onSuccess { Data.load() }.onFailure { error = it.message ?: Lang.text(R.string.tripsettings_marker_failed) } }
     }
     Header(stringResource(R.string.tripsettings_marker))
     val motion = MaterialTheme.motionScheme
