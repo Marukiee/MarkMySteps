@@ -160,8 +160,9 @@ fun TripMap(
 
     val styleId = MapStylePref.id
     val key = "${trip.id}/$dark/$styleId"
-    // A map that opens on its own (full screen) waits for its first tiles and then fades in, so the route is
-    // never drawn on an empty background.
+    // A map that opens on its own waits for its tiles and then fades in, so the route is not drawn on an empty
+    // background; but never longer than a moment after its style is up (see below), on a slow network the map
+    // shows its own background with the route first and the tiles come in on it.
     var ready by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(!fadeIn) }
     val shown by androidx.compose.animation.core.animateFloatAsState(if (ready) 1f else 0f, androidx.compose.material3.MaterialTheme.motionScheme.defaultEffectsSpec(), label = "mapIn")
     // Fitting again whenever the view changes size: a fit made before the view had its final size framed the

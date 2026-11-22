@@ -101,7 +101,7 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - De kaart is te bewegen zonder dat de pagina meescrolt, met je foto's als rondjes erop (gegroepeerd per zoomniveau), plaatsnamen in het Nederlands. (klaar Android)
 - Fotorondjes stapelen nooit: groepen die elkaar zouden raken worden één groep, en het getal van een groep ligt altijd boven elk rondje. De live gezichten van reisgenoten liggen boven de foto's, je eigen stip en een stoplabel daar weer boven. (klaar Android)
 - Kies je een dag, dan passen de kleine en de grote kaart allebei op alles van die dag (lijnen, foto's, stops en dagtrips), met ruimte voor de dag-pil, de vergrootknop, de sluitknop en een half fotorondje. De grote kaart opent op dezelfde dag als de kleine. (klaar Android)
-- De grote kaart staat nooit seconden leeg: hij komt op vanuit de lege kaartkleur en verschijnt kort nadat de stijl er is, ook als de tegels nog binnenkomen. (klaar Android)
+- De grote kaart wacht niet op al zijn tegels: hij komt op vanuit de lege kaartkleur en verschijnt kort (0,9 s) nadat de stijl er is; de tegels komen daarna binnen. Op een trage emulator ongeveer 2 s na de tik, was 4 tot 5 s. (klaar Android, deels: de stijl laden zelf blijft wachten)
 - Vluchten als grijze gestippelde boog met duidelijke streepjes en een grijs vliegveldbolletje aan het begin en eind; niet in de reiskleur. 3D-wereldbol zoals de web: wacht op MapLibre (zit nog alleen in testversies). (deels)
 - Cijfers zoals de web: de eerste vier van afstand, dagen, stops (vanaf 2), foto's, reizigers (vanaf 2), landen. (klaar Android)
 - Deellink: tik op de link kopieert hem; volledige adres met beletselteken, op de oude maat. (klaar Android)
