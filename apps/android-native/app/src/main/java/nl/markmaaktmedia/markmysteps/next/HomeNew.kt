@@ -809,7 +809,7 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
         Box(
             // A solid tonal disc on photos, so the dots read on a bright sky too.
             // Same white glass on every photo; over a light corner it is less see-through and the dots go dark.
-            Modifier.size(40.dp).then(if (light) Modifier.glass(CircleShape, veil = veil) else Modifier.clip(CircleShape)).bouncyClickable({ menu = true }, feel = null), // the menu ticks as it opens
+            Modifier.size(40.dp).then(if (light) Modifier.glass(CircleShape, veil = veil) else Modifier.clip(CircleShape)).bouncyClickable({ menu = true }, feel = null).a11y(stringResource(R.string.a11y_more)), // the menu ticks as it opens
             contentAlignment = Alignment.Center,
         ) { LineIcon(Glyphs.dotsCircles, if (light) dots else cs.onSurfaceVariant, size = 20.dp, filled = true) }
         val chosen = CardSizePref.overrides[trip.id] ?: CardSizePref.AUTO
