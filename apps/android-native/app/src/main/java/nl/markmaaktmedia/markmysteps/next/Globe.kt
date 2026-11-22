@@ -181,6 +181,8 @@ fun Globe(
     zoom: Float = 1f,
     showStops: Boolean = false,
     turnable: Boolean = true,
+    /** Moves the globe's centre sideways, as a share of the width (room for a card beside it). */
+    shiftX: Float = 0f,
 ) {
     val context = LocalContext.current
     val rings = remember(zoom) { land(context, if (zoom > 2f) "land50.json" else "land110.json") }
@@ -198,7 +200,7 @@ fun Globe(
     ) {
         val inset = if (zoom > 1f) 0f else 10f * density
         val radius = (min(size.width, size.height) / 2f - 2f * density - inset) * zoom
-        val proj = Ortho(centerLon - drag - intro.value, centerLat, size.width / 2f, size.height / 2f + inset, radius)
+        val proj = Ortho(centerLon - drag - intro.value, centerLat, size.width * (0.5f + shiftX), size.height / 2f + inset, radius)
         clipRect {
             drawCircle(style.sphere, radius, Offset(proj.cx, proj.cy))
             drawLand(rings, proj, style.land)

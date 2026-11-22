@@ -39,6 +39,7 @@ import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,11 +82,12 @@ private fun Modifier.press(onClick: () -> Unit = {}): Modifier = composed {
 }
 
 @Composable
-fun TripPage(trip: Trip, dark: Boolean, onBack: () -> Unit) {
+fun TripPage(trip: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? = null) {
     val cs = MaterialTheme.colorScheme
     val screenH = LocalConfiguration.current.screenHeightDp
     val mapH = (screenH * 0.46f).dp
     var tab by remember { mutableIntStateOf(0) }
+    var extra by remember { mutableStateOf(startExtra?.takeIf { it == "book" || it == "summary" }) }
     val scroll = rememberScrollState()
     val density = LocalDensity.current
     // Once the map has scrolled away, a bar with the trip's name takes its place under the buttons.
@@ -140,6 +142,7 @@ fun TripPage(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                 }
 
                 Facts(trip, Modifier.padding(top = 18.dp))
+                if (!trip.upcoming) MakeTiles(onOpen = { extra = it }, Modifier.padding(top = 10.dp))
 
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
                     listOf("Tijdlijn", "Routeplanner").forEachIndexed { i, label ->
@@ -179,6 +182,8 @@ fun TripPage(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                 RoundButton(onClick = {}) { LineIcon(Glyphs.dotsCircles, cs.onSurface, size = 22.dp, filled = true) }
             }
         }
+
+        TripExtras(trip, dark, extra, onClose = { extra = null })
     }
 }
 

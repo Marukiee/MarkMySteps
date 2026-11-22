@@ -170,7 +170,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             ) { key ->
                 val trip = (DemoPast + DemoUpcoming).firstOrNull { it.id == key }
                 when {
-                    trip != null -> TripPage(trip, dark, onBack = { open = null })
+                    trip != null -> TripPage(trip, dark, onBack = { open = null }, startExtra = startPage)
                     key == "page2" -> SettingsPage()
                     key == "page1" -> TravellersPage()
                     else -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it })
