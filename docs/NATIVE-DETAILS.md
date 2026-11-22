@@ -57,6 +57,14 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Een lijst met een knop naar de reis: alleen een rond pijltje, zodat lange titels hun ruimte houden.
 - Dagen in het verleden zien er in de kalender gewoon uit: ze zijn te kiezen.
 
+- Panels (sheets) komen meteen op gang en landen rustig: emphasized decelerate, geen veer vanuit stilstand.
+- Formaat wisselen (groot, klein) zonder doorschieten: niets gaat voorbij zijn plek en terug.
+- Fotorondjes op de kaart groeperen pas als het zoomen stilstaat; wat verdwijnt vervaagt op zijn plek in 0,2 s (zoals de web).
+- Een vervoerpil klapt uit tot een lijst onder de pil, een vorm met een fijne rand, over de inhoud heen.
+- Een stepper is een verbonden knoppengroep: rond aan de buitenkant, strak waar ze elkaar raken.
+- Cijfers die nog laden: lege ruimte van de juiste hoogte, geen grijs blokje.
+- Een reis of pagina die je verlaat opent de volgende keer weer bovenaan.
+
 ## Navigatie en gebaren
 
 - Terugveeggebaar precies zoals Tandem en PixelPlayer: één seekbare shared-axis-overgang (350 ms, emphasized), de pagina gaat mee met je vinger en de vorige schuift er al onder in; loslaten speelt verder, terugtrekken springt terug. Vloeiend op elk toestel (release-build, geen debug). (klaar Android)
