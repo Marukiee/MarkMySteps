@@ -54,6 +54,7 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    implementation project(':markupdate:core')
     // Reading the GPS out of a photo's own EXIF (MmsGalleryPlugin).
     implementation "androidx.exifinterface:exifinterface:1.3.7"
     // The quarter-hourly "anything new?" check (MmsNotifyPlugin). These phones

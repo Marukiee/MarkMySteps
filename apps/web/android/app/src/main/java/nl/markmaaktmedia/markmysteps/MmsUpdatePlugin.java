@@ -1,249 +1,140 @@
 package nl.markmaaktmedia.markmysteps;
 
-import android.content.Intent;
-import android.net.Uri;
-import android.os.Build;
-import android.provider.Settings;
-
-import androidx.core.content.FileProvider;
-
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.Closeable;
+import java.util.List;
+
+import nl.markmaaktmedia.markupdate.MarkUpdate;
+import nl.markmaaktmedia.markupdate.MarkUpdater;
+import nl.markmaaktmedia.markupdate.ReleaseHighlightsKt;
+import nl.markmaaktmedia.markupdate.ReleaseInfo;
+import nl.markmaaktmedia.markupdate.UpdateState;
 
 /**
- * Installs a new version of the app from inside the app.
+ * The page's side of the shared updater (markupdate).
  *
- * There is no Play Store on the target phones, so an update used to mean:
- * open a browser, download an APK, find it in Downloads, tap it, work out why
- * Android will not install it. Four screens and a dead end for anyone who is
- * not already comfortable doing that.
- *
- * The APK is fetched here rather than in the WebView because a WebView cannot
- * hand the file to the package installer afterwards: that needs a content://
- * URI from the app's own FileProvider, which only native code can mint.
+ * Finding the release, downloading it with its checksum and installing it
+ * without a second tap is all markupdate's; this only passes its state to the
+ * update card in the web app, and the card's buttons back. The card itself is
+ * React, because the whole app is a WebView, but it follows the same shape and
+ * words as the Compose card in the other apps.
  */
 @CapacitorPlugin(name = "MmsUpdate")
 public class MmsUpdatePlugin extends Plugin {
 
-    /** Set by cancel(), read by the download loop. */
-    private volatile boolean cancelled = false;
+    private Closeable listening;
 
-    /** Whether Android will let this app start an install at all. */
-    @PluginMethod
-    public void canInstall(PluginCall call) {
-        JSObject result = new JSObject();
-        result.put("granted", mayInstall());
-        call.resolve(result);
+    @Override
+    public void load() {
+        listening = updater().addListener(state -> notifyListeners("state", describe(state)));
     }
 
-    /**
-     * Opens the one settings screen where "install unknown apps" can be given.
-     *
-     * Android offers no way to ask for this in a dialog: it is a per-app switch
-     * the user has to flip themselves, so the honest thing is to take them
-     * straight to it rather than fail with a message about permissions.
-     */
-    @PluginMethod
-    public void requestPermission(PluginCall call) {
-        if (mayInstall()) {
-            JSObject result = new JSObject();
-            result.put("granted", true);
-            call.resolve(result);
-            return;
-        }
+    @Override
+    protected void handleOnDestroy() {
         try {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                    .setData(Uri.parse("package:" + getContext().getPackageName()))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
-        } catch (Exception e) {
-            call.reject(AppLang.text(getContext(), R.string.error_open_settings));
-            return;
+            if (listening != null) listening.close();
+        } catch (Exception ignored) {
+            // Nothing left to stop.
         }
-        JSObject result = new JSObject();
-        result.put("granted", false);
-        call.resolve(result);
     }
 
-    /**
-     * Streams the APK into the cache directory, reporting progress as it goes.
-     *
-     * Into the cache and not Downloads: this is a file nobody wants to keep,
-     * and one the system clears on its own if the phone runs short of room.
-     */
-    @PluginMethod
-    public void download(PluginCall call) {
-        final String url = call.getString("url");
-        if (url == null || url.isEmpty()) {
-            call.reject(AppLang.text(getContext(), R.string.error_no_download_url));
-            return;
-        }
-        cancelled = false;
-        new Thread(() -> {
-            File target = new File(updatesDir(), "markmysteps-update.apk");
-            HttpURLConnection connection = null;
-            try {
-                connection = open(url);
-                int status = connection.getResponseCode();
-                if (status < 200 || status > 299) {
-                    call.reject(AppLang.text(getContext(), R.string.error_download_status, status));
-                    return;
-                }
-                long total = connection.getContentLengthLong();
-                try (InputStream in = connection.getInputStream();
-                     FileOutputStream out = new FileOutputStream(target)) {
-                    byte[] buffer = new byte[64 * 1024];
-                    long copied = 0;
-                    long lastReport = -1;
-                    while (true) {
-                        if (cancelled) {
-                            //noinspection ResultOfMethodCallIgnored
-                            target.delete();
-                            call.reject(AppLang.text(getContext(), R.string.error_cancelled));
-                            return;
-                        }
-                        int read = in.read(buffer);
-                        if (read == -1) break;
-                        out.write(buffer, 0, read);
-                        copied += read;
-                        // One event per whole percent: the WebView cannot
-                        // usefully redraw faster than that, and a progress bar
-                        // that costs more than the download is a poor trade.
-                        long percent = total > 0 ? (copied * 100 / total) : -1;
-                        if (percent != lastReport) {
-                            lastReport = percent;
-                            JSObject progress = new JSObject();
-                            progress.put("loaded", copied);
-                            progress.put("total", total);
-                            progress.put("percent", percent);
-                            notifyListeners("progress", progress);
-                        }
-                    }
-                }
-                JSObject result = new JSObject();
-                result.put("path", target.getAbsolutePath());
-                call.resolve(result);
-            } catch (Exception e) {
-                //noinspection ResultOfMethodCallIgnored
-                target.delete();
-                call.reject(AppLang.text(getContext(), R.string.error_download));
-            } finally {
-                if (connection != null) connection.disconnect();
-            }
-        }).start();
+    /** The app came back to the front: a download waiting on the install switch carries on. */
+    @Override
+    protected void handleOnResume() {
+        updater().resume();
     }
 
-    /** Stops a download that is running. */
     @PluginMethod
-    public void cancel(PluginCall call) {
-        cancelled = true;
+    public void state(PluginCall call) {
+        call.resolve(describe(updater().getState().getValue()));
+    }
+
+    /** On launch at most every six hours; `manual` asks now, the way the check in Settings does. */
+    @PluginMethod
+    public void check(PluginCall call) {
+        if (call.getBoolean("manual", false)) updater().checkAsync(true);
+        else updater().checkIfDueAsync();
         call.resolve();
     }
 
-    /**
-     * Hands a downloaded file to the system's package installer.
-     *
-     * What the user sees from here is Android's own install screen, which is
-     * the point: the app never installs anything behind their back.
-     */
+    /** Update, or try again after a failure. */
     @PluginMethod
-    public void install(PluginCall call) {
-        String path = call.getString("path");
-        if (path == null) {
-            call.reject(AppLang.text(getContext(), R.string.error_no_file));
-            return;
-        }
-        File file = new File(path);
-        if (!file.exists()) {
-            call.reject(AppLang.text(getContext(), R.string.error_download_gone));
-            return;
-        }
-        if (!mayInstall()) {
-            JSObject result = new JSObject();
-            result.put("started", false);
-            result.put("needsPermission", true);
-            call.resolve(result);
-            return;
-        }
-        try {
-            Uri uri = FileProvider.getUriForFile(
-                    getContext(), getContext().getPackageName() + ".fileprovider", file);
-            Intent intent = new Intent(Intent.ACTION_VIEW)
-                    .setDataAndType(uri, "application/vnd.android.package-archive")
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
-        } catch (Exception e) {
-            call.reject(AppLang.text(getContext(), R.string.error_no_installer));
-            return;
-        }
-        JSObject result = new JSObject();
-        result.put("started", true);
-        result.put("needsPermission", false);
-        call.resolve(result);
-    }
-
-    /** Throws away anything left in the update cache. */
-    @PluginMethod
-    public void clean(PluginCall call) {
-        File[] files = updatesDir().listFiles();
-        if (files != null) {
-            for (File file : files) {
-                //noinspection ResultOfMethodCallIgnored
-                file.delete();
-            }
+    public void start(PluginCall call) {
+        UpdateState state = updater().getState().getValue();
+        if (state instanceof UpdateState.Available) {
+            updater().startUpdate(((UpdateState.Available) state).getRelease());
+        } else if (state instanceof UpdateState.Failed) {
+            updater().startRetry();
         }
         call.resolve();
     }
 
-    private boolean mayInstall() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true;
-        return getContext().getPackageManager().canRequestPackageInstalls();
+    /** Later: this version stays hidden until there is a newer one. */
+    @PluginMethod
+    public void later(PluginCall call) {
+        ReleaseInfo release = releaseOf(updater().getState().getValue());
+        if (release != null) updater().dismiss(release.getTag());
+        updater().reset();
+        call.resolve();
     }
 
-    /**
-     * Follows redirects by hand.
-     *
-     * A release asset on GitHub is a redirect to its storage host, and
-     * HttpURLConnection quietly refuses to follow one that changes protocol —
-     * which is exactly the hop that link makes. Left to itself the download
-     * ends as an empty file with a 302 in front of it.
-     */
-    private HttpURLConnection open(String url) throws Exception {
-        String next = url;
-        for (int hop = 0; hop < 5; hop++) {
-            HttpURLConnection connection = (HttpURLConnection) new URL(next).openConnection();
-            connection.setInstanceFollowRedirects(false);
-            connection.setConnectTimeout(15000);
-            connection.setReadTimeout(30000);
-            connection.setRequestProperty("User-Agent", "MarkMySteps");
-            connection.setRequestProperty("Accept", "application/octet-stream");
-            int status = connection.getResponseCode();
-            if (status == 301 || status == 302 || status == 303 || status == 307 || status == 308) {
-                String location = connection.getHeaderField("Location");
-                connection.disconnect();
-                if (location == null) throw new IllegalStateException("Redirect zonder adres");
-                next = new URL(new URL(next), location).toString();
-                continue;
-            }
-            return connection;
+    /** Developer options: a pretend release to walk the card through, or its failure. */
+    @PluginMethod
+    public void preview(PluginCall call) {
+        if (call.getBoolean("fail", false)) updater().showFailurePreview(call.getString("reason", "Test"));
+        else updater().showPreview();
+        call.resolve();
+    }
+
+    private static MarkUpdater updater() {
+        return MarkUpdate.get();
+    }
+
+    private static ReleaseInfo releaseOf(UpdateState state) {
+        if (state instanceof UpdateState.Available) return ((UpdateState.Available) state).getRelease();
+        if (state instanceof UpdateState.Downloading) return ((UpdateState.Downloading) state).getRelease();
+        if (state instanceof UpdateState.ReadyToInstall) return ((UpdateState.ReadyToInstall) state).getRelease();
+        if (state instanceof UpdateState.NeedsPermission) return ((UpdateState.NeedsPermission) state).getRelease();
+        if (state instanceof UpdateState.Installing) return ((UpdateState.Installing) state).getRelease();
+        if (state instanceof UpdateState.AwaitingConfirmation) return ((UpdateState.AwaitingConfirmation) state).getRelease();
+        if (state instanceof UpdateState.Failed) return ((UpdateState.Failed) state).getRelease();
+        return null;
+    }
+
+    /** The state as the card reads it: what it is, which version, the lines to show and how far along. */
+    private JSObject describe(UpdateState state) {
+        JSObject out = new JSObject();
+        String kind = "idle";
+        if (state instanceof UpdateState.Checking) kind = "checking";
+        else if (state instanceof UpdateState.UpToDate) kind = "upToDate";
+        else if (state instanceof UpdateState.Available) kind = "available";
+        else if (state instanceof UpdateState.Downloading) {
+            kind = "downloading";
+            out.put("progress", ((UpdateState.Downloading) state).getProgress());
+        } else if (state instanceof UpdateState.ReadyToInstall) kind = "installing";
+        else if (state instanceof UpdateState.NeedsPermission) kind = "needsPermission";
+        else if (state instanceof UpdateState.Installing) kind = "installing";
+        else if (state instanceof UpdateState.AwaitingConfirmation) kind = "awaitingConfirmation";
+        else if (state instanceof UpdateState.Failed) {
+            kind = "failed";
+            out.put("reason", ((UpdateState.Failed) state).getReason());
         }
-        throw new IllegalStateException("Te veel omleidingen");
-    }
-
-    private File updatesDir() {
-        File dir = new File(getContext().getCacheDir(), "updates");
-        //noinspection ResultOfMethodCallIgnored
-        dir.mkdirs();
-        return dir;
+        out.put("kind", kind);
+        out.put("current", updater().getCurrentVersion());
+        ReleaseInfo release = releaseOf(state);
+        if (release != null) {
+            out.put("version", release.getVersionName());
+            out.put("sizeBytes", release.getApkSizeBytes());
+            boolean dutch = "nl".equals(AppLang.get(getContext()));
+            List<String> lines = ReleaseHighlightsKt.highlights(release, dutch, 2);
+            out.put("notes", new JSArray(lines));
+        }
+        return out;
     }
 }

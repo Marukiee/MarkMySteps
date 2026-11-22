@@ -16,7 +16,6 @@ import { InvitePopup } from './components/InvitePopup';
 import { TopBar } from './components/TopBar';
 import { TrackingPrompt } from './components/TrackingPrompt';
 import { OfflineBanner } from './components/OfflineBanner';
-import { UpdateBanner } from './components/UpdateBanner';
 import { isNativeApp, isOnboarded } from './lib/native';
 import { resumeBackgroundNotify, takeNotificationPath } from './lib/notify';
 import { BootScreen } from './components/BootScreen';
@@ -125,7 +124,6 @@ function Shell() {
     <>
       <ScrollToTop />
       <NotificationRoute />
-      <UpdateBanner />
       <OfflineBanner />
       <TopBar />
       {user?.mustChangePassword && (

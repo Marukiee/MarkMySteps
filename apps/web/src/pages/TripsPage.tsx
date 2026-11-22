@@ -18,6 +18,7 @@ import { confirmModal } from '../components/confirm';
 import { DateRangeField } from '../components/DatePicker';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { LogoMark } from '../components/Logo';
+import { UpdateCard } from '../components/UpdateCard';
 import { Icon } from '../components/Icon';
 import { coverGradient, formatDate, tripCoverBg } from '../lib/colors';
 import {
@@ -365,6 +366,8 @@ export function TripsPage() {
           <span>MarkMySteps</span>
         </span>
       </div>
+
+      <UpdateCard />
 
       <div className="trips-head">
         <h1>{t('common.trips')}</h1>

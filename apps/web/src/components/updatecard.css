@@ -1,0 +1,268 @@
+/* "There is a new version": a card at the top of the home screen, on the
+   same surface, corners and edge as the other cards of the page. */
+
+/* Grows open and folds shut through its row height, so the page under it
+   slides instead of jumping. */
+.update-card-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-bottom: 1.1rem;
+  position: relative;
+  z-index: 2;
+  animation: ucIn 0.32s var(--ease) backwards;
+  transition: grid-template-rows 0.24s var(--ease), margin-bottom 0.24s var(--ease);
+}
+
+.update-card-wrap > .update-card {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.update-card-wrap.closing {
+  grid-template-rows: 0fr;
+  margin-bottom: 0;
+}
+
+.update-card-wrap.closing > .update-card {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.985);
+  transition: opacity 0.18s var(--ease), transform 0.24s var(--ease);
+}
+
+@keyframes ucIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.update-card {
+  padding: 1rem;
+}
+
+.uc-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* A square with round corners for "new", a round tick once it installs. */
+.uc-icon {
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  transition: background 0.3s var(--ease), color 0.3s var(--ease), border-radius 0.35s var(--ease);
+}
+
+.uc-glyph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transition: transform 0.35s var(--ease), opacity 0.2s var(--ease);
+}
+
+.uc-done {
+  opacity: 0;
+  transform: scale(0.4) rotate(-30deg);
+}
+
+.is-installing .uc-icon {
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--teal) 16%, var(--paper-raised));
+  color: var(--teal);
+}
+
+.is-installing .uc-spark {
+  opacity: 0;
+  transform: scale(0.4) rotate(30deg);
+}
+
+.is-installing .uc-done {
+  opacity: 1;
+  transform: none;
+}
+
+/* Title and the line under it. A new pair slides up into place while the old
+   one slides out above it. */
+.uc-lines {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 2.6rem;
+  overflow: hidden;
+}
+
+.uc-line {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1rem;
+  transition: transform 0.32s var(--ease), opacity 0.22s var(--ease);
+}
+
+.uc-line strong {
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.uc-line small {
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.uc-line.above,
+.uc-label.above {
+  transform: translateY(-60%);
+  opacity: 0;
+}
+
+.uc-line.below,
+.uc-label.below {
+  transform: translateY(60%);
+  opacity: 0;
+}
+
+/* What is new, on the title's edge. Folds away once it installs. */
+.uc-news-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin: 0.55rem 0 0 calc(46px + 0.75rem);
+  transition: grid-template-rows 0.32s var(--ease), margin 0.32s var(--ease), opacity 0.22s var(--ease);
+}
+
+.uc-news {
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.is-installing .uc-news-wrap {
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+}
+
+/* Later and Update share the whole width; once Update is pressed, Later
+   folds away and the button takes all of it as the progress bar. */
+.uc-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.uc-later,
+.uc-go {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.uc-later {
+  flex: 1 1 0;
+  transition: flex-grow 0.35s var(--ease), padding 0.35s var(--ease), margin 0.35s var(--ease),
+    opacity 0.2s var(--ease), border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.is-fetching .uc-later,
+.is-installing .uc-later,
+.is-failed .uc-later {
+  flex-grow: 0;
+  padding-inline: 0;
+  margin-right: -0.5rem;
+  border-color: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.uc-go {
+  position: relative;
+  flex: 2 1 0;
+  min-height: 2.6rem;
+  transition: flex-grow 0.35s var(--ease), background 0.3s var(--ease), color 0.3s var(--ease),
+    box-shadow 0.3s var(--ease);
+}
+
+.is-fetching .uc-go,
+.is-installing .uc-go {
+  background: var(--paper-sunken);
+  color: var(--ink);
+  box-shadow: none;
+  cursor: default;
+}
+
+/* The bar fills from the left with the real download. Light enough that the
+   percentage stays readable on it in both themes. */
+.uc-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent) 42%, var(--paper-raised));
+  transform: scaleX(var(--fill, 0));
+  transform-origin: left center;
+  opacity: 0;
+  transition: transform 0.4s var(--ease), opacity 0.2s var(--ease);
+}
+
+.is-fetching .uc-fill,
+.is-installing .uc-fill {
+  opacity: 1;
+}
+
+/* Fetched: the bar stays full and a soft sheen runs over it while Android
+   puts the new version in place. */
+.is-installing .uc-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+  background-size: 220% 100%;
+  animation: ucSheen 1.3s linear infinite;
+}
+
+@keyframes ucSheen {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+.uc-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.3s var(--ease), opacity 0.2s var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .update-card-wrap,
+  .update-card-wrap > .update-card,
+  .update-card *,
+  .update-card *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -24,16 +24,6 @@
   pointer-events: none;
 }
 
-/* The update banner floats over the page, so this one has to get out from
-   under it by itself. Its height is published while it is up; without it the
-   fallback is nothing, which is the case where there is no banner. */
-.update-banner-wrap + .offline-banner {
-  /* The published height already contains the status bar the banner runs
-     under, so this must not add it a second time. */
-  padding-top: calc(0.6rem + var(--update-banner-h, 0px));
-  transition: padding-top 0.3s var(--ease);
-}
-
 .offline-banner svg {
   flex-shrink: 0;
   margin-top: 0.1rem;

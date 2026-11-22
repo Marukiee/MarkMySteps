@@ -1,4 +1,6 @@
 include ':app'
+// The updater all of Marks apps share, copied unchanged from Keeper (see markupdate/README.md).
+include ':markupdate:core'
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 

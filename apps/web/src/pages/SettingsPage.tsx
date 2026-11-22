@@ -2,7 +2,7 @@ import { CSSProperties, FormEvent, ReactNode, useEffect, useRef, useState } from
 import maplibregl, { Map as MapLibreMap } from '../lib/mapgl';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { downloadAndInstall } from '../lib/appUpdate';
+import { checkForUpdates, getUpdateState, onUpdateState, startUpdate, type UpdateInfo } from '../lib/appUpdate';
 import { alwaysLabel, isAndroidApp, isIosApp, isNativeApp } from '../lib/native';
 import { api, ApiError, fetchBlobUrl, getServerBase, setServerBase } from '../api/client';
 import { CHANGELOG } from '../lib/changelog';
@@ -25,10 +25,9 @@ import { LogoMark } from '../components/Logo';
 import { PasswordStrength } from '../components/PasswordStrength';
 import { TrackPointsEditor } from '../components/TrackPointsEditor';
 import {
-  checkForUpdate,
   isUpdateBannerSimulated,
   setUpdateBannerSimulated,
-} from '../components/UpdateBanner';
+} from '../components/UpdateCard';
 import {
   backupSize,
   createBackup,
@@ -1645,44 +1644,44 @@ function ChangelogPanel({ onBack }: { onBack: () => void }) {
  */
 function UpdateCheck() {
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ text: string; url?: string } | null>(null);
+  const [result, setResult] = useState<{ text: string; install?: boolean } | null>(null);
   /** Download progress, once "installeren" has been pressed. */
   const [percent, setPercent] = useState<number | null>(null);
   const [shown, closing] = useExit(result !== null, 240);
-  const lastRef = useRef<{ text: string; url?: string } | null>(null);
+  const lastRef = useRef<{ text: string; install?: boolean } | null>(null);
   if (result) lastRef.current = result;
   const last = lastRef.current;
+
+  // The shared updater does the asking and the installing; this row shows what it says.
+  useEffect(
+    () =>
+      onUpdateState((info: UpdateInfo) => {
+        setPercent(info.kind === 'downloading' ? Math.round((info.progress ?? 0) * 100) : null);
+        if (info.kind === 'checking') return;
+        setBusy(false);
+        if (info.kind === 'available') {
+          setResult({ text: t('settings.update.available', { version: info.version ?? '' }), install: true });
+        } else if (info.kind === 'upToDate') {
+          setResult({ text: t('settings.update.upToDate', { build: info.current ?? '' }) });
+        } else if (info.kind === 'failed') {
+          setResult({ text: info.reason ?? t('settings.update.checkFailed'), install: !!info.version });
+        } else if (info.kind === 'needsPermission') {
+          setResult({ text: t('settings.update.permission'), install: true });
+        }
+      }),
+    [],
+  );
 
   async function run() {
     setBusy(true);
     setResult(null);
     try {
-      const { current, latest, newer } = await checkForUpdate(true, true);
-      if (newer && latest?.url) {
-        setResult({ text: t('settings.update.available', { version: latest.version ?? '' }), url: latest.url });
-      } else {
-        setResult({ text: t('settings.update.upToDate', { build: String(current) }) });
-      }
+      await checkForUpdates(true);
+      const now = await getUpdateState();
+      if (now.kind !== 'checking') setBusy(false);
     } catch {
-      setResult({ text: t('settings.update.checkFailed') });
-    } finally {
       setBusy(false);
-    }
-  }
-
-  /**
-   * The same one press the banner offers: fetch the APK and hand it to
-   * Android's installer, rather than sending somebody to a browser and hoping
-   * they find the file again afterwards.
-   */
-  async function install(url: string) {
-    setPercent(0);
-    const outcome = await downloadAndInstall(url, setPercent);
-    setPercent(null);
-    if (outcome === 'permission') {
-      setResult({ text: t('settings.update.permission'), url });
-    } else if (outcome === 'failed') {
-      setResult({ text: t('settings.update.downloadFailed'), url });
+      setResult({ text: t('settings.update.checkFailed') });
     }
   }
 
@@ -1694,9 +1693,9 @@ function UpdateCheck() {
       {shown && last && (
         <p className={`muted update-check-result ${closing ? 'leaving' : ''}`}>
           {last.text}
-          {last.url &&
+          {last.install &&
             (percent === null ? (
-              <button className="ext-link" onClick={() => void install(last.url!)}>
+              <button className="ext-link" onClick={() => void startUpdate()}>
                 {t('settings.update.install')} <Icon name="chevron-right" size={13} />
               </button>
             ) : (

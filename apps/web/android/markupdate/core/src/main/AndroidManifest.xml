@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Alles wat markupdate nodig heeft komt via de manifest-merge in de app terecht; een app hoeft er niets voor te declareren. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Een update die de app zelf installeert gaat zonder tweede tik, zodra de app de installer van zichzelf is (na de eerste update via de app). -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+    <!-- De melding "klaar om te installeren" als de vraag van Android niet kon openen omdat de app niet voorin stond. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+        <receiver
+            android:name="nl.markmaaktmedia.markupdate.InstallResultReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

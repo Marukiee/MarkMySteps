@@ -78,13 +78,15 @@ jobs:
           retention-days: 30
 
       # Publish the signed APK as a GitHub Release under a stable asset name, so
-      # the in-app update banner has a directly-downloadable URL:
+      # the in-app updater has a directly-downloadable URL and its checksum:
       #   https://github.com/<owner>/<repo>/releases/latest/download/markmysteps.apk
       - name: Stage APK for release
         if: steps.keystore.outputs.signed == 'true'
         run: |
           APK=$(find apps/web/android/app/build/outputs/apk -name '*-release.apk' | head -1)
           cp "$APK" "$RUNNER_TEMP/markmysteps.apk"
+          # The shared updater (markupdate) checks the download against this sum.
+          (cd "$RUNNER_TEMP" && sha256sum markmysteps.apk > markmysteps.apk.sha256)
 
       - name: Publish GitHub Release
         if: steps.keystore.outputs.signed == 'true'
@@ -94,4 +96,6 @@ jobs:
           name: Build ${{ github.run_number }}
           body: 'MarkMySteps build ${{ github.run_number }}'
           make_latest: true
-          files: ${{ runner.temp }}/markmysteps.apk
+          files: |
+            ${{ runner.temp }}/markmysteps.apk
+            ${{ runner.temp }}/markmysteps.apk.sha256
