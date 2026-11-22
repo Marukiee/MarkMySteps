@@ -5,8 +5,9 @@ import SwiftUI
  * the trip's nights are planned, the way there, every stop with its nights and
  * the road from the stop before, the way back, and a field to add a stop.
  * The stops are List rows: swipe to remove, hold or Wijzig to move, a native
- * Stepper for the nights and a menu for how the leg is travelled. Nothing is
- * sent to the server; this test only reads.
+ * Stepper for the nights and a menu for how the leg is travelled. On a real
+ * trip every change is saved to the server like Android's Planner.kt; a removed
+ * stop waits 7 seconds behind an undo pill before the server hears of it.
  */
 
 /// One row of the plan, with a key that stays the same while it moves.
@@ -17,6 +18,14 @@ struct PlanStop: Identifiable, Hashable {
     let at: LonLat
     var nights: Int
     var mode: Mode
+    var serverId: String? = nil
+}
+
+/// A removed stop that can still come back.
+struct PendingDelete: Equatable {
+    let stop: PlanStop
+    let index: Int
+    let at: Date
 }
 
 struct PlanState {
@@ -25,12 +34,59 @@ struct PlanState {
     var back: Leg?
     var nextKey: Int
     var query = ""
+    var pending: PendingDelete?
+    var error: String?
 
     init(trip: Trip) {
-        stops = trip.stops.enumerated().map { i, s in PlanStop(id: i, name: s.name, flag: s.flag, at: s.at, nights: s.nights, mode: s.mode) }
+        stops = trip.stops.enumerated().map { i, s in PlanStop(id: i, name: s.name, flag: s.flag, at: s.at, nights: s.nights, mode: s.mode, serverId: s.serverId) }
         outbound = trip.outbound
         back = trip.back
         nextKey = trip.stops.count
+    }
+}
+
+/// Sends planner changes to the server: nights after a short pause, the rest at once.
+@Observable
+final class PlanSaver {
+    private var nightTasks: [Int: Task<Void, Never>] = [:]
+    private var deleteTask: Task<Void, Never>?
+
+    func run(_ plan: Binding<PlanState>, _ work: @escaping () async throws -> Void) {
+        Task {
+            do { try await work(); plan.wrappedValue.error = nil } catch {
+                plan.wrappedValue.error = (error as? Api.Failure)?.message ?? "Opslaan lukte niet"
+            }
+        }
+    }
+
+    func nights(_ trip: Trip, _ plan: Binding<PlanState>, stop: PlanStop) {
+        guard let id = stop.serverId else { return }
+        nightTasks[stop.id]?.cancel()
+        nightTasks[stop.id] = Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            run(plan) { try await Remote.updateStop(trip, id, nights: stop.nights) }
+        }
+    }
+
+    /// Removed for good once the undo pill has gone, 7 seconds later.
+    func scheduleDelete(_ trip: Trip, _ plan: Binding<PlanState>, send: Bool) {
+        deleteTask?.cancel()
+        deleteTask = Task {
+            try? await Task.sleep(for: .seconds(7))
+            guard !Task.isCancelled, let pending = plan.wrappedValue.pending else { return }
+            withAnimation(.snappy) { plan.wrappedValue.pending = nil }
+            if send, let id = pending.stop.serverId { run(plan) { try await Remote.deleteStop(trip, id) } }
+        }
+    }
+
+    func undo(_ plan: Binding<PlanState>) {
+        deleteTask?.cancel()
+        guard let p = plan.wrappedValue.pending else { return }
+        withAnimation(.snappy) {
+            plan.wrappedValue.stops.insert(p.stop, at: min(p.index, plan.wrappedValue.stops.count))
+            plan.wrappedValue.pending = nil
+        }
     }
 }
 
@@ -39,12 +95,39 @@ struct PlannerRows: View {
     @Binding var plan: PlanState
     /// Called when the add-a-stop field gets the keyboard, so the page can lift it into view.
     var onFocusAdd: () -> Void = {}
+    var saver: PlanSaver
     @Environment(\.colorScheme) private var scheme
+    @Environment(Store.self) private var store
+
+    /// Real trips save; guests only look.
+    private var saves: Bool {
+        trip.remoteId != nil && (trip.members.first { $0.userId == store.me?.id }?.role ?? "MEMBER") != "GUEST"
+    }
+
+    private func legBinding(_ key: WritableKeyPath<PlanState, Leg?>) -> Binding<Leg> {
+        Binding(get: { plan[keyPath: key]! }, set: { new in
+            let old = plan[keyPath: key]
+            plan[keyPath: key] = new
+            if saves, old?.mode != new.mode, let id = new.serverId {
+                saver.run($plan) { try await Remote.updateStop(trip, id, mode: new.mode) }
+            }
+        })
+    }
+
+    private func stopBinding(_ stop: Binding<PlanStop>) -> Binding<PlanStop> {
+        Binding(get: { stop.wrappedValue }, set: { new in
+            let old = stop.wrappedValue
+            stop.wrappedValue = new
+            guard saves else { return }
+            if old.nights != new.nights { saver.nights(trip, $plan, stop: new) }
+            if old.mode != new.mode, let id = new.serverId { saver.run($plan) { try await Remote.updateStop(trip, id, mode: new.mode) } }
+        })
+    }
 
     var body: some View {
         let color = Geo.legible(trip.color, dark: scheme == .dark)
-        // A trip of 19 days has 18 nights.
-        let total = max(1, trip.days - 1)
+        // A trip of 19 days has 18 nights; the demo's day counts are already nights.
+        let total = max(1, trip.remoteId != nil ? trip.days - 1 : trip.days)
         let planned = plan.stops.reduce(0) { $0 + $1.nights }
 
         // Nights planned, out of the trip's: a ring that fills as stops get nights.
@@ -60,11 +143,17 @@ struct PlannerRows: View {
                 .font(.outfit(15, 600))
                 .buttonStyle(.borderless)
         }
-        .plainRow(bottom: 12)
+        .plainRow(bottom: plan.error == nil ? 12 : 4)
         .id("planner")
 
+        if let error = plan.error {
+            Label(error, systemImage: "exclamationmark.circle.fill")
+                .font(.inter(14, 550)).foregroundStyle(.red)
+                .plainRow(bottom: 10)
+        }
+
         if plan.outbound != nil {
-            LegRow(name: "Heen", leg: Binding(get: { plan.outbound! }, set: { plan.outbound = $0 }))
+            LegRow(name: "Heen", leg: legBinding(\.outbound))
                 .plainRow(bottom: 0)
         }
 
@@ -72,7 +161,7 @@ struct PlannerRows: View {
         ForEach($plan.stops) { $stop in
             let index = plan.stops.firstIndex { $0.id == stop.id } ?? 0
             StopRow(
-                stop: $stop,
+                stop: stopBinding($stop),
                 index: index,
                 dates: dates(upTo: index),
                 km: index > 0 ? distance(plan.stops[index - 1], stop) : nil,
@@ -80,25 +169,35 @@ struct PlannerRows: View {
                 color: color
             )
             .plainRow(bottom: 0)
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button(role: .destructive) {
-                    let id = stop.id
-                    withAnimation(.snappy) { plan.stops.removeAll { $0.id == id } }
-                } label: {
-                    Label("Verwijder", systemImage: "trash")
-                }
+        }
+        // The system's own swipe to delete, which also lets go of the touch afterwards,
+        // so the undo pill answers its first tap.
+        .onDelete { offsets in
+            guard let i = offsets.first, plan.stops.indices.contains(i) else { return }
+            let row = plan.stops[i]
+            // An earlier removal that is still waiting goes for good now.
+            if let earlier = plan.pending, saves, let sid = earlier.stop.serverId {
+                saver.run($plan) { try await Remote.deleteStop(trip, sid) }
             }
+            withAnimation(.snappy) {
+                plan.pending = PendingDelete(stop: row, index: i, at: Date())
+                plan.stops.remove(at: i)
+            }
+            saver.scheduleDelete(trip, $plan, send: saves)
         }
         .onMove { from, to in
             withAnimation(.snappy) { plan.stops.move(fromOffsets: from, toOffset: to) }
+            guard saves else { return }
+            let ids = [plan.outbound?.serverId].compactMap { $0 } + plan.stops.compactMap(\.serverId) + [plan.back?.serverId].compactMap { $0 }
+            saver.run($plan) { try await Remote.reorderStops(trip, ids) }
         }
 
         if plan.back != nil {
-            LegRow(name: "Terug", leg: Binding(get: { plan.back! }, set: { plan.back = $0 }))
+            LegRow(name: "Terug", leg: legBinding(\.back))
                 .plainRow(top: 12)
         }
 
-        AddStopCard(trip: trip, plan: $plan, onFocus: onFocusAdd)
+        AddStopCard(trip: trip, plan: $plan, saves: saves, saver: saver, onFocus: onFocusAdd)
             .plainRow(top: 20)
             .id("add")
     }
@@ -262,16 +361,22 @@ private struct StopRow: View {
 private struct AddStopCard: View {
     let trip: Trip
     @Binding var plan: PlanState
+    var saves = false
+    var saver: PlanSaver
     var onFocus: () -> Void = {}
     @FocusState private var focused: Bool
+    @State private var found: [Remote.Place] = []
 
     var body: some View {
         let query = plan.query.trimmingCharacters(in: .whitespaces)
         let taken = Set(plan.stops.map(\.name))
         let flag = trip.stops.first?.flag
-        let matches = Array(Demo.places.filter { p in
-            !taken.contains(p.name) && (query.isEmpty ? p.flag == flag : p.name.localizedCaseInsensitiveContains(query))
-        }.prefix(4))
+        // A real trip searches real places (Photon, like the web); the demo knows a few.
+        let matches: [Remote.Place] = trip.remoteId != nil
+            ? found.filter { !taken.contains($0.name) }
+            : Demo.places.filter { p in
+                !taken.contains(p.name) && (query.isEmpty ? p.flag == flag : p.name.localizedCaseInsensitiveContains(query))
+            }.prefix(4).map { Remote.Place(name: $0.name, region: "", countryCode: Remote.code(fromFlag: $0.flag), at: $0.at) }
 
         VStack(alignment: .leading, spacing: 10) {
             Text("Nieuwe stop").font(.outfit(17, 650)).foregroundStyle(Brand.ink).padding(.leading, 4)
@@ -297,12 +402,18 @@ private struct AddStopCard: View {
             .background(Brand.sunken, in: .capsule)
 
             VStack(spacing: 0) {
-                ForEach(Array(matches.enumerated()), id: \.element.name) { i, place in
+                ForEach(Array(matches.enumerated()), id: \.element.id) { i, place in
                     Button {
-                        add(place.name, place.flag, place.at)
+                        add(place)
                     } label: {
                         HStack {
-                            HStack(spacing: 8) { FlagView(flag: place.flag, height: 13); Text(place.name).font(.outfit(15, 600)).foregroundStyle(Brand.ink) }
+                            HStack(spacing: 8) {
+                                FlagView(flag: place.flag, height: 13)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(place.name).font(.outfit(15, 600)).foregroundStyle(Brand.ink)
+                                    if !place.region.isEmpty { Text(place.region).font(.inter(12.5, 450)).foregroundStyle(Brand.inkSoft).lineLimit(1) }
+                                }
+                            }
                             Spacer()
                             Image(systemName: "plus.circle.fill").font(.system(size: 20)).foregroundStyle(Brand.accent)
                         }
@@ -315,11 +426,11 @@ private struct AddStopCard: View {
                     if i < matches.count - 1 { Divider().padding(.leading, 6) }
                 }
             }
-            .animation(.snappy, value: matches.map(\.name))
+            .animation(.snappy, value: matches.map(\.id))
 
-            if !query.isEmpty && matches.isEmpty {
+            if !query.isEmpty && matches.isEmpty && trip.remoteId == nil {
                 Button {
-                    add(query, flag ?? "📍", trip.stops.last?.at ?? trip.route.first ?? LonLat(0, 0))
+                    add(Remote.Place(name: query, region: "", countryCode: flag.flatMap(Remote.code(fromFlag:)), at: trip.stops.last?.at ?? trip.route.first ?? LonLat(0, 0)))
                 } label: {
                     Text("“\(query)” toevoegen").font(.outfit(15, 600))
                 }
@@ -331,14 +442,22 @@ private struct AddStopCard: View {
         .padding(14)
         .background(Brand.raised, in: .rect(cornerRadius: 24))
         .animation(.snappy, value: query.isEmpty)
+        .task(id: query) {
+            guard trip.remoteId != nil else { return }
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            found = await Remote.searchPlaces(query)
+        }
     }
 
-    private func add(_ name: String, _ flag: String, _ at: LonLat) {
+    private func add(_ place: Remote.Place) {
+        let serverId = saves ? UUID().uuidString.lowercased() : nil
         withAnimation(.snappy) {
-            plan.stops.append(PlanStop(id: plan.nextKey, name: name, flag: flag, at: at, nights: 1, mode: .car))
+            plan.stops.append(PlanStop(id: plan.nextKey, name: place.name, flag: place.flag, at: place.at, nights: 1, mode: .car, serverId: serverId))
             plan.nextKey += 1
             plan.query = ""
         }
         focused = false
+        if let serverId { saver.run($plan) { try await Remote.addStop(trip, id: serverId, place: place, nights: 1) } }
     }
 }

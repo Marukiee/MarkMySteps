@@ -393,7 +393,7 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
                             on -> "Dag ${d.number}" + (d.place?.let { " · $it" } ?: "")
                             else -> "${d.number}"
                         }
-                        Text(label, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = fg))
+                        Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = fg))
                     }
                 }
             }
@@ -548,8 +548,8 @@ fun FactSlab(items: List<Pair<String, String>>, u: Dp, tile: Color, ink: Color =
                 topEnd = if (i == items.lastIndex) big else small, bottomEnd = if (i == items.lastIndex) big else small,
             )
             Column(Modifier.weight(1f).clip(shape).background(tile).padding(horizontal = u * 0.03f, vertical = u * 0.028f)) {
-                Text(value, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.05f).sp(), letterSpacing = (-0.02).em, color = ink))
-                Text(label, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.027f).sp(), color = soft))
+                Text(value, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.05f).sp(), letterSpacing = (-0.02).em, color = ink))
+                Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.027f).sp(), color = soft))
             }
         }
     }
@@ -595,7 +595,7 @@ private fun PhotosSheet(sheet: Sheet.Photos, index: Int, ctx: BookContext, u: Dp
                     )
                     Text(
                         listOfNotNull(day.flag, day.place ?: "Dag ${day.number}").joinToString(" "),
-                        maxLines = 2,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
                         style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = (u * 0.075f).sp(), lineHeight = (u * 0.085f).sp(), color = cs.onSurface),
                     )
                 }

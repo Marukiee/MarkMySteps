@@ -132,110 +132,119 @@ private fun TravellersList(onFriend: (Friend) -> Unit) {
     )
     val countryFlags = live?.countries?.map { Remote.flag(it) to java.util.Locale("", it).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL")) }
 
-    Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-        Row(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "Reizigers",
-                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
-                modifier = Modifier.weight(1f),
-            )
-            // Requests to join a trip and invitations land here, where the people are.
-            var bell by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-            var unread by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
-            androidx.compose.runtime.LaunchedEffect(Data.version) { if (Data.live) unread = runCatching { Remote.noticeCount() }.getOrDefault(0) }
-            Box(Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHigh).tap { if (Data.live) bell = true }, contentAlignment = Alignment.Center) {
-                LineIcon(Glyphs.bell, cs.onSurface, size = 22.dp)
-                // The dot only when there is something unread or waiting for an answer.
-                if (unread > 0) Box(Modifier.align(Alignment.TopEnd).padding(top = 11.dp, end = 12.dp).size(9.dp).clip(CircleShape).background(cs.primary))
-            }
-            if (bell) NoticesSheet(onDismiss = { bell = false }, onChanged = { unread = 0 })
-        }
-
-        // Whose numbers these are.
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, bottom = 14.dp)) {
-            Avatar(me?.id, me?.name ?: "Mark", me?.hasAvatar == true, cs.primary, Modifier.size(52.dp), MaterialShapes.Cookie12Sided.toShape())
-            Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                Text(me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
-                Text("Jouw statistieken", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
-            }
-        }
-
-        StatsGrid(stats)
-
-        // The countries you have been to on a slowly turning globe, as on the web.
-        if (!countryFlags.isNullOrEmpty() || !Data.live) {
-            val codes = live?.countries ?: countries.mapNotNull { flagCode(it)?.uppercase() }
-            Box(Modifier.fillMaxWidth().padding(top = 22.dp), contentAlignment = Alignment.Center) {
-                CountryGlobe(codes, dark = cs.background.luminance() < 0.5f, modifier = Modifier.size(200.dp))
-            }
-        }
-        Text(
-            "Landen",
-            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant),
-            modifier = Modifier.padding(start = 6.dp, top = 24.dp, bottom = 10.dp),
-        )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            (countryFlags ?: countries.map { it to (names[it] ?: "") }).forEach { (flag, countryName) ->
-                val planned = countryFlags == null && flag !in visited
-                Row(
-                    Modifier.height(40.dp).clip(CircleShape)
-                        .background(if (planned) cs.surfaceContainerLow else cs.secondaryContainer)
-                        .padding(start = 10.dp, end = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    FlagIcon(flag, 15.dp)
-                    Text(
-                        countryName,
-                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = if (planned) cs.onSurfaceVariant else cs.onSecondaryContainer),
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                    if (planned) {
-                        LineIcon(Glyphs.hourglass, cs.onSurfaceVariant, size = 14.dp, stroke = 2f, modifier = Modifier.padding(start = 6.dp))
-                    }
-                }
-            }
-        }
-
-        Text(
-            "Mensen op je reizen",
-            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant),
-            modifier = Modifier.padding(start = 6.dp, top = 28.dp, bottom = 4.dp),
-        )
-        Text(
-            "Toevoegen doe je per reis: open een reis en tik op de mensen.",
-            style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant),
-            modifier = Modifier.padding(start = 6.dp, bottom = 12.dp),
-        )
-        val palette = listOf(Color(0xFFE8613C), Color(0xFF5B8DEF), Color(0xFF2BB6A8), Color(0xFFD9A441), Color(0xFF7A5BD6), Color(0xFFE34B8A), Color(0xFF4CAF50))
-        // Each person their own colour behind their initial, stable per name.
-        val people = friends?.map { Friend(it.name, it.username, palette[(it.username.hashCode() and 0x7fffffff) % palette.size], it.sharedTrips, it.id, it.hasAvatar) } ?: if (Data.live) emptyList() else Friends
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            people.forEachIndexed { i, f ->
-                val shape = RoundedCornerShape(
-                    topStart = if (i == 0) 26.dp else 6.dp, topEnd = if (i == 0) 26.dp else 6.dp,
-                    bottomStart = if (i == people.lastIndex) 26.dp else 6.dp, bottomEnd = if (i == people.lastIndex) 26.dp else 6.dp,
+    val pageScroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(pageScroll).padding(horizontal = 16.dp)) {
+            Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+            Row(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Reizigers",
+                    style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
+                    modifier = Modifier.weight(1f),
                 )
-                Row(
-                    Modifier.fillMaxWidth().clip(shape).background(cs.surfaceContainerLow).tap { if (f.id != null) onFriend(f) }.padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Avatar(f.id, f.name, f.hasAvatar, f.color, Modifier.size(44.dp))
-                    Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                        Text(f.name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = cs.onSurface))
-                        Text(
-                            "@${f.handle} · ${f.shared} ${if (f.shared == 1) "gedeelde reis" else "gedeelde reizen"}",
-                            style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant),
-                        )
-                    }
-                    LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
+                // Requests to join a trip and invitations land here, where the people are.
+                var bell by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                var unread by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+                androidx.compose.runtime.LaunchedEffect(Data.version) { if (Data.live) unread = runCatching { Remote.noticeCount() }.getOrDefault(0) }
+                Box(Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHigh).tap { if (Data.live) bell = true }, contentAlignment = Alignment.Center) {
+                    LineIcon(Glyphs.bell, cs.onSurface, size = 22.dp)
+                    // The dot only when there is something unread or waiting for an answer.
+                    if (unread > 0) Box(Modifier.align(Alignment.TopEnd).padding(top = 11.dp, end = 12.dp).size(9.dp).clip(CircleShape).background(cs.primary))
+                }
+                if (bell) NoticesSheet(onDismiss = { bell = false }, onChanged = { unread = 0 })
+            }
+
+            // Whose numbers these are.
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 14.dp)) {
+                Avatar(me?.id, me?.name ?: "Mark", me?.hasAvatar == true, cs.primary, Modifier.size(52.dp), MaterialShapes.Cookie12Sided.toShape())
+                Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                    Text(me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
+                    Text("Jouw statistieken", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
                 }
             }
-        }
 
-        Spacer(Modifier.height(120.dp))
-        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+            if (Data.live && live == null) {
+                // Signed in, the server's figures are awaited in the tiles' own shape, so nothing shows wrong numbers first.
+                val tone = cs.surfaceContainerHigh
+                repeat(3) { Row(Modifier.fillMaxWidth().padding(bottom = 3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) { repeat(2) { Box(Modifier.weight(1f).height(112.dp).clip(RoundedCornerShape(8.dp)).background(tone)) } } }
+            } else StatsGrid(stats)
+
+            // The countries you have been to on a slowly turning globe, as on the web.
+            if (!countryFlags.isNullOrEmpty() || !Data.live) {
+                val codes = live?.countries ?: countries.mapNotNull { flagCode(it)?.uppercase() }
+                Box(Modifier.fillMaxWidth().padding(top = 22.dp), contentAlignment = Alignment.Center) {
+                    CountryGlobe(codes, dark = cs.background.luminance() < 0.5f, modifier = Modifier.size(200.dp))
+                }
+            }
+            Text(
+                "Landen",
+                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant),
+                modifier = Modifier.padding(top = 24.dp, bottom = 10.dp),
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                (countryFlags ?: countries.map { it to (names[it] ?: "") }).forEach { (flag, countryName) ->
+                    val planned = countryFlags == null && flag !in visited
+                    Row(
+                        Modifier.height(40.dp).clip(CircleShape)
+                            .background(if (planned) cs.surfaceContainerLow else cs.secondaryContainer)
+                            .padding(start = 10.dp, end = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        FlagIcon(flag, 15.dp)
+                        Text(
+                            countryName,
+                            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = if (planned) cs.onSurfaceVariant else cs.onSecondaryContainer),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                        if (planned) {
+                            LineIcon(Glyphs.hourglass, cs.onSurfaceVariant, size = 14.dp, stroke = 2f, modifier = Modifier)
+                        }
+                    }
+                }
+            }
+
+            Text(
+                "Mensen op je reizen",
+                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant),
+                modifier = Modifier.padding(top = 28.dp, bottom = 4.dp),
+            )
+            Text(
+                "Toevoegen doe je per reis: open een reis en tik op de mensen.",
+                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant),
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+            val palette = listOf(Color(0xFFE8613C), Color(0xFF5B8DEF), Color(0xFF2BB6A8), Color(0xFFD9A441), Color(0xFF7A5BD6), Color(0xFFE34B8A), Color(0xFF4CAF50))
+            // Each person their own colour behind their initial, stable per name.
+            val people = friends?.map { Friend(it.name, it.username, personColor(it.id), it.sharedTrips, it.id, it.hasAvatar) } ?: if (Data.live) emptyList() else Friends
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                people.forEachIndexed { i, f ->
+                    val shape = RoundedCornerShape(
+                        topStart = if (i == 0) 26.dp else 6.dp, topEnd = if (i == 0) 26.dp else 6.dp,
+                        bottomStart = if (i == people.lastIndex) 26.dp else 6.dp, bottomEnd = if (i == people.lastIndex) 26.dp else 6.dp,
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().clip(shape).background(cs.surfaceContainerLow).tap { if (f.id != null) onFriend(f) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Avatar(f.id, f.name, f.hasAvatar, f.color, Modifier.size(44.dp))
+                        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                            Text(f.name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = cs.onSurface))
+                            Text(
+                                "@${f.handle} · ${f.shared} ${if (f.shared == 1) "gedeelde reis" else "gedeelde reizen"}",
+                                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant),
+                            )
+                        }
+                        LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(120.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
+        StatusScrim(pageScroll)
     }
+
 }
 
 /** A big number on a tonal tile, counting up when the page arrives; a small shape in the corner. */

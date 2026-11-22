@@ -68,7 +68,9 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
     val color = legibleColor(trip.color, dark).toArgb()
     val view = remember {
         MapLibre.getInstance(context)
-        MapView(context, MapLibreMapOptions.createFromAttributes(context).textureMode(true).attributionEnabled(false).logoEnabled(false)).apply {
+        MapView(context, MapLibreMapOptions.createFromAttributes(context).textureMode(true).attributionEnabled(false).logoEnabled(false)
+            // The empty map's colour before tiles arrive follows the theme, so dark mode never flashes light.
+            .foregroundLoadColor(if (dark) 0xFF14181D.toInt() else 0xFFF3ECE2.toInt())).apply {
             onCreate(null)
         }
     }
@@ -110,13 +112,17 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
             }
             m.setStyle(builder) { style ->
                 draw(style, trip, color, dark)
-                val points = (trip.stops.map { it.at } + trip.route).ifEmpty { listOf(HomeAirport) }
+                // The flights' bows count too, so the whole route with its arcs fits on screen.
+                val bowPoints = trip.flightLegs.ifEmpty { trip.flights.map { listOf(it.first, it.second) } }.flatMap { hops -> hops.zipWithNext().flatMap { (a, b) -> flightArc(a, b, 12) } }
+                val points = (trip.stops.map { it.at } + trip.route + bowPoints).ifEmpty { listOf(HomeAirport) }
                 val pad = (24 * density).toInt()
                 if (points.size == 1) {
                     m.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(points[0].second, points[0].first), 9.0))
                 } else {
                     val bounds = LatLngBounds.Builder().apply { points.forEach { include(LatLng(it.second, it.first)) } }.build()
                     m.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, (96 * density).toInt(), pad, ((bottomInsetDp + 24) * density).toInt()))
+                    // A city trip opens at city level, not on a street corner.
+                    if (m.cameraPosition.zoom > 11.5) m.moveCamera(CameraUpdateFactory.zoomTo(11.5))
                 }
             }
         }

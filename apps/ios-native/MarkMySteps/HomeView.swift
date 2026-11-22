@@ -7,7 +7,7 @@ struct HomeView: View {
     var resetToken = 0
     @Environment(Store.self) private var store
     @State private var path: [String] = {
-        guard let page = Launch.page, ["trip", "planner", "people"].contains(page) else { return [] }
+        guard let page = Launch.page, ["trip", "planner", "people", "mapstyle", "tripsettings"].contains(page) else { return [] }
         let fallback = page == "planner" ? "georgia" : "iceland"
         return [Store.shared.trip(for: Launch.trip ?? fallback, upcoming: page == "planner")?.id].compactMap { $0 }
     }()
@@ -59,10 +59,8 @@ struct HomeView: View {
                         .navigationTransition(.zoom(sourceID: id, in: zoom))
                 }
             }
-            .alert("Alleen lezen", isPresented: $readOnly) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Deze testapp verandert niets aan je reizen. Een nieuwe reis maak je in de web-app.")
+            .sheet(isPresented: $readOnly) {
+                NewTripSheet { id in path.append(id) }
             }
         }
     }
@@ -155,7 +153,8 @@ struct HomeView: View {
         Group {
             if tab == 0 { pastTrips } else { sharedTrips }
         }
-        .transition(.opacity.combined(with: .offset(y: 12)))
+        // Slides sideways, in the direction of the tab that was chosen.
+        .transition(.push(from: tab == 1 ? .trailing : .leading))
         .padding(.bottom, 24)
     }
 

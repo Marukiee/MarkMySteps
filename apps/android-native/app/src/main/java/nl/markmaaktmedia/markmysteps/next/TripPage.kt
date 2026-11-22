@@ -1,6 +1,7 @@
 package nl.markmaaktmedia.markmysteps.next
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -96,7 +97,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
         }
     }
     var viewing by remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
-    var people by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var people by remember { androidx.compose.runtime.mutableStateOf(Data.peopleFor == base.id) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { if (Data.peopleFor == base.id) Data.peopleFor = null }
     // The photo book or the summary over the page (PhotoBook.kt, Summary.kt), from the people sheet.
     var extra by remember { androidx.compose.runtime.mutableStateOf(startExtra?.takeIf { it == "book" || it == "summary" }) }
     var bigMap by remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -128,7 +130,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
             Box(Modifier.fillMaxWidth().height(mapH)) {
                 TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 30)
                 // Open the map full screen, from its own corner as on the web.
-                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 44.dp)) {
+                // Fades away as the map scrolls under the top buttons, so it never overlaps them.
+                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 44.dp).graphicsLayer { alpha = (1f - scroll.value / (mapH.toPx() * 0.45f)).coerceIn(0f, 1f) }) {
                     RoundButton(onClick = { bigMap = true }) {
                         LineIcon(listOf(P("M4 9V4h5"), P("M20 9V4h-5"), P("M4 15v5h5"), P("M20 15v5h-5")), cs.onSurface, size = 20.dp, stroke = 2.2f)
                     }
@@ -169,7 +172,22 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
 
                 // No animateContentSize here: it clips, which cut the places row off before the screen edge.
                 Column(Modifier.padding(top = 16.dp)) {
-                    if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                    // Tijdlijn and Routeplanner slide the way of the tab you picked, like Afgelopen reizen and Gedeeld.
+                    val tabMotion = MaterialTheme.motionScheme
+                    androidx.compose.animation.AnimatedContent(
+                        tab,
+                        transitionSpec = {
+                            val dir = if (targetState > initialState) 1 else -1
+                            (androidx.compose.animation.slideInHorizontally(tabMotion.defaultSpatialSpec()) { w -> dir * w / 5 } + androidx.compose.animation.fadeIn(tabMotion.defaultEffectsSpec())) togetherWith
+                                (androidx.compose.animation.slideOutHorizontally(tabMotion.defaultSpatialSpec()) { w -> -dir * w / 5 } + androidx.compose.animation.fadeOut(tabMotion.fastEffectsSpec())) using
+                                androidx.compose.animation.SizeTransform(clip = false)
+                        },
+                        label = "tripTab",
+                    ) { which ->
+                        Column {
+                            if (which == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                        }
+                    }
                 }
                 Spacer(Modifier.height(24.dp))
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -213,8 +231,12 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
             enter = androidx.compose.animation.fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec(), initialScale = 0.92f),
             exit = androidx.compose.animation.fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.92f),
         ) {
-            androidx.activity.compose.BackHandler { bigMap = false }
-            Box(Modifier.fillMaxSize().background(cs.background)) {
+            // Predictive back: the full map shrinks with the finger and the trip page shows behind it.
+            var backT by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+            androidx.activity.compose.PredictiveBackHandler { events ->
+                try { events.collect { backT = it.progress }; bigMap = false } catch (e: kotlin.coroutines.cancellation.CancellationException) { backT = 0f; throw e }
+            }
+            Box(Modifier.fillMaxSize().graphicsLayer { val k = 1f - 0.12f * backT; scaleX = k; scaleY = k; shape = RoundedCornerShape((32 * backT).dp.toPx()); clip = true }.background(cs.background)) {
                 TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 0)
                 Column {
                     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
@@ -260,7 +282,8 @@ private fun RoundButton(onClick: () -> Unit = {}, content: @Composable () -> Uni
 @Composable
 private fun People(people: List<Person>, extra: Int, ring: Color = MaterialTheme.colorScheme.background) {
     val cs = MaterialTheme.colorScheme
-    val faces = people.take(if (people.size + extra <= 4) 4 else 3)
+    // Two faces then "+n", as on the cards; three people show all three.
+    val faces = people.take(if (people.size + extra <= 3) 3 else 2)
     val more = people.size - faces.size + extra
     val count = faces.size + if (more > 0) 1 else 0
     if (count == 0) return
@@ -288,7 +311,8 @@ private fun factsOf(trip: Trip, photos: Int?): List<Pair<String, String>> = if (
     trip.km?.takeIf { it > 0 }?.let { "%,d".format(it).replace(',', '.') to "kilometer" },
     "${trip.days}" to "dagen",
     "${trip.stops.size}" to (if (trip.stops.size == 1) "stop" else "stops"),
-    "${photos ?: trip.photos}" to "foto's",
+    // While a real trip's photos are read the count waits ("…"), never a 0 that jumps.
+    (photos?.toString() ?: if (trip.remoteId != null) "…" else "${trip.photos}") to "foto's",
 )
 
 /**

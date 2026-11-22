@@ -19,6 +19,9 @@ struct PeopleSheet: View {
     @State private var copied: String?
     @State private var revoking: Remote.ShareLink?
     @State private var removing: Person?
+    @State private var newPassword = ""
+    @State private var passwordFor: Remote.ShareLink?
+    @State private var passwordText = ""
 
     private var live: Bool { trip.remoteId != nil }
     private var canManage: Bool { live && trip.ownerId != nil && trip.ownerId == store.me?.id }
@@ -88,12 +91,21 @@ struct PeopleSheet: View {
                         }
                         ForEach(links) { link in linkRow(link) }
                         if canManage {
-                            Button {
-                                act("newlink") { try await Remote.createShareLink(current); await loadLinks() }
-                            } label: {
-                                Label("Nieuwe deellink", systemImage: "link.badge.plus")
+                            // A new link, with a password if you like.
+                            HStack(spacing: 10) {
+                                SecureField("wachtwoord (optioneel)", text: $newPassword)
+                                    .font(.inter(16))
+                                    .textContentType(.newPassword)
+                                Button {
+                                    let pw = newPassword
+                                    act("newlink") { try await Remote.createShareLink(current, password: pw); newPassword = ""; await loadLinks() }
+                                } label: {
+                                    Label("Deellink", systemImage: "plus").font(.inter(15, 600))
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .buttonBorderShape(.capsule)
+                                .disabled(busy != nil)
                             }
-                            .disabled(busy != nil)
                         }
                     } else {
                         CompassSpinner(size: 28).frame(maxWidth: .infinity, minHeight: 44)
@@ -102,6 +114,9 @@ struct PeopleSheet: View {
                     Text("Deellinks")
                 }
                 .listRowBackground(Brand.raised)
+
+                // Fotoboek and Samenvatting will live down here later.
+                Color.clear.frame(height: 24).listRowBackground(Color.clear)
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
@@ -133,6 +148,19 @@ struct PeopleSheet: View {
                     if let p = removing, let id = p.userId { act("remove\(id)") { try await Remote.removeMember(current, userId: id) } }
                 }
             }
+        }
+        .alert(passwordFor?.hasPassword == true ? "Wachtwoord wijzigen" : "Wachtwoord instellen",
+               isPresented: Binding(get: { passwordFor != nil }, set: { if !$0 { passwordFor = nil } })) {
+            SecureField("Wachtwoord", text: $passwordText)
+            Button("Annuleren", role: .cancel) {}
+            Button("Bewaren") {
+                if let link = passwordFor, !passwordText.isEmpty {
+                    let pw = passwordText
+                    act("pw\(link.id)") { try await Remote.setLinkPassword(current, link, pw); await loadLinks() }
+                }
+            }
+        } message: {
+            Text("Wie de link opent, vult dit eerst in.")
         }
         .presentationDetents([.medium, .large])
     }
@@ -177,35 +205,47 @@ struct PeopleSheet: View {
         }
     }
 
+    /// A link as Android shows it: the path after the server as an orange link, a clear
+    /// Kopieer button (the full address), and a settings button for its password and revoking.
     @ViewBuilder private func linkRow(_ link: Remote.ShareLink) -> some View {
+        let full = link.url
+        let shown = full.replacingOccurrences(of: Api.shared.base, with: "")
         HStack(spacing: 10) {
-            Image(systemName: link.hasPassword ? "lock" : "link").foregroundStyle(Brand.inkSoft).frame(width: 22)
-            Text(link.url.replacingOccurrences(of: "https://", with: ""))
-                .font(.inter(14, 500))
-                .lineLimit(1)
-                .truncationMode(.middle)
+            if link.hasPassword {
+                Image(systemName: "lock.fill").font(.system(size: 13)).foregroundStyle(Brand.inkSoft).accessibilityLabel("Met wachtwoord")
+            }
+            Link(destination: URL(string: full) ?? URL(string: "https://example.invalid")!) {
+                Text(shown).font(.inter(15, 550)).underline().foregroundStyle(Brand.accent).lineLimit(1).truncationMode(.middle)
+            }
             Spacer(minLength: 6)
             Button {
-                UIPasteboard.general.string = link.url
+                UIPasteboard.general.string = full
                 withAnimation(.snappy) { copied = link.id }
                 Task {
                     try? await Task.sleep(for: .seconds(1.6))
                     withAnimation(.snappy) { if copied == link.id { copied = nil } }
                 }
             } label: {
-                Image(systemName: copied == link.id ? "checkmark" : "doc.on.doc")
-                    .contentTransition(.symbolEffect(.replace))
-                    .frame(width: 30, height: 30)
+                Text(copied == link.id ? "Gekopieerd" : "Kopieer").font(.inter(14, 600)).contentTransition(.opacity)
             }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(copied == link.id ? "Gekopieerd" : "Link kopiëren")
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
             if canManage {
-                Button(role: .destructive) { revoking = link } label: {
-                    Image(systemName: "trash").frame(width: 30, height: 30)
+                Menu {
+                    Button(link.hasPassword ? "Wachtwoord wijzigen" : "Wachtwoord instellen", systemImage: "lock") {
+                        passwordFor = link; passwordText = ""
+                    }
+                    if link.hasPassword {
+                        Button("Wachtwoord weghalen", systemImage: "lock.open") {
+                            act("pw\(link.id)") { try await Remote.setLinkPassword(current, link, nil); await loadLinks() }
+                        }
+                    }
+                    Button("Intrekken", systemImage: "trash", role: .destructive) { revoking = link }
+                } label: {
+                    Image(systemName: "gearshape").font(.system(size: 16, weight: .semibold)).foregroundStyle(Brand.inkSoft).frame(width: 32, height: 32)
                 }
-                .buttonStyle(.borderless)
+                .accessibilityLabel("Instellingen van deze link")
                 .disabled(busy != nil)
-                .accessibilityLabel("Link intrekken")
             }
         }
     }

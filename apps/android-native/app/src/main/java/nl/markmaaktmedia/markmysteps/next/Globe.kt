@@ -689,7 +689,6 @@ private fun NameCard(trip: Trip, motion: GlobeMotion, tick: MutableLongState, bo
                 scaleY = grow
                 transformOrigin = TransformOrigin(origin[0], origin[1])
             }
-            .shadow(6.dp, RoundedCornerShape(12.dp), clip = false, ambientColor = Color.Black.copy(alpha = 0.2f), spotColor = Color.Black.copy(alpha = 0.2f))
             .clip(RoundedCornerShape(12.dp))
             .background(cs.surface.copy(alpha = 0.96f))
             .clickable(remember { MutableInteractionSource() }, indication = null) { if (motion.cardOpacity > 0.6f) onTap() }

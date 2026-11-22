@@ -14,6 +14,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.layout.onFirstVisible
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.draw.clip
@@ -43,6 +45,8 @@ object Data {
         private set
 
     val all: List<Trip> get() = trips
+    /** A trip opened from a card's menu with its people sheet straight away. */
+    var peopleFor by mutableStateOf<String?>(null)
     val past: List<Trip> get() = trips.filter { !it.upcoming && !it.shared }
     /** Other people's trips you were added to. */
     val sharedTrips: List<Trip> get() = trips.filter { it.shared }
@@ -107,7 +111,12 @@ fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail") {
         if (value == null && seen) value = Photos.load(id, size)
     }
     val shown by animateFloatAsState(if (bitmap != null) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "photo")
-    Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh).onFirstVisible { seen = true }) {
+    // While it loads the frame breathes softly (as on the web), then the photo fades in over it.
+    val breathe = if (bitmap == null) androidx.compose.animation.core.rememberInfiniteTransition(label = "breathe").animateFloat(
+        0.55f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(1100), androidx.compose.animation.core.RepeatMode.Reverse), label = "a",
+    ) else null
+    val tone = MaterialTheme.colorScheme.surfaceContainerHigh
+    Box(modifier.drawBehind { drawRect(tone, alpha = breathe?.value ?: 1f) }.onFirstVisible { seen = true }) {
         bitmap?.let {
             Image(
                 it.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop,
@@ -182,3 +191,11 @@ object MapStylePref {
     }
     fun set(value: String) { id = value; prefs?.edit()?.putString("mapStyle", value)?.apply() }
 }
+
+private val PersonPalette = listOf(
+    androidx.compose.ui.graphics.Color(0xFFE8613C), androidx.compose.ui.graphics.Color(0xFF5B8DEF), androidx.compose.ui.graphics.Color(0xFF2BB6A8),
+    androidx.compose.ui.graphics.Color(0xFFD9A441), androidx.compose.ui.graphics.Color(0xFF7A5BD6), androidx.compose.ui.graphics.Color(0xFFE34B8A), androidx.compose.ui.graphics.Color(0xFF4CAF50),
+)
+
+/** One colour per person, the same on every screen (behind their initial when they have no photo). */
+fun personColor(key: String?): androidx.compose.ui.graphics.Color = PersonPalette[((key ?: "").hashCode() and 0x7fffffff) % PersonPalette.size]

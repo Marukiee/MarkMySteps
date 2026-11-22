@@ -53,6 +53,8 @@ struct Leg: Hashable {
     let from: String
     let to: String
     let km: Int
+    /// The way there and back are stops on the server too.
+    var serverId: String? = nil
 }
 
 /// Drawn stand-ins for photos in the demo, see Landscape.swift.
@@ -71,6 +73,8 @@ struct Stop: Hashable {
     var mode: Mode = .car
     /// The first day there, known for a stop read from a server.
     var start: Date? = nil
+    /// The stop's id on the server, for saving planner changes.
+    var serverId: String? = nil
 }
 
 /// One trip, in the shape the API hands the app.
@@ -83,6 +87,8 @@ struct Trip: Identifiable, Hashable {
     let days: Int
     let km: Int?
     let color: Color
+    /// The colour as the server keeps it ("#E8613C"), when it has one.
+    var colorHex: String? = nil
     /// The recorded route: what the globe draws as a line.
     let route: [LonLat]
     /// The route as the server keeps it: separate pieces, never joined into one line.

@@ -9,6 +9,7 @@ struct TravellersView: View {
     @Environment(Store.self) private var store
     @State private var path: [Demo.Friend] = Launch.friend.flatMap { h in Demo.friends.first { $0.handle == h } }.map { [$0] } ?? []
     @State private var requests = false
+    @State private var unread = 0
     @Namespace private var zoom
 
     var body: some View {
@@ -34,17 +35,25 @@ struct TravellersView: View {
             .toolbar {
                 // Requests to join a trip and invitations land here, where the people are.
                 ToolbarItem(placement: .topBarTrailing) {
+                    // The dot only when there really is something new.
+                    let dot = store.live ? unread > 0 : true
                     Button { requests = true } label: {
-                        Image(systemName: store.live ? "bell" : "bell.badge")
+                        Image(systemName: dot ? "bell.badge" : "bell")
                             .symbolRenderingMode(.palette)
                             .foregroundStyle(Brand.accent, Brand.ink)
                     }
                     .tint(.primary)
-                    .accessibilityLabel(store.live ? "Meldingen" : "Meldingen, 1 nieuw")
+                    .accessibilityLabel(dot ? "Meldingen, iets nieuws" : "Meldingen")
                 }
             }
-            .sheet(isPresented: $requests) { RequestsSheet(live: store.live) }
+            .sheet(isPresented: $requests) {
+                if store.live { NoticesSheet { unread = 0 } } else { RequestsSheet(live: false) }
+            }
+            .task(id: store.live) {
+                if store.live { unread = (try? await Remote.noticeCount()) ?? 0 }
+            }
             .navigationDestination(for: Demo.Friend.self) { FriendView(friend: $0, zoom: zoom) }
+            .navigationDestination(for: Remote.Friend.self) { CompanionView(friend: $0) }
             .navigationDestination(for: String.self) { id in
                 if let trip = store.trips.first(where: { $0.id == id }) {
                     TripView(base: trip).navigationTransition(.zoom(sourceID: id, in: zoom))
@@ -107,6 +116,11 @@ struct TravellersView: View {
             : Demo.countryNames
         if !all.isEmpty {
             Header(text: "Landen").padding(.top, 26).id("countries")
+            // Your countries on a small globe that turns slowly, each in its flag's hue.
+            CountryGlobe(codes: all.compactMap { Remote.code(fromFlag: $0) }.filter { code in !store.live ? visited.contains(Remote.flag(code)) : true })
+                .frame(maxWidth: 260)
+                .frame(maxWidth: .infinity)
+                .padding(.bottom, 14)
             FlowLayout(spacing: 8) {
                 ForEach(all, id: \.self) { flag in
                     let planned = !store.live && !visited.contains(flag)
@@ -145,6 +159,7 @@ struct TravellersView: View {
         } else if store.live && !store.friends.isEmpty {
             VStack(spacing: 0) {
                 ForEach(Array(store.friends.enumerated()), id: \.element.id) { i, f in
+                    NavigationLink(value: f) {
                     HStack(spacing: 14) {
                         Avatar(userId: f.id, hasAvatar: f.hasAvatar, initial: String(f.name.prefix(1)).uppercased(),
                                color: Color(hex: [0xD9A441, 0x5B8DEF, 0x2BB6A8, 0x7A5BD6, 0xE34B8A][i % 5]), size: 42)
@@ -154,9 +169,13 @@ struct TravellersView: View {
                                 .font(.inter(13, 500)).foregroundStyle(Brand.inkSoft).lineLimit(1)
                         }
                         Spacer()
+                        Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(.tertiary)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
+                    .contentShape(.rect)
+                    }
+                    .buttonStyle(PressStyle(scale: 0.98))
                     if i < store.friends.count - 1 { Divider().padding(.leading, 70) }
                 }
             }

@@ -522,7 +522,7 @@ object Remote {
             }
             // Faces are the people who travelled; guests only look along and are not counted.
             val people = memberList.filter { it.role != "GUEST" }.mapIndexed { k, m ->
-                Person(m.name.take(1).uppercase(), Color(Palette[(k + 3) % Palette.size]), m.userId, m.hasAvatar, m.name)
+                Person(m.name.take(1).uppercase(), personColor(m.userId), m.userId, m.hasAvatar, m.name)
             }
             val ongoing = !start.isAfter(today) && !end.isBefore(today)
             Trip(

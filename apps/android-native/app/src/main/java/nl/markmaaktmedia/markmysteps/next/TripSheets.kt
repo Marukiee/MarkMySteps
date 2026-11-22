@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,7 +57,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MapSheet(onDismiss: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = cs.surfaceContainerLow) {
+    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), containerColor = cs.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
             Text("Kaart", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             Text("Stijl van de kaart", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
@@ -72,7 +73,7 @@ fun MapSheet(onDismiss: () -> Unit) {
                                 .clickable { MapStylePref.set(id) }.padding(8.dp),
                         ) {
                             MapStylePreview(id, dark, Modifier.fillMaxWidth().height(84.dp).clip(RoundedCornerShape(16.dp)))
-                            Row(Modifier.padding(start = 6.dp, top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.padding(top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = if (on) cs.onSecondaryContainer else cs.onSurface), modifier = Modifier.weight(1f))
                                 if (on) LineIcon(listOf(P("m5 12 5 5 9-10")), cs.primary, size = 18.dp, stroke = 2.6f)
                             }
@@ -103,21 +104,24 @@ fun TripSettingsSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit) 
     var syncing by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
     val owner = trip.ownerId != null && trip.ownerId == Data.me?.id
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = cs.surfaceContainerLow) {
+    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), containerColor = cs.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
             Text("Reisinstellingen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             Text("${trip.title} · ${trip.dates}", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
 
-            Text("Kleur", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
+            Text("Kleur", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 10.dp))
+            // The trip's own colour first when it is not one of the ten, so the current choice is always marked.
+            val own = "#%06X".format(0xFFFFFF and trip.color.toArgb())
+            val colours = if (TripColors.any { Color(android.graphics.Color.parseColor(it)).toArgb() == trip.color.toArgb() }) TripColors else listOf(own) + TripColors.dropLast(1)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TripColors.take(5).forEach { hex -> Swatch(hex, color, owner) { c -> color = c; scope.launch { runCatching { Remote.setTripColor(trip, hex) }.onSuccess { onChanged() } } } }
+                colours.take(5).forEach { hex -> Swatch(hex, color, owner) { c -> color = c; scope.launch { runCatching { Remote.setTripColor(trip, hex) }.onSuccess { onChanged() } } } }
             }
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TripColors.drop(5).forEach { hex -> Swatch(hex, color, owner) { c -> color = c; scope.launch { runCatching { Remote.setTripColor(trip, hex) }.onSuccess { onChanged() } } } }
+                colours.drop(5).forEach { hex -> Swatch(hex, color, owner) { c -> color = c; scope.launch { runCatching { Remote.setTripColor(trip, hex) }.onSuccess { onChanged() } } } }
             }
 
-            Text("Foto's", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 24.dp, bottom = 10.dp))
+            Text("Foto's", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 24.dp, bottom = 10.dp))
             FilledTonalButton(
                 onClick = {
                     syncing = true; note = null
@@ -137,7 +141,7 @@ fun TripSettingsSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit) 
                 Spacer(Modifier.size(8.dp))
                 Text("Foto's opnieuw ophalen uit Immich", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
             }
-            note?.let { Text(it, style = TextStyle(fontFamily = Inter, fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 8.dp)) }
+            note?.let { Text(it, style = TextStyle(fontFamily = Inter, fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 8.dp)) }
         }
     }
 }

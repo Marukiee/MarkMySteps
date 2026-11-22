@@ -28,6 +28,9 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,7 +85,7 @@ fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Me
     if (places.size > 1) Text(
         "Plaatsen",
         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
-        modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
+        modifier = Modifier.padding(bottom = 12.dp),
     )
     // The places, each a photo with its name, wider than the screen so the row asks to be swiped.
     if (places.size > 1) Row(
@@ -219,7 +222,7 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
         Text(
             "Plaatsen",
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
-            modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
+            modifier = Modifier.padding(bottom = 12.dp),
         )
         Row(Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             trip.stops.distinctBy { it.name }.forEach { stop ->
@@ -260,6 +263,32 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
 
     val line = cs.outlineVariant
     val days = photos.groupBy { it.takenAt }.toSortedMap().entries.toList()
+    // Pinch the timeline to make the photos bigger or smaller: five sizes, a step per 1.3x of finger distance (web).
+    var perRow by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(2) }
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    Column(Modifier.pointerInput(Unit) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false)
+            var start = 0f
+            while (true) {
+                val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                val pressed = e.changes.filter { it.pressed }
+                if (pressed.isEmpty()) break
+                if (pressed.size == 2) {
+                    val d = (pressed[0].position - pressed[1].position).getDistance()
+                    if (start == 0f) start = d
+                    val ratio = d / start
+                    val step = when { ratio > 1.3f -> -1; ratio < 1f / 1.3f -> 1; else -> 0 }
+                    if (step != 0) {
+                        val next = (perRow + step).coerceIn(1, 5)
+                        if (next != perRow) { perRow = next; haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentTick) }
+                        start = d
+                    }
+                    e.changes.forEach { it.consume() }
+                }
+            }
+        }
+    }) {
     days.forEachIndexed { d, (date, list) ->
         val last = d == days.lastIndex
         val stop = stopOn(date)
@@ -311,7 +340,7 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 val shown = list
-                justified(shown).forEach { row ->
+                justified(shown, perRow).forEach { row ->
                     val ratio = row.sumOf { Photos.ratioOf(it).toDouble() }.toFloat().coerceAtLeast(0.8f)
                     Row(Modifier.fillMaxWidth().aspectRatio(ratio), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         row.forEach { m ->
@@ -331,27 +360,31 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
             }
         }
     }
+    }
 }
 
 /**
  * Rows of photos that fill the width at a pleasant height: two side by side
  * as a rule, three when they are all tall, a wide one alone.
  */
-private fun justified(list: List<Media>): List<List<Media>> {
+private fun justified(list: List<Media>, perRow: Int = 2): List<List<Media>> {
     val rows = mutableListOf<List<Media>>()
     var i = 0
     while (i < list.size) {
-        val a = list[i]
-        val take = when {
-            Photos.ratioOf(a) > 1.6f -> 1
-            i + 2 < list.size && list.subList(i, i + 3).all { Photos.ratioOf(it) < 0.9f } -> 3
-            else -> 2
-        }.coerceAtMost(list.size - i)
+        // A wide photo takes two places, a tall one half a place more room per row.
+        var slots = 0f
+        var take = 0
+        val goal = perRow + if (list.subList(i, minOf(list.size, i + perRow + 1)).all { Photos.ratioOf(it) < 0.9f }) 1 else 0
+        while (i + take < list.size && (take == 0 || slots + slot(list[i + take]) <= goal + 0.01f)) {
+            slots += slot(list[i + take]); take++
+        }
         rows += list.subList(i, i + take)
         i += take
     }
     return rows
 }
+
+private fun slot(m: Media): Float = if (Photos.ratioOf(m) > 1.6f) 2f else 1f
 
 
 /** While a real trip's photos are read: quiet shapes where the day and its photos will be, never the demo. */

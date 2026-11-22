@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -213,6 +214,18 @@ struct MediaView: View {
             LandscapeView(scene: scene)
         } else {
             RemotePhoto(id: media.id, size: size)
+                .overlay(alignment: .topTrailing) {
+                    if media.video {
+                        // A video in the timeline: its still with a play badge.
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 26, height: 26)
+                            .background(.black.opacity(0.45), in: .circle)
+                            .padding(8)
+                            .accessibilityLabel("Video")
+                    }
+                }
         }
     }
 }
@@ -245,7 +258,14 @@ struct PhotoViewer: View {
     var body: some View {
         TabView(selection: $current) {
             ForEach(item.photos) { media in
-                ZoomablePhoto(media: media, zoomed: $zoomed).tag(media.id)
+                Group {
+                    if media.video {
+                        VideoPage(media: media, playing: current == media.id)
+                    } else {
+                        ZoomablePhoto(media: media, zoomed: $zoomed)
+                    }
+                }
+                .tag(media.id)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
@@ -570,4 +590,63 @@ private struct CommentsSheet: View {
             sending = false
         }
     }
+}
+
+/// A video in the viewer: its still first, then playing on a loop while it is the page in view.
+private struct VideoPage: View {
+    let media: Media
+    let playing: Bool
+    @State private var player: AVQueuePlayer?
+    @State private var looper: AVPlayerLooper?
+    @State private var ready = false
+
+    var body: some View {
+        ZStack {
+            RemotePhoto(id: media.id, size: "preview")
+                .aspectRatio(media.ratio, contentMode: .fit)
+                .opacity(ready ? 0 : 1)
+            if let player {
+                PlayerLayerView(player: player) { ready = true }
+                    .aspectRatio(media.ratio, contentMode: .fit)
+                    .opacity(ready ? 1 : 0)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeOut(duration: 0.25), value: ready)
+        .task(id: media.id) {
+            guard player == nil, let url = try? await Remote.videoURL(media.id) else { return }
+            let item = AVPlayerItem(url: url)
+            let queue = AVQueuePlayer()
+            looper = AVPlayerLooper(player: queue, templateItem: item)
+            player = queue
+            if playing { queue.play() }
+        }
+        .onChange(of: playing) { _, on in if on { player?.play() } else { player?.pause() } }
+        .onDisappear { player?.pause() }
+    }
+}
+
+/// AVPlayerLayer in SwiftUI, telling when the first frame is ready to show.
+private struct PlayerLayerView: UIViewRepresentable {
+    let player: AVPlayer
+    let onReady: @MainActor @Sendable () -> Void
+
+    final class LayerView: UIView {
+        override static var layerClass: AnyClass { AVPlayerLayer.self }
+        var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+        var observation: NSKeyValueObservation?
+    }
+
+    func makeUIView(context: Context) -> LayerView {
+        let view = LayerView()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspect
+        let ready = onReady
+        view.observation = view.playerLayer.observe(\.isReadyForDisplay, options: [.new]) { layer, _ in
+            if layer.isReadyForDisplay { Task { @MainActor in ready() } }
+        }
+        return view
+    }
+
+    func updateUIView(_ view: LayerView, context: Context) {}
 }

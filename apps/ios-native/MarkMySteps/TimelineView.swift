@@ -43,7 +43,7 @@ enum Timeline {
                 TimelineDay(day: d, photos: trip.upcoming ? [] : Demo.media(trip, day: d.index, date: d.date), weather: Demo.weather(trip, day: d.index))
             }
         }
-        let groups = Dictionary(grouping: media.filter { !$0.video }, by: \.takenAt)
+        let groups = Dictionary(grouping: media, by: \.takenAt)
         return groups.keys.sorted().enumerated().map { i, date in
             TimelineDay(day: TripDay(date: date, stop: stopOn(trip, date), index: i), photos: groups[date] ?? [], weather: nil)
         }

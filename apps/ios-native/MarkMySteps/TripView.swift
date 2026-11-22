@@ -12,11 +12,15 @@ struct TripView: View {
     @State private var plan: PlanState
     @State private var showMap = Launch.map
     @State private var showPeople = Launch.page == "people"
+    @State private var showMapStyle = Launch.page == "mapstyle"
+    @State private var showSettings = Launch.page == "tripsettings"
     @State private var viewer: ViewerItem?
     /// The photo the viewer is on, so closing flies back into that one.
     @State private var viewerCurrent = ""
     @State private var titleShown = false
     @State private var pageHeight: CGFloat = 800
+    @State private var pastMap = false
+    @State private var saver = PlanSaver()
     @Namespace private var ns
 
     enum TripTab: Hashable { case timeline, planner }
@@ -33,6 +37,7 @@ struct TripView: View {
             let days = Timeline.days(trip, media)
             List {
                 mapHeader
+                    .id("top")
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
@@ -67,12 +72,12 @@ struct TripView: View {
                         }
                     }
                 case .planner:
-                    PlannerRows(trip: trip, plan: $plan) {
+                    PlannerRows(trip: trip, plan: $plan, onFocusAdd: {
                         // Lift the field and its suggestions above the keyboard.
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                             withAnimation(.smooth) { proxy.scrollTo("add", anchor: .bottom) }
                         }
-                    }
+                    }, saver: saver)
                 }
 
                 Color.clear.frame(height: 28).plainRow()
@@ -94,6 +99,48 @@ struct TripView: View {
             } action: { _, shown in
                 withAnimation(.easeOut(duration: 0.2)) { titleShown = shown }
             }
+            .onScrollGeometryChange(for: Bool.self) { geo in
+                geo.contentOffset.y + geo.contentInsets.top > max(340, pageHeight * 0.5) + 80
+            } action: { _, past in
+                withAnimation(.spring(duration: 0.28)) { pastMap = past }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                // Back to the top once the map has scrolled away.
+                if pastMap && plan.pending == nil {
+                    Button { withAnimation(.smooth) { proxy.scrollTo("top", anchor: .top) } } label: {
+                        Image(systemName: "chevron.up").font(.system(size: 17, weight: .semibold)).frame(width: 30, height: 30)
+                    }
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.circle)
+                    .controlSize(.large)
+                    .tint(.primary)
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 8)
+                    .transition(.scale(scale: 0.85).combined(with: .opacity).combined(with: .offset(y: 10)))
+                    .accessibilityLabel("Naar boven")
+                }
+            }
+            .overlay(alignment: .bottom) {
+                // A removed stop can come back for 7 seconds.
+                if let pending = plan.pending {
+                    HStack(spacing: 12) {
+                        Text("\(pending.stop.name) verwijderd").font(.inter(15, 550)).foregroundStyle(Brand.ink).lineLimit(1)
+                        Button("Ongedaan maken") { saver.undo($plan) }
+                            .font(.inter(15, 650))
+                            .foregroundStyle(Brand.accent)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 12)
+                    .background(Brand.paper, in: .capsule)
+                    .overlay { Capsule().strokeBorder(Brand.line, lineWidth: 1) }
+                    .contentShape(.capsule)
+                    // The whole pill answers, so a slightly missed tap still brings the stop back.
+                    .onTapGesture { saver.undo($plan) }
+                    // Clear of the tab bar's own touch area.
+                    .padding(.bottom, 64)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
             .onAppear {
                 if let anchor = Launch.scroll, Launch.page == "trip" || Launch.page == "planner" {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { proxy.scrollTo(anchor, anchor: UnitPoint(x: 0.5, y: 0.13)) }
@@ -111,18 +158,26 @@ struct TripView: View {
                     .opacity(titleShown ? 1 : 0)
                     .offset(y: titleShown ? 0 : 8)
             }
+            // Three round glass buttons as on the web: people, the map's style, the trip's settings.
+            // They carry the label colour, like the back chevron; the accent is for primary actions.
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("Mensen en delen", systemImage: "person.2") { showPeople = true }
-                } label: {
-                    Image(systemName: "ellipsis")
-                }
-                // Glass controls carry the label colour, like the back chevron; the accent is for primary actions.
-                .tint(.primary)
-                .accessibilityLabel("Meer")
+                Button { showPeople = true } label: { Image(systemName: "person.2") }
+                    .tint(.primary).accessibilityLabel("Mensen en delen")
+            }
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showMapStyle = true } label: { Image(systemName: "map") }
+                    .tint(.primary).accessibilityLabel("Kaart")
+            }
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showSettings = true } label: { Image(systemName: "slider.horizontal.3") }
+                    .tint(.primary).accessibilityLabel("Reisinstellingen")
             }
         }
         .sheet(isPresented: $showPeople) { PeopleSheet(trip: trip) }
+        .sheet(isPresented: $showMapStyle) { MapStyleSheet() }
+        .sheet(isPresented: $showSettings) { TripSettingsSheet(trip: trip) }
         .fullScreenCover(isPresented: $showMap) {
             FullMapView(trip: trip)
                 .navigationTransition(.zoom(sourceID: "map", in: ns))
@@ -274,6 +329,7 @@ struct TripMap: View {
     var satellite = false
     var position: Binding<MapCameraPosition>?
     @Environment(\.colorScheme) private var scheme
+    @AppStorage("mapStyle") private var look = MapLook.positron.rawValue
 
     var body: some View {
         Group {
@@ -283,7 +339,7 @@ struct TripMap: View {
                 Map(initialPosition: .rect(trip.mapRect()), interactionModes: interactive ? .all : []) { content }
             }
         }
-        .mapStyle(satellite ? .hybrid(elevation: .realistic, pointsOfInterest: .excludingAll) : .standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
+        .mapStyle(satellite ? MapLook.satellite.style : (MapLook(rawValue: look) ?? .positron).style)
         .mapControlVisibility(.hidden)
     }
 

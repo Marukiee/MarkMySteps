@@ -85,7 +85,8 @@ fun CountryGlobe(codes: List<String>, dark: Boolean, modifier: Modifier = Modifi
         }
     }
     var rotation by remember(startLon) { mutableFloatStateOf(-startLon.toFloat()) }
-    LaunchedEffect(Unit) {
+    // Keyed on the start, so it keeps turning the state that is on screen once the countries have loaded.
+    LaunchedEffect(startLon) {
         var last = 0L
         while (true) withFrameNanos { t ->
             if (last != 0L) rotation -= ((t - last) / 1e9f).coerceAtMost(0.05f) * 7f

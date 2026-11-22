@@ -176,7 +176,7 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                 }
                 Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                     Text("Samenvatting", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface))
-                    Text(trip.title, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                    Text(trip.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
                 }
             }
 
@@ -283,7 +283,7 @@ private fun <T> Choices(items: List<T>, selected: T, label: (T) -> String, onPic
                     checkedContainerColor = cs.primary,
                     checkedContentColor = cs.onPrimary,
                 ),
-            ) { Text(label(item), maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
+            ) { Text(label(item), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
         }
     }
 }
@@ -391,7 +391,7 @@ private fun Head(data: PosterData, u: Dp, ink: Ink, center: Boolean = false, onP
             modifier = Modifier.padding(top = u * 0.05f),
         )
         Text(
-            subtitle(data.trip), maxLines = 1,
+            subtitle(data.trip), maxLines = 1, overflow = TextOverflow.Ellipsis,
             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.034f).sp(), color = soft),
             modifier = Modifier.padding(top = u * 0.012f),
         )
@@ -431,7 +431,7 @@ private fun RoutePoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
                 data.trip.stops.take(6).forEachIndexed { i, s ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         StopBadge(i, data.accent, u * 0.045f)
-                        Text(s.name, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = (u * 0.03f).sp(), color = ink.text), modifier = Modifier.padding(start = u * 0.02f))
+                        Text(s.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = (u * 0.03f).sp(), color = ink.text), modifier = Modifier.padding(start = u * 0.02f))
                     }
                 }
             }
@@ -469,7 +469,7 @@ private fun PhotosPoster(data: PosterData, format: Format, u: Dp) {
         Column(Modifier.align(Alignment.BottomStart).padding(u * 0.065f)) {
             Text(subtitle(data.trip).uppercase(), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.03f).sp(), letterSpacing = 0.08.em, color = Color.White.copy(alpha = 0.85f)))
             Text(
-                data.trip.title, maxLines = 2,
+                data.trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(600), fontSize = (u * 0.1f).sp(), lineHeight = (u * 0.105f).sp(), color = Color.White),
                 modifier = Modifier.padding(top = u * 0.01f),
             )
@@ -531,7 +531,7 @@ private fun StatsPoster(data: PosterData, format: Format, u: Dp) {
             }
             Spacer(Modifier.weight(1f))
             Text(
-                data.trip.title, maxLines = 2,
+                data.trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(600), fontSize = (u * 0.1f * k).sp(), lineHeight = (u * 0.105f * k).sp(), color = Color.White),
             )
             Text(data.trip.dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.034f).sp(), color = Color.White.copy(alpha = 0.85f)), modifier = Modifier.padding(top = u * 0.01f, bottom = u * 0.05f * k))

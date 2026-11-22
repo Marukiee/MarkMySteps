@@ -269,6 +269,13 @@ enum Remote {
         return Me(id: o["id"] as? String ?? "", name: o["displayName"] as? String ?? "", username: o["username"] as? String ?? "", hasAvatar: o["hasAvatar"] as? Bool ?? false)
     }
 
+    /// "🇳🇱" back to "NL".
+    static func code(fromFlag flag: String) -> String? {
+        let scalars = flag.unicodeScalars.filter { (0x1F1E6...0x1F1FF).contains($0.value) }
+        guard scalars.count == 2 else { return nil }
+        return String(scalars.compactMap { Unicode.Scalar($0.value - 0x1F1E6 + 65) }.map(Character.init))
+    }
+
     static func flag(_ code: String?) -> String {
         guard let code, code.count == 2 else { return "📍" }
         return code.uppercased().unicodeScalars.compactMap { Unicode.Scalar(0x1F1E6 + $0.value - 65) }.map { String($0) }.joined()
@@ -337,6 +344,7 @@ enum Remote {
                 // No measured distance is no distance, never "0 km".
                 km: (o["distanceKm"] as? NSNumber).map { $0.intValue }.flatMap { $0 > 0 ? $0 : nil },
                 color: color(o["color"]) ?? Color(hex: palette[i % palette.count]),
+                colorHex: o["color"] as? String,
                 route: routes.isEmpty ? points(o["stopPoints"]) : routes,
                 segments: segments,
                 flights: flights,
@@ -379,7 +387,7 @@ enum Remote {
             // The way there and back are stops of their own with no nights, at the ends.
             if nights == 0 && (index == 0 || index == rows.count - 1) && (name.hasPrefix("Heen") || name.hasPrefix("Terug")) {
                 let from = (o["fromAirport"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Thuis"
-                let leg = Leg(mode: mode, from: from, to: o["toAirport"] as? String ?? "", km: 0)
+                let leg = Leg(mode: mode, from: from, to: o["toAirport"] as? String ?? "", km: 0, serverId: o["id"] as? String)
                 if index == 0 { outbound = leg } else { back = leg }
                 continue
             }
@@ -390,7 +398,7 @@ enum Remote {
             stops.append(Stop(
                 name: name, flag: flag(o["countryCode"] as? String), at: at, nights: nights,
                 dates: nights == 0 ? Format.shortDay(from) : Format.range(from, day, withYear: false),
-                mode: mode, start: from
+                mode: mode, start: from, serverId: o["id"] as? String
             ))
         }
         return (stops, outbound, back)
@@ -402,7 +410,12 @@ enum Remote {
         let id: String
         let slug: String
         let hasPassword: Bool
-        var url: String { Api.shared.base + "/s/" + slug }
+        /// What the server says, usually a path; the server address goes in front.
+        var path: String = ""
+        var url: String {
+            let p = path.isEmpty ? "/s/" + slug : path
+            return p.hasPrefix("http") ? p : Api.shared.base + p
+        }
     }
 
     static func shareLinks(_ trip: Trip) async throws -> [ShareLink] {
@@ -410,13 +423,21 @@ enum Remote {
         let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/share")) as? [[String: Any]] ?? []
         return list.compactMap { o in
             guard let id = o["id"] as? String, let slug = o["slug"] as? String else { return nil }
-            return ShareLink(id: id, slug: slug, hasPassword: o["hasPassword"] as? Bool ?? false)
+            return ShareLink(id: id, slug: slug, hasPassword: o["hasPassword"] as? Bool ?? false, path: o["url"] as? String ?? "")
         }
     }
 
-    static func createShareLink(_ trip: Trip) async throws {
+    static func createShareLink(_ trip: Trip, password: String? = nil) async throws {
         guard let rid = trip.remoteId else { return }
-        try await Api.shared.send("POST", "/api/trips/\(rid)/share", body: [:])
+        var body: [String: Any] = [:]
+        if let password, !password.isEmpty { body["password"] = password }
+        try await Api.shared.send("POST", "/api/trips/\(rid)/share", body: body)
+    }
+
+    /// Sets, changes or (with nil) removes a link's password.
+    static func setLinkPassword(_ trip: Trip, _ link: ShareLink, _ password: String?) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("PATCH", "/api/trips/\(rid)/share/\(link.id)", body: ["password": password ?? NSNull()])
     }
 
     static func revokeShareLink(_ trip: Trip, _ link: ShareLink) async throws {
@@ -496,6 +517,130 @@ enum Remote {
     static func setReaction(_ trip: Trip, mediaId: String, kind: String?) async throws {
         guard let rid = trip.remoteId else { return }
         try await Api.shared.send("PUT", "/api/trips/\(rid)/media/\(mediaId)/reaction", body: ["kind": kind ?? NSNull()])
+    }
+
+    // MARK: Planner, trip settings, notifications, videos
+
+    private static func modeName(_ m: Mode) -> String {
+        switch m { case .car: "GROUND"; case .train: "TRAIN"; case .bus: "BUS"; case .boat: "BOAT"; case .flight: "FLIGHT" }
+    }
+
+    static func updateStop(_ trip: Trip, _ stopId: String, nights: Int? = nil, mode: Mode? = nil) async throws {
+        guard let rid = trip.remoteId else { return }
+        var body: [String: Any] = [:]
+        if let nights { body["nights"] = nights }
+        if let mode { body["travelMode"] = modeName(mode) }
+        try await Api.shared.send("PATCH", "/api/trips/\(rid)/stops/\(stopId)", body: body)
+    }
+
+    static func deleteStop(_ trip: Trip, _ stopId: String) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("DELETE", "/api/trips/\(rid)/stops/\(stopId)")
+    }
+
+    static func reorderStops(_ trip: Trip, _ ids: [String]) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("PUT", "/api/trips/\(rid)/stops/order", body: ["stopIds": ids])
+    }
+
+    struct Place: Hashable, Identifiable {
+        let name: String
+        let region: String
+        let countryCode: String?
+        let at: LonLat
+        var id: String { name + region }
+        var flag: String { Remote.flag(countryCode) }
+    }
+
+    static func addStop(_ trip: Trip, id: String, place: Place, nights: Int) async throws {
+        guard let rid = trip.remoteId else { return }
+        var body: [String: Any] = ["id": id, "name": place.name, "nights": nights, "latitude": place.at.lat, "longitude": place.at.lon]
+        if let c = place.countryCode { body["countryCode"] = c }
+        try await Api.shared.send("POST", "/api/trips/\(rid)/stops", body: body)
+    }
+
+    /// Towns by name, from Photon like the web app; only what was typed leaves the phone.
+    static func searchPlaces(_ query: String) async -> [Place] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard q.count >= 2, let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://photon.komoot.io/api/?limit=8&lang=en&osm_tag=place&q=\(enc)") else { return [] }
+        guard let (data, _) = try? await URLSession.shared.data(for: URLRequest(url: url, timeoutInterval: 8)),
+              let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        var seen = Set<String>()
+        return (o["features"] as? [[String: Any]] ?? []).compactMap { f -> Place? in
+            guard let p = f["properties"] as? [String: Any], let name = p["name"] as? String, !name.isEmpty,
+                  let c = (f["geometry"] as? [String: Any])?["coordinates"] as? [Double], c.count >= 2 else { return nil }
+            let region = [p["state"] as? String, p["country"] as? String].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
+            let place = Place(name: name, region: region, countryCode: (p["countrycode"] as? String)?.uppercased(), at: LonLat(c[0], c[1]))
+            return seen.insert(place.id).inserted ? place : nil
+        }.prefix(6).map { $0 }
+    }
+
+    static func setTripColor(_ trip: Trip, _ hex: String?) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("PATCH", "/api/trips/\(rid)", body: ["color": hex ?? NSNull()])
+    }
+
+    static func syncPhotos(_ trip: Trip) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("POST", "/api/trips/\(rid)/sync")
+    }
+
+    static func createTrip(title: String, start: Date, end: Date) async throws -> String? {
+        let f = DateFormatter()
+        f.calendar = Format.calendar; f.timeZone = Format.calendar.timeZone; f.dateFormat = "yyyy-MM-dd"
+        let data = try await Api.shared.send("POST", "/api/trips", body: ["title": title, "startDate": f.string(from: start), "endDate": f.string(from: end)])
+        return (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["id"] as? String
+    }
+
+    /// A playable address for a video: the server hands out a short-lived token in the URL.
+    static func videoURL(_ mediaId: String) async throws -> URL? {
+        let o = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/media/\(mediaId)/video-url")) as? [String: Any]
+        guard let path = o?["url"] as? String else { return nil }
+        return URL(string: path.hasPrefix("http") ? path : Api.shared.base + path)
+    }
+
+    struct Notice: Identifiable, Hashable {
+        let id: String
+        let kind: String
+        let at: Date
+        let read: Bool
+        let actorId: String?
+        let actor: String?
+        let actorAvatar: Bool
+        let tripId: String?
+        let trip: String?
+        let requestId: String?
+        let requestStatus: String?
+        let detail: String?
+    }
+
+    static func noticeCount() async throws -> Int {
+        let o = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/notifications/count")) as? [String: Any] ?? [:]
+        return ((o["unread"] as? NSNumber)?.intValue ?? 0) + ((o["pending"] as? NSNumber)?.intValue ?? 0)
+    }
+
+    static func notices() async throws -> [Notice] {
+        let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/notifications")) as? [[String: Any]] ?? []
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return list.compactMap { o in
+            guard let id = o["id"] as? String else { return nil }
+            let actor = o["actor"] as? [String: Any], trip = o["trip"] as? [String: Any], req = o["request"] as? [String: Any]
+            return Notice(
+                id: id, kind: o["kind"] as? String ?? "", at: (o["createdAt"] as? String).flatMap { iso.date(from: $0) } ?? Date(),
+                read: o["read"] as? Bool ?? false, actorId: actor?["id"] as? String, actor: actor?["displayName"] as? String,
+                actorAvatar: actor?["hasAvatar"] as? Bool ?? false, tripId: trip?["id"] as? String, trip: trip?["title"] as? String,
+                requestId: req?["id"] as? String, requestStatus: req?["status"] as? String, detail: o["detail"] as? String
+            )
+        }
+    }
+
+    static func markNoticesRead() async throws { try await Api.shared.send("POST", "/api/notifications/read") }
+
+    /// Let someone look along as a guest, or turn them down.
+    static func answerAccess(_ requestId: String, approve: Bool) async throws {
+        try await Api.shared.send("POST", "/api/access-requests/\(requestId)/\(approve ? "approve" : "deny")", body: approve ? ["role": "GUEST"] : nil)
     }
 
     static func media(_ trip: Trip) async throws -> [Media] {

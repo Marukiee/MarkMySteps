@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
@@ -119,6 +120,8 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
         runCatching { Remote.reactions(trip) }.getOrNull()?.let { reactions = it }
     }
     var sheet by remember { mutableStateOf(false) }
+    // The five reactions' row; a tap anywhere on the photo folds it away again.
+    var picking by remember { mutableStateOf(false) }
 
     // Light status bar icons on the black viewer, back to the page's own when it closes.
     DisposableEffect(Unit) {
@@ -220,7 +223,16 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
     }
     val closeLatest by androidx.compose.runtime.rememberUpdatedState<(Velocity) -> Unit> { closeNow(it) }
     // Back (button or gesture) closes the same way, back into the tile.
-    androidx.activity.compose.BackHandler { closeLatest(Velocity.Zero) }
+    // Predictive back: the photo follows the finger down and shrinks like a drag, letting go flies it home.
+    androidx.activity.compose.PredictiveBackHandler { events ->
+        try {
+            events.collect { e -> if (!closing && !opening) drag = Offset(0f, e.progress * areaHeight * DISMISS_RANGE * 0.8f) }
+            closeLatest(Velocity.Zero)
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            springBack(Velocity.Zero)
+            throw e
+        }
+    }
     val backdropAlpha = { openT * (1f - (progress() * 1.8f).coerceAtMost(1f)) }
 
     Box(
@@ -268,7 +280,7 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
             }) { page ->
             // The corners round off as the photo is dragged away, up to the tile's rounding at the end,
             // divided by the shrink so they look the same size on screen.
-            ViewerPhoto(photos[page], onHdr = { if (page == pager.currentPage) hdr = it }, onTap = { chrome = !chrome },
+            ViewerPhoto(photos[page], onHdr = { if (page == pager.currentPage) hdr = it }, onTap = { if (picking) picking = false else chrome = !chrome },
                 onZoomed = { if (page == pager.currentPage) zoomed = it },
                 cornerPx = { val k = progress(); val scale = 1f - (1f - MIN_DRAG_SCALE) * k; 14.dp.toPx() * k / scale })
         }
@@ -320,6 +332,7 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
                     scope.launch { runCatching { Remote.setReaction(trip, current.id, kind) }.onFailure { reactions = before } }
                 },
                 onComments = { sheet = true },
+                picking = picking, onPicking = { picking = it },
             )
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
             Spacer(Modifier.height(12.dp))
@@ -442,8 +455,7 @@ private fun withMine(r: Remote.Reactions, target: String, kind: String?): Remote
  * takes yours back), holding it opens the five reactions as one connected row.
  */
 @Composable
-private fun SocialBar(mine: String?, counts: List<Pair<String, Int>>, comments: Int, enabled: Boolean, onReact: (String?) -> Unit, onComments: () -> Unit) {
-    var picking by remember { mutableStateOf(false) }
+private fun SocialBar(mine: String?, counts: List<Pair<String, Int>>, comments: Int, enabled: Boolean, onReact: (String?) -> Unit, onComments: () -> Unit, picking: Boolean, onPicking: (Boolean) -> Unit) {
     val motion = MaterialTheme.motionScheme
     Column {
         androidx.compose.animation.AnimatedVisibility(
@@ -459,7 +471,7 @@ private fun SocialBar(mine: String?, counts: List<Pair<String, Int>>, comments: 
                     val on = mine == kind
                     Box(
                         Modifier.size(46.dp).clip(CircleShape).background(if (on) Color.White.copy(alpha = 0.3f) else Color.Transparent)
-                            .pointerInput(kind) { detectTapGestures { onReact(if (on) null else kind); picking = false } },
+                            .pointerInput(kind) { detectTapGestures { onReact(if (on) null else kind); onPicking(false) } },
                         contentAlignment = Alignment.Center,
                     ) { Text(emoji, fontSize = 24.sp) }
                 }
@@ -472,7 +484,7 @@ private fun SocialBar(mine: String?, counts: List<Pair<String, Int>>, comments: 
                     .pointerInput(mine, enabled) {
                         if (enabled) detectTapGestures(
                             onTap = { onReact(if (mine != null) null else "heart") },
-                            onLongPress = { picking = !picking },
+                            onLongPress = { onPicking(!picking) },
                         )
                     }
                     .padding(horizontal = 16.dp),
@@ -519,7 +531,7 @@ private fun ago(at: java.time.Instant): String {
 private fun CommentsSheet(comments: List<Remote.Comment>, onDismiss: () -> Unit, onSend: (String) -> Unit, onDelete: (Remote.Comment) -> Unit) {
     val cs = MaterialTheme.colorScheme
     var text by remember { mutableStateOf("") }
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = cs.surfaceContainerLow) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), containerColor = cs.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 16.dp)) {
             Text("Reacties", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(bottom = 12.dp))
             if (comments.isEmpty()) {
