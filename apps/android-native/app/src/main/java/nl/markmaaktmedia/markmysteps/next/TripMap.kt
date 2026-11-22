@@ -124,6 +124,8 @@ fun TripMap(
     onSelf: (() -> Unit)? = null,
     /** A tap on a group of photos (it also zooms in), for the timeline to follow. */
     onCluster: ((Media) -> Unit)? = null,
+    /** A tap on a photo or a group: its photos to page through, starting at the one in front. */
+    onGroup: ((List<Media>, Media) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -298,7 +300,7 @@ fun TripMap(
     }
     // A stop that went out of the day (or out of the plan) takes its label with it.
     androidx.compose.runtime.LaunchedEffect(day, trip.stops) { label = label?.let { l -> labelFor(trip, l.id)?.takeIf { visibleOn(trip, l.id, day) } } }
-    PhotoMarkers(mapRef, cameraTick, photos, trip, onPhoto, onCluster)
+    PhotoMarkers(mapRef, cameraTick, photos, trip, onPhoto, onCluster, onGroup)
     state?.let { s ->
         LiveFaces(mapRef, cameraTick, s.live.filter { it.userId != Data.me?.id })
         s.self?.let { SelfDot(mapRef, cameraTick, it, onSelf) }
@@ -776,7 +778,7 @@ private class PhotoLevels(photos: List<Media>) {
  * there. The photo in front stays the same photo the whole way, and only moving markers cost anything per frame.
  */
 @androidx.compose.runtime.Composable
-private fun PhotoMarkers(map: org.maplibre.android.maps.MapLibreMap?, tick: Int, photos: List<Media>, trip: Trip, onPhoto: (Media) -> Unit, onCluster: ((Media) -> Unit)? = null) {
+private fun PhotoMarkers(map: org.maplibre.android.maps.MapLibreMap?, tick: Int, photos: List<Media>, trip: Trip, onPhoto: (Media) -> Unit, onCluster: ((Media) -> Unit)? = null, onGroup: ((List<Media>, Media) -> Unit)? = null) {
     val m = map ?: return
     val located = androidx.compose.runtime.remember(photos) { photos.filter { it.lat != null && it.lon != null && !it.video } }
     @Suppress("UNUSED_EXPRESSION") tick
@@ -836,12 +838,15 @@ private fun PhotoMarkers(map: org.maplibre.android.maps.MapLibreMap?, tick: Int,
             // Layers over the map: photos at the bottom, every count over every photo (so a neighbour never
             // covers one), the companions' faces over those, your own dot and a stop's label on top.
             androidx.compose.foundation.layout.Box(
-                Modifier.zIndex(if (s.leaving) -1f else 0f).offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(size)
+                // Same layer as the others (drawn first, so underneath them): a negative layer put a merging photo
+                // under the map itself, so a merge was never seen.
+                Modifier.zIndex(0f).offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(size)
                     .graphicsLayer { this.alpha = alpha; val sc = if (s.leaving) 0.8f + 0.2f * k else 0.85f + 0.15f * k; scaleX = sc; scaleY = sc }
                     .clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh)
                     .border(3.dp, ring, androidx.compose.foundation.shape.CircleShape)
                     .then(if (s.leaving) Modifier else Modifier.clickable {
-                        if (items.size == 1) onPhoto(first)
+                        if (onGroup != null) onGroup(items, first)
+                        else if (items.size == 1) onPhoto(first)
                         else {
                             m.animateCamera(org.maplibre.android.camera.CameraUpdateFactory.newLatLngZoom(org.maplibre.android.geometry.LatLng(first.lat!!, first.lon!!), (m.cameraPosition.zoom + 2.5).coerceAtMost(16.0)), 450)
                             onCluster?.invoke(first)

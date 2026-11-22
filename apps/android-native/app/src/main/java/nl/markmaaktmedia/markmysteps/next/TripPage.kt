@@ -106,6 +106,9 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     }
     // The id of the photo open in the viewer: the tapped photo itself, never a position in a list.
     var viewing by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    // A photo or a group tapped on the map: just those photos, paged through over the map; closing leaves the
+    // map exactly where it was (it does not go to the timeline).
+    var mapViewing by remember { androidx.compose.runtime.mutableStateOf<Pair<List<Media>, String>?>(null) }
     // Opened from a tile's speech bubble: the viewer starts on the comments.
     var viewingComments by remember { androidx.compose.runtime.mutableStateOf(false) }
     // The day stories, comments and reactions, shared by the timeline; read again once the viewer closes.
@@ -279,7 +282,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                     // Clear of the buttons at the top, and at the bottom of the day pill and the expand button
                     // (their top lies 88 dp up) with half a photo marker to spare.
                     trip, dark, Modifier.fillMaxSize(), fadeIn = true, bottomInsetDp = 64, topInsetDp = 100, photos = mapPhotos,
-                    onPhoto = { m -> openFromMap(m.id) }, state = mapState, onCamera = { cameraInline = it },
+                    onPhoto = { m -> openFromMap(m.id) }, onGroup = { list, m -> mapViewing = list to m.id }, state = mapState, onCamera = { cameraInline = it },
                     onLongPress = if (canEdit && tab == 0) ({ at -> lineAt = at }) else null,
                     onSelf = if (canEdit) ({ pointsFor = trip.remoteId }) else null,
                 )
@@ -451,7 +454,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 TripMap(
                     // Clear of the day pill and the buttons at the bottom too.
                     trip, dark, Modifier.fillMaxSize(), bottomInsetDp = bottomDp + 60, topInsetDp = topDp, fadeIn = true, photos = mapPhotos,
-                    onPhoto = { m -> bigMap = false; openFromMap(m.id) }, state = mapState, onCamera = { cameraBig = it },
+                    onPhoto = { m -> bigMap = false; openFromMap(m.id) }, onGroup = { list, m -> mapViewing = list to m.id }, state = mapState, onCamera = { cameraBig = it },
                     onLongPress = if (canEdit) ({ at -> lineAt = at }) else null,
                     onSelf = if (canEdit) ({ pointsFor = trip.remoteId }) else null,
                 )
@@ -541,6 +544,9 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
         viewing?.let { id ->
             val photos = media.orEmpty()
             if (photos.any { it.id == id }) PhotoViewer(trip, photos, id, bounds = tiles, onCurrent = { openPhoto = it }, startComments = viewingComments, onClose = { viewing = null })
+        }
+        mapViewing?.let { (list, id) ->
+            androidx.compose.runtime.key(id) { PhotoViewer(trip, list, id, strip = true, onClose = { mapViewing = null }) }
         }
 
         TripExtras(trip, dark, extra, onClose = { extra = null })

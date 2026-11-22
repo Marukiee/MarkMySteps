@@ -31,6 +31,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -158,7 +162,7 @@ private const val TAG = "MmsViewer"
  * position that a second list could disagree with), and logs a check that the page shown is that photo.
  */
 @Composable
-fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBounds = TileBounds(), onCurrent: (String?) -> Unit = {}, startComments: Boolean = false, onClose: () -> Unit) {
+fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBounds = TileBounds(), onCurrent: (String?) -> Unit = {}, startComments: Boolean = false, strip: Boolean = false, onClose: () -> Unit) {
     // The list as it was when tapped: a refresh of the trip underneath never shifts the pages.
     val list = remember { photos }
     // Full screen: the navigation bar on "Altijd" still stays away (AppCore.kt).
@@ -472,6 +476,8 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBo
             ) {
                 val handle = if (current.video) videos[current.id] else null
                 if (current.video) VideoControls(handle, Modifier.padding(bottom = 12.dp))
+                // Opened from the map: every photo of that spot in a strip, as a gallery app has it.
+                if (strip && list.size > 1) Filmstrip(list, pager.currentPage, Modifier.padding(bottom = 12.dp)) { i -> scope.launch { pager.animateScrollToPage(i) } }
                 // A photo linked from this phone lives only here: no reactions or comments on the server.
                 if (!DeviceMedia.isDevice(current.id)) SocialBar(
                     mine = reactions.mine[current.id],
@@ -995,6 +1001,39 @@ private fun ViewerVideo(
             val stillAlpha by animateFloatAsState(if (handle.ready) 0f else 1f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "still")
             if (still != null) Image(still.asImageBitmap(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = stillAlpha })
             if (!handle.ready) LoadingIndicator(Modifier.align(Alignment.Center).size(48.dp), color = Color.White)
+        }
+    }
+}
+
+
+/**
+ * The photos of one spot as a strip of small tiles, as a phone's gallery shows them under a photo: the one on
+ * screen a little wider with room around it, kept in the middle while you page; a tap goes to that photo.
+ */
+@Composable
+private fun Filmstrip(list: List<Media>, current: Int, modifier: Modifier = Modifier, onPick: (Int) -> Unit) {
+    val state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = current)
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val half = with(density) { (maxWidth / 2 - 26.dp).roundToPx() }
+        LaunchedEffect(current) { state.animateScrollToItem(current, -half) }
+        androidx.compose.foundation.lazy.LazyRow(
+            state = state,
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().height(60.dp),
+        ) {
+            items(list.size, key = { list[it].id }) { i ->
+                val on = i == current
+                // Calm, no overshoot: a bouncing spring took the gap below zero, and a negative padding crashes.
+                val calm = androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                val w by animateDpAsState(if (on) 52.dp else 36.dp, calm, label = "stripW")
+                val gap by animateDpAsState(if (on) 8.dp else 0.dp, calm, label = "stripGap")
+                Box(
+                    Modifier.padding(horizontal = gap.coerceAtLeast(0.dp)).width(w).height(if (on) 56.dp else 50.dp).clip(RoundedCornerShape(if (on) 10.dp else 6.dp))
+                        .background(Color.White.copy(alpha = 0.12f)).clickable { onPick(i) },
+                ) { RemotePhoto(list[i].id, Modifier.fillMaxSize()) }
+            }
         }
     }
 }
