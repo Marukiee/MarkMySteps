@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 
 import android.graphics.Color as AColor
 import androidx.compose.runtime.Composable
@@ -180,6 +181,8 @@ fun TripMap(
     var userMoved by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     // The newest callbacks, read by listeners that are attached only once.
     val calls = androidx.compose.runtime.rememberUpdatedState(Triple(onLongPress, onTap, trip))
+    // The photos on show (those of the day, when one is picked), for framing that day.
+    val shownPhotos = androidx.compose.runtime.rememberUpdatedState(photos)
     DisposableEffect(view) {
         val l = android.view.View.OnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob -> if (r - l != or - ol || b - t != ob - ot) fit[0]?.invoke(false) }
         view.addOnLayoutChangeListener(l)
@@ -231,12 +234,16 @@ fun TripMap(
                 // nothing but flights is framed by its bows.
                 fun framePoints(): List<LonLat> {
                     val t = calls.value.third
+                    // One day picked: everything drawn for that day, so the map in the page and the one full
+                    // screen open on the same view (the full one showed all of western Europe).
+                    state?.day?.let { d -> dayPoints(t, state, d, shownPhotos.value).takeIf { it.isNotEmpty() }?.let { return it } }
                     val own = t.stops.map { it.at } + t.route
                     return (if (own.size >= 2) own else own + bowPoints).ifEmpty { listOf(HomeAirport) }
                 }
                 // Room on every side, more at the bottom for the panel's corner and the expand button, so the
-                // route sits nicely in the middle instead of against the edges.
-                val pad = (44 * density).toInt()
+                // route sits nicely in the middle instead of against the edges. At the sides half a photo marker
+                // and its count (which sticks out to the right) still fit inside.
+                val pad = (52 * density).toInt()
                 fun frame(points: List<LonLat>, animate: Boolean, maxZoom: Double) {
                     if (view.width <= 0 || view.height <= 0 || points.isEmpty()) return
                     val update = if (points.size == 1 || points.all { angle(it, points[0]) < 0.002 }) {
@@ -256,7 +263,8 @@ fun TripMap(
                         if (m.cameraPosition.zoom > maxZoom) m.moveCamera(CameraUpdateFactory.zoomTo(maxZoom))
                     }
                 }
-                fit[0] = { animate -> frame(framePoints(), animate, 11.5) }
+                // A day comes closer than the whole trip, as the web does.
+                fit[0] = { animate -> frame(framePoints(), animate, if (state?.day != null) 13.0 else 11.5) }
                 fit[0]?.invoke(false)
                 style = st
                 onCamera?.invoke(object : MapCamera {
@@ -276,6 +284,9 @@ fun TripMap(
         val st = style ?: return@LaunchedEffect
         runCatching { render(st, trip, state, color, dark, photos) }
     }
+    // A map that waits for its tiles never waits long: a moment after its style is up it fades in anyway, so a
+    // slow network shows the map coming in rather than seconds of an empty page.
+    androidx.compose.runtime.LaunchedEffect(style) { if (style != null && !ready) { kotlinx.coroutines.delay(900); ready = true } }
     // The plan arrives after the map: the trip is framed again with its stops, unless someone moved the map.
     val stopCount = trip.stops.size
     androidx.compose.runtime.LaunchedEffect(stopCount) {
@@ -325,6 +336,19 @@ private fun addLayers(style: Style, color: Int, dark: Boolean) {
     style.addLayer(CircleLayer("stop-dots", "stops").withProperties(
         circleRadius(6f), circleColor(color), circleStrokeColor(ground), circleStrokeWidth(2.5f),
     ).withFilter(Expression.eq(Expression.get("kind"), Expression.literal("stop"))))
+}
+
+/**
+ * What one day puts on the map, to frame it: the shown travellers' lines of that day, its photos, and the stops
+ * and day trips it covers (as render draws them). The flights to and from home stay out, as for the whole trip.
+ */
+private fun dayPoints(trip: Trip, state: TripMapState, day: LocalDate, photos: List<Media>): List<LonLat> {
+    val shown = state.routeUsers
+    val lines = state.routes.orEmpty().filter { shown == null || it.userId in shown }.flatMap { it.points }
+    val pics = photos.mapNotNull { m -> if (m.takenAt == day && m.lat != null && m.lon != null) m.lon to m.lat else null }
+    val stops = trip.stops.filter { covers(it, day) }
+    val places = stops.map { it.at } + stops.flatMap { s -> s.dayTrips.filter { it.day == null || it.day == day }.mapNotNull { it.at } }
+    return lines + pics + places
 }
 
 /** Whether a stop's stay covers [day] (every stop on the whole trip). */
@@ -531,7 +555,7 @@ private fun SelfDot(map: org.maplibre.android.maps.MapLibreMap?, tick: Int, at: 
     val size = 44.dp
     val half = with(LocalDensity.current) { (size / 2).toPx() }
     androidx.compose.foundation.layout.Box(
-        Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(size)
+        Modifier.zIndex(3f).offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(size)
             .graphicsLayer { scaleX = appear.value; scaleY = appear.value }
             .then(if (onTap != null) Modifier.clip(androidx.compose.foundation.shape.CircleShape).clickable(onClick = onTap) else Modifier),
         contentAlignment = androidx.compose.ui.Alignment.Center,
@@ -573,7 +597,7 @@ private fun LiveFaces(map: org.maplibre.android.maps.MapLibreMap?, tick: Int, fi
             val half = with(density) { (face / 2).toPx() }
             val ring = personColor(fix.userId)
             androidx.compose.foundation.layout.Box(
-                Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(face)
+                Modifier.zIndex(2f).offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(face)
                     .graphicsLayer { scaleX = appear.value; scaleY = appear.value; alpha = appear.value.coerceIn(0f, 1f) }
                     .clip(androidx.compose.foundation.shape.CircleShape).background(ring).padding(3.dp),
             ) {
@@ -584,7 +608,7 @@ private fun LiveFaces(map: org.maplibre.android.maps.MapLibreMap?, tick: Int, fi
             androidx.compose.material3.Text(
                 age, maxLines = 1,
                 style = androidx.compose.ui.text.TextStyle(fontFamily = Outfit, fontWeight = androidx.compose.ui.text.font.FontWeight(700), fontSize = 10.5.sp, color = cs.onSurface),
-                modifier = Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x - with(density) { 18.dp.toPx() }).toInt(), (p.y + half - with(density) { 4.dp.toPx() }).toInt()) }
+                modifier = Modifier.zIndex(2f).offset { androidx.compose.ui.unit.IntOffset((p.x - with(density) { 18.dp.toPx() }).toInt(), (p.y + half - with(density) { 4.dp.toPx() }).toInt()) }
                     .graphicsLayer { alpha = appear.value.coerceIn(0f, 1f) }
                     .width(36.dp)
                     .clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHighest).padding(vertical = 1.dp),
@@ -617,7 +641,7 @@ private fun StopLabelCard(map: org.maplibre.android.maps.MapLibreMap?, tick: Int
     val screenW = with(density) { androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp.toPx() }
     val margin = with(density) { 12.dp.toPx() }
     androidx.compose.foundation.layout.Row(
-        Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x - w / 2f).coerceIn(margin, (screenW - w - margin).coerceAtLeast(margin)).toInt(), (p.y - gap - h).toInt()) }
+        Modifier.zIndex(4f).offset { androidx.compose.ui.unit.IntOffset((p.x - w / 2f).coerceIn(margin, (screenW - w - margin).coerceAtLeast(margin)).toInt(), (p.y - gap - h).toInt()) }
             .onSizeChanged { w = it.width; h = it.height }
             .graphicsLayer { scaleX = 0.7f + 0.3f * k; scaleY = 0.7f + 0.3f * k; alpha = k; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f) }
             .widthIn(max = 240.dp)
@@ -706,7 +730,24 @@ private fun PhotoMarkers(map: org.maplibre.android.maps.MapLibreMap?, tick: Int,
     val level = kotlin.math.round(m.cameraPosition.zoom).toInt()
     val clusters = androidx.compose.runtime.remember(located, level) {
         val cell = 40.0 / Math.pow(2.0, level.toDouble())
-        located.groupBy { "${kotlin.math.round(it.lat!! / cell)}:${kotlin.math.round(it.lon!! / cell)}" }.toList()
+        val grid = located.groupBy { "${kotlin.math.round(it.lat!! / cell)}:${kotlin.math.round(it.lon!! / cell)}" }.toList()
+        // A marker sits on its first photo's own spot, not in the middle of its cell, so two groups from cells
+        // side by side could land on top of each other and hide a count. Groups closer than a marker and its
+        // badge are joined, the biggest taking the smaller ones in. Measured on screen at the lowest zoom this
+        // level is shown at (half a step below), so they stay apart until the next regrouping.
+        val world = 512.0 * Math.pow(2.0, level - 0.5)
+        fun screen(m: Media): Pair<Double, Double> {
+            val lat = Math.toRadians(m.lat!!.coerceIn(-85.0, 85.0))
+            return (m.lon!! + 180.0) / 360.0 * world to (1.0 - ln(tan(Math.PI / 4 + lat / 2)) / Math.PI) / 2.0 * world
+        }
+        val joined = mutableListOf<Pair<String, MutableList<Media>>>()
+        val spots = mutableListOf<Pair<Double, Double>>()
+        for ((key, items) in grid.sortedByDescending { it.second.size }) {
+            val at = screen(items.first())
+            val near = spots.indexOfFirst { hypot(it.first - at.first, it.second - at.second) < 56.0 }
+            if (near >= 0) joined[near].second += items else { joined += key to items.toMutableList(); spots += at }
+        }
+        joined.map { (key, items) -> key to items.toList() }
     }
     // A group that splits or merges does so softly: the new markers grow out of the spot of the group they came
     // from (or towards the one they join) instead of blinking in and out.
@@ -728,8 +769,10 @@ private fun PhotoMarkers(map: org.maplibre.android.maps.MapLibreMap?, tick: Int,
             val p = m.projection.toScreenLocation(at)
             val size = 44.dp
             val half = with(density) { (size / 2).toPx() }
+            // Layers over the map: photos at the bottom, every count over every photo (so a neighbour never
+            // covers one), the companions' faces over those, your own dot and a stop's label on top.
             androidx.compose.foundation.layout.Box(
-                Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(size)
+                Modifier.zIndex(0f).offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(size)
                     .graphicsLayer { val sc = 0.6f + 0.4f * k; scaleX = sc; scaleY = sc; alpha = (0.3f + 0.7f * k).coerceIn(0f, 1f) }
                     .clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh)
                     .border(3.dp, ring, androidx.compose.foundation.shape.CircleShape)
@@ -746,7 +789,7 @@ private fun PhotoMarkers(map: org.maplibre.android.maps.MapLibreMap?, tick: Int,
             if (items.size > 1) androidx.compose.material3.Text(
                 if (items.size > 99) "99+" else "${items.size}",
                 style = androidx.compose.ui.text.TextStyle(fontFamily = Outfit, fontWeight = androidx.compose.ui.text.font.FontWeight(700), fontSize = 11.sp, color = cs.onPrimary),
-                modifier = Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x + half * 0.45f).toInt(), (p.y - half * 1.15f).toInt()) }
+                modifier = Modifier.zIndex(1f).offset { androidx.compose.ui.unit.IntOffset((p.x + half * 0.45f).toInt(), (p.y - half * 1.15f).toInt()) }
                     .graphicsLayer { alpha = k }
                     .clip(androidx.compose.foundation.shape.CircleShape).background(ring).padding(horizontal = 6.dp, vertical = 1.dp),
             )
