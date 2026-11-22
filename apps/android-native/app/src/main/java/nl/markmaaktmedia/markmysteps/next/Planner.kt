@@ -783,7 +783,96 @@ private fun ModeChooser(mode: Mode, onPick: (Mode) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         ModePill(mode) { open = true }
-        AppMenu(open, { open = false }, listOf(Mode.entries.map { m -> MenuEntry(m.label, m.icon(), selected = m == mode) { onPick(m) } }))
+        if (open) ModeDrop(mode, onPick, onClosed = { open = false })
+    }
+}
+
+/**
+ * The mode pill opened: the pill itself grows longer and on downwards into a list, one shape the whole way,
+ * the chosen mode on top exactly where the pill was and the others under it. It lies over what is below
+ * (nothing shifts). With too little room below it opens upwards, the chosen mode then at the bottom. A pick or a
+ * tap anywhere else folds it back into the pill.
+ */
+@Composable
+private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val motion = MaterialTheme.motionScheme
+    val density = LocalDensity.current
+    val haptics = rememberHaptics()
+    val scope = rememberCoroutineScope()
+    val style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onSecondaryContainer)
+    val measurer = rememberTextMeasurer()
+    fun textW(m: Mode) = with(density) { measurer.measure(m.label, style).size.width.toDp() }
+    val pillW = textW(mode) + 11.dp + 18.dp + 6.dp + 5.dp + 14.dp + 9.dp
+    val fullW = maxOf(pillW, Mode.entries.maxOf { textW(it) } + 11.dp + 18.dp + 6.dp + 16.dp + 18.dp + 12.dp)
+    val pillH = 36.dp
+    val rowH = 42.dp
+    val gap = 2.dp
+    val inset = 4.dp
+    val others = Mode.entries.filter { it != mode }
+    val fullH = pillH + (rowH + gap) * others.size + inset
+    val open = remember { Animatable(0f) }
+    var closing by remember { mutableStateOf(false) }
+    var up by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { haptics(Haptic.Tap); open.animateTo(1f, motion.fastSpatialSpec()) }
+    fun close(then: () -> Unit = {}) {
+        if (closing) return
+        closing = true
+        then()
+        scope.launch { open.animateTo(0f, tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing)); onClosed() }
+    }
+    val margin = with(density) { 12.dp.roundToPx() }
+    val fullPx = with(density) { fullH.roundToPx() }
+    val position = remember(fullPx) {
+        object : androidx.compose.ui.window.PopupPositionProvider {
+            override fun calculatePosition(anchorBounds: androidx.compose.ui.unit.IntRect, windowSize: androidx.compose.ui.unit.IntSize, layoutDirection: androidx.compose.ui.unit.LayoutDirection, popupContentSize: androidx.compose.ui.unit.IntSize): IntOffset {
+                // Grows to the right from the pill's left edge; a pill near the right edge grows to the left.
+                val x = if (anchorBounds.left + popupContentSize.width <= windowSize.width - margin) anchorBounds.left else anchorBounds.right - popupContentSize.width
+                val below = anchorBounds.top + fullPx <= windowSize.height - margin
+                if (up == below) up = !below
+                val y = if (below) anchorBounds.top else anchorBounds.bottom - popupContentSize.height
+                return IntOffset(x, y)
+            }
+        }
+    }
+    androidx.compose.ui.window.Popup(popupPositionProvider = position, onDismissRequest = { close() }, properties = androidx.compose.ui.window.PopupProperties(focusable = true)) {
+        val k = open.value
+        val w = pillW + (fullW - pillW) * k
+        val h = pillH + (fullH - pillH) * k
+        // A fine edge around it, as the menu has, and the choices as their own rounded rows in a lighter tone,
+        // so the open pill reads as a panel with things to tap instead of one flat block.
+        val shape = RoundedCornerShape(18.dp + 4.dp * k)
+        Column(
+            Modifier.size(w, h).clip(shape).background(cs.secondaryContainer)
+                .border(1.dp, cs.outlineVariant.copy(alpha = 0.9f * k), shape),
+            verticalArrangement = if (up) Arrangement.Bottom else Arrangement.Top,
+        ) {
+            @Composable fun Choice(m: Mode) {
+                Row(
+                    Modifier.padding(horizontal = inset).padding(top = if (up) 0.dp else gap, bottom = if (up) gap else 0.dp)
+                        .fillMaxWidth().height(rowH).graphicsLayer { alpha = ((k - 0.25f) / 0.75f).coerceIn(0f, 1f) }
+                        .clip(RoundedCornerShape(14.dp)).background(cs.surfaceContainerLow)
+                        .clickable { haptics(Haptic.Tick); close { onPick(m) } }.padding(start = 11.dp - inset), // icons in line with the chosen one above
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LineIcon(m.icon(), cs.onSecondaryContainer, size = 18.dp, stroke = 1.9f)
+                    Text(m.label, maxLines = 1, softWrap = false, style = style, modifier = Modifier.padding(start = 6.dp))
+                }
+            }
+            val header = @Composable {
+                // The chosen mode stays where the pill was, its chevron turning to say it folds back.
+                Box(Modifier.fillMaxWidth().height(pillH).clickable { close() }, contentAlignment = Alignment.CenterStart) {
+                    Row(Modifier.padding(start = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                        LineIcon(mode.icon(), cs.onSecondaryContainer, size = 18.dp, stroke = 1.9f)
+                        Text(mode.label, maxLines = 1, softWrap = false, style = style, modifier = Modifier.padding(start = 6.dp))
+                    }
+                    LineIcon(listOf(P("m6 9 6 6 6-6")), cs.onSecondaryContainer, size = 14.dp, stroke = 2.2f,
+                        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 9.dp).graphicsLayer { rotationZ = (if (up) -180f else 180f) * k })
+                }
+            }
+            if (up) { Spacer(Modifier.height(inset)); others.reversed().forEach { Choice(it) }; header() }
+            else { header(); others.forEach { Choice(it) }; Spacer(Modifier.height(inset)) }
+        }
     }
 }
 
@@ -1008,11 +1097,23 @@ private fun Stepper(nights: Int, onChange: (Int) -> Unit) {
     val motion = MaterialTheme.motionScheme
     val haptics = rememberHaptics()
     fun step(by: Int) { haptics(if (nights + by in NightsRange) Haptic.Step else Haptic.Reject); onChange(by) }
-    Row(Modifier.height(40.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(3.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(34.dp).clip(CircleShape).background(cs.surfaceContainerLow).squish { step(-1) }, contentAlignment = Alignment.Center) {
-            LineIcon(Glyphs.minus, cs.onSurface, size = 15.dp, stroke = 2.4f)
-        }
-        Box(Modifier.width(50.dp), contentAlignment = Alignment.Center) {
+    // A connected button group, as Material 3 Expressive and the trip page's top buttons do it: minus, the
+    // count and plus as three pieces, round on the outside and tight where they meet. A pressed button turns
+    // round, and back when let go.
+    @Composable fun Side(left: Boolean, glyph: List<Shape24>, onClick: () -> Unit) {
+        val source = remember { MutableInteractionSource() }
+        val pressed by source.collectIsPressedAsState()
+        val inner by androidx.compose.animation.core.animateDpAsState(if (pressed) 20.dp else 6.dp, motion.fastSpatialSpec(), label = "stepCorner")
+        val shape = if (left) RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = inner, bottomEnd = inner)
+        else RoundedCornerShape(topStart = inner, bottomStart = inner, topEnd = 20.dp, bottomEnd = 20.dp)
+        Box(
+            Modifier.size(width = 40.dp, height = 40.dp).clip(shape).background(cs.surfaceContainerHighest).clickable(source, ripple(), onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) { LineIcon(glyph, cs.onSurface, size = 16.dp, stroke = 2.4f) }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Side(true, Glyphs.minus) { step(-1) }
+        Box(Modifier.height(40.dp).width(54.dp).clip(RoundedCornerShape(6.dp)).background(cs.surfaceContainerHighest), contentAlignment = Alignment.Center) {
             AnimatedContent(
                 nights,
                 transitionSpec = {
@@ -1028,9 +1129,7 @@ private fun Stepper(nights: Int, onChange: (Int) -> Unit) {
                 }
             }
         }
-        Box(Modifier.size(34.dp).clip(CircleShape).background(cs.surfaceContainerLow).squish { step(1) }, contentAlignment = Alignment.Center) {
-            LineIcon(Glyphs.plus, cs.onSurface, size = 15.dp, stroke = 2.4f)
-        }
+        Side(false, Glyphs.plus) { step(1) }
     }
 }
 
