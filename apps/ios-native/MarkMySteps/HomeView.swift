@@ -28,6 +28,8 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         hero.id("top")
                         content.padding(.horizontal, 16)
+                            // A failed reload slides in above the trips and away again, never popping.
+                            .animation(.calm, value: store.error)
                     }
                 }
                 .scrollIndicators(.hidden)
@@ -128,17 +130,13 @@ struct HomeView: View {
                 ForEach(Array(coming.enumerated()), id: \.element.id) { i, trip in
                     // Big by default; "Klein" from its menu makes it a row like the trips below.
                     let big = sizes.big(trip.id, autoBig: true)
-                    Group {
-                        if big {
-                            NavigationLink(value: trip.id) { NextTripCard(trip: trip) }
-                                .buttonStyle(PressStyle())
-                                .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 30)) }
-                                .overlay(alignment: .topTrailing) { cardMenu(trip).padding(12) }
-                                .transition(.sizeSwap)
-                        } else {
-                            TripRow(trip: trip, top: 22, bottom: 22, zoom: zoom) { rowMenu(trip) }
-                                .transition(.sizeSwap)
-                        }
+                    SizeMorph(big: big, rowTop: 22, rowBottom: 22) {
+                        NavigationLink(value: trip.id) { NextTripCard(trip: trip) }
+                            .buttonStyle(PressStyle())
+                            .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 30)) }
+                            .overlay(alignment: .topTrailing) { cardMenu(trip).padding(12) }
+                    } row: {
+                        TripRow(trip: trip, top: 22, bottom: 22, zoom: zoom) { rowMenu(trip) }
                     }
                     .padding(.top, i == 0 ? 0 : 10)
                     .arrive(2 + i)
@@ -195,18 +193,34 @@ struct HomeView: View {
                     .padding(.top, 14)
             }
             let firstBig = first.map(isBig) ?? false
-            if let first, firstBig {
-                item(first, big: true, prev: nil, next: nil).padding(.top, 14).arrive(4)
+            let rest = Array(list.dropFirst())
+            // The first trip always sits in this slot, big or as a row, so switching its size morphs in place (one
+            // element, no fresh view) and its entrance never plays again. As a row its year stands above it and the
+            // other trips of that year join under it.
+            let joins = !firstBig && first != nil && rest.first?.year == first?.year
+            if let first {
+                if !firstBig {
+                    SectionTitle(text: first.year, small: true).padding(.top, 20).padding(.bottom, 8).padding(.leading, 4)
+                        .id("years")
+                        .transition(.opacity)
+                }
+                item(first, big: firstBig, prev: nil, next: joins ? rest.first.map(isBig) : nil)
+                    .padding(.top, firstBig ? 14 : 0)
+                    .arrive(4)
             }
-            let rest = firstBig ? Array(list.dropFirst()) : list
             let years = rest.map(\.year).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
             ForEach(Array(years.enumerated()), id: \.element) { i, year in
                 let trips = rest.filter { $0.year == year }
-                SectionTitle(text: year, small: true).padding(.top, 20).padding(.bottom, 8).padding(.leading, 4)
-                    .id(i == 0 ? "years" : year)
+                let continues = i == 0 && joins
+                if !continues {
+                    SectionTitle(text: year, small: true).padding(.top, 20).padding(.bottom, 8).padding(.leading, 4)
+                        .id(i == 0 && firstBig ? "years" : year)
+                        .transition(.opacity)
+                }
                 VStack(spacing: 0) {
                     ForEach(Array(trips.enumerated()), id: \.element.id) { k, trip in
-                        item(trip, big: isBig(trip), prev: k > 0 ? isBig(trips[k - 1]) : nil, next: k < trips.count - 1 ? isBig(trips[k + 1]) : nil)
+                        item(trip, big: isBig(trip), prev: k > 0 ? isBig(trips[k - 1]) : (continues ? false : nil),
+                             next: k < trips.count - 1 ? isBig(trips[k + 1]) : nil)
                     }
                 }
                 .arrive(5 + i)
@@ -216,17 +230,14 @@ struct HomeView: View {
 
     /// One trip in a list: a big card, or a row whose corners join the rows beside it.
     @ViewBuilder private func item(_ trip: Trip, big: Bool, prev: Bool?, next: Bool?) -> some View {
-        Group {
-            if big {
-                NavigationLink(value: trip.id) { BigTripCard(trip: trip) }
-                    .buttonStyle(PressStyle())
-                    .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 30)) }
-                    .overlay(alignment: .topTrailing) { cardMenu(trip).padding(12) }
-                    .transition(.sizeSwap)
-            } else {
-                TripRow(trip: trip, top: prev == false ? 6 : 22, bottom: next == false ? 6 : 22, zoom: zoom) { rowMenu(trip) }
-                    .transition(.sizeSwap)
-            }
+        let top: CGFloat = prev == false ? 6 : 22, bottom: CGFloat = next == false ? 6 : 22
+        SizeMorph(big: big, rowTop: top, rowBottom: bottom) {
+            NavigationLink(value: trip.id) { BigTripCard(trip: trip) }
+                .buttonStyle(PressStyle())
+                .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 30)) }
+                .overlay(alignment: .topTrailing) { cardMenu(trip).padding(12) }
+        } row: {
+            TripRow(trip: trip, top: top, bottom: bottom, zoom: zoom) { rowMenu(trip) }
         }
         .padding(.top, prev == nil ? 0 : (big || prev == true ? 10 : 3))
     }
@@ -235,7 +246,8 @@ struct HomeView: View {
         TripMenu(trip: trip, onRename: { renaming = trip }, onDelete: { deleting = trip }, onLeave: { leaving = trip }, label: label)
     }
 
-    /// The ⋯ on a card with a photo or colour behind it: a real glass button, the menu unfolding from it.
+    /// The ⋯ on a card with a photo or colour behind it: a real glass button. The system menu morphs out of that
+    /// glass and back into it, so the button never stays behind the open menu as a second circle.
     private func cardMenu(_ trip: Trip) -> some View {
         tripMenu(trip) {
             Image(systemName: "ellipsis")
@@ -248,7 +260,7 @@ struct HomeView: View {
         .controlSize(.large)
     }
 
-    /// The ⋯ at the end of a row, quiet in the row's own tone.
+    /// The ⋯ at the end of a row, quiet in the row's own tone: just the dots, no circle or fill behind them.
     private func rowMenu(_ trip: Trip) -> some View {
         tripMenu(trip) {
             Image(systemName: "ellipsis")
@@ -257,13 +269,78 @@ struct HomeView: View {
                 .frame(width: 44, height: 44)
                 .contentShape(.circle)
         }
+        .menuStyle(.button)
+        .buttonStyle(.borderless)
     }
 }
 
-extension AnyTransition {
-    /// A card turning into a row and back: the new shape fades and settles in, the old one fades out.
-    static var sizeSwap: AnyTransition {
-        .asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .top)), removal: .opacity)
+/// A trip that is a big card or a row, switching as one element that changes size, as Android's homepage: the
+/// shape grows or shrinks from the top with its corners easing between the card's and the row's, the card and the
+/// row cross-fade inside it, and the trips below slide along in one direction. Critically damped (Apple's smooth
+/// spring), so nothing goes past its place and back. The hidden one is only there while it changes, so a row never
+/// loads a big cover. Driven by `big` itself, so a new default from Weergave switches the same way as the menu.
+struct SizeMorph<Card: View, Row: View>: View {
+    let big: Bool
+    var rowTop: CGFloat = 22
+    var rowBottom: CGFloat = 22
+    @ViewBuilder let card: () -> Card
+    @ViewBuilder let row: () -> Row
+    /// What shows; follows `big` with the animation.
+    @State private var shownBig: Bool
+    /// Both are laid out while it changes, each at its own height.
+    @State private var both = false
+    @State private var cardHeight: CGFloat?
+    @State private var rowHeight: CGFloat?
+    @State private var run = 0
+
+    init(big: Bool, rowTop: CGFloat = 22, rowBottom: CGFloat = 22, @ViewBuilder card: @escaping () -> Card, @ViewBuilder row: @escaping () -> Row) {
+        self.big = big
+        self.rowTop = rowTop
+        self.rowBottom = rowBottom
+        self.card = card
+        self.row = row
+        _shownBig = State(initialValue: big)
+    }
+
+    var body: some View {
+        let height = both ? (shownBig ? cardHeight : rowHeight) : nil
+        let radius: (CGFloat, CGFloat) = shownBig ? (30, 30) : (rowTop, rowBottom)
+        ZStack(alignment: .top) {
+            if shownBig || both {
+                card()
+                    .fixedSize(horizontal: false, vertical: true)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardHeight = $0 }
+                    .opacity(shownBig ? 1 : 0)
+                    .allowsHitTesting(shownBig)
+            }
+            if !shownBig || both {
+                row()
+                    .fixedSize(horizontal: false, vertical: true)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowHeight = $0 }
+                    .opacity(shownBig ? 0 : 1)
+                    .allowsHitTesting(!shownBig)
+            }
+        }
+        .frame(height: height, alignment: .top)
+        .clipShape(UnevenRoundedRectangle(topLeadingRadius: radius.0, bottomLeadingRadius: radius.1, bottomTrailingRadius: radius.1,
+                                          topTrailingRadius: radius.0, style: .continuous))
+        .onChange(of: big) { _, now in
+            guard now != shownBig || both else { return }
+            run += 1
+            let mine = run
+            // First lay the other one out, hidden, at the old height; one beat later grow or shrink to it.
+            var quiet = Transaction()
+            quiet.disablesAnimations = true
+            withTransaction(quiet) { both = true }
+            DispatchQueue.main.async {
+                withAnimation(.smooth(duration: 0.45)) {
+                    shownBig = now
+                } completion: {
+                    guard mine == run else { return }
+                    withTransaction(quiet) { both = false }
+                }
+            }
+        }
     }
 }
 
@@ -282,6 +359,7 @@ struct SectionTitle: View {
 struct OngoingPill: View {
     var text = "onderweg"
     @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 6) {
@@ -299,7 +377,7 @@ struct OngoingPill: View {
         .padding(.vertical, 6)
         .background(.white.opacity(0.94), in: .capsule)
         .onAppear {
-            guard !Launch.shot else { return }
+            guard !Launch.shot, !reduceMotion else { return }
             withAnimation(.easeOut(duration: 1.8).repeatForever(autoreverses: false)) { pulse = true }
         }
     }

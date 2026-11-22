@@ -4,8 +4,8 @@ import SwiftUI
  * The route planner, the second tab of a trip, as in the web app: how many of
  * the trip's nights are planned, the way there, every stop with its nights and
  * the road from the stop before, the way back, and a field to add a stop.
- * The stops are List rows: swipe to remove, hold or Wijzig to move, a native
- * Stepper for the nights and a menu for how the leg is travelled. On a real
+ * The stops are List rows: swipe to remove, hold or Wijzig to move, a
+ * nights stepper of connected buttons and a menu for how the leg is travelled. On a real
  * trip every change is saved to the server like Android's Planner.kt; a removed
  * stop waits 7 seconds behind an undo pill before the server hears of it.
  */
@@ -96,8 +96,14 @@ final class PlanSaver {
 
     func run(_ plan: Binding<PlanState>, _ work: @escaping () async throws -> Void) {
         Task {
-            do { try await work(); plan.wrappedValue.error = nil } catch {
-                plan.wrappedValue.error = (error as? Api.Failure)?.message ?? "Opslaan lukte niet"
+            // The error line slides in and out with the rows around it instead of popping.
+            do {
+                try await work()
+                if plan.wrappedValue.error != nil { withAnimation(.calm) { plan.wrappedValue.error = nil } }
+            } catch {
+                let text = (error as? Api.Failure)?.message ?? "Opslaan lukte niet"
+                Haptic.reject()
+                withAnimation(.calm) { plan.wrappedValue.error = text }
             }
         }
     }
@@ -186,10 +192,16 @@ struct PlannerRows: View {
     var saver: PlanSaver
     /// Brings a row into view above the keyboard, by its id.
     var onReveal: (String) -> Void = { _ in }
+    /// The trip's photos, when the page already has them; otherwise the planner fetches them itself for the
+    /// stop thumbnails.
+    var media: [Media]? = nil
     @Environment(\.colorScheme) private var scheme
     @Environment(Store.self) private var store
     /// The stop whose day trip panel is open.
     @State private var dayTripFor: Int?
+    @State private var loadedMedia: [Media]?
+
+    private var photos: [Media]? { media ?? loadedMedia }
 
     /// Real trips save; guests only look.
     static func saves(_ trip: Trip, me: String?) -> Bool {
@@ -271,11 +283,17 @@ struct PlannerRows: View {
         }
         .plainRow(bottom: plan.error == nil ? 12 : 4)
         .id("planner")
+        .task(id: trip.remoteId) {
+            // The photos for the stop thumbnails, once, when the page did not hand them over.
+            guard media == nil, loadedMedia == nil, trip.remoteId != nil else { return }
+            loadedMedia = try? await Remote.media(trip)
+        }
 
         if let error = plan.error {
             Label(error, systemImage: "exclamationmark.circle.fill")
                 .font(.inter(14, 550)).foregroundStyle(.red)
                 .plainRow(bottom: 10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
         }
 
         if let leg = plan.outbound {
@@ -298,6 +316,8 @@ struct PlannerRows: View {
                 dates: dates(upTo: index),
                 km: index > 0 ? distance(plan.stops[index - 1], stop) : nil,
                 showConnector: index > 0 || plan.outbound != nil,
+                lineBelow: index == plan.stops.count - 1 && plan.back != nil,
+                photo: photoCandidates(index),
                 color: color,
                 editable: trip.remoteId == nil || saves,
                 dayTripOpen: dayTripFor == stop.id,
@@ -340,7 +360,8 @@ struct PlannerRows: View {
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) { removeLeg(outbound: false) } label: { Label("Verwijderen", systemImage: "trash") }
                 }
-                .plainRow(top: 12)
+                // The last stop draws the line down to here itself, so no gap without a line.
+                .plainRow(top: plan.stops.isEmpty ? 12 : 0)
         } else if !plan.stops.isEmpty {
             AddLegRow(label: "Terugreis toevoegen") { addLeg(outbound: false, mode: $0) }
                 .plainRow(top: 12)
@@ -410,6 +431,20 @@ struct PlannerRows: View {
         return (0..<max(1, plan.stops[index].nights)).compactMap { Format.calendar.date(byAdding: .day, value: $0, to: from) }
     }
 
+    /// The photos of a stay, best first, as Android's photoFor: the one in the middle (the first ones are often
+    /// still the station or the airport), then outwards from it. The thumbnail shows the first that loads, so one
+    /// the server cannot give never leaves the stop on its flag.
+    private func photoCandidates(_ index: Int) -> [String] {
+        guard let photos, let from = arrival(index), plan.stops.indices.contains(index),
+              let until = Format.calendar.date(byAdding: .day, value: max(1, plan.stops[index].nights), to: from) else { return [] }
+        let list = photos.filter { !$0.video && $0.takenAt >= from && $0.takenAt < until }
+        let mid = list.count / 2
+        return (0..<list.count).map { k in k % 2 == 0 ? mid + k / 2 : mid - (k + 1) / 2 }
+            .filter { list.indices.contains($0) }
+            .prefix(12)
+            .map { list[$0].id }
+    }
+
     /// "4 t/m 7 dec" for a stop, counted on from the trip's first day.
     private func dates(upTo index: Int) -> String {
         guard let from = arrival(index), plan.stops.indices.contains(index) else { return "" }
@@ -446,7 +481,8 @@ private struct NightsRing: View {
     }
 }
 
-/// How a leg is travelled: a capsule that opens the system menu.
+/// How a leg is travelled: a capsule that opens the system menu. On iOS 26 the menu unfolds out of the pill itself,
+/// opens upwards near the bottom of the screen and folds back into it on a pick, a tap beside it or a scroll.
 struct ModeMenu: View {
     @Binding var mode: Mode
 
@@ -464,10 +500,15 @@ struct ModeMenu: View {
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: 18)
                 Text(mode.label).font(.outfit(13.5, 600)).fixedSize()
+                    .contentTransition(.interpolate)
+                // Says it unfolds, as Android's pill.
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Brand.inkSoft)
             }
             .foregroundStyle(Brand.ink)
             .padding(.leading, 10)
-            .padding(.trailing, 12)
+            .padding(.trailing, 11)
             .frame(height: 32)
             .background(Brand.sunken, in: .capsule)
             .contentShape(.capsule)
@@ -606,12 +647,16 @@ private struct AddLegRow: View {
 }
 
 private struct StopRow<Panel: View>: View {
-    @Environment(\.colorScheme) private var scheme
+    @Environment(\.editMode) private var editMode
     @Binding var stop: PlanStop
     let index: Int
     let dates: String
     let km: Int?
     let showConnector: Bool
+    /// The last stop before the way back: the line runs on below the card down to it.
+    var lineBelow = false
+    /// The stay's photos, best first; the thumbnail shows the first that loads.
+    var photo: [String] = []
     let color: Color
     let editable: Bool
     let dayTripOpen: Bool
@@ -623,7 +668,9 @@ private struct StopRow<Panel: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if showConnector {
-                // Between two stops: the line in the trip's colour, how the road was travelled and how far.
+                // Between two stops: the line in the trip's colour, how the road was travelled and how far. The line
+                // is part of the row, so it travels along with a stop that is held and moved, and neighbours that
+                // glide aside keep theirs.
                 HStack(spacing: 0) {
                     Rectangle().fill(color.opacity(0.35)).frame(width: 2)
                     if index > 0 {
@@ -646,27 +693,42 @@ private struct StopRow<Panel: View>: View {
                 .padding(.leading, 33)
             }
             VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 12) {
-                    // In dark the number is a light version of the trip's colour: the plain one was brown on dark.
-                    Text("\(index + 1)")
-                        .font(.outfit(17, 700))
-                        .foregroundStyle(scheme == .dark ? Geo.legible(color, dark: true, darkFloor: 0.74) : color)
-                        .contentTransition(.numericText())
-                        .frame(width: 44, height: 44)
-                        .background(color.opacity(0.16), in: .circle)
+                HStack(spacing: 10) {
+                    // The stay's photo in the middle of the card's height, the number hanging on its corner.
+                    StopThumb(candidates: photo, flag: stop.flag, color: color)
+                        .overlay(alignment: .topLeading) {
+                            Text("\(index + 1)")
+                                .font(.outfit(11.5, 700))
+                                .foregroundStyle(StopThumb.ink(on: color))
+                                .contentTransition(.numericText())
+                                .frame(width: 20, height: 20)
+                                .background(color, in: .circle)
+                                // Ringed in the card's tone, so it stands off any photo.
+                                .padding(2)
+                                .background(Brand.raised, in: .circle)
+                                .offset(x: -6, y: -6)
+                        }
                     VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 7) { FlagView(flag: stop.flag, height: 14); Text(stop.name).font(.outfit(17, 600)).foregroundStyle(Brand.ink).lineLimit(1) }
-                        Text("\(dates) · \(stop.nights) \(stop.nights == 1 ? "nacht" : "nachten")")
-                            .font(.inter(13, 500))
-                            .foregroundStyle(Brand.inkSoft)
-                            .lineLimit(1)
-                            .contentTransition(.numericText(value: Double(stop.nights)))
+                        Text(stop.name).font(.outfit(17, 600)).foregroundStyle(Brand.ink).lineLimit(2)
+                        // The nights are in the stepper beside it; here only when the stay is.
+                        if !dates.isEmpty {
+                            Text(dates)
+                                .font(.inter(13, 500))
+                                .foregroundStyle(Brand.inkSoft)
+                                .lineLimit(1)
+                                .contentTransition(.numericText(value: Double(stop.nights)))
+                        }
                     }
-                    Spacer(minLength: 6)
-                    Stepper("Nachten in \(stop.name)", value: $stop.nights.animation(.calm), in: 0...60)
-                        .labelsHidden()
-                        .fixedSize()
+                    Spacer(minLength: 0)
+                    // While moving stops (Wijzig) the delete and move handles need the room; nobody steps nights then.
+                    if editMode?.wrappedValue.isEditing != true {
+                        NightsStepper(nights: stop.nights, place: stop.name, enabled: editable) { by in
+                            withAnimation(.calm) { stop.nights = min(60, max(0, stop.nights + by)) }
+                        }
+                        .transition(.opacity)
+                    }
                 }
+                .animation(.calm, value: editMode?.wrappedValue.isEditing == true)
                 ForEach(stop.dayTrips) { dt in
                     DayTripRow(dt: dt, editable: editable) { onRemoveDayTrip(dt) }
                         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -691,15 +753,157 @@ private struct StopRow<Panel: View>: View {
                     }
                     .buttonStyle(.borderless)
                     .padding(.top, 10)
-                    .padding(.leading, 56)
+                    .padding(.leading, 68)
                 }
             }
             .padding(12)
             .background(Brand.raised, in: .rect(cornerRadius: 22))
             .animation(.calm, value: stop.dayTrips.map(\.id))
             .animation(.calm, value: dayTripOpen)
+            if lineBelow {
+                Rectangle().fill(color.opacity(0.35)).frame(width: 2, height: 14).padding(.leading, 33)
+            }
         }
         .contentShape(.rect)
+    }
+}
+
+/// A stop's photo: the first of its stay that loads, else its flag on the trip's colour. A photo already in memory
+/// stands at once, without a fade, and one that is still a candidate after the nights change stays put, so the
+/// tile never flickers or goes empty.
+private struct StopThumb: View {
+    let candidates: [String]
+    let flag: String
+    let color: Color
+    @Environment(\.colorScheme) private var scheme
+    @State private var shown: Shown?
+
+    struct Shown: Equatable {
+        let id: String
+        let image: UIImage
+    }
+
+    init(candidates: [String], flag: String, color: Color) {
+        self.candidates = candidates
+        self.flag = flag
+        self.color = color
+        _shown = State(initialValue: Self.cachedFirst(candidates))
+    }
+
+    private static func cachedFirst(_ ids: [String]) -> Shown? {
+        for id in ids { if let hit = ImageLoader.shared.cached(id, "thumbnail") { return Shown(id: id, image: hit) } }
+        return nil
+    }
+
+    /// White or the dark ink, whichever reads best on the trip's colour.
+    static func ink(on color: Color) -> Color {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        func lin(_ c: CGFloat) -> CGFloat { c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4) }
+        let l = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+        // Contrast against white is 1.05 / (l + 0.05), against #1B2530 about (l + 0.05) / 0.068.
+        return 1.05 / (l + 0.05) >= (l + 0.05) / 0.068 ? .white : Color(hex: 0x1B2530)
+    }
+
+    var body: some View {
+        ZStack {
+            Rectangle().fill(color.opacity(scheme == .dark ? 0.32 : 0.2))
+            FlagView(flag: flag, height: 18)
+            if let shown {
+                Image(uiImage: shown.image).resizable().scaledToFill()
+                    .transition(.opacity)
+                    .id(shown.id)
+            }
+        }
+        .frame(width: 56, height: 56)
+        .clipShape(.rect(cornerRadius: 16))
+        .accessibilityHidden(true)
+        .task(id: candidates) {
+            if let shown, candidates.contains(shown.id) { return }
+            if let hit = Self.cachedFirst(candidates) { shown = hit; return }
+            for id in candidates {
+                guard !Task.isCancelled else { return }
+                if let image = await ImageLoader.shared.load(id, "thumbnail") {
+                    withAnimation(.easeOut(duration: 0.25)) { shown = Shown(id: id, image: image) }
+                    return
+                }
+            }
+            // None of this stay's photos would load (or it has none): back to the flag, softly.
+            if !Task.isCancelled, shown != nil { withAnimation(.easeOut(duration: 0.25)) { shown = nil } }
+        }
+    }
+}
+
+/// Fewer, the count, more: a connected button group as Material 3 Expressive and Android's planner have it, round
+/// on the outside and tight where the pieces meet. A pressed side turns round and back when let go; the number
+/// rolls in the direction it went; past either end it knocks back instead.
+private struct NightsStepper: View {
+    let nights: Int
+    let place: String
+    var enabled = true
+    let onStep: (Int) -> Void
+
+    private func step(_ by: Int) {
+        guard (0...60).contains(nights + by) else { Haptic.reject(); return }
+        Haptic.select()
+        onStep(by)
+    }
+
+    var body: some View {
+        HStack(spacing: 2) {
+            // Someone who only looks (a guest) sees the count alone: no buttons that do nothing.
+            if enabled {
+                Button { step(-1) } label: { Image(systemName: "minus") }
+                    .buttonStyle(StepSide(leading: true))
+            }
+            VStack(spacing: 0) {
+                Text("\(nights)")
+                    .font(.outfit(16, 700))
+                    .foregroundStyle(Brand.ink)
+                    .contentTransition(.numericText(value: Double(nights)))
+                Text(nights == 1 ? "nacht" : "nachten")
+                    .font(.inter(10, 500))
+                    .foregroundStyle(Brand.inkSoft)
+                    .contentTransition(.interpolate)
+            }
+            .frame(width: 52, height: 40)
+            .background(Brand.sunken, in: .rect(cornerRadius: enabled ? 6 : 20, style: .continuous))
+            if enabled {
+                Button { step(1) } label: { Image(systemName: "plus") }
+                    .buttonStyle(StepSide(leading: false))
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Nachten in \(place)")
+        .accessibilityValue("\(nights) \(nights == 1 ? "nacht" : "nachten")")
+        .accessibilityAdjustableAction { direction in
+            guard enabled else { return }
+            switch direction {
+            case .increment: step(1)
+            case .decrement: step(-1)
+            @unknown default: break
+            }
+        }
+    }
+}
+
+/// One side of the nights stepper: round outside, its inner corners rounding fully while pressed.
+private struct StepSide: ButtonStyle {
+    let leading: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        let inner: CGFloat = configuration.isPressed ? 20 : 6
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: leading ? 20 : inner, bottomLeadingRadius: leading ? 20 : inner,
+            bottomTrailingRadius: leading ? inner : 20, topTrailingRadius: leading ? inner : 20, style: .continuous
+        )
+        configuration.label
+            .font(.system(size: 14, weight: .bold))
+            .foregroundStyle(Brand.ink)
+            .frame(width: 40, height: 40)
+            .background(configuration.isPressed ? Brand.line : Brand.sunken, in: shape)
+            .contentShape(shape)
+            .animation(.smooth(duration: 0.2), value: configuration.isPressed)
     }
 }
 

@@ -314,39 +314,45 @@ private struct Header: View {
     }
 }
 
-/// A big number on a plain tile, rolling up when the page arrives, with its symbol. The number and label keep
-/// the same 16 pt from the bottom as the symbol keeps from the top, as Android's StatTile. Without a value yet
-/// the tile waits with a quiet bar in the number's place.
+/// A big number on a plain tile, counting up when the page arrives, with its symbol. The number and label keep
+/// the same 16 pt from the bottom as the symbol keeps from the top, as Android's StatTile. Without a value yet the
+/// number's place stays empty at its own height (no grey block), and the figure counts up the moment it comes.
 private struct StatTile: View {
     let value: Int?
     let label: String
     let symbol: String
     let tint: Color
     let order: Int
-    @State private var shown: Int
+    @State private var shown: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(value: Int?, label: String, symbol: String, tint: Color, order: Int) {
         self.value = value; self.label = label; self.symbol = symbol; self.tint = tint; self.order = order
-        _shown = State(initialValue: Launch.shot ? (value ?? 0) : 0)
+        _shown = State(initialValue: Launch.shot ? Double(value ?? 0) : 0)
+    }
+
+    private func countUp(to v: Int) {
+        guard shown != Double(v) else { return }
+        if reduceMotion { shown = Double(v); return }
+        withAnimation(.smooth(duration: 0.9).delay(0.1 + Double(order) * 0.06)) { shown = Double(v) }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Spacer(minLength: 0)
-            Group {
+            ZStack(alignment: .leading) {
+                // Holds the figure's height while it waits, invisible.
+                Text("0000").font(.outfit(34, 700)).hidden()
                 if value != nil {
-                    Text(Format.number(shown))
+                    CountingNumber(value: shown)
                         .font(.outfit(34, 700))
                         .tracking(-1)
                         .foregroundStyle(Brand.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                        .contentTransition(.numericText(value: Double(shown)))
-                } else {
-                    Capsule().fill(Brand.ink.opacity(0.08)).frame(width: 64, height: 26).padding(.vertical, 7)
+                        .transition(.opacity)
                 }
             }
-            .transition(.opacity)
             Text(label).font(.inter(13, 600)).foregroundStyle(Brand.inkSoft)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -365,11 +371,23 @@ private struct StatTile: View {
         .animation(.calm, value: value == nil)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(value.map { "\(Format.number($0)) \(label)" } ?? "\(label), laden")
-        .onAppear {
-            guard let value, shown != value else { return }
-            withAnimation(.smooth(duration: 0.9).delay(0.1 + Double(order) * 0.06)) { shown = value }
-        }
-        .onChange(of: value) { _, v in withAnimation(.smooth) { shown = v ?? 0 } }
+        .onAppear { if let value { countUp(to: value) } }
+        // A figure that arrives later counts up the same way as on arriving, never jumps.
+        .onChange(of: value) { _, v in countUp(to: v ?? 0) }
+    }
+}
+
+/// A whole number that counts through every value on its way when animated, written the Dutch way.
+private struct CountingNumber: View, Animatable {
+    var value: Double
+
+    nonisolated var animatableData: Double {
+        get { value }
+        set { value = newValue }
+    }
+
+    var body: some View {
+        Text(Format.number(Int(value.rounded())))
     }
 }
 

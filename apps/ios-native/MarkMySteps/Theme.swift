@@ -142,11 +142,13 @@ struct CompassSpinner: View {
 struct Arrive: ViewModifier {
     let order: Int
     @State private var shown = Launch.shot
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
             .opacity(shown ? 1 : 0)
-            .offset(y: shown ? 0 : 14)
+            // Under Reduce Motion only the fade, no travel.
+            .offset(y: shown || reduceMotion ? 0 : 14)
             .onAppear {
                 guard !shown else { return }
                 withAnimation(.smooth(duration: 0.45).delay(Double(order) * 0.04)) { shown = true }
@@ -177,6 +179,8 @@ extension Animation {
 enum Haptic {
     static func tap() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
     static func select() { UISelectionFeedbackGenerator().selectionChanged() }
+    /// Past the end of a range, or something that cannot be done here: a short firm knock that says no.
+    static func reject() { UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.75) }
 }
 
 // MARK: Text helpers
@@ -258,5 +262,34 @@ struct FlagView: View {
         } else {
             Text(flag).font(.system(size: height)).accessibilityHidden(true)
         }
+    }
+}
+
+// MARK: Locked controls
+
+/// Something you cannot change here (you are a guest, or only the organiser may): the control shows grey, and only a
+/// tap on it says why, with a soft knock. Never a standing warning under it. `nil` leaves the control as it is.
+struct LockedExplained: ViewModifier {
+    let reason: String?
+    var title = "Niet aan te passen"
+    @State private var asked = false
+
+    func body(content: Content) -> some View {
+        content
+            .disabled(reason != nil)
+            .overlay {
+                if reason != nil {
+                    Color.clear
+                        .contentShape(.rect)
+                        .onTapGesture { Haptic.reject(); asked = true }
+                }
+            }
+            .alert(title, isPresented: $asked) { Button("OK", role: .cancel) {} } message: { Text(reason ?? "") }
+    }
+}
+
+extension View {
+    func locked(_ reason: String?, title: String = "Niet aan te passen") -> some View {
+        modifier(LockedExplained(reason: reason, title: title))
     }
 }

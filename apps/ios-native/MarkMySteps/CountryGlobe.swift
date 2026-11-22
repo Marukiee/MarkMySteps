@@ -347,8 +347,10 @@ struct NoticesPanel: View {
                         .padding(.top, 4)
                         .transition(.opacity)
                 }
-                // "Aanvragen bekijken" waits for an accounts page on iPhone; until then no link that goes nowhere.
-                if let trip = n.tripId, n.kind != "ACCESS_DENIED", !pending {
+                // Someone asking for an account goes straight to Instellingen › Accounts; the rest to their trip.
+                if n.kind == "ACCOUNT_REQUESTED" {
+                    link("Aanvragen bekijken") { onOpenRequests() }
+                } else if let trip = n.tripId, n.kind != "ACCESS_DENIED", !pending {
                     link("Reis openen") { onOpenTrip(trip) }
                 }
             }
