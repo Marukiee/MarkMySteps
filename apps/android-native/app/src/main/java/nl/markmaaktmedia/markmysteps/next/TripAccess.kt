@@ -85,7 +85,7 @@ object DeepLink {
         val parts = uri.pathSegments.orEmpty()
         return when {
             parts.size >= 2 && parts[0] == "trips" && parts[1].matches(Regex("[0-9a-fA-F-]{36}")) -> Target.Trip(parts[1].lowercase())
-            parts.size >= 2 && parts[0] == "s" && parts[1].isNotBlank() -> Target.Share(parts[1])
+            parts.size >= 2 && parts[0] == "s" && parts[1].matches(Regex("[A-Za-z0-9_-]{1,128}")) -> Target.Share(parts[1])
             else -> null
         }
     }

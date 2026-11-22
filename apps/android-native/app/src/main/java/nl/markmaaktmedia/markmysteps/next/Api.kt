@@ -178,12 +178,20 @@ object Api {
         } catch (_: Exception) { access = null; refresh = null; save(); false }
     }
 
+    private val renewing = Any()
+
+    /** One refresh at a time: requests that found the token expired together wait for the first refresh and
+     *  use its new token, instead of each starting a session of its own. */
     private fun renew(): Boolean {
-        val r = refresh ?: return false
-        return try {
-            tokens(JSONObject(request("POST", "/api/auth/refresh", JSONObject().put("refreshToken", r).toString(), auth = false)))
-            true
-        } catch (_: Failure) { false }
+        val before = access
+        synchronized(renewing) {
+            if (access != null && access != before) return true
+            val r = refresh ?: return false
+            return try {
+                tokens(JSONObject(request("POST", "/api/auth/refresh", JSONObject().put("refreshToken", r).toString(), auth = false)))
+                true
+            } catch (_: Failure) { false }
+        }
     }
 
     private fun open(method: String, path: String, auth: Boolean): HttpURLConnection =

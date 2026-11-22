@@ -74,6 +74,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // The store build also drops info and debug log lines; the dev build keeps them for the dry-run tests.
+            if (store) proguardFiles("proguard-store.pro")
             // A store build never falls back to the debug key: without the release key it does not build.
             signingConfig = if (store) {
                 require(providers.environmentVariable("MMS_KEYSTORE_FILE").isPresent || providers.environmentVariable("MMS_ALLOW_UNSIGNED_STORE").orNull == "true") {
