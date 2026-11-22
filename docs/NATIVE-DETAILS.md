@@ -70,10 +70,9 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Tijdlijn zoals de oude versie: plaatsen bovenaan, dan per dag alle foto's onder elkaar. (klaar)
 - "Plaatsen" bovenaan alleen als een reis meer dan één plaats heeft. (klaar)
 - Nachtenpil rechtsboven in de stopkaart, even ver van boven als van rechts. (klaar)
-- Fotoboek en samenvatting in het ⋯-menu, niet als losse knop op de pagina. (doorgegeven aan de fotoboek-sessie)
 - De cijfertegels zijn even breed (kilometer niet breder dan dagen, stops en foto's). (klaar Android)
 - Bovenaan de reis eigen knoppen zoals in de web: Mensen en delen, kaartinstellingen (kaartstijl) en reisinstellingen; geen ⋯-menu. (klaar Android)
-- Fotoboek en samenvatting horen in de sheet Mensen en delen, niet als losse knoppen op de pagina. (doorgegeven aan de fotoboek-sessie)
+- Fotoboek en samenvatting horen in de sheet Mensen en delen, niet als losse knoppen op de pagina. (klaar Android, onder "Samenvatting en fotoboek")
 - Kaart vergroten op één plek: een ronde knop rechtsonder op de kaart. (klaar Android, iOS doorgegeven)
 - Deellinks zoals in de web maar in de nieuwe stijl: de link als oranje (onderstreepte) link, Kopieer, een instellingenknop (wachtwoord, intrekken) in plaats van drie puntjes, en daaronder "wachtwoord (optioneel)" met "+ Deellink". (klaar Android)
 

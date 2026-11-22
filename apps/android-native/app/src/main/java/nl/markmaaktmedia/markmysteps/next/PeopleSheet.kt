@@ -79,7 +79,7 @@ private fun slab(i: Int, n: Int): Shape = RoundedCornerShape(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit) {
+fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake: ((String) -> Unit)? = null) {
     val cs = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     val me = Data.me?.id
@@ -115,6 +115,7 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit) {
             }
             if (owner) AddPeople(trip, existing = members.map { it.username }.toSet(), onAdded = onChanged)
             if (editor) ShareLinks(trip, owner)
+            if (onMake != null) Make(onMake)
         }
     }
 
@@ -133,6 +134,33 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { removing = null }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
         )
+    }
+}
+
+/** To share the trip in another way: the photo book and the summary posters (PhotoBook.kt, Summary.kt). */
+@Composable
+private fun Make(onMake: (String) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Text("Samenvatting en fotoboek", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 8.dp))
+    val items = listOf(
+        Triple("book", "Fotoboek", "Een boek van de mooiste foto's per dag") to Glyphs.photo,
+        Triple("summary", "Samenvatting", "Een poster om te delen") to Glyphs.sun,
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        items.forEachIndexed { i, (item, glyph) ->
+            val (key, title, line) = item
+            Row(
+                Modifier.fillMaxWidth().clip(slab(i, items.size)).background(cs.surfaceContainerHigh).clickable { onMake(key) }.padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LineIcon(glyph, cs.onSurface, size = 22.dp, modifier = Modifier.padding(start = 6.dp))
+                Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                    Text(title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 16.5.sp, color = cs.onSurface))
+                    Text(line, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                }
+                LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 20.dp)
+            }
+        }
     }
 }
 

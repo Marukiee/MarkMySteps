@@ -88,7 +88,7 @@ private fun Modifier.press(onClick: () -> Unit = {}): Modifier = composed {
 }
 
 @Composable
-fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
+fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? = null) {
     val cs = MaterialTheme.colorScheme
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     // A trip from the server brings its stops and photos in only when it is opened.
@@ -100,6 +100,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
     var viewing by remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
     var people by remember { androidx.compose.runtime.mutableStateOf(Data.peopleFor == base.id) }
     androidx.compose.runtime.LaunchedEffect(Unit) { if (Data.peopleFor == base.id) Data.peopleFor = null }
+    // The photo book or the summary over the page (PhotoBook.kt, Summary.kt), from the people sheet.
+    var extra by remember { androidx.compose.runtime.mutableStateOf(startExtra?.takeIf { it == "book" || it == "summary" }) }
     var bigMap by remember { androidx.compose.runtime.mutableStateOf(false) }
     val tiles = remember(base.id) { TileBounds() }
     var openPhoto by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
@@ -254,7 +256,10 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
         }
         if (mapSheet) MapSheet(onDismiss = { mapSheet = false })
         if (tripSheet) TripSettingsSheet(trip, onDismiss = { tripSheet = false }, onChanged = { scope.launch { Data.load() } })
-        if (people) PeopleSheet(trip, onDismiss = { people = false }, onChanged = { scope.launch { Data.load() } })
+        if (people) PeopleSheet(
+            trip, onDismiss = { people = false }, onChanged = { scope.launch { Data.load() } },
+            onMake = if (!trip.upcoming && media?.isNotEmpty() == true) ({ which -> people = false; extra = which }) else null,
+        )
         // While paging in the viewer the timeline brings that photo to the middle, so closing flies back into it.
         androidx.compose.runtime.LaunchedEffect(openPhoto) {
             val id = openPhoto ?: return@LaunchedEffect
@@ -267,6 +272,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
             val photos = media.orEmpty()
             if (photos.isNotEmpty()) PhotoViewer(trip, photos, start.coerceIn(0, photos.lastIndex), bounds = tiles, onCurrent = { openPhoto = it }, onClose = { viewing = null })
         }
+
+        TripExtras(trip, dark, extra, onClose = { extra = null })
     }
 }
 

@@ -178,6 +178,10 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             return@AnimatedContent
         }
         var open by remember { mutableStateOf(Data.all.firstOrNull { it.id == startTrip }) }
+        // The adb extra "trip" may name a server trip, by id or title, which only exists once it has loaded.
+        LaunchedEffect(Data.version) {
+            if (open == null && startTrip != null) open = Data.all.firstOrNull { it.id == startTrip || it.title == startTrip }
+        }
         var page by remember { mutableIntStateOf(when (startPage) { "settings" -> 2; "travellers" -> 1; else -> 0 }) }
         val motion = MaterialTheme.motionScheme
         val target = open?.id ?: "page$page"
@@ -241,7 +245,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                     holder.SaveableStateProvider(key) {
                         val trip = Data.all.firstOrNull { it.id == key }
                         when {
-                            trip != null -> TripPage(trip, dark, onBack = { open = null })
+                            trip != null -> TripPage(trip, dark, onBack = { open = null }, startExtra = startPage)
                             key == "page2" -> SettingsPage(onSignIn = { Data.signOut(); page = 0; gate = "login" })
                             key == "page1" -> TravellersPage()
                             else -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it }, onProfile = { page = 2 }, onPeople = { Data.peopleFor = it.id; open = it })
