@@ -398,7 +398,7 @@ fun OnboardingPage(preview: Boolean, local: Boolean, onDone: () -> Unit) {
             FormField(stringResource(R.string.onb_name_placeholder), name, { name = it.take(60); if (!preview) LocalMode.changeName(name) }, capitalize = true)
         })
         add(Slide("globe", Glyphs.globe, R.string.onb_globe_title, R.string.onb_globe_body))
-        add(Slide("plan", Glyphs.pin, R.string.onb_plan_title, R.string.onb_plan_body))
+        add(Slide("plan", Glyphs.car, R.string.onb_plan_title, R.string.onb_plan_body))
         add(Slide("trips", Glyphs.photo, R.string.onb_trips_title, R.string.onb_trips_body))
         if (!local) add(Slide("share", Glyphs.send, R.string.onb_share_title, R.string.onb_share_body))
         add(Slide("offline", Glyphs.cloud, R.string.onb_offline_title, R.string.onb_offline_body))
@@ -406,7 +406,7 @@ fun OnboardingPage(preview: Boolean, local: Boolean, onDone: () -> Unit) {
             Choices(listOf(0 to stringResource(R.string.settings_theme_light), 1 to stringResource(R.string.settings_theme_dark), 2 to stringResource(R.string.common_system)), theme, { theme = it; if (!preview) ThemePref.set(it) })
         })
         add(Slide("airports", Glyphs.plane, R.string.onb_airports_title, R.string.onb_airports_body) { AirportsPanel() })
-        add(Slide("location", Glyphs.distance, R.string.onb_location_title, R.string.onb_location_body) {
+        add(Slide("location", Glyphs.pin, R.string.onb_location_title, R.string.onb_location_body) {
             Ask(location, stringResource(R.string.onb_location_ask)) { askLocation.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) }
         })
         if (local) add(Slide("gallery", Glyphs.camera, R.string.onb_gallery_title, R.string.onb_gallery_body) {

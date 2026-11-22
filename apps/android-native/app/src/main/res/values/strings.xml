@@ -308,4 +308,5 @@
     <string name="book_reading">Looking at the photos</string>
     <string name="book_wait">One moment</string>
     <string name="book_of">%1$d of %2$d</string>
+    <string name="cache_custom_short">Custom</string>
 </resources>

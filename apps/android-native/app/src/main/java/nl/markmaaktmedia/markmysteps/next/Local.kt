@@ -66,7 +66,7 @@ object LocalBackend {
     private fun stopsOf(id: String): JSONArray = db.getJSONObject("stops").optJSONArray(id) ?: JSONArray().also { db.getJSONObject("stops").put(id, it) }
     private fun pointsOf(id: String): JSONArray = db.getJSONObject("points").optJSONArray(id) ?: JSONArray().also { db.getJSONObject("points").put(id, it) }
 
-    private fun me() = JSONObject().put("id", ME).put("displayName", LocalMode.name.ifBlank { Lang.text(R.string.local_user) }).put("username", "").put("hasAvatar", false)
+    private fun me() = JSONObject().put("id", ME).put("displayName", LocalMode.name.trim().ifBlank { Lang.text(R.string.local_user) }).put("username", "").put("hasAvatar", false)
 
     /** A trip as the server sends it, with its stops and route worked into the fields the list reads. */
     private fun dressed(t: JSONObject): JSONObject {

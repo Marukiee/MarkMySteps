@@ -202,14 +202,15 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             }
             "register" -> { RegisterPage(preview = false, onBack = { gate = "login" }, onApproved = { enter() }, onPending = { gate = "pending" }); return@AnimatedContent }
             "pending" -> { PendingPage(preview = false, onApproved = { enter() }, onSignOut = { Data.signOut(); gate = "login" }); return@AnimatedContent }
-            "onboarding" -> { OnboardingPage(preview = false, local = LocalMode.on, onDone = { gate = "app" }); return@AnimatedContent }
+            "onboarding" -> { OnboardingPage(preview = false, local = LocalMode.on, onDone = { gate = "app"; scope.launch { Data.load() } }); return@AnimatedContent }
         }
         var open by remember { mutableStateOf(Data.all.firstOrNull { it.id == startTrip }) }
         // The adb extra "trip" may name a server trip, by id or title, which only exists once it has loaded.
         LaunchedEffect(Data.version) {
             if (open == null && startTrip != null) open = Data.all.firstOrNull { it.id == startTrip || it.title == startTrip }
         }
-        var page by remember { mutableIntStateOf(when (startPage) { "settings" -> 2; "travellers" -> 1; else -> 0 }) }
+        // Kept over a rebuild of the screen (a switch of language), so you stay where you were.
+        var page by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(when (startPage) { "settings" -> 2; "travellers" -> 1; else -> 0 }) }
         val motion = MaterialTheme.motionScheme
         val target = open?.id ?: "page$page"
         // Predictive back: the back gesture seeks this transition, so the page under the

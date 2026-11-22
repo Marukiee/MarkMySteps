@@ -121,7 +121,7 @@ fun PhotoCachePanel() {
         Text(stringResource(R.string.cache_max), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 6.dp))
         val choice = when { custom -> -2; else -> limit }
         Choices(
-            presets.map { it to megabytes(it) } + listOf(0 to stringResource(R.string.cache_no_limit), -2 to "…"),
+            presets.map { it to megabytes(it) } + listOf(0 to stringResource(R.string.cache_no_limit), -2 to stringResource(R.string.cache_custom_short)),
             choice,
             { v -> if (v == -2) { custom = true; customText = limit.takeIf { it > 0 }?.toString() ?: "500" } else { custom = false; AppPrefs.changePhotoCacheMb(v) } },
         )
@@ -211,7 +211,7 @@ fun VersionTaps(version: String, content: @Composable (Modifier) -> Unit) {
             stamp++
         })
         LaunchedEffect(stamp) { if (note != null) { delay(2200); note = null; if (!AppPrefs.developer) taps = 0 } }
-        Note(note, feel = null)
+        Box(Modifier.padding(start = 10.dp)) { Note(note, feel = null) }
     }
 }
 

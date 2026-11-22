@@ -206,7 +206,7 @@ fun seriesStops(trip: Trip): List<Stop> = trip.stops.filter { it.nights > 0 }.ta
 
 /** One stop's page: the trip cut to that stop's days, titled with its name. */
 fun stopPage(trip: Trip, picked: Picked, stop: Stop, o: SummaryOptions): Pair<Trip, Picked> {
-    val a = stop.start ?: return trip to picked
+    val a = stop.start ?: return trip.copy(title = stop.name, stops = listOf(stop)) to picked
     val b = stopEnd(stop) ?: a
     val (t, p) = scoped(trip, picked, o.copy(scope = Scope.Range, from = a, to = b))
     return t.copy(title = stop.name, stops = listOf(stop)) to p
