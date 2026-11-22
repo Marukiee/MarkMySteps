@@ -22,6 +22,9 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       geldt), en goed controleren.
 - [ ] Stijlgids voor andere Android-apps in deze stijl (PixelPlayer en
       MarkMySteps): docs/STIJLGIDS.md, bijhouden bij elke nieuwe opmerking.
+- [ ] Kwaliteitsronde: een kwaliteitsagent loopt de iPhone- en Android-app
+      langs en legt alle punten aan Mark voor, met screenshots en een
+      voorgestelde oplossing per punt.
 - [ ] Release (merge naar main) pas na Marks akkoord, met fotoboek en
       samenvatting erbij.
 
