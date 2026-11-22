@@ -19,6 +19,8 @@ data class Stop(
     val mode: Mode = Mode.Car,
     /** The first day there, for a stop read from a server. */
     val start: LocalDate? = null,
+    /** Its id on the server, so changes in the planner can be saved. */
+    val id: String? = null,
 )
 
 /** How a leg is travelled, in the order a tap on the pill walks through them. */

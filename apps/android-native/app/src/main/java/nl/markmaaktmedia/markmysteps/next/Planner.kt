@@ -69,7 +69,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 /*
  * The route planner, the second tab of a trip, as in the web app: how many of
@@ -97,7 +99,7 @@ fun Mode.icon(): List<Shape24> = when (this) {
 private fun Mode.next(): Mode = Mode.entries[(ordinal + 1) % Mode.entries.size]
 
 /** One row of the plan, with a key that stays the same while it moves. */
-private class PlanStop(val key: Int, val name: String, val flag: String, val at: LonLat, nights: Int, mode: Mode) {
+private class PlanStop(val key: Int, val name: String, val flag: String, val at: LonLat, nights: Int, mode: Mode, val id: String? = null) {
     var nights by mutableStateOf(nights)
     var mode by mutableStateOf(mode)
 }
@@ -124,13 +126,19 @@ fun Planner(trip: Trip, dark: Boolean) {
     val cs = MaterialTheme.colorScheme
     val color = legibleColor(trip.color, dark)
     val stops = remember(trip.id) {
-        mutableStateListOf<PlanStop>().apply { trip.stops.forEachIndexed { i, s -> add(PlanStop(i, s.name, s.flag, s.at, s.nights, s.mode)) } }
+        mutableStateListOf<PlanStop>().apply { trip.stops.forEachIndexed { i, s -> add(PlanStop(i, s.name, s.flag, s.at, s.nights, s.mode, s.id)) } }
     }
     var nextKey by remember { mutableStateOf(trip.stops.size) }
     var outbound by remember(trip.id) { mutableStateOf(trip.outbound) }
     var back by remember(trip.id) { mutableStateOf(trip.back) }
     // A trip of 19 days has 18 nights.
     val totalNights = (trip.days - 1).coerceAtLeast(1)
+    // A trip from the server saves every change straight away, as the web planner does; a failure says so.
+    val live = trip.remoteId != null
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var saveError by remember { mutableStateOf<String?>(null) }
+    val nightJobs = remember { HashMap<Int, kotlinx.coroutines.Job>() }
+    fun save(block: suspend () -> Unit) { if (live) scope.launch { runCatching { block() }.onSuccess { saveError = null }.onFailure { saveError = "Opslaan mislukt" } } }
     val planned = stops.sumOf { it.nights }
 
     // The first day and month of the trip, from the first stop's dates.
@@ -191,7 +199,7 @@ fun Planner(trip: Trip, dark: Boolean) {
                         .pointerInput(stop.key) {
                             detectDragGesturesAfterLongPress(
                                 onDragStart = { dragKey = stop.key; dragY = 0f; haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
-                                onDragEnd = { dragKey = null; dragY = 0f },
+                                onDragEnd = { dragKey = null; dragY = 0f; save { Remote.reorderStops(trip, stops.mapNotNull { it.id }) } },
                                 onDragCancel = { dragKey = null; dragY = 0f },
                                 onDrag = { change, amount ->
                                     change.consume()
@@ -215,19 +223,32 @@ fun Planner(trip: Trip, dark: Boolean) {
                     if (index > 0 || outbound != null) {
                         val prev = stops.getOrNull(index - 1)
                         val km = prev?.let { (angle(it.at, stop.at) * 111.2 * if (stop.mode == Mode.Flight) 1.0 else 1.25).roundToInt() }
-                        Connector(stop.mode, km, color, showMode = index > 0, onMode = { stop.mode = stop.mode.next() })
+                        Connector(stop.mode, km, color, showMode = index > 0, onMode = {
+                            stop.mode = stop.mode.next()
+                            stop.id?.let { id -> save { Remote.updateStop(trip, id, mode = stop.mode) } }
+                        })
                     }
                     StopRow(
                         name = stop.name, flag = stop.flag, dates = dates, nights = stop.nights, index = index,
                         color = color, dark = dark, lifted = lift,
-                        onNights = { stop.nights = (stop.nights + it).coerceIn(0, 60) },
+                        onNights = {
+                            stop.nights = (stop.nights + it).coerceIn(0, 60)
+                            // Taps in a row become one save, after a short pause.
+                            stop.id?.let { id ->
+                                nightJobs[stop.key]?.cancel()
+                                nightJobs[stop.key] = scope.launch { kotlinx.coroutines.delay(600); runCatching { Remote.updateStop(trip, id, nights = stop.nights) }.onFailure { saveError = "Opslaan mislukt" } }
+                            }
+                        },
                         onRemove = { visible.targetState = false },
                     )
                 }
             }
             // Gone from the list only once it has folded away.
             if (visible.isIdle && !visible.currentState) {
-                androidx.compose.runtime.LaunchedEffect(Unit) { stops.remove(stop) }
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    stops.remove(stop)
+                    stop.id?.let { id -> save { Remote.deleteStop(trip, id) } }
+                }
             }
         }
     }
@@ -237,9 +258,12 @@ fun Planner(trip: Trip, dark: Boolean) {
         LegCard("Terug", leg, onMode = { back = leg.copy(mode = leg.mode.next()) })
     }
 
-    AddStop(trip, taken = stops.map { it.name }.toSet(), onAdd = { name, flag, at ->
-        stops.add(PlanStop(nextKey, name, flag, at, 1, Mode.Car))
+    if (saveError != null) Text(saveError ?: "", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.error), modifier = Modifier.padding(top = 12.dp, start = 4.dp))
+    AddStop(trip, taken = stops.map { it.name }.toSet(), onAdd = { place ->
+        val id = java.util.UUID.randomUUID().toString()
+        stops.add(PlanStop(nextKey, place.name, Remote.flag(place.countryCode), place.at, 1, Mode.Car, if (live) id else null))
         nextKey += 1
+        save { Remote.addStop(trip, id, place, 1) }
     })
 }
 
@@ -391,15 +415,24 @@ private fun Stepper(nights: Int, onChange: (Int) -> Unit) {
 
 /** A search field for a new stop; places that match open underneath, one tap adds it. */
 @Composable
-private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (String, String, LonLat) -> Unit) {
+private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (Remote.Place) -> Unit) {
     val cs = MaterialTheme.colorScheme
     var query by remember { mutableStateOf("") }
     val flag = trip.stops.firstOrNull()?.flag
-    val matches = Places.filter { (name, f, _) ->
+    // Signed in, real towns from the place search; the demo picks from a few it knows.
+    val live by androidx.compose.runtime.produceState<List<Remote.Place>?>(null, query, trip.remoteId) {
+        value = if (trip.remoteId == null || query.isBlank()) null else { kotlinx.coroutines.delay(300); Remote.searchPlaces(query) }
+    }
+    val matches = live?.filter { it.name !in taken } ?: Places.filter { (name, f, _) ->
         name !in taken && if (query.isBlank()) f == flag else name.contains(query.trim(), ignoreCase = true)
-    }.take(4)
+    }.take(4).map { (name, f, at) -> Remote.Place(name, "", null, at).also { } }.let { list ->
+        if (trip.remoteId != null && query.isBlank()) emptyList() else list
+    }
 
-    Column(Modifier.padding(top = 20.dp).fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(cs.surfaceContainerLow).padding(14.dp)) {
+    // The card scrolls itself into view above the keyboard as places come in.
+    val into = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    androidx.compose.runtime.LaunchedEffect(matches.size, query.isNotEmpty()) { if (query.isNotEmpty()) { kotlinx.coroutines.delay(120); into.bringIntoView() } }
+    Column(Modifier.padding(top = 20.dp).fillMaxWidth().bringIntoViewRequester(into).clip(RoundedCornerShape(28.dp)).background(cs.surfaceContainerLow).padding(14.dp)) {
         Text("Nieuwe stop", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
         Row(
             Modifier.fillMaxWidth().height(52.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp),
@@ -408,7 +441,7 @@ private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (String, String, LonL
             LineIcon(Glyphs.search, cs.onSurfaceVariant, size = 20.dp)
             Box(Modifier.weight(1f).padding(start = 12.dp)) {
                 if (query.isEmpty()) {
-                    Text("Zoek een stad, bijv. Mestia", style = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurfaceVariant))
+                    Text(if (trip.remoteId != null) "Zoek een stad, bijv. Hanoi" else "Zoek een stad, bijv. Mestia", style = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurfaceVariant))
                 }
                 BasicTextField(
                     query, { query = it }, singleLine = true,
@@ -419,20 +452,24 @@ private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (String, String, LonL
             }
         }
         Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            matches.forEachIndexed { i, (name, f, at) ->
+            matches.forEachIndexed { i, place ->
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(if (i == 0) 18.dp else 6.dp, if (i == 0) 18.dp else 6.dp, if (i == matches.lastIndex) 18.dp else 6.dp, if (i == matches.lastIndex) 18.dp else 6.dp))
-                        .background(cs.surfaceContainer).clickable { onAdd(name, f, at); query = "" }.padding(horizontal = 14.dp, vertical = 11.dp),
+                        .background(cs.surfaceContainer).clickable { onAdd(place); query = "" }.padding(horizontal = 14.dp, vertical = 11.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("$f  $name", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
+                    val shownFlag = place.countryCode?.let { Remote.flag(it) } ?: Places.firstOrNull { it.first == place.name }?.second ?: flag ?: ""
+                    Column(Modifier.weight(1f)) {
+                        Text("$shownFlag  ${place.name}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface))
+                        if (place.region.isNotBlank()) Text(place.region, maxLines = 1, style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant))
+                    }
                     LineIcon(Glyphs.plus, cs.primary, size = 18.dp, stroke = 2.4f)
                 }
             }
         }
-        if (query.isNotBlank() && matches.isEmpty()) {
+        if (query.isNotBlank() && matches.isEmpty() && trip.remoteId == null) {
             Button(
-                onClick = { onAdd(query.trim(), flag ?: "📍", trip.stops.lastOrNull()?.at ?: trip.route.lastOrNull() ?: HomeAirport); query = "" },
+                onClick = { onAdd(Remote.Place(query.trim(), "", null, trip.stops.lastOrNull()?.at ?: trip.route.lastOrNull() ?: HomeAirport)); query = "" },
                 shapes = ButtonDefaults.shapes(),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                 modifier = Modifier.padding(top = 10.dp),

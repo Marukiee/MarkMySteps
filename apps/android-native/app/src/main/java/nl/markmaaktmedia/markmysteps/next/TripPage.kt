@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -159,6 +160,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                 }
                 Spacer(Modifier.height(24.dp))
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+                // Room for the keyboard, so a field near the end can scroll above it.
+                Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.ime))
             }
         }
 

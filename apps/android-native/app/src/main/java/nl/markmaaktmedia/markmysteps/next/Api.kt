@@ -292,6 +292,47 @@ object Remote {
 
     suspend fun removeMember(trip: Trip, userId: String) { Api.send("DELETE", "/api/trips/${trip.remoteId}/members/$userId") }
 
+    private fun modeName(m: Mode) = when (m) { Mode.Car -> "GROUND"; Mode.Train -> "TRAIN"; Mode.Bus -> "BUS"; Mode.Boat -> "BOAT"; Mode.Flight -> "FLIGHT" }
+
+    suspend fun updateStop(trip: Trip, stopId: String, nights: Int? = null, mode: Mode? = null) {
+        Api.send("PATCH", "/api/trips/${trip.remoteId}/stops/$stopId", JSONObject().apply {
+            nights?.let { put("nights", it) }; mode?.let { put("travelMode", modeName(it)) }
+        })
+    }
+
+    suspend fun deleteStop(trip: Trip, stopId: String) { Api.send("DELETE", "/api/trips/${trip.remoteId}/stops/$stopId") }
+
+    suspend fun reorderStops(trip: Trip, ids: List<String>) {
+        Api.send("PUT", "/api/trips/${trip.remoteId}/stops/order", JSONObject().put("stopIds", JSONArray(ids)))
+    }
+
+    suspend fun addStop(trip: Trip, id: String, place: Place, nights: Int) {
+        Api.send("POST", "/api/trips/${trip.remoteId}/stops", JSONObject().apply {
+            put("id", id); put("name", place.name); put("nights", nights)
+            put("latitude", place.at.second); put("longitude", place.at.first)
+            place.countryCode?.let { put("countryCode", it) }
+        })
+    }
+
+    data class Place(val name: String, val region: String, val countryCode: String?, val at: LonLat)
+
+    /** Towns by name, from Photon like the web app (only what was typed leaves the phone). */
+    suspend fun searchPlaces(query: String): List<Place> = withContext(Dispatchers.IO) {
+        if (query.trim().length < 2) return@withContext emptyList()
+        val url = URL("https://photon.komoot.io/api/?limit=8&lang=en&osm_tag=place&q=" + java.net.URLEncoder.encode(query.trim(), "UTF-8"))
+        runCatching {
+            val c = (url.openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+            val o = JSONObject(c.inputStream.bufferedReader().readText())
+            val f = o.getJSONArray("features")
+            (0 until f.length()).map { f.getJSONObject(it) }.mapNotNull { x ->
+                val p = x.getJSONObject("properties"); val g = x.getJSONObject("geometry").getJSONArray("coordinates")
+                val name = p.optString("name").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                Place(name, listOf(p.optString("state"), p.optString("country")).filter { it.isNotBlank() }.joinToString(", "),
+                    p.optString("countrycode").takeIf { it.isNotBlank() }?.uppercase(), g.getDouble(0) to g.getDouble(1))
+            }.distinctBy { it.name + it.region }.take(6)
+        }.getOrDefault(emptyList())
+    }
+
     suspend fun friends(): List<Friend> {
         val a = JSONArray(Api.get("/api/users/friends"))
         return (0 until a.length()).map { a.getJSONObject(it) }.map {
@@ -429,6 +470,7 @@ object Remote {
                 dates = if (nights == 0) "${from.dayOfMonth} ${MonthsShort[from.monthValue - 1]}" else range(from, day, withYear = false),
                 mode = mode,
                 start = from,
+                id = o.optString("id"),
             )
         }
         return stops to (outbound to back)
