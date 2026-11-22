@@ -25,6 +25,7 @@ struct TripView: View {
     @State private var viewerCurrent = ""
     @State private var titleShown = false
     @State private var pageHeight: CGFloat = 800
+    @State private var topInset: CGFloat = 62
     @State private var pastMap = false
     /// The up button steps aside while the keyboard is up, so it never covers a field's suggestions.
     @State private var keyboardUp = false
@@ -34,7 +35,7 @@ struct TripView: View {
     @State private var mapPosition: MapCameraPosition
     @State private var mapSize: CGSize = .zero
     /// Room kept free on the map: the bar with the buttons on top, the sheet's edge and the expand button below.
-    private static let mapInsets = EdgeInsets(top: 150, leading: 40, bottom: 70, trailing: 40)
+    private static let mapInsets = EdgeInsets(top: 130, leading: 40, bottom: 70, trailing: 40)
     @Namespace private var ns
 
     enum TripTab: Hashable { case timeline, planner }
@@ -47,6 +48,10 @@ struct TripView: View {
         _stopsKnown = State(initialValue: base.remoteId == nil)
         _mapPosition = State(initialValue: .rect(base.mapRect()))
     }
+
+    /// The map's height: as on Android a bit under half the screen, and low enough that the Tijdlijn and
+    /// Routeplanner tabs stand clear above the floating tab bar when the trip opens.
+    private var mapHeight: CGFloat { max(330, min(pageHeight * 0.46, pageHeight - 500)) }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -107,6 +112,10 @@ struct TripView: View {
             .scrollContentBackground(.hidden)
             .environment(\.defaultMinListRowHeight, 0)
             .background(Brand.paper)
+            // No soft blur of the system's scroll edge: over the map it drew a pale band behind the buttons, and
+            // under it the day headings ran through the title. A solid bar comes in instead (below).
+            .scrollEdgeEffectHidden(true, for: .top)
+            .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { if $0 > 0 { topInset = $0 } }
             .ignoresSafeArea(.container, edges: .top)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
             // While the viewer pages, the timeline behind it keeps that photo in view.
@@ -115,13 +124,25 @@ struct TripView: View {
                       let row = Timeline.rowId(m, in: days) else { return }
                 proxy.scrollTo(row, anchor: .center)
             }
+            // The bar turns solid, and the name comes into it, once the page's sheet reaches the bar; while the map
+            // is under it there is no background at all.
             .onScrollGeometryChange(for: Bool.self) { geo in
-                geo.contentOffset.y + geo.contentInsets.top > 300
+                geo.contentOffset.y + geo.contentInsets.top > mapHeight - 30 - (topInset + 58)
             } action: { _, shown in
                 withAnimation(.easeOut(duration: 0.2)) { titleShown = shown }
             }
+            .overlay(alignment: .top) {
+                // The bar behind the buttons: the page colour, closed at the bottom with a hairline, so nothing
+                // runs through the title.
+                Brand.paper
+                    .frame(height: topInset + 58)
+                    .overlay(alignment: .bottom) { Brand.line.frame(height: 0.5) }
+                    .ignoresSafeArea(.container, edges: .top)
+                    .opacity(titleShown ? 1 : 0)
+                    .allowsHitTesting(false)
+            }
             .onScrollGeometryChange(for: Bool.self) { geo in
-                geo.contentOffset.y + geo.contentInsets.top > max(340, pageHeight * 0.5) + 80
+                geo.contentOffset.y + geo.contentInsets.top > mapHeight + 80
             } action: { _, past in
                 withAnimation(.calm) { pastMap = past }
             }
@@ -331,7 +352,7 @@ struct TripView: View {
     private var mapHeader: some View {
         // The map moves under your finger without the page scrolling along, with your photos on it.
         TripMap(trip: trip, interactive: true, position: $mapPosition, photos: mapPhotos, onPhoto: openFromMap)
-            .frame(height: max(380, pageHeight * 0.52))
+            .frame(height: mapHeight)
             // The camera frames the trip in the part of the map left free by the bar above and the sheet below.
             .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
                 guard size != mapSize else { return }
@@ -580,13 +601,14 @@ struct TripMap: View {
             }
             .annotationTitles(.hidden)
         }
-        ForEach(trip.mapStops, id: \.number) { item in
+        let groups = photoGroups
+        ForEach(visibleStops(groups), id: \.number) { item in
             Annotation(item.stop.name, coordinate: item.stop.at.coordinate, anchor: .center) {
                 StopDot(number: item.number, color: color, upcoming: trip.upcoming)
             }
             .annotationTitles(interactive ? .automatic : .hidden)
         }
-        ForEach(photoGroups, id: \.key) { group in
+        ForEach(groups, id: \.key) { group in
             Annotation("", coordinate: CLLocationCoordinate2D(latitude: group.first.lat ?? 0, longitude: group.first.lon ?? 0), anchor: .center) {
                 PhotoPin(media: group.first, count: group.count, ring: color) { tapped(group) }
             }
@@ -600,16 +622,41 @@ struct TripMap: View {
         let count: Int
     }
 
+    /// Degrees across one photo pin and a little air at the camera's zoom level, rounded the way MapLibre's
+    /// levels would be so a small pan or pinch never regroups anything.
+    private var pinReach: Double {
+        let delta = span?.longitudeDelta ?? trip.mapSpanDegrees
+        let level = (log2(360 * Double(width) / (512 * max(delta, 1e-6)))).rounded()
+        return 52 * 360 / (512 * pow(2, level))
+    }
+
+    private static func mercY(_ lat: Double) -> Double { log(tan(.pi / 4 + max(-85, min(85, lat)) * Geo.rad / 2)) / Geo.rad }
+
+    /// The numbered stops, without the ones a photo pin would cover: a number half under a round photo (and its
+    /// count) reads as a mistake, and the photo already marks the place.
+    private func visibleStops(_ groups: [PhotoGroup]) -> [(number: Int, stop: Stop)] {
+        guard !groups.isEmpty else { return trip.mapStops }
+        // Half a pin, half a dot and the count badge, in points at the camera's real zoom (not the rounded
+        // level of the grouping, which can make a pin count up to twice as wide).
+        let delta = span?.longitudeDelta ?? trip.mapSpanDegrees
+        let near = 38 * delta / Double(max(width, 1))
+        let pins = groups.compactMap { g -> (Double, Double)? in
+            guard let lat = g.first.lat, let lon = g.first.lon else { return nil }
+            return (lon, TripMap.mercY(lat))
+        }
+        return trip.mapStops.filter { item in
+            let x = item.stop.at.lon, y = TripMap.mercY(item.stop.at.lat)
+            return !pins.contains { abs($0.0 - x) < near && abs($0.1 - y) < near }
+        }
+    }
+
     /// The photos grouped for the zoom level, the way MapLibre's levels would (rounded, so a small pan or pinch
     /// never regroups them): a photo joins the first group whose pin it would overlap, so the round
     /// thumbnails stand apart instead of piling up.
     private var photoGroups: [PhotoGroup] {
         guard !photos.isEmpty else { return [] }
-        let delta = span?.longitudeDelta ?? trip.mapSpanDegrees
-        let level = (log2(360 * Double(width) / (512 * max(delta, 1e-6)))).rounded()
-        // Degrees across one pin and a little air at this level.
-        let reach = 52 * 360 / (512 * pow(2, level))
-        func mercY(_ lat: Double) -> Double { log(tan(.pi / 4 + max(-85, min(85, lat)) * Geo.rad / 2)) / Geo.rad }
+        let reach = pinReach
+        func mercY(_ lat: Double) -> Double { TripMap.mercY(lat) }
         var groups: [(x: Double, y: Double, first: Media, count: Int)] = []
         for m in photos {
             guard let lat = m.lat, let lon = m.lon else { continue }
