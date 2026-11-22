@@ -38,8 +38,9 @@ struct TripView: View {
     @State private var dayRoute: [[LonLat]] = []
     @State private var serverDays: [(day: Date, points: Int, photos: Int)] = []
     @State private var mapSize: CGSize = .zero
-    /// Room kept free on the map: the bar with the buttons on top, the sheet's edge and the expand button below.
-    private static let mapInsets = EdgeInsets(top: 130, leading: 40, bottom: 70, trailing: 40)
+    /// Room kept free on the map: the bar with the buttons on top, the sheet's edge, the day pill and the expand
+    /// button below, and half a photo pin with its count on every side (as Android's 52 dp padding).
+    private static let mapInsets = EdgeInsets(top: 146, leading: 48, bottom: 104, trailing: 48)
     @Namespace private var ns
 
     enum TripTab: Hashable { case timeline, planner }
@@ -91,9 +92,16 @@ struct TripView: View {
                         viewerCurrent = item.start.id
                         viewer = item
                     }, onPlace: { name in
-                        // A place tile goes to the first day spent there.
-                        if let i = days.firstIndex(where: { $0.day.stop?.name == name }) {
-                            withAnimation(.smooth) { proxy.scrollTo(i == 0 ? "days" : "day\(i)", anchor: UnitPoint(x: 0.5, y: 0.12)) }
+                        // A place tile goes to the first day spent there, its heading just under the solid bar. Rows
+                        // further down only take their real height once they come near, so a second pass lands it
+                        // exactly once the first one has brought them in.
+                        guard let i = days.firstIndex(where: { $0.day.stop?.name == name }) else { return }
+                        Haptic.tap()
+                        let id = i == 0 ? "days" : "day\(i)"
+                        let anchor = UnitPoint(x: 0.5, y: min(0.5, (topInset + 58 + 10) / max(pageHeight, 1)))
+                        withAnimation(.smooth(duration: 0.5)) { proxy.scrollTo(id, anchor: anchor) }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                            withAnimation(.smooth(duration: 0.25)) { proxy.scrollTo(id, anchor: anchor) }
                         }
                     }, stories: stories)
                 case .planner:
@@ -536,7 +544,8 @@ struct FactsRow: View {
             let nonGuests = trip.members.filter { $0.role != "GUEST" }.count
             return chosen.map { f in
                 switch f {
-                case "km": return (trip.km.map { Format.number($0) } ?? "0", "kilometer")
+                // No "0 kilometer": a trip without a measured distance leaves the number empty.
+                case "km": return (trip.km.flatMap { $0 > 0 ? Format.number($0) : nil }, "kilometer")
                 case "days": return ("\(trip.days)", trip.days == 1 ? "dag" : "dagen")
                 case "stops": return (stopsKnown ? "\(stops)" : nil, stops == 1 ? "stop" : "stops")
                 case "photos": return (photos.map { Format.number($0) } ?? (trip.remoteId == nil ? "\(trip.photos)" : nil), "foto's")
@@ -561,15 +570,18 @@ struct FactsRow: View {
             ]
             return Array(list.compactMap { $0 }.prefix(4))
         }
-        if trip.remoteId != nil && (!stopsKnown || photos == nil) { return Array(repeating: (nil, " "), count: 4) }
+        // As on Android: while the page's own stops and photos are on their way, the tiles already stand with their
+        // label, filled from what the trip list knows; only a number nobody knows yet waits as empty space.
+        let photosWaiting = trip.remoteId != nil && photos == nil
         let shots = photos ?? trip.photos
         let list: [(String?, String)?] = [
             trip.km.flatMap { $0 > 0 ? (Format.number($0), "kilometer") : nil },
             trip.days > 0 ? ("\(trip.days)", trip.days == 1 ? "dag" : "dagen") : nil,
-            stops > 1 ? ("\(stops)", "stops") : nil,
-            shots > 0 ? (Format.number(shots), shots == 1 ? "foto" : "foto's") : nil,
+            !stopsKnown ? (nil, "stops") : (stops > 1 ? ("\(stops)", "stops") : nil),
+            photosWaiting ? (trip.photos > 0 ? Format.number(trip.photos) : nil, trip.photos == 1 ? "foto" : "foto's")
+                : (shots > 0 ? (Format.number(shots), shots == 1 ? "foto" : "foto's") : nil),
             travellers > 1 ? ("\(travellers)", "reizigers") : nil,
-            countryFact,
+            stopsKnown ? countryFact : nil,
         ]
         return Array(list.compactMap { $0 }.prefix(4))
     }
@@ -581,20 +593,16 @@ struct FactsRow: View {
         return HStack(spacing: 4) {
             ForEach(Array(items.enumerated()), id: \.offset) { i, item in
                 VStack(alignment: .leading, spacing: 2) {
-                    Group {
-                        if let value = item.0 {
-                            Text(value)
-                                .font(.outfit(21, 700))
-                                .tracking(-0.4)
-                                .foregroundStyle(Brand.ink)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                                .contentTransition(.numericText())
-                        } else {
-                            // Waiting for the server: a quiet bar in the number's place, never a wrong 0.
-                            Capsule().fill(Brand.ink.opacity(0.08)).frame(width: 34, height: 16).padding(.vertical, 5)
-                        }
-                    }
+                    // Waiting for the server: empty space of the number's exact height, no grey block and never a
+                    // wrong 0; the number fades in there the moment it is known.
+                    Text(item.0 ?? "0")
+                        .font(.outfit(21, 700))
+                        .tracking(-0.4)
+                        .foregroundStyle(Brand.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .opacity(item.0 == nil ? 0 : 1)
+                        .contentTransition(.numericText())
                     Text(item.1).font(.inter(12, 500)).foregroundStyle(Brand.inkSoft).lineLimit(2)
                     Spacer(minLength: 0)
                 }
@@ -872,12 +880,15 @@ extension Trip {
         return out
     }
 
-    /// Everything the map draws: the stops (or the route) and the flights' bows, so no arc is cut off.
+    /// What frames the map, as Android's framePoints: the trip itself decides the view. With two stops or more the
+    /// stops alone (the recorded route usually starts and ends at home, the drive to the airport, which pulled
+    /// Amsterdam in and left Morocco small in a corner); otherwise the stops and the route, and only a trip that is
+    /// nothing but flights is framed by its bows.
     private var mapPoints: [LonLat] {
-        // As on Android: the stops, the recorded route and the bows together.
-        let base = stops.map(\.at) + route
-        let bows = pieces.bows.flatMap { Geo.flightArc($0.0, $0.1, steps: 12) }
-        return base + bows
+        let at = stops.map(\.at)
+        let own = at.count >= 2 ? at : at + route
+        if own.count >= 2 { return own }
+        return own + pieces.bows.flatMap { Geo.flightArc($0.0, $0.1, steps: 12) }
     }
 
     /// The part of the world the trip covers, with room on every side; `bottomRoom` adds a share of the height at
