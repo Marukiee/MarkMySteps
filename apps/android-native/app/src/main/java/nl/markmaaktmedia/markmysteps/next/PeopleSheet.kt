@@ -90,8 +90,8 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake
     var error by remember { mutableStateOf<String?>(null) }
     var removing by remember { mutableStateOf<Member?>(null) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = cs.surfaceContainerLow) {
-        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
+    AppSheet(onDismiss = onDismiss) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
             Text("Mensen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             Text(
                 "Reisgenoten waren erbij en tellen de reis mee in hun statistieken. Gasten kijken alleen mee: voor hen telt deze reis niet.",

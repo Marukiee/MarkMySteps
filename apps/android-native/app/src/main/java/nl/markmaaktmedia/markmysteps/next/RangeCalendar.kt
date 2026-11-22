@@ -56,7 +56,7 @@ import java.time.YearMonth
  */
 
 private val Months = listOf("januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december")
-private val Weekdays = listOf("ma", "di", "wo", "do", "vr", "za", "zo")
+private val Weekdays = listOf("MA", "DI", "WO", "DO", "VR", "ZA", "ZO")
 
 @Composable
 fun RangeCalendar(start: LocalDate?, end: LocalDate?, onChange: (LocalDate?, LocalDate?) -> Unit, modifier: Modifier = Modifier) {
@@ -67,26 +67,25 @@ fun RangeCalendar(start: LocalDate?, end: LocalDate?, onChange: (LocalDate?, Loc
     val motion = MaterialTheme.motionScheme
 
     Column(modifier.fillMaxWidth()) {
-        // The month and the arrows to go back and forth.
-        Row(Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        // The month in the middle with an arrow on either side, as the old calendar had it.
+        Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            @Composable
+            fun Arrow(step: Long) = Box(
+                Modifier.size(44.dp).clip(CircleShape)
+                    .pointerInput(step) { awaitEachGesture { awaitFirstDown(); val up = waitForUpOrCancellation(); if (up != null) { haptics.performHapticFeedback(HapticFeedbackType.ContextClick); month = month.plusMonths(step) } } },
+                contentAlignment = Alignment.Center,
+            ) { LineIcon(if (step < 0) listOf(P("m15 18-6-6 6-6")) else Glyphs.chevronRight, cs.onSurfaceVariant, size = 22.dp, stroke = 2.2f) }
+            Arrow(-1)
             AnimatedContent(month, transitionSpec = {
                 val dir = if (targetState > initialState) 1 else -1
                 (slideInHorizontally(motion.defaultSpatialSpec()) { w -> dir * w / 3 } + fadeIn(motion.defaultEffectsSpec())) togetherWith
                     (slideOutHorizontally(motion.defaultSpatialSpec()) { w -> -dir * w / 3 } + fadeOut(motion.fastEffectsSpec()))
-            }, label = "monthName", modifier = Modifier.weight(1f)) { m ->
-                Text("${Months[m.monthValue - 1]} ${m.year}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 19.sp, color = cs.onSurface))
+            }, label = "monthName", modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) { m ->
+                Text("${Months[m.monthValue - 1]} ${m.year}", textAlign = TextAlign.Center, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 19.sp, color = cs.onSurface), modifier = Modifier.fillMaxWidth())
             }
-            listOf(-1L, 1L).forEach { step ->
-                Box(
-                    Modifier.padding(start = 6.dp).size(42.dp).clip(CircleShape).background(cs.surfaceContainerHigh)
-                        .pointerInput(step) { awaitEachGesture { awaitFirstDown(); val up = waitForUpOrCancellation(); if (up != null) { haptics.performHapticFeedback(HapticFeedbackType.ContextClick); month = month.plusMonths(step) } } },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    LineIcon(if (step < 0) listOf(P("m15 18-6-6 6-6")) else Glyphs.chevronRight, cs.onSurface, size = 20.dp, stroke = 2.2f)
-                }
-            }
+            Arrow(1)
         }
-        // The weekday letters: small, lower case and quiet, so they read as labels and not as days.
+        // The weekdays: small capitals in a quiet tone, so they read as labels and not as days.
         Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
             Weekdays.forEach { d ->
                 Text(d, textAlign = TextAlign.Center, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 12.sp, letterSpacing = 0.04.sp, color = cs.onSurfaceVariant.copy(alpha = 0.75f)), modifier = Modifier.weight(1f))

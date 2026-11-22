@@ -132,7 +132,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     Box(Modifier.fillMaxSize().background(cs.background)) {
         Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             Box(Modifier.fillMaxWidth().height(mapH)) {
-                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 30)
+                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 30, topInsetDp = 112, photos = media.orEmpty(), onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } })
                 // Open the map full screen, from its own corner as on the web.
                 // Fades away as the map scrolls under the top buttons, so it never overlaps them.
                 Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 44.dp).graphicsLayer { alpha = (1f - scroll.value / (mapH.toPx() * 0.45f)).coerceIn(0f, 1f) }) {
@@ -212,19 +212,26 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 )
                 // Their own buttons, as on the web: people and sharing, the map's settings, the trip's settings.
                 // One connected group, as Material 3 Expressive does it: round on the outside, tight where they meet.
-                val buttons = buildList<Pair<() -> Unit, @Composable () -> Unit>> {
-                    if (trip.remoteId != null) add({ people = true } to { LineIcon(Glyphs.friends, cs.onSurface, size = 22.dp, stroke = 1.9f) })
-                    add({ mapSheet = true } to { LineIcon(listOf(P("M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5Z"), P("M9 4v13.5"), P("M15 6.5V20")), cs.onSurface, size = 21.dp, stroke = 1.9f) })
-                    if (trip.remoteId != null) add({ tripSheet = true } to { LineIcon(Glyphs.settings, cs.onSurface, size = 21.dp, stroke = 1.8f) })
+                // The one whose panel is open turns into an orange pill, and back when the panel closes.
+                data class TopButton(val open: Boolean, val go: () -> Unit, val icon: List<Shape24>, val size: androidx.compose.ui.unit.Dp, val stroke: Float)
+                val buttons = buildList {
+                    if (trip.remoteId != null) add(TopButton(people, { people = true }, Glyphs.friends, 22.dp, 1.9f))
+                    add(TopButton(mapSheet, { mapSheet = true }, listOf(P("M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5Z"), P("M9 4v13.5"), P("M15 6.5V20")), 21.dp, 1.9f))
+                    if (trip.remoteId != null) add(TopButton(tripSheet, { tripSheet = true }, Glyphs.settings, 21.dp, 1.8f))
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                    buttons.forEachIndexed { i, (go, icon) ->
+                Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    buttons.forEachIndexed { i, b ->
+                        val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.Dp>()
                         val outer = 24.dp; val inner = 8.dp
-                        val shape = RoundedCornerShape(
-                            topStart = if (i == 0) outer else inner, bottomStart = if (i == 0) outer else inner,
-                            topEnd = if (i == buttons.lastIndex) outer else inner, bottomEnd = if (i == buttons.lastIndex) outer else inner,
-                        )
-                        Box(Modifier.size(width = 54.dp, height = 48.dp).clip(shape).background(cs.surfaceContainerHighest).press(go), contentAlignment = Alignment.Center) { icon() }
+                        val tl by androidx.compose.animation.core.animateDpAsState(if (b.open || i == 0) outer else inner, spatial, label = "tl")
+                        val tr by androidx.compose.animation.core.animateDpAsState(if (b.open || i == buttons.lastIndex) outer else inner, spatial, label = "tr")
+                        val w by androidx.compose.animation.core.animateDpAsState(if (b.open) 64.dp else 54.dp, spatial, label = "w")
+                        val bg by androidx.compose.animation.animateColorAsState(if (b.open) cs.primary else cs.surfaceContainerHighest, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "bg")
+                        val fg by androidx.compose.animation.animateColorAsState(if (b.open) cs.onPrimary else cs.onSurface, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "fg")
+                        val shape = RoundedCornerShape(topStart = tl, bottomStart = tl, topEnd = tr, bottomEnd = tr)
+                        Box(Modifier.size(width = w, height = 48.dp).clip(shape).background(bg).press(b.go), contentAlignment = Alignment.Center) {
+                            LineIcon(b.icon, fg, size = b.size, stroke = b.stroke)
+                        }
                     }
                 }
             }
@@ -259,7 +266,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 // Clear of the clock and the cross at the top and of the gesture bar at the bottom.
                 val topDp = with(density) { WindowInsets.statusBars.getTop(this).toDp().value.toInt() } + 72
                 val bottomDp = with(density) { WindowInsets.navigationBars.getBottom(this).toDp().value.toInt() }
-                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = bottomDp, topInsetDp = topDp, fadeIn = true)
+                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = bottomDp, topInsetDp = topDp, fadeIn = true, photos = media.orEmpty(), onPhoto = { m -> bigMap = false; viewing = media?.indexOf(m)?.takeIf { it >= 0 } })
                 Column {
                     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                     Box(Modifier.padding(12.dp)) {

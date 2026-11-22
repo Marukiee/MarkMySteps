@@ -1,6 +1,16 @@
 package nl.markmaaktmedia.markmysteps.next
 
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.graphicsLayer
 
@@ -65,7 +75,7 @@ private const val DARK = "https://tiles.openfreemap.org/styles/dark"
 private const val SATELLITE = """{"version":8,"sources":{"sat":{"type":"raster","tiles":["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],"tileSize":256,"maxzoom":19}},"layers":[{"id":"sat","type":"raster","source":"sat"}]}"""
 
 @Composable
-fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInsetDp: Int = 60, topInsetDp: Int = 96, fadeIn: Boolean = false) {
+fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInsetDp: Int = 60, topInsetDp: Int = 96, fadeIn: Boolean = false, photos: List<Media> = emptyList(), onPhoto: (Media) -> Unit = {}) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val density = LocalDensity.current.density
@@ -108,16 +118,29 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
     // Fitting again whenever the view changes size: a fit made before the view had its final size framed the
     // route wrongly, cut off at the edges.
     val fit = androidx.compose.runtime.remember { arrayOfNulls<() -> Unit>(1) }
+    // The map takes the finger itself, also inside a scrolling page: a drag on it moves the map, not the page.
+    DisposableEffect(view) {
+        view.setOnTouchListener { v, e -> if (e.actionMasked == android.view.MotionEvent.ACTION_DOWN) v.parent?.requestDisallowInterceptTouchEvent(true); false }
+        onDispose { view.setOnTouchListener(null) }
+    }
+    var mapRef by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<org.maplibre.android.maps.MapLibreMap?>(null) }
+    var cameraTick by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     DisposableEffect(view) {
         val l = android.view.View.OnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob -> if (r - l != or - ol || b - t != ob - ot) fit[0]?.invoke() }
         view.addOnLayoutChangeListener(l)
         if (fadeIn) view.addOnDidFinishLoadingMapListener { ready = true }
         onDispose { view.removeOnLayoutChangeListener(l) }
     }
-    AndroidView(factory = { view }, modifier = modifier.graphicsLayer { alpha = shown }, update = { map ->
+    androidx.compose.foundation.layout.Box(modifier.graphicsLayer { alpha = shown }) {
+    AndroidView(factory = { view }, modifier = Modifier.matchParentSize(), update = { map ->
         if (map.tag == key) return@AndroidView
         map.tag = key
         map.getMapAsync { m ->
+            if (mapRef == null) {
+                mapRef = m
+                m.addOnCameraMoveListener { cameraTick++ }
+                m.addOnCameraIdleListener { cameraTick++ }
+            }
             m.uiSettings.isRotateGesturesEnabled = false
             m.uiSettings.isTiltGesturesEnabled = false
             m.uiSettings.isCompassEnabled = false
@@ -128,6 +151,7 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
                 else -> Style.Builder().fromUri("https://tiles.openfreemap.org/styles/$styleId")
             }
             m.setStyle(builder) { style ->
+                dutchLabels(style)
                 draw(style, trip, color, dark)
                 // The flights' bows count too, so the whole route with its arcs fits on screen.
                 val bowPoints = trip.flightLegs.ifEmpty { trip.flights.map { listOf(it.first, it.second) } }.flatMap { hops -> hops.zipWithNext().flatMap { (a, b) -> flightArc(a, b, 12) } }
@@ -149,6 +173,8 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
             }
         }
     })
+    PhotoMarkers(mapRef, cameraTick, photos, trip, onPhoto)
+    }
 }
 
 private fun lineOf(points: List<LonLat>) = LineString.fromLngLats(points.map { Point.fromLngLat(it.first, it.second) })
@@ -266,4 +292,65 @@ private fun haversineKm(a: LonLat, b: LonLat): Double {
     val dLat = Math.toRadians(b.second - a.second); val dLon = Math.toRadians(b.first - a.first)
     val h = kotlin.math.sin(dLat / 2).let { it * it } + kotlin.math.cos(Math.toRadians(a.second)) * kotlin.math.cos(Math.toRadians(b.second)) * kotlin.math.sin(dLon / 2).let { it * it }
     return 2 * r * kotlin.math.asin(kotlin.math.sqrt(h))
+}
+
+
+/**
+ * Your photos on the map, as on the web: round thumbnails where they were taken, grouped on a grid that
+ * gets finer as you zoom in (the level rounded, so a pan never regroups them), with a count on a group. A
+ * single photo opens it; a group zooms in to split it. Each sits on its first photo's own spot.
+ */
+@androidx.compose.runtime.Composable
+private fun PhotoMarkers(map: org.maplibre.android.maps.MapLibreMap?, tick: Int, photos: List<Media>, trip: Trip, onPhoto: (Media) -> Unit) {
+    val m = map ?: return
+    val located = androidx.compose.runtime.remember(photos) { photos.filter { it.lat != null && it.lon != null && !it.video } }
+    if (located.isEmpty()) return
+    @Suppress("UNUSED_EXPRESSION") tick
+    val level = kotlin.math.round(m.cameraPosition.zoom).toInt()
+    val cell = 40.0 / Math.pow(2.0, level.toDouble())
+    val clusters = located.groupBy { "${kotlin.math.round(it.lat!! / cell)}:${kotlin.math.round(it.lon!! / cell)}" }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val cs = androidx.compose.material3.MaterialTheme.colorScheme
+    val ring = legibleColor(trip.color, cs.background.luminance() < 0.5f)
+    clusters.forEach { (key, items) ->
+        val first = items.first()
+        val p = m.projection.toScreenLocation(org.maplibre.android.geometry.LatLng(first.lat!!, first.lon!!))
+        androidx.compose.runtime.key(key) {
+            val size = 44.dp
+            val half = with(density) { (size / 2).toPx() }
+            androidx.compose.foundation.layout.Box(
+                Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(size)
+                    .clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh)
+                    .border(3.dp, ring, androidx.compose.foundation.shape.CircleShape)
+                    .clickable {
+                        if (items.size == 1) onPhoto(first)
+                        else m.animateCamera(org.maplibre.android.camera.CameraUpdateFactory.newLatLngZoom(org.maplibre.android.geometry.LatLng(first.lat, first.lon), (m.cameraPosition.zoom + 2.5).coerceAtMost(16.0)), 450)
+                    },
+            ) {
+                RemotePhoto(first.id, Modifier.matchParentSize())
+            }
+            if (items.size > 1) androidx.compose.material3.Text(
+                if (items.size > 99) "99+" else "${items.size}",
+                style = androidx.compose.ui.text.TextStyle(fontFamily = Outfit, fontWeight = androidx.compose.ui.text.font.FontWeight(700), fontSize = 11.sp, color = cs.onPrimary),
+                modifier = Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x + half * 0.45f).toInt(), (p.y - half * 1.15f).toInt()) }
+                    .clip(androidx.compose.foundation.shape.CircleShape).background(ring).padding(horizontal = 6.dp, vertical = 1.dp),
+            )
+        }
+    }
+}
+
+/** Place names in Dutch where the map knows them (name:nl), else the Latin spelling, else the local name. */
+fun dutchLabels(style: Style) {
+    for (layer in style.layers) {
+        if (layer !is org.maplibre.android.style.layers.SymbolLayer) continue
+        val field = runCatching { layer.textField.expression?.toString() ?: layer.textField.value?.toString() }.getOrNull() ?: continue
+        if (!field.contains("name")) continue
+        layer.setProperties(org.maplibre.android.style.layers.PropertyFactory.textField(
+            org.maplibre.android.style.expressions.Expression.coalesce(
+                org.maplibre.android.style.expressions.Expression.get("name:nl"),
+                org.maplibre.android.style.expressions.Expression.get("name:latin"),
+                org.maplibre.android.style.expressions.Expression.get("name"),
+            ),
+        ))
+    }
 }

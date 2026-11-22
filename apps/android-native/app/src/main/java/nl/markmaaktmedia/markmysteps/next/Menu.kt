@@ -53,13 +53,16 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                 shadowElevation = 0.dp,
                 border = edge,
             ) {
-                if (entries.all { it.inline }) {
+                // Choices of one kind side by side, then the plain lines, all in the same group.
+                val inlines = entries.filter { it.inline }
+                val lines = entries.filterNot { it.inline }
+                if (inlines.isNotEmpty()) {
                     // One choice out of a few: connected buttons side by side, the chosen one filled.
                     androidx.compose.foundation.layout.Row(
                         Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.material3.ButtonGroupDefaults.ConnectedSpaceBetween),
                     ) {
-                        entries.forEachIndexed { i, e ->
+                        inlines.forEachIndexed { i, e ->
                             val on = e.selected == true
                             androidx.compose.material3.ToggleButton(
                                 checked = on,
@@ -70,12 +73,12 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                                     val outer = 24.dp; val inner = 8.dp
                                     val base = androidx.compose.foundation.shape.RoundedCornerShape(
                                         topStart = if (i == 0) outer else inner, bottomStart = if (i == 0) outer else inner,
-                                        topEnd = if (i == entries.lastIndex) outer else inner, bottomEnd = if (i == entries.lastIndex) outer else inner,
+                                        topEnd = if (i == inlines.lastIndex) outer else inner, bottomEnd = if (i == inlines.lastIndex) outer else inner,
                                     )
                                     androidx.compose.material3.ToggleButtonShapes(base, base, androidx.compose.foundation.shape.CircleShape)
                                 },
                                 colors = androidx.compose.material3.ToggleButtonDefaults.toggleButtonColors(
-                                    containerColor = cs.surfaceContainerHighest, contentColor = cs.onSurface,
+                                    containerColor = cs.surfaceContainerLow, contentColor = cs.onSurface,
                                     checkedContainerColor = cs.primary, checkedContentColor = cs.onPrimary,
                                 ),
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
@@ -84,18 +87,20 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                             }
                         }
                     }
-                } else entries.forEachIndexed { i, e ->
+                    if (lines.isNotEmpty()) Spacer(Modifier.height(4.dp))
+                }
+                lines.forEachIndexed { i, e ->
                     val on = e.selected == true
                     val tint = when { e.danger -> cs.error; on -> cs.onPrimaryContainer; else -> cs.onSurface }
                     DropdownMenuItem(
                         selected = on,
                         onClick = { onDismiss(); e.onClick() },
                         text = { Text(e.label, style = text, color = tint) },
-                        shapes = MenuDefaults.itemShape(i, entries.size),
+                        shapes = MenuDefaults.itemShape(i, lines.size),
                         leadingIcon = { LineIcon(e.icon, tint, size = 20.dp) },
                         trailingIcon = if (on) ({ LineIcon(Glyphs.check, tint, size = 18.dp, stroke = 2.4f) }) else null,
                         // The chosen one in the app's own warm accent, not the scheme's teal.
-                        colors = MenuDefaults.selectableItemColors(selectedContainerColor = cs.primaryContainer),
+                        colors = MenuDefaults.selectableItemColors(containerColor = cs.surfaceContainerLow, selectedContainerColor = cs.primaryContainer),
                     )
                 }
             }

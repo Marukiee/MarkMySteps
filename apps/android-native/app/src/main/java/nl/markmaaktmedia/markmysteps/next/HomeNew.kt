@@ -415,6 +415,14 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
             }
         }
 
+        // Every trip's cover is fetched ahead once the list is known (the big cards in their bigger size), so
+        // scrolling down never meets empty tiles that only fill in after you have passed them.
+        androidx.compose.runtime.LaunchedEffect(Data.version, Data.loading) {
+            if (Data.loading) return@LaunchedEffect
+            val all = Data.all
+            Photos.prefetch(all.mapNotNull { t -> t.coverId.takeIf { !CardSizePref.big(t.id, autoBig = false) || true } }, "thumbnail")
+            Photos.prefetch(all.filter { CardSizePref.big(it.id, autoBig = it == Data.past.firstOrNull() || it in Data.upcoming) }.mapNotNull { it.coverId }, "preview")
+        }
         if (newTrip) NewTripSheet(onDismiss = { newTrip = false }, onCreated = { id ->
             newTrip = false
             Data.all.firstOrNull { it.id == id }?.let(onOpenTrip)
@@ -632,16 +640,11 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
         ) { LineIcon(Glyphs.dotsCircles, if (light) cs.onSurface else cs.onSurfaceVariant, size = 20.dp, filled = true) }
         val chosen = CardSizePref.overrides[trip.id] ?: CardSizePref.AUTO
         AppMenu(menu, onDismiss = { menu = false }, groups = listOf(
-            listOfNotNull(
-                MenuEntry("Openen", Glyphs.compass) { onOpen() },
-                onPeople?.let { MenuEntry("Mensen en delen", Glyphs.friends) { it() } },
-            ),
             listOf(
                 MenuEntry("Auto", Glyphs.cardAuto, selected = chosen == CardSizePref.AUTO, inline = true) { CardSizePref.set(trip.id, null) },
                 MenuEntry("Groot", Glyphs.cardLarge, selected = chosen == CardSizePref.LARGE, inline = true) { CardSizePref.set(trip.id, CardSizePref.LARGE) },
                 MenuEntry("Klein", Glyphs.cardRow, selected = chosen == CardSizePref.COMPACT, inline = true) { CardSizePref.set(trip.id, CardSizePref.COMPACT) },
-            ),
-            when {
+            ) + when {
                 !remote -> emptyList()
                 mine -> listOf(MenuEntry("Hernoemen", Glyphs.pencil) { renaming = true }, MenuEntry("Verwijderen", Glyphs.trash, danger = true) { deleting = true })
                 else -> listOf(MenuEntry("Reis verlaten", Glyphs.signOut, danger = true) { leaving = true })

@@ -7,6 +7,7 @@ import android.util.LruCache
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -200,6 +201,14 @@ object Photos {
     fun cached(key: String): Bitmap? = cache.get(key)
 
     /**
+     * Fetches photos ahead into the cache, a few at a time in the background, so they are already there when
+     * they scroll into view instead of showing an empty tile first.
+     */
+    suspend fun prefetch(ids: List<String>, size: String = "thumbnail") = kotlinx.coroutines.coroutineScope {
+        ids.distinct().filter { cached("$it/$size") == null }.forEach { id -> launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { load(id, size) } } }
+    }
+
+    /**
      * `size` is the server's rendition: "thumbnail" for grids, "preview" for a
      * screen, "original" for the file as taken, which is the one that still
      * carries an HDR gain map.
@@ -231,7 +240,7 @@ object Photos {
 }
 
 /** A photo of a trip, with when it was taken. */
-data class Media(val id: String, val takenAt: LocalDate, val video: Boolean, val ratio: Float, val sized: Boolean = true)
+data class Media(val id: String, val takenAt: LocalDate, val video: Boolean, val ratio: Float, val sized: Boolean = true, val lat: Double? = null, val lon: Double? = null, val userId: String? = null)
 
 /** Reads the signed-in account's trips into the same shapes the demo uses. */
 object Remote {
@@ -640,6 +649,10 @@ object Remote {
                 video = o.optString("assetType") == "VIDEO",
                 ratio = if (w > 0 && h > 0) w.toFloat() / h else 1f,
                 sized = w > 0 && h > 0,
+                // Where it was taken, for the photos on the trip map.
+                lat = o.optDouble("latitude").takeUnless { it.isNaN() },
+                lon = o.optDouble("longitude").takeUnless { it.isNaN() },
+                userId = o.optString("userId").takeIf { it.isNotBlank() && it != "null" },
             )
         }.sortedBy { it.takenAt }
     }
