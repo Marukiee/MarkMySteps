@@ -74,6 +74,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -185,28 +186,22 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         val pages = remember { androidx.compose.animation.core.SeekableTransitionState(target) }
         val holder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
         val backScope = androidx.compose.runtime.rememberCoroutineScope()
-        var fromLeft by remember { mutableStateOf(true) }
-        var gesturing by remember { mutableStateOf(false) }
-        // Taps and tabs move the pages here; a back gesture drives them itself, so the two never run at once.
-        LaunchedEffect(target) {
-            if (!gesturing && (pages.targetState != target || pages.currentState != target)) pages.animateTo(target)
-        }
-        val settle = androidx.compose.animation.core.spring<Float>(dampingRatio = 1f, stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)
+        // Exactly as Tandem: one seekable transition drives every page change, the back gesture
+        // included. While the finger drags the transition is seeked, letting go plays the same
+        // transition on from there, pulling back snaps it home. Nothing is composed twice.
+        var fromTabBack by remember { mutableStateOf(false) }
+        LaunchedEffect(target) { if (pages.targetState != target) { pages.animateTo(target) }; fromTabBack = false }
         val backTo: String? = when { open != null -> "page$page"; page != 0 -> "page0"; else -> null }
         androidx.activity.compose.PredictiveBackHandler(enabled = backTo != null) { events ->
             val to = backTo ?: return@PredictiveBackHandler
-            gesturing = true
+            fromTabBack = open == null
             try {
-                events.collect { e ->
-                    fromLeft = e.swipeEdge == androidx.activity.BackEventCompat.EDGE_LEFT
-                    pages.seekTo(e.progress, to)
-                }
-                // Let go: a spring carries on from where the finger was, no fixed timing.
-                pages.animateTo(to, settle)
+                events.collect { e -> pages.seekTo(e.progress, to) }
+                pages.animateTo(to)
+                // Last, so the handler switching itself off cannot cut the animation short.
                 if (open != null) open = null else page = 0
-                gesturing = false
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                backScope.launch { pages.animateTo(pages.currentState, settle); gesturing = false }
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { pages.snapTo(target) }
                 throw e
             }
         }
@@ -214,30 +209,29 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             transition.AnimatedContent(
                 transitionSpec = {
-                    val back = targetState == "page0" && initialState != "page1" && initialState != "page2" ||
-                        (initialState != targetState && !initialState.startsWith("page") && targetState.startsWith("page"))
-                    if (back) {
-                        // Going back: the page shrinks toward the side the gesture came from, the one below rises.
-                        // One even timeline, so the gesture's progress maps straight onto it: the page
-                        // stays whole while it shrinks and only fades in the last stretch.
-                        // Linear, so the page follows the finger one to one.
-                        val ease = androidx.compose.animation.core.LinearEasing
-                        (fadeIn(androidx.compose.animation.core.tween(400, easing = ease), initialAlpha = 0.6f) +
-                            scaleIn(androidx.compose.animation.core.tween(400, easing = ease), initialScale = 0.95f)) togetherWith
-                            (scaleOut(androidx.compose.animation.core.tween(400, easing = ease), targetScale = 0.88f) +
-                                slideOutHorizontally(androidx.compose.animation.core.tween(400, easing = ease)) { w -> if (fromLeft) w / 8 else -w / 8 } +
-                                fadeOut(androidx.compose.animation.core.tween(120, delayMillis = 280)))
+                    // The Material shared axis of the system apps, Tandem's exact spec: forward the new page
+                    // comes in from a third away and fades up while the old one slides the other way and
+                    // shrinks; back mirrors it and the leaving page goes all the way out, staying on top.
+                    val back = (initialState.startsWith("page").not() && targetState.startsWith("page")) ||
+                        (targetState == "page0" && initialState != "page0" && initialState.startsWith("page") && fromTabBack)
+                    val ease = androidx.compose.animation.core.tween<Float>(SharedAxisMillis, easing = Emphasized)
+                    val slide = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(SharedAxisMillis, easing = Emphasized)
+                    if (initialState.startsWith("page") && targetState.startsWith("page") && !fromTabBack) {
+                        // Between tabs: a fade-through.
+                        (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.96f)) togetherWith fadeOut(motion.fastEffectsSpec())
+                    } else if (!back) {
+                        (slideInHorizontally(slide) { it / 3 } + fadeIn(ease)) togetherWith
+                            (slideOutHorizontally(slide) { -it / 3 } + scaleOut(ease, targetScale = 0.92f))
                     } else {
-                        // Into a trip a scale and fade from the card; between tabs a fade-through.
-                        (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.94f)) togetherWith
-                            fadeOut(motion.fastEffectsSpec())
-                    }.apply { targetContentZIndex = if (back) -1f else 1f }
+                        ((slideInHorizontally(slide) { -it / 3 } + fadeIn(ease)) togetherWith
+                            (slideOutHorizontally(androidx.compose.animation.core.tween(SharedAxisMillis, easing = androidx.compose.animation.core.Easing { f -> f * f * f })) { it } +
+                                scaleOut(ease, targetScale = 0.85f)))
+                            .apply { targetContentZIndex = -1f }
+                    }
                 },
                 contentKey = { it },
             ) { key ->
-                // The leaving page gets round corners as it shrinks, like a card being put away.
-                val corner by this.transition.animateDp(label = "corner") { if (it == androidx.compose.animation.EnterExitState.PostExit) 36.dp else 0.dp }
-                Box(Modifier.fillMaxSize().clip(RoundedCornerShape(corner))) {
+                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                     holder.SaveableStateProvider(key) {
                         val trip = Data.all.firstOrNull { it.id == key }
                         when {
@@ -261,6 +255,9 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         }
     }
 }
+
+private const val SharedAxisMillis = 350
+private val Emphasized = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 @Composable
 private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Trip) -> Unit) {

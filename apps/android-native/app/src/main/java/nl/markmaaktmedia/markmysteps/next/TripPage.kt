@@ -172,7 +172,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
         // A tapped photo opens full screen over everything, the toolbar included.
         viewing?.let { start ->
             val photos = media.orEmpty().filter { !it.video }
-            if (photos.isNotEmpty()) PhotoViewer(photos, start.coerceIn(0, photos.lastIndex), onClose = { viewing = null })
+            if (photos.isNotEmpty()) PhotoViewer(trip, photos, start.coerceIn(0, photos.lastIndex), onClose = { viewing = null })
         }
     }
 }

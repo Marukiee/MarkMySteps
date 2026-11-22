@@ -119,6 +119,9 @@ object Api {
 
     suspend fun get(path: String): String = withContext(Dispatchers.IO) { request("GET", path) }
 
+    /** A change the user made themselves (a reaction, a comment): sent as it is, nothing else. */
+    suspend fun send(method: String, path: String, body: JSONObject? = null): String = withContext(Dispatchers.IO) { request(method, path, body?.toString()) }
+
     /** An image from the server, with the token, as bytes. */
     fun bytes(path: String, retried: Boolean = false): ByteArray? {
         val c = open("GET", path, auth = true)
@@ -197,6 +200,42 @@ object Remote {
             places = o.optInt("places"), flights = o.optInt("flights"),
             km = o.optDouble("distanceKm", 0.0).toInt(), photos = o.optInt("photoCount"), ongoing = o.optInt("ongoing"),
         )
+    }
+
+    data class Comment(val id: String, val mediaId: String?, val day: String?, val author: String, val body: String, val at: java.time.Instant, val canDelete: Boolean)
+
+    /** Reactions per target (a media id, or "c:" + comment id): counts, your own pick, and who. */
+    data class Reactions(val counts: Map<String, List<Pair<String, Int>>>, val mine: Map<String, String>, val names: Map<String, List<Pair<String, String>>>)
+
+    private fun parseComment(o: JSONObject) = Comment(
+        o.getString("id"), o.optString("mediaId").takeIf { it.isNotBlank() && it != "null" }, o.optString("day").takeIf { it.isNotBlank() && it != "null" },
+        o.optString("authorName"), o.optString("body"), runCatching { java.time.Instant.parse(o.getString("createdAt")) }.getOrDefault(java.time.Instant.now()),
+        o.optBoolean("canDelete"),
+    )
+
+    suspend fun comments(trip: Trip): List<Comment> {
+        val a = JSONArray(Api.get("/api/trips/${trip.remoteId}/comments"))
+        return (0 until a.length()).map { parseComment(a.getJSONObject(it)) }
+    }
+
+    suspend fun reactions(trip: Trip): Reactions {
+        val o = JSONObject(Api.get("/api/trips/${trip.remoteId}/reactions"))
+        val counts = mutableMapOf<String, MutableList<Pair<String, Int>>>()
+        o.optJSONArray("counts")?.let { a -> for (i in 0 until a.length()) a.getJSONObject(i).let { c -> counts.getOrPut(c.getString("target")) { mutableListOf() } += c.getString("kind") to c.getInt("count") } }
+        val mine = mutableMapOf<String, String>()
+        o.optJSONObject("mine")?.let { m -> m.keys().forEach { k -> mine[k] = m.getString(k) } }
+        val names = mutableMapOf<String, List<Pair<String, String>>>()
+        o.optJSONObject("names")?.let { m -> m.keys().forEach { k -> val a = m.getJSONArray(k); names[k] = (0 until a.length()).map { a.getJSONObject(it).let { n -> n.getString("kind") to n.getString("name") } } } }
+        return Reactions(counts.mapValues { (_, v) -> v.sortedByDescending { it.second } }, mine, names)
+    }
+
+    suspend fun addComment(trip: Trip, mediaId: String, body: String): Comment =
+        parseComment(JSONObject(Api.send("POST", "/api/trips/${trip.remoteId}/media/$mediaId/comments", JSONObject().put("body", body))))
+
+    suspend fun deleteComment(trip: Trip, id: String) { Api.send("DELETE", "/api/trips/${trip.remoteId}/comments/$id") }
+
+    suspend fun setReaction(trip: Trip, mediaId: String, kind: String?) {
+        Api.send("PUT", "/api/trips/${trip.remoteId}/media/$mediaId/reaction", JSONObject().put("kind", kind ?: JSONObject.NULL))
     }
 
     suspend fun friends(): List<Friend> {

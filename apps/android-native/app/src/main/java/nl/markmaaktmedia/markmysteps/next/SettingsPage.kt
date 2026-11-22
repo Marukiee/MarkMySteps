@@ -108,45 +108,40 @@ private val Sections = listOf(
 @Composable
 fun SettingsPage(onSignIn: () -> Unit = {}) {
     var open by remember { mutableStateOf<Int?>(null) }
-    val motion = MaterialTheme.motionScheme
     // Predictive back here too: the section follows the finger and the list shows behind it.
     val state = remember { androidx.compose.animation.core.SeekableTransitionState<Int?>(null) }
-    var gesturing by remember { mutableStateOf(false) }
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val settle = androidx.compose.animation.core.spring<Float>(dampingRatio = 1f, stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)
-    androidx.compose.runtime.LaunchedEffect(open) { if (!gesturing && state.targetState != open) state.animateTo(open) }
+    // The same seekable shared-axis transition as the pages and as Tandem.
+    androidx.compose.runtime.LaunchedEffect(open) { if (state.targetState != open) state.animateTo(open) }
     androidx.activity.compose.PredictiveBackHandler(enabled = open != null) { events ->
-        gesturing = true
         try {
             events.collect { state.seekTo(it.progress, null) }
-            state.animateTo(null, settle)
+            state.animateTo(null)
             open = null
-            gesturing = false
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            scope.launch { state.animateTo(state.currentState, settle); gesturing = false }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { state.snapTo(open) }
             throw e
         }
     }
-    val ease = androidx.compose.animation.core.LinearEasing
+    val emphasized = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
+    val ease = androidx.compose.animation.core.tween<Float>(350, easing = emphasized)
+    val slide = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(350, easing = emphasized)
     androidx.compose.animation.core.rememberTransition(state, label = "settings").AnimatedContent(
         transitionSpec = {
-            val forward = targetState != null
-            if (forward) {
-                (androidx.compose.animation.slideInHorizontally(motion.defaultSpatialSpec()) { w -> w / 5 } +
-                    androidx.compose.animation.fadeIn(motion.defaultEffectsSpec())) togetherWith
-                    (androidx.compose.animation.slideOutHorizontally(motion.defaultSpatialSpec()) { w -> -w / 5 } +
-                        androidx.compose.animation.fadeOut(motion.fastEffectsSpec()))
+            if (targetState != null) {
+                (androidx.compose.animation.slideInHorizontally(slide) { it / 3 } + androidx.compose.animation.fadeIn(ease)) togetherWith
+                    (androidx.compose.animation.slideOutHorizontally(slide) { -it / 3 } + androidx.compose.animation.scaleOut(ease, targetScale = 0.92f))
             } else {
-                (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(400, easing = ease), initialAlpha = 0.6f) +
-                    androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(400, easing = ease), initialScale = 0.95f)) togetherWith
-                    (androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(400, easing = ease), targetScale = 0.88f) +
-                        androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(400, easing = ease)) { w -> w / 8 } +
-                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120, delayMillis = 280))).also { }
-            }.apply { targetContentZIndex = if (forward) 1f else -1f }
+                ((androidx.compose.animation.slideInHorizontally(slide) { -it / 3 } + androidx.compose.animation.fadeIn(ease)) togetherWith
+                    (androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(350, easing = androidx.compose.animation.core.Easing { f -> f * f * f })) { it } +
+                        androidx.compose.animation.scaleOut(ease, targetScale = 0.85f)))
+                    .apply { targetContentZIndex = -1f }
+            }
         },
         contentKey = { it },
     ) { which ->
-        if (which == null) SettingsMain(onOpen = { open = it }) else SectionPage(which, onBack = { open = null }, onSignIn = onSignIn)
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            if (which == null) SettingsMain(onOpen = { open = it }) else SectionPage(which, onBack = { open = null }, onSignIn = onSignIn)
+        }
     }
 }
 
