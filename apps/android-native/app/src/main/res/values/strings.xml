@@ -701,4 +701,5 @@
     <string name="a11y_more">More options</string>
     <string name="a11y_expand">Enlarge map</string>
     <string name="map_day_n">Day %1$d</string>
+    <string name="login_no_server_short">No server</string>
 </resources>

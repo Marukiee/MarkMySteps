@@ -237,16 +237,13 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, mfaPreview:
             // tonal pills joined as one group, under the card.
             AnimatedVisibility(mfaToken == null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                    listOf(androidx.compose.ui.res.stringResource(R.string.auth_create_account) to onRegister, androidx.compose.ui.res.stringResource(R.string.auth_no_server) to onLocal).forEachIndexed { i, (label, go) ->
+                    listOf(androidx.compose.ui.res.stringResource(R.string.auth_create_account) to onRegister, androidx.compose.ui.res.stringResource(R.string.login_no_server_short) to onLocal).forEachIndexed { i, (label, go) ->
                         val shape = if (i == 0) RoundedCornerShape(topStart = 26.dp, bottomStart = 26.dp, topEnd = 8.dp, bottomEnd = 8.dp) else RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp, topEnd = 26.dp, bottomEnd = 26.dp)
                         Box(Modifier.weight(1f).height(52.dp).clip(shape).background(cs.secondaryContainer).clickable(onClick = go), contentAlignment = Alignment.Center) {
                             Text(label, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSecondaryContainer))
                         }
                     }
                 }
-            }
-            if (mfaToken == null) TextButton(onClick = onDemo, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                Text(androidx.compose.ui.res.stringResource(R.string.login_demo), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
             }
             Spacer(Modifier.height(24.dp))
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
