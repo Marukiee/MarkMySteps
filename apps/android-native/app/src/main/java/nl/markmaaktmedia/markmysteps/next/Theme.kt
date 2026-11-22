@@ -1,5 +1,8 @@
 package nl.markmaaktmedia.markmysteps.next
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
@@ -103,3 +106,18 @@ fun betaTitle(title: String, color: androidx.compose.ui.graphics.Color, size: an
         append(" (bèta)")
         pop()
     }
+
+/**
+ * A progress bar that glides: it never jumps to the next value or slips back, it eases towards it over a
+ * moment, so a job reporting in steps still reads as one smooth fill.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+@androidx.compose.runtime.Composable
+fun SmoothProgress(value: Float, modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier) {
+    var highest by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    highest = maxOf(highest, value.coerceIn(0f, 1f))
+    val shown by androidx.compose.animation.core.animateFloatAsState(
+        highest, androidx.compose.animation.core.tween(700, easing = androidx.compose.animation.core.LinearOutSlowInEasing), label = "progress",
+    )
+    androidx.compose.material3.LinearWavyProgressIndicator(progress = { shown }, modifier = modifier)
+}

@@ -155,7 +155,11 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
                 draw(style, trip, color, dark)
                 // The flights' bows count too, so the whole route with its arcs fits on screen.
                 val bowPoints = trip.flightLegs.ifEmpty { trip.flights.map { listOf(it.first, it.second) } }.flatMap { hops -> hops.zipWithNext().flatMap { (a, b) -> flightArc(a, b, 12) } }
-                val points = (trip.stops.map { it.at } + trip.route + bowPoints).ifEmpty { listOf(HomeAirport) }
+                // The trip itself decides the view: its stops and the route travelled. The flights to and from home
+                // are left out (they would shrink a trip in Morocco to a corner of Europe); only a trip that is
+                // nothing but flights is framed by its bows.
+                val own = trip.stops.map { it.at } + trip.route
+                val points = (if (own.size >= 2) own else own + bowPoints).ifEmpty { listOf(HomeAirport) }
                 // Room on every side, more at the bottom for the panel's corner and the expand button, so the
                 // route sits nicely in the middle instead of against the edges.
                 val pad = (44 * density).toInt()
@@ -314,20 +318,36 @@ private fun PhotoMarkers(map: org.maplibre.android.maps.MapLibreMap?, tick: Int,
     val located = androidx.compose.runtime.remember(photos) { photos.filter { it.lat != null && it.lon != null && !it.video } }
     if (located.isEmpty()) return
     @Suppress("UNUSED_EXPRESSION") tick
+    // The grouping only changes on a whole zoom step, so it is worked out once per step, not on every frame;
+    // a frame only moves the markers to their places on screen.
     val level = kotlin.math.round(m.cameraPosition.zoom).toInt()
-    val cell = 40.0 / Math.pow(2.0, level.toDouble())
-    val clusters = located.groupBy { "${kotlin.math.round(it.lat!! / cell)}:${kotlin.math.round(it.lon!! / cell)}" }
+    val clusters = androidx.compose.runtime.remember(located, level) {
+        val cell = 40.0 / Math.pow(2.0, level.toDouble())
+        located.groupBy { "${kotlin.math.round(it.lat!! / cell)}:${kotlin.math.round(it.lon!! / cell)}" }.toList()
+    }
+    // A group that splits or merges does so softly: the new markers grow out of the spot of the group they came
+    // from (or towards the one they join) instead of blinking in and out.
+    val previous = androidx.compose.runtime.remember { mutableMapOf<String, LonLat>() }
     val density = androidx.compose.ui.platform.LocalDensity.current
     val cs = androidx.compose.material3.MaterialTheme.colorScheme
     val ring = legibleColor(trip.color, cs.background.luminance() < 0.5f)
+    val motion = androidx.compose.material3.MaterialTheme.motionScheme
     clusters.forEach { (key, items) ->
         val first = items.first()
-        val p = m.projection.toScreenLocation(org.maplibre.android.geometry.LatLng(first.lat!!, first.lon!!))
+        val target = first.lon!! to first.lat!!
         androidx.compose.runtime.key(key) {
+            // Where it starts: the nearest marker of the last grouping, so it slides out of (or into) it.
+            val from = androidx.compose.runtime.remember { previous.values.minByOrNull { (it.first - target.first) * (it.first - target.first) + (it.second - target.second) * (it.second - target.second) } ?: target }
+            val t = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(if (from == target) 1f else 0f) }
+            androidx.compose.runtime.LaunchedEffect(Unit) { t.animateTo(1f, motion.defaultSpatialSpec()) }
+            val k = t.value
+            val at = org.maplibre.android.geometry.LatLng(from.second + (target.second - from.second) * k, from.first + (target.first - from.first) * k)
+            val p = m.projection.toScreenLocation(at)
             val size = 44.dp
             val half = with(density) { (size / 2).toPx() }
             androidx.compose.foundation.layout.Box(
                 Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x - half).toInt(), (p.y - half).toInt()) }.size(size)
+                    .graphicsLayer { val sc = 0.6f + 0.4f * k; scaleX = sc; scaleY = sc; alpha = (0.3f + 0.7f * k).coerceIn(0f, 1f) }
                     .clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh)
                     .border(3.dp, ring, androidx.compose.foundation.shape.CircleShape)
                     .clickable {
@@ -341,9 +361,14 @@ private fun PhotoMarkers(map: org.maplibre.android.maps.MapLibreMap?, tick: Int,
                 if (items.size > 99) "99+" else "${items.size}",
                 style = androidx.compose.ui.text.TextStyle(fontFamily = Outfit, fontWeight = androidx.compose.ui.text.font.FontWeight(700), fontSize = 11.sp, color = cs.onPrimary),
                 modifier = Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x + half * 0.45f).toInt(), (p.y - half * 1.15f).toInt()) }
+                    .graphicsLayer { alpha = k }
                     .clip(androidx.compose.foundation.shape.CircleShape).background(ring).padding(horizontal = 6.dp, vertical = 1.dp),
             )
         }
+    }
+    androidx.compose.runtime.SideEffect {
+        previous.clear()
+        clusters.forEach { (key, items) -> previous[key] = items.first().lon!! to items.first().lat!! }
     }
 }
 

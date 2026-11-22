@@ -470,7 +470,7 @@ private fun BackupPanel() {
         Hint("Al je reizen, stops, routepunten en notities in één bestand, plus je instellingen. Foto's staan erin als verwijzing. Terugzetten voegt toe wat je nog niet hebt en laat bestaande reizen met rust.")
         AnimatedVisibility(busy, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                androidx.compose.material3.LinearWavyProgressIndicator(progress = { progress?.first ?: 0.05f }, modifier = Modifier.fillMaxWidth())
+                SmoothProgress(progress?.first ?: 0.05f, Modifier.fillMaxWidth())
                 Hint(progress?.second?.takeIf { it.isNotBlank() } ?: "Verzamelen")
             }
         }

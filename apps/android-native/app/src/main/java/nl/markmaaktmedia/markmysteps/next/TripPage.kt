@@ -134,7 +134,11 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     Box(Modifier.fillMaxSize().background(cs.background)) {
         Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             Box(Modifier.fillMaxWidth().height(mapH)) {
-                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 30, topInsetDp = 112, photos = media.orEmpty(), onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } })
+                // The map (a heavy native view) starts once the page has slid in, so opening a trip stays smooth;
+                // until then the page colour holds its place, and the map fades in over it.
+                var mapReady by remember { androidx.compose.runtime.mutableStateOf(false) }
+                androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(380); mapReady = true }
+                if (mapReady) TripMap(trip, dark, Modifier.fillMaxSize(), fadeIn = true, bottomInsetDp = 30, topInsetDp = 112, photos = media.orEmpty(), onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } })
                 // Open the map full screen, from its own corner as on the web.
                 // Fades away as the map scrolls under the top buttons, so it never overlaps them.
                 Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 44.dp).graphicsLayer { alpha = (1f - scroll.value / (mapH.toPx() * 0.45f)).coerceIn(0f, 1f) }) {

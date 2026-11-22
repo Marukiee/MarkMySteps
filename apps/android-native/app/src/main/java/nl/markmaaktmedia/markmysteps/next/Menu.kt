@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
@@ -50,6 +51,8 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
             if (g > 0) Spacer(Modifier.height(MenuDefaults.GroupSpacing))
             DropdownMenuGroup(
                 shapes = MenuDefaults.groupShape(g, shown.size),
+                // Room to breathe: the choices side by side never squeeze.
+                modifier = Modifier.widthIn(min = 280.dp),
                 containerColor = cs.surfaceContainerHigh,
                 tonalElevation = 0.dp,
                 shadowElevation = 0.dp,
@@ -61,8 +64,8 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                 if (inlines.isNotEmpty()) {
                     // One choice out of a few: connected buttons side by side, the chosen one filled.
                     androidx.compose.foundation.layout.Row(
-                        // On the same edges as the lines under it.
-                        Modifier.fillMaxWidth(),
+                        // On the same edges as the lines under it (each line keeps a small inset inside its group).
+                        Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.material3.ButtonGroupDefaults.ConnectedSpaceBetween),
                     ) {
                         inlines.forEachIndexed { i, e ->

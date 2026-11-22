@@ -298,8 +298,7 @@ fun Reading(reading: Reading, label: String, modifier: Modifier = Modifier) {
             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant),
             modifier = Modifier.padding(top = 4.dp),
         )
-        val progress by animateFloatAsState(if (reading.total == 0) 0f else reading.done / reading.total.toFloat(), MaterialTheme.motionScheme.defaultEffectsSpec(), label = "read")
-        LinearWavyProgressIndicator(progress = { progress }, modifier = Modifier.padding(top = 18.dp).width(200.dp))
+        SmoothProgress(if (reading.total == 0) 0f else reading.done / reading.total.toFloat(), Modifier.padding(top = 18.dp).width(200.dp))
     }
 }
 
