@@ -368,23 +368,27 @@ private fun buildScene(trips: List<Trip>, dark: Boolean): GlobeScene {
             }
             run.clear()
         }
-        trip.route.forEachIndexed { i, b ->
-            if (i == 0) {
-                run += b
-                return@forEachIndexed
+        // Each recorded piece on its own (Trip.segments): joined end to start they drew a straight line
+        // between two pieces, such as from Marrakesh to Rabat beside the train ride that was recorded.
+        for (piece in trip.segments.ifEmpty { listOf(trip.route) }) {
+            piece.forEachIndexed { i, b ->
+                if (i == 0) {
+                    run += b
+                    return@forEachIndexed
+                }
+                val a = piece[i - 1]
+                val gap = angle(a, b)
+                val flown = trip.flights.any { (s, e) ->
+                    (angle(s, a) < 1.2 && angle(e, b) < 1.2) || (angle(s, b) < 1.2 && angle(e, a) < 1.2)
+                }
+                when {
+                    gap > FLIGHT_DEG && flown -> { flush(); run += b }
+                    gap > INTERCONTINENTAL_DEG -> { flush(); bows += Triple(a, b, trip.id); airports += a; airports += b; run += b }
+                    else -> run += b
+                }
             }
-            val a = trip.route[i - 1]
-            val gap = angle(a, b)
-            val flown = trip.flights.any { (s, e) ->
-                (angle(s, a) < 1.2 && angle(e, b) < 1.2) || (angle(s, b) < 1.2 && angle(e, a) < 1.2)
-            }
-            when {
-                gap > FLIGHT_DEG && flown -> { flush(); run += b }
-                gap > INTERCONTINENTAL_DEG -> { flush(); bows += Triple(a, b, trip.id); airports += a; airports += b; run += b }
-                else -> run += b
-            }
+            flush()
         }
-        flush()
         // The same legs the plane flies (with a layover as its own hop), so it always flies over its line.
         val hops = trip.flightLegs.flatMap { it.zipWithNext() }.ifEmpty { trip.flights }
         for (f in hops) {

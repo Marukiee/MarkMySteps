@@ -194,6 +194,8 @@ private val cachedLoads = HashMap<String, Loaded>()
  */
 @Composable
 fun rememberPicked(trip: Trip): Pair<Picked?, Reading> {
+    // The route per traveller is fetched while the photos are read, so the map has it when it first shows.
+    LaunchedEffect(trip.remoteId) { travelled(trip) }
     val loader = LocalPhotoLoader.current
     val context = LocalContext.current.applicationContext
     var loaded by remember(trip.id) { mutableStateOf(cachedLoads[trip.id]) }
@@ -527,6 +529,40 @@ fun fitFrame(trip: Trip, w: Float, h: Float, side: Float, fill: Float): Triple<D
 }
 
 /**
+ * The route as the app's own map draws it: a line per traveller (GET /api/trips/:id/route). The trip list's
+ * overview line strings every traveller's points together in time order, so where two people tracked at the
+ * same time it jumped between them in straight lines, such as from Marrakesh to Rabat beside the train ride.
+ */
+private val travelledLines = java.util.concurrent.ConcurrentHashMap<String, List<List<LonLat>>>()
+
+suspend fun travelled(trip: Trip): List<List<LonLat>>? {
+    val id = trip.remoteId ?: return null
+    if (LocalMode.on) return null
+    travelledLines[id]?.let { return it }
+    return runCatching {
+        val lines = MapRemote.routes(id, null).filter { it.points.size >= 2 }
+        // Whose lines, as the trip page's map shows them before anyone chooses (TripPage.kt): the owner's and
+        // your own when you can edit; everyone's only when neither has one.
+        val me = Data.me?.id
+        val role = trip.members.firstOrNull { it.userId == me }?.role
+        val canEdit = me != null && (trip.ownerId == me || (role != null && role != "GUEST"))
+        val wanted = setOfNotNull(trip.ownerId, me.takeIf { canEdit })
+        val own = lines.filter { it.userId in wanted }
+        own.ifEmpty { lines }.map { it.points }
+    }.getOrNull()?.also { travelledLines[id] = it }
+}
+
+/** [trip] with its route per traveller once it is known (it usually is, fetched while the photos were read). */
+@Composable
+fun rememberTravelled(trip: Trip): Trip {
+    val lines by androidx.compose.runtime.produceState(trip.remoteId?.let { travelledLines[it] }, trip.remoteId) {
+        if (value == null) value = travelled(trip)
+    }
+    val l = lines?.takeIf { it.isNotEmpty() } ?: return trip
+    return remember(trip, l) { trip.copy(segments = l, route = l.flatten()) }
+}
+
+/**
  * The trip on the map, framed so its route fills the part of the box given by
  * [frameW] and [frameH] (shares of the box), centred at [shiftX] and [shiftY]
  * from the middle. A thin line: the route is the picture, not the pen.
@@ -538,12 +574,13 @@ fun TripMap(
     /** Country borders, so you see where you are (the route map); the ribbon keeps the land plain. */
     borders: Boolean = false,
 ) {
+    val shown = rememberTravelled(trip)
     BoxWithConstraints(modifier) {
         val w = maxWidth.value; val h = maxHeight.value
         val (lon, lat, zoom) = remember(trip, w, h, frameW, frameH, fill) { fitFrame(trip, w * frameW, h * frameH, min(w, h), fill) }
         // Only the route as it was travelled, as on the app's own map: no flight bows.
         val style = globeStyle(dark, routeWidth).copy(flights = false).let { if (borders) it.copy(borders = if (dark) Color(0xFF4A5461) else Color(0xFFC4B69D)) else it }
-        Globe(listOf(trip), style, Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = zoom, showStops = stops, turnable = false, shiftX = shiftX, shiftY = shiftY)
+        Globe(listOf(shown), style, Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = zoom, showStops = stops, turnable = false, shiftX = shiftX, shiftY = shiftY)
     }
 }
 

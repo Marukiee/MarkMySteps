@@ -741,8 +741,11 @@ private fun StatsPoster(data: PosterData, format: Format, u: Dp) {
                         Column(Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(v, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.12f * k).sp(), lineHeight = (u * 0.12f * k).sp(), letterSpacing = (-0.03).em, color = Color.White))
-                                if (flagsInFacts && l == countriesLabel) Row(Modifier.padding(start = u * 0.03f), horizontalArrangement = Arrangement.spacedBy(u * 0.015f)) {
-                                    flags.take(4).forEach { FlagIcon(it, u * 0.05f * k) }
+                                // Stacked two high beside the number, a column more for every two countries.
+                                if (flagsInFacts && l == countriesLabel) Row(Modifier.padding(start = u * 0.03f), horizontalArrangement = Arrangement.spacedBy(u * 0.012f)) {
+                                    flags.take(6).chunked(2).forEach { col ->
+                                        Column(verticalArrangement = Arrangement.spacedBy(u * 0.01f)) { col.forEach { FlagIcon(it, u * 0.04f * k) } }
+                                    }
                                 }
                             }
                             Text(l.uppercase(), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.028f).sp(), letterSpacing = 0.08.em, color = data.accent.copy(alpha = 1f)))
