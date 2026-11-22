@@ -26,16 +26,25 @@ interface AppSheetScope : ColumnScope {
 }
 
 /**
- * The one bottom sheet of the whole app: Material's own sheet, exactly as PixelPlayer's panels (the Connect
- * device panel), so it has the very same physics. Opening, dragging, throwing it down, a tap beside it and the
- * back gesture are all Material's own. It runs on the standard motion scheme, as PixelPlayer does: the rest of
- * this app uses the expressive one, whose springs are bouncier. It opens fully at once, so one back closes it.
+ * The motion of PixelPlayer's Connect device panel, exactly: the expressive scheme, but closing with a calm
+ * 380 ms slide instead of the quick effects motion (made for small fades, it made the whole sheet jump away).
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private object PanelMotion : MotionScheme by MotionScheme.expressive() {
+    override fun <T> fastEffectsSpec(): androidx.compose.animation.core.FiniteAnimationSpec<T> =
+        androidx.compose.animation.core.tween(380, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+}
+
+/**
+ * The one bottom sheet of the whole app: Material's own sheet with the motion of PixelPlayer's Connect device
+ * panel, so it goes up and down exactly as that one does. Dragging, throwing it down, a tap beside it and the
+ * back gesture are Material's own. It opens fully at once, so one back closes it.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AppSheet(onDismiss: () -> Unit, content: @Composable AppSheetScope.() -> Unit) {
     val cs = MaterialTheme.colorScheme
-    MaterialTheme(colorScheme = cs, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes, motionScheme = MotionScheme.standard()) {
+    MaterialTheme(colorScheme = cs, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes, motionScheme = PanelMotion) {
         val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val scope = rememberCoroutineScope()
         var closing by remember { mutableStateOf(false) }
