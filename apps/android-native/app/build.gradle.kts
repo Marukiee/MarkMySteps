@@ -74,7 +74,13 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (store && providers.environmentVariable("MMS_KEYSTORE_FILE").isPresent) signingConfigs.getByName("store") else signingConfigs.getByName("debug")
+            // A store build never falls back to the debug key: without the release key it does not build.
+            signingConfig = if (store) {
+                require(providers.environmentVariable("MMS_KEYSTORE_FILE").isPresent || providers.environmentVariable("MMS_ALLOW_UNSIGNED_STORE").orNull == "true") {
+                    "The store build (MMS_RELEASE=true) needs the release key in MMS_KEYSTORE_FILE"
+                }
+                if (providers.environmentVariable("MMS_KEYSTORE_FILE").isPresent) signingConfigs.getByName("store") else signingConfigs.getByName("debug")
+            } else signingConfigs.getByName("debug")
         }
     }
 }

@@ -170,7 +170,7 @@ suspend fun weatherFor(trip: Trip): Weather? = withContext(Dispatchers.IO) {
     val place = trip.stops.maxByOrNull { it.nights }?.at ?: trip.route.firstOrNull() ?: return@withContext null
     val past = end.isBefore(LocalDate.now().minusDays(5))
     val host = if (past) "https://archive-api.open-meteo.com/v1/archive" else "https://api.open-meteo.com/v1/forecast"
-    val url = "$host?latitude=%.3f&longitude=%.3f&start_date=$start&end_date=$end&daily=weathercode,temperature_2m_max&timezone=auto".format(java.util.Locale.ROOT, place.second, place.first)
+    val url = "$host?latitude=%.2f&longitude=%.2f&start_date=$start&end_date=$end&daily=weathercode,temperature_2m_max&timezone=auto".format(java.util.Locale.ROOT, place.second, place.first)
     runCatching {
         val c = (URL(url).openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
         val daily = JSONObject(c.inputStream.bufferedReader().readText()).getJSONObject("daily")

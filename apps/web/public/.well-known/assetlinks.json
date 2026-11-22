@@ -6,13 +6,5 @@
       "package_name": "nl.markmaaktmedia.markmysteps",
       "sha256_cert_fingerprints": ["2F:E4:FE:8D:DC:0E:89:89:3C:2C:29:93:F9:20:39:C1:14:34:E6:8C:E8:90:E2:81:8E:56:82:CD:C2:51:F5:F8"]
     }
-  },
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "nl.markmaaktmedia.markmysteps.next",
-      "sha256_cert_fingerprints": ["A9:BB:E1:66:00:34:F5:52:C7:EC:FA:75:EB:02:A5:04:11:F0:EC:F9:2A:47:0D:35:9B:96:AB:FB:E7:D6:CE:1C"]
-    }
   }
 ]

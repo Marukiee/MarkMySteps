@@ -22,6 +22,10 @@ import java.time.temporal.ChronoUnit
  * trips, their stops and their photos. It only ever reads; nothing is
  * written back. The tokens stay in this app's own storage on the phone.
  */
+/** A spot rounded to about a kilometre: all a town name or the day's weather needs, so the exact place where
+ *  someone stood never leaves the phone for an outside service. */
+internal fun coarse(v: Double): String = "%.2f".format(java.util.Locale.ROOT, v)
+
 object Api {
     private const val PREFS = "mms.next"
     var base: String = ""
@@ -29,8 +33,10 @@ object Api {
     private var access: String? = null
     private var refresh: String? = null
     private lateinit var prefs: android.content.SharedPreferences
+    private var app: Context? = null
 
     fun init(context: Context) {
+        app = context.applicationContext
         prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         base = prefs.getString("base", "") ?: ""
         access = prefs.getString("access", null)
@@ -39,8 +45,12 @@ object Api {
 
     val signedIn: Boolean get() = access != null && base.isNotEmpty()
 
-    /** Another server, from the settings: kept for the sign-in page, which the caller opens after signing out. */
+    /**
+     * Another server, from the settings: kept for the sign-in page, which the caller opens after signing out. The
+     * tokens of the old server are dropped first, so they can never be sent to the new one.
+     */
     fun setServer(url: String) {
+        access = null; refresh = null
         base = url.trim().trimEnd('/')
         save()
     }
@@ -48,10 +58,37 @@ object Api {
     fun remember(key: String, value: String) = prefs.edit().putString("cache.$key", value).apply()
     fun recall(key: String): String? = prefs.getString("cache.$key", null)
 
+    /**
+     * Signing out ends the session everywhere: the server forgets the refresh token, tracking stops and its points
+     * and log go, the offline queue and every cached answer are cleared, and nothing of this account is left for the
+     * next one (or sent with its token).
+     */
     fun signOut() {
+        val oldRefresh = refresh
+        val oldBase = base
+        if (oldRefresh != null && oldBase.startsWith("https://") && !dryRun) Thread {
+            runCatching {
+                val c = (URL("$oldBase/api/auth/logout").openConnection() as HttpURLConnection)
+                c.requestMethod = "POST"; c.connectTimeout = 8_000; c.readTimeout = 8_000; c.doOutput = true
+                c.setRequestProperty("Content-Type", "application/json")
+                c.outputStream.use { it.write(JSONObject().put("refreshToken", oldRefresh).toString().toByteArray()) }
+                c.responseCode; c.disconnect()
+            }
+        }.start()
         access = null; refresh = null
-        prefs.edit().remove("access").remove("refresh").remove("cache.trips").remove("cache.me").apply()
+        prefs.edit().apply {
+            remove("access"); remove("refresh")
+            prefs.all.keys.filter { it.startsWith("cache.") }.forEach { remove(it) }
+        }.apply()
         Photos.clear()
+        app?.let { c ->
+            Tracker.wipe(c)
+            Offline.clear()
+            NotifyJob.cancel(c)
+            listOf("mms.next.notify", "mms.next.device").forEach { c.getSharedPreferences(it, Context.MODE_PRIVATE).edit().clear().apply() }
+            java.io.File(c.cacheDir, "shared").deleteRecursively()
+        }
+        ViewerApi.reset()
     }
 
     private fun save() {
@@ -136,7 +173,9 @@ object Api {
         base = server.trimEnd('/')
         refresh = refreshToken
         access = null
-        return if (renew()) true else { refresh = null; save(); false }
+        return try {
+            if (renew()) true else { refresh = null; save(); false }
+        } catch (_: Exception) { access = null; refresh = null; save(); false }
     }
 
     private fun renew(): Boolean {
@@ -692,7 +731,7 @@ object Remote {
         if (day.isAfter(LocalDate.now().plusDays(14))) return@withContext null
         val old = java.time.temporal.ChronoUnit.DAYS.between(day, LocalDate.now()) > 90
         val host = if (old) "archive-api.open-meteo.com/v1/archive" else "api.open-meteo.com/v1/forecast"
-        val url = URL("https://$host?latitude=${at.second}&longitude=${at.first}&daily=weather_code,temperature_2m_max,precipitation_sum,precipitation_hours&start_date=$day&end_date=$day&timezone=auto")
+        val url = URL("https://$host?latitude=${coarse(at.second)}&longitude=${coarse(at.first)}&daily=weather_code,temperature_2m_max,precipitation_sum,precipitation_hours&start_date=$day&end_date=$day&timezone=auto")
         val w = runCatching {
             val c = (url.openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
             val d = JSONObject(c.inputStream.bufferedReader().readText()).getJSONObject("daily")

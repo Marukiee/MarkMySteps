@@ -364,7 +364,7 @@ private struct TwoFactorSheet: View {
                                 }
                                 .padding(.vertical, 6)
                                 Button(copied ? "Gekopieerd" : "Kopieer alle codes", systemImage: copied ? "checkmark" : "doc.on.doc") {
-                                    UIPasteboard.general.string = codes.joined(separator: "\n")
+                                    Api.copySecret(codes.joined(separator: "\n"))
                                     copied = true
                                     Haptic.tap()
                                 }
@@ -379,7 +379,7 @@ private struct TwoFactorSheet: View {
                                 Text(setup.secret).font(.system(size: 14, weight: .medium, design: .monospaced)).lineLimit(2).textSelection(.enabled)
                                 Spacer()
                                 Button(copied ? "Gekopieerd" : "Kopieer") {
-                                    UIPasteboard.general.string = setup.secret
+                                    Api.copySecret(setup.secret)
                                     copied = true
                                     Haptic.tap()
                                 }

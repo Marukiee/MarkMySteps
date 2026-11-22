@@ -148,8 +148,8 @@ object MapRemote {
 
     /** The place at a spot picked on the map, for a new stop: the nearest town with its country. */
     suspend fun placeAt(at: LonLat): Remote.Place = withContext(Dispatchers.IO) {
-        val f = photon("https://photon.komoot.io/reverse?lat=${at.second}&lon=${at.first}&limit=1&lang=en&osm_tag=place&radius=30")
-            ?.takeIf { it.length() > 0 } ?: photon("https://photon.komoot.io/reverse?lat=${at.second}&lon=${at.first}&limit=1&lang=en")
+        val f = photon("https://photon.komoot.io/reverse?lat=${coarse(at.second)}&lon=${coarse(at.first)}&limit=1&lang=en&osm_tag=place&radius=30")
+            ?.takeIf { it.length() > 0 } ?: photon("https://photon.komoot.io/reverse?lat=${coarse(at.second)}&lon=${coarse(at.first)}&limit=1&lang=en")
         val p = f?.optJSONObject(0)?.optJSONObject("properties")
         fun s(k: String) = p?.optString(k)?.takeIf { it.isNotBlank() }
         val cc = s("countrycode")?.uppercase()

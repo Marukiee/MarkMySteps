@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import OSLog
 import Security
 import SwiftUI
@@ -75,6 +76,13 @@ final class Api {
     private enum Renewal { case renewed, rejected, unreachable }
 
     private init() {
+        // The Keychain outlives a reinstall; the app's own settings do not. A fresh install starts signed out,
+        // so tokens of an earlier install never come back.
+        if !UserDefaults.standard.bool(forKey: "installed") {
+            Keychain.set("access", nil)
+            Keychain.set("refresh", nil)
+            UserDefaults.standard.set(true, forKey: "installed")
+        }
         base = UserDefaults.standard.string(forKey: "server") ?? ""
         access = Keychain.get("access")
         refresh = Keychain.get("refresh")
@@ -115,6 +123,11 @@ final class Api {
 
     /// Another server, from Diensten: the login page then opens on it. Tokens belong to the old one, so sign out after.
     func setServer(_ address: String) {
+        // The tokens go first, so they are never stored next to a server they do not belong to.
+        access = nil
+        refresh = nil
+        Keychain.set("access", nil)
+        Keychain.set("refresh", nil)
         var b = address.trimmingCharacters(in: .whitespacesAndNewlines)
         while b.hasSuffix("/") { b.removeLast() }
         base = b
@@ -122,11 +135,28 @@ final class Api {
     }
 
     func signOut() {
+        // The server ends this session too, so the token is worthless even if a copy was left somewhere. Sent
+        // and not waited for: signing out works the same without a connection.
+        if let r = refresh, base.hasPrefix("https://"), !Api.dryRun, let url = URL(string: base + "/api/auth/logout") {
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: ["refreshToken": r])
+            URLSession.shared.dataTask(with: req).resume()
+        }
         access = nil
         refresh = nil
         Keychain.set("access", nil)
         Keychain.set("refresh", nil)
         ImageLoader.shared.clear()
+        // Photos and avatars the system kept on disk go as well.
+        URLCache.shared.removeAllCachedResponses()
+    }
+
+    /// A secret on the clipboard (recovery codes, a 2FA key, a link password): only on this device, not
+    /// synced to a Mac or iPad, and gone after two minutes.
+    static func copySecret(_ text: String) {
+        UIPasteboard.general.setItems([["public.utf8-plain-text": text]], options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(120)])
     }
 
     func get(_ path: String) async throws -> Data { try await request("GET", path) }

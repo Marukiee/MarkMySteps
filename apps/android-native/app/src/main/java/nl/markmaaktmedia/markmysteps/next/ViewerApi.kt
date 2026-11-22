@@ -85,6 +85,8 @@ object ViewerApi {
 
     private var immich: String? = null
     private var immichAsked = false
+    /** Signing out: the next account must not see this one's Immich address. */
+    fun reset() { immich = null; immichAsked = false }
 
     /** Where your own Immich opens in a browser: its public address; null hides "Openen in Immich". */
     suspend fun immichUrl(): String? {
@@ -112,7 +114,7 @@ object ViewerApi {
         synchronized(places) { if (places.containsKey(k)) return places[k] }
         // Each call gives up after five seconds; an exception (offline, timeout) is a failed lookup, not "nowhere".
         val name = withContext(Dispatchers.IO) {
-            photon("lat=$lat&lon=$lon&limit=1&lang=en&osm_tag=place&radius=30") ?: photon("lat=$lat&lon=$lon&limit=1&lang=en") ?: ""
+            photon("lat=${coarse(lat)}&lon=${coarse(lon)}&limit=1&lang=en&osm_tag=place&radius=30") ?: photon("lat=${coarse(lat)}&lon=${coarse(lon)}&limit=1&lang=en") ?: ""
         }
         val value = name.ifBlank { null }
         synchronized(places) { places[k] = value }

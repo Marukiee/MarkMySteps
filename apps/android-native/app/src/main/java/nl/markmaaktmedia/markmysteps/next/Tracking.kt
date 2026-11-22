@@ -146,6 +146,16 @@ object Tracker {
         flush()
     }
 
+    /** Signing out: stop without sending the waiting points, and forget them and the log (they belong to that account). */
+    fun wipe(context: Context) {
+        tripId = null; tripTitle = null
+        context.stopService(Intent(context, TrackingService::class.java))
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
+            listOf("trip", "title", "until", "buffer", "bufferTrip", "log", "last", "lastAcc", "status").forEach { remove(it) }
+        }.apply()
+        buffered = 0
+    }
+
     /** A new interval reaches a running service straight away. */
     fun restartIfRunning(context: Context) { if (tripId != null) context.startForegroundService(Intent(context, TrackingService::class.java)) }
 

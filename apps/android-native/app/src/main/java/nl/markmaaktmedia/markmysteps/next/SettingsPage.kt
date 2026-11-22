@@ -721,12 +721,15 @@ private suspend fun restore(backup: JSONObject, onProgress: (Float, String) -> U
     val entries = backup.getJSONArray("trips")
     var added = 0; var skipped = 0; var points = 0; var coversLost = 0
     fun JSONObject.opt2(k: String): Any? = if (isNull(k)) null else opt(k)
-    for (i in 0 until entries.length()) {
+    // A backup is a file someone may have been sent: only real ids go into a request, and a file can not make
+    // the app send an endless stream of them.
+    val uuid = Regex("^[0-9a-fA-F-]{36}$")
+    for (i in 0 until minOf(entries.length(), 1000)) {
         val e = entries.getJSONObject(i)
         val trip = e.getJSONObject("trip")
         val id = trip.getString("id")
         onProgress(i.toFloat() / entries.length(), trip.optString("title"))
-        if (id in known) { skipped++; continue }
+        if (id in known || !uuid.matches(id)) { skipped++; continue }
         Api.send("POST", "/api/trips", JSONObject().put("id", id).put("title", trip.optString("title")).put("startDate", trip.optString("startDate")).put("endDate", trip.optString("endDate"))
             .apply { trip.opt2("description")?.let { put("description", it) } })
         runCatching {
@@ -736,7 +739,8 @@ private suspend fun restore(backup: JSONObject, onProgress: (Float, String) -> U
         if (trip.opt2("coverMediaId") != null) coversLost++
         added++
         val stops = e.optJSONArray("stops") ?: JSONArray()
-        val all = (0 until stops.length()).map { stops.getJSONObject(it) }
+        val all = (0 until minOf(stops.length(), 2000)).map { stops.getJSONObject(it) }
+            .filter { uuid.matches(it.optString("id")) && (it.opt2("parentStopId")?.let { p -> uuid.matches(p.toString()) } ?: true) }
         val route = all.filter { it.isNull("parentStopId") || !it.has("parentStopId") }
         val dayTrips = all - route.toSet()
         for (s in route + dayTrips) runCatching {
@@ -749,7 +753,7 @@ private suspend fun restore(backup: JSONObject, onProgress: (Float, String) -> U
         if (route.size > 1) runCatching { Api.send("PUT", "/api/trips/$id/stops/order", JSONObject().put("stopIds", JSONArray(route.map { it.optString("id") }))) }
         val pts = e.optJSONArray("points") ?: JSONArray()
         var k = 0
-        while (k < pts.length()) {
+        while (k < minOf(pts.length(), 500_000)) {
             val batch = JSONArray()
             for (j in k until minOf(k + 400, pts.length())) pts.getJSONObject(j).let { p ->
                 batch.put(JSONObject().put("clientId", p.optString("id")).put("recordedAt", p.optString("recordedAt")).put("latitude", p.optDouble("latitude")).put("longitude", p.optDouble("longitude")))
@@ -1005,7 +1009,7 @@ private fun AccountsPage(onBack: () -> Unit) {
             "reset" -> Confirm(stringResource(R.string.settings_reset_title), stringResource(R.string.settings_reset_text, u.username), stringResource(R.string.settings_reset_confirm),
                 onConfirm = { val t = tempForReset; tempForReset = ""; act(Lang.text(R.string.settings_reset_done, u.username, t)) { SettingsRemote.resetPassword(u.id, t) } },
                 onDismiss = { ask = null; tempForReset = "" }, confirmEnabled = tempForReset.length >= 10,
-                extra = { FormField(stringResource(R.string.settings_accounts_temp_password_label), tempForReset, { tempForReset = it }, type = KeyboardType.Ascii, support = if (tempForReset.length < 10) stringResource(R.string.settings_accounts_min_length) else null, supportError = true) })
+                extra = { SecureWhile(true); FormField(stringResource(R.string.settings_accounts_temp_password_label), tempForReset, { tempForReset = it }, type = KeyboardType.Ascii, support = if (tempForReset.length < 10) stringResource(R.string.settings_accounts_min_length) else null, supportError = true) })
             "2fa" -> Confirm(stringResource(R.string.settings_reset_2fa_title), stringResource(R.string.settings_reset_2fa_text, u.username), stringResource(R.string.settings_reset_confirm),
                 onConfirm = { act(Lang.text(R.string.settings_reset_2fa_done, u.username)) { SettingsRemote.resetTwoFactor(u.id) } }, onDismiss = { ask = null })
             else -> Confirm(stringResource(R.string.settings_delete_title), stringResource(R.string.settings_delete_text, u.username), stringResource(R.string.settings_delete_confirm),

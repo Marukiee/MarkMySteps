@@ -224,7 +224,7 @@ struct PeopleSheet: View {
         }
         .alert("Wachtwoord van de link", isPresented: Binding(get: { revealed != nil }, set: { if !$0 { revealed = nil } })) {
             if let pw = revealed?.password {
-                Button("Kopieer") { UIPasteboard.general.string = pw; Haptic.tap() }
+                Button("Kopieer") { Api.copySecret(pw); Haptic.tap() }
             }
             Button("OK", role: .cancel) {}
         } message: {

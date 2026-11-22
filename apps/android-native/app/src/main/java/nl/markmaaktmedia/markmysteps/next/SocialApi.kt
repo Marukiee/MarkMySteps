@@ -186,7 +186,7 @@ object SocialRemote {
                 name to s("countrycode")?.uppercase()
             } finally { c.disconnect() }
         }
-        runCatching { ask("lat=$lat&lon=$lon&limit=1&lang=en&osm_tag=place&radius=30") ?: ask("lat=$lat&lon=$lon&limit=1&lang=en") }.getOrNull()
+        runCatching { ask("lat=${coarse(lat)}&lon=${coarse(lon)}&limit=1&lang=en&osm_tag=place&radius=30") ?: ask("lat=${coarse(lat)}&lon=${coarse(lon)}&limit=1&lang=en") }.getOrNull()
     }
 
     /** A stay added as a stop with its own nights, at the end before the way back, as the web does. */

@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
         DeepLink.linkHost = getString(R.string.link_host)
         // A share or trip link that opened the app: handled once the home page and the trips are there.
         if (savedInstanceState == null) intent?.takeIf { it.action == android.content.Intent.ACTION_VIEW }?.data?.let { DeepLink.pending = it }
-        if (intent?.getBooleanExtra("dryRun", false) == true) {
+        if (!BuildConfig.STORE && intent?.getBooleanExtra("dryRun", false) == true) {
             Api.dryRun = true
             // Said at start, so a test can check the flag took before it taps anything that writes.
             android.util.Log.i("MmsDryRun", "dry run on: writes are answered on the phone and never sent")

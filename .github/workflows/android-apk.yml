@@ -68,6 +68,8 @@ jobs:
         run: |
           APK=$(find apps/android-native/app/build/outputs/apk -name '*-release.apk' | head -1)
           cp "$APK" "$RUNNER_TEMP/markmysteps.apk"
+          # The updater checks the download against this sum before it installs anything.
+          (cd "$RUNNER_TEMP" && sha256sum markmysteps.apk > markmysteps.apk.sha256)
 
       - name: Publish GitHub Release
         if: steps.keystore.outputs.signed == 'true'
@@ -77,4 +79,6 @@ jobs:
           name: Build ${{ github.run_number }}
           body: 'MarkMySteps heeft een nieuwe look: de app is opnieuw gebouwd als echte Android-app. Alles blijft hetzelfde, alleen even een opfrisbeurt. (build ${{ github.run_number }})'
           make_latest: true
-          files: ${{ runner.temp }}/markmysteps.apk
+          files: |
+            ${{ runner.temp }}/markmysteps.apk
+            ${{ runner.temp }}/markmysteps.apk.sha256

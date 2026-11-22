@@ -489,6 +489,7 @@ private fun LinkPassword(trip: Trip, link: Remote.ShareLink) {
             )
         }
         val shown = secret
+        SecureWhile(shown != null)
         if (shown != null) {
             val (pw, recoverable) = shown
             if (pw == null || !recoverable) Text(
@@ -496,7 +497,7 @@ private fun LinkPassword(trip: Trip, link: Remote.ShareLink) {
                 style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, lineHeight = 17.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp),
             ) else Row(
                 Modifier.padding(top = 6.dp).clip(CircleShape).background(cs.surfaceContainerHighest).clickable {
-                    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("MarkMySteps", pw))
+                    copySecret(context, "MarkMySteps", pw)
                     haptics(Haptic.Confirm); copied = true
                 }.padding(start = 12.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,

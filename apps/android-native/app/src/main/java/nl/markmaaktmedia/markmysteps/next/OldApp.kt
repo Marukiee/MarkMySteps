@@ -41,21 +41,38 @@ object OldApp {
         web.settings.blockNetworkLoads = true
         web.settings.allowFileAccess = false
         web.settings.allowContentAccess = false
+        // After reading, the old WebView profile is emptied as a whole (storage, cookies, cache) and the WebView
+        // is destroyed, on every path, so nothing of the old sign-in stays behind in it.
+        fun finish(view: WebView) {
+            runCatching { android.webkit.WebStorage.getInstance().deleteAllData() }
+            runCatching { android.webkit.CookieManager.getInstance().removeAllCookies(null) }
+            runCatching { view.clearCache(true); view.clearHistory() }
+            runCatching { view.destroy() }
+        }
         web.webViewClient = object : WebViewClient() {
+            private var read = false
             override fun onPageFinished(view: WebView, url: String?) {
+                if (read) return
+                read = true
                 view.evaluateJavascript("JSON.stringify({s: localStorage.getItem('mms.server'), r: localStorage.getItem('mms.refresh')})") { raw ->
-                    // Wiped at once, whatever happens next: the old token is never kept in two places.
-                    view.evaluateJavascript("localStorage.removeItem('mms.refresh'); localStorage.removeItem('mms.access');") { _ -> view.destroy() }
+                    finish(view)
                     val found = runCatching { JSONObject(JSONObject("{\"v\":$raw}").getString("v")) }.getOrNull() ?: return@evaluateJavascript
                     val refresh = found.optString("r").takeIf { it.isNotBlank() && it != "null" } ?: return@evaluateJavascript
-                    val server = found.optString("s").takeIf { it.startsWith("https://") }
-                        ?: "https://" + context.getString(R.string.link_host)
+                    // The old server, if it was kept; only the default server when none was kept at all. A server
+                    // that was not https is skipped: the token is never sent over plain http.
+                    val kept = found.optString("s").takeIf { it.isNotBlank() && it != "null" }
+                    val server = when {
+                        kept == null -> "https://" + context.getString(R.string.link_host)
+                        kept.startsWith("https://") -> kept
+                        else -> return@evaluateJavascript
+                    }
                     CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
                         if (Api.adopt(server, refresh)) launch(Dispatchers.Main) { adopted = true; onSignedIn() }
                     }
                 }
             }
         }
-        web.loadDataWithBaseURL("https://localhost/", "<!doctype html><html></html>", "text/html", "utf-8", null)
+        runCatching { web.loadDataWithBaseURL("https://localhost/", "<!doctype html><html></html>", "text/html", "utf-8", null) }
+            .onFailure { finish(web) }
     }
 }

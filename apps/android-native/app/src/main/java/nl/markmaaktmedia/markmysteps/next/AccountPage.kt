@@ -369,6 +369,23 @@ fun copySecret(context: android.content.Context, label: String, text: String) {
     (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(clip)
 }
 
+/**
+ * Keeps what is on screen out of screenshots, screen recordings, casting and the recent-apps picture while [on]:
+ * for a 2FA key, recovery codes and passwords. Works in the window it is drawn in, the page or a sheet.
+ */
+@androidx.compose.runtime.Composable
+fun SecureWhile(on: Boolean) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.DisposableEffect(on, view) {
+        var c = view.context
+        while (c !is android.app.Activity && c is android.content.ContextWrapper) c = c.baseContext
+        val window = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window ?: (c as? android.app.Activity)?.window
+        val flag = android.view.WindowManager.LayoutParams.FLAG_SECURE
+        if (on) window?.addFlags(flag)
+        onDispose { if (on) window?.clearFlags(flag) }
+    }
+}
+
 /** Two-step verification, the web's steps: password, scan, codes, and turning it off or new codes. */
 @Composable
 private fun TwoFactorPanel() {
@@ -453,6 +470,7 @@ private fun TwoFactorPanel() {
                         }
                     }
                     "scan" -> setup?.let { su ->
+                        SecureWhile(true)
                         PathHint("", listOf(stringResource(R.string.account_2fa_scan_app), stringResource(R.string.account_2fa_scan_add), stringResource(R.string.account_2fa_scan_qr)), stringResource(R.string.account_2fa_scan_suffix))
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { QrCode(su.uri, Modifier.size(200.dp)) }
                         Hint(stringResource(R.string.account_2fa_copy_hint))
@@ -475,6 +493,7 @@ private fun TwoFactorPanel() {
                         }
                     }
                     "codes" -> {
+                        SecureWhile(true)
                         Text(
                             pathText("", listOf(stringResource(R.string.account_2fa_save_codes)), stringResource(R.string.account_2fa_save_codes_text), cs.onSurface),
                             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, lineHeight = 19.sp, color = cs.onSurfaceVariant),
