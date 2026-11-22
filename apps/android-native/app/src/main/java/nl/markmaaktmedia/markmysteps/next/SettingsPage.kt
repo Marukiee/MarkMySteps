@@ -359,9 +359,9 @@ private fun TrackingPanel() {
     var customText by remember { mutableStateOf(UiPrefs.trackMinutes.toString()) }
     var tripId by remember { mutableStateOf<String?>(null) }
     var picker by remember { mutableStateOf(false) }
-    var explain by remember { mutableStateOf(false) }
     var confirmStop by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
+    var editPoints by remember { mutableStateOf(false) }
     val me = Data.me?.id
     // Trips you could still be travelling on, the ones under way first; guests do not record.
     val trips = Data.all.filter { it.upcoming && it.remoteId != null && it.members.none { m -> m.userId == me && m.role == "GUEST" } }
@@ -369,11 +369,16 @@ private fun TrackingPanel() {
     LaunchedEffect(trips) { if (tripId == null || trips.none { it.id == tripId }) tripId = trips.firstOrNull()?.id }
     val trip = trips.firstOrNull { it.id == tripId }
     val haptics = rememberHaptics()
-    fun begin() { trip?.let { Tracker.start(context, it.remoteId ?: it.id, it.title); note = null; haptics(Haptic.Confirm) } }
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { got ->
-        if (got[android.Manifest.permission.ACCESS_FINE_LOCATION] == true || got[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true) begin()
-        else note = "Zonder locatie kan de app je route niet bijhouden. Geef toegang bij Instellingen › Apps › MarkMySteps Dev › Toegang › Locatie."
-    }
+    // The organiser can switch tracking off for a companion; then this trip says so instead of starting.
+    val allowed = trip == null || canTrack(trip)
+    fun begin() { trip?.let { Tracker.start(context, it.remoteId ?: it.id, it.title, it.start?.plusDays((it.days - 1).toLong())); note = null; haptics(Haptic.Confirm) } }
+    // The one way the app asks for location (LocationAccess.kt): a word on why, then Android's question.
+    val ask = rememberLocationRequest(
+        "Locatie voor je route",
+        "Om je route bij te houden heeft de app je locatie nodig, ook met het scherm uit. Je ziet een melding zolang hij loopt. Android vraagt je zo om toestemming.",
+        notifications = true,
+        onRefused = { msg, _ -> note = msg },
+    )
     // The age of the last position stays current while you look.
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Tracker.tripId) { while (Tracker.tripId != null) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
@@ -400,15 +405,15 @@ private fun TrackingPanel() {
                             Text("Actief: ${Tracker.tripTitle ?: "reis"}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
                         }
                         val fix = Tracker.lastFix
-                        Text(
-                            listOfNotNull(
-                                if (fix == null) "Wachten op de eerste positie" else ((now - fix.third) / 1000).let { s -> if (s < 10) "laatste positie zojuist" else if (s < 120) "laatste positie ${s}s geleden" else "laatste positie ${s / 60} min geleden" },
-                                if (Tracker.buffered > 0) "${Tracker.buffered} ${if (Tracker.buffered == 1) "punt wacht" else "punten wachten"} op netwerk" else null,
-                            ).joinToString(" · "),
-                            style = ValueStyle.copy(color = cs.onSurfaceVariant),
-                        )
+                        // Where the last position landed: its place and a small map with today's line, as the web.
+                        if (fix == null) Text("Wachten op de eerste positie", style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                        else Box(Modifier.padding(top = 10.dp)) { LastFixCard(fix, now, Tracker.tripId) { editPoints = true } }
+                        if (Tracker.buffered > 0) Text("${Tracker.buffered} ${if (Tracker.buffered == 1) "punt wacht" else "punten wachten"} op netwerk", style = ValueStyle.copy(color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 6.dp))
                         Tracker.lastError?.let { Text(it, style = ValueStyle.copy(color = cs.error)) }
                     }
+                    // The bare points of today, to check and correct what the tracker recorded.
+                    SoftButton("Punten van vandaag op de kaart", { editPoints = true }, Modifier.fillMaxWidth(), icon = Glyphs.pin)
+                    TrackingLog(now)
                     QuietDangerButton("Stop tracking", { confirmStop = true }, Modifier.fillMaxWidth())
                 } else {
                     Box {
@@ -424,30 +429,23 @@ private fun TrackingPanel() {
                         }
                         AppMenu(picker, { picker = false }, listOf(trips.map { t -> MenuEntry(t.title + if (t.ongoingDay != null) " · onderweg" else "", Glyphs.compass, selected = t.id == tripId) { tripId = t.id } }))
                     }
+                    if (!allowed) Hint("De organisator heeft tracken voor jou uitgezet.", Modifier.padding(horizontal = 6.dp))
                     MainButton("Start tracking", {
                         when {
                             !Data.live -> note = "Log eerst in: de route gaat naar je reis op je server."
-                            Tracker.hasPermission(context) -> begin()
-                            else -> explain = true
+                            else -> ask.run(context) { begin() }
                         }
-                    }, Modifier.fillMaxWidth().graphicsLayer { alpha = if (Data.live) 1f else 0.45f }, icon = Glyphs.pin, enabled = trip != null || !Data.live)
+                    }, Modifier.fillMaxWidth().graphicsLayer { alpha = if (Data.live) 1f else 0.45f }, icon = Glyphs.pin, enabled = (trip != null && allowed) || !Data.live)
+                    Tracker.lastStatus?.let { Hint(it, Modifier.padding(horizontal = 6.dp)) }
+                    TrackingLog(now)
                 }
             }
         }
         // Every line here says why tracking could not start.
         Note(note, feel = Haptic.Reject)
     }
-    if (explain) Confirm(
-        "Locatie voor je route",
-        "Om je route bij te houden heeft de app je locatie nodig, ook met het scherm uit. Je ziet een melding zolang hij loopt. Android vraagt je zo om toestemming.",
-        "Verder", danger = false,
-        onConfirm = {
-            val wanted = listOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION) +
-                if (android.os.Build.VERSION.SDK_INT >= 33) listOf(android.Manifest.permission.POST_NOTIFICATIONS) else emptyList()
-            ask.launch(wanted.toTypedArray())
-        },
-        onDismiss = { explain = false },
-    )
+    val editing = Tracker.tripId
+    if (editPoints && editing != null) PointsEditor(editing, onClose = { editPoints = false })
     if (confirmStop) Confirm(
         "Stoppen met tracken?", "De route van ${Tracker.tripTitle ?: "deze reis"} wordt niet verder bijgehouden. Wat al opgenomen is blijft staan.", "Stoppen",
         onConfirm = { Tracker.stop(context) }, onDismiss = { confirmStop = false },

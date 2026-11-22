@@ -29,6 +29,8 @@ data class Stop(
     val dayTrips: List<DayTrip> = emptyList(),
     /** The airports a flight to here changed planes at, in order. */
     val viaAirports: List<String> = emptyList(),
+    /** The straight line from the stop before to here is hidden on the map (the stop itself stays). */
+    val hideLeg: Boolean = false,
 )
 
 /** A day trip from a stop (Saltsjöbaden to Stockholm and back): where, and on which day. */
@@ -95,6 +97,8 @@ data class Trip(
     val ongoingDay: Int? = null,
     /** The planned stops as points only, from the trip list (the full stops come when the trip opens). */
     val stopPoints: List<LonLat> = emptyList(),
+    /** A spot picked by hand in the trip's settings for its one dot on the globe (markerLng, markerLat). */
+    val marker: LonLat? = null,
 )
 
 /** Someone on a trip: organiser, companion (counts it in their figures) or guest (only looks). */

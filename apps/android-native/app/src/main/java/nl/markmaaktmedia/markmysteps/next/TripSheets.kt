@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -54,12 +55,19 @@ import kotlinx.coroutines.launch
 /** The map's look: the web's four styles as one connected group. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MapSheet(onDismiss: () -> Unit) {
+fun MapSheet(onDismiss: () -> Unit, layers: MapLayers? = null) {
     val cs = MaterialTheme.colorScheme
     AppSheet(onDismiss = onDismiss) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
-            Text("Kaart", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
-            Text("Stijl van de kaart", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
+        Column(Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
+            Text(if (layers != null) "Kaartinstellingen" else "Kaart", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
+            // Whose routes and photos are on this map, then its style, as the web's map settings.
+            if (layers != null) {
+                Spacer(Modifier.height(14.dp))
+                MapLayersSections(layers)
+                Spacer(Modifier.height(24.dp))
+                Text("Kaartstijl", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp))
+            }
+            Text(if (layers != null) "Geldt voor alle kaarten op dit apparaat." else "Stijl van de kaart", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
             MapStyleGrid()
             Text(
                 "In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.",

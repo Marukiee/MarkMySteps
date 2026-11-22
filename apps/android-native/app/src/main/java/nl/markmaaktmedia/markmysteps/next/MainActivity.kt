@@ -31,6 +31,9 @@ class MainActivity : ComponentActivity() {
             Api.dryRun = true
             // Said at start, so a test can check the flag took before it taps anything that writes.
             android.util.Log.i("MmsDryRun", "dry run on: writes are answered on the phone and never sent")
+            MapDebug.ongoing = intent.getBooleanExtra("mapOngoing", false)
+            MapDebug.openPoints = intent.getBooleanExtra("mapPoints", false)
+            MapDebug.fakeLive = intent.getBooleanExtra("mapLive", false)
         }
         ThemePref.init(applicationContext)
         MapStylePref.init(applicationContext)
@@ -40,6 +43,9 @@ class MainActivity : ComponentActivity() {
         TripFactsPref.init(applicationContext)
         UiPrefs.init(applicationContext)
         Tracker.init(applicationContext)
+        MapPhotosPref.init(applicationContext)
+        // A trip that ended while the phone was in a pocket stops recording now, as on the web.
+        Tracker.stopIfOver(applicationContext)
         // The airport list in the background, so Voorkeuren opens complete.
         Thread { Airports.load(applicationContext) }.start()
         if (!Api.dryRun) Tracker.autoStart(applicationContext)

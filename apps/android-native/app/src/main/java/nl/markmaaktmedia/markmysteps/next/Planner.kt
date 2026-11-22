@@ -248,7 +248,13 @@ private fun photoFor(media: List<Media>?, from: LocalDate?, nights: Int): String
 }
 
 @Composable
-fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
+fun Planner(
+    trip: Trip, dark: Boolean, media: List<Media>? = null,
+    /** A tapped stop: the trip map flies there (TripPage). */
+    onFlyTo: ((LonLat) -> Unit)? = null,
+    /** Opens the map to tap a new stop's place; the place picked comes back through the callback (TripPage). */
+    onPickOnMap: (((Remote.Place) -> Unit) -> Unit)? = null,
+) {
     val cs = MaterialTheme.colorScheme
     val color = legibleColor(trip.color, dark)
     val context = LocalContext.current
@@ -503,6 +509,7 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
                         StopCard(
                             trip = trip, stop = stop, index = index, from = from, to = to, color = color, dark = dark, lifted = lift,
                             photo = photoFor(media, from, stop.nights), media = media,
+                            onFly = onFlyTo?.let { fly -> { fly(stop.at) } },
                             onNights = {
                                 stop.nights = (stop.nights + it).coerceIn(NightsRange.first, NightsRange.last)
                                 // Taps in a row become one save, after a short pause.
@@ -557,7 +564,7 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
         SocialRemote.addStay(trip, id, stay, name, cc, after)
         stops.add(PlanStop(newKey(), name, Remote.flag(cc), stay.lon to stay.lat, stay.nights, Mode.Car, id))
     }
-    AddStop(trip, taken = stops.map { it.name }.toSet(), onAdd = { place ->
+    AddStop(trip, taken = stops.map { it.name }.toSet(), onPickOnMap = onPickOnMap, onAdd = { place ->
         view.haptic(Haptic.Confirm)
         val id = java.util.UUID.randomUUID().toString()
         // Before the way back, never after it.
@@ -854,6 +861,7 @@ private fun Connector(
 private fun StopCard(
     trip: Trip, stop: PlanStop, index: Int, from: LocalDate, to: LocalDate, color: Color, dark: Boolean, lifted: Float,
     photo: String?, media: List<Media>?,
+    onFly: (() -> Unit)? = null,
     onNights: (Int) -> Unit, onAddDayTrip: (Remote.Place, LocalDate) -> Unit, onRemoveDayTrip: (PlanDayTrip) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
@@ -876,7 +884,7 @@ private fun StopCard(
                     contentAlignment = Alignment.Center,
                 ) { Text("${index + 1}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 11.5.sp, lineHeight = 12.sp, color = onBadge(badge))) }
             }
-            Column(Modifier.weight(1f).padding(start = 10.dp, end = 10.dp)) {
+            Column(Modifier.weight(1f).then(if (onFly != null) Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onFly) else Modifier).padding(start = 10.dp, end = 10.dp)) {
                 Text(stop.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, lineHeight = 21.sp, color = cs.onSurface))
                 Text(stay(from, to), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp))
                 // The weather there on the first day, as the web shows it with the dates; on its own line, since the card is narrow.
@@ -1077,7 +1085,7 @@ private fun PlaceList(matches: List<Remote.Place>, trip: Trip, onPick: (Remote.P
 
 /** A search field for a new stop; places that match open underneath, one tap adds it. */
 @Composable
-private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (Remote.Place) -> Unit) {
+private fun AddStop(trip: Trip, taken: Set<String>, onPickOnMap: (((Remote.Place) -> Unit) -> Unit)? = null, onAdd: (Remote.Place) -> Unit) {
     val cs = MaterialTheme.colorScheme
     var query by remember { mutableStateOf("") }
     val matches = placeMatches(trip, query, taken)
@@ -1088,6 +1096,14 @@ private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (Remote.Place) -> Uni
         Text("Nieuwe stop", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
         SearchField(query, { query = it }, if (trip.remoteId != null) "Zoek een stad, bijv. Hanoi" else "Zoek een stad, bijv. Mestia")
         PlaceList(matches, trip) { onAdd(it); query = "" }
+        // Or tap its place on a map, as the web's planner lets you tap its map.
+        if (onPickOnMap != null && query.isBlank()) Row(
+            Modifier.padding(top = 8.dp).clip(CircleShape).clickable { onPickOnMap { onAdd(it) } }.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LineIcon(Glyphs.pin, cs.primary, size = 16.dp, stroke = 2.1f)
+            Text("Kies de plek op de kaart", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary), modifier = Modifier.padding(start = 6.dp))
+        }
         if (query.isNotBlank() && matches.isEmpty() && trip.remoteId == null) {
             Button(
                 onClick = { onAdd(Remote.Place(query.trim(), "", null, trip.stops.lastOrNull()?.at ?: trip.route.lastOrNull() ?: HomeAirport)); query = "" },

@@ -180,8 +180,12 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
 
         if (canEdit) SyncPanel(id, onChanged)
         if (isOwner) MarkerPanel(trip, id, info)
+        // The map of where the trip went, kept on the phone for a trip without signal.
+        OfflineMapPanel(trip, id)
 
         Header("Tracking")
+        TrackNowPanel(trip, id, ended, myRole)
+        Spacer(Modifier.height(8.dp))
         Group(null, listOf(
             Item(
                 Glyphs.pin, "Automatisch tracken",
@@ -196,6 +200,56 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
 
         DangerPanel(trip, id, isOwner, canEdit, onGone)
     }
+}
+
+/**
+ * "Route nu bijhouden": start or stop recording this trip from here, as the web's trip settings. A trip that is
+ * over can still be stopped; otherwise the panel says why it cannot start (over, a guest, or the organiser
+ * switched tracking off for you).
+ */
+@Composable
+private fun TrackNowPanel(trip: Trip, id: String, ended: Boolean, myRole: String?) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val haptics = rememberHaptics()
+    val here = Tracker.tripId == id
+    val allowed = !ended && canTrack(trip)
+    var confirmStop by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf<String?>(null) }
+    val ask = rememberLocationRequest(
+        "Locatie voor je route",
+        "Om je route bij te houden heeft de app je locatie nodig, ook met het scherm uit. Je ziet een melding zolang hij loopt. Android vraagt je zo om toestemming.",
+        notifications = true,
+        onRefused = { msg, _ -> note = msg },
+    )
+    Panel(animate = true) {
+        if (allowed || here) {
+            Text("Route nu bijhouden", style = TitleStyle.copy(color = MaterialTheme.colorScheme.onSurface))
+            Hint(if (allowed) "Start of stop het volgen van je route voor deze reis." else "Deze reis is afgelopen. Tracking loopt nog en stopt vanzelf, of nu.")
+            AnimatedContent(here, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "trackNow") { on ->
+                if (on) QuietDangerButton("Stop tracking", { confirmStop = true }, Modifier.fillMaxWidth())
+                else MainButton("Start tracking", {
+                    ask.run(context) {
+                        Tracker.start(context, id, trip.title, trip.start?.plusDays((trip.days - 1).toLong()))
+                        haptics(Haptic.Confirm); note = null
+                    }
+                }, Modifier.fillMaxWidth(), icon = Glyphs.pin)
+            }
+            if (!here && allowed && Tracker.tripId != null) Hint("Er loopt nog tracking voor een andere reis; die stopt als je hier start.")
+            Note(note, true)
+        } else {
+            Hint(
+                when {
+                    ended -> "Deze reis is afgelopen, tracken kan niet meer."
+                    myRole == "GUEST" -> "Je bent gast op deze reis en kunt alleen meekijken."
+                    else -> "De organisator heeft tracken voor jou uitgezet."
+                },
+            )
+        }
+    }
+    if (confirmStop) Confirm(
+        "Stoppen met tracken?", "De route van ${trip.title} wordt niet verder bijgehouden. Wat al opgenomen is blijft staan.", "Stoppen",
+        onConfirm = { Tracker.stop(context) }, onDismiss = { confirmStop = false },
+    )
 }
 
 /** The cover as the trip's card shows it, with the trip's colour under it gliding to a new pick. */
@@ -434,7 +488,8 @@ private fun MarkerPanel(trip: Trip, id: String, info: SettingsRemote.TripInfo?) 
     var error by remember { mutableStateOf<String?>(null) }
     fun save(p: LonLat?) {
         marker = p
-        scope.launch { runCatching { SettingsRemote.setMarker(id, p) }.onFailure { error = it.message ?: "Markering opslaan mislukt" } }
+        // The globe on the homepage draws the new spot once the trips are read again.
+        scope.launch { runCatching { SettingsRemote.setMarker(id, p) }.onSuccess { Data.load() }.onFailure { error = it.message ?: "Markering opslaan mislukt" } }
     }
     Header("Bolletje op de globe")
     val motion = MaterialTheme.motionScheme
