@@ -204,13 +204,18 @@ private fun TravellersList(
             Column(
                 Modifier.padding(top = 22.dp).fillMaxWidth().clip(RoundedCornerShape(32.dp)).background(cs.surfaceContainerLow).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 18.dp),
             ) {
-                val list = countryFlags ?: countries.map { it to (names[it] ?: "") }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Visited (from the server) and, after them, the countries of the trips still to come.
+                val nl = java.util.Locale.forLanguageTag("nl-NL")
+                val visitedCodes = live?.countries?.map { it.uppercase() }.orEmpty()
+                val plannedCodes = if (live == null) emptyList() else Data.upcoming.flatMap { t -> t.stops.mapNotNull { flagCode(it.flag)?.uppercase() } }
+                    .distinct().filter { it !in visitedCodes }
+                val list: List<Pair<String, String>> = countryFlags ?: countries.map { it to (names[it] ?: "") }
+                val plannedList = plannedCodes.map { Remote.flag(it) to java.util.Locale("", it).getDisplayCountry(nl) }
+                Row(verticalAlignment = Alignment.Bottom) {
                     Text("Landen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
                     if (!(Data.live && live == null)) Text(
-                        "${list.count { countryFlags != null || it.first in visited }}",
-                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 15.sp, color = cs.onSecondaryContainer),
-                        modifier = Modifier.clip(CircleShape).background(cs.secondaryContainer).padding(horizontal = 12.dp, vertical = 4.dp),
+                        "${list.count { countryFlags != null || it.first in visited }} bezocht" + if (plannedList.isNotEmpty()) " · ${plannedList.size} gepland" else "",
+                        style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant),
                     )
                 }
                 Box(Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
@@ -222,19 +227,20 @@ private fun TravellersList(
                         CountryGlobe(codes, dark = cs.background.luminance() < 0.5f, modifier = Modifier.size(220.dp))
                     }
                 }
+                // Clear chips: the page's lightest tone with full-contrast names; a planned country quieter, with an hourglass.
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    list.forEach { (flag, countryName) ->
-                        val planned = countryFlags == null && flag !in visited
+                    (list.map { it to (countryFlags == null && it.first !in visited) } + plannedList.map { it to true }).forEach { (country, planned) ->
+                        val (flag, countryName) = country
                         Row(
                             Modifier.height(40.dp).clip(CircleShape)
-                                .background(if (planned) cs.surfaceContainerHigh else cs.secondaryContainer)
+                                .background(if (planned) cs.surfaceContainerHigh else cs.surface)
                                 .padding(start = 10.dp, end = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             FlagIcon(flag, 15.dp)
                             Text(
                                 countryName,
-                                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = if (planned) cs.onSurfaceVariant else cs.onSecondaryContainer),
+                                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.5.sp, color = if (planned) cs.onSurfaceVariant else cs.onSurface),
                                 modifier = Modifier.padding(start = 8.dp),
                             )
                             if (planned) LineIcon(Glyphs.hourglass, cs.onSurfaceVariant, size = 14.dp, stroke = 2f, modifier = Modifier.padding(start = 6.dp))
