@@ -36,6 +36,18 @@ android {
     }
 
     buildFeatures { compose = true }
+
+    // The build that goes on a phone: shrunk and optimised by R8, since a debug build of Compose
+    // runs many times slower and makes gestures such as predictive back stutter. Signed with the
+    // debug key, so it installs over the debug build and the other way round.
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
 }
 
 dependencies {
@@ -48,4 +60,10 @@ dependencies {
     implementation(libs.androidx.animation)
     implementation(libs.androidx.material3)
     testImplementation("junit:junit:4.13.2")
+    // The same map as the web app: MapLibre with the OpenFreeMap styles.
+    implementation("org.maplibre.gl:android-sdk:11.8.0")
+    // Colours from a cover photo, for the rows that take on the tone of their trip.
+    implementation("androidx.palette:palette-ktx:1.0.0")
+    // Installs the Compose libraries' baseline profiles, so the first scrolls and gestures are compiled ahead.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 }

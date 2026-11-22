@@ -48,6 +48,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.animation.togetherWith
+import kotlinx.coroutines.launch
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -96,31 +98,50 @@ private val Sections = listOf(
     Section(Glyphs.person, "Account", "Profiel, wachtwoord, tweestapsverificatie"),
     Section(Glyphs.sun, "Weergave", "Thema, taal, globe"),
     Section(Glyphs.distance, "Reizen en route", "Tracking, eigen locatie, vliegvelden"),
-    Section(Glyphs.photo, "Foto's", "Immich verbonden"),
+    Section(Glyphs.photo, "Foto's", "Immich en je statistieken"),
     Section(Glyphs.bell, "Meldingen", "Reacties en nieuwe foto's"),
     Section(Glyphs.download, "Opslag en back-up", "Offline kaart, foto-cache"),
-    Section(Glyphs.shield, "Updates", "Automatisch, build 267"),
+    Section(Glyphs.shield, "Updates", "Automatisch controleren"),
     Section(Glyphs.help, "Over", "MarkMySteps, AGPL-3.0"),
 )
 
 @Composable
 fun SettingsPage(onSignIn: () -> Unit = {}) {
     var open by remember { mutableStateOf<Int?>(null) }
-    androidx.activity.compose.BackHandler(enabled = open != null) { open = null }
-    val motion = MaterialTheme.motionScheme
-    // Into a section and back: the shared X axis of Material motion, the list sliding a little and fading.
-    androidx.compose.animation.AnimatedContent(
-        targetState = open,
+    // Predictive back here too: the section follows the finger and the list shows behind it.
+    val state = remember { androidx.compose.animation.core.SeekableTransitionState<Int?>(null) }
+    // The same seekable shared-axis transition as the pages and as Tandem.
+    androidx.compose.runtime.LaunchedEffect(open) { if (state.targetState != open) state.animateTo(open) }
+    androidx.activity.compose.PredictiveBackHandler(enabled = open != null) { events ->
+        try {
+            events.collect { state.seekTo(it.progress, null) }
+            state.animateTo(null)
+            open = null
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { state.snapTo(open) }
+            throw e
+        }
+    }
+    val emphasized = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
+    val ease = androidx.compose.animation.core.tween<Float>(350, easing = emphasized)
+    val slide = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(350, easing = emphasized)
+    androidx.compose.animation.core.rememberTransition(state, label = "settings").AnimatedContent(
         transitionSpec = {
-            val forward = targetState != null
-            (androidx.compose.animation.slideInHorizontally(motion.defaultSpatialSpec()) { w -> if (forward) w / 5 else -w / 5 } +
-                androidx.compose.animation.fadeIn(motion.defaultEffectsSpec())) togetherWith
-                (androidx.compose.animation.slideOutHorizontally(motion.defaultSpatialSpec()) { w -> if (forward) -w / 5 else w / 5 } +
-                    androidx.compose.animation.fadeOut(motion.fastEffectsSpec()))
+            if (targetState != null) {
+                (androidx.compose.animation.slideInHorizontally(slide) { it / 3 } + androidx.compose.animation.fadeIn(ease)) togetherWith
+                    (androidx.compose.animation.slideOutHorizontally(slide) { -it / 3 } + androidx.compose.animation.scaleOut(ease, targetScale = 0.92f))
+            } else {
+                ((androidx.compose.animation.slideInHorizontally(slide) { -it / 3 } + androidx.compose.animation.fadeIn(ease)) togetherWith
+                    (androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(350, easing = androidx.compose.animation.core.Easing { f -> f * f * f })) { it } +
+                        androidx.compose.animation.scaleOut(ease, targetScale = 0.85f)))
+                    .apply { targetContentZIndex = -1f }
+            }
         },
-        label = "settings",
+        contentKey = { it },
     ) { which ->
-        if (which == null) SettingsMain(onOpen = { open = it }) else SectionPage(which, onBack = { open = null }, onSignIn = onSignIn)
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            if (which == null) SettingsMain(onOpen = { open = it }) else SectionPage(which, onBack = { open = null }, onSignIn = onSignIn)
+        }
     }
 }
 
@@ -146,7 +167,9 @@ private fun SettingsMain(onOpen: (Int) -> Unit) {
                 Text(Data.me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
                 Text(if (Data.live) "@${Data.me?.username} · ${Api.base.removePrefix("https://")}" else "voorbeelden, niet ingelogd", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
             }
-            LineIcon(Glyphs.pencil, cs.onSurfaceVariant, size = 20.dp, stroke = 2f)
+            Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+                LineIcon(Glyphs.pencil, cs.onSurface, size = 20.dp, stroke = 2f)
+            }
         }
         Spacer(Modifier.height(18.dp))
         // One slab of sections, each opening a page of its own.
@@ -175,7 +198,7 @@ private fun SettingsMain(onOpen: (Int) -> Unit) {
 private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val sec = Sections[index]
-    var theme by remember { mutableIntStateOf(2) }
+    val theme = ThemePref.mode
     var autoUpdate by remember { mutableStateOf(true) }
     var twoFactor by remember { mutableStateOf(true) }
     var tracking by remember { mutableStateOf(true) }
@@ -198,8 +221,9 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
             0 -> Group("Jij", listOf(
                 Item(Glyphs.person, "Profiel", "naam, foto"),
                 Item(Glyphs.lock, "Wachtwoord"),
-                Item(Glyphs.shield, "Tweestapsverificatie", toggle = twoFactor),
-            ), onToggle = { twoFactor = !twoFactor }).also {
+                // Signed in, its real state is not read yet, so no made-up switch: it opens its page.
+                if (Data.live) Item(Glyphs.shield, "Tweestapsverificatie") else Item(Glyphs.shield, "Tweestapsverificatie", toggle = twoFactor, action = { twoFactor = !twoFactor }),
+            )).also {
                 Group("Server", listOf(Item(Glyphs.globe, "Server", Api.base.removePrefix("https://").ifBlank { "voorbeelden" }), Item(Glyphs.arrowRight, if (Data.live) "Uitloggen" else "Inloggen", action = onSignIn)))
             }
             1 -> {
@@ -208,7 +232,7 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
                     listOf("Licht", "Donker", "Systeem").forEachIndexed { i, label ->
                         ToggleButton(
                             checked = theme == i,
-                            onCheckedChange = { theme = i },
+                            onCheckedChange = { ThemePref.set(i) },
                             modifier = Modifier.weight(1f).height(52.dp),
                             shapes = when (i) {
                                 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
@@ -225,29 +249,30 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
                 Group("Taal en kaart", listOf(Item(Glyphs.globe, "Taal", "Nederlands"), Item(Glyphs.compass, "Globe", "draait mee met je vinger")))
             }
             2 -> Group("Onderweg", listOf(
-                Item(Glyphs.distance, "Route-tracking", toggle = tracking),
-                Item(Glyphs.pin, "Eigen locatie", toggle = selfLocation),
-                Item(Glyphs.plane, "Standaard vliegvelden", "AMS, EIN"),
-            ), onToggle = { tracking = !tracking }).also {
+                // Each switch flips itself, not the first one in the group.
+                Item(Glyphs.distance, "Route-tracking", toggle = tracking, action = { tracking = !tracking }),
+                Item(Glyphs.pin, "Eigen locatie", toggle = selfLocation, action = { selfLocation = !selfLocation }),
+                Item(Glyphs.plane, "Standaard vliegvelden", if (Data.live) null else "AMS, EIN"),
+            )).also {
                 Group("Importeren", listOf(Item(Glyphs.download, "Route-bestanden", "GPX, KML"), Item(Glyphs.compass, "Polarsteps importeren")))
             }
             3 -> Group("Bron", listOf(
-                Item(Glyphs.photo, "Immich", "verbonden"),
+                Item(Glyphs.photo, "Immich", if (Data.live) null else "verbonden"),
                 Item(Glyphs.camera, "Foto's in je statistieken", "alles van de dagen samen"),
             ))
             4 -> Group("Op je telefoon", listOf(
-                Item(Glyphs.bell, "Meldingen", toggle = notify),
+                Item(Glyphs.bell, "Meldingen", toggle = notify, action = { notify = !notify }),
                 Item(Glyphs.friends, "Reacties", "op je foto's en dagen"),
-            ), onToggle = { notify = !notify })
+            ))
             5 -> Group("Op dit toestel", listOf(
-                Item(Glyphs.globe, "Kaart offline bewaren", toggle = offlineMap),
-                Item(Glyphs.photo, "Foto-cache", "412 MB"),
-                Item(Glyphs.download, "Back-up", "laatst gisteren"),
-            ), onToggle = { offlineMap = !offlineMap })
+                Item(Glyphs.globe, "Kaart offline bewaren", toggle = offlineMap, action = { offlineMap = !offlineMap }),
+                Item(Glyphs.photo, "Foto-cache", if (Data.live) null else "412 MB"),
+                Item(Glyphs.download, "Back-up", if (Data.live) null else "laatst gisteren"),
+            ))
             6 -> Group("Nieuwe versies", listOf(
-                Item(Glyphs.download, "Automatisch controleren", toggle = autoUpdate),
-                Item(Glyphs.download, "Nu controleren", "build 267"),
-            ), onToggle = { autoUpdate = !autoUpdate })
+                Item(Glyphs.download, "Automatisch controleren", toggle = autoUpdate, action = { autoUpdate = !autoUpdate }),
+                Item(Glyphs.download, "Nu controleren", "testversie"),
+            ))
             else -> Group("MarkMySteps", listOf(
                 Item(Glyphs.help, "Wat is er nieuw"),
                 Item(Glyphs.logo, "Over MarkMySteps", "AGPL-3.0"),
@@ -301,7 +326,7 @@ private fun Row0(item: Item, i: Int, n: Int, seed: Int, onToggle: () -> Unit = {
         if (item.toggle != null) {
             Switch(
                 checked = item.toggle,
-                onCheckedChange = { onToggle() },
+                onCheckedChange = { item.action?.invoke() ?: onToggle() },
                 thumbContent = if (item.toggle) {
                     { LineIcon(listOf(P("m5 12 5 5 9-10")), cs.primary, size = 14.dp, stroke = 2.6f) }
                 } else null,

@@ -3,9 +3,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:label="MarkMySteps Next"
+        android:label="MarkMySteps Dev"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:enableOnBackInvokedCallback="true"
+        android:theme="@style/Theme.MarkMySteps"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name=".MainActivity"
             android:exported="true"

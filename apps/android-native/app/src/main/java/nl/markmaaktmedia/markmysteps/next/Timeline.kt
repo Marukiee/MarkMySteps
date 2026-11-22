@@ -1,6 +1,7 @@
 package nl.markmaaktmedia.markmysteps.next
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,19 +71,21 @@ private fun daysOf(trip: Trip): List<Day> {
 }
 
 @Composable
-fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null) {
-    if (media != null) { LiveTimeline(trip, media); return }
+fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Media) -> Unit = {}, bounds: TileBounds? = null, hidden: String? = null) {
+    if (media != null) { LiveTimeline(trip, media, onPhoto, bounds, hidden); return }
+    if (trip.remoteId != null) { TimelinePlaceholder(); return }
     val cs = MaterialTheme.colorScheme
     val scenes = Scene.entries
 
-    Text(
-        "Plekken",
+    val places = trip.stops.distinctBy { it.name }
+    if (places.size > 1) Text(
+        "Plaatsen",
         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
         modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
     )
     // The places, each a photo with its name, wider than the screen so the row asks to be swiped.
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+    if (places.size > 1) Row(
+        Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         trip.stops.distinctBy { it.name }.forEachIndexed { i, stop ->
@@ -96,9 +102,8 @@ fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null) {
     }
 
     val days = daysOf(trip)
-    val accent = legibleColor(trip.color, dark)
     val line = cs.outlineVariant
-    Spacer(Modifier.height(26.dp))
+    if (places.size > 1) Spacer(Modifier.height(26.dp))
     days.forEachIndexed { d, day ->
         val last = d == days.lastIndex
         Column(
@@ -198,26 +203,33 @@ private fun Photo(scene: Scene, modifier: Modifier) {
 
 /** For a trip from the server: the real photos, day by day, laid out by their own shape. */
 @Composable
-private fun LiveTimeline(trip: Trip, media: List<Media>) {
+private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Unit, bounds: TileBounds?, hidden: String?) {
     val cs = MaterialTheme.colorScheme
     val photos = media.filter { !it.video }
     fun stopOn(date: LocalDate): Stop? = trip.stops.lastOrNull { s -> s.start != null && !s.start.isAfter(date) } ?: trip.stops.firstOrNull()
 
-    if (trip.stops.isNotEmpty()) {
+    // A row of places only when there is more than one: a single place says nothing a row would add.
+    if (trip.stops.distinctBy { it.name }.size > 1) {
         Text(
-            "Plekken",
+            "Plaatsen",
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
             modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
         )
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             trip.stops.distinctBy { it.name }.forEach { stop ->
                 val pick = photos.firstOrNull { stopOn(it.takenAt)?.name == stop.name }
                 Box(Modifier.width(138.dp).height(168.dp).clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerHigh)) {
-                    if (pick != null) RemotePhoto(pick.id, Modifier.fillMaxSize(), "preview")
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.62f))))
+                    if (pick != null) {
+                        RemotePhoto(pick.id, Modifier.fillMaxSize(), "preview")
+                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.62f))))
+                    } else {
+                        // No photo yet: the place in the trip's colour, with its flag, instead of an empty frame.
+                        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(trip.color.copy(alpha = 0.35f), trip.color.copy(alpha = 0.12f)))))
+                        Text(stop.flag, fontSize = 30.sp, modifier = Modifier.padding(14.dp))
+                    }
                     Text(
                         stop.name, maxLines = 2,
-                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, lineHeight = 19.sp, color = Color.White),
+                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, lineHeight = 19.sp, color = if (pick != null) Color.White else cs.onSurface),
                         modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
                     )
                 }
@@ -275,7 +287,13 @@ private fun LiveTimeline(trip: Trip, media: List<Media>) {
                 justified(shown).forEach { row ->
                     val ratio = row.sumOf { it.ratio.toDouble() }.toFloat().coerceAtLeast(0.8f)
                     Row(Modifier.fillMaxWidth().aspectRatio(ratio), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        row.forEach { m -> RemotePhoto(m.id, Modifier.weight(m.ratio).fillMaxSize().clip(RoundedCornerShape(14.dp))) }
+                        row.forEach { m ->
+                            // Each photo tells the viewer where it is; the one open in the viewer leaves its place empty.
+                            RemotePhoto(m.id, Modifier.weight(m.ratio).fillMaxSize()
+                                .onGloballyPositioned { bounds?.tiles?.set(m.id, it) }
+                                .graphicsLayer { alpha = if (m.id == hidden) 0f else 1f }
+                                .clip(RoundedCornerShape(14.dp)).clickable { onPhoto(m) })
+                        }
                     }
                 }
                 if (list.size > 12) {
@@ -313,4 +331,26 @@ private fun justified(list: List<Media>): List<List<Media>> {
         i += take
     }
     return rows
+}
+
+
+/** While a real trip's photos are read: quiet shapes where the day and its photos will be, never the demo. */
+@Composable
+private fun TimelinePlaceholder() {
+    val cs = MaterialTheme.colorScheme
+    val pulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse").animateFloat(
+        0.55f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(1100), androidx.compose.animation.core.RepeatMode.Reverse), label = "a",
+    )
+    Column(Modifier.graphicsLayer { alpha = pulse }) {
+        repeat(2) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(13.dp).clip(CircleShape).background(cs.surfaceContainerHigh))
+                Box(Modifier.padding(start = 14.dp).size(width = 190.dp, height = 22.dp).clip(CircleShape).background(cs.surfaceContainerHigh))
+            }
+            Row(Modifier.padding(start = 27.dp, top = 14.dp, bottom = 30.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.weight(1f).height(170.dp).clip(RoundedCornerShape(14.dp)).background(cs.surfaceContainerHigh))
+                Box(Modifier.weight(2f).height(170.dp).clip(RoundedCornerShape(14.dp)).background(cs.surfaceContainerHigh))
+            }
+        }
+    }
 }

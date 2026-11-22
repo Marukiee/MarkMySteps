@@ -126,7 +126,7 @@ fun MakeTiles(onOpen: (String) -> Unit, modifier: Modifier = Modifier) {
             val pressed by source.collectIsPressedAsState()
             val scale by animateFloatAsState(if (pressed) 0.96f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "tile")
             Row(
-                Modifier.weight(1f).graphicsLayer { scaleX = scale; scaleY = scale }.clip(corners).background(cs.surfaceContainerLow)
+                Modifier.weight(1f).graphicsLayer { scaleX = scale; scaleY = scale }.clip(corners).background(cs.surfaceContainerHigh)
                     .clickable(source, ripple()) { onOpen(key) }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

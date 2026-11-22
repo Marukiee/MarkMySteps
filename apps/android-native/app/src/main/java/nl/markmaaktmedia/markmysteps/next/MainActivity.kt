@@ -24,15 +24,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Api.init(applicationContext)
-        val startStyle = intent.getStringExtra("style") ?: "current"
+        ThemePref.init(applicationContext)
+        val startStyle = intent.getStringExtra("style") ?: "new"
         val forcedTheme = intent.getStringExtra("theme")
         val startTrip = intent.getStringExtra("trip")
         val startPage = intent.getStringExtra("page")
         setContent {
+            val system = isSystemInDarkTheme()
             val dark = when (forcedTheme) {
                 "dark" -> true
                 "light" -> false
-                else -> isSystemInDarkTheme()
+                else -> when (ThemePref.mode) { 0 -> false; 1 -> true; else -> system }
             }
             var style by rememberSaveable { mutableStateOf(startStyle) }
             enableEdgeToEdge(
@@ -41,7 +43,8 @@ class MainActivity : ComponentActivity() {
             )
             CompositionLocalProvider(LocalPalette provides if (dark) DarkPalette else LightPalette) {
                 Crossfade(style, animationSpec = tween(300), label = "style") { which ->
-                    val flip = { style = if (style == "current") "new" else "current" }
+                    // The old look for comparing, only with the invented trips; signed in it is never one tap away.
+                    val flip = { if (!Data.live) style = if (style == "current") "new" else "current" }
                     if (which == "new") HomeNew(dark = dark, onLogoTap = flip, startTrip = startTrip, startPage = startPage) else HomeCurrent(onLogoTap = flip)
                 }
             }

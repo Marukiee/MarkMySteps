@@ -57,7 +57,8 @@ object Glyphs {
     val moon = listOf(P("M20 14.5A8.5 8.5 0 0 1 9.5 4a7.5 7.5 0 1 0 10.5 10.5Z"))
     val download = listOf(P("M12 3v12"), P("m7 11 5 5 5-5"), P("M4 20h16"))
     val help = listOf(C(12f, 12f, 9f), P("M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"), P("M12 17h.01"))
-    val pencil = listOf(P("M12 20h9"), P("M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"))
+    // Balanced in its box: the tip bottom left, the end top right, nothing sticking out.
+    val pencil = listOf(P("M16.6 4.4a2.1 2.1 0 0 1 3 3L8.2 18.8 4 20l1.2-4.2Z"), P("m14.6 6.4 3 3"))
     val photo = listOf(P("M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"), C(9f, 9.5f, 1.8f), P("m21 15-5-5L5 20"))
     val bus = listOf(P("M7 4h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"), P("M5 11h14"), P("M8 16v2M16 16v2"), P("M7.5 13.5h.01M16.5 13.5h.01"))
     val boat = listOf(P("M3 15h18l-2 4a2 2 0 0 1-1.8 1H6.8A2 2 0 0 1 5 19l-2-4Z"), P("M5 15V9a2 2 0 0 1 2-2h6l4 4v4"), P("M10 7V4"))
@@ -67,6 +68,9 @@ object Glyphs {
     val camera = listOf(P("M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"), C(12f, 13f, 3.2f))
     val arrowRight = listOf(P("M5 12h14"), P("m13 6 6 6-6 6"))
     val cloud = listOf(P("M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 7 18Z"))
+    val heart = listOf(P("M12 20.2s-7.6-4.6-7.6-10.4A4.3 4.3 0 0 1 12 7.1a4.3 4.3 0 0 1 7.6 2.7c0 5.8-7.6 10.4-7.6 10.4Z"))
+    val comment = listOf(P("M20.5 11.6a8.1 8.1 0 0 1-11.7 7.3L3.8 20l1.2-4.7a8.1 8.1 0 1 1 15.5-3.7Z"))
+    val send = listOf(P("M4.5 12h11"), P("M3.6 4.4 20.4 12 3.6 19.6l2.6-7.6Z"))
     val grip = listOf(C(9f, 6f, 1.3f), C(15f, 6f, 1.3f), C(9f, 12f, 1.3f), C(15f, 12f, 1.3f), C(9f, 18f, 1.3f), C(15f, 18f, 1.3f))
 }
 
