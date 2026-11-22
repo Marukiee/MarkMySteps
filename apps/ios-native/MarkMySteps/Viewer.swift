@@ -353,6 +353,9 @@ private struct Filmstrip: View {
         let side = max(0, (width - Filmstrip.slot) / 2)
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
+                // Room before the first tile and after the last, so every tile can stand in the middle; with it, tile
+                // i stands in the middle at exactly i slots, whatever the width.
+                Color.clear.frame(width: side, height: 1)
                 ForEach(Array(photos.enumerated()), id: \.element.id) { i, m in
                     Button { onTap(i) } label: {
                         MediaView(media: m)
@@ -367,17 +370,16 @@ private struct Filmstrip: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Foto \(i + 1) van \(photos.count)")
                 }
+                Color.clear.frame(width: side, height: 1)
             }
-            .scrollTargetLayout()
         }
-        .contentMargins(.horizontal, side, for: .scrollContent)
-        .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+        .scrollTargetBehavior(SlotSnap(slot: Filmstrip.slot, count: photos.count))
         .scrollPosition($scroll)
         .scrollIndicators(.hidden)
         .frame(height: 64)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .onScrollGeometryChange(for: CGFloat.self) { geo in
-            (geo.contentOffset.x + geo.contentInsets.leading) / Filmstrip.slot
+            geo.contentOffset.x / Filmstrip.slot
         } action: { _, p in
             guard scrubbing else { return }
             let clamped = min(max(p, 0), CGFloat(photos.count - 1))
@@ -409,7 +411,7 @@ private struct Filmstrip: View {
         .onAppear { place(pos) }
     }
 
-    /// Tile `p` in the middle (the content margin already puts tile 0 there at the start).
+    /// Tile `p` in the middle.
     private func place(_ p: CGFloat) { scroll.scrollTo(x: p * Filmstrip.slot) }
 
     /// Where to draw the emphasis: where the photo is, or the strip while it leads.
@@ -428,6 +430,16 @@ private struct Filmstrip: View {
             shift += Filmstrip.tile * Filmstrip.grow * emphasis(j) / 2 * (i > j ? 1 : -1)
         }
         return shift
+    }
+}
+
+/// Lets go of the strip only ever on a tile: the nearest slot to where the flick would have ended.
+private struct SlotSnap: ScrollTargetBehavior {
+    let slot: CGFloat
+    let count: Int
+    func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
+        let i = min(max((target.rect.origin.x / slot).rounded(), 0), CGFloat(max(count - 1, 0)))
+        target.rect.origin.x = i * slot
     }
 }
 
