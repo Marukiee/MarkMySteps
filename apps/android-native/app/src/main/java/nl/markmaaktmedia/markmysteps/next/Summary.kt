@@ -295,8 +295,10 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                         style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant),
                         modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 6.dp),
                     )
-                    Choices(Template.entries, template, { it.label }, { template = it; saved = null }, Modifier.padding(horizontal = 16.dp))
-                    Choices(Format.entries, format, { it.label }, { format = it; saved = null }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    val tplNames = listOf(stringResource(R.string.summary_tpl_route), stringResource(R.string.summary_tpl_photos), stringResource(R.string.summary_tpl_ribbon), stringResource(R.string.summary_tpl_stats))
+                    val fmtNames = listOf(stringResource(R.string.summary_fmt_story), stringResource(R.string.summary_fmt_post), stringResource(R.string.summary_fmt_square))
+                    Choices(Template.entries, template, { tplNames[it.ordinal] }, { template = it; saved = null }, Modifier.padding(horizontal = 16.dp))
+                    Choices(Format.entries, format, { fmtNames[it.ordinal] }, { format = it; saved = null }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         BigButton(stringResource(if (saved != null) R.string.summary_saved else R.string.summary_save), Glyphs.download, tonal = true, Modifier.weight(1f)) {
                             if (capturing == null) capturing = "save"

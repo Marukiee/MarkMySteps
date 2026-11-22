@@ -269,4 +269,43 @@
     <string name="summary_until">%1$s to %2$s</string>
     <string name="summary_and">%1$s and %2$s</string>
     <plurals name="summary_pages"><item quantity="one">%1$d page</item><item quantity="other">%1$d pages</item></plurals>
+    <string name="home_new_trip">New trip</string>
+    <string name="home_upcoming">Upcoming and under way</string>
+    <string name="home_no_past">No past trips yet</string>
+    <string name="home_no_shared">Nobody has shared a trip with you yet</string>
+    <string name="home_past">Past trips</string>
+    <string name="home_shared">Shared</string>
+    <string name="home_day_nth">th day</string>
+    <string name="home_of_days">of %1$d, under way</string>
+    <string name="home_day">day</string>
+    <string name="home_days">days</string>
+    <string name="home_to_go">to go</string>
+    <string name="home_size_auto">Auto</string>
+    <string name="home_size_large">Large</string>
+    <string name="home_size_small">Small</string>
+    <string name="home_rename">Rename</string>
+    <string name="home_delete">Delete</string>
+    <string name="home_leave">Leave trip</string>
+    <string name="home_save">Save</string>
+    <string name="home_delete_title">Delete trip?</string>
+    <string name="home_delete_body">\"%1$s\" is deleted for good, together with the route, the notes and the photo links. This cannot be undone.</string>
+    <string name="home_delete_type">Type the name of the trip to confirm.</string>
+    <string name="home_leave_title">Leave trip?</string>
+    <string name="home_leave_body">You leave \"%1$s\". You can always be added again.</string>
+    <string name="home_leave_confirm">Leave</string>
+    <plurals name="home_days_chip"><item quantity="one">%1$d day</item><item quantity="other">%1$d days</item></plurals>
+    <string name="summary_tpl_route">Route</string>
+    <string name="summary_tpl_photos">Photos</string>
+    <string name="summary_tpl_ribbon">Ribbon</string>
+    <string name="summary_tpl_stats">Numbers</string>
+    <string name="summary_fmt_story">Story</string>
+    <string name="summary_fmt_post">Post</string>
+    <string name="summary_fmt_square">Square</string>
+    <string name="book_title">Photo book</string>
+    <string name="book_count">%1$d pages, %2$d of %3$d photos</string>
+    <string name="book_start">Start</string>
+    <string name="book_day">Day %1$d</string>
+    <string name="book_reading">Looking at the photos</string>
+    <string name="book_wait">One moment</string>
+    <string name="book_of">%1$d of %2$d</string>
 </resources>

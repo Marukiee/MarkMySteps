@@ -263,7 +263,7 @@ fun PhotoBook(trip: Trip, dark: Boolean, onBack: () -> Unit) {
         // From reading to the book in one fade, nothing jumping.
         androidx.compose.animation.Crossfade(picked, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "book") { ready ->
             if (ready == null) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Reading(reading, "Foto's bekijken") }
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Reading(reading, androidx.compose.ui.res.stringResource(R.string.book_reading)) }
             } else {
                 BookPages(
                     sheets, pager,
@@ -294,7 +294,7 @@ fun Reading(reading: Reading, label: String, modifier: Modifier = Modifier) {
         LoadingIndicator(Modifier.size(72.dp), color = cs.primary)
         Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 20.sp, color = cs.onSurface), modifier = Modifier.padding(top = 18.dp))
         Text(
-            if (reading.total == 0) "Even geduld" else "${reading.done} van ${reading.total}",
+            if (reading.total == 0) androidx.compose.ui.res.stringResource(R.string.book_wait) else androidx.compose.ui.res.stringResource(R.string.book_of, reading.done, reading.total),
             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant),
             modifier = Modifier.padding(top = 4.dp),
         )
@@ -312,10 +312,10 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             CircleButton(onBack) { LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
             Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                Text(betaTitle("Fotoboek", cs.onSurfaceVariant, 13.sp), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface))
+                Text(betaTitle(androidx.compose.ui.res.stringResource(R.string.book_title), cs.onSurfaceVariant, 13.sp), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface))
                 val chosen = ctx.picked.days.sumOf { it.photos.size }
                 Text(
-                    "${sheets.size} pagina's · $chosen van ${ctx.picked.photoCount} foto's",
+                    androidx.compose.ui.res.stringResource(R.string.book_count, sheets.size, chosen, ctx.picked.photoCount),
                     style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant),
                 )
             }
@@ -392,8 +392,8 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
                         LineIcon(BookGlyph, fg, size = 20.dp)
                     } else {
                         val label = when {
-                            d == null -> "Begin"
-                            on -> "Dag ${d.number}" + (d.place?.let { " · $it" } ?: "")
+                            d == null -> androidx.compose.ui.res.stringResource(R.string.book_start)
+                            on -> androidx.compose.ui.res.stringResource(R.string.book_day, d.number) + (d.place?.let { " · $it" } ?: "")
                             else -> "${d.number}"
                         }
                         Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = fg))

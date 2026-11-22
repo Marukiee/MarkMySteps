@@ -268,4 +268,43 @@
     <string name="summary_until">%1$s tot %2$s</string>
     <string name="summary_and">%1$s en %2$s</string>
     <plurals name="summary_pages"><item quantity="one">%1$d pagina</item><item quantity="other">%1$d pagina\'s</item></plurals>
+    <string name="home_new_trip">Nieuwe reis</string>
+    <string name="home_upcoming">Aankomend &amp; onderweg</string>
+    <string name="home_no_past">Nog geen afgelopen reizen</string>
+    <string name="home_no_shared">Nog niemand deelde een reis met je</string>
+    <string name="home_past">Afgelopen reizen</string>
+    <string name="home_shared">Gedeeld</string>
+    <string name="home_day_nth">e dag</string>
+    <string name="home_of_days">van %1$d, onderweg</string>
+    <string name="home_day">dag</string>
+    <string name="home_days">dagen</string>
+    <string name="home_to_go">tot vertrek</string>
+    <string name="home_size_auto">Auto</string>
+    <string name="home_size_large">Groot</string>
+    <string name="home_size_small">Klein</string>
+    <string name="home_rename">Hernoemen</string>
+    <string name="home_delete">Verwijderen</string>
+    <string name="home_leave">Reis verlaten</string>
+    <string name="home_save">Opslaan</string>
+    <string name="home_delete_title">Reis verwijderen?</string>
+    <string name="home_delete_body">\"%1$s\" wordt definitief verwijderd, samen met de route, de notities en de foto-koppelingen. Dit kan niet ongedaan gemaakt worden.</string>
+    <string name="home_delete_type">Typ de naam van de reis om te bevestigen.</string>
+    <string name="home_leave_title">Reis verlaten?</string>
+    <string name="home_leave_body">Je verlaat \"%1$s\". Je kunt er altijd opnieuw op gezet worden.</string>
+    <string name="home_leave_confirm">Verlaten</string>
+    <plurals name="home_days_chip"><item quantity="one">%1$d dag</item><item quantity="other">%1$d dagen</item></plurals>
+    <string name="summary_tpl_route">Route</string>
+    <string name="summary_tpl_photos">Foto\'s</string>
+    <string name="summary_tpl_ribbon">Lint</string>
+    <string name="summary_tpl_stats">Cijfers</string>
+    <string name="summary_fmt_story">Verhaal</string>
+    <string name="summary_fmt_post">Post</string>
+    <string name="summary_fmt_square">Vierkant</string>
+    <string name="book_title">Fotoboek</string>
+    <string name="book_count">%1$d pagina\'s · %2$d van %3$d foto\'s</string>
+    <string name="book_start">Begin</string>
+    <string name="book_day">Dag %1$d</string>
+    <string name="book_reading">Foto\'s bekijken</string>
+    <string name="book_wait">Even geduld</string>
+    <string name="book_of">%1$d van %2$d</string>
 </resources>

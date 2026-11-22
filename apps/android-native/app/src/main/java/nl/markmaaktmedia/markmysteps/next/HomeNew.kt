@@ -375,14 +375,14 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                 // The new-trip button stays where it was: beside the heading.
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp).arrive(0), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "Reizen",
+                        stringResource(R.string.nav_trips),
                         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
                         modifier = Modifier.weight(1f),
                     )
                     Button(onClick = { if (Data.live) newTrip = true }, shapes = ButtonDefaults.shapes(), contentPadding = PaddingValues(start = 16.dp, end = 20.dp, top = 12.dp, bottom = 12.dp)) {
                         LineIcon(Glyphs.plus, cs.onPrimary, size = 18.dp, stroke = 2.6f)
                         Spacer(Modifier.width(8.dp))
-                        Text("Nieuwe reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
+                        Text(stringResource(R.string.home_new_trip), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
                     }
                 }
                 // The first time after signing in nothing is read yet: quiet shapes of the
@@ -394,7 +394,7 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                     label = "loading",
                 ) { loading ->
                     if (loading) HomePlaceholders() else Column {
-                        if (Data.upcoming.isNotEmpty()) SectionTitle("Aankomend & onderweg", Modifier.padding(top = 22.dp, bottom = 12.dp).arrive(1))
+                        if (Data.upcoming.isNotEmpty()) SectionTitle(stringResource(R.string.home_upcoming), Modifier.padding(top = 22.dp, bottom = 12.dp).arrive(1))
                         // Every trip of your own under way or to come, not only the first.
                         val upMotion = MaterialTheme.motionScheme
                         Data.upcoming.forEachIndexed { i, next ->
@@ -479,7 +479,7 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                             }
                             if ((if (which == 0) Data.past else Data.sharedTrips).isEmpty()) {
                                     Text(
-                                        if (which == 0) "Nog geen afgelopen reizen" else "Nog niemand deelde een reis met je",
+                                        if (which == 0) stringResource(R.string.home_no_past) else stringResource(R.string.home_no_shared),
                                         style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant),
                                         modifier = Modifier.padding(top = 18.dp, start = 4.dp),
                                     )
@@ -592,8 +592,8 @@ private fun NextTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mo
     val deep = Color(0xFF1B2440).copy(alpha = 0.55f).compositeOver(base)
     // Under way it counts the days of the trip, before it the days to go; one day is "dag", not "dagen".
     val (big, top, bottom) = when {
-        trip.ongoingDay != null -> Triple("${trip.ongoingDay}", "e dag", "van ${trip.days}, onderweg")
-        else -> (trip.startsInDays ?: 0).let { n -> Triple("$n", if (n == 1) "dag" else "dagen", "tot vertrek") }
+        trip.ongoingDay != null -> Triple("${trip.ongoingDay}", stringResource(R.string.home_day_nth), stringResource(R.string.home_of_days, trip.days))
+        else -> (trip.startsInDays ?: 0).let { n -> Triple("$n", if (n == 1) stringResource(R.string.home_day) else stringResource(R.string.home_days), stringResource(R.string.home_to_go)) }
     }
     Box(modifier.fillMaxWidth().clip(shape).background(Brush.linearGradient(listOf(base, deep))).bouncyClickable(onOpen)) {
         if (trip.coverId != null) {
@@ -622,7 +622,7 @@ private fun NextTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mo
             }
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip("${shortMonthName(trip.month)} ${trip.year}")
-                Chip(if (trip.days == 1) "1 dag" else "${trip.days} dagen")
+                Chip(androidx.compose.ui.res.pluralStringResource(R.plurals.home_days_chip, trip.days, trip.days))
                 Spacer(Modifier.weight(1f))
                 FaceStack(trip.people, trip.extraPeople, ring = deep)
             }
@@ -683,7 +683,7 @@ private fun FaceStack(people: List<Person>, extraIn: Int, ring: Color) {
 @Composable
 private fun PastOrShared(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
     val haptics = rememberHaptics()
-    val options = listOf("Afgelopen reizen" to Data.past.size, "Gedeeld" to Data.shared)
+    val options = listOf(stringResource(R.string.home_past) to Data.past.size, stringResource(R.string.home_shared) to Data.shared)
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
         options.forEachIndexed { i, (label, count) ->
             ToggleButton(
@@ -734,13 +734,13 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
         val chosen = CardSizePref.overrides[trip.id] ?: CardSizePref.AUTO
         AppMenu(menu, onDismiss = { menu = false }, groups = listOf(
             listOf(
-                MenuEntry("Auto", Glyphs.cardAuto, selected = chosen == CardSizePref.AUTO, inline = true) { CardSizePref.set(trip.id, null) },
-                MenuEntry("Groot", Glyphs.cardLarge, selected = chosen == CardSizePref.LARGE, inline = true) { CardSizePref.set(trip.id, CardSizePref.LARGE) },
-                MenuEntry("Klein", Glyphs.cardRow, selected = chosen == CardSizePref.COMPACT, inline = true) { CardSizePref.set(trip.id, CardSizePref.COMPACT) },
+                MenuEntry(stringResource(R.string.home_size_auto), Glyphs.cardAuto, selected = chosen == CardSizePref.AUTO, inline = true) { CardSizePref.set(trip.id, null) },
+                MenuEntry(stringResource(R.string.home_size_large), Glyphs.cardLarge, selected = chosen == CardSizePref.LARGE, inline = true) { CardSizePref.set(trip.id, CardSizePref.LARGE) },
+                MenuEntry(stringResource(R.string.home_size_small), Glyphs.cardRow, selected = chosen == CardSizePref.COMPACT, inline = true) { CardSizePref.set(trip.id, CardSizePref.COMPACT) },
             ) + when {
                 !remote -> emptyList()
-                mine -> listOf(MenuEntry("Hernoemen", Glyphs.pencil) { renaming = true }, MenuEntry("Verwijderen", Glyphs.trash, danger = true) { deleting = true })
-                else -> listOf(MenuEntry("Reis verlaten", Glyphs.signOut, danger = true) { leaving = true })
+                mine -> listOf(MenuEntry(stringResource(R.string.home_rename), Glyphs.pencil) { renaming = true }, MenuEntry(stringResource(R.string.home_delete), Glyphs.trash, danger = true) { deleting = true })
+                else -> listOf(MenuEntry(stringResource(R.string.home_leave), Glyphs.signOut, danger = true) { leaving = true })
             },
         ))
     }
@@ -749,15 +749,15 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
         var busy by remember { mutableStateOf(false) }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { if (!busy) renaming = false },
-            title = { Text("Hernoemen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
+            title = { Text(stringResource(R.string.home_rename), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
             text = { TripField(title, { title = it.take(120) }) },
             confirmButton = {
                 androidx.compose.material3.TextButton(enabled = !busy && title.isNotBlank() && title.trim() != trip.title, onClick = {
                     busy = true
                     scope.launch { runCatching { Remote.renameTrip(trip, title) }; Data.load(); busy = false; renaming = false }
-                }) { Text("Opslaan", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+                }) { Text(stringResource(R.string.home_save), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { renaming = false }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { renaming = false }) { Text(stringResource(R.string.common_cancel), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
         )
     }
     if (deleting) {
@@ -766,11 +766,11 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
         var busy by remember { mutableStateOf(false) }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { if (!busy) deleting = false },
-            title = { Text("Reis verwijderen?", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
+            title = { Text(stringResource(R.string.home_delete_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
             text = {
                 Column {
-                    Text("\"${trip.title}\" wordt definitief verwijderd, samen met de route, de notities en de foto-koppelingen. Dit kan niet ongedaan gemaakt worden.", style = TextStyle(fontFamily = Inter, fontSize = 15.sp))
-                    Text("Typ de naam van de reis om te bevestigen.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
+                    Text(stringResource(R.string.home_delete_body, trip.title), style = TextStyle(fontFamily = Inter, fontSize = 15.sp))
+                    Text(stringResource(R.string.home_delete_type), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
                     TripField(typed, { typed = it }, placeholder = trip.title)
                 }
             },
@@ -778,24 +778,24 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
                 androidx.compose.material3.TextButton(enabled = !busy && typed.trim() == trip.title.trim(), onClick = {
                     busy = true
                     scope.launch { runCatching { Remote.deleteTrip(trip) }; CardSizePref.set(trip.id, null); Data.load(); busy = false; deleting = false }
-                }) { Text("Verwijderen", color = if (typed.trim() == trip.title.trim()) cs.error else cs.onSurface.copy(alpha = 0.38f), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+                }) { Text(stringResource(R.string.home_delete), color = if (typed.trim() == trip.title.trim()) cs.error else cs.onSurface.copy(alpha = 0.38f), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { deleting = false }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { deleting = false }) { Text(stringResource(R.string.common_cancel), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
         )
     }
     if (leaving) {
         var busy by remember { mutableStateOf(false) }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { if (!busy) leaving = false },
-            title = { Text("Reis verlaten?", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
-            text = { Text("Je verlaat \"${trip.title}\". Je kunt er altijd opnieuw op gezet worden.", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
+            title = { Text(stringResource(R.string.home_leave_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
+            text = { Text(stringResource(R.string.home_leave_body, trip.title), style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
             confirmButton = {
                 androidx.compose.material3.TextButton(enabled = !busy, onClick = {
                     busy = true
                     scope.launch { runCatching { Remote.leaveTrip(trip) }; Data.load(); busy = false; leaving = false }
-                }) { Text("Verlaten", color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+                }) { Text(stringResource(R.string.home_leave_confirm), color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { leaving = false }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { leaving = false }) { Text(stringResource(R.string.common_cancel), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
         )
     }
 }
@@ -852,7 +852,7 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
             Text(trip.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 26.sp, letterSpacing = (-0.015).em, color = Color.White))
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip("${shortMonthName(trip.month)} ${trip.year}")
-                Chip(if (trip.days == 1) "1 dag" else "${trip.days} dagen")
+                Chip(androidx.compose.ui.res.pluralStringResource(R.plurals.home_days_chip, trip.days, trip.days))
                 trip.km?.takeIf { it > 0 }?.let { Chip("%,d km".format(it).replace(',', '.')) }
                 Spacer(Modifier.weight(1f))
                 FaceStack(trip.people, trip.extraPeople, ring = Color(0xFF2A2F36))
