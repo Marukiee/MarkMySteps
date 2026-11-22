@@ -35,6 +35,7 @@ import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -117,11 +118,15 @@ fun TravellersPage() {
                 modifier = Modifier.weight(1f),
             )
             // Requests to join a trip and invitations land here, where the people are.
-            Box(Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHigh).tap(), contentAlignment = Alignment.Center) {
+            var bell by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            var unread by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+            androidx.compose.runtime.LaunchedEffect(Data.version) { if (Data.live) unread = runCatching { Remote.noticeCount() }.getOrDefault(0) }
+            Box(Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHigh).tap { if (Data.live) bell = true }, contentAlignment = Alignment.Center) {
                 LineIcon(Glyphs.bell, cs.onSurface, size = 22.dp)
-                // The dot only for something real; the notifications are not read from the server yet.
-                if (!Data.live) Box(Modifier.align(Alignment.TopEnd).padding(top = 11.dp, end = 12.dp).size(9.dp).clip(CircleShape).background(cs.primary))
+                // The dot only when there is something unread or waiting for an answer.
+                if (unread > 0) Box(Modifier.align(Alignment.TopEnd).padding(top = 11.dp, end = 12.dp).size(9.dp).clip(CircleShape).background(cs.primary))
             }
+            if (bell) NoticesSheet(onDismiss = { bell = false }, onChanged = { unread = 0 })
         }
 
         // Whose numbers these are.

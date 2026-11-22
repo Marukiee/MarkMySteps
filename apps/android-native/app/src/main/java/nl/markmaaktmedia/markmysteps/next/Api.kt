@@ -375,6 +375,36 @@ object Remote {
     /** Ask the server to fetch the trip's photos from Immich again now. */
     suspend fun syncPhotos(trip: Trip) { Api.send("POST", "/api/trips/${trip.remoteId}/sync") }
 
+    data class Notice(
+        val id: String, val kind: String, val at: java.time.Instant, val read: Boolean,
+        val actorId: String?, val actor: String?, val actorAvatar: Boolean, val tripId: String?, val trip: String?,
+        val requestId: String?, val requestStatus: String?, val detail: String?,
+    )
+
+    suspend fun noticeCount(): Int {
+        val o = JSONObject(Api.get("/api/notifications/count"))
+        return o.optInt("unread") + o.optInt("pending")
+    }
+
+    suspend fun notices(): List<Notice> {
+        val a = JSONArray(Api.get("/api/notifications"))
+        return (0 until a.length()).map { a.getJSONObject(it) }.map { o ->
+            val actor = o.optJSONObject("actor"); val trip = o.optJSONObject("trip"); val req = o.optJSONObject("request")
+            Notice(
+                o.getString("id"), o.optString("kind"), runCatching { java.time.Instant.parse(o.getString("createdAt")) }.getOrDefault(java.time.Instant.now()), o.optBoolean("read"),
+                actor?.optString("id"), actor?.optString("displayName"), actor?.optBoolean("hasAvatar") == true, trip?.optString("id"), trip?.optString("title"),
+                req?.optString("id"), req?.optString("status"), o.optString("detail").takeIf { it.isNotBlank() && it != "null" },
+            )
+        }
+    }
+
+    suspend fun markNoticesRead() { Api.send("POST", "/api/notifications/read") }
+
+    /** Let someone look along as a guest, or turn them down; making them a companion lives in people and sharing. */
+    suspend fun answerAccess(requestId: String, approve: Boolean) {
+        Api.send("POST", "/api/access-requests/$requestId/${if (approve) "approve" else "deny"}", if (approve) JSONObject().put("role", "GUEST") else null)
+    }
+
     suspend fun friends(): List<Friend> {
         val a = JSONArray(Api.get("/api/users/friends"))
         return (0 until a.length()).map { a.getJSONObject(it) }.map {
