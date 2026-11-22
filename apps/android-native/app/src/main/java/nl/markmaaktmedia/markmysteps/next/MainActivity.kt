@@ -25,6 +25,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Api.init(applicationContext)
         ThemePref.init(applicationContext)
+        MapStylePref.init(applicationContext)
+        Photos.initRatios(applicationContext)
         val startStyle = intent.getStringExtra("style") ?: "new"
         val forcedTheme = intent.getStringExtra("theme")
         val startTrip = intent.getStringExtra("trip")

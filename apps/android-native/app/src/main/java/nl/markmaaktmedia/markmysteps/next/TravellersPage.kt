@@ -162,7 +162,7 @@ fun TravellersPage() {
                         .padding(start = 10.dp, end = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(flag, fontSize = 18.sp)
+                    FlagIcon(flag, 15.dp)
                     Text(
                         countryName,
                         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = if (planned) cs.onSurfaceVariant else cs.onSecondaryContainer),

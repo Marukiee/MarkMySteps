@@ -57,6 +57,8 @@ import kotlin.math.tan
 
 private const val LIGHT = "https://tiles.openfreemap.org/styles/positron"
 private const val DARK = "https://tiles.openfreemap.org/styles/dark"
+/** Keyless Esri World Imagery, the web app's satellite style. */
+private const val SATELLITE = """{"version":8,"sources":{"sat":{"type":"raster","tiles":["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],"tileSize":256,"maxzoom":19}},"layers":[{"id":"sat","type":"raster","source":"sat"}]}"""
 
 @Composable
 fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInsetDp: Int = 60) {
@@ -91,7 +93,8 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
         }
     }
 
-    val key = "${trip.id}/${trip.stops.size}/$dark"
+    val styleId = MapStylePref.id
+    val key = "${trip.id}/${trip.stops.size}/$dark/$styleId"
     AndroidView(factory = { view }, modifier = modifier, update = { map ->
         if (map.tag == key) return@AndroidView
         map.tag = key
@@ -99,7 +102,13 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
             m.uiSettings.isRotateGesturesEnabled = false
             m.uiSettings.isTiltGesturesEnabled = false
             m.uiSettings.isCompassEnabled = false
-            m.setStyle(Style.Builder().fromUri(if (dark) DARK else LIGHT)) { style ->
+            // The chosen style; in the dark a light vector style becomes the dark one, as on the web.
+            val builder = when {
+                styleId == "satellite" -> Style.Builder().fromJson(SATELLITE)
+                dark -> Style.Builder().fromUri(DARK)
+                else -> Style.Builder().fromUri("https://tiles.openfreemap.org/styles/$styleId")
+            }
+            m.setStyle(builder) { style ->
                 draw(style, trip, color, dark)
                 val points = (trip.stops.map { it.at } + trip.route).ifEmpty { listOf(HomeAirport) }
                 val pad = (24 * density).toInt()

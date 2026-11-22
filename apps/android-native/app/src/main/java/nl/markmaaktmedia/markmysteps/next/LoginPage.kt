@@ -50,6 +50,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -159,14 +162,18 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (!second) {
                             Field("Server", server, { server = it }, "jouw-server.nl", KeyboardType.Uri)
-                            Field("Gebruikersnaam of e-mail", name, { name = it }, "", KeyboardType.Email)
-                            Field("Wachtwoord", password, { password = it }, "", KeyboardType.Password, secret = true, done = ::submit)
+                            Field("Gebruikersnaam of e-mail", name, { name = it }, "", KeyboardType.Email, autofill = androidx.compose.ui.autofill.ContentType.Username)
+                            Field("Wachtwoord", password, { password = it }, "", KeyboardType.Password, secret = true, done = ::submit, autofill = androidx.compose.ui.autofill.ContentType.Password)
                         } else {
                             Text(
                                 "Vul de code uit je authenticator-app in.",
                                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant),
                             )
-                            Field("Code", code, { code = it.filter(Char::isLetterOrDigit).take(12) }, "123456", KeyboardType.Number, done = ::submit)
+                            // Focus at once, and sign in by itself on the sixth digit, as on the web.
+                            Field("Code", code, { v ->
+                                code = v.filter(Char::isLetterOrDigit).take(12)
+                                if (code.length == 6 && code.all(Char::isDigit)) submit()
+                            }, "123456", KeyboardType.Number, done = ::submit, autofill = androidx.compose.ui.autofill.ContentType.SmsOtpCode, focusNow = true)
                         }
                     }
                 }
@@ -205,7 +212,10 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
 private fun Field(
     label: String, value: String, onChange: (String) -> Unit, hint: String, type: KeyboardType,
     secret: Boolean = false, done: (() -> Unit)? = null,
+    autofill: androidx.compose.ui.autofill.ContentType? = null, focusNow: Boolean = false,
 ) {
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    if (focusNow) androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(250); focus.requestFocus() }
     val cs = MaterialTheme.colorScheme
     var show by remember { mutableStateOf(false) }
     Column {
@@ -223,7 +233,9 @@ private fun Field(
                     visualTransformation = if (secret && !show) PasswordVisualTransformation() else VisualTransformation.None,
                     keyboardOptions = KeyboardOptions(keyboardType = type, imeAction = if (done != null) ImeAction.Done else ImeAction.Next, autoCorrectEnabled = false),
                     keyboardActions = KeyboardActions(onDone = { done?.invoke() }),
-                    modifier = Modifier.fillMaxWidth(),
+                    // Tells password managers what this field is, so they offer to fill it.
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus)
+                        .then(if (autofill != null) Modifier.semantics { contentType = autofill } else Modifier),
                 )
             }
             if (secret) {

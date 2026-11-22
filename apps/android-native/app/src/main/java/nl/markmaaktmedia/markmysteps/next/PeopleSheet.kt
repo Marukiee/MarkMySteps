@@ -78,7 +78,7 @@ private fun slab(i: Int, n: Int): Shape = RoundedCornerShape(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit) {
+fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake: ((String) -> Unit)? = null) {
     val cs = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     val me = Data.me?.id
@@ -114,6 +114,7 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit) {
             }
             if (owner) AddPeople(trip, existing = members.map { it.username }.toSet(), onAdded = onChanged)
             if (editor) ShareLinks(trip, owner)
+            if (onMake != null) Make(onMake)
         }
     }
 
@@ -132,6 +133,33 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { removing = null }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
         )
+    }
+}
+
+/** To share the trip in another way: the photo book and the summary posters (PhotoBook.kt, Summary.kt). */
+@Composable
+private fun Make(onMake: (String) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Text("Maken", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 8.dp))
+    val items = listOf(
+        Triple("book", "Fotoboek", "Een boek van de mooiste foto's per dag") to Glyphs.photo,
+        Triple("summary", "Samenvatting", "Een poster om te delen") to Glyphs.sun,
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        items.forEachIndexed { i, (item, glyph) ->
+            val (key, title, line) = item
+            Row(
+                Modifier.fillMaxWidth().clip(slab(i, items.size)).background(cs.surfaceContainerHigh).clickable { onMake(key) }.padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LineIcon(glyph, cs.onSurface, size = 22.dp, modifier = Modifier.padding(start = 6.dp))
+                Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                    Text(title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 16.5.sp, color = cs.onSurface))
+                    Text(line, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                }
+                LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 20.dp)
+            }
+        }
     }
 }
 
@@ -254,7 +282,11 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
     }
 }
 
-/** The trip's read-only links: copy, share, a password, take it back. Companions only pass them on. */
+/**
+ * The trip's read-only links, as in the web app's SharePanel: the link itself as an orange link,
+ * Kopieer beside it and a settings button for its password and revoking it; under the list an
+ * optional password and "Deellink +" to make a new one. Companions only copy and pass them on.
+ */
 @Composable
 private fun ShareLinks(trip: Trip, owner: Boolean) {
     val cs = MaterialTheme.colorScheme
@@ -262,7 +294,10 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
     val scope = rememberCoroutineScope()
     var links by remember { mutableStateOf<List<Remote.ShareLink>?>(null) }
     var copied by remember { mutableStateOf<String?>(null) }
-    var revoking by remember { mutableStateOf<Remote.ShareLink?>(null) }
+    var settingsFor by remember { mutableStateOf<Remote.ShareLink?>(null) }
+    var newPassword by remember { mutableStateOf("") }
+    var creating by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(trip.id) { links = runCatching { Remote.shareLinks(trip) }.getOrNull() ?: emptyList() }
     LaunchedEffect(copied) { if (copied != null) { delay(1600); copied = null } }
 
@@ -277,11 +312,18 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
     } else {
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             list.forEachIndexed { i, link ->
-                var menu by remember { mutableStateOf(false) }
-                Row(Modifier.fillMaxWidth().clip(slab(i, list.size)).background(cs.surfaceContainerHigh).padding(start = 16.dp, end = 6.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().clip(slab(i, list.size)).background(cs.surfaceContainerHigh).padding(start = 16.dp, end = 6.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(link.url.removePrefix("https://"), maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.5.sp, color = cs.onSurface))
-                        if (link.hasPassword) Text("Met wachtwoord", style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant))
+                        // The link reads as a link: orange and underlined, and a tap opens it.
+                        Text(
+                            link.url.removePrefix("https://"), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.5.sp, color = cs.primary, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline),
+                            modifier = Modifier.clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(link.url))) } },
+                        )
+                        if (link.hasPassword) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
+                            LineIcon(Glyphs.lock, cs.onSurfaceVariant, size = 13.dp, stroke = 2f)
+                            Text("Met wachtwoord", style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp))
+                        }
                     }
                     FilledTonalButton(onClick = {
                         (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("MarkMySteps", link.url))
@@ -289,49 +331,89 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                     }, shapes = ButtonDefaults.shapes()) {
                         Text(if (copied == link.id) "Gekopieerd" else "Kopieer", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp))
                     }
-                    Box {
-                        Box(Modifier.size(40.dp).clip(CircleShape).clickable { menu = true }, contentAlignment = Alignment.Center) {
-                            LineIcon(Glyphs.dotsCircles, cs.onSurfaceVariant, size = 20.dp, filled = true)
-                        }
-                        DropdownMenu(menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(20.dp), containerColor = cs.surfaceContainerHighest) {
-                            DropdownMenuItem(text = { Text("Delen", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) }, onClick = {
-                                menu = false
-                                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, link.url), null))
-                            }, leadingIcon = { LineIcon(Glyphs.send, cs.onSurface, size = 20.dp) })
-                            if (owner && link.canManage && link.hasPassword) DropdownMenuItem(text = { Text("Wachtwoord verwijderen", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) }, onClick = {
-                                menu = false
-                                scope.launch { runCatching { Remote.setSharePassword(trip, link.id, null) }.onSuccess { links = links?.map { if (it.id == link.id) it.copy(hasPassword = false) else it } } }
-                            }, leadingIcon = { LineIcon(Glyphs.lock, cs.onSurface, size = 20.dp) })
-                            if (owner && link.canManage) DropdownMenuItem(text = { Text("Link intrekken", color = cs.error, style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) }, onClick = {
-                                menu = false; revoking = link
-                            }, leadingIcon = { LineIcon(Glyphs.trash, cs.error, size = 20.dp) })
+                    if (owner && link.canManage) {
+                        Box(Modifier.padding(start = 2.dp).size(42.dp).clip(CircleShape).clickable { settingsFor = link }, contentAlignment = Alignment.Center) {
+                            LineIcon(Glyphs.settings, cs.onSurfaceVariant, size = 20.dp, stroke = 1.8f)
                         }
                     }
                 }
             }
         }
-        if (owner) FilledTonalButton(
-            onClick = { scope.launch { runCatching { Remote.createShareLink(trip, null) }.getOrNull()?.let { links = (links ?: emptyList()) + it } } },
-            shapes = ButtonDefaults.shapes(), modifier = Modifier.padding(top = 10.dp),
-        ) {
-            LineIcon(Glyphs.plus, cs.onSecondaryContainer, size = 18.dp, stroke = 2.4f)
-            Spacer(Modifier.size(8.dp))
-            Text("Nieuwe deellink", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
+        if (owner) {
+            // A new link: an optional password, then "Deellink +".
+            Row(Modifier.padding(top = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.weight(1f).height(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) {
+                        if (newPassword.isEmpty()) Text("wachtwoord (optioneel)", style = TextStyle(fontFamily = Inter, fontSize = 14.5.sp, color = cs.onSurfaceVariant))
+                        BasicTextField(newPassword, { newPassword = it.take(128) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 14.5.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                Spacer(Modifier.size(8.dp))
+                androidx.compose.material3.Button(
+                    onClick = {
+                        if (newPassword.isNotEmpty() && newPassword.length < 4) { error = "Een wachtwoord heeft minstens 4 tekens"; return@Button }
+                        creating = true; error = null
+                        scope.launch {
+                            runCatching { Remote.createShareLink(trip, newPassword.ifBlank { null }) }
+                                .onSuccess { links = (links ?: emptyList()) + it; newPassword = "" }
+                                .onFailure { error = "Aanmaken mislukt" }
+                            creating = false
+                        }
+                    },
+                    enabled = !creating, shapes = ButtonDefaults.shapes(), modifier = Modifier.height(48.dp),
+                ) {
+                    Box(Modifier.size(18.dp), contentAlignment = Alignment.Center) {
+                        if (creating) LoadingIndicator(Modifier.size(18.dp), color = cs.onPrimary) else LineIcon(Glyphs.plus, cs.onPrimary, size = 18.dp, stroke = 2.4f)
+                    }
+                    Spacer(Modifier.size(6.dp))
+                    Text("Deellink", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
+                }
+            }
+            error?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.error), modifier = Modifier.padding(start = 4.dp, top = 8.dp)) }
         }
     }
 
-    revoking?.let { link ->
-        AlertDialog(
-            onDismissRequest = { revoking = null },
-            title = { Text("Link intrekken?", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
-            text = { Text("Wie de link heeft kan de reis daarna niet meer bekijken.", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    revoking = null
-                    scope.launch { runCatching { Remote.revokeShareLink(trip, link.id) }.onSuccess { links = links?.filter { it.id != link.id } } }
-                }) { Text("Intrekken", color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
-            },
-            dismissButton = { TextButton(onClick = { revoking = null }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
-        )
-    }
+    settingsFor?.let { link -> LinkSettings(trip, link, onDismiss = { settingsFor = null }, onChanged = { updated ->
+        links = if (updated == null) links?.filter { it.id != link.id } else links?.map { if (it.id == link.id) updated else it }
+    }) }
+}
+
+/** One link's settings: set, change or remove its password, or revoke it. */
+@Composable
+private fun LinkSettings(trip: Trip, link: Remote.ShareLink, onDismiss: () -> Unit, onChanged: (Remote.ShareLink?) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val scope = rememberCoroutineScope()
+    var password by remember { mutableStateOf("") }
+    var confirmRevoke by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (confirmRevoke) "Link intrekken?" else "Instellingen van deze link", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
+        text = {
+            if (confirmRevoke) Text("Wie de link heeft kan de reis daarna niet meer bekijken.", style = TextStyle(fontFamily = Inter, fontSize = 15.sp))
+            else Column {
+                Text(if (link.hasPassword) "Nieuw wachtwoord" else "Wachtwoord", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 6.dp))
+                Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    BasicTextField(password, { password = it.take(128) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
+                }
+                error?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.sp, color = cs.error), modifier = Modifier.padding(top = 6.dp)) }
+                Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (link.hasPassword) FilledTonalButton(onClick = {
+                        scope.launch { runCatching { Remote.setSharePassword(trip, link.id, null) }.onSuccess { onChanged(link.copy(hasPassword = false)); onDismiss() }.onFailure { error = "Opslaan mislukt" } }
+                    }, shapes = ButtonDefaults.shapes()) { Text("Wachtwoord verwijderen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
+                    TextButton(onClick = { confirmRevoke = true }) { Text("Link intrekken", color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
+                }
+            }
+        },
+        confirmButton = {
+            if (confirmRevoke) TextButton(onClick = {
+                scope.launch { runCatching { Remote.revokeShareLink(trip, link.id) }.onSuccess { onChanged(null); onDismiss() } }
+            }) { Text("Intrekken", color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+            else TextButton(onClick = {
+                if (password.length < 4) { error = "Minstens 4 tekens"; return@TextButton }
+                scope.launch { runCatching { Remote.setSharePassword(trip, link.id, password) }.onSuccess { onChanged(link.copy(hasPassword = true)); onDismiss() }.onFailure { error = "Opslaan mislukt" } }
+            }) { Text("Opslaan", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+        },
+        dismissButton = { TextButton(onClick = { if (confirmRevoke) confirmRevoke = false else onDismiss() }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+    )
 }

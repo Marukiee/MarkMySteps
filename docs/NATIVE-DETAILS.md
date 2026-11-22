@@ -23,6 +23,9 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Geen "0 km" tonen; een reis zonder gemeten afstand laat de afstand weg. (klaar)
 - "kilometer" voluit waar het past. (klaar)
 - Geen nep-meldingsstipje of verzonnen waarden in Instellingen als je bent ingelogd. (klaar Android)
+- Vlaggen zijn vlakke vlaggen (de SVG-set van de web, 4:3) met licht afgeronde hoeken, niet de golvende emoji-vlaggen. (klaar Android, iOS doorgegeven)
+- Elke wissel van inhoud heeft een passende animatie, zoals Afgelopen reizen en Gedeeld die zijwaarts schuiven. (klaar Android)
+- Een reis zonder foto toont zijn eigen kleur met het kompas, en dat kompas schaalt mee met de kaart. (klaar Android)
 
 ## Navigatie en gebaren
 
@@ -43,6 +46,7 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Gedeeld = reizen waar je gast bent; reizen van vrienden horen niet bij Afgelopen. (klaar Android)
 - Rijen met een dynamische achtergrondkleur uit de omslagfoto in plaats van een blur. (klaar Android)
 - Gezichten: twee gezichten en dan "+n"; echte profielfoto's. (klaar Android)
+- iOS: geen aparte balk boven de wereldbol; de bol loopt onder de statusbalk door en het logo en de profielfoto zweven erop, net als op Android. (iOS doorgegeven)
 
 ## Reispagina
 
@@ -54,7 +58,11 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Tijdlijn zoals de oude versie: plaatsen bovenaan, dan per dag alle foto's onder elkaar. (klaar)
 - "Plaatsen" bovenaan alleen als een reis meer dan één plaats heeft. (klaar)
 - Nachtenpil rechtsboven in de stopkaart, even ver van boven als van rechts. (klaar)
-- Fotoboek en samenvatting in het ⋯-menu, niet als losse knop op de pagina. (doorgegeven aan de fotoboek-sessie)
+- De cijfertegels zijn even breed (kilometer niet breder dan dagen, stops en foto's). (klaar Android)
+- Bovenaan de reis eigen knoppen zoals in de web: Mensen en delen, kaartinstellingen (kaartstijl) en reisinstellingen; geen ⋯-menu. (klaar Android)
+- Fotoboek en samenvatting horen in de sheet Mensen en delen, niet als losse knoppen op de pagina. (klaar Android, onder "Maken")
+- Kaart vergroten op één plek: een ronde knop rechtsonder op de kaart. (klaar Android, iOS doorgegeven)
+- Deellinks zoals in de web maar in de nieuwe stijl: de link als oranje (onderstreepte) link, Kopieer, een instellingenknop (wachtwoord, intrekken) in plaats van drie puntjes, en daaronder "wachtwoord (optioneel)" met "+ Deellink". (klaar Android)
 
 ## Routeplanner
 
@@ -68,6 +76,9 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Een foto groeit vanuit zijn plek in de tijdlijn tot schermvullend; naar beneden vegen laat hem krimpen en terugvliegen naar zijn plek, zoals in Keeper. Zijn plek is zolang leeg. (klaar Android)
 - Tijdens het wegslepen worden de hoeken geleidelijk rond, tot de ronding van de tegel. (klaar Android)
 - HDR-foto's (Oppo Find X9 Ultra) in HDR: het origineel laden, scherm alleen in HDR-stand zolang zo'n foto open is. (klaar Android, iOS bezig, web kan niet in de WebView)
+- Geen laadanimatie bij openen: het kleine fotootje groeit altijd vanuit zijn tegel en is de plaatshouder tot de scherpe versie er is. (klaar Android)
+- Foto's van oude reizen (zonder bekende maat) krijgen toch hun eigen verhouding in plaats van vierkanten; die wordt onthouden. (klaar Android)
+- Naar beneden vegen werkt altijd, ook na bladeren; ingezoomd sleep je de foto in plaats van te sluiten. (klaar Android)
 
 ## Reizigers
 

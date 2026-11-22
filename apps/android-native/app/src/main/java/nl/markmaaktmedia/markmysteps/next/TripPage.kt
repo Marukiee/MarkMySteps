@@ -3,6 +3,7 @@ package nl.markmaaktmedia.markmysteps.next
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -40,7 +41,6 @@ import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -96,16 +96,19 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     }
     var viewing by remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
     var people by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // The photo book or the summary over the page (PhotoBook.kt, Summary.kt), from the people sheet.
+    var extra by remember { androidx.compose.runtime.mutableStateOf(startExtra?.takeIf { it == "book" || it == "summary" }) }
+    var bigMap by remember { androidx.compose.runtime.mutableStateOf(false) }
     val tiles = remember(base.id) { TileBounds() }
     var openPhoto by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
-    var menu by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var mapSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var tripSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
     val media by androidx.compose.runtime.produceState<List<Media>?>(null, base.id, Data.version) {
         if (base.remoteId != null) value = runCatching { Remote.media(base) }.getOrNull() ?: emptyList()
     }
     val screenH = LocalConfiguration.current.screenHeightDp
     val mapH = (screenH * 0.46f).dp
     var tab by remember { mutableIntStateOf(0) }
-    var extra by remember { mutableStateOf(startExtra?.takeIf { it == "book" || it == "summary" }) }
     val scroll = rememberScrollState()
     val density = LocalDensity.current
     // Once the map has scrolled away, a bar with the trip's name takes its place under the buttons.
@@ -123,6 +126,12 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
         Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             Box(Modifier.fillMaxWidth().height(mapH)) {
                 TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 30)
+                // Open the map full screen, from its own corner as on the web.
+                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 44.dp)) {
+                    RoundButton(onClick = { bigMap = true }) {
+                        LineIcon(listOf(P("M4 9V4h5"), P("M20 9V4h-5"), P("M4 15v5h5"), P("M20 15v5h-5")), cs.onSurface, size = 20.dp, stroke = 2.2f)
+                    }
+                }
                 Box(
                     Modifier.fillMaxWidth().height(110.dp)
                         .background(Brush.verticalGradient(listOf(cs.background.copy(alpha = 0.55f), Color.Transparent))),
@@ -158,7 +167,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 }
 
                 Column(Modifier.padding(top = 16.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
-                    if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.filter { !it.video }?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                    if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
                 }
                 Spacer(Modifier.height(24.dp))
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -177,34 +186,47 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                     style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 19.sp, color = cs.onSurface),
                     modifier = Modifier.weight(1f).padding(horizontal = 14.dp).graphicsLayer { alpha = bar; translationY = (1f - bar) * 12.dp.toPx() },
                 )
-                Box {
-                    RoundButton(onClick = { menu = true }) { LineIcon(Glyphs.dotsCircles, cs.onSurface, size = 22.dp, filled = true) }
-                    androidx.compose.material3.DropdownMenu(menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(20.dp), containerColor = cs.surfaceContainerHighest) {
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("Mensen en delen", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
-                            onClick = { menu = false; people = true }, enabled = trip.remoteId != null,
-                            leadingIcon = { LineIcon(Glyphs.friends, cs.onSurface, size = 20.dp) },
-                        )
-                        // The photo book and the summary, once a trip has photos to make them from.
-                        val canMake = !trip.upcoming && media?.isNotEmpty() == true
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("Fotoboek", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
-                            onClick = { menu = false; extra = "book" }, enabled = canMake,
-                            leadingIcon = { LineIcon(Glyphs.photo, cs.onSurface, size = 20.dp) },
-                        )
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("Samenvatting", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
-                            onClick = { menu = false; extra = "summary" }, enabled = canMake,
-                            leadingIcon = { LineIcon(Glyphs.sun, cs.onSurface, size = 20.dp) },
-                        )
+                // Their own buttons, as on the web: people and sharing, the map's settings, the trip's settings.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (trip.remoteId != null) RoundButton(onClick = { people = true }) { LineIcon(Glyphs.friends, cs.onSurface, size = 22.dp, stroke = 1.9f) }
+                    RoundButton(onClick = { mapSheet = true }) { LineIcon(listOf(P("M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5Z"), P("M9 4v13.5"), P("M15 6.5V20")), cs.onSurface, size = 21.dp, stroke = 1.9f) }
+                    if (trip.remoteId != null) RoundButton(onClick = { tripSheet = true }) { LineIcon(Glyphs.settings, cs.onSurface, size = 21.dp, stroke = 1.8f) }
+                }
+            }
+        }
+        // The map full screen: it grows open and closes with back or the cross.
+        androidx.compose.animation.AnimatedVisibility(
+            bigMap,
+            enter = androidx.compose.animation.fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec(), initialScale = 0.92f),
+            exit = androidx.compose.animation.fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.92f),
+        ) {
+            androidx.activity.compose.BackHandler { bigMap = false }
+            Box(Modifier.fillMaxSize().background(cs.background)) {
+                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 0)
+                Column {
+                    Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+                    Box(Modifier.padding(12.dp)) {
+                        RoundButton(onClick = { bigMap = false }) { LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
                     }
                 }
             }
         }
-        if (people) PeopleSheet(trip, onDismiss = { people = false }, onChanged = { scope.launch { Data.load() } })
+        if (mapSheet) MapSheet(onDismiss = { mapSheet = false })
+        if (tripSheet) TripSettingsSheet(trip, onDismiss = { tripSheet = false }, onChanged = { scope.launch { Data.load() } })
+        if (people) PeopleSheet(
+            trip, onDismiss = { people = false }, onChanged = { scope.launch { Data.load() } },
+            onMake = if (!trip.upcoming && media?.isNotEmpty() == true) ({ which -> people = false; extra = which }) else null,
+        )
+        // While paging in the viewer the timeline brings that photo to the middle, so closing flies back into it.
+        androidx.compose.runtime.LaunchedEffect(openPhoto) {
+            val id = openPhoto ?: return@LaunchedEffect
+            val r = tiles.rect(id) ?: return@LaunchedEffect
+            val screen = with(density) { screenH.dp.toPx() }
+            if (r.top < screen * 0.15f || r.bottom > screen * 0.85f) scroll.animateScrollBy(r.center.y - screen / 2f)
+        }
         // A tapped photo opens full screen over everything, the toolbar included.
         viewing?.let { start ->
-            val photos = media.orEmpty().filter { !it.video }
+            val photos = media.orEmpty()
             if (photos.isNotEmpty()) PhotoViewer(trip, photos, start.coerceIn(0, photos.lastIndex), bounds = tiles, onCurrent = { openPhoto = it }, onClose = { viewing = null })
         }
 
@@ -311,7 +333,7 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
                 bottomStart = if (i == 0) 24.dp else 6.dp, bottomEnd = if (i == items.lastIndex) 24.dp else 6.dp,
             )
             Column(
-                Modifier.weight(if (label == "kilometer") 1.3f else if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(tile).padding(horizontal = 12.dp, vertical = 12.dp),
+                Modifier.weight(if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(tile).padding(horizontal = 12.dp, vertical = 12.dp),
             ) {
                 Text(value, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 21.sp, letterSpacing = (-0.02).em, color = MaterialTheme.colorScheme.onSurface))
                 Text(label, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant))

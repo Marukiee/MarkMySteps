@@ -368,7 +368,10 @@ private fun StopRow(
                 Text("${index + 1}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 17.sp, color = color))
             }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text("$flag  $name", maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = cs.onSurface))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FlagIcon(flag, 15.dp)
+                    Text(name, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
+                }
                 Text(dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
             }
             Stepper(nights, onNights)
@@ -460,7 +463,10 @@ private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (Remote.Place) -> Uni
                 ) {
                     val shownFlag = place.countryCode?.let { Remote.flag(it) } ?: Places.firstOrNull { it.first == place.name }?.second ?: flag ?: ""
                     Column(Modifier.weight(1f)) {
-                        Text("$shownFlag  ${place.name}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            FlagIcon(shownFlag, 13.dp)
+                            Text(place.name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
+                        }
                         if (place.region.isNotBlank()) Text(place.region, maxLines = 1, style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant))
                     }
                     LineIcon(Glyphs.plus, cs.primary, size = 18.dp, stroke = 2.4f)

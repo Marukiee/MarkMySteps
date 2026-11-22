@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onFirstVisible
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
@@ -88,8 +89,10 @@ fun Cover(trip: Trip, modifier: Modifier, size: String = "thumbnail") {
     when {
         id != null -> RemotePhoto(id, modifier, size)
         // A real trip without a photo: its own colour with the compass, as on the web, never a made-up landscape.
-        trip.remoteId != null -> Box(modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(trip.color, androidx.compose.ui.graphics.Color(0xFF1B2440).copy(alpha = 0.5f).compositeOver(trip.color)))), contentAlignment = androidx.compose.ui.Alignment.Center) {
-            LineIcon(Glyphs.compass, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f), size = androidx.compose.ui.unit.Dp(26f), stroke = 1.8f)
+        trip.remoteId != null -> androidx.compose.foundation.layout.BoxWithConstraints(modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(trip.color, androidx.compose.ui.graphics.Color(0xFF1B2440).copy(alpha = 0.5f).compositeOver(trip.color)))), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            // The compass grows with the card: small on a thumbnail, large on the big card.
+            val side = minOf(maxWidth, maxHeight) * 0.42f
+            LineIcon(Glyphs.compass, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f), size = side, stroke = 1.6f)
         }
         else -> Scenery(trip.cover ?: Scene.Mountains, modifier)
     }
@@ -98,11 +101,13 @@ fun Cover(trip: Trip, modifier: Modifier, size: String = "thumbnail") {
 /** A photo from the server, fading in once it is there, on a quiet tone until then. */
 @Composable
 fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail") {
-    val bitmap by produceState<Bitmap?>(Photos.cached("$id/$size"), id, size) {
-        if (value == null) value = Photos.load(id, size)
+    // Only fetched once it comes on screen, so a day with three hundred photos does not ask for all of them at once.
+    var seen by androidx.compose.runtime.remember(id) { mutableStateOf(Photos.cached("$id/$size") != null) }
+    val bitmap by produceState<Bitmap?>(Photos.cached("$id/$size"), id, size, seen) {
+        if (value == null && seen) value = Photos.load(id, size)
     }
     val shown by animateFloatAsState(if (bitmap != null) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "photo")
-    Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+    Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh).onFirstVisible { seen = true }) {
         bitmap?.let {
             Image(
                 it.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop,
@@ -163,4 +168,17 @@ object ThemePref {
         mode = value
         prefs?.edit()?.putInt(KEY, value)?.apply()
     }
+}
+
+/** The map style, as on the web: three OpenFreeMap styles or Esri satellite. Kept on the phone. */
+object MapStylePref {
+    val ids = listOf("positron" to "Positron", "bright" to "Bright", "liberty" to "Liberty", "satellite" to "Satelliet")
+    private var prefs: android.content.SharedPreferences? = null
+    var id by mutableStateOf("positron")
+        private set
+    fun init(context: android.content.Context) {
+        prefs = context.getSharedPreferences("mms.next.ui", android.content.Context.MODE_PRIVATE)
+        id = prefs?.getString("mapStyle", "positron") ?: "positron"
+    }
+    fun set(value: String) { id = value; prefs?.edit()?.putString("mapStyle", value)?.apply() }
 }
