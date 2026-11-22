@@ -178,8 +178,8 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, mfaPreview:
                                         style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, lineHeight = 20.sp, color = cs.onSurfaceVariant),
                                     )
                                     if (useRecovery) Field("Herstelcode", code, { v ->
-                                        // Letters, digits and the dashes between the groups; never sent by itself.
-                                        code = v.uppercase().filter { it.isLetterOrDigit() || it == '-' }.take(24)
+                                        // As typed (the server drops spaces and dashes and ignores case); changing it here fights the keyboard. Never sent by itself.
+                                        code = v.take(24)
                                     }, "XXXX-XXXX-XXXX-XXXX", KeyboardType.Ascii, done = ::submit, focusNow = true)
                                     // Focus at once, and sign in by itself on the sixth digit, as on the web.
                                     else Field("Code", code, { v ->

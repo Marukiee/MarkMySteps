@@ -108,7 +108,14 @@ fun TripAccessPage(tripId: String, onBack: () -> Unit, onOpenTrip: (String) -> U
     var error by remember { mutableStateOf<String?>(null) }
     var sent by remember { mutableStateOf(false) }
     HapticOn(error, Haptic.Reject)
+    // A test looks at this page with a made-up trip (adb extra accessPreview); asking then sends nothing.
+    val previewOnly = tripId == "preview"
     LaunchedEffect(tripId) {
+        if (previewOnly) {
+            val f = Data.all.flatMap { it.members }.firstOrNull { it.userId != Data.me?.id }
+            preview = SocialRemote.AccessPreview("preview", "Weekend Rome", java.time.LocalDate.of(2026, 5, 14), java.time.LocalDate.of(2026, 5, 17), f?.userId ?: "", f?.name ?: "Sanne", f?.hasAvatar == true, "NONE")
+            return@LaunchedEffect
+        }
         runCatching { SocialRemote.access(tripId) }
             .onSuccess { p -> if (p.status == "MEMBER") onOpenTrip(p.tripId) else preview = p }
             .onFailure { gone = true }
@@ -144,7 +151,7 @@ fun TripAccessPage(tripId: String, onBack: () -> Unit, onOpenTrip: (String) -> U
                     else -> preview?.let { p -> AccessBody(p, sent, message, { message = it.take(300) }, asking, error) {
                         asking = true; error = null
                         scope.launch {
-                            runCatching { SocialRemote.askAccess(p.tripId, message) }
+                            runCatching { if (!previewOnly) SocialRemote.askAccess(p.tripId, message) }
                                 .onSuccess { haptics(Haptic.Confirm); sent = true; preview = p.copy(status = "PENDING") }
                                 .onFailure { error = (it as? Api.Failure)?.message ?: "Het verzoek kon niet verstuurd worden" }
                             asking = false
@@ -221,9 +228,11 @@ fun ShareLinkPage(slug: String, url: String, onBack: () -> Unit, onOpenTrip: (St
     val context = LocalContext.current
     val haptics = rememberHaptics()
     // The link's title, which is the trip's: that is how the app finds it among your own.
+    // Null while it is read; a blank title when the link is gone (revoked, or never there).
     val info by produceState<Pair<String, Boolean>?>(null, slug) {
-        value = runCatching { org.json.JSONObject(Api.get("/api/share/${Uri.encode(slug)}/info")).let { it.optString("title") to it.optBoolean("hasPassword") } }.getOrNull() ?: ("" to false)
+        value = runCatching { org.json.JSONObject(Api.get("/api/share/${Uri.encode(slug)}/info")).let { it.optString("title").ifBlank { "Gedeelde reis" } to it.optBoolean("hasPassword") } }.getOrNull() ?: ("" to false)
     }
+    val gone = info?.first == ""
     LaunchedEffect(info) {
         val title = info?.first ?: return@LaunchedEffect
         Data.all.firstOrNull { it.remoteId != null && it.title == title }?.let { onOpenTrip(it.id) }
@@ -235,14 +244,21 @@ fun ShareLinkPage(slug: String, url: String, onBack: () -> Unit, onOpenTrip: (St
             LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f)
         }
         Column(Modifier.fillMaxWidth().padding(top = 56.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Glyph(Glyphs.globe)
+            Glyph(if (gone) Glyphs.compass else Glyphs.globe, lost = gone)
             val title = info?.first
             AnimatedContent(title, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "title") { t ->
                 if (t == null) Placeholder(Modifier.padding(top = 20.dp).size(width = 220.dp, height = 28.dp).clip(CircleShape))
-                else Text(t.ifBlank { "Gedeelde reis" }, textAlign = TextAlign.Center, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 26.sp, color = cs.onSurface), modifier = Modifier.padding(top = 20.dp))
+                else Text(if (gone) "Deze link werkt niet meer" else t, textAlign = TextAlign.Center, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 26.sp, color = cs.onSurface), modifier = Modifier.padding(top = 20.dp))
             }
-            Note(if (info?.second == true) "Een gedeelde reis met een wachtwoord. Je bent er zelf niet op, dus hij opent op de website." else "Een gedeelde reis van iemand anders. Je bent er zelf niet op, dus hij opent op de website.")
-            MainButton("Openen op de website", { haptics(Haptic.Tap); openOutside(context, url) }, Modifier.padding(top = 24.dp), icon = Glyphs.external)
+            if (info != null) {
+                Note(when {
+                    gone -> "De link is ingetrokken of klopt niet. Vraag wie hem stuurde om een nieuwe."
+                    info?.second == true -> "Een gedeelde reis met een wachtwoord. Je bent er zelf niet op, dus hij opent op de website."
+                    else -> "Een gedeelde reis van iemand anders. Je bent er zelf niet op, dus hij opent op de website."
+                })
+                if (gone) MainButton("Naar mijn reizen", onBack, Modifier.padding(top = 24.dp))
+                else MainButton("Openen op de website", { haptics(Haptic.Tap); openOutside(context, url) }, Modifier.padding(top = 24.dp), icon = Glyphs.external)
+            }
         }
     }
 }

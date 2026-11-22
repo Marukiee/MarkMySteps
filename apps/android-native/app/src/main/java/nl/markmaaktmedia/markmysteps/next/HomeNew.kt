@@ -189,7 +189,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         }
         var page by remember { mutableIntStateOf(when (startPage) { "settings" -> 2; "travellers" -> 1; else -> 0 }) }
         // A trip you are not on (ask to look along), or a share link that is not one of your trips: pages of their own.
-        var outside by remember { mutableStateOf<String?>(null) }
+        var outside by remember { mutableStateOf(if (previews.access) "access:preview" else null) }
         /** A trip by its id: yours opens, anyone else's asks to look along. */
         fun openTripId(id: String) {
             val mine = Data.all.firstOrNull { it.id == id || it.remoteId == id }

@@ -51,17 +51,16 @@ import java.time.LocalDate
  * the places your own tracked route says you slept, offered back as stops.
  */
 
-/** " · ☀ 24°" after a stop's dates, fading in once it is known; nothing when there is no reading. */
+/** "☀ 24°" under a stop's dates, fading in once it is known; nothing when there is no reading. */
 @Composable
 fun StopWeather(at: LonLat, day: LocalDate, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
     val weather by produceState<Remote.Weather?>(null, at, day) { value = runCatching { Remote.weather(at, day) }.getOrNull() }
-    AnimatedVisibility(weather != null, modifier = modifier, enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()), exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec())) {
+    AnimatedVisibility(weather != null, modifier = modifier, enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()), exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec())) {
         weather?.let { w ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("·", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(horizontal = 6.dp))
                 LineIcon(weatherGlyph(w.code), cs.onSurfaceVariant, size = 15.dp, stroke = 1.8f)
-                Text("${w.maxC}°", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp))
+                Text("${w.maxC}°", maxLines = 1, softWrap = false, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp))
             }
         }
     }

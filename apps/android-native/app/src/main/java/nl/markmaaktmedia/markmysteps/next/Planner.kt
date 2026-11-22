@@ -495,7 +495,7 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
                         val km = prev?.let { (angle(it.at, stop.at) * 111.2 * if (stop.mode == Mode.Flight) 1.0 else 1.25).roundToInt() }
                         Connector(
                             stop.mode, km, color, dark, airports,
-                            flightNumber = stop.flightNumber, fromAirport = stop.fromAirport, toAirport = stop.toAirport, vias = stop.vias.size,
+                            flightNumber = stop.flightNumber, fromAirport = stop.fromAirport, toAirport = stop.toAirport, vias = stop.vias,
                             onMode = { pickStopMode(stop, it) }, onFlight = { stopFlight(stop) },
                         )
                     } else if (outbound != null) Line(color)
@@ -660,7 +660,7 @@ private fun LegRow(leg: PlanLeg, color: Color, dark: Boolean, airports: Boolean,
                 exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.8f),
             ) { LegPlacePill(leg.placeName ?: if (leg.place != null) "Ingesteld" else null, leg.outbound, color, dark) { picking = true } }
             val landKm = km ?: leg.km.takeIf { it > 0 }
-            val time = flightTime(leg.mode, leg.fromAirport, leg.toAirport, airports) ?: landKm?.takeIf { leg.mode != Mode.Flight }?.let { km(it) }
+            val time = flightTime(leg.mode, leg.fromAirport, leg.toAirport, airports, leg.vias) ?: landKm?.takeIf { leg.mode != Mode.Flight }?.let { km(it) }
             if (time != null) Text(time, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp))
         }
         ModeChooser(leg.mode, onMode)
@@ -822,7 +822,7 @@ private fun ModePill(mode: Mode, onClick: () -> Unit) {
 @Composable
 private fun Connector(
     mode: Mode, km: Int?, color: Color, dark: Boolean, airports: Boolean,
-    flightNumber: String?, fromAirport: String?, toAirport: String?, onMode: (Mode) -> Unit, onFlight: () -> Unit, vias: Int = 0,
+    flightNumber: String?, fromAirport: String?, toAirport: String?, onMode: (Mode) -> Unit, onFlight: () -> Unit, vias: List<String> = emptyList(),
 ) {
     val cs = MaterialTheme.colorScheme
     val line = color.copy(alpha = 0.35f)
@@ -840,8 +840,8 @@ private fun Connector(
             mode == Mode.Flight,
             enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + androidx.compose.animation.expandHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()),
             exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()),
-        ) { Box(Modifier.padding(start = 8.dp)) { AirportPill(flightNumber, fromAirport, toAirport, color, dark, onFlight, vias = vias) } }
-        val time = flightTime(mode, fromAirport, toAirport, airports)
+        ) { Box(Modifier.padding(start = 8.dp)) { AirportPill(flightNumber, fromAirport, toAirport, color, dark, onFlight, vias = vias.size) } }
+        val time = flightTime(mode, fromAirport, toAirport, airports, vias)
         val text = time ?: km?.let { if (it < 5) "in de buurt" else km(it) }
         if (text != null) {
             Text(text, maxLines = 2, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp))
@@ -878,11 +878,9 @@ private fun StopCard(
             }
             Column(Modifier.weight(1f).padding(start = 10.dp, end = 10.dp)) {
                 Text(stop.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, lineHeight = 21.sp, color = cs.onSurface))
-                Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stay(from, to), maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
-                    // The weather there on the first day, as the web shows it beside the dates.
-                    if (trip.remoteId != null) StopWeather(stop.at, from)
-                }
+                Text(stay(from, to), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp))
+                // The weather there on the first day, as the web shows it with the dates; on its own line, since the card is narrow.
+                if (trip.remoteId != null) StopWeather(stop.at, from, Modifier.padding(top = 2.dp))
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Stepper(stop.nights, onNights)
@@ -1173,7 +1171,8 @@ private fun Vias(form: FlightForm) {
                 val shown = remember { MutableTransitionState(false).apply { targetState = true } }
                 AnimatedVisibility(shown, enter = fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec()), exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.fastSpatialSpec())) {
                     Row(Modifier.padding(bottom = 8.dp), verticalAlignment = Alignment.Top) {
-                        Box(Modifier.weight(1f)) {
+                        // A column, so the field's suggestions and quick choices sit under it and not over it.
+                        Column(Modifier.weight(1f)) {
                             AirportField(
                                 code = { form.vias.firstOrNull { it.first == key }?.second },
                                 onPick = { picked -> val i = form.vias.indexOfFirst { it.first == key }; if (i >= 0) form.vias[i] = key to picked },

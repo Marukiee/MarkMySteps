@@ -113,7 +113,7 @@ fun StatsListSheet(kind: StatsKind, lists: SocialRemote.Lists, onDismiss: () -> 
                         itemsIndexed(byTrip, key = { _, fl -> fl.first().tripId }) { i, fl ->
                             Slab(i, byTrip.size) {
                                 Visit(null, fl.first().tripTitle, stretch(fl.first().day, fl.last().day), null) { go(fl.first().tripId) }
-                                fl.forEach { f -> Ticket(f) { go(f.tripId) } }
+                                fl.forEach { f -> Ticket(f, airports) { go(f.tripId) } }
                             }
                         }
                     }
@@ -160,11 +160,12 @@ private fun GoButton(onClick: () -> Unit) {
 
 /** One flight as a boarding pass: the codes with a dashed arc between them, the places under them, the date on the stub. */
 @Composable
-private fun Ticket(f: SocialRemote.ListFlight, onClick: () -> Unit) {
+/** [airports]: whether the airport list is read, so the city names fill in once it is. */
+private fun Ticket(f: SocialRemote.ListFlight, airports: Boolean, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val day = parseDay(f.day)
     fun code(e: SocialRemote.FlightEnd) = e.airport ?: e.name?.take(3)?.uppercase() ?: "?"
-    fun place(e: SocialRemote.FlightEnd) = e.name ?: FlightAirports.byCode(e.airport)?.city ?: ""
+    fun place(e: SocialRemote.FlightEnd) = e.name ?: (if (airports) FlightAirports.byCode(e.airport)?.city else null) ?: ""
     val line = cs.outline
     Row(Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainerLowest).clickable(onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 10.dp)) {

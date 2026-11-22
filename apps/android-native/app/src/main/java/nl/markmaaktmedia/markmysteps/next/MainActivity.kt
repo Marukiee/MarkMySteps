@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
             invite = intent.getBooleanExtra("invitePreview", false),
             tempPassword = intent.getBooleanExtra("tempPassword", false),
             mfa = intent.getBooleanExtra("mfaPreview", false),
+            access = intent.getBooleanExtra("accessPreview", false),
         )
         setContent {
             val system = isSystemInDarkTheme()
@@ -97,4 +98,4 @@ class MainActivity : ComponentActivity() {
 }
 
 /** Screens a test opens to look at (adb extras); they never send anything. */
-data class Previews(val invite: Boolean = false, val tempPassword: Boolean = false, val mfa: Boolean = false)
+data class Previews(val invite: Boolean = false, val tempPassword: Boolean = false, val mfa: Boolean = false, val access: Boolean = false)
