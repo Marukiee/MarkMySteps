@@ -11,8 +11,11 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 
 ### Open
 
-- [ ] iPhone: alle Android-wijzigingen van 22 november overzetten (lijst
-      hieronder, kolom iPhone: nee).
+- [ ] iPhone: overgezet en gebouwd (twee delen samengevoegd); nog zelf
+      nalopen op de simulator. Nog open op iPhone: lijn in het gat bij slepen,
+      melding als alle foto's uit staan, tijdlijnrijen die bij foto's
+      inpoppen, dagpil die een pin kan bedekken (Mark beslist), routes per
+      reiziger, cijfers onthouden bij openen.
 - [ ] iPhone: alle animaties nalopen, gelijk aan Android en mooi (in het
       werk, twee delen: reispagina/kaart/viewer en de rest).
 - [ ] Webversie van de app nalopen met dezelfde punten (wat daar ook
@@ -33,7 +36,7 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       iPhone: nee
 - [x] Homepage-globe: de naam en de stip van een reis staan waar de reis
       begint, niet op Schiphol waar de GPS al aanstond; alle thuisvliegvelden
-      tellen als thuis. iPhone: nee
+      tellen als thuis. iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] Routeplanner slepen: alleen de stop gaat mee (het lijntje erboven
       blijft), bovenste stop kan omlaag, buren schuiven mooi opzij, geen
       heen-en-weer springen. iPhone: nee
@@ -44,41 +47,41 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 - [x] ⋯ menu: bij het dichtgaan springt de kleur van het rondje in een keer
       terug naar het doorzichtige glas; nu een overvloei. iPhone: nee
 - [x] ⋯ menu op de kleine reiskaart: daar kwam een rondje terug dat er niet
-      hoort (de knop heeft geen vlak). iPhone: nee
+      hoort (de knop heeft geen vlak). iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] Reizigers: geen grijze blokjes als plek voor de cijfers, leeg laten tot
-      de cijfers met hun animatie komen. iPhone: nee
-- [x] Auto/Large/Small in het reismenu: gelijke ruimte boven en onder. iPhone: nee
+      de cijfers met hun animatie komen. iPhone: ja (gebouwd, nog niet door Mark gezien)
+- [x] Auto/Large/Small in het reismenu: gelijke ruimte boven en onder. iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] Fotomap: groepen voegen soepel samen en vallen uit elkaar bij in- en
-      uitzoomen (zoals Hiero). Goedgekeurd. iPhone: nee
+      uitzoomen (zoals Hiero). Goedgekeurd. iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] Fotogroep op de kaart openen: viewer met fotostrip onderin, huidige foto
-      in het midden, tikjes bij wisselen, terugveeg sluit rustig. iPhone: nee
-- [x] Fotostrip ook in de gewone viewer, stopt altijd op een foto. iPhone: nee
+      in het midden, tikjes bij wisselen, terugveeg sluit rustig. iPhone: ja (gebouwd, nog niet door Mark gezien)
+- [x] Fotostrip ook in de gewone viewer, stopt altijd op een foto. iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] Panels openen met de beweging van PixelPlayers Connect device.
       Goedgekeurd. iPhone: nee
 - [x] Routeplanner: nachtenknop als verbonden Material-knoppen, lijn gaat mee
       bij slepen, vervoerspil klapt uit (ook naar boven, en klapt in bij
-      scrollen). iPhone: nee
+      scrollen). iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] Reispagina: cijfers met lege plek tijdens laden, kaart zoomt verder in
       op de reis, plaatsen springen naar de juiste stad, plaatsen-tegels
-      kleiner zonder vervaging, scrollpositie blijft bij terug. iPhone: nee
+      kleiner zonder vervaging, scrollpositie blijft bij terug. iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] Madrid knipperde: valt nu terug op de volgende foto die wel laadt. iPhone: nee
-- [x] Foto's een keer laden: bewaarde foto's eerst van de telefoon. iPhone: nee
+- [x] Foto's een keer laden: bewaarde foto's eerst van de telefoon. iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] View requests opent de instellingen; updatekaart in de
-      ontwikkelaarsinstellingen werkt en staat hoger. iPhone: nee
+      ontwikkelaarsinstellingen werkt en staat hoger. iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] Inlogscherm opnieuw ontworpen (geen wereldbol, korter, demo-link weg).
-      iPhone: nee
+      iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] Onboarding: licht/donker kiezen werkt, Skip en Get started springen niet.
       iPhone: nee
-- [x] Kaartinstellingen: alles aan/uit kan terug naar de eerdere keuze. iPhone: nee
+- [x] Kaartinstellingen: alles aan/uit kan terug naar de eerdere keuze. iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] Dag op de kaart: nieuw ontwerp, datum niet dubbel, ronde hoeken gelijk
-      met het panel, kleuren beter te onderscheiden. iPhone: nee
-- [x] Groot/klein wisselen op de homepage: rustiger veer. iPhone: nee
+      met het panel, kleuren beter te onderscheiden. iPhone: ja (gebouwd, nog niet door Mark gezien)
+- [x] Groot/klein wisselen op de homepage: rustiger veer. iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] Reisinstellingen: kop zoals de omslag van de reispagina, zonder gezichten.
-      iPhone: nee
+      iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] ⋯ menu groeit uit zijn knop, donker in de viewer, gelijke randen van 11 px.
       iPhone: nee
 - [x] Viewer: hartje opent en sluit, tikken op de foto reageert meteen, geen
-      hapering bij vegen. iPhone: nee
+      hapering bij vegen. iPhone: ja (gebouwd, nog niet door Mark gezien)
 
 ## Open lijst voor een grote ronde
 

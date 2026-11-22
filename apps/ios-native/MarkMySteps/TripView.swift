@@ -117,7 +117,7 @@ struct TripView: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                             withAnimation(.smooth) { proxy.scrollTo(id, anchor: .bottom) }
                         }
-                    })
+                    }, media: media)
                 }
 
                 Color.clear.frame(height: 28).plainRow()
