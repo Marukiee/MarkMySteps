@@ -24,6 +24,9 @@ struct TripView: View {
     /// Whether the stops have been read from the server, so the figures can wait in their place until then.
     @State private var stopsKnown: Bool
     @State private var mapPosition: MapCameraPosition
+    @State private var mapSize: CGSize = .zero
+    /// Room kept free on the map: the bar with the buttons on top, the sheet's edge and the expand button below.
+    private static let mapInsets = EdgeInsets(top: 150, leading: 40, bottom: 70, trailing: 40)
     @Namespace private var ns
 
     enum TripTab: Hashable { case timeline, planner }
@@ -34,7 +37,7 @@ struct TripView: View {
         _tab = State(initialValue: Launch.page == "planner" ? .planner : .timeline)
         _plan = State(initialValue: PlanState(trip: base))
         _stopsKnown = State(initialValue: base.remoteId == nil)
-        _mapPosition = State(initialValue: .rect(base.mapRect(bottomRoom: 0.18)))
+        _mapPosition = State(initialValue: .rect(base.mapRect()))
     }
 
     var body: some View {
@@ -242,10 +245,13 @@ struct TripView: View {
     private var mapHeader: some View {
         // The map moves under your finger without the page scrolling along, with your photos on it.
         TripMap(trip: trip, interactive: true, position: $mapPosition, photos: mapPhotos, onPhoto: openFromMap)
-            // The camera frames the trip below the floating bar, not under it.
-            .safeAreaPadding(.top, 130)
-            .safeAreaPadding(.horizontal, 8)
             .frame(height: max(380, pageHeight * 0.52))
+            // The camera frames the trip in the part of the map left free by the bar above and the sheet below.
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
+                guard size != mapSize else { return }
+                mapSize = size
+                mapPosition = .rect(trip.fittedRect(size: size, insets: TripView.mapInsets))
+            }
             // The page's sheet laps over the map's lower edge, as on Android; Apple's logo and the legal
             // link sit under that edge, out of the way.
             .overlay(alignment: .bottom) {
@@ -283,7 +289,7 @@ struct TripView: View {
             t.back = back
             trip = t
             plan = PlanState(trip: t)
-            withAnimation(.calm) { mapPosition = .rect(t.mapRect(bottomRoom: 0.18)) }
+            withAnimation(.calm) { mapPosition = .rect(t.fittedRect(size: mapSize, insets: TripView.mapInsets)) }
         }
         withAnimation(.calm) { stopsKnown = true }
         media = (try? await Remote.media(base)) ?? []
@@ -484,21 +490,27 @@ struct TripMap: View {
         let count: Int
     }
 
-    /// The photos on a grid that gets finer as you zoom in, the level rounded so a pan never regroups them.
+    /// The photos grouped for the zoom level, the way MapLibre's levels would (rounded, so a small pan or pinch
+    /// never regroups them): a photo joins the first group whose pin it would overlap, so the round
+    /// thumbnails stand apart instead of piling up.
     private var photoGroups: [PhotoGroup] {
         guard !photos.isEmpty else { return [] }
         let delta = span?.longitudeDelta ?? trip.mapSpanDegrees
         let level = (log2(360 * Double(width) / (512 * max(delta, 1e-6)))).rounded()
-        let cell = 40 / pow(2, level)
-        var order: [String] = []
-        var groups: [String: [Media]] = [:]
+        // Degrees across one pin and a little air at this level.
+        let reach = 52 * 360 / (512 * pow(2, level))
+        func mercY(_ lat: Double) -> Double { log(tan(.pi / 4 + max(-85, min(85, lat)) * Geo.rad / 2)) / Geo.rad }
+        var groups: [(x: Double, y: Double, first: Media, count: Int)] = []
         for m in photos {
             guard let lat = m.lat, let lon = m.lon else { continue }
-            let key = "\(Int((lat / cell).rounded())):\(Int((lon / cell).rounded()))"
-            if groups[key] == nil { order.append(key) }
-            groups[key, default: []].append(m)
+            let x = lon, y = mercY(lat)
+            if let i = groups.firstIndex(where: { abs($0.x - x) < reach && abs($0.y - y) < reach }) {
+                groups[i].count += 1
+            } else {
+                groups.append((x, y, m, 1))
+            }
         }
-        return order.map { PhotoGroup(key: $0, first: groups[$0]![0], count: groups[$0]!.count) }
+        return groups.map { PhotoGroup(key: $0.first.id, first: $0.first, count: $0.count) }
     }
 
     private func tapped(_ group: PhotoGroup) {
@@ -579,7 +591,8 @@ extension Trip {
 
     /// Everything the map draws: the stops (or the route) and the flights' bows, so no arc is cut off.
     private var mapPoints: [LonLat] {
-        let base = stops.isEmpty ? route : stops.map(\.at)
+        // As on Android: the stops, the recorded route and the bows together.
+        let base = stops.map(\.at) + route
         let bows = pieces.bows.flatMap { Geo.flightArc($0.0, $0.1, steps: 12) }
         return base + bows
     }
@@ -598,6 +611,26 @@ extension Trip {
         return MKMapRect(x: rect.midX - w / 2, y: rect.midY - h / 2, width: w, height: h * (1 + bottomRoom))
     }
 
+    /// The whole view's rect for a map of `size`, so the trip sits exactly inside the part left free by
+    /// `insets` (the floating bar on top, the sheet's edge below), with a little air on every side.
+    func fittedRect(size: CGSize, insets: EdgeInsets) -> MKMapRect {
+        let points = mapPoints.map { MKMapPoint($0.coordinate) }
+        guard let first = points.first, size.width > 0, size.height > 0 else { return mapRect() }
+        var rect = MKMapRect(origin: first, size: MKMapSize(width: 0, height: 0))
+        for p in points.dropFirst() { rect = rect.union(MKMapRect(origin: p, size: MKMapSize(width: 0, height: 0))) }
+        // A city trip still shows its surroundings: at least about 40 km across.
+        let minSide = 40_000 * MKMapPointsPerMeterAtLatitude(first.coordinate.latitude)
+        let rw = max(rect.size.width, minSide), rh = max(rect.size.height, minSide)
+        let innerW = max(40, size.width - insets.leading - insets.trailing)
+        let innerH = max(40, size.height - insets.top - insets.bottom)
+        let scale = max(rw / innerW, rh / innerH)
+        let innerMidX = insets.leading + innerW / 2, innerMidY = insets.top + innerH / 2
+        return MKMapRect(
+            x: rect.midX - innerMidX * scale, y: rect.midY - innerMidY * scale,
+            width: size.width * scale, height: size.height * scale
+        )
+    }
+
     /// Roughly how many degrees the opening map shows across, before the camera has reported.
     var mapSpanDegrees: Double {
         let r = mapRect()
@@ -612,6 +645,8 @@ struct FullMapView: View {
     var onPhoto: (Media) -> Void = { _ in }
     @State private var satellite = false
     @State private var position: MapCameraPosition
+    @State private var size: CGSize = .zero
+    private static let insets = EdgeInsets(top: 130, leading: 36, bottom: 70, trailing: 36)
     @Environment(\.dismiss) private var dismiss
     @Namespace private var glass
 
@@ -625,6 +660,11 @@ struct FullMapView: View {
     var body: some View {
         TripMap(trip: trip, interactive: true, satellite: satellite, position: $position, photos: photos, onPhoto: onPhoto)
             .ignoresSafeArea()
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { new in
+                guard new != size else { return }
+                size = new
+                position = .rect(trip.fittedRect(size: new, insets: FullMapView.insets))
+            }
             .overlay(alignment: .top) {
                 HStack(alignment: .top) {
                     GlassEffectContainer(spacing: 8) {
@@ -638,7 +678,7 @@ struct FullMapView: View {
 
                             Button {
                                 Haptic.tap()
-                                withAnimation(.smooth) { position = .rect(trip.mapRect()) }
+                                withAnimation(.smooth) { position = .rect(trip.fittedRect(size: size, insets: FullMapView.insets)) }
                             } label: {
                                 Image(systemName: "scope").font(.system(size: 17, weight: .semibold)).frame(width: 44, height: 44)
                             }

@@ -75,7 +75,7 @@ struct NewTripSheet: View {
                 }
             }
         }
-        .presentationDetents([.large])
+        .presentationDetents([.height(700), .large])
     }
 
     private func create() {
