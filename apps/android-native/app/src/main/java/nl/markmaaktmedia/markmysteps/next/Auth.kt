@@ -94,7 +94,7 @@ object Onboarding {
         val p = context.getSharedPreferences("mms.next.ui", Context.MODE_PRIVATE)
         prefs = p
         // Someone who opens this version already signed in used the app before: no tour for them.
-        if (!p.contains("onboarded")) p.edit().putBoolean("onboarded", Api.signedIn).apply()
+        if (!p.contains("onboarded")) p.edit().putBoolean("onboarded", Api.signedIn || OldApp.present(context)).apply()
         done = p.getBoolean("onboarded", true)
     }
 

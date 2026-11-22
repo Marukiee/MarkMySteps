@@ -187,6 +187,8 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             if (gate != "pending") { Data.begin(); scope.launch { Data.load() } }
         }
         LaunchedEffect(Unit) { Data.load() }
+        // The old app's sign-in came along (OldApp.kt): straight into the app, no sign-in page, no tour.
+        LaunchedEffect(OldApp.adopted) { if (OldApp.adopted && gate == "login") { Onboarding.finish(); gate = "app"; Data.begin() } }
         // At most every six hours, as the shared updater wants; it only ever offers this app's own apk (Update.kt).
         LaunchedEffect(Unit) { Updates.checkIfDue() }
         val gateMotion = MaterialTheme.motionScheme

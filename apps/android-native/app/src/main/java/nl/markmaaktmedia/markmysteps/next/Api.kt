@@ -127,6 +127,18 @@ object Api {
         save()
     }
 
+    /**
+     * Signs in with a refresh token from the old app (OldApp.kt): only over https, and only kept when the server
+     * accepts it; otherwise everything is put back as it was and the sign-in page shows as usual.
+     */
+    fun adopt(server: String, refreshToken: String): Boolean {
+        if (!server.startsWith("https://") || signedIn) return false
+        base = server.trimEnd('/')
+        refresh = refreshToken
+        access = null
+        return if (renew()) true else { refresh = null; save(); false }
+    }
+
     private fun renew(): Boolean {
         val r = refresh ?: return false
         return try {

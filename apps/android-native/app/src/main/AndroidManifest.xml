@@ -19,7 +19,7 @@
     <application
         android:name=".MmsApp"
         android:localeConfig="@xml/locales_config"
-        android:label="MarkMySteps Dev"
+        android:label="${appLabel}"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.MarkMySteps"

@@ -50,7 +50,8 @@ object NewLook {
     fun init(context: android.content.Context, force: Boolean) {
         val p = context.getSharedPreferences("mms.next.ui", android.content.Context.MODE_PRIVATE)
         prefs = p
-        if (!p.contains("seenNewLook")) p.edit().putBoolean("seenNewLook", !Api.signedIn).apply()
+        // Someone who used MarkMySteps before: signed in already, or the old app's data is on this phone.
+        if (!p.contains("seenNewLook")) p.edit().putBoolean("seenNewLook", !(Api.signedIn || OldApp.present(context))).apply()
         show = force || !p.getBoolean("seenNewLook", true)
     }
     /** The developer page: the note once more, as for someone who just moved to the new app. */

@@ -28,10 +28,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The store build takes no test extras (dry run, previews, fake update): another app could otherwise start it
+        // with them and, for example, quietly stop every change from being saved. A link (the intent's data) stays.
+        if (BuildConfig.STORE) intent?.replaceExtras(null as Bundle?)
         // The update card without a release, for a screenshot: "preview" runs the module's own fake 9.9.9 (it
         // downloads and installs nothing), "fail" the failure card, "clear" puts it away.
         intent?.getStringExtra("update")?.let { Updates.preview(it) }
         Api.init(applicationContext)
+        // Updating from the old app: its sign-in comes along once (store build only), then the trips load.
+        if (BuildConfig.STORE) OldApp.adopt(this) { kotlinx.coroutines.MainScope().launch { Data.load() } }
         DeepLink.linkHost = getString(R.string.link_host)
         // A share or trip link that opened the app: handled once the home page and the trips are there.
         if (savedInstanceState == null) intent?.takeIf { it.action == android.content.Intent.ACTION_VIEW }?.data?.let { DeepLink.pending = it }
