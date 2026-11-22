@@ -1,5 +1,11 @@
 package nl.markmaaktmedia.markmysteps.next
 
+import androidx.compose.ui.res.pluralStringResource
+
+import androidx.compose.ui.res.stringResource
+
+import androidx.compose.foundation.layout.requiredSize
+
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -154,7 +160,14 @@ data class PosterData(
     val facts: List<Pair<String, String>>,
     /** The best photo of each stop, in the order of the stops. */
     val perStop: List<Pair<Int, Rated>>,
+    /** The line under the title as chosen: null is the poster's own, "" is none. */
+    val sub: String? = null,
+    val logo: Boolean = true,
+    val weather: Weather? = null,
 )
+
+/** A tapped photo on the poster: the photos chosen by hand, and what a tap does (null when it should do nothing). */
+private val LocalPosterSwap = compositionLocalOf<Pair<Map<String, Rated>, ((Rated) -> Unit)?>> { emptyMap<String, Rated>() to null }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -163,11 +176,20 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
     val (picked, reading) = rememberPicked(trip)
     var template by remember { mutableStateOf(Template.Route) }
     var format by remember { mutableStateOf(Format.Post) }
+    var options by remember { mutableStateOf(SummaryOptions()) }
+    var optionsOpen by remember { mutableStateOf(false) }
+    var versionsOpen by remember { mutableStateOf(false) }
+    val overrides = remember { androidx.compose.runtime.mutableStateMapOf<String, Rated>() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val layer = rememberGraphicsLayer()
     var saved by remember { mutableStateOf<Uri?>(null) }
+    // A save, a share or a version waits for its pages to be drawn off screen (PosterCapture below).
+    var capturing by remember { mutableStateOf<String?>(null) }
+    var drawn by remember { mutableStateOf(0 to 0) }
+    var note by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     BackHandler(onBack = onBack)
+    val savedVersion = stringResource(R.string.summary_saved_version)
+    val saveFailed = stringResource(R.string.summary_save_failed)
 
     Box(Modifier.fillMaxSize().background(cs.background)) {
         Column(Modifier.fillMaxSize()) {
@@ -177,90 +199,189 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                     LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f)
                 }
                 Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                    Text(betaTitle("Samenvatting", cs.onSurfaceVariant, 13.sp), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface))
+                    Text(betaTitle(stringResource(R.string.summary_title), cs.onSurfaceVariant, 13.sp), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface))
                     Text(trip.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                }
+                // The versions on the server and the choices, as two round buttons joined into one group.
+                if (trip.remoteId != null && !LocalMode.on) Box(Modifier.size(48.dp).clip(RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 8.dp, bottomEnd = 8.dp)).background(cs.surfaceContainerHighest).clickable { versionsOpen = true }, contentAlignment = Alignment.Center) {
+                    LineIcon(listOf(P("M9 6h12"), P("M9 12h12"), P("M9 18h12"), C(4.5f, 6f, 1.2f), C(4.5f, 12f, 1.2f), C(4.5f, 18f, 1.2f)), cs.onSurface, size = 21.dp, stroke = 2.1f)
+                }
+                Spacer(Modifier.width(3.dp))
+                Box(Modifier.size(48.dp).clip(if (trip.remoteId != null && !LocalMode.on) RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp, topEnd = 24.dp, bottomEnd = 24.dp) else CircleShape).background(cs.surfaceContainerHighest).clickable { optionsOpen = true }, contentAlignment = Alignment.Center) {
+                    LineIcon(Glyphs.pencil, cs.onSurface, size = 21.dp, stroke = 2.1f)
                 }
             }
 
             // From reading to the poster in one fade, nothing jumping.
             androidx.compose.animation.Crossfade(picked, Modifier.weight(1f).fillMaxWidth(), animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "summary") { picked ->
                 if (picked == null) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Reading(reading, "Mooiste foto's zoeken") }
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Reading(reading, stringResource(R.string.summary_reading)) }
                 } else Column(Modifier.fillMaxSize()) {
                     // Every photo any template or format can show, fetched ahead, so switching shows them at once.
                     val loader = LocalPhotoLoader.current
                     val held = remember(picked) { androidx.compose.runtime.mutableStateMapOf<String, Bitmap>() }
-                    LaunchedEffect(picked) {
-                        if (loader != null) (listOfNotNull(picked.cover) + picked.highlights).distinctBy { it.photo.id }
-                            .filter { it.photo.scene == null }
+                    suspend fun hold(list: List<Rated>) {
+                        if (loader != null) list.distinctBy { it.photo.id }.filter { it.photo.scene == null && "${it.photo.id}/${PhotoSize.Preview.name}" !in held }
                             .forEach { r -> loader.load(r.photo.id, PhotoSize.Preview)?.let { held["${r.photo.id}/${PhotoSize.Preview.name}"] = it } }
                     }
-                    val data = remember(picked, dark) {
-                        PosterData(
-                            trip, picked, dark, legibleColor(trip.color, dark), tripFacts(trip, picked),
-                            perStop = picked.highlights.filter { it.stop != null }.groupBy { it.stop!! }
-                                .map { (i, l) -> i to l.maxBy { it.showScore } }.sortedBy { it.first },
-                        )
+                    LaunchedEffect(picked) { hold(listOfNotNull(picked.cover) + picked.highlights) }
+                    val posterDark = options.dark ?: dark
+                    // The trip cut to the part asked for, and the line under the title as chosen (SummaryExtras.kt).
+                    val cut = remember(picked, options.scope, options.from, options.to) { scoped(trip, picked, options) }
+                    val weather by androidx.compose.runtime.produceState<Weather?>(null, options.weather, cut.first.start, cut.first.days) {
+                        value = if (options.weather) weatherFor(cut.first) else null
+                    }
+                    fun dataFor(t: Trip, p: Picked) = PosterData(
+                        t, p, posterDark, legibleColor(trip.color, posterDark), scopedFacts(t, p),
+                        perStop = p.highlights.filter { it.stop != null }.groupBy { it.stop!! }
+                            .map { (i, l) -> i to l.maxBy { it.showScore } }.filter { it.first < t.stops.size || t.stops === trip.stops }.sortedBy { it.first },
+                        sub = subtitleFor(t, options), logo = options.logo, weather = weather,
+                    )
+                    val data = remember(cut, posterDark, options, weather) { dataFor(cut.first, cut.second) }
+                    // A series: the chosen poster, a page per stop where you slept with its own photos, and the numbers.
+                    val pages: List<Pair<Template, PosterData>> = remember(data, options.series) {
+                        if (!options.series) listOf(template to data) else buildList {
+                            add(template to data)
+                            seriesStops(cut.first).forEach { st -> val (t, p) = stopPage(cut.first, cut.second, st, options); add(Template.Photos to dataFor(t, p).copy(sub = "${st.flag} ${st.dates}")) }
+                            add(Template.Stats to data)
+                        }.take(12)
+                    }
+                    LaunchedEffect(pages) { pages.forEach { (_, d) -> hold(listOfNotNull(d.picked.cover) + d.picked.highlights.take(8)) } }
+                    val pool = remember(cut) { (cut.second.highlights + cut.second.days.flatMap { it.photos }).distinctBy { it.photo.id }.sortedByDescending { it.showScore } }
+                    val swap: (Rated) -> Unit = { r ->
+                        val now = overrides[r.photo.id] ?: r
+                        val taken = overrides.values.map { it.photo.id }.toSet()
+                        val start = pool.indexOfFirst { it.photo.id == now.photo.id }
+                        val next = (1..pool.size).map { pool[(start + it).mod(pool.size)] }.firstOrNull { it.photo.id !in taken && it.photo.id != now.photo.id }
+                        if (next != null) { overrides[r.photo.id] = next; saved = null; scope.launch { hold(listOf(next)) } }
                     }
                     CompositionLocalProvider(LocalHeldPhotos provides held) {
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                        val w = min(maxWidth.value - 40f, maxHeight.value * format.aspect).dp
+                        val boxW = maxWidth; val boxH = maxHeight
+                        val pagerState = androidx.compose.foundation.pager.rememberPagerState { pages.size }
+                        androidx.compose.foundation.pager.HorizontalPager(pagerState, Modifier.fillMaxSize(), userScrollEnabled = pages.size > 1) { pageIndex ->
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         SharedTransitionLayout {
                             val motion = MaterialTheme.motionScheme
+                            val (pt, pd) = pages[pageIndex.coerceIn(0, pages.lastIndex)]
                             AnimatedContent(
-                                template to format,
+                                Triple(pt, format, pd),
                                 transitionSpec = {
                                     (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.97f)) togetherWith
                                         fadeOut(motion.fastEffectsSpec())
                                 },
+                                contentKey = { it.first to it.second },
                                 label = "poster",
-                            ) { (t, f) ->
-                                val pw = min(maxWidth.value - 40f, maxHeight.value * f.aspect).dp
-                                CompositionLocalProvider(LocalPosterShared provides (this@SharedTransitionLayout to this@AnimatedContent)) {
+                            ) { (t, f, d) ->
+                                val pw = min(boxW.value - 40f, boxH.value * f.aspect).dp
+                                CompositionLocalProvider(
+                                    LocalPosterShared provides (this@SharedTransitionLayout to this@AnimatedContent),
+                                    LocalPosterSwap provides (overrides to swap),
+                                ) {
                                     Box(
                                         Modifier.width(pw).aspectRatio(f.aspect)
                                             .clip(RoundedCornerShape(18.dp))
-                                            .border(1.dp, cs.outlineVariant, RoundedCornerShape(18.dp))
-                                            .then(
-                                                if (t == template && f == format) Modifier.drawWithContent {
-                                                    // Recorded at 1080 wide for saving, shown at screen size.
-                                                    val k = 1080f / size.width
-                                                    layer.record(IntSize(1080, (size.height * k).roundToInt())) {
-                                                        scale(k, k, Offset.Zero) { this@drawWithContent.drawContent() }
-                                                    }
-                                                    scale(1f / k, 1f / k, Offset.Zero) { drawLayer(layer) }
-                                                } else Modifier,
-                                            ),
-                                    ) { Poster(t, f, data) }
+                                            .border(1.dp, cs.outlineVariant, RoundedCornerShape(18.dp)),
+                                    ) { Poster(t, f, d) }
                                 }
                             }
                         }
-                        if (w < 0.dp) Spacer(Modifier)
+                        }
+                        }
                     }
                     }
-
+                    Text(
+                        stringResource(R.string.summary_swap_hint) + if (pages.size > 1) "  " + pluralStringResource(R.plurals.summary_pages, pages.size, pages.size) else "",
+                        style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant),
+                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 6.dp),
+                    )
                     Choices(Template.entries, template, { it.label }, { template = it; saved = null }, Modifier.padding(horizontal = 16.dp))
                     Choices(Format.entries, format, { it.label }, { format = it; saved = null }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        BigButton(if (saved != null) "Bewaard" else "Bewaar", Glyphs.download, tonal = true, Modifier.weight(1f)) {
-                            scope.launch { saved = savePoster(context, layer.toImageBitmap().asAndroidBitmap(), trip, template) }
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        BigButton(stringResource(if (saved != null) R.string.summary_saved else R.string.summary_save), Glyphs.download, tonal = true, Modifier.weight(1f)) {
+                            if (capturing == null) capturing = "save"
                         }
-                        BigButton("Delen", Glyphs.arrowRight, tonal = false, Modifier.weight(1f)) {
+                        BigButton(stringResource(R.string.summary_share), Glyphs.arrowRight, tonal = false, Modifier.weight(1f)) {
+                            if (capturing == null) capturing = "share"
+                        }
+                    }
+                    if (trip.remoteId != null && !LocalMode.on) androidx.compose.material3.TextButton(
+                        onClick = { if (capturing == null) capturing = "version" },
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Text(
+                            if (capturing != null && drawn.second > 0) stringResource(R.string.summary_drawing, drawn.first, drawn.second) else stringResource(R.string.summary_save_version),
+                            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp),
+                        )
+                    }
+                    Note(note?.first, error = note?.second == true)
+                    LaunchedEffect(note) { if (note != null) { kotlinx.coroutines.delay(2600); note = null } }
+
+                    // The pages drawn off screen at 1080 wide, then saved, shared or kept as a version.
+                    val action = capturing
+                    if (action != null) CompositionLocalProvider(LocalHeldPhotos provides held, LocalPosterSwap provides (overrides to null)) {
+                        PosterCapture(pages, format, onProgress = { a, b -> drawn = a to b }) { bitmaps ->
+                            capturing = null; drawn = 0 to 0
                             scope.launch {
-                                val uri = saved ?: savePoster(context, layer.toImageBitmap().asAndroidBitmap(), trip, template).also { saved = it }
-                                if (uri != null) context.startActivity(
-                                    Intent.createChooser(
-                                        Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                                        trip.title,
-                                    ),
-                                )
+                                when (action) {
+                                    "save" -> { saved = bitmaps.mapIndexed { i, b -> savePoster(context, b, trip, template, i) }.firstOrNull() }
+                                    "share" -> {
+                                        val uris = bitmaps.mapIndexedNotNull { i, b -> savePoster(context, b, trip, template, i) }
+                                        saved = uris.firstOrNull()
+                                        if (uris.isNotEmpty()) context.startActivity(
+                                            Intent.createChooser(
+                                                (if (uris.size == 1) Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0]) else Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris)))
+                                                    .setType("image/png").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                                                trip.title,
+                                            ),
+                                        )
+                                    }
+                                    else -> {
+                                        val range = scopeRange(trip, options)
+                                        val label = if (range == null) "" else cut.first.dates
+                                        note = runCatching {
+                                            SummaryRemote.save(trip, listOfNotNull(trip.title, label.takeIf { it.isNotBlank() }).joinToString(", "), template, label, options.spec(template, format), bitmaps)
+                                        }.fold({ savedVersion to false }, { (it.message ?: saveFailed) to true })
+                                    }
+                                }
                             }
                         }
                     }
-        
+                    if (optionsOpen) SummaryOptionsSheet(trip, options, { options = it; saved = null }, onDismiss = { optionsOpen = false })
+                    if (overrides.isNotEmpty()) LaunchedEffect(cut) { overrides.clear() }
                 }
             }
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
+        if (versionsOpen) SummaryVersionsSheet(trip, onDismiss = { versionsOpen = false })
+    }
+}
+
+/**
+ * Draws each page off screen at 1080 pixels wide, one after another, and hands over the pictures. The pages are
+ * laid out at their real size but only recorded, never drawn on screen.
+ */
+@Composable
+private fun PosterCapture(pages: List<Pair<Template, PosterData>>, format: Format, onProgress: (Int, Int) -> Unit, onDone: (List<Bitmap>) -> Unit) {
+    val layer = rememberGraphicsLayer()
+    var index by remember { mutableStateOf(0) }
+    val out = remember { mutableListOf<Bitmap>() }
+    val widthDp = 360f
+    LaunchedEffect(index) {
+        if (index >= pages.size) { onDone(out.toList()); return@LaunchedEffect }
+        onProgress(index + 1, pages.size)
+        androidx.compose.runtime.withFrameNanos { }
+        androidx.compose.runtime.withFrameNanos { }
+        kotlinx.coroutines.delay(if (pages[index].first == Template.Photos) 250 else 900)
+        out += layer.toImageBitmap().asAndroidBitmap().let { if (it.config == Bitmap.Config.HARDWARE) it.copy(Bitmap.Config.ARGB_8888, false) else it }
+        index++
+    }
+    val (t, d) = pages.getOrNull(index) ?: return
+    Box(Modifier.size(0.dp)) {
+        CompositionLocalProvider(LocalDensity provides androidx.compose.ui.unit.Density(1080f / widthDp, 1f)) {
+            Box(Modifier.requiredSize(widthDp.dp, (widthDp / format.aspect).dp).drawWithContent { layer.record { this@drawWithContent.drawContent() } }) {
+                Poster(t, format, d)
+            }
         }
     }
 }
@@ -309,9 +430,9 @@ private fun BigButton(label: String, glyph: List<Shape24>, tonal: Boolean, modif
 }
 
 /** Into Pictures/MarkMySteps on the phone, where the share sheet can read it. */
-private suspend fun savePoster(context: Context, bitmap: Bitmap, trip: Trip, template: Template): Uri? = withContext(Dispatchers.IO) {
+private suspend fun savePoster(context: Context, bitmap: Bitmap, trip: Trip, template: Template, page: Int = 0): Uri? = withContext(Dispatchers.IO) {
     val values = ContentValues().apply {
-        put(MediaStore.Images.Media.DISPLAY_NAME, "${trip.title} ${template.label} ${System.currentTimeMillis() / 1000}.png")
+        put(MediaStore.Images.Media.DISPLAY_NAME, "${trip.title} ${template.label} ${System.currentTimeMillis() / 1000}${if (page > 0) "-${page + 1}" else ""}.png")
         put(MediaStore.Images.Media.MIME_TYPE, "image/png")
         put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/MarkMySteps")
     }
@@ -348,7 +469,10 @@ fun Poster(template: Template, format: Format, data: PosterData) {
 
 @Composable
 private fun PosterPhoto(r: Rated, modifier: Modifier) {
-    PhotoView(r.photo, modifier.posterShared("s-${r.photo.id}"), placeholder = Color(r.look.average))
+    // A photo swapped by hand shows in its place; a tap swaps it for the next one (SummaryExtras.kt).
+    val (over, swap) = LocalPosterSwap.current
+    val shown = over[r.photo.id] ?: r
+    PhotoView(shown.photo, modifier.posterShared("s-${r.photo.id}").then(if (swap != null) Modifier.clickable { swap(r) } else Modifier), placeholder = Color(shown.look.average))
 }
 
 private fun monthLabel(trip: Trip) = "${trip.month} ${trip.year}"
@@ -384,8 +508,15 @@ private fun Head(data: PosterData, u: Dp, ink: Ink, center: Boolean = false, onP
     val soft = if (onPhoto) Color.White.copy(alpha = 0.82f) else ink.soft
     Column(Modifier.fillMaxWidth(), horizontalAlignment = if (center) Alignment.CenterHorizontally else Alignment.Start) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            LineIcon(Glyphs.logo, data.accent, size = u * 0.05f, stroke = 2.2f)
-            Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.032f).sp(), color = text), modifier = Modifier.padding(start = u * 0.015f).weight(1f))
+            if (data.logo) {
+                LineIcon(Glyphs.logo, data.accent, size = u * 0.05f, stroke = 2.2f)
+                Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.032f).sp(), color = text), modifier = Modifier.padding(start = u * 0.015f))
+            }
+            Spacer(Modifier.weight(1f))
+            data.weather?.let { w ->
+                LineIcon(w.glyph, soft, size = u * 0.042f, stroke = 2f)
+                Text("${w.maxC}°", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = (u * 0.03f).sp(), color = soft), modifier = Modifier.padding(start = u * 0.008f, end = u * 0.03f))
+            }
             Text(monthLabel(data.trip), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = (u * 0.03f).sp(), color = soft))
         }
         Text(
@@ -393,8 +524,9 @@ private fun Head(data: PosterData, u: Dp, ink: Ink, center: Boolean = false, onP
             style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(600), fontSize = (u * 0.095f).sp(), lineHeight = (u * 0.1f).sp(), letterSpacing = (-0.01).em, color = text),
             modifier = Modifier.padding(top = u * 0.05f),
         )
-        Text(
-            subtitle(data.trip), maxLines = 1, overflow = TextOverflow.Ellipsis,
+        val line = data.sub ?: subtitle(data.trip)
+        if (line.isNotBlank()) Text(
+            line, maxLines = 1, overflow = TextOverflow.Ellipsis,
             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.034f).sp(), color = soft),
             modifier = Modifier.padding(top = u * 0.012f),
         )
@@ -465,12 +597,20 @@ private fun PhotosPoster(data: PosterData, format: Format, u: Dp) {
         }
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color(0xCC000000))))
         Box(Modifier.fillMaxWidth().height(u * 0.2f).background(Brush.verticalGradient(listOf(Color(0x66000000), Color.Transparent))))
-        Row(Modifier.padding(u * 0.06f), verticalAlignment = Alignment.CenterVertically) {
-            LineIcon(Glyphs.logo, Color.White, size = u * 0.05f, stroke = 2.2f)
-            Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.032f).sp(), color = Color.White), modifier = Modifier.padding(start = u * 0.015f))
+        Row(Modifier.fillMaxWidth().padding(u * 0.06f), verticalAlignment = Alignment.CenterVertically) {
+            if (data.logo) {
+                LineIcon(Glyphs.logo, Color.White, size = u * 0.05f, stroke = 2.2f)
+                Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.032f).sp(), color = Color.White), modifier = Modifier.padding(start = u * 0.015f))
+            }
+            Spacer(Modifier.weight(1f))
+            data.weather?.let { w ->
+                LineIcon(w.glyph, Color.White, size = u * 0.045f, stroke = 2f)
+                Text("${w.maxC}°", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.032f).sp(), color = Color.White), modifier = Modifier.padding(start = u * 0.01f))
+            }
         }
         Column(Modifier.align(Alignment.BottomStart).padding(u * 0.065f)) {
-            Text(subtitle(data.trip).uppercase(), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.03f).sp(), letterSpacing = 0.08.em, color = Color.White.copy(alpha = 0.85f)))
+            val line = data.sub ?: subtitle(data.trip)
+            if (line.isNotBlank()) Text(line.uppercase(), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.03f).sp(), letterSpacing = 0.08.em, color = Color.White.copy(alpha = 0.85f)))
             Text(
                 data.trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(600), fontSize = (u * 0.1f).sp(), lineHeight = (u * 0.105f).sp(), color = Color.White),
@@ -526,8 +666,11 @@ private fun StatsPoster(data: PosterData, format: Format, u: Dp) {
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x80000000), 0.3f to Color(0x1A000000), 0.55f to Color(0x33000000), 1f to Color(0xE6000000))))
         Column(Modifier.fillMaxSize().padding(u * 0.065f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                LineIcon(Glyphs.logo, Color.White, size = u * 0.05f, stroke = 2.2f)
-                Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.032f).sp(), color = Color.White), modifier = Modifier.padding(start = u * 0.015f).weight(1f))
+                if (data.logo) {
+                    LineIcon(Glyphs.logo, Color.White, size = u * 0.05f, stroke = 2.2f)
+                    Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.032f).sp(), color = Color.White), modifier = Modifier.padding(start = u * 0.015f))
+                }
+                Spacer(Modifier.weight(1f))
                 Box(Modifier.size(u * 0.2f).clip(CircleShape)) {
                     Globe(listOf(data.trip), globeStyle(true, 2.6f), Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = (zoom * 0.26f).coerceAtLeast(1.3f), turnable = false)
                 }

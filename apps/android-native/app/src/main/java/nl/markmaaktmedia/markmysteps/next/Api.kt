@@ -236,6 +236,51 @@ object Api {
         multipart(path, field, filename, mime, data)
     }
 
+    /**
+     * Several files under one field plus plain fields, as the web's FormData for a summary (pages, title, template,
+     * scopeLabel, spec, widths, heights). In test mode or without a server nothing is sent.
+     */
+    suspend fun uploadMany(path: String, field: String, files: List<Pair<String, ByteArray>>, mime: String, fields: Map<String, String>): String = withContext(Dispatchers.IO) {
+        if (dryRun || previewing) {
+            android.util.Log.i("MmsDryRun", "POST ${path.substringBefore('?')} [${files.size} files, ${files.sumOf { it.second.size }} bytes] ${fields.keys.joinToString(",", "{", "}")}")
+            return@withContext "{}"
+        }
+        if (base == LocalMode.BASE) throw Failure(Lang.text(R.string.local_unsupported), 501)
+        fun send(retried: Boolean): String {
+            val boundary = "mms" + java.util.UUID.randomUUID().toString().replace("-", "")
+            val c = open("POST", path, auth = true)
+            try {
+                c.doOutput = true
+                c.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                c.outputStream.use { out ->
+                    fields.forEach { (k, v) -> out.write("--$boundary\r\nContent-Disposition: form-data; name=\"$k\"\r\n\r\n$v\r\n".toByteArray()) }
+                    files.forEach { (name, data) ->
+                        out.write("--$boundary\r\nContent-Disposition: form-data; name=\"$field\"; filename=\"${name.replace(Regex("[\\r\\n\"]"), "_")}\"\r\nContent-Type: $mime\r\n\r\n".toByteArray())
+                        out.write(data); out.write("\r\n".toByteArray())
+                    }
+                    out.write("--$boundary--\r\n".toByteArray())
+                }
+                val code = c.responseCode
+                Offline.heard(true)
+                if (code == 401 && !retried && renew()) return send(true)
+                if (code !in 200..299) {
+                    val text = c.errorStream?.bufferedReader()?.readText().orEmpty()
+                    val message = runCatching { JSONObject(text).optString("message") }.getOrNull()?.takeIf { it.isNotBlank() }
+                    ApiLog.add("POST", path, code, message)
+                    throw Failure(message ?: Lang.text(R.string.common_server_gave, code), code)
+                }
+                return c.inputStream.bufferedReader().readText()
+            } catch (e: java.io.IOException) {
+                Offline.heard(false)
+                ApiLog.add("POST", path, 0, e.javaClass.simpleName)
+                throw Failure(Lang.text(R.string.common_unreachable))
+            } finally {
+                c.disconnect()
+            }
+        }
+        send(false)
+    }
+
     private fun multipart(path: String, field: String, filename: String, mime: String, data: ByteArray, retried: Boolean = false): String {
         val boundary = "mms" + java.util.UUID.randomUUID().toString().replace("-", "")
         val c = open("POST", path, auth = true)

@@ -323,7 +323,11 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
             Box(Modifier.clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 14.dp, vertical = 9.dp)) {
                 Text("${page + 1} / ${sheets.size}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurface))
             }
+            // Save as PDF, Snel or Print, made in the background (BookPdf.kt).
+            Spacer(Modifier.width(8.dp))
+            BookSaveButton(ctx.trip, ctx.picked, sheets)
         }
+        BookSaveBar(ctx.trip)
 
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val pageW = min(maxWidth.value - 44f, (maxHeight.value - 24f) * PAGE_ASPECT).dp
@@ -415,7 +419,7 @@ private val longDate = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.forLang
 private val clock = DateTimeFormatter.ofPattern("HH:mm")
 
 @Composable
-private fun SheetView(sheet: Sheet, index: Int, ctx: BookContext) {
+internal fun SheetView(sheet: Sheet, index: Int, ctx: BookContext) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val u = maxWidth
         when (sheet) {

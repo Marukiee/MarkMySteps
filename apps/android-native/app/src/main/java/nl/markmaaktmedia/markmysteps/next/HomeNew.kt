@@ -111,7 +111,7 @@ import androidx.compose.ui.unit.sp
  * language, with Liquid Glass, without anything from this file.
  */
 
-private val LightScheme = lightColorScheme(
+internal val LightScheme = lightColorScheme(
     primary = Color(0xFFE8613C),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFFFDBCF),
@@ -291,6 +291,8 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             ) {
                 Toolbar(page, onNav = { fromTabBack = false; open = null; page = it })
             }
+            // A photo book being made into a PDF, laid out out of sight (BookPdf.kt).
+            BookJobHost()
             // No connection: a strip at the top says so, with the changes that wait (AppScreens.kt).
             OfflineBanner(Modifier.align(Alignment.TopCenter))
         }
