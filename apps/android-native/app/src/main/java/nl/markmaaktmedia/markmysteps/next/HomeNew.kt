@@ -349,8 +349,9 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                             tab,
                             transitionSpec = {
                                 val dir = if (targetState > initialState) 1 else -1
+                                // In and out overlap with the same timing, so there is never an empty frame between the lists.
                                 (slideInHorizontally(tabMotion.defaultSpatialSpec()) { w -> dir * w / 5 } + fadeIn(tabMotion.defaultEffectsSpec())) togetherWith
-                                    (slideOutHorizontally(tabMotion.defaultSpatialSpec()) { w -> -dir * w / 5 } + fadeOut(tabMotion.fastEffectsSpec())) using
+                                    (slideOutHorizontally(tabMotion.defaultSpatialSpec()) { w -> -dir * w / 5 } + fadeOut(tabMotion.defaultEffectsSpec())) using
                                     androidx.compose.animation.SizeTransform(clip = false)
                             },
                             label = "tabList",
@@ -611,7 +612,8 @@ private fun PastOrShared(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Mo
             ) {
                 Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
                 Spacer(Modifier.width(8.dp))
-                Text("$count", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 15.sp), modifier = Modifier.alpha(0.7f))
+                // The count in the label's own colour, a lighter weight to set it apart (dimming it fell under the contrast line).
+                Text("$count", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(500), fontSize = 15.sp))
             }
         }
     }

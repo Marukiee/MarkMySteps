@@ -254,7 +254,7 @@ private fun TravellersList(
             )
             val palette = listOf(Color(0xFFE8613C), Color(0xFF5B8DEF), Color(0xFF2BB6A8), Color(0xFFD9A441), Color(0xFF7A5BD6), Color(0xFFE34B8A), Color(0xFF4CAF50))
             // Each person their own colour behind their initial, stable per name.
-            val people = friends?.map { Friend(it.name, it.username, personColor(it.id), it.sharedTrips, it.id, it.hasAvatar) } ?: if (Data.live) emptyList() else Friends
+            val people = friends?.filter { it.sharedTrips > 0 }?.map { Friend(it.name, it.username, personColor(it.id), it.sharedTrips, it.id, it.hasAvatar) } ?: if (Data.live) emptyList() else Friends
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 people.forEachIndexed { i, f ->
                     val shape = RoundedCornerShape(
