@@ -469,7 +469,7 @@ fun MapLayersSections(layers: MapLayers) {
 }
 
 @Composable
-private fun LayerRow(m: Member, me: Boolean, color: Color, on: Boolean, seen: Pair<String, Boolean>?, i: Int, n: Int, onClick: () -> Unit) {
+internal fun LayerRow(m: Member, me: Boolean, color: Color, on: Boolean, seen: Pair<String, Boolean>?, i: Int, n: Int, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val haptics = rememberHaptics()
     val fill by animateColorAsState(if (on) cs.primary else Color.Transparent, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "check")

@@ -86,6 +86,8 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.absoluteValue
 import kotlin.math.min
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.ui.res.stringResource
 
 /*
@@ -192,6 +194,8 @@ private val cachedLoads = HashMap<String, Loaded>()
  */
 @Composable
 fun rememberPicked(trip: Trip): Pair<Picked?, Reading> {
+    // The route per traveller is fetched while the photos are read, so the map has it when it first shows.
+    LaunchedEffect(trip.remoteId) { travelled(trip) }
     val loader = LocalPhotoLoader.current
     val context = LocalContext.current.applicationContext
     var loaded by remember(trip.id) { mutableStateOf(cachedLoads[trip.id]) }
@@ -493,6 +497,149 @@ fun globeStyle(dark: Boolean, width: Float = 3f) = GlobeStyle(
     routeWidth = width,
 )
 
+/**
+ * Frame a trip so its stops fill [fill] of a [w] by [h] box (dp), on the globe
+ * as Globe.kt draws it (radius = (short side / 2 - 2 dp) * zoom). The centre is
+ * the middle of the stops as projected, so a long thin route sits in the middle.
+ */
+fun fitFrame(trip: Trip, w: Float, h: Float, side: Float, fill: Float): Triple<Double, Double, Float> {
+    val points = trip.stops.map { it.at }.ifEmpty { trip.route }.ifEmpty { listOf(HomeAirport) }
+    var lon0 = Math.toRadians(points.map { it.first }.average())
+    var lat0 = Math.toRadians(points.map { it.second }.average())
+    var spanX = 0.0
+    var spanY = 0.0
+    repeat(2) {
+        var minX = Double.MAX_VALUE; var maxX = -Double.MAX_VALUE; var minY = Double.MAX_VALUE; var maxY = -Double.MAX_VALUE
+        for (p in points) {
+            val lon = Math.toRadians(p.first); val lat = Math.toRadians(p.second)
+            val x = cos(lat) * sin(lon - lon0)
+            val y = cos(lat0) * sin(lat) - sin(lat0) * cos(lat) * cos(lon - lon0)
+            minX = minOf(minX, x); maxX = maxOf(maxX, x); minY = minOf(minY, y); maxY = maxOf(maxY, y)
+        }
+        // Move the centre onto the middle of what is drawn, then measure again.
+        lon0 += (minX + maxX) / 2 / cos(lat0).coerceAtLeast(0.2)
+        lat0 += (minY + maxY) / 2
+        spanX = maxX - minX; spanY = maxY - minY
+    }
+    // Never closer than about a degree: a city trip still shows its surroundings.
+    val sx = spanX.coerceAtLeast(0.02); val sy = spanY.coerceAtLeast(0.02)
+    val radius = min(w * fill / sx, h * fill / sy)
+    val zoom = (radius / (side / 2f - 2f)).toFloat().coerceIn(1f, 140f)
+    return Triple(Math.toDegrees(lon0), Math.toDegrees(lat0), zoom)
+}
+
+/**
+ * The route as the app's own map draws it: a line per traveller (GET /api/trips/:id/route, only read). The
+ * trip list's overview line strings every traveller's points together in time order, so where two people
+ * tracked at the same time it jumped between them in straight lines (Marrakesh to Rabat beside the train).
+ */
+private val travelledLines = java.util.concurrent.ConcurrentHashMap<String, List<MapRemote.RouteLine>>()
+
+suspend fun travelled(trip: Trip): List<MapRemote.RouteLine>? {
+    val id = trip.remoteId ?: return null
+    if (LocalMode.on) return null
+    travelledLines[id]?.let { return it }
+    return runCatching { MapRemote.routes(id, null).filter { it.points.size >= 2 } }.getOrNull()?.also { travelledLines[id] = it }
+}
+
+/** Every traveller's line once it has come (usually fetched while the photos were read); null before or offline. */
+@Composable
+fun rememberRouteLines(trip: Trip): List<MapRemote.RouteLine>? {
+    val lines by androidx.compose.runtime.produceState(trip.remoteId?.let { travelledLines[it] }, trip.remoteId) {
+        if (value == null) value = travelled(trip)
+    }
+    return lines
+}
+
+/**
+ * Whose lines the posters and the book show, ticked in the summary's choices and kept per trip on the phone.
+ * Untouched it is only your own line; the owner's when you have none; everyone's when neither has one.
+ */
+object RouteChoice {
+    private val chosen = androidx.compose.runtime.mutableStateMapOf<String, Set<String>>()
+    private var prefs: android.content.SharedPreferences? = null
+    private fun key(id: String) = "posterRoutes.$id"
+
+    fun init(context: android.content.Context) {
+        if (prefs == null) prefs = context.applicationContext.getSharedPreferences("mms.next.ui", android.content.Context.MODE_PRIVATE)
+    }
+
+    fun users(trip: Trip, lines: List<MapRemote.RouteLine>): Set<String> {
+        val id = trip.remoteId ?: return emptySet()
+        chosen[id]?.let { return it }
+        prefs?.getString(key(id), null)?.let { raw -> return raw.split(',').filter { it.isNotBlank() }.toSet() }
+        val drawn = lines.map { it.userId }.toSet()
+        val me = Data.me?.id
+        return when {
+            me != null && me in drawn -> setOf(me)
+            trip.ownerId != null && trip.ownerId in drawn -> setOf(trip.ownerId)
+            else -> drawn
+        }
+    }
+
+    fun toggle(trip: Trip, lines: List<MapRemote.RouteLine>, userId: String) {
+        val id = trip.remoteId ?: return
+        val now = users(trip, lines)
+        val next = if (userId in now) now - userId else now + userId
+        chosen[id] = next
+        prefs?.edit()?.putString(key(id), next.joinToString(","))?.apply()
+    }
+}
+
+/** [trip] with only the chosen travellers' lines, each drawn on its own; as it is until the lines have come. */
+@Composable
+fun rememberTravelled(trip: Trip): Trip {
+    val context = LocalContext.current
+    remember { RouteChoice.init(context) }
+    val lines = rememberRouteLines(trip)?.takeIf { it.isNotEmpty() } ?: return trip
+    val users = RouteChoice.users(trip, lines)
+    return remember(trip, lines, users) {
+        val shown = lines.filter { it.userId in users }.map { it.points }
+        trip.copy(segments = shown, route = shown.flatten())
+    }
+}
+
+/**
+ * The trip on the map, framed so its route fills the part of the box given by
+ * [frameW] and [frameH] (shares of the box), centred at [shiftX] and [shiftY]
+ * from the middle. A thin line: the route is the picture, not the pen.
+ */
+@Composable
+fun TripMap(
+    trip: Trip, dark: Boolean, modifier: Modifier, fill: Float = 0.8f, routeWidth: Float = 2.4f,
+    frameW: Float = 1f, frameH: Float = 1f, shiftX: Float = 0f, shiftY: Float = 0f, stops: Boolean = true,
+    /** Country borders, so you see where you are (the route map); the ribbon keeps the land plain. */
+    borders: Boolean = false,
+) {
+    val shown = rememberTravelled(trip)
+    BoxWithConstraints(modifier) {
+        val w = maxWidth.value; val h = maxHeight.value
+        val (lon, lat, zoom) = remember(trip, w, h, frameW, frameH, fill) { fitFrame(trip, w * frameW, h * frameH, min(w, h), fill) }
+        // Only the route as it was travelled, as on the app's own map: no flight bows.
+        val style = globeStyle(dark, routeWidth).copy(flights = false).let { if (borders) it.copy(borders = if (dark) Color(0xFF4A5461) else Color(0xFFC4B69D)) else it }
+        Globe(listOf(shown), style, Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = zoom, showStops = stops, turnable = false, shiftX = shiftX, shiftY = shiftY)
+    }
+}
+
+/** "🇲🇦 Marrakesh": the flag drawn as the app draws flags, the rest as text. */
+fun splitFlag(line: String): Pair<String?, String> {
+    val cps = line.codePoints().toArray()
+    if (cps.size < 2 || cps[0] !in 0x1F1E6..0x1F1FF || cps[1] !in 0x1F1E6..0x1F1FF) return null to line
+    return String(cps, 0, 2) to String(cps, 2, cps.size - 2).trimStart()
+}
+
+@Composable
+fun FlagText(line: String, style: TextStyle, modifier: Modifier = Modifier, maxLines: Int = 1, textAlign: TextAlign? = null) {
+    val (flag, rest) = splitFlag(line)
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (flag != null) {
+            val h = with(LocalDensity.current) { (style.fontSize.toDp() * 0.78f) }
+            FlagIcon(flag, h, Modifier.padding(end = h * 0.45f))
+        }
+        Text(rest, maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = style, textAlign = textAlign)
+    }
+}
+
 /** A stop's number in its Material shape, in the trip's colour. */
 @Composable
 fun StopBadge(index: Int, color: Color, size: Dp, text: String = "${index + 1}") {
@@ -504,7 +651,6 @@ fun StopBadge(index: Int, color: Color, size: Dp, text: String = "${index + 1}")
 @Composable
 private fun RouteSheet(ctx: BookContext, u: Dp) {
     val cs = MaterialTheme.colorScheme
-    val (lon, lat, zoom) = remember(ctx.trip) { tripFrame(ctx.trip) }
     Column(Modifier.fillMaxSize().padding(horizontal = u * SIDE, vertical = u * TOP)) {
         Text(stringResource(R.string.photobook_route), style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = (u * 0.075f).sp(), color = cs.onSurface))
         Text(
@@ -512,7 +658,7 @@ private fun RouteSheet(ctx: BookContext, u: Dp) {
             modifier = Modifier.padding(top = u * 0.008f),
         )
         Box(Modifier.padding(top = u * 0.04f).fillMaxWidth().weight(1f).clip(RoundedCornerShape(u * 0.04f)).background(globeStyle(ctx.dark).sphere)) {
-            Globe(listOf(ctx.trip), globeStyle(ctx.dark), Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = zoom * 1.1f, showStops = true, turnable = false)
+            TripMap(ctx.trip, ctx.dark, Modifier.fillMaxSize(), fill = 0.78f, borders = true)
         }
         val stops = ctx.trip.stops
         val twoCols = stops.size > 3
@@ -525,7 +671,7 @@ private fun RouteSheet(ctx: BookContext, u: Dp) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             StopBadge(i, ctx.accent, u * 0.06f)
                             Column(Modifier.padding(start = u * 0.025f)) {
-                                Text("${s.flag} ${s.name}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = (u * 0.034f).sp(), color = cs.onSurface))
+                                FlagText("${s.flag} ${s.name}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = (u * 0.034f).sp(), color = cs.onSurface))
                                 Text(
                                     Lang.plural(R.plurals.nights_count, s.nights),
                                     style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.026f).sp(), color = cs.onSurfaceVariant),
@@ -587,8 +733,8 @@ private fun OpenerSheet(sheet: Sheet.Opener, ctx: BookContext, u: Dp) {
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.026f).sp(), letterSpacing = 0.08.em, color = Color.White.copy(alpha = 0.85f)),
                 modifier = Modifier.padding(top = u * 0.035f),
             )
-            Text(
-                listOfNotNull(day.flag, day.place ?: Lang.text(R.string.book_day, day.number)).joinToString(" "),
+            FlagText(
+                listOfNotNull(day.flag, day.place ?: Lang.text(R.string.book_day, day.number)).joinToString(" "), maxLines = 2,
                 style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = (u * 0.085f).sp(), lineHeight = (u * 0.095f).sp(), color = Color.White),
             )
         }
@@ -610,9 +756,9 @@ private fun PhotosSheet(sheet: Sheet.Photos, index: Int, ctx: BookContext, u: Dp
                         day.date.format(longDate).uppercase(),
                         style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.026f).sp(), letterSpacing = 0.08.em, color = cs.onSurfaceVariant),
                     )
-                    Text(
+                    FlagText(
                         listOfNotNull(day.flag, day.place ?: Lang.text(R.string.book_day, day.number)).joinToString(" "),
-                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        maxLines = 2,
                         style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = (u * 0.075f).sp(), lineHeight = (u * 0.085f).sp(), color = cs.onSurface),
                     )
                 }

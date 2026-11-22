@@ -120,7 +120,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     var people by remember { androidx.compose.runtime.mutableStateOf(Data.peopleFor == base.id) }
     androidx.compose.runtime.LaunchedEffect(Unit) { if (Data.peopleFor == base.id) Data.peopleFor = null }
     // The photo book or the summary over the page (PhotoBook.kt, Summary.kt), from the people sheet.
-    var extra by remember { androidx.compose.runtime.mutableStateOf(startExtra?.takeIf { it == "book" || it == "summary" }) }
+    var extra by remember { androidx.compose.runtime.mutableStateOf(startExtra?.takeIf { it == "book" || it == "summary" || it == "posters" }) }
     var bigMap by remember { androidx.compose.runtime.mutableStateOf(false) }
     // The big map is full screen: the navigation bar on "Altijd" stays away from it (AppCore.kt).
     Chrome.Immersive(bigMap)

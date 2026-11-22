@@ -114,36 +114,55 @@ private val landCache = HashMap<String, List<LandRing>>()
 private fun land(context: Context, file: String): List<LandRing> = landCache.getOrPut(file) {
     val text = context.assets.open(file).bufferedReader().use { it.readText() }
     val rings = JSONArray(text)
-    List(rings.length()) { i ->
-        val ring = rings.getJSONArray(i)
-        val flat = DoubleArray(ring.length() * 2)
-        var x = 0.0
-        var y = 0.0
-        var z = 0.0
-        for (j in 0 until ring.length()) {
-            val p = ring.getJSONArray(j)
-            flat[j * 2] = p.getDouble(0)
-            flat[j * 2 + 1] = p.getDouble(1)
-            val la = flat[j * 2 + 1] * RAD
-            val lo = flat[j * 2] * RAD
-            x += cos(la) * cos(lo)
-            y += cos(la) * sin(lo)
-            z += sin(la)
+    List(rings.length()) { i -> landRing(rings.getJSONArray(i)) }
+}
+
+/**
+ * Every country as its own rings (countries110.json), for a map that shows the
+ * borders: filled like the land, outlined with a hairline, coast and borders
+ * from the same set so they meet.
+ */
+private fun countryRings(context: Context): List<LandRing> = landCache.getOrPut("countries110.json") {
+    val all = JSONArray(context.assets.open("countries110.json").bufferedReader().use { it.readText() })
+    buildList {
+        for (c in 0 until all.length()) {
+            val polys = all.getJSONObject(c).getJSONArray("p")
+            for (p in 0 until polys.length()) {
+                val poly = polys.getJSONArray(p)
+                for (r in 0 until poly.length()) add(landRing(poly.getJSONArray(r)))
+            }
         }
-        val len = sqrt(x * x + y * y + z * z).takeIf { it > 0 } ?: 1.0
-        x /= len
-        y /= len
-        z /= len
-        var reach = 0.0
-        for (j in 0 until ring.length()) {
-            val la = flat[j * 2 + 1] * RAD
-            val lo = flat[j * 2] * RAD
-            val d = cos(la) * cos(lo) * x + cos(la) * sin(lo) * y + sin(la) * z
-            reach = max(reach, acos(d.coerceIn(-1.0, 1.0)))
-        }
-        // Visible when some of it is within 90 degrees of the centre, two spare.
-        LandRing(flat, x, y, z, -sin(reach + 0.035))
     }
+}
+
+private fun landRing(ring: JSONArray): LandRing {
+    val flat = DoubleArray(ring.length() * 2)
+    var x = 0.0
+    var y = 0.0
+    var z = 0.0
+    for (j in 0 until ring.length()) {
+        val p = ring.getJSONArray(j)
+        flat[j * 2] = p.getDouble(0)
+        flat[j * 2 + 1] = p.getDouble(1)
+        val la = flat[j * 2 + 1] * RAD
+        val lo = flat[j * 2] * RAD
+        x += cos(la) * cos(lo)
+        y += cos(la) * sin(lo)
+        z += sin(la)
+    }
+    val len = sqrt(x * x + y * y + z * z).takeIf { it > 0 } ?: 1.0
+    x /= len
+    y /= len
+    z /= len
+    var reach = 0.0
+    for (j in 0 until ring.length()) {
+        val la = flat[j * 2 + 1] * RAD
+        val lo = flat[j * 2] * RAD
+        val d = cos(la) * cos(lo) * x + cos(la) * sin(lo) * y + sin(la) * z
+        reach = max(reach, acos(d.coerceIn(-1.0, 1.0)))
+    }
+    // Visible when some of it is within 90 degrees of the centre, two spare.
+    return LandRing(flat, x, y, z, -sin(reach + 0.035))
 }
 
 private const val RAD = PI / 180.0
@@ -298,6 +317,10 @@ data class GlobeStyle(
     val dark: Boolean,
     /** Route width in dp (1.9 on the web). */
     val routeWidth: Float = 1.9f,
+    /** Country borders as hairlines in this colour (a map that says where you are), or none. */
+    val borders: Color? = null,
+    /** The flights as grey dashed bows with their airports; a poster of the route itself leaves them out. */
+    val flights: Boolean = true,
 )
 
 private data class Place(val at: LonLat, val members: MutableList<Trip>)
@@ -345,23 +368,27 @@ private fun buildScene(trips: List<Trip>, dark: Boolean): GlobeScene {
             }
             run.clear()
         }
-        trip.route.forEachIndexed { i, b ->
-            if (i == 0) {
-                run += b
-                return@forEachIndexed
+        // Each recorded piece on its own (Trip.segments): joined end to start they drew a straight line
+        // between two pieces, such as from Marrakesh to Rabat beside the train ride that was recorded.
+        for (piece in trip.segments.ifEmpty { listOf(trip.route) }) {
+            piece.forEachIndexed { i, b ->
+                if (i == 0) {
+                    run += b
+                    return@forEachIndexed
+                }
+                val a = piece[i - 1]
+                val gap = angle(a, b)
+                val flown = trip.flights.any { (s, e) ->
+                    (angle(s, a) < 1.2 && angle(e, b) < 1.2) || (angle(s, b) < 1.2 && angle(e, a) < 1.2)
+                }
+                when {
+                    gap > FLIGHT_DEG && flown -> { flush(); run += b }
+                    gap > INTERCONTINENTAL_DEG -> { flush(); bows += Triple(a, b, trip.id); airports += a; airports += b; run += b }
+                    else -> run += b
+                }
             }
-            val a = trip.route[i - 1]
-            val gap = angle(a, b)
-            val flown = trip.flights.any { (s, e) ->
-                (angle(s, a) < 1.2 && angle(e, b) < 1.2) || (angle(s, b) < 1.2 && angle(e, a) < 1.2)
-            }
-            when {
-                gap > FLIGHT_DEG && flown -> { flush(); run += b }
-                gap > INTERCONTINENTAL_DEG -> { flush(); bows += Triple(a, b, trip.id); airports += a; airports += b; run += b }
-                else -> run += b
-            }
+            flush()
         }
-        flush()
         // The same legs the plane flies (with a layover as its own hop), so it always flies over its line.
         val hops = trip.flightLegs.flatMap { it.zipWithNext() }.ifEmpty { trip.flights }
         for (f in hops) {
@@ -486,10 +513,12 @@ fun Globe(
     onScale: ((Float) -> Unit)? = null,
     /** Moves the globe's centre sideways, as a share of the width (room for a card beside it). */
     shiftX: Float = 0f,
+    /** The same, up or down, as a share of the height. */
+    shiftY: Float = 0f,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
-    val rings = remember(zoom) { land(context, if (zoom > 2f) "land50.json" else "land110.json") }
+    val rings = remember(zoom, style.borders != null) { if (style.borders != null) countryRings(context) else land(context, if (zoom > 2f) "land50.json" else "land110.json") }
     val scene = remember(trips, style.dark) { buildScene(trips, style.dark) }
     val pens = remember(density, style.routeWidth) { Pens(density, style.routeWidth) }
     val proj = remember { Ortho() }
@@ -513,10 +542,11 @@ fun Globe(
     ) {
         val inset = if (zoom > 1f) 0f else 10f * density
         val radius = (min(size.width, size.height) / 2f - 2f * density - inset) * zoom
-        proj.set(centerLon - drag - intro.value, centerLat, size.width * (0.5f + shiftX), size.height / 2f + inset, radius)
+        proj.set(centerLon - drag - intro.value, centerLat, size.width * (0.5f + shiftX), size.height * (0.5f + shiftY) + inset, radius)
         clipRect {
             drawCircle(style.sphere, radius, Offset(proj.cx, proj.cy))
             drawLand(rings, proj, style.land, pens)
+            style.borders?.let { drawPath(pens.land, it, style = Stroke(0.8f * density, join = StrokeJoin.Round)) }
             drawScene(scene, proj, style, pens, showStops, null)
         }
     }
@@ -798,7 +828,7 @@ private fun DrawScope.drawScene(scene: GlobeScene, proj: Ortho, style: GlobeStyl
     }
 
     // --- Flights: grey dashed bows; a shared one is as present as its most present trip ---
-    for (pass in 0..1) for (bow in scene.bows) {
+    if (style.flights) for (pass in 0..1) for (bow in scene.bows) {
         val mine = recedeId != null && recedeId in bow.tripIds
         if ((pass == 1) != mine) continue
         val st = bow.tripIds.maxOf { stand(it) }
@@ -820,7 +850,7 @@ private fun DrawScope.drawScene(scene: GlobeScene, proj: Ortho, style: GlobeStyl
 
     // Airports with no dot of their own nearby: a small grey point.
     val airportColor = if (dark) Color(150, 160, 172, (0.9f * 255).roundToInt()) else Color(120, 128, 140, (0.85f * 255).roundToInt())
-    for (i in 0 until scene.airports.size / 2) {
+    if (style.flights) for (i in 0 until scene.airports.size / 2) {
         if (proj.project(scene.airports[i * 2], scene.airports[i * 2 + 1])) drawCircle(airportColor, 2.6f * density, Offset(proj.px, proj.py))
     }
 
