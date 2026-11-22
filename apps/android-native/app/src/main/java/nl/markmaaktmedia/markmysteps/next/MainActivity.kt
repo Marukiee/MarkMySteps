@@ -37,6 +37,9 @@ class MainActivity : ComponentActivity() {
         TripFactsPref.init(applicationContext)
         UiPrefs.init(applicationContext)
         Tracker.init(applicationContext)
+        MapPhotosPref.init(applicationContext)
+        // A trip that ended while the phone was in a pocket stops recording now, as on the web.
+        Tracker.stopIfOver(applicationContext)
         // The airport list in the background, so Voorkeuren opens complete.
         Thread { Airports.load(applicationContext) }.start()
         if (!Api.dryRun) Tracker.autoStart(applicationContext)

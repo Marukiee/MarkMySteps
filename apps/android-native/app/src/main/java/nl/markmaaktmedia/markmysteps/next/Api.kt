@@ -687,6 +687,8 @@ object Remote {
                 flightLegs = flightLegs,
                 ownerId = o.optString("ownerId"),
                 members = memberList,
+                marker = if (o.isNull("markerLng") || o.isNull("markerLat") || !o.has("markerLng")) null
+                    else (o.optDouble("markerLng") to o.optDouble("markerLat")).takeIf { !it.first.isNaN() && !it.second.isNaN() },
             )
         }.sortedByDescending { it.start }
     }
@@ -746,6 +748,7 @@ object Remote {
                 fromAirport = text(o, "fromAirport"),
                 toAirport = text(o, "toAirport"),
                 dayTrips = dayTrips[o.optString("id")].orEmpty(),
+                hideLeg = o.optBoolean("hideLeg"),
             )
         }
         trip.remoteId?.let { legStopIds[it] = outboundId to backId }

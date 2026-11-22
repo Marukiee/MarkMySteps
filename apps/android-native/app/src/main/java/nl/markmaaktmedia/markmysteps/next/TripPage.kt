@@ -5,6 +5,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -124,6 +126,117 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     val collapsed = scroll.value > with(density) { (mapH - 90.dp).toPx() }
     val bar by animateFloatAsState(if (collapsed) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "bar")
 
+    // ---- The map's own state, shared by the map in the page and the one full screen (MapData.kt) ----
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val mapState = remember(base.id) { TripMapState(base.remoteId) }
+    val me = Data.me?.id
+    val myRole = trip.members.firstOrNull { it.userId == me }?.role
+    // A guest only looks: no drawing on the line, no points of their own, no blue dot of theirs on this trip.
+    val canEdit = trip.remoteId != null && me != null && (trip.ownerId == me || (myRole != null && myRole != "GUEST"))
+    val trackingHere = Tracker.tripId != null && Tracker.tripId == trip.remoteId
+    // Your own dot (and the button to it) only on a trip that is under way or being recorded, as the web.
+    val showLocate = canEdit && (trackingHere || trip.ongoingDay != null)
+    var cameraInline by remember { androidx.compose.runtime.mutableStateOf<MapCamera?>(null) }
+    var cameraBig by remember { androidx.compose.runtime.mutableStateOf<MapCamera?>(null) }
+    var mapNote by remember { androidx.compose.runtime.mutableStateOf<Pair<String, Boolean>?>(null) }
+    androidx.compose.runtime.LaunchedEffect(mapNote) { if (mapNote != null) { kotlinx.coroutines.delay(5000); mapNote = null } }
+    var daySheet by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var lineAt by remember { androidx.compose.runtime.mutableStateOf<LonLat?>(null) }
+    var trainFor by remember { androidx.compose.runtime.mutableStateOf<Pair<LonLat, Pair<String, String>?>?>(null) }
+    var pointsFor by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var pickFor by remember { androidx.compose.runtime.mutableStateOf<((Remote.Place) -> Unit)?>(null) }
+    // Whose lines are on at first: the organiser's and your own (when you travel along), as the web; when neither
+    // recorded anything, everyone's, so the map is never empty while there is a line to show.
+    mapState.defaultUsers = { lines ->
+        val wanted = setOfNotNull(trip.ownerId, me.takeIf { canEdit })
+        val drawn = lines.filter { it.points.size >= 2 }.map { it.userId }.toSet()
+        if (drawn.isNotEmpty() && drawn.none { it in wanted }) drawn else wanted
+    }
+    androidx.compose.runtime.LaunchedEffect(base.remoteId) { base.remoteId?.let { mapState.photoUsers = MapPhotosPref.get(it) } }
+    androidx.compose.runtime.LaunchedEffect(base.remoteId, Data.version) {
+        val id = base.remoteId ?: return@LaunchedEffect
+        launch { runCatching { MapRemote.days(id) }.onSuccess { mapState.days = it } }
+        mapState.reloadRoutes()
+    }
+    // Where the companions are: asked every 30 s while the page is in front, and only once for a trip long over.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val lifeState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
+    val inFront = lifeState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+    androidx.compose.runtime.LaunchedEffect(base.remoteId, inFront) {
+        val id = base.remoteId ?: return@LaunchedEffect
+        if (!inFront) return@LaunchedEffect
+        while (true) {
+            runCatching { MapRemote.live(id) }.onSuccess { mapState.live = it }
+            if (trip.ongoingDay == null && mapState.live.isEmpty()) break
+            kotlinx.coroutines.delay(30_000)
+        }
+    }
+    // Your own spot: tracking's last position when it is fresh, else asked once (only when location was given before).
+    var ownFix by remember { androidx.compose.runtime.mutableStateOf<LonLat?>(null) }
+    androidx.compose.runtime.LaunchedEffect(showLocate) { if (showLocate && Tracker.hasPermission(context)) currentLocation(context)?.let { ownFix = it } }
+    val trackerFix = Tracker.lastFix?.takeIf { System.currentTimeMillis() - it.third < 30 * 60_000 }?.let { it.first to it.second }
+    val selfAt = if (showLocate) trackerFix ?: ownFix else null
+    androidx.compose.runtime.SideEffect { mapState.self = selfAt }
+    var locating by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val locationRequest = rememberLocationRequest(
+        "Je locatie op de kaart",
+        "Om te laten zien waar je nu bent, heeft de app je locatie nodig. Die blijft op je telefoon; je route bijhouden is iets apart. Android vraagt je zo om toestemming.",
+        onRefused = { msg, permanent -> mapNote = msg to permanent },
+    )
+    fun locate() {
+        val camera = if (bigMap) cameraBig else cameraInline
+        mapState.self?.let { camera?.flyTo(it, 13.0) }
+        locationRequest.run(context) {
+            locating = mapState.self == null
+            scope.launch {
+                val at = currentLocation(context)
+                val wasKnown = mapState.self != null
+                locating = false
+                if (at != null) { ownFix = at; if (!wasKnown) (if (bigMap) cameraBig else cameraInline)?.flyTo(at, 13.0) }
+                else if (!wasKnown) mapNote = "Je locatie is nu niet te vinden. Staat locatie aan op je telefoon?" to false
+            }
+        }
+    }
+    // The question on an ongoing trip you are not recording yet ("X is bezig. Route bijhouden?").
+    var promptGone by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var promptReady by remember { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(1200); promptReady = true }
+    val promptAsked = remember(base.id) { base.remoteId?.let { TrackPromptPref.dismissed(context, it) } ?: true }
+    val trackRequest = rememberLocationRequest(
+        "Locatie voor je route",
+        "Om je route bij te houden heeft de app je locatie nodig, ook met het scherm uit. Je ziet een melding zolang hij loopt. Android vraagt je zo om toestemming.",
+        notifications = true,
+        onRefused = { msg, permanent -> mapNote = msg to permanent },
+    )
+    // Picking one day frames that day and its line; the whole trip again frames the whole trip.
+    var dayPicked by remember { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(mapState.day) {
+        if (!dayPicked) return@LaunchedEffect
+        mapState.reloadRoutes()
+        val camera = if (bigMap) cameraBig else cameraInline
+        val d = mapState.day
+        if (d == null) camera?.reset() else {
+            val coords = mapState.routes.orEmpty().flatMap { it.points } +
+                media.orEmpty().filter { it.takenAt == d && it.lat != null && it.lon != null }.map { it.lon!! to it.lat!! }
+            camera?.focusOn(coords.ifEmpty { trip.stops.filter { s -> s.start != null && !d.isBefore(s.start) && !d.isAfter(s.start.plusDays(s.nights.toLong())) }.map { it.at } })
+        }
+    }
+    // The photos on the map: whose the map settings say, and of the day on show.
+    val mapPhotos = remember(media, mapState.photoUsers, mapState.day) {
+        media.orEmpty().filter { (mapState.photoUsers?.contains(it.userId) ?: true) && (mapState.day == null || it.takenAt == mapState.day) }
+    }
+    // A photo tapped on the map: the timeline comes to it first, so the viewer grows out of its tile there and
+    // closing flies back into the timeline, as the web's map brings the timeline to that photo.
+    fun openFromMap(id: String) {
+        scope.launch {
+            if (tab != 0) { tab = 0; kotlinx.coroutines.delay(450) }
+            tiles.rect(id)?.let { r -> scroll.scrollBy(r.center.y - with(density) { screenH.dp.toPx() } / 2f) }
+            androidx.compose.runtime.withFrameNanos { }
+            androidx.compose.runtime.withFrameNanos { }
+            viewing = id
+        }
+    }
+
     // Frame the trip: the middle of its stops, and a zoom that fits their spread.
     val points = trip.stops.map { it.at }.ifEmpty { trip.route }.ifEmpty { listOf(HomeAirport) }
     val lon = points.map { it.first }.average()
@@ -139,12 +252,22 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 // until then the page colour holds its place, and the map fades in over it.
                 var mapReady by remember { androidx.compose.runtime.mutableStateOf(false) }
                 androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(380); mapReady = true }
-                if (mapReady) TripMap(trip, dark, Modifier.fillMaxSize(), fadeIn = true, bottomInsetDp = 30, topInsetDp = 112, photos = media.orEmpty(), onPhoto = { m -> viewing = m.id })
-                // Open the map full screen, from its own corner as on the web.
-                // Fades away as the map scrolls under the top buttons, so it never overlaps them.
-                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 44.dp).graphicsLayer { alpha = (1f - scroll.value / (mapH.toPx() * 0.45f)).coerceIn(0f, 1f) }) {
-                    RoundButton(onClick = { bigMap = true }) {
-                        LineIcon(listOf(P("M4 9V4h5"), P("M20 9V4h-5"), P("M4 15v5h5"), P("M20 15v5h-5")), cs.onSurface, size = 20.dp, stroke = 2.2f)
+                if (mapReady) TripMap(
+                    trip, dark, Modifier.fillMaxSize(), fadeIn = true, bottomInsetDp = 30, topInsetDp = 112, photos = mapPhotos,
+                    onPhoto = { m -> openFromMap(m.id) }, state = mapState, onCamera = { cameraInline = it },
+                    onLongPress = if (canEdit && tab == 0) ({ at -> lineAt = at }) else null,
+                    onSelf = if (canEdit) ({ pointsFor = trip.remoteId }) else null,
+                )
+                // Open the map full screen, from its own corner as on the web; the day, your own spot and a word when
+                // the photos are off in the corners too. They fade away as the map scrolls under the top buttons.
+                Box(Modifier.matchParentSize().padding(start = 14.dp, end = 14.dp, bottom = 44.dp).graphicsLayer { alpha = (1f - scroll.value / (mapH.toPx() * 0.45f)).coerceIn(0f, 1f) }) {
+                    MapCorners(
+                        mapState, showLocate, locating, mapNote, onDays = { daySheet = true }, onLocate = { locate() },
+                        onPhotosOff = { mapSheet = true }, onNote = { if (mapNote?.second == true) openAppSettings(context) },
+                    ) {
+                        RoundButton(onClick = { bigMap = true }) {
+                            LineIcon(listOf(P("M4 9V4h5"), P("M20 9V4h-5"), P("M4 15v5h5"), P("M20 15v5h-5")), cs.onSurface, size = 20.dp, stroke = 2.2f)
+                        }
                     }
                 }
                 Box(
@@ -197,7 +320,14 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                         label = "tripTab",
                     ) { which ->
                         Column {
-                            if (which == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = m.id }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                            if (which == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = m.id }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) {
+                                Planner(
+                                    trip, dark,
+                                    // A tapped stop: up to the map, which flies there.
+                                    onFlyTo = { at -> scope.launch { scroll.animateScrollTo(0); cameraInline?.flyTo(at, 10.0) } },
+                                    onPickOnMap = if (trip.remoteId != null) ({ picked -> pickFor = picked }) else null,
+                                )
+                            }
                         }
                     }
                 }
@@ -274,7 +404,18 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 // Clear of the clock and the cross at the top and of the gesture bar at the bottom.
                 val topDp = with(density) { WindowInsets.statusBars.getTop(this).toDp().value.toInt() } + 72
                 val bottomDp = with(density) { WindowInsets.navigationBars.getBottom(this).toDp().value.toInt() }
-                TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = bottomDp, topInsetDp = topDp, fadeIn = true, photos = media.orEmpty(), onPhoto = { m -> bigMap = false; viewing = m.id })
+                TripMap(
+                    trip, dark, Modifier.fillMaxSize(), bottomInsetDp = bottomDp, topInsetDp = topDp, fadeIn = true, photos = mapPhotos,
+                    onPhoto = { m -> bigMap = false; openFromMap(m.id) }, state = mapState, onCamera = { cameraBig = it },
+                    onLongPress = if (canEdit) ({ at -> lineAt = at }) else null,
+                    onSelf = if (canEdit) ({ pointsFor = trip.remoteId }) else null,
+                )
+                Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars).padding(start = 14.dp, end = 14.dp, bottom = 16.dp)) {
+                    MapCorners(
+                        mapState, showLocate, locating, mapNote, onDays = { daySheet = true }, onLocate = { locate() },
+                        onPhotosOff = { mapSheet = true }, onNote = { if (mapNote?.second == true) openAppSettings(context) },
+                    ) {}
+                }
                 Column {
                     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                     Box(Modifier.padding(12.dp)) {
@@ -283,7 +424,47 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 }
             }
         }
-        if (mapSheet) MapSheet(onDismiss = { mapSheet = false })
+        if (mapSheet) MapSheet(onDismiss = { mapSheet = false }, layers = trip.remoteId?.let { id ->
+            // Only travellers who put something on this map: a switch for someone with nothing on it does nothing.
+            val contributed = mapState.routes.orEmpty().filter { it.points.isNotEmpty() }.map { it.userId }.toSet() + media.orEmpty().map { it.userId } + mapState.live.map { it.userId }
+            val members = trip.members.filter { it.userId in contributed }.ifEmpty { trip.members.filter { it.role != "GUEST" } }
+            val primary = primaryTraveller(trip, mapState.routes)
+            val photoSet = mapState.photoUsers ?: trip.members.map { it.userId }.toSet()
+            fun savePhotos(set: Set<String>) { mapState.photoUsers = set; MapPhotosPref.set(id, set) }
+            MapLayers(
+                members, mapState.routeUsers ?: emptySet(), photoSet, mapState.live,
+                colorOf = { routeColor(trip, it, primary, dark) },
+                onRoute = { uid -> val cur = mapState.routeUsers ?: emptySet(); mapState.routeUsers = if (uid in cur) cur - uid else cur + uid },
+                onPhoto = { uid -> savePhotos(if (uid in photoSet) photoSet - uid else photoSet + uid) },
+                onAllPhotos = { on -> savePhotos(if (on) members.map { it.userId }.toSet() else emptySet()) },
+            )
+        })
+        if (daySheet) DaySheet(mapState, onPick = { d -> dayPicked = true; mapState.day = d }, onDismiss = { daySheet = false })
+        lineAt?.let { at ->
+            LineMenuSheet(trip, mapState, at, onDismiss = { lineAt = null }, onTrain = { prefill -> trainFor = at to prefill }, onDone = { msg -> mapNote = msg?.let { it to false } })
+        }
+        trainFor?.let { (at, prefill) ->
+            TrainSheet(prefill, onDraw = { from, to ->
+                trip.remoteId?.let { id -> MapRemote.drawTrain(id, at, from, to); mapState.reloadRoutes(); mapNote = "Treinroute getekend" to false }
+            }, onDismiss = { trainFor = null })
+        }
+        pointsFor?.let { id -> PointsEditor(id, onClose = { pointsFor = null; scope.launch { mapState.reloadRoutes() } }) }
+        pickFor?.let { picked -> MapPickDialog(trip, dark, onPicked = { picked(it) }, onDismiss = { pickFor = null }) }
+        // "X is bezig. Route bijhouden?" floats at the bottom of an ongoing trip until answered.
+        TrackPrompt(
+            trip,
+            visible = promptReady && !promptGone && !promptAsked && trip.remoteId != null && trip.ongoingDay != null && canTrack(trip) && !trackingHere && viewing == null && !bigMap,
+            onLater = { trip.remoteId?.let { TrackPromptPref.dismiss(context, it) }; promptGone = true },
+            onStart = {
+                val id = trip.remoteId
+                if (id != null) trackRequest.run(context) {
+                    Tracker.start(context, id, trip.title, trip.start?.plusDays((trip.days - 1).toLong()))
+                    haptics(Haptic.Confirm)
+                    promptGone = true
+                }
+            },
+            modifier = Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.navigationBars).padding(16.dp),
+        )
         if (people) PeopleSheet(
             trip, onDismiss = { people = false }, onChanged = { scope.launch { Data.load() } },
             onMake = if (!trip.upcoming && media?.isNotEmpty() == true) ({ which -> people = false; extra = which }) else null,
