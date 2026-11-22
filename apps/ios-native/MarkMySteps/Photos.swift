@@ -30,6 +30,9 @@ final class ImageLoader {
 
     func clear() { cache.removeAllObjects(); tones.removeAll() }
 
+    /// Drops one picture (a new avatar), so it is fetched again.
+    func forget(_ key: String) { cache.removeObject(forKey: key as NSString) }
+
     private var tones: [String: Color] = [:]
 
     /// The average colour of a photo, for surfaces that should belong to it.
@@ -143,8 +146,8 @@ struct Avatar: View {
                     Image(uiImage: image).resizable().scaledToFill().frame(width: size, height: size).clipShape(.circle).transition(.opacity)
                 }
             }
-            .task(id: userId) {
-                guard let userId, hasAvatar else { return }
+            .task(id: "\(userId ?? "")/\(hasAvatar)/\(Store.shared.version)") {
+                guard let userId, hasAvatar else { image = nil; return }
                 if let hit = ImageLoader.shared.cached("avatar", userId) { image = hit; return }
                 let loaded = await ImageLoader.shared.avatar(userId)
                 withAnimation(.easeOut(duration: 0.25)) { image = loaded }

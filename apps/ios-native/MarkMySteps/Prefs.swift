@@ -10,6 +10,15 @@ enum Prefs {
         set { d.set(newValue, forKey: "set.airports") }
     }
 
+    /// Your figures count only the photos you added yourself.
+    static var ownPhotosOnly: Bool {
+        get { d.bool(forKey: "set.ownPhotosOnly") }
+        set { d.set(newValue, forKey: "set.ownPhotosOnly") }
+    }
+
+    /// Every trip shows its stops on the homepage globe, not only the one on show.
+    static var globeStopsAlways: Bool { d.bool(forKey: "set.globeStopsAlways") }
+
     // MARK: Figures on a trip's cover
 
     static let factIds = ["km", "days", "stops", "photos", "travellers", "countries"]

@@ -1,38 +1,35 @@
 import SwiftUI
 
 /*
- * Instellingen like the iOS Settings app: who is signed in at the top, then
- * the categories of the web app's settings, each opening a page of its own.
- * Switches here are kept on this phone only; nothing is sent to the server.
+ * Instellingen like the iOS Settings app and like Android's tabs: who is signed in at the top (it opens your
+ * account), then Weergave, Voorkeuren, Diensten, Gegevens, Accounts for an admin, and Over, each a page of its own.
  */
 
 enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
-    case account, weergave, reizen, fotos, meldingen, opslag, updates, over
+    case account, weergave, voorkeuren, diensten, gegevens, accounts, over
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .account: "Account"
         case .weergave: "Weergave"
-        case .reizen: "Reizen en route"
-        case .fotos: "Foto's"
-        case .meldingen: "Meldingen"
-        case .opslag: "Opslag en back-up"
-        case .updates: "Updates"
+        case .voorkeuren: "Voorkeuren"
+        case .diensten: "Diensten"
+        case .gegevens: "Gegevens"
+        case .accounts: "Accounts"
         case .over: "Over"
         }
     }
 
     var summary: String {
         switch self {
-        case .account: "Profiel, wachtwoord, tweestapsverificatie"
-        case .weergave: "Thema, taal, globe"
-        case .reizen: "Tracking, eigen locatie, vliegvelden"
-        case .fotos: "Immich via je server"
-        case .meldingen: "Reacties en nieuwe foto's"
-        case .opslag: "Foto-cache op dit toestel"
-        case .updates: "Via TestFlight"
-        case .over: "MarkMySteps, AGPL-3.0"
+        case .account: "Profielfoto, naam, wachtwoord, 2FA"
+        case .weergave: "Thema, reiskaarten, kaartstijl"
+        case .voorkeuren: "Vliegvelden, globe, tracking, meldingen"
+        case .diensten: "Server, Immich"
+        case .gegevens: "Back-up, importeren, route-bestanden"
+        case .accounts: "Aanvragen en accounts op je server"
+        case .over: "Versie, wat is er nieuw"
         }
     }
 
@@ -40,11 +37,10 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .account: "person.fill"
         case .weergave: "paintbrush.fill"
-        case .reizen: "point.topleft.down.to.point.bottomright.curvepath.fill"
-        case .fotos: "photo.on.rectangle.angled"
-        case .meldingen: "bell.badge.fill"
-        case .opslag: "externaldrive.fill"
-        case .updates: "arrow.down.circle.fill"
+        case .voorkeuren: "airplane"
+        case .diensten: "cloud.fill"
+        case .gegevens: "externaldrive.fill"
+        case .accounts: "person.2.fill"
         case .over: "info.circle.fill"
         }
     }
@@ -53,14 +49,19 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .account: Color(hex: 0xE8613C)
         case .weergave: Color(hex: 0x3F7FE0)
-        case .reizen: Color(hex: 0x2A9D5C)
-        case .fotos: Color(hex: 0xD9467F)
-        case .meldingen: Color(hex: 0xE5484D)
-        case .opslag: Color(hex: 0x8E8E93)
-        case .updates: Color(hex: 0x5B6BE0)
+        case .voorkeuren: Color(hex: 0x2A9D5C)
+        case .diensten: Color(hex: 0x5B6BE0)
+        case .gegevens: Color(hex: 0x8E8E93)
+        case .accounts: Color(hex: 0xD9467F)
         case .over: Color(hex: 0x8E8E93)
         }
     }
+}
+
+/// A page to open on Instellingen from elsewhere (the face on the homepage, "Aanvragen bekijken").
+struct SettingsRequest: Equatable {
+    let section: SettingsSection
+    let token: Int
 }
 
 enum AppInfo {
@@ -88,8 +89,13 @@ struct SettingsView: View {
     let onSignIn: () -> Void
     /// Bumped when another tab is chosen: next time Instellingen opens on its main list.
     var resetToken = 0
+    var request: SettingsRequest?
     @Environment(Store.self) private var store
     @State private var path: [SettingsSection] = Launch.section.flatMap { s in SettingsSection.allCases.first { $0.rawValue == s } }.map { [$0] } ?? []
+
+    private var sections: [SettingsSection] {
+        SettingsSection.allCases.filter { $0 != .account && ($0 != .accounts || (store.live && (store.me?.admin ?? SettingsRemote.cachedAdmin))) }
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -112,7 +118,7 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Brand.raised)
                 Section {
-                    ForEach(SettingsSection.allCases) { section in
+                    ForEach(sections) { section in
                         NavigationLink(value: section) {
                             HStack(spacing: 14) {
                                 SettingsIcon(symbol: section.symbol, tint: section.tint)
@@ -131,7 +137,17 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
             .background(Brand.paper)
             .navigationTitle("Instellingen")
-            .navigationDestination(for: SettingsSection.self) { SectionPage(section: $0, onSignIn: onSignIn) }
+            .navigationDestination(for: SettingsSection.self) { section in
+                switch section {
+                case .account: AccountPage(onSignIn: onSignIn)
+                case .weergave: AppearancePage()
+                case .voorkeuren: PreferencesPage()
+                case .diensten: ServicesPage(onSignIn: onSignIn)
+                case .gegevens: DataPage(onSignIn: onSignIn)
+                case .accounts: AdminAccountsPage()
+                case .over: AboutPage()
+                }
+            }
         }
         .onChange(of: resetToken) {
             // Out of sight, so without the back animation.
@@ -139,185 +155,275 @@ struct SettingsView: View {
             quiet.disablesAnimations = true
             withTransaction(quiet) { path = [] }
         }
+        .onChange(of: request) { _, r in
+            guard let r else { return }
+            var quiet = Transaction()
+            quiet.disablesAnimations = true
+            withTransaction(quiet) { path = [r.section] }
+        }
     }
 
     private var name: String { store.me?.name.isEmpty == false ? store.me!.name : "Mark" }
 }
 
-private struct SectionPage: View {
-    let section: SettingsSection
+/// The look of a settings page: grouped rows in the raised tone on the paper.
+extension View {
+    func settingsPage(_ title: String) -> some View {
+        formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(Brand.paper)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.large)
+    }
+}
+
+/// A page that needs your own server, shown signed out: what it is for and how to sign in, nothing invented.
+struct SignInFirst: View {
+    let text: String
     let onSignIn: () -> Void
-    @Environment(Store.self) private var store
+    var body: some View {
+        Section {
+            Text(text).font(.inter(15, 450)).foregroundStyle(Brand.inkSoft)
+            Button("Inloggen", systemImage: "person.badge.key", action: onSignIn)
+        }
+        .listRowBackground(Brand.raised)
+    }
+}
+
+/// A row for something that does not work here yet: greyed, and only when tapped it says why. Never a switch that
+/// does nothing.
+struct UnavailableRow: View {
+    let title: String
+    let symbol: String
+    let reason: String
+    @State private var asked = false
+
+    var body: some View {
+        Button { asked = true } label: {
+            HStack {
+                Label(title, systemImage: symbol)
+                Spacer()
+                Image(systemName: "info.circle").font(.system(size: 15))
+            }
+            .foregroundStyle(Brand.inkSoft.opacity(0.7))
+        }
+        .alert(title, isPresented: $asked) { Button("OK", role: .cancel) {} } message: { Text(reason) }
+    }
+}
+
+// MARK: Weergave
+
+private struct AppearancePage: View {
     @AppStorage("theme") private var theme = "system"
-    @AppStorage("set.tracking") private var tracking = true
-    @AppStorage("set.selfLocation") private var selfLocation = false
-    @AppStorage("set.notify") private var notify = true
-    @State private var confirmSignOut = false
+    @AppStorage("mapStyle") private var mapStyle = MapLook.positron.rawValue
+    @Environment(\.colorScheme) private var scheme
     private let sizes = CardSizes.shared
-    @State private var cacheCleared = false
 
     var body: some View {
         Form {
             Group {
-            switch section {
-            case .account: account
-            case .weergave: appearance
-            case .reizen: travel
-            case .fotos: photos
-            case .meldingen: notifications
-            case .opslag: storage
-            case .updates: updates
-            case .over: about
+                Section {
+                    Picker("Thema", selection: $theme) {
+                        Text("Licht").tag("light")
+                        Text("Donker").tag("dark")
+                        Text("Systeem").tag("system")
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                    .sensoryFeedback(.selection, trigger: theme)
+                } header: { Text("Thema") }
+                Section {
+                    Picker("Kaartgrootte", selection: Binding(get: { sizes.standard }, set: { v in withAnimation(.calm) { sizes.standard = v } })) {
+                        Text("Automatisch").tag(CardSizes.auto)
+                        Text("Groot").tag(CardSizes.large)
+                        Text("Klein").tag(CardSizes.compact)
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                    .sensoryFeedback(.selection, trigger: sizes.standard)
+                } header: { Text("Reiskaarten op de homepage") }
+                Section {
+                    Button(role: .destructive) {
+                        withAnimation(.calm) { sizes.clear() }
+                        Haptic.tap()
+                    } label: {
+                        Label("Handmatige keuzes wissen", systemImage: "trash").foregroundStyle(sizes.overrides.isEmpty ? Brand.inkSoft : .red)
+                    }
+                    .disabled(sizes.overrides.isEmpty)
+                } footer: {
+                    Text("Automatisch: aankomende reizen en de laatste reis groot, de rest als rij. Per reis kies je het ook in het menu van de reis.")
+                }
+                Section {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                        ForEach(MapLook.allCases) { look in
+                            let on = mapStyle == look.rawValue
+                            Button { withAnimation(.calm) { mapStyle = look.rawValue } } label: {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    MapLookPreview(look: look, dark: scheme == .dark).frame(height: 70).clipShape(.rect(cornerRadius: 12))
+                                    HStack {
+                                        Text(look.label).font(.outfit(14, 600)).foregroundStyle(Brand.ink).lineLimit(1).minimumScaleFactor(0.85)
+                                        Spacer(minLength: 2)
+                                        if on { Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(Brand.accent) }
+                                    }
+                                }
+                                .padding(8)
+                                .background(on ? Brand.accent.opacity(0.12) : Brand.sunken.opacity(0.5), in: .rect(cornerRadius: 18))
+                                .overlay { RoundedRectangle(cornerRadius: 18).strokeBorder(on ? Brand.accent : .clear, lineWidth: 2) }
+                            }
+                            .buttonStyle(PressStyle())
+                            .accessibilityAddTraits(on ? .isSelected : [])
+                        }
+                    }
+                    .padding(.vertical, 6)
+                    .sensoryFeedback(.selection, trigger: mapStyle)
+                } header: { Text("Kaartstijl") } footer: { Text("Voor alle kaarten in de app. In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.") }
             }
-            }
-            // Rows in the raised tone, so they stand off the paper in light and dark.
             .listRowBackground(Brand.raised)
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .background(Brand.paper)
-        .navigationTitle(section.title)
-        .navigationBarTitleDisplayMode(.large)
+        .settingsPage("Weergave")
     }
+}
 
-    private let readOnly = Text("Deze testapp leest alleen. Wijzigen doe je in de web-app.")
+// MARK: Over
 
-    @ViewBuilder private var account: some View {
-        Section {
-            LabeledContent { Text("naam, foto") } label: { Label("Profiel", systemImage: "person.crop.circle") }
-            LabeledContent { Text("verborgen") } label: { Label("Wachtwoord", systemImage: "lock") }
-            LabeledContent { Text("in de web-app") } label: { Label("Tweestapsverificatie", systemImage: "checkmark.shield") }
-        } header: { Text("Jij") } footer: { readOnly }
-        Section("Server") {
-            LabeledContent { Text(store.live ? Api.shared.host : "voorbeelden") } label: { Label("Server", systemImage: "server.rack") }
-            if store.live {
-                Button(role: .destructive) { confirmSignOut = true } label: {
-                    Label("Uitloggen", systemImage: "rectangle.portrait.and.arrow.right").foregroundStyle(.red)
+private struct AboutPage: View {
+    var body: some View {
+        Form {
+            Section {
+                VStack(spacing: 10) {
+                    CompassLogo(size: 64)
+                    Text("MarkMySteps").font(.outfit(26, 700)).foregroundStyle(Brand.ink)
+                    Text("Voor iPhone, \(AppInfo.version)").font(.inter(14, 500)).foregroundStyle(Brand.inkSoft)
                 }
-                .confirmationDialog("Uitloggen van \(Api.shared.host)?", isPresented: $confirmSignOut, titleVisibility: .visible) {
-                    Button("Uitloggen", role: .destructive, action: onSignIn)
-                } message: {
-                    Text("Je reizen blijven op de server. Daarna zie je de voorbeelden.")
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .listRowBackground(Color.clear)
+            }
+            Group {
+                Section {
+                    NavigationLink { WhatsNewPage() } label: { Label("Wat is er nieuw", systemImage: "sparkles") }
+                    NavigationLink { PrivacyPage() } label: { Label("Privacy", systemImage: "lock") }
+                    external("Broncode", "github.com/Marukiee/MarkMySteps", "chevron.left.forwardslash.chevron.right", "https://github.com/Marukiee/MarkMySteps")
+                    external("Licentie", "AGPL-3.0", "doc.text", "https://www.gnu.org/licenses/agpl-3.0.html")
+                } header: { Text("Meer") } footer: { Text("Nieuwe versies voor iPhone komen via TestFlight.") }
+            }
+            .listRowBackground(Brand.raised)
+        }
+        .settingsPage("Over")
+    }
+
+    /// A row that opens the web: an arrow out of the app, never a chevron as if it were a page here.
+    private func external(_ title: String, _ value: String, _ symbol: String, _ url: String) -> some View {
+        Link(destination: URL(string: url)!) {
+            HStack {
+                Label(title, systemImage: symbol).foregroundStyle(Brand.ink)
+                Spacer()
+                Text(value).foregroundStyle(Brand.inkSoft).lineLimit(1)
+                Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Brand.inkSoft)
+            }
+        }
+    }
+}
+
+/// The web's changelog in the app: per release what is new, what got better and what was fixed.
+private struct WhatsNewPage: View {
+    struct Entry: Decodable, Hashable {
+        let title: String
+        let date: String
+        let new: [String]?
+        let better: [String]?
+        let fixed: [String]?
+    }
+
+    private let entries: [Entry] = {
+        guard let url = Bundle.main.url(forResource: "changelog", withExtension: "json"), let data = try? Data(contentsOf: url) else { return [] }
+        return (try? JSONDecoder().decode([Entry].self, from: data)) ?? []
+    }()
+
+    var body: some View {
+        Form {
+            ForEach(entries, id: \.self) { e in
+                Section {
+                    group("Nieuw", e.new, Color(hex: 0x2A9D5C))
+                    group("Verbeteringen", e.better, Color(hex: 0x3F7FE0))
+                    group("Opgelost", e.fixed, Color(hex: 0xE8613C))
+                } header: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(e.title).font(.outfit(18, 650)).foregroundStyle(Brand.ink).textCase(nil)
+                        Text(day(e.date)).font(.inter(13, 500)).foregroundStyle(Brand.inkSoft).textCase(nil)
+                    }
                 }
-            } else {
-                Button(action: onSignIn) {
-                    Label("Inloggen", systemImage: "person.badge.key")
+                .listRowBackground(Brand.raised)
+            }
+        }
+        .settingsPage("Wat is er nieuw")
+    }
+
+    @ViewBuilder private func group(_ label: String, _ items: [String]?, _ tint: Color) -> some View {
+        if let items, !items.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(label).font(.outfit(13, 650)).foregroundStyle(tint).padding(.horizontal, 10).padding(.vertical, 3).background(tint.opacity(0.12), in: .capsule)
+                ForEach(items, id: \.self) { item in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Circle().fill(tint).frame(width: 5, height: 5).offset(y: -2)
+                        Text(item).font(.inter(14.5, 450)).foregroundStyle(Brand.ink)
+                    }
                 }
             }
+            .padding(.vertical, 4)
         }
     }
 
-    @ViewBuilder private var appearance: some View {
-        Section {
-            Picker("Thema", selection: $theme) {
-                Text("Licht").tag("light")
-                Text("Donker").tag("dark")
-                Text("Systeem").tag("system")
+    private func day(_ iso: String) -> String { Remote.day(iso).map { Format.shortDay($0) + " " + iso.prefix(4) } ?? iso }
+}
+
+/// What the app keeps and who sees it, in plain words, as Android and the web say it.
+private struct PrivacyPage: View {
+    private let sections: [(String, [(String?, String)])] = [
+        ("Wat de app bewaart", [
+            ("Je account", "je naam, gebruikersnaam, e-mailadres en profielfoto. Je wachtwoord wordt alleen versleuteld bewaard."),
+            ("Je route", "de locatiepunten die de app vastlegt terwijl je een reis bijhoudt."),
+            ("Je reizen", "titels, data, stops, dagverhalen en notities."),
+            ("Reacties en likes", "op foto's en dagverhalen."),
+        ]),
+        ("Je locatie", [(nil, "De app legt je locatie alleen vast als je zelf tracking aanzet voor een reis. Zolang dat loopt, ook met het scherm uit, neemt de app een meting per interval. Stop je, dan stopt het.")]),
+        ("Diensten van anderen", [
+            ("Kaarten", "Apple Kaarten: welk stuk kaart je bekijkt."),
+            ("Plaatsen zoeken", "Photon van Komoot: wat je intypt, en voor de plaats onder een foto de coördinaten."),
+            ("Weer", "Open-Meteo: de coördinaten van een plaats."),
+        ]),
+        ("Waar het staat en hoe lang", [(nil, "Alles staat op de server van MarkMySteps en gaat er versleuteld (https) naartoe. Je gegevens blijven bewaard zolang je account bestaat.")]),
+        ("Je rechten", [(nil, "Je mag je gegevens inzien, laten verbeteren of je account met alles erop laten verwijderen. Mail daarvoor; het is binnen een maand geregeld.")]),
+    ]
+
+    var body: some View {
+        Form {
+            Group {
+                ForEach(sections, id: \.0) { s in
+                    Section(s.0) {
+                        ForEach(Array(s.1.enumerated()), id: \.offset) { _, line in
+                            if let head = line.0 {
+                                (Text(head + ": ").font(.inter(15, 650)) + Text(line.1).font(.inter(15, 450))).foregroundStyle(Brand.ink)
+                            } else {
+                                Text(line.1).font(.inter(15, 450)).foregroundStyle(Brand.ink)
+                            }
+                        }
+                    }
+                }
+                Section {
+                    Link(destination: URL(string: "mailto:mark@markmaaktmedia.nl")!) {
+                        HStack {
+                            Label("Mail Mark Maakt Media", systemImage: "envelope").foregroundStyle(Brand.ink)
+                            Spacer()
+                            Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Brand.inkSoft)
+                        }
+                    }
+                }
             }
-            .pickerStyle(.segmented)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets())
-            .sensoryFeedback(.selection, trigger: theme)
-        } header: { Text("Thema") }
-        Section {
-            Picker("Kaartgrootte", selection: Binding(get: { sizes.standard }, set: { v in withAnimation(.calm) { sizes.standard = v } })) {
-                Text("Automatisch").tag(CardSizes.auto)
-                Text("Groot").tag(CardSizes.large)
-                Text("Klein").tag(CardSizes.compact)
-            }
-            .pickerStyle(.segmented)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets())
-            .sensoryFeedback(.selection, trigger: sizes.standard)
-        } header: { Text("Reizen op de homepage") }
-        Section {
-            Button(role: .destructive) {
-                withAnimation(.calm) { sizes.clear() }
-                Haptic.tap()
-            } label: {
-                Label("Handmatige keuzes wissen", systemImage: "trash").foregroundStyle(sizes.overrides.isEmpty ? Brand.inkSoft : .red)
-            }
-            .disabled(sizes.overrides.isEmpty)
-        } footer: {
-            Text("Automatisch: aankomende reizen en de laatste reis groot, de rest als rij. Per reis kies je het ook in het menu van de reis.")
+            .listRowBackground(Brand.raised)
         }
-        Section("Taal en kaart") {
-            LabeledContent { Text("Nederlands") } label: { Label("Taal", systemImage: "globe") }
-            LabeledContent { Text("draait mee met je vinger") } label: { Label("Globe", systemImage: "globe.europe.africa") }
-        }
-    }
-
-    @ViewBuilder private var travel: some View {
-        Section("Onderweg") {
-            Toggle(isOn: $tracking) { Label("Route-tracking", systemImage: "location.north.line") }
-                .sensoryFeedback(.selection, trigger: tracking)
-            Toggle(isOn: $selfLocation) { Label("Eigen locatie", systemImage: "mappin.and.ellipse") }
-                .sensoryFeedback(.selection, trigger: selfLocation)
-            LabeledContent { Text("in de web-app") } label: { Label("Standaard vliegvelden", systemImage: "airplane") }
-        }
-        Section {
-            LabeledContent { Text("GPX, KML") } label: { Label("Route-bestanden", systemImage: "doc") }
-            LabeledContent { Text("in de web-app") } label: { Label("Polarsteps importeren", systemImage: "square.and.arrow.down") }
-        } header: { Text("Importeren") } footer: { readOnly }
-    }
-
-    @ViewBuilder private var photos: some View {
-        Section {
-            LabeledContent { Text(store.live ? "via je server" : "voorbeelden") } label: { Label("Immich", systemImage: "photo.on.rectangle") }
-            LabeledContent { Text("alles van de dagen samen") } label: { Label("Foto's in je statistieken", systemImage: "camera") }
-        } header: { Text("Bron") } footer: {
-            Text("Welke foto's bij een reis horen, regel je in Immich: datum en plaats in de foto zelf.")
-        }
-    }
-
-    @ViewBuilder private var notifications: some View {
-        Section("Op je telefoon") {
-            Toggle(isOn: $notify) { Label("Meldingen", systemImage: "bell") }
-                .sensoryFeedback(.selection, trigger: notify)
-            LabeledContent { Text("op je foto's en dagen") } label: { Label("Reacties", systemImage: "bubble.left.and.bubble.right") }
-        }
-    }
-
-    @ViewBuilder private var storage: some View {
-        Section {
-            LabeledContent { Text(cacheText) } label: { Label("Foto-cache", systemImage: "photo.stack") }
-            Button(role: .destructive) {
-                ImageLoader.shared.clear()
-                cacheCleared = true
-            } label: {
-                Label(cacheCleared ? "Geleegd" : "Foto-cache legen", systemImage: cacheCleared ? "checkmark" : "trash")
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .disabled(cacheCleared)
-        } header: { Text("Op dit toestel") } footer: {
-            Text("Foto's worden alleen bewaard zolang de app open is; je reizen staan op je server.")
-        }
-    }
-
-    private var cacheText: String { cacheCleared ? "leeg" : "in het geheugen" }
-
-    @ViewBuilder private var updates: some View {
-        Section {
-            LabeledContent { Text(AppInfo.version) } label: { Label("Deze versie", systemImage: "info.circle") }
-        } header: { Text("Nieuwe versies") } footer: {
-            Text("Nieuwe versies van deze testapp komen via TestFlight.")
-        }
-    }
-
-    @ViewBuilder private var about: some View {
-        Section {
-            VStack(spacing: 10) {
-                CompassLogo(size: 64)
-                Text("MarkMySteps").font(.outfit(26, 700)).foregroundStyle(Brand.ink)
-                Text("Testapp voor iPhone, \(AppInfo.version)").font(.inter(14, 500)).foregroundStyle(Brand.inkSoft)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .listRowBackground(Color.clear)
-        }
-        Section("MarkMySteps") {
-            LabeledContent { Text(AppInfo.version) } label: { Label("Versie", systemImage: "sparkles") }
-            LabeledContent { Text("AGPL-3.0") } label: { Label("Licentie", systemImage: "doc.text") }
-        }
+        .settingsPage("Privacy")
     }
 }

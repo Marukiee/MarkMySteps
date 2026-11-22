@@ -690,6 +690,19 @@ struct GlobeCanvas {
 
         let ds = CGFloat(min(1.12, 0.75 * pow(Double(motion.zoom), 0.21)))
         let rimColor = dark ? Color(red: 20 / 255, green: 25 / 255, blue: 32 / 255).opacity(0.65) : Color.white.opacity(0.9)
+        // Voorkeuren › Globe › Altijd: every other trip's stops too, small and quiet.
+        if Prefs.globeStopsAlways {
+            for trip in scene.trips where (motion.stopReveal[trip.id] ?? 0) < 0.012 {
+                let color = colorOf(trip)
+                for s in scene.freeStops[trip.id] ?? [] {
+                    let (pt, near) = proj.project(s.lon, s.lat)
+                    guard near else { continue }
+                    let r = 2.3 * ds
+                    ctx.fill(Path(ellipseIn: circle(pt, r)), with: .color(color.opacity(0.85)))
+                    ctx.stroke(Path(ellipseIn: circle(pt, r)), with: .color(rimColor.opacity(0.85)), lineWidth: 0.9)
+                }
+            }
+        }
         // The stops of the trip on show, one after another in travel order, each popping in.
         for trip in scene.trips {
             guard let reveal = motion.stopReveal[trip.id], reveal >= 0.012, let stops = scene.freeStops[trip.id], !stops.isEmpty else { continue }

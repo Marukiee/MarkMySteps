@@ -275,6 +275,7 @@ enum Remote {
         let name: String
         let username: String
         var hasAvatar = false
+        var admin = false
     }
 
     /// Your travelling in numbers, as the web's Reizigers page shows it.
@@ -307,7 +308,8 @@ enum Remote {
         func int(_ k: String) -> Int { (o[k] as? NSNumber)?.intValue ?? 0 }
         return Stats(
             trips: int("trips"), days: int("days"), countries: o["countries"] as? [String] ?? [], places: int("places"),
-            flights: int("flights"), km: int("distanceKm"), photos: int("photoCount")
+            // Companions' photos count unless Voorkeuren says only your own.
+            flights: int("flights"), km: int("distanceKm"), photos: Prefs.ownPhotosOnly && o["ownPhotoCount"] != nil ? int("ownPhotoCount") : int("photoCount")
         )
     }
 
@@ -343,7 +345,8 @@ enum Remote {
 
     static func parseMe(_ data: Data) -> Me {
         let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-        return Me(id: o["id"] as? String ?? "", name: o["displayName"] as? String ?? "", username: o["username"] as? String ?? "", hasAvatar: o["hasAvatar"] as? Bool ?? false)
+        return Me(id: o["id"] as? String ?? "", name: o["displayName"] as? String ?? "", username: o["username"] as? String ?? "",
+                  hasAvatar: o["hasAvatar"] as? Bool ?? false, admin: (o["role"] as? String) == "ADMIN")
     }
 
     /// "🇳🇱" back to "NL".
