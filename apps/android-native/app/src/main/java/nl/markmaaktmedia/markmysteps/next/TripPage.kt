@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -128,6 +129,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
             ) {
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(cs.outlineVariant))
                 CoverCard(trip, photos = media?.size, modifier = Modifier.padding(top = 14.dp))
+                Facts(trip, Modifier.padding(top = 4.dp), photos = media?.size)
 
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
                     listOf("Tijdlijn", "Routeplanner").forEachIndexed { i, label ->
@@ -178,7 +180,11 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
 @Composable
 private fun RoundButton(onClick: () -> Unit = {}, content: @Composable () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Box(Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest.copy(alpha = 0.92f)).press(onClick), contentAlignment = Alignment.Center) { content() }
+    // Solid, with a soft shadow, so it reads on any part of the map.
+    Box(
+        Modifier.size(48.dp).shadow(6.dp, CircleShape).clip(CircleShape).background(cs.surfaceContainerHighest).press(onClick),
+        contentAlignment = Alignment.Center,
+    ) { content() }
 }
 
 @Composable
@@ -222,10 +228,10 @@ private fun factsOf(trip: Trip, photos: Int?): List<Pair<String, String>> = if (
 @Composable
 private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier) {
     val hasPhoto = trip.coverId != null || trip.cover != null
-    Box(modifier.fillMaxWidth().height(268.dp).clip(RoundedCornerShape(32.dp))) {
+    Box(modifier.fillMaxWidth().height(236.dp).clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp, bottomStart = 6.dp, bottomEnd = 6.dp))) {
         if (hasPhoto) {
             Cover(trip, Modifier.fillMaxSize(), size = "preview")
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.12f), 0.45f to Color.Black.copy(alpha = 0.22f), 1f to Color.Black.copy(alpha = 0.6f))))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.62f))))
         } else {
             val deep = Color(0xFF1B2440).copy(alpha = 0.55f).compositeOver(trip.color)
             Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(trip.color, deep))))
@@ -235,29 +241,13 @@ private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier) {
             )
         }
         Box(Modifier.align(Alignment.TopEnd).padding(14.dp)) { People(trip.people, trip.extraPeople, ring = Color.White.copy(alpha = 0.9f)) }
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 14.dp, vertical = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
             Text(
-                trip.title, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(600), fontSize = 34.sp, lineHeight = 38.sp, letterSpacing = (-0.01).em, color = Color.White,
-                    shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.35f), blurRadius = 12f)),
+                trip.title, maxLines = 2,
+                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 32.sp, lineHeight = 35.sp, letterSpacing = (-0.02).em, color = Color.White,
+                    shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.3f), blurRadius = 10f)),
             )
-            Text(trip.dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = Color.White.copy(alpha = 0.88f)), modifier = Modifier.padding(top = 4.dp))
-            // The pills wrap to a second line rather than run off the card.
-            androidx.compose.foundation.layout.FlowRow(
-                Modifier.padding(top = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                factsOf(trip, photos).forEach { (value, label) ->
-                    Row(
-                        Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.2f)).padding(horizontal = 11.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        Text(value, maxLines = 1, style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(650), fontSize = 18.sp, lineHeight = 20.sp, color = Color.White))
-                        Text(" $label", maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, lineHeight = 18.sp, color = Color.White.copy(alpha = 0.9f)))
-                    }
-                }
-            }
+            Text(trip.dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = Color.White.copy(alpha = 0.88f)), modifier = Modifier.padding(top = 2.dp))
         }
     }
 }
@@ -265,24 +255,13 @@ private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier) {
 /** Days, distance, stops and photos as one connected slab. */
 @Composable
 private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null) {
-    // Before a trip there is nothing driven or photographed yet: then how long until it starts and who comes.
-    val items = if (trip.upcoming) listOf(
-        "${trip.startsInDays ?: 0}" to "dagen tot vertrek",
-        "${trip.days}" to "dagen",
-        "${trip.stops.size}" to "stops",
-        "${trip.people.size + trip.extraPeople}" to "reizigers",
-    ) else listOfNotNull(
-        "${trip.days}" to "dagen",
-        // Only a measured distance; a trip without a recorded route shows no "0 km".
-        trip.km?.takeIf { it > 0 }?.let { "%,d".format(it).replace(',', '.') to "km" },
-        "${trip.stops.size}" to (if (trip.stops.size == 1) "stop" else "stops"),
-        "${photos ?: trip.photos}" to "foto's",
-    )
+    val items = factsOf(trip, photos)
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         items.forEachIndexed { i, (value, label) ->
+            // Joined to the cover above it: tight on top, round only at the outer bottom corners.
             val shape = RoundedCornerShape(
-                topStart = if (i == 0) 24.dp else 6.dp, bottomStart = if (i == 0) 24.dp else 6.dp,
-                topEnd = if (i == items.lastIndex) 24.dp else 6.dp, bottomEnd = if (i == items.lastIndex) 24.dp else 6.dp,
+                topStart = 6.dp, topEnd = 6.dp,
+                bottomStart = if (i == 0) 24.dp else 6.dp, bottomEnd = if (i == items.lastIndex) 24.dp else 6.dp,
             )
             Column(
                 Modifier.weight(if (label == "km") 1.3f else if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(horizontal = 12.dp, vertical = 12.dp),
