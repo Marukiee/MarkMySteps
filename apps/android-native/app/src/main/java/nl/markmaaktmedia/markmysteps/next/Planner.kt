@@ -4,6 +4,7 @@ import android.view.View
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
@@ -1000,48 +1001,72 @@ private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (Remote.Place) -> Uni
     }
 }
 
-/** A flight filled in properly: its number and the airports it flew from and to, each searched in the airport list. */
+/**
+ * What the flight sheet holds. Each field reads its own value, so a keystroke recomposes that field and not
+ * the whole sheet. An airport is only ever a chosen code: typing is a search, and the field takes an airport
+ * when one of its suggestions is tapped.
+ */
+private class FlightForm(number: String, from: String?, to: String?) {
+    var number by mutableStateOf(number)
+    var from by mutableStateOf(from)
+    var to by mutableStateOf(to)
+}
+
+/** The calm curve the suggestions open and close on: no overshoot, as Mark asked. */
+private val SuggestEase = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
+/** A flight filled in properly: its number and the airports it flew from and to, each picked from the airport list. */
 @Composable
 private fun FlightSheet(target: FlightTarget, color: Color, dark: Boolean, onDismiss: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    val scope = rememberCoroutineScope()
     // An empty airport starts at the one nearest the city it leaves from or flies to, as on the web.
-    var number by remember { mutableStateOf(target.number.orEmpty()) }
-    var from by remember { mutableStateOf(target.from ?: FlightAirports.nearest(target.nearFrom)?.iata.orEmpty()) }
-    var to by remember { mutableStateOf(target.to ?: FlightAirports.nearest(target.nearTo)?.iata.orEmpty()) }
-    fun valid(code: String) = code.isBlank() || PlannerRemote.cleanCode(code) != null
+    val form = remember {
+        FlightForm(
+            target.number.orEmpty(),
+            target.from ?: FlightAirports.nearest(target.nearFrom)?.iata,
+            target.to ?: FlightAirports.nearest(target.nearTo)?.iata,
+        )
+    }
     AppSheet(onDismiss = onDismiss) {
         val sheet = this
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
             Text(target.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             target.subtitle?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp)) }
             Label("Vluchtnummer")
-            SheetField(number, { number = it.uppercase().take(16) }, "bijv. KL1703")
-            // While a field is being typed in, its text is a search, not yet a wrong code.
-            var typingFrom by remember { mutableStateOf(false) }
-            var typingTo by remember { mutableStateOf(false) }
+            NumberField(form)
             Label("Van")
-            AirportField(from, { from = it }, "Stad, vliegveld of code") { typingFrom = it }
+            AirportField(code = { form.from }, onPick = { form.from = it }, hint = "Stad, vliegveld of code")
             Label("Naar")
-            AirportField(to, { to = it }, "Stad, vliegveld of code") { typingTo = it }
-            val ok = valid(from) && valid(to)
-            AnimatedVisibility(!ok && !typingFrom && !typingTo) {
-                Text("Een vliegveld is een code van 3 of 4 letters, bijv. AMS", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.error), modifier = Modifier.padding(top = 10.dp, start = 4.dp))
-            }
-            val time = flightTime(Mode.Flight, PlannerRemote.cleanCode(from), PlannerRemote.cleanCode(to), FlightAirports.ready)
-            AnimatedVisibility(time != null && ok) {
-                Row(Modifier.padding(top = 14.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    LineIcon(Glyphs.plane, readable(color, cs.surfaceContainerLow, dark), size = 16.dp, stroke = 1.8f)
-                    Text("Ongeveer ${time.orEmpty()} reizen", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 8.dp))
-                }
-            }
+            AirportField(code = { form.to }, onPick = { form.to = it }, hint = "Stad, vliegveld of code")
+            FlightTime(form, color, dark)
             Button(
-                onClick = { target.onSave(number, from, to); sheet.close() },
-                enabled = ok,
+                onClick = { target.onSave(form.number, form.from, form.to); sheet.close() },
                 shapes = ButtonDefaults.shapes(),
                 contentPadding = PaddingValues(vertical = 16.dp),
                 modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
             ) { Text("Opslaan", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp)) }
+        }
+    }
+}
+
+@Composable
+private fun NumberField(form: FlightForm) {
+    SheetField(form.number, { form.number = it.uppercase().take(16) }, "bijv. KL1703")
+}
+
+/** "Ongeveer 5u 48m reizen" once both airports are chosen. */
+@Composable
+private fun FlightTime(form: FlightForm, color: Color, dark: Boolean) {
+    val cs = MaterialTheme.colorScheme
+    val time = flightTime(Mode.Flight, form.from, form.to, FlightAirports.ready)
+    AnimatedVisibility(
+        time != null,
+        enter = fadeIn(tween(200)) + expandVertically(tween(260, easing = SuggestEase)),
+        exit = fadeOut(tween(150)) + shrinkVertically(tween(220, easing = SuggestEase)),
+    ) {
+        Row(Modifier.padding(top = 14.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            LineIcon(Glyphs.plane, readable(color, cs.surfaceContainerLow, dark), size = 16.dp, stroke = 1.8f)
+            Text("Ongeveer ${time.orEmpty()} reizen", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 8.dp))
         }
     }
 }
@@ -1052,7 +1077,7 @@ private fun Label(text: String) {
 }
 
 @Composable
-private fun SheetField(value: String, onValue: (String) -> Unit, hint: String, trailing: String? = null, modifier: Modifier = Modifier) {
+private fun SheetField(value: String, onValue: (String) -> Unit, hint: String, modifier: Modifier = Modifier, capitals: Boolean = true) {
     val cs = MaterialTheme.colorScheme
     Row(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) {
@@ -1060,43 +1085,98 @@ private fun SheetField(value: String, onValue: (String) -> Unit, hint: String, t
             BasicTextField(
                 value, onValue, singleLine = true,
                 textStyle = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 16.sp, color = cs.onSurface),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                keyboardOptions = KeyboardOptions(capitalization = if (capitals) KeyboardCapitalization.Characters else KeyboardCapitalization.Words),
                 cursorBrush = SolidColor(cs.primary),
                 modifier = Modifier.fillMaxWidth().then(modifier),
             )
         }
-        if (trailing != null) Text(trailing, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp).widthIn(max = 180.dp))
     }
 }
 
-/** A code, or a city or airport to search for; a known code shows its city beside it. */
+/** "Eindhoven (EIN)", or just the code for one the list does not know. */
+private fun airportLabel(code: String): String = FlightAirports.byCode(code)?.let { "${it.city} (${it.iata})" } ?: code
+
+/**
+ * One airport: the chosen one as a chip, or, once tapped, a search whose suggestions are the only way to
+ * choose. An exact code gets its suggestion too ("EIN" shows "Eindhoven (EIN)"), so typing alone never fills
+ * the field. Leaving without a pick puts the chip that was there back.
+ */
 @Composable
-private fun AirportField(value: String, onValue: (String) -> Unit, hint: String, onFocus: (Boolean) -> Unit) {
+private fun AirportField(code: () -> String?, onPick: (String?) -> Unit, hint: String) {
     val cs = MaterialTheme.colorScheme
+    val chosen = code()
+    var editing by remember { mutableStateOf(chosen == null) }
+    var draft by remember { mutableStateOf("") }
     var focused by remember { mutableStateOf(false) }
+    var wantFocus by remember { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
-    val known = FlightAirports.byCode(value)
-    val wanted = focused && value.trim().length >= 2 && known?.iata != value.trim().uppercase()
-    val typed = value
-    val results by produceState(emptyList<FlightAirports.Airport>(), typed, wanted) { this.value = if (wanted) FlightAirports.search(typed) else emptyList() }
-    SheetField(value, { onValue(it.take(40)) }, hint, trailing = known?.city, modifier = Modifier.onFocusChanged { focused = it.isFocused; onFocus(it.isFocused) })
-    AnimatedVisibility(results.isNotEmpty(), enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeIn(), exit = shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeOut()) {
-        Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    // A short pause after the last key, then the search off the main thread; a newer key cancels the older search.
+    val results by produceState(emptyList<FlightAirports.Airport>(), draft) {
+        val q = draft.trim()
+        if (q.length < 2) { value = emptyList(); return@produceState }
+        delay(150)
+        value = FlightAirports.search(q)
+    }
+    // Read live, not from this composition: a tapped suggestion has just chosen one when the focus goes.
+    // With nothing chosen the typed text stays as it was, a draft; with a chip to go back to it goes.
+    fun leave() { val now = code(); editing = now == null; if (now != null) draft = "" }
+    fun edit() { editing = true; wantFocus = true }
+    LaunchedEffect(wantFocus, editing) { if (wantFocus && editing) { runCatching { focus.requestFocus() }; wantFocus = false } }
+    if (editing) {
+        SheetField(
+            draft, { draft = it.take(40) }, if (chosen != null) airportLabel(chosen) else hint,
+            modifier = Modifier.focusRequester(focus).onFocusChanged {
+                if (focused && !it.isFocused) leave()
+                focused = it.isFocused
+            },
+            capitals = false,
+        )
+    } else if (chosen != null) {
+        Row(
+            Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest)
+                .clickable { edit() }.padding(start = 8.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // The chosen airport as a chip: plainly picked, not text that might still be a half typed search.
+            Box(Modifier.weight(1f)) { Row(
+                Modifier.height(38.dp).clip(CircleShape).background(cs.secondaryContainer).padding(start = 12.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FlightAirports.byCode(chosen)?.let { FlagIcon(Remote.flag(it.country), 13.dp, Modifier.padding(end = 8.dp)) }
+                Text(airportLabel(chosen), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSecondaryContainer), modifier = Modifier.weight(1f, fill = false))
+                Box(Modifier.padding(start = 4.dp).size(30.dp).clip(CircleShape).clickable { onPick(null); draft = ""; edit() }, contentAlignment = Alignment.Center) {
+                    LineIcon(listOf(P("M6 6l12 12"), P("M18 6 6 18")), cs.onSecondaryContainer, size = 14.dp, stroke = 2.2f)
+                }
+            } }
+            Text("Wijzigen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary), modifier = Modifier.padding(horizontal = 8.dp))
+        }
+    }
+    val shown = editing && results.isNotEmpty()
+    AnimatedVisibility(
+        shown,
+        enter = fadeIn(tween(180)) + expandVertically(tween(260, easing = SuggestEase), expandFrom = Alignment.Top),
+        exit = fadeOut(tween(120)) + shrinkVertically(tween(200, easing = SuggestEase), shrinkTowards = Alignment.Top),
+    ) {
+        // The list changes length while typing; its height follows on the same calm curve instead of jumping.
+        Column(Modifier.padding(top = 6.dp).animateContentSize(tween(200, easing = SuggestEase)), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             results.forEachIndexed { i, a ->
-                val top = if (i == 0) 18.dp else 6.dp
-                val bottom = if (i == results.lastIndex) 18.dp else 6.dp
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(top, top, bottom, bottom)).background(cs.surfaceContainer)
-                        .clickable { onValue(a.iata); focusManager.clearFocus() }.padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(a.iata, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.width(48.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(a.city, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface))
-                        val country = java.util.Locale("", a.country).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL"))
-                        Text("${a.name} · $country", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant))
+                key(a.iata) {
+                    val top = if (i == 0) 18.dp else 6.dp
+                    val bottom = if (i == results.lastIndex) 18.dp else 6.dp
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(top, top, bottom, bottom)).background(cs.surfaceContainer)
+                            .clickable { onPick(a.iata); editing = false; draft = ""; focusManager.clearFocus() }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${a.city} (${a.iata})", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface))
+                            val country = java.util.Locale("", a.country).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL"))
+                            Text("${a.name} · $country", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant))
+                        }
+                        FlagIcon(Remote.flag(a.country), 13.dp, Modifier.padding(start = 10.dp))
                     }
-                    FlagIcon(Remote.flag(a.country), 13.dp)
                 }
             }
         }
