@@ -95,9 +95,10 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                 if (inlines.isNotEmpty()) {
                     // One choice out of a few: connected buttons side by side, the chosen one filled.
                     androidx.compose.foundation.layout.Row(
-                        // On the same edges as the lines under it (each line keeps a small inset inside its group),
-                        // and the same 4 dp above it as beside it; the group's own spacing gives the gap below.
-                        Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 4.dp),
+                        // On the same edges as the lines under it, and the same gap above and below it as beside it
+                        // and between the lines (measured on the phone: 10 px all round). The group already adds a
+                        // little at its top and between items, hence the uneven numbers.
+                        Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 2.5.dp, bottom = 1.5.dp),
                         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.material3.ButtonGroupDefaults.ConnectedSpaceBetween),
                     ) {
                         inlines.forEachIndexed { i, e ->
