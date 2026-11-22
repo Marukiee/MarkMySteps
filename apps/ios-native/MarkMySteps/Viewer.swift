@@ -8,7 +8,17 @@ import UIKit
 /// film, its controls, then how people reacted and what they said.
 struct PhotoViewer: View {
     let item: ViewerItem
+    /// The photo on show, told once paging comes to rest (not on every frame of a swipe, which made the page behind
+    /// the viewer work along and the swipe hitch).
     @Binding var current: String
+    /// Where the pager stands, in photos (2.5 is halfway between the third and the fourth), every frame.
+    @State private var pos: CGFloat
+    @State private var pager: ScrollPosition
+    /// While the gallery strip leads, the pager follows it instead of the other way round.
+    @State private var scrubbing = false
+    /// The buttons over the photo; a tap on the photo shows or hides them at once.
+    @State private var chrome = true
+    @State private var pageWidth: CGFloat = 402
     @State private var reactions = Remote.Reactions()
     @State private var comments: [Remote.Comment] = []
     @State private var picking = false
@@ -25,39 +35,70 @@ struct PhotoViewer: View {
 
     /// Screenshots only (`-menuPreview YES`): a demo trip shows the menu and reactions as on your own server trip.
     /// Nothing can be sent: a demo trip has no server id, and every trip call stops on that.
+    init(item: ViewerItem, current: Binding<String>) {
+        self.item = item
+        _current = current
+        let start = item.photos.firstIndex { $0.id == item.start.id } ?? 0
+        _pos = State(initialValue: CGFloat(start))
+        _pager = State(initialValue: ScrollPosition(id: item.start.id))
+    }
+
     private var live: Bool { item.trip.remoteId != nil || Launch.menuPreview }
-    private var media: Media? { item.photos.first { $0.id == current } }
+    /// The photo nearest to where the pager stands, for what the bars say while it moves.
+    private var index: Int { min(max(Int(pos.rounded()), 0), max(item.photos.count - 1, 0)) }
+    private var media: Media? { item.photos.indices.contains(index) ? item.photos[index] : nil }
+    /// The photo on show for the bars, the same as `media`; reactions and comments go to this one.
+    private var shownId: String { media?.id ?? current }
     private var store: Store { Store.shared }
     private var knowsPlaces: Bool { item.photos.contains { $0.lat != nil && $0.lon != nil } }
 
     var body: some View {
-        TabView(selection: $current) {
-            ForEach(item.photos) { media in
-                Group {
-                    if media.video {
-                        VideoPage(media: media, active: current == media.id, handle: video)
-                    } else {
-                        ZoomablePhoto(media: media, zoomed: $zoomed)
+        // A pager of its own (not a TabView), so the strip below can follow every frame of a swipe exactly.
+        ScrollView(.horizontal) {
+            LazyHStack(spacing: 0) {
+                ForEach(item.photos) { media in
+                    Group {
+                        if media.video {
+                            VideoPage(media: media, active: current == media.id, handle: video, onTap: tapped)
+                        } else {
+                            ZoomablePhoto(media: media, zoomed: $zoomed, onTap: tapped)
+                        }
                     }
+                    .containerRelativeFrame([.horizontal, .vertical])
+                    .id(media.id)
                 }
-                .tag(media.id)
             }
+            .scrollTargetLayout()
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
+        .scrollTargetBehavior(.paging)
+        .scrollPosition($pager)
+        .scrollIndicators(.hidden)
+        .scrollDisabled(zoomed)
+        .scrollClipDisabled()
+        .onScrollGeometryChange(for: CGFloat.self) { geo in
+            (geo.contentOffset.x + geo.contentInsets.leading) / max(geo.containerSize.width, 1)
+        } action: { _, x in
+            if !scrubbing { pos = x }
+        }
+        .onScrollGeometryChange(for: CGFloat.self) { $0.containerSize.width } action: { _, w in pageWidth = w }
+        .onScrollPhaseChange { _, phase in
+            // Come to rest: that photo is the one on show.
+            if phase == .idle && !scrubbing { settle(index) }
+        }
         .background(.black)
         .ignoresSafeArea()
-        // A tap anywhere on the photo folds the reactions away again.
-        .simultaneousGesture(TapGesture().onEnded { if picking { withAnimation(.snappy) { picking = false } } })
-        .overlay(alignment: .top) { topBar }
-        .overlay(alignment: .bottom) { if !zoomed { bottomBar.transition(.opacity.combined(with: .move(edge: .bottom))) } }
+        .overlay(alignment: .top) { if chrome { topBar.transition(.opacity) } }
+        .overlay(alignment: .bottom) { if chrome && !zoomed { bottomBar.transition(.opacity) } }
         .overlay(alignment: .top) { noteView }
+        .animation(.easeOut(duration: 0.2), value: chrome)
         .animation(.calm, value: zoomed)
         .sheet(isPresented: $showComments) {
             CommentsSheet(trip: item.trip, mediaId: current, comments: $comments)
+                .preferredColorScheme(.dark)
         }
         .sheet(item: $sharing) { file in ActivityView(items: [file.url]).ignoresSafeArea().presentationDetents([.medium, .large]) }
         .environment(\.colorScheme, .dark)
-        .statusBarHidden(zoomed)
+        .statusBarHidden(zoomed || !chrome)
         .onChange(of: current) { picking = false }
         .task(id: current) {
             // The photos either side are fetched ahead, so paging never waits.
@@ -79,11 +120,25 @@ struct PhotoViewer: View {
         }
     }
 
+    /// A tap on the photo: folds the reactions away when they are open, else shows or hides the buttons, at once
+    /// (a double tap still zooms, and puts the buttons back as it found them).
+    private func tapped() {
+        if picking { withAnimation(.snappy) { picking = false } } else { chrome.toggle() }
+    }
+
+    /// The pager came to rest on photo `i`, by a swipe or by the strip.
+    private func settle(_ i: Int) {
+        guard item.photos.indices.contains(i) else { return }
+        pos = CGFloat(i)
+        if current != item.photos[i].id { current = item.photos[i].id }
+    }
+
     // MARK: Top
 
     private var topBar: some View {
         HStack(alignment: .top, spacing: 10) {
-            if let media, let i = item.photos.firstIndex(where: { $0.id == current }) {
+            if let media {
+                let i = index
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(Format.dayHeading(media.takenAt)).font(.outfit(15, 600)).lineLimit(1)
@@ -113,7 +168,7 @@ struct PhotoViewer: View {
             .accessibilityLabel("Sluiten")
         }
         .padding(.horizontal, 16)
-        .animation(.calm, value: current)
+        .animation(.calm, value: index)
     }
 
     /// The same options as the web's viewer: the trip's or a stop's cover (owner only), the original saved to Foto's,
@@ -219,30 +274,45 @@ struct PhotoViewer: View {
     // MARK: Bottom
 
     private var bottomBar: some View {
-        let mine = reactions.mine[current]
-        let counts = reactions.counts[current] ?? [:]
-        let said = comments.filter { $0.mediaId == current }.count
+        let id = shownId
+        let mine = reactions.mine[id]
+        let counts = reactions.counts[id] ?? [:]
+        let said = comments.filter { $0.mediaId == id }.count
         return VStack(alignment: .leading, spacing: 12) {
             if media?.video == true {
                 VideoControls(handle: video)
                     .transition(.opacity)
             }
+            // Every photo in a strip, as a gallery app has it; it glides up and down with the reactions above the heart.
+            if item.photos.count > 1 {
+                Filmstrip(photos: item.photos, pos: pos, scrubbing: $scrubbing, onScrub: { p in
+                    pos = p
+                    pager.scrollTo(x: p * pageWidth)
+                }, onSettle: { i in
+                    pager.scrollTo(id: item.photos[i].id)
+                    settle(i)
+                }, onTap: { i in
+                    Haptic.tap()
+                    withAnimation(.smooth(duration: 0.3)) { pager.scrollTo(id: item.photos[i].id) }
+                })
+                .padding(.horizontal, -16)
+            }
             ReactionBar(
-                mine: mine, counts: counts, names: reactions.names[current] ?? [], comments: said, enabled: live,
+                mine: mine, counts: counts, names: reactions.names[id] ?? [], comments: said, enabled: live,
                 picking: $picking, onReact: react, onComments: { showComments = true }
             )
+            .opacity(live ? 1 : 0.5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
-        .opacity(live ? 1 : 0.5)
         .animation(.calm, value: media?.video)
     }
 
     /// Your reaction, shown at once and then sent; put back if the server refuses.
     private func react(_ kind: String?) {
         guard live else { return }
-        let id = current
+        let id = shownId
         let before = reactions
         let old = reactions.mine[id]
         var counts = reactions.counts[id] ?? [:]
@@ -253,6 +323,111 @@ struct PhotoViewer: View {
         Task {
             do { try await Remote.setReaction(item.trip, mediaId: id, kind: kind) } catch { reactions = before }
         }
+    }
+}
+
+/// The photos as a strip of small tiles under the photo, as a phone's gallery has it (Android's Filmstrip). The strip
+/// and the photo are one movement: swiping the photo slides the strip along exactly, and sliding the strip slides the
+/// photo along with a light tick for each photo it passes; it always comes to rest on a tile, and a tap goes to that
+/// photo. Every tile keeps the same slot (36 pt and 8 pt of air); the one in the middle only grows on screen while its
+/// neighbours step aside as far, so the gaps stay equal and nothing in the strip ever shifts or jumps.
+private struct Filmstrip: View {
+    let photos: [Media]
+    /// Where the pager stands, in photos.
+    let pos: CGFloat
+    @Binding var scrubbing: Bool
+    let onScrub: (CGFloat) -> Void
+    let onSettle: (Int) -> Void
+    let onTap: (Int) -> Void
+    @State private var scroll = ScrollPosition()
+    /// Where the strip stands, in photos, while it leads.
+    @State private var stripPos: CGFloat = 0
+    @State private var lastTick = -1
+    @State private var width: CGFloat = 402
+
+    private static let tile: CGFloat = 36
+    private static let slot: CGFloat = 44
+    private static let grow: CGFloat = 0.26
+
+    var body: some View {
+        let side = max(0, (width - Filmstrip.slot) / 2)
+        ScrollView(.horizontal) {
+            LazyHStack(spacing: 0) {
+                ForEach(Array(photos.enumerated()), id: \.element.id) { i, m in
+                    Button { onTap(i) } label: {
+                        MediaView(media: m)
+                            .frame(width: Filmstrip.tile, height: 48)
+                            .background(.white.opacity(0.12))
+                            .clipShape(.rect(cornerRadius: 7))
+                            .scaleEffect(scale(i))
+                            .offset(x: shift(i))
+                            .frame(width: Filmstrip.slot, height: 64)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Foto \(i + 1) van \(photos.count)")
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .contentMargins(.horizontal, side, for: .scrollContent)
+        .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+        .scrollPosition($scroll)
+        .scrollIndicators(.hidden)
+        .frame(height: 64)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .onScrollGeometryChange(for: CGFloat.self) { geo in
+            (geo.contentOffset.x + geo.contentInsets.leading) / Filmstrip.slot
+        } action: { _, p in
+            guard scrubbing else { return }
+            let clamped = min(max(p, 0), CGFloat(photos.count - 1))
+            stripPos = clamped
+            // The photo stands where the strip is, with a tick for each photo passed.
+            let near = Int(clamped.rounded())
+            if lastTick >= 0 && near != lastTick { UISelectionFeedbackGenerator().selectionChanged() }
+            lastTick = near
+            onScrub(clamped)
+        }
+        .onScrollPhaseChange { _, phase in
+            switch phase {
+            case .interacting, .tracking:
+                if !scrubbing { stripPos = pos; lastTick = Int(pos.rounded()); scrubbing = true }
+            case .idle:
+                // Let go: the strip has come to rest on a tile, and that is the photo.
+                guard scrubbing else { return }
+                let target = min(max(Int(stripPos.rounded()), 0), photos.count - 1)
+                scrubbing = false
+                lastTick = -1
+                onSettle(target)
+                place(CGFloat(target))
+            default: break
+            }
+        }
+        // The photo leads: the strip stands exactly where the pager is, every frame.
+        .onChange(of: pos) { _, p in if !scrubbing { place(p) } }
+        .onChange(of: width) { place(pos) }
+        .onAppear { place(pos) }
+    }
+
+    /// Tile `p` in the middle (the content margin already puts tile 0 there at the start).
+    private func place(_ p: CGFloat) { scroll.scrollTo(x: p * Filmstrip.slot) }
+
+    /// Where to draw the emphasis: where the photo is, or the strip while it leads.
+    private var focus: CGFloat { scrubbing ? stripPos : pos }
+
+    /// How much tile `i` is the one in the middle: 1 right there, 0 one photo away.
+    private func emphasis(_ i: Int) -> CGFloat { min(1, max(0, 1 - abs(CGFloat(i) - focus))) }
+
+    private func scale(_ i: Int) -> CGFloat { 1 + Filmstrip.grow * emphasis(i) }
+
+    /// The neighbours step aside by half of what the tiles nearest the middle grew.
+    private func shift(_ i: Int) -> CGFloat {
+        let a = Int(focus.rounded(.down)), b = a + 1
+        var shift: CGFloat = 0
+        for j in [a, b] where j != i {
+            shift += Filmstrip.tile * Filmstrip.grow * emphasis(j) / 2 * (i > j ? 1 : -1)
+        }
+        return shift
     }
 }
 
@@ -639,6 +814,7 @@ private struct VideoPage: View {
     let media: Media
     let active: Bool
     let handle: VideoHandle
+    var onTap: () -> Void = {}
     @State private var player: AVPlayer?
     @State private var ready = false
     @State private var loop: NSObjectProtocol?
@@ -656,7 +832,8 @@ private struct VideoPage: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(.rect)
-        .onTapGesture { if active { handle.toggle() } }
+        // As a photo: a tap shows or hides the buttons; the film plays and pauses with its own button.
+        .onTapGesture { onTap() }
         .animation(.easeOut(duration: 0.25), value: ready)
         .task(id: media.id) {
             guard player == nil, let url = try? await Remote.videoURL(media.id) else { return }

@@ -347,6 +347,8 @@ struct ViewerItem: Identifiable {
 struct ZoomablePhoto: View {
     let media: Media
     @Binding var zoomed: Bool
+    /// Every tap, at once (a double tap is two of them, so the buttons end as they were).
+    var onTap: () -> Void = {}
     @State private var image: UIImage?
     @State private var scale: CGFloat = 1
     @State private var base: CGFloat = 1
@@ -354,9 +356,10 @@ struct ZoomablePhoto: View {
     @State private var lastOffset: CGSize = .zero
     @State private var box: CGSize = .zero
 
-    init(media: Media, zoomed: Binding<Bool>) {
+    init(media: Media, zoomed: Binding<Bool>, onTap: @escaping () -> Void = {}) {
         self.media = media
         _zoomed = zoomed
+        self.onTap = onTap
         // Whatever is already in memory shows at once: no spinner, no wait.
         let cache = ImageLoader.shared
         _image = State(initialValue: cache.cached(media.id, "original") ?? cache.cached(media.id, "preview") ?? cache.cached(media.id, "thumbnail"))
@@ -403,6 +406,8 @@ struct ZoomablePhoto: View {
                 },
             isEnabled: scale > 1.01
         )
+        // The single tap answers at once instead of waiting to see whether a second one follows.
+        .simultaneousGesture(TapGesture().onEnded { onTap() })
         .onTapGesture(count: 2) { point in
             withAnimation(.spring(duration: 0.25)) {
                 if scale > 1.01 {
