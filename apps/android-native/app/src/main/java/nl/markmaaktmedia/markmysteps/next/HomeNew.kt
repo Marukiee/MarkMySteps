@@ -418,8 +418,15 @@ private fun TopRow(onLogoTap: () -> Unit, needle: () -> Float = { 0f }) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // The compass turns with the globe's zoom, as on the web; read in the layer so a frame never recomposes the row.
-            LineIcon(Glyphs.logo, cs.primary, size = 34.dp, stroke = 2.1f, modifier = Modifier.graphicsLayer { rotationZ = needle() })
+            // The compass turns with the globe's zoom, as on the web; while the trips are read the first
+            // time it spins instead: two turns per 2.8 s with a wind-up and an ease-off (the web's spinner).
+            val spin = androidx.compose.animation.core.rememberInfiniteTransition(label = "spin").animateFloat(
+                0f, 720f,
+                androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(2800, easing = androidx.compose.animation.core.CubicBezierEasing(0.6f, 0f, 0.3f, 1f))),
+                label = "turns",
+            )
+            val loading = Data.loading
+            LineIcon(Glyphs.logo, cs.primary, size = 34.dp, stroke = 2.1f, modifier = Modifier.graphicsLayer { rotationZ = if (loading) spin.value else needle() })
             Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(620), fontSize = 23.sp, letterSpacing = (-0.02).em, color = cs.onBackground))
         }
         Spacer(Modifier.weight(1f))
