@@ -541,7 +541,8 @@ fun TripMap(
     BoxWithConstraints(modifier) {
         val w = maxWidth.value; val h = maxHeight.value
         val (lon, lat, zoom) = remember(trip, w, h, frameW, frameH, fill) { fitFrame(trip, w * frameW, h * frameH, min(w, h), fill) }
-        val style = globeStyle(dark, routeWidth).let { if (borders) it.copy(borders = if (dark) Color(0xFF4A5461) else Color(0xFFC4B69D)) else it }
+        // Only the route as it was travelled, as on the app's own map: no flight bows.
+        val style = globeStyle(dark, routeWidth).copy(flights = false).let { if (borders) it.copy(borders = if (dark) Color(0xFF4A5461) else Color(0xFFC4B69D)) else it }
         Globe(listOf(trip), style, Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = zoom, showStops = stops, turnable = false, shiftX = shiftX, shiftY = shiftY)
     }
 }

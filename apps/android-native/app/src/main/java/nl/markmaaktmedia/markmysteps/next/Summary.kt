@@ -711,8 +711,9 @@ private fun StatsPoster(data: PosterData, format: Format, u: Dp) {
         if (hero != null) PosterPhoto(hero, Modifier.fillMaxSize())
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x73000000), 0.22f * g to Color(0x10000000), 0.42f * g to Color(0x66000000), 0.7f * g to Color(0xB3000000), 1f to Color(0xEB000000))))
         Column(Modifier.fillMaxSize().padding(u * 0.065f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (data.logo) {
+            // The logo in the corner, as far from the top as from the side; the small map beside it, also at the top.
+            Row(verticalAlignment = Alignment.Top) {
+                if (data.logo) Row(verticalAlignment = Alignment.CenterVertically) {
                     LineIcon(Glyphs.logo, Color.White, size = u * 0.075f, stroke = 2.2f)
                     Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.05f).sp(), color = Color.White), modifier = Modifier.padding(start = u * 0.02f))
                 }

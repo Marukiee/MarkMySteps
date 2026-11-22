@@ -319,6 +319,8 @@ data class GlobeStyle(
     val routeWidth: Float = 1.9f,
     /** Country borders as hairlines in this colour (a map that says where you are), or none. */
     val borders: Color? = null,
+    /** The flights as grey dashed bows with their airports; a poster of the route itself leaves them out. */
+    val flights: Boolean = true,
 )
 
 private data class Place(val at: LonLat, val members: MutableList<Trip>)
@@ -822,7 +824,7 @@ private fun DrawScope.drawScene(scene: GlobeScene, proj: Ortho, style: GlobeStyl
     }
 
     // --- Flights: grey dashed bows; a shared one is as present as its most present trip ---
-    for (pass in 0..1) for (bow in scene.bows) {
+    if (style.flights) for (pass in 0..1) for (bow in scene.bows) {
         val mine = recedeId != null && recedeId in bow.tripIds
         if ((pass == 1) != mine) continue
         val st = bow.tripIds.maxOf { stand(it) }
@@ -844,7 +846,7 @@ private fun DrawScope.drawScene(scene: GlobeScene, proj: Ortho, style: GlobeStyl
 
     // Airports with no dot of their own nearby: a small grey point.
     val airportColor = if (dark) Color(150, 160, 172, (0.9f * 255).roundToInt()) else Color(120, 128, 140, (0.85f * 255).roundToInt())
-    for (i in 0 until scene.airports.size / 2) {
+    if (style.flights) for (i in 0 until scene.airports.size / 2) {
         if (proj.project(scene.airports[i * 2], scene.airports[i * 2 + 1])) drawCircle(airportColor, 2.6f * density, Offset(proj.px, proj.py))
     }
 
