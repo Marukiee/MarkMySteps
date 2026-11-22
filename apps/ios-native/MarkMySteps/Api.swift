@@ -143,6 +143,59 @@ final class Api {
     /// An image from the server, with the token; nil when it cannot be had.
     func bytes(_ path: String) async -> Data? { try? await request("GET", path, accept: "image/*") }
 
+    /// A whole file from the server (an original photo or a film), streamed to a temporary file instead of held in
+    /// memory, with the token and one retry after a refresh. Answers the file and the server's response.
+    func file(_ path: String, retried: Bool = false) async throws -> (URL, HTTPURLResponse) {
+        guard let url = URL(string: base + path) else { throw Failure(message: "Dat serveradres klopt niet") }
+        var req = URLRequest(url: url, timeoutInterval: 120)
+        req.setValue("*/*", forHTTPHeaderField: "Accept")
+        if let access { req.setValue("Bearer \(access)", forHTTPHeaderField: "Authorization") }
+        let (temp, response): (URL, URLResponse)
+        do { (temp, response) = try await URLSession.shared.download(for: req) } catch { throw Failure(message: "Kan de server niet bereiken") }
+        guard let http = response as? HTTPURLResponse else { throw Failure(message: "Onverwacht antwoord van de server") }
+        if http.statusCode == 401 && !retried, await renew() == .renewed { return try await file(path, retried: true) }
+        guard (200..<300).contains(http.statusCode) else { throw Failure(message: "De server gaf \(http.statusCode)", status: http.statusCode) }
+        // The system removes its own temporary file once this call returns: moved somewhere that stays.
+        let kept = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.moveItem(at: temp, to: kept)
+        return (kept, http)
+    }
+
+    /// A file sent as multipart form data (an avatar, a Polarsteps zip, a track). Test mode stops it here like `send`.
+    @discardableResult
+    func upload(_ path: String, field: String = "file", filename: String, mime: String, data: Data) async throws -> Data {
+        if Api.dryRun {
+            Api.log.notice("MmsDryRun POST \(path, privacy: .public) {multipart:\(field, privacy: .public)}")
+            return Data("{}".utf8)
+        }
+        return try await multipart(path, field: field, filename: filename, mime: mime, data: data, retried: false)
+    }
+
+    private func multipart(_ path: String, field: String, filename: String, mime: String, data: Data, retried: Bool) async throws -> Data {
+        guard let url = URL(string: base + path) else { throw Failure(message: "Dat serveradres klopt niet") }
+        let boundary = "mms-\(UUID().uuidString)"
+        var req = URLRequest(url: url, timeoutInterval: 300)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        if let access { req.setValue("Bearer \(access)", forHTTPHeaderField: "Authorization") }
+        var body = Data()
+        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(field)\"; filename=\"\(filename)\"\r\nContent-Type: \(mime)\r\n\r\n".utf8))
+        body.append(data)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        let (answer, response): (Data, URLResponse)
+        do { (answer, response) = try await URLSession.shared.upload(for: req, from: body) } catch { throw Failure(message: "Kan de server niet bereiken") }
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if code == 401 && !retried, await renew() == .renewed {
+            return try await multipart(path, field: field, filename: filename, mime: mime, data: data, retried: true)
+        }
+        guard (200..<300).contains(code) else {
+            let message = (try? JSONSerialization.jsonObject(with: answer) as? [String: Any])?["message"] as? String
+            throw Failure(message: message.flatMap { $0.isEmpty ? nil : $0 } ?? "De server gaf \(code)", status: code)
+        }
+        return answer
+    }
+
     private func tokens(_ o: [String: Any]) throws {
         guard let a = o["accessToken"] as? String, let r = o["refreshToken"] as? String else { throw Failure(message: "Onverwacht antwoord van de server") }
         access = a
@@ -494,9 +547,13 @@ enum Remote {
     struct Comment: Identifiable, Hashable {
         let id: String
         let mediaId: String?
+        /// Set for a comment under a day's story ("2026-05-04") instead of under a photo.
+        var day: String? = nil
         let author: String
         let body: String
         let at: Date
+        /// Your own, or as the trip's organiser anyone's.
+        var canDelete = false
     }
 
     static let reactionKinds = ["heart", "laugh", "wow", "love", "clap"]
@@ -505,20 +562,30 @@ enum Remote {
     struct Reactions {
         var counts: [String: [String: Int]] = [:]
         var mine: [String: String] = [:]
+        /// Who gave what, per target, when the server says.
+        var names: [String: [(kind: String, name: String)]] = [:]
+    }
+
+    private static func parseComment(_ o: [String: Any]) -> Comment? {
+        guard let id = o["id"] as? String else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return Comment(
+            id: id, mediaId: o["mediaId"] as? String, day: (o["day"] as? String).map { String($0.prefix(10)) },
+            author: o["authorName"] as? String ?? "", body: o["body"] as? String ?? "",
+            at: (o["createdAt"] as? String).flatMap { iso.date(from: $0) } ?? Date(), canDelete: o["canDelete"] as? Bool ?? false
+        )
     }
 
     static func comments(_ trip: Trip) async throws -> [Comment] {
         guard let rid = trip.remoteId else { return [] }
         let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/comments")) as? [[String: Any]] ?? []
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return list.compactMap { o in
-            guard let id = o["id"] as? String else { return nil }
-            return Comment(
-                id: id, mediaId: o["mediaId"] as? String, author: o["authorName"] as? String ?? "",
-                body: o["body"] as? String ?? "", at: (o["createdAt"] as? String).flatMap { iso.date(from: $0) } ?? Date()
-            )
-        }
+        return list.compactMap(parseComment)
+    }
+
+    static func deleteComment(_ trip: Trip, _ id: String) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("DELETE", "/api/trips/\(rid)/comments/\(id)")
     }
 
     static func reactions(_ trip: Trip) async throws -> Reactions {
@@ -530,12 +597,29 @@ enum Remote {
             out.counts[target, default: [:]][kind] = (c["count"] as? NSNumber)?.intValue ?? 0
         }
         out.mine = o["mine"] as? [String: String] ?? [:]
+        for (target, list) in o["names"] as? [String: [[String: Any]]] ?? [:] {
+            out.names[target] = list.compactMap { n in
+                guard let kind = n["kind"] as? String, let name = n["name"] as? String else { return nil }
+                return (kind, name)
+            }
+        }
         return out
     }
 
-    static func addComment(_ trip: Trip, mediaId: String, body: String) async throws {
-        guard let rid = trip.remoteId else { return }
-        try await Api.shared.send("POST", "/api/trips/\(rid)/media/\(mediaId)/comments", body: ["body": body])
+    /// The comment as the server made it; nil when the answer holds none (test mode answers "{}").
+    @discardableResult
+    static func addComment(_ trip: Trip, mediaId: String, body: String) async throws -> Comment? {
+        guard let rid = trip.remoteId else { return nil }
+        let data = try await Api.shared.send("POST", "/api/trips/\(rid)/media/\(mediaId)/comments", body: ["body": body])
+        return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]).flatMap(parseComment)
+    }
+
+    /// A comment under a day's story.
+    @discardableResult
+    static func addDayComment(_ trip: Trip, day: String, body: String) async throws -> Comment? {
+        guard let rid = trip.remoteId else { return nil }
+        let data = try await Api.shared.send("POST", "/api/trips/\(rid)/days/\(day)/comments", body: ["body": body])
+        return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]).flatMap(parseComment)
     }
 
     static func setReaction(_ trip: Trip, mediaId: String, kind: String?) async throws {
@@ -696,7 +780,9 @@ enum Remote {
             let w = o["width"] as? Double ?? 0, h = o["height"] as? Double ?? 0
             // Where it was taken, for the photos on the trip map.
             let lat = (o["latitude"] as? NSNumber)?.doubleValue, lon = (o["longitude"] as? NSNumber)?.doubleValue
-            return Media(id: id, takenAt: taken, video: (o["assetType"] as? String) == "VIDEO", ratio: w > 0 && h > 0 ? w / h : 1, lat: lat, lon: lon)
+            let asset = (o["immichAssetId"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            return Media(id: id, takenAt: taken, video: (o["assetType"] as? String) == "VIDEO", ratio: w > 0 && h > 0 ? w / h : 1, lat: lat, lon: lon,
+                         userId: o["userId"] as? String, immichAssetId: asset)
         }
         .sorted { $0.takenAt < $1.takenAt }
     }

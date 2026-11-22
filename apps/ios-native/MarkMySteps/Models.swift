@@ -132,6 +132,9 @@ struct Media: Identifiable, Hashable {
     /// Where it was taken, when the photo knows.
     var lat: Double? = nil
     var lon: Double? = nil
+    /// Whose photo it is, and its id in their Immich, for "Openen in Immich" on your own.
+    var userId: String? = nil
+    var immichAssetId: String? = nil
 }
 
 // MARK: Geometry, ported from Globe.kt
