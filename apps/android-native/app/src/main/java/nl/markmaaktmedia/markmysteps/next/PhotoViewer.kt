@@ -14,6 +14,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
@@ -251,7 +252,10 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
                 val scale = 1f - (1f - MIN_DRAG_SCALE) * progress()
                 translationX = drag.x; translationY = drag.y; scaleX = scale; scaleY = scale
             }) { page ->
-            ViewerPhoto(photos[page], onHdr = { if (page == pager.currentPage) hdr = it }, onTap = { chrome = !chrome })
+            // The corners round off as the photo is dragged away, up to the tile's rounding at the end,
+            // divided by the shrink so they look the same size on screen.
+            ViewerPhoto(photos[page], onHdr = { if (page == pager.currentPage) hdr = it }, onTap = { chrome = !chrome },
+                cornerPx = { val k = progress(); val scale = 1f - (1f - MIN_DRAG_SCALE) * k; 14.dp.toPx() * k / scale })
         }
         // Which day and where, and how far through the trip's photos.
         val chromeOn by animateFloatAsState(if (chrome) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "chrome")
@@ -344,7 +348,7 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds 
 }
 
 @Composable
-private fun ViewerPhoto(media: Media, onHdr: (Boolean) -> Unit, onTap: () -> Unit) {
+private fun ViewerPhoto(media: Media, onHdr: (Boolean) -> Unit, onTap: () -> Unit, cornerPx: androidx.compose.ui.unit.Density.() -> Float = { 0f }) {
     // The preview first, so there is something at once; then the original replaces it.
     val preview by produceState<Bitmap?>(Photos.cached("${media.id}/preview"), media.id) {
         if (value == null) value = Photos.load(media.id, "preview")
@@ -371,9 +375,14 @@ private fun ViewerPhoto(media: Media, onHdr: (Boolean) -> Unit, onTap: () -> Uni
         if (shown == null) {
             LoadingIndicator(Modifier.size(56.dp), color = Color.White)
         } else {
+            // Sized to the photo itself, so rounding its corners rounds the picture and not the screen.
             Image(
                 shown.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = pan.x; translationY = pan.y },
+                modifier = Modifier.aspectRatio(shown.width.toFloat() / shown.height.coerceAtLeast(1))
+                    .graphicsLayer {
+                        scaleX = zoom; scaleY = zoom; translationX = pan.x; translationY = pan.y
+                        shape = RoundedCornerShape(cornerPx()); clip = true
+                    },
             )
         }
     }
