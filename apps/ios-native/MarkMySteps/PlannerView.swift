@@ -452,12 +452,13 @@ private struct AddStopCard: View {
 
     private func add(_ place: Remote.Place) {
         let serverId = saves ? UUID().uuidString.lowercased() : nil
+        let after = plan.stops.last?.serverId ?? plan.outbound?.serverId
         withAnimation(.snappy) {
             plan.stops.append(PlanStop(id: plan.nextKey, name: place.name, flag: place.flag, at: place.at, nights: 1, mode: .car, serverId: serverId))
             plan.nextKey += 1
             plan.query = ""
         }
         focused = false
-        if let serverId { saver.run($plan) { try await Remote.addStop(trip, id: serverId, place: place, nights: 1) } }
+        if let serverId { saver.run($plan) { try await Remote.addStop(trip, id: serverId, place: place, nights: 1, afterStopId: after) } }
     }
 }

@@ -552,10 +552,12 @@ enum Remote {
         var flag: String { Remote.flag(countryCode) }
     }
 
-    static func addStop(_ trip: Trip, id: String, place: Place, nights: Int) async throws {
+    static func addStop(_ trip: Trip, id: String, place: Place, nights: Int, afterStopId: String? = nil) async throws {
         guard let rid = trip.remoteId else { return }
         var body: [String: Any] = ["id": id, "name": place.name, "nights": nights, "latitude": place.at.lat, "longitude": place.at.lon]
         if let c = place.countryCode { body["countryCode"] = c }
+        // Before the way back, never after it.
+        if let afterStopId { body["afterStopId"] = afterStopId }
         try await Api.shared.send("POST", "/api/trips/\(rid)/stops", body: body)
     }
 
