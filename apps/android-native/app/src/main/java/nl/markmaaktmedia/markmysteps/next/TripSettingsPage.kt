@@ -16,6 +16,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -187,7 +188,8 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
         OfflineMapPanel(trip, id)
 
         Header(stringResource(R.string.tripsettings_tracking))
-        TrackNowPanel(trip, id, ended, myRole)
+        // A trip that is over has nothing to start: the grey switch below already says so.
+        if (!ended || Tracker.tripId == id) TrackNowPanel(trip, id, ended, myRole)
         Spacer(Modifier.height(8.dp))
         Group(null, listOf(
             Item(
@@ -240,13 +242,18 @@ private fun TrackNowPanel(trip: Trip, id: String, ended: Boolean, myRole: String
             if (!here && allowed && Tracker.tripId != null) Hint(stringResource(R.string.track_now_other))
             Note(note, true)
         } else {
-            Hint(
-                when {
-                    ended -> stringResource(R.string.track_now_ended)
-                    myRole == "GUEST" -> stringResource(R.string.track_now_guest)
-                    else -> stringResource(R.string.track_off_by_organiser)
-                },
-            )
+            // What can not be done is grey and says why only when tapped, never as a standing notice.
+            val why = when {
+                ended -> stringResource(R.string.track_now_ended)
+                myRole == "GUEST" -> stringResource(R.string.track_now_guest)
+                else -> stringResource(R.string.track_off_by_organiser)
+            }
+            Text(stringResource(R.string.track_now_title), style = TitleStyle.copy(color = MaterialTheme.colorScheme.onSurface))
+            Box {
+                MainButton(stringResource(R.string.track_start), {}, Modifier.fillMaxWidth(), icon = Glyphs.pin, enabled = false)
+                Box(Modifier.matchParentSize().clip(CircleShape).clickable { haptics(Haptic.Reject); note = why })
+            }
+            Note(note, false, feel = null)
         }
     }
     if (confirmStop) Confirm(

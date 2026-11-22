@@ -346,7 +346,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                                 talk = talk, onComments = { m -> viewingComments = true; viewing = m.id }, marks = marks,
                             ) else androidx.compose.runtime.key(trip.stops.size) {
                                 Planner(
-                                    trip, dark,
+                                    trip, dark, media = media,
                                     // A tapped stop: up to the map, which flies there.
                                     onFlyTo = { at -> scope.launch { scroll.animateScrollTo(0); cameraInline?.flyTo(at, 10.0) } },
                                     onPickOnMap = if (trip.remoteId != null) ({ picked -> pickFor = picked }) else null,

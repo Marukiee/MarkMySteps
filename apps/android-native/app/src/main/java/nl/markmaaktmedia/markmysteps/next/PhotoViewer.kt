@@ -559,8 +559,11 @@ private fun PlaceLine(current: Media, list: List<Media>, page: Int, stops: List<
         val lat = current.lat; val lon = current.lon
         // As the web: a photo that does not know where it was taken has no place (a stop guessed from the day
         // put "Heenvlucht" under a photo in Central Park); the stop only stands in when the spot has no name.
-        place = if (lat == null || lon == null) null
-        else runCatching { ViewerApi.placeName(lat, lon) }.fold({ it ?: fallback }, { e -> android.util.Log.w(TAG, "place lookup failed: $e"); fallback ?: place })
+        if (lat == null || lon == null) { place = null; return@LaunchedEffect }
+        // The stop's name at once, while the exact name is looked up (that can take seconds on a slow line); it
+        // only crossfades when the looked-up name is different. A name already shown for this town stays.
+        if (place == null && fallback != null) place = fallback
+        place = runCatching { ViewerApi.placeName(lat, lon) }.fold({ it ?: fallback }, { e -> android.util.Log.w(TAG, "place lookup failed: $e"); fallback ?: place })
         // The neighbours' names ahead of time, so paging shows them straight away.
         for (n in listOf(page + 1, page - 1)) list.getOrNull(n)?.let { m -> if (m.lat != null && m.lon != null) runCatching { ViewerApi.placeName(m.lat, m.lon) } }
     }

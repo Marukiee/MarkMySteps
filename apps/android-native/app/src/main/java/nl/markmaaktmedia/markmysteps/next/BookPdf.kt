@@ -358,13 +358,15 @@ fun BookSaveBar(trip: Trip) {
                     text, modifier = Modifier.weight(1f),
                     style = androidx.compose.ui.text.TextStyle(fontFamily = Outfit, fontWeight = androidx.compose.ui.text.font.FontWeight(600), fontSize = 15.sp, color = if (last is BookJob.State.Failed) cs.error else cs.onSurface),
                 )
+                // Pills like every other button in the app: the next step filled, the rest tonal.
+                val pill = androidx.compose.ui.text.TextStyle(fontFamily = Outfit, fontWeight = androidx.compose.ui.text.font.FontWeight(600), fontSize = 14.sp)
                 when (val l = last) {
-                    is BookJob.State.Running -> androidx.compose.material3.TextButton(onClick = { BookJob.cancel(context) }) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.book_cancel)) }
-                    is BookJob.State.Done -> androidx.compose.material3.TextButton(onClick = {
+                    is BookJob.State.Running -> androidx.compose.material3.FilledTonalButton(onClick = { BookJob.cancel(context) }, shapes = androidx.compose.material3.ButtonDefaults.shapes()) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.book_cancel), style = pill) }
+                    is BookJob.State.Done -> androidx.compose.material3.Button(shapes = androidx.compose.material3.ButtonDefaults.shapes(), onClick = {
                         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(l.uri, "application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
                         BookJob.clear()
-                    }) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.book_open)) }
-                    else -> androidx.compose.material3.TextButton(onClick = { BookJob.clear() }) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.common_close)) }
+                    }) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.book_open), style = pill) }
+                    else -> androidx.compose.material3.FilledTonalButton(onClick = { BookJob.clear() }, shapes = androidx.compose.material3.ButtonDefaults.shapes()) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.common_close), style = pill) }
                 }
             }
             val l = last

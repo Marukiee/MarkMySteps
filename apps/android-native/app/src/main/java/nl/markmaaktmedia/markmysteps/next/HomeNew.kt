@@ -240,6 +240,9 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         // it, pulling back springs it into place again.
         val pages = remember { androidx.compose.animation.core.SeekableTransitionState(target) }
         val holder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+        // Reizigers opens at the top, bell in view, each time you come to it from another tab (back included).
+        // A trip opened from it keeps the page as it was, so coming back from the trip lands where you were.
+        androidx.compose.runtime.LaunchedEffect(page) { if (page != 1) holder.removeState("page1") }
         val backScope = androidx.compose.runtime.rememberCoroutineScope()
         // Exactly as Tandem: one seekable transition drives every page change, the back gesture
         // included. While the finger drags the transition is seeked, letting go plays the same
@@ -785,12 +788,11 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
             title = { Text(stringResource(R.string.home_rename), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
             text = { TripField(title, { title = it.take(120) }) },
             confirmButton = {
-                androidx.compose.material3.TextButton(enabled = !busy && title.isNotBlank() && title.trim() != trip.title, onClick = {
+                DialogButtons(stringResource(R.string.home_save), danger = false, enabled = !busy && title.isNotBlank() && title.trim() != trip.title, onConfirm = {
                     busy = true
                     scope.launch { runCatching { Remote.renameTrip(trip, title) }; Data.load(); busy = false; renaming = false }
-                }) { Text(stringResource(R.string.home_save), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+                }, onDismiss = { renaming = false })
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { renaming = false }) { Text(stringResource(R.string.common_cancel), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
         )
     }
     if (deleting) {
@@ -808,12 +810,11 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
                 }
             },
             confirmButton = {
-                androidx.compose.material3.TextButton(enabled = !busy && typed.trim() == trip.title.trim(), onClick = {
+                DialogButtons(stringResource(R.string.home_delete), danger = true, enabled = !busy && typed.trim() == trip.title.trim(), onConfirm = {
                     busy = true
                     scope.launch { runCatching { Remote.deleteTrip(trip) }; CardSizePref.set(trip.id, null); Data.load(); busy = false; deleting = false }
-                }) { Text(stringResource(R.string.home_delete), color = if (typed.trim() == trip.title.trim()) cs.error else cs.onSurface.copy(alpha = 0.38f), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+                }, onDismiss = { deleting = false })
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { deleting = false }) { Text(stringResource(R.string.common_cancel), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
         )
     }
     if (leaving) {
@@ -823,12 +824,11 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
             title = { Text(stringResource(R.string.home_leave_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
             text = { Text(stringResource(R.string.home_leave_body, trip.title), style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
             confirmButton = {
-                androidx.compose.material3.TextButton(enabled = !busy, onClick = {
+                DialogButtons(stringResource(R.string.home_leave_confirm), danger = true, enabled = !busy, onConfirm = {
                     busy = true
                     scope.launch { runCatching { Remote.leaveTrip(trip) }; Data.load(); busy = false; leaving = false }
-                }) { Text(stringResource(R.string.home_leave_confirm), color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+                }, onDismiss = { leaving = false })
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { leaving = false }) { Text(stringResource(R.string.common_cancel), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
         )
     }
 }

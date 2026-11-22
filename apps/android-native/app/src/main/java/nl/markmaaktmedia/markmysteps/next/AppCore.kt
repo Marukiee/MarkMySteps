@@ -136,12 +136,16 @@ object PhotoDisk {
     private fun trim() {
         val limit = AppPrefs.photoCacheMb.toLong() * 1024 * 1024
         if (limit <= 0) return
-        val files = dir?.listFiles()?.sortedBy { it.lastModified() } ?: return
-        var total = files.sumOf { it.length() }
-        for (f in files) {
-            if (total <= limit) break
-            total -= f.length()
-            f.delete()
+        // Sorted on a snapshot of the times: photos are written, touched and removed while this runs, and a
+        // time that changes in the middle of a sort makes the sort itself fail. A cleanup never takes the app down.
+        runCatching {
+            val files = (dir?.listFiles() ?: return).map { Triple(it, it.lastModified(), it.length()) }.sortedBy { it.second }
+            var total = files.sumOf { it.third }
+            for ((f, _, size) in files) {
+                if (total <= limit) break
+                total -= size
+                f.delete()
+            }
         }
     }
 }

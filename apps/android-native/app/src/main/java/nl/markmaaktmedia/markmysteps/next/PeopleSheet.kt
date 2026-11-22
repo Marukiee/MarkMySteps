@@ -144,14 +144,13 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake
             title = { Text(if (m.role == "GUEST") stringResource(R.string.people_remove_guest) else stringResource(R.string.people_remove_companion), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
             text = { Text(stringResource(R.string.people_remove_body, m.name), style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
             confirmButton = {
-                TextButton(onClick = {
+                DialogButtons(stringResource(R.string.home_delete), danger = true, onConfirm = {
                     removing = null
                     val before = members
                     members = members - m
                     scope.launch { runCatching { Remote.removeMember(trip, m.userId) }.onSuccess { onChanged() }.onFailure { members = before; error = Lang.text(R.string.people_remove_failed) } }
-                }) { Text(stringResource(R.string.home_delete), color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+                }, onDismiss = { removing = null })
             },
-            dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.common_cancel), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
         )
     }
 }
@@ -213,8 +212,8 @@ private fun MemberRow(
                 // The same menu as everywhere: the role as a choice with a tick, tracking, then removing.
                 AppMenu(menu, onDismiss = { menu = false }, groups = listOf(
                     listOf(
-                        MenuEntry(stringResource(R.string.people_companion), Glyphs.friends, selected = m.role != "GUEST") { if (m.role == "GUEST") onRole("MEMBER") },
-                        MenuEntry(stringResource(R.string.people_guest), Glyphs.person, selected = m.role == "GUEST") { if (m.role != "GUEST") onRole("GUEST") },
+                        MenuEntry(stringResource(R.string.people_companion), Glyphs.friends, selected = m.role != "GUEST", inline = true) { if (m.role == "GUEST") onRole("MEMBER") },
+                        MenuEntry(stringResource(R.string.people_guest), Glyphs.person, selected = m.role == "GUEST", inline = true) { if (m.role != "GUEST") onRole("GUEST") },
                     ),
                     if (m.role != "GUEST") listOfNotNull(
                         MenuEntry(stringResource(R.string.people_can_track), Glyphs.distance, selected = m.canTrack) { onTrack(!m.canTrack) },
@@ -438,20 +437,23 @@ private fun LinkSettings(trip: Trip, link: Remote.ShareLink, onDismiss: () -> Un
                     if (link.hasPassword) FilledTonalButton(onClick = {
                         scope.launch { runCatching { Remote.setSharePassword(trip, link.id, null) }.onSuccess { onChanged(link.copy(hasPassword = false)); onDismiss() }.onFailure { error = Lang.text(R.string.summary_save_failed) } }
                     }, shapes = ButtonDefaults.shapes()) { Text(stringResource(R.string.people_password_remove), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
-                    TextButton(onClick = { confirmRevoke = true }) { Text(stringResource(R.string.people_revoke), color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
+                    // Revoking is red and tonal: a step towards removing, confirmed on the next screen.
+                    FilledTonalButton(
+                        onClick = { confirmRevoke = true }, shapes = ButtonDefaults.shapes(),
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = cs.errorContainer, contentColor = cs.onErrorContainer),
+                    ) { Text(stringResource(R.string.people_revoke), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
                 }
             }
         },
         confirmButton = {
-            if (confirmRevoke) TextButton(onClick = {
+            if (confirmRevoke) DialogButtons(stringResource(R.string.people_revoke_confirm), danger = true, onConfirm = {
                 scope.launch { runCatching { Remote.revokeShareLink(trip, link.id) }.onSuccess { onChanged(null); onDismiss() } }
-            }) { Text(stringResource(R.string.people_revoke_confirm), color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
-            else TextButton(onClick = {
-                if (password.length < 4) { error = Lang.text(R.string.people_min_chars); return@TextButton }
-                scope.launch { runCatching { Remote.setSharePassword(trip, link.id, password) }.onSuccess { onChanged(link.copy(hasPassword = true)); onDismiss() }.onFailure { error = Lang.text(R.string.summary_save_failed) } }
-            }) { Text(stringResource(R.string.home_save), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+            }, onDismiss = { confirmRevoke = false })
+            else DialogButtons(stringResource(R.string.home_save), danger = false, onConfirm = {
+                if (password.length < 4) error = Lang.text(R.string.people_min_chars)
+                else scope.launch { runCatching { Remote.setSharePassword(trip, link.id, password) }.onSuccess { onChanged(link.copy(hasPassword = true)); onDismiss() }.onFailure { error = Lang.text(R.string.summary_save_failed) } }
+            }, onDismiss = onDismiss)
         },
-        dismissButton = { TextButton(onClick = { if (confirmRevoke) confirmRevoke = false else onDismiss() }) { Text(stringResource(R.string.common_cancel), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
     )
 }
 

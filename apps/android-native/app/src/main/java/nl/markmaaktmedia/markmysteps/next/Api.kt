@@ -642,6 +642,12 @@ object Remote {
 
     data class Place(val name: String, val region: String, val countryCode: String?, val at: LonLat)
 
+    /** Within about 5 km: the same place for a search list. */
+    private fun near(a: LonLat, b: LonLat): Boolean {
+        val dx = (a.first - b.first) * kotlin.math.cos(Math.toRadians(a.second)); val dy = a.second - b.second
+        return kotlin.math.hypot(dx, dy) * 111.2 < 5.0
+    }
+
     /** Towns by name, from Photon like the web app (only what was typed leaves the phone). */
     suspend fun searchPlaces(query: String): List<Place> = withContext(Dispatchers.IO) {
         if (query.trim().length < 2) return@withContext emptyList()
@@ -657,7 +663,11 @@ object Remote {
                 // Photon only speaks English, German and French: the country is named in Dutch from its code, the region stays as given.
                 val country = cc?.let { java.util.Locale("", it).getDisplayCountry(Lang.locale) }?.takeIf { it.isNotBlank() && it != cc } ?: p.optString("country")
                 Place(name, listOf(p.optString("state"), country).filter { it.isNotBlank() }.joinToString(", "), cc, g.getDouble(0) to g.getDouble(1))
-            }.distinctBy { it.name + it.region }.take(6)
+            }.distinctBy { it.name + it.region }
+                // One place once: Photon also returns a town's own spelling or its municipality ("Seville" and
+                // "Sevilla") a few kilometres apart. The first, best match stays.
+                .fold(emptyList<Place>()) { kept, p -> if (kept.any { it.countryCode == p.countryCode && near(it.at, p.at) }) kept else kept + p }
+                .take(6)
         }.getOrDefault(emptyList())
     }
 
