@@ -199,7 +199,7 @@ fun rememberPicked(trip: Trip): Pair<Picked?, Reading> {
         val looks = known.mapValues { it.value.first } + fresh
         val aspects = known.mapValues { it.value.second } + freshAspects
         if (remote != null && fresh.isNotEmpty()) LookStore.save(context, remote, looks, aspects)
-        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { pickPhotos(media, looks, aspects, trip.stops, start) }
+        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { pickPhotos(media, looks, aspects, trip.stops, start, coverId = trip.coverId) }
         cachedPicks[key] = result
         picked = result
     }
@@ -452,11 +452,11 @@ private fun RouteSheet(ctx: BookContext, u: Dp) {
             ctx.trip.dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.03f).sp(), color = cs.onSurfaceVariant),
             modifier = Modifier.padding(top = u * 0.008f),
         )
-        Box(Modifier.padding(top = u * 0.04f).fillMaxWidth().weight(1f).clip(RoundedCornerShape(u * 0.04f))) {
+        Box(Modifier.padding(top = u * 0.04f).fillMaxWidth().weight(1f).clip(RoundedCornerShape(u * 0.04f)).background(globeStyle(ctx.dark).sphere)) {
             Globe(listOf(ctx.trip), globeStyle(ctx.dark), Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = zoom * 1.1f, showStops = true, turnable = false)
         }
         val stops = ctx.trip.stops
-        val twoCols = stops.size > 5
+        val twoCols = stops.size > 3
         val rows = if (twoCols) (stops.size + 1) / 2 else stops.size
         Row(Modifier.padding(top = u * 0.045f).fillMaxWidth()) {
             for (col in 0 until if (twoCols) 2 else 1) {
@@ -645,9 +645,9 @@ private fun Viewer(all: List<Rated>, start: Rated, trip: Trip, onClose: (Rated) 
                 style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 18.sp, color = Color.White),
                 modifier = Modifier.padding(top = 32.dp),
             )
-            val local = r.photo.takenAt.atZone(java.time.ZoneId.systemDefault())
+            val local = r.photo.takenAt.atZone(zoneAt(r.photo.at, trip.stops))
             Text(
-                "${localDay(r.photo.takenAt, r.photo.at).format(longDate)} · ${local.format(clock)}",
+                "${local.format(longDate)} · ${local.format(clock)}",
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f)),
                 modifier = Modifier.padding(top = 2.dp, bottom = 16.dp),
             )

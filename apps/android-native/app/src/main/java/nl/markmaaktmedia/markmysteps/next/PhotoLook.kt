@@ -24,12 +24,32 @@ data class Look(
     val hash: Long,
     /** Average colour, for the placeholder while the photo loads. */
     val average: Int,
+    /** 0 to 1: how much of the frame the biggest face fills (a close-up or selfie is near 1). */
+    val face: Float = 0f,
 ) {
     /** One number for "how good does this look", 0 to 1. */
     val beauty: Float get() = 0.45f * sharp + 0.30f * exposure + 0.25f * colour
 
     companion object {
-        fun of(bitmap: Bitmap): Look {
+        fun of(bitmap: Bitmap): Look = basic(bitmap).copy(face = faceShare(bitmap))
+
+        /**
+         * The phone's own face finder on a small copy: the distance between the
+         * eyes against the frame's width. Nothing leaves the phone.
+         */
+        private fun faceShare(bitmap: Bitmap): Float = runCatching {
+            val w = 240
+            val h = (bitmap.height * w / bitmap.width.toFloat()).toInt().coerceAtLeast(2) and 1.inv()
+            val small = Bitmap.createScaledBitmap(bitmap, w, h, true).copy(Bitmap.Config.RGB_565, false)
+            val faces = arrayOfNulls<android.media.FaceDetector.Face>(4)
+            val n = android.media.FaceDetector(w, h, faces.size).findFaces(small, faces)
+            small.recycle()
+            val eyes = (0 until n).maxOfOrNull { faces[it]?.eyesDistance() ?: 0f } ?: 0f
+            // Eyes a third of the width apart is a face filling the frame.
+            (eyes / (w * 0.33f)).coerceIn(0f, 1f)
+        }.getOrDefault(0f)
+
+        private fun basic(bitmap: Bitmap): Look {
             val small = Bitmap.createScaledBitmap(bitmap, 64, 64, true)
             val px = IntArray(64 * 64)
             small.getPixels(px, 0, 64, 0, 0, 64, 64)

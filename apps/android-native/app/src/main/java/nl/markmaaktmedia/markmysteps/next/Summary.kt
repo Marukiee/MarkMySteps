@@ -216,7 +216,7 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                     PosterData(
                         trip, picked, dark, legibleColor(trip.color, dark), tripFacts(trip, picked),
                         perStop = picked.highlights.filter { it.stop != null }.groupBy { it.stop!! }
-                            .map { (i, l) -> i to l.maxBy { it.score } }.sortedBy { it.first },
+                            .map { (i, l) -> i to l.maxBy { it.showScore } }.sortedBy { it.first },
                     )
                 }
                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
@@ -369,9 +369,23 @@ private fun subtitle(trip: Trip): String {
     val stops = trip.stops
     return when {
         stops.isEmpty() -> trip.dates
-        stops.map { it.flag }.distinct().size > 1 -> stops.map { it.flag }.distinct().joinToString(" ")
+        stops.map { it.flag }.distinct().size > 1 -> countryNames(stops)
         stops.size == 1 -> "${stops[0].flag} ${stops[0].name}"
         else -> "${stops[0].flag} ${stops.first().name} tot ${stops.last().name}"
+    }
+}
+
+/** "Marokko en Spanje", from the stops' flags, in the order the trip went. */
+private fun countryNames(stops: List<Stop>): String {
+    val nl = java.util.Locale.forLanguageTag("nl")
+    val names = stops.map { it.flag }.distinct().mapNotNull { flag ->
+        val cps = flag.codePoints().toArray()
+        if (cps.size != 2) null else java.util.Locale.Builder().setRegion(cps.joinToString("") { (it - 0x1F1E6 + 'A'.code).toChar().toString() }).build().getDisplayCountry(nl)
+    }
+    return when (names.size) {
+        0 -> ""
+        1 -> names[0]
+        else -> names.dropLast(1).joinToString(", ") + " en " + names.last()
     }
 }
 
@@ -438,7 +452,7 @@ private fun RoutePoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
             }
         }
         // Three different places where there are, the best of each.
-        val photos = (data.perStop.map { it.second }.sortedByDescending { it.score } + data.picked.highlights.sortedByDescending { it.score })
+        val photos = (data.perStop.map { it.second }.sortedByDescending { it.showScore } + data.picked.highlights.sortedByDescending { it.showScore })
             .distinct().take(3).sortedBy { it.photo.takenAt }
         if (photos.isNotEmpty()) {
             val weights = photos.map { it.aspect.coerceIn(0.7f, 1.5f) }
@@ -454,7 +468,7 @@ private fun RoutePoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
 @Composable
 private fun PhotosPoster(data: PosterData, format: Format, u: Dp) {
     val count = when (format) { Format.Story -> 6; Format.Post -> 5; Format.Square -> 4 }
-    val photos = remember(data, format) { data.picked.highlights.sortedByDescending { it.score }.take(count).sortedBy { it.photo.takenAt } }
+    val photos = remember(data, format) { data.picked.highlights.sortedByDescending { it.showScore }.take(count).sortedBy { it.photo.takenAt } }
     val layout = remember(photos, format) { if (photos.isEmpty()) null else arrange(photos.map { it.aspect }, format.aspect, gap = 0.008f) }
     val h = u / format.aspect
     Box(Modifier.fillMaxSize()) {

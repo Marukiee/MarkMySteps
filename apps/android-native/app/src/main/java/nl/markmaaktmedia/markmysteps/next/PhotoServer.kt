@@ -38,7 +38,7 @@ suspend fun serverMedia(trip: Trip): List<TripPhoto> {
 
 /** Looks and shapes per photo id, in the app's own files, one file per trip. */
 object LookStore {
-    private fun file(context: Context, trip: String) = File(context.filesDir, "looks/$trip.json")
+    private fun file(context: Context, trip: String) = File(context.filesDir, "looks2/$trip.json")
 
     suspend fun load(context: Context, trip: String): Map<String, Pair<Look, Float>> = withContext(Dispatchers.IO) {
         val f = file(context, trip)
@@ -47,7 +47,7 @@ object LookStore {
             val o = JSONObject(f.readText())
             o.keys().asSequence().associateWith { id ->
                 val a = o.getJSONArray(id)
-                Look(a.getDouble(0).toFloat(), a.getDouble(1).toFloat(), a.getDouble(2).toFloat(), a.getString(3).toULong(16).toLong(), a.getInt(4)) to a.getDouble(5).toFloat()
+                Look(a.getDouble(0).toFloat(), a.getDouble(1).toFloat(), a.getDouble(2).toFloat(), a.getString(3).toULong(16).toLong(), a.getInt(4), a.optDouble(6, 0.0).toFloat()) to a.getDouble(5).toFloat()
             }
         }.getOrDefault(emptyMap())
     }
@@ -56,7 +56,7 @@ object LookStore {
         val o = JSONObject()
         for ((id, l) in looks) {
             val aspect = aspects[id] ?: continue
-            o.put(id, JSONArray().put(l.sharp.toDouble()).put(l.exposure.toDouble()).put(l.colour.toDouble()).put(l.hash.toULong().toString(16)).put(l.average).put(aspect.toDouble()))
+            o.put(id, JSONArray().put(l.sharp.toDouble()).put(l.exposure.toDouble()).put(l.colour.toDouble()).put(l.hash.toULong().toString(16)).put(l.average).put(aspect.toDouble()).put(l.face.toDouble()))
         }
         val f = file(context, trip)
         f.parentFile?.mkdirs()

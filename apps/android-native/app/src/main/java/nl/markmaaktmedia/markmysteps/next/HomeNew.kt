@@ -171,6 +171,10 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             return@AnimatedContent
         }
         var open by remember { mutableStateOf(Data.all.firstOrNull { it.id == startTrip }) }
+        // The adb extra "trip" may name a server trip, by id or title, which only exists once it has loaded.
+        LaunchedEffect(Data.version) {
+            if (open == null && startTrip != null) open = Data.all.firstOrNull { it.id == startTrip || it.title == startTrip }
+        }
         var page by remember { mutableIntStateOf(when (startPage) { "settings" -> 2; "travellers" -> 1; else -> 0 }) }
         BackHandler(enabled = open != null || page != 0) { if (open != null) open = null else page = 0 }
         val motion = MaterialTheme.motionScheme

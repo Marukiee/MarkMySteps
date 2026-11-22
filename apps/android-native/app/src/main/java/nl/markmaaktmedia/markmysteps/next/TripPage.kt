@@ -151,7 +151,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 }
 
                 Facts(trip, Modifier.padding(top = 18.dp), photos = media?.size)
-                if (!trip.upcoming) MakeTiles(onOpen = { extra = it }, Modifier.padding(top = 10.dp))
+                if (!trip.upcoming && media?.isEmpty() != true) MakeTiles(onOpen = { extra = it }, Modifier.padding(top = 10.dp))
 
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
                     listOf("Tijdlijn", "Routeplanner").forEachIndexed { i, label ->

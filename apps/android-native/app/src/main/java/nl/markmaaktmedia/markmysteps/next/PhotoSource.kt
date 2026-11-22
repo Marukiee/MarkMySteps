@@ -82,7 +82,12 @@ fun PhotoView(photo: TripPhoto, modifier: Modifier = Modifier, size: PhotoSize =
             // Show a smaller rendition first, when there is one, so something is there at once.
             if (size == PhotoSize.Original) cachedBitmap(photo.id, PhotoSize.Preview)?.let { bitmap = it.asImageBitmap() }
             if (bitmap == null && size != PhotoSize.Thumbnail) cachedBitmap(photo.id, PhotoSize.Thumbnail)?.let { bitmap = it.asImageBitmap() }
-            loader.load(photo.id, size)?.let { bitmap = it.asImageBitmap() }
+            loader.load(photo.id, size)?.let {
+                if (size == PhotoSize.Original && android.os.Build.VERSION.SDK_INT >= 34) {
+                    android.util.Log.i("PhotoBook", "original ${it.width}x${it.height} gainmap=${it.hasGainmap()}")
+                }
+                bitmap = it.asImageBitmap()
+            }
         }
     }
     val shown by animateFloatAsState(if (photo.scene != null || bitmap != null) 1f else 0f, MaterialTheme.motionScheme.slowEffectsSpec(), label = "photo")

@@ -47,6 +47,8 @@ data class TripPhoto(
 /** A photo once its thumbnail has been looked at. */
 data class Rated(val photo: TripPhoto, val look: Look, val aspect: Float, val stop: Int?) {
     val score: Float get() = look.beauty + (if (photo.at != null) 0.04f else 0f)
+    /** For a poster, a cover or a chapter opener: places over close-ups of faces. */
+    val showScore: Float get() = score - 0.35f * (look.face - 0.35f).coerceAtLeast(0f) / 0.65f
 }
 
 data class BookDay(
@@ -75,17 +77,34 @@ private fun isScreenshot(p: TripPhoto, aspect: Float): Boolean =
     p.at == null && (aspect < 0.5f || aspect > 2.05f) && aspect in 0.4f..2.4f
 
 /**
- * The day a photo was taken where it was taken. The server stores UTC; near
- * home (Europe) the phone's own zone is right, further away the longitude
- * gives the offset, so an early photo in Tbilisi or New York lands on its own
- * day and not on the evening before.
+ * The zone a photo was taken in. The server stores the true moment (UTC), so
+ * the local day and clock come from the place: the country of the nearest
+ * stop gives the zone (the one closest to the photo's longitude where a
+ * country has several), and without stops the longitude alone. An evening
+ * photo in Marrakesh then stays on its own day instead of moving to the next
+ * one on Dutch time.
  */
-fun localDay(at: Instant, where: LonLat?): LocalDate {
-    val home = ZoneId.systemDefault()
-    if (where == null || abs(where.first - HomeAirport.first) < 22) return at.atZone(home).toLocalDate()
-    val hours = (where.first / 15.0).roundToInt().coerceIn(-12, 14)
-    return at.atOffset(java.time.ZoneOffset.ofHours(hours)).toLocalDate()
+fun zoneAt(where: LonLat?, stops: List<Stop>): ZoneId {
+    val near = where?.let { w -> stops.minByOrNull { angle(it.at, w) }?.takeIf { angle(it.at, w) < 8.0 } } ?: stops.firstOrNull().takeIf { where == null }
+    val code = near?.flag?.let(::countryOf)
+    if (code != null) {
+        val ids = android.icu.util.TimeZone.getAvailableIDs(code)
+        val lon = where?.first ?: near.at.first
+        val pick = ids.minByOrNull { id -> abs(android.icu.util.TimeZone.getTimeZone(id).rawOffset / 3_600_000.0 - lon / 15.0) }
+        if (pick != null) return runCatching { ZoneId.of(pick) }.getOrNull() ?: ZoneId.systemDefault()
+    }
+    if (where == null || abs(where.first - HomeAirport.first) < 22) return ZoneId.systemDefault()
+    return java.time.ZoneOffset.ofHours((where.first / 15.0).roundToInt().coerceIn(-12, 14))
 }
+
+/** "🇲🇦" to "MA": a flag is two regional indicator letters. */
+private fun countryOf(flag: String): String? {
+    val cps = flag.codePoints().toArray()
+    if (cps.size != 2 || cps.any { it !in 0x1F1E6..0x1F1FF }) return null
+    return cps.joinToString("") { (it - 0x1F1E6 + 'A'.code).toChar().toString() }
+}
+
+fun localDay(at: Instant, where: LonLat?, stops: List<Stop> = emptyList()): LocalDate = at.atZone(zoneAt(where, stops)).toLocalDate()
 
 /** Nearest stop within about 60 km, for "which place is this". */
 fun nearestStop(at: LonLat?, stops: List<Stop>): Int? {
@@ -106,8 +125,10 @@ fun pickPhotos(
     /** The trip's first day, so "Dag 1" is the day the trip starts even without photos. */
     start: LocalDate? = null,
     target: Int? = null,
+    /** The cover chosen for the trip on the web, which wins when it is a photo of the trip. */
+    coverId: String? = null,
 ): Picked {
-    fun dayOf(p: TripPhoto) = localDay(p.takenAt, p.at)
+    fun dayOf(p: TripPhoto) = localDay(p.takenAt, p.at, stops)
     val photos = media.filter { !it.video }
     val videos = media.filter { it.video }
 
@@ -143,7 +164,7 @@ fun pickPhotos(
         val chosen = spread(list, shares[date] ?: 1).sortedBy { it.photo.takenAt }
         val placeIndex = list.mapNotNull { it.stop }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
         val place = placeIndex?.let { stops[it] }
-        val hero = chosen.maxByOrNull { it.score + (if (it.aspect >= 1.2f) 0.08f else 0f) }
+        val hero = chosen.maxByOrNull { it.showScore + (if (it.aspect >= 1.2f) 0.08f else 0f) }
         BookDay(
             date = date,
             number = (date.toEpochDay() - first.toEpochDay()).toInt() + 1,
@@ -155,7 +176,9 @@ fun pickPhotos(
         )
     }
 
-    val cover = keep.maxByOrNull { it.score + (if (it.aspect in 0.7f..0.9f) 0.1f else if (it.aspect >= 1.2f) 0.06f else 0f) }
+    // Otherwise a view rather than a face: a photo with a place, wide or of the page's own shape.
+    val cover = rated.firstOrNull { it.photo.id == coverId }
+        ?: keep.maxByOrNull { it.showScore + (if (it.photo.at != null) 0.05f else 0f) + (if (it.aspect in 0.68f..0.76f) 0.08f else if (it.aspect >= 1.3f) 0.1f else 0f) }
     val highlights = highlights(keep, stops.size, 12)
     return Picked(days, cover, highlights, photos.size, videos.size, folded)
 }
@@ -225,8 +248,8 @@ private fun spread(list: List<Rated>, n: Int): List<Rated> {
 private fun highlights(keep: List<Rated>, stops: Int, n: Int): List<Rated> {
     val out = mutableListOf<Rated>()
     keep.filter { it.stop != null }.groupBy { it.stop }.values
-        .map { g -> g.maxBy { it.score } }
-        .sortedByDescending { it.score }
+        .map { g -> g.maxBy { it.showScore } }
+        .sortedByDescending { it.showScore }
         .take(max(1, n - 3))
         .forEach { out += it }
     val rest = spread(keep.filter { it !in out }.sortedBy { it.photo.takenAt }, n - out.size)
