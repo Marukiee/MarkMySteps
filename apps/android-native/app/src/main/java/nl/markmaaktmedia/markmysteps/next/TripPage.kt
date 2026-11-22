@@ -361,14 +361,17 @@ private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<St
     // days, stops (only for a route of two or more), photos, travellers (more than you alone), countries.
     val travellers = trip.members.count { it.role != "GUEST" }.takeIf { it > 0 } ?: (trip.people.size + trip.extraPeople)
     val countries = trip.stops.mapNotNull { it.flag.takeIf { f -> f.isNotBlank() } }.distinct().size
-    listOfNotNull(
-        trip.km?.takeIf { it > 0 }?.let { "%,d".format(it).replace(',', '.') to "kilometer" },
-        trip.days.takeIf { it > 0 }?.let { "$it" to (if (it == 1) "dag" else "dagen") },
-        trip.stops.size.takeIf { it > 1 }?.let { "$it" to "stops" },
-        (photos ?: trip.photos).takeIf { it > 0 }?.let { "$it" to (if (it == 1) "foto" else "foto's") },
-        travellers.takeIf { it > 1 }?.let { "$it" to "reizigers" },
-        countries.takeIf { it > 0 }?.let { "$it" to (if (it == 1) "land" else "landen") },
-    ).take(4)
+    // Each figure that has something to say, by its id; the trip's own choice (Reisinstellingen > Feitjes)
+    // comes first, topped up from the fixed order, as the web's resolveFacts.
+    val facts = linkedMapOf<String, Pair<String?, String>>()
+    trip.km?.takeIf { it > 0 }?.let { facts["km"] = "%,d".format(it).replace(',', '.') to "kilometer" }
+    trip.days.takeIf { it > 0 }?.let { facts["days"] = "$it" to (if (it == 1) "dag" else "dagen") }
+    trip.stops.size.takeIf { it > 1 }?.let { facts["stops"] = "$it" to "stops" }
+    (photos ?: trip.photos).takeIf { it > 0 }?.let { facts["photos"] = "$it" to (if (it == 1) "foto" else "foto's") }
+    travellers.takeIf { it > 1 }?.let { facts["travellers"] = "$it" to "reizigers" }
+    countries.takeIf { it > 0 }?.let { facts["countries"] = "$it" to (if (it == 1) "land" else "landen") }
+    val chosen = TripFactsPref.chosen[trip.id] ?: trip.remoteId?.let { TripFactsPref.chosen[it] }.orEmpty()
+    (chosen + TripFactsPref.Ids).distinct().mapNotNull { facts[it] }.take(4)
 }
 
 /**
