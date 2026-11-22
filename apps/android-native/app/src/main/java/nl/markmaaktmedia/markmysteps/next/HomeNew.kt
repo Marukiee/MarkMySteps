@@ -159,7 +159,7 @@ private val Pad = 16.dp
 @Composable
 fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, startPage: String? = null) {
     MaterialExpressiveTheme(
-        colorScheme = animatedScheme(if (dark) DarkScheme else LightScheme),
+        colorScheme = animatedScheme(withWallpaperAccent(if (dark) DarkScheme else LightScheme, dark)),
         motionScheme = MotionScheme.expressive(),
     ) {
         // First the sign-in, unless signed in already or a test opens a page straight away.

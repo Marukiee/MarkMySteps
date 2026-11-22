@@ -423,7 +423,7 @@ private fun buildScene(trips: List<Trip>, dark: Boolean): GlobeScene {
         trip.id to (places.filter { trip in it.members }.minByOrNull { angle(it.at, want) }?.at ?: want)
     }
     val freeStops = trips.associate { trip ->
-        trip.id to trip.stops.map { it.at }.filter { s -> places.none { angle(it.at, s) < SAME_PLACE_DEG } }
+        trip.id to trip.stops.map { it.at }.ifEmpty { trip.stopPoints }.filter { s -> places.none { angle(it.at, s) < SAME_PLACE_DEG } }
     }
     return GlobeScene(trips, colors, runs, sceneBows, flatten(shownAirports), places, labelAt, freeStops)
 }
@@ -813,6 +813,26 @@ private fun DrawScope.drawScene(scene: GlobeScene, proj: Ortho, style: GlobeStyl
 
     val ds = if (motion == null) 0.75f else dotScale(motion.scale)
 
+    // Instellingen › Voorkeuren › Globe › Altijd: every trip's stops, quietly, besides the one on show.
+    if (!showStops && UiPrefs.globeStopsAlways) for (trip in scene.trips) {
+        if ((motion?.stopReveal?.get(trip.id) ?: 0f) >= 0.012f) continue
+        val stops = scene.freeStops[trip.id] ?: continue
+        val color = colorOf(trip)
+        val rimColor = if (dark) Color(20, 25, 32, 166) else Color(255, 255, 255, 230)
+        for (s in stops) {
+            if (!proj.project(s.first, s.second)) continue
+            val at = Offset(proj.px, proj.py)
+            drawCircle(color, 2.6f * density * ds, at, alpha = 0.9f)
+            drawCircle(rimColor, 2.6f * density * ds, at, alpha = 0.9f, style = pens.stopRim)
+        }
+    }
+    // Your own position while tracking (Instellingen › Voorkeuren › Eigen locatie › Ook op de homepage).
+    val self = Tracker.lastFix
+    if (UiPrefs.selfOnHome && Tracker.tripId != null && self != null && proj.project(self.first, self.second)) {
+        val at = Offset(proj.px, proj.py)
+        drawCircle(Color.White, 6.5f * density, at)
+        drawCircle(Color(0xFF3B82F6), 4.6f * density, at)
+    }
     // The stops in between, only on an open trip.
     if (showStops) for (trip in scene.trips) for (stop in trip.stops) {
         if (!proj.project(stop.at.first, stop.at.second)) continue

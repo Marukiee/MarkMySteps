@@ -130,6 +130,8 @@ class Item(
     val plain: Boolean = false,
     val danger: Boolean = false,
     val enabled: Boolean = true,
+    /** Cannot work right now: grey, but a tap still runs [action], which says why. */
+    val dimmed: Boolean = false,
 )
 
 @Composable
@@ -161,7 +163,7 @@ fun IconTile(icon: List<Shape24>, seed: Int, big: Boolean = false, danger: Boole
 @Composable
 fun SettingRow(item: Item, i: Int, n: Int, seed: Int) {
     val cs = MaterialTheme.colorScheme
-    val alpha by animateFloatAsState(if (item.enabled) 1f else 0.45f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "enabled")
+    val alpha by animateFloatAsState(if (item.enabled && !item.dimmed) 1f else 0.45f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "enabled")
     Row(
         Modifier.fillMaxWidth().clip(slabShape(i, n)).background(cs.surfaceContainerLow)
             .then(if (item.enabled && (item.action != null || item.toggle != null)) Modifier.dip { item.action?.invoke() } else Modifier)

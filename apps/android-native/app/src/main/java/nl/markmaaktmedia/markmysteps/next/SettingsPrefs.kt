@@ -69,8 +69,12 @@ object AirportPref {
     var home by mutableStateOf<LonLat>(4.76 to 52.31)
         private set
 
+    /** The city of each, kept with it, so the chips show it at once without the airport list. */
+    val cities = androidx.compose.runtime.mutableStateMapOf("AMS" to "Amsterdam", "EIN" to "Eindhoven")
+
     fun init(context: android.content.Context) {
         prefs = context.getSharedPreferences("mms.next.ui", android.content.Context.MODE_PRIVATE)
+        runCatching { org.json.JSONObject(prefs?.getString("airportCities", "{}") ?: "{}").let { o -> o.keys().forEach { k -> cities[k] = o.getString(k) } } }
         runCatching {
             val a = org.json.JSONArray(prefs?.getString("airports", null) ?: return@runCatching)
             if (a.length() > 0) { codes.clear(); for (i in 0 until a.length()) codes += a.getString(i) }
@@ -82,7 +86,9 @@ object AirportPref {
         val cleaned = next.distinct().ifEmpty { listOf("AMS") }
         codes.clear(); codes += cleaned
         Airports.byCode(cleaned.first())?.let { home = it.lon to it.lat }
-        prefs?.edit()?.putString("airports", org.json.JSONArray(cleaned).toString())?.putString("airportHome", "${home.first},${home.second}")?.apply()
+        cleaned.forEach { c -> Airports.byCode(c)?.let { cities[c] = it.city } }
+        prefs?.edit()?.putString("airports", org.json.JSONArray(cleaned).toString())?.putString("airportHome", "${home.first},${home.second}")
+            ?.putString("airportCities", org.json.JSONObject(cities.toMap()).toString())?.apply()
     }
 }
 
@@ -109,4 +115,59 @@ object TripFactsPref {
         if (ids.isNullOrEmpty()) chosen.remove(tripId) else chosen[tripId] = ids
         prefs?.edit()?.putString("tripFacts", org.json.JSONObject(chosen.mapValues { org.json.JSONArray(it.value) }).toString())?.apply()
     }
+}
+
+/**
+ * The small switches of Instellingen, kept on the phone as the web keeps them in its own storage:
+ * stops on the globe always or only when a trip is highlighted, companions' photos in your figures,
+ * your own position on the homepage globe, Android's accent colour, the tracking interval and
+ * the notifications check.
+ */
+object UiPrefs {
+    private var prefs: android.content.SharedPreferences? = null
+    /** Every trip shows its stops on the homepage globe, not only the one on show. */
+    var globeStopsAlways by mutableStateOf(false); private set
+    /** Your figures count only the photos you added yourself. */
+    var ownPhotosOnly by mutableStateOf(false); private set
+    /** While tracking, your position is a dot on the homepage globe too. */
+    var selfOnHome by mutableStateOf(false); private set
+    /** The accent colour Android takes from your wallpaper. */
+    var wallpaperAccent by mutableStateOf(false); private set
+    /** Minutes between two positions while tracking. */
+    var trackMinutes by androidx.compose.runtime.mutableIntStateOf(5); private set
+    /** The app looks for new notifications every quarter of an hour, also when closed. */
+    var notify by mutableStateOf(false); private set
+
+    fun init(context: android.content.Context) {
+        val p = context.getSharedPreferences("mms.next.ui", android.content.Context.MODE_PRIVATE)
+        prefs = p
+        globeStopsAlways = p.getBoolean("globeStopsAlways", false)
+        ownPhotosOnly = p.getBoolean("ownPhotosOnly", false)
+        selfOnHome = p.getBoolean("selfOnHome", false)
+        wallpaperAccent = p.getBoolean("wallpaperAccent", false)
+        trackMinutes = p.getInt("trackMinutes", 5)
+        notify = p.getBoolean("notify", false)
+    }
+
+    private fun put(k: String, v: Boolean) { prefs?.edit()?.putBoolean(k, v)?.apply() }
+    fun changeGlobeStopsAlways(v: Boolean) { globeStopsAlways = v; put("globeStopsAlways", v) }
+    fun changeOwnPhotosOnly(v: Boolean) { ownPhotosOnly = v; put("ownPhotosOnly", v) }
+    fun changeSelfOnHome(v: Boolean) { selfOnHome = v; put("selfOnHome", v) }
+    fun changeWallpaperAccent(v: Boolean) { wallpaperAccent = v; put("wallpaperAccent", v) }
+    fun changeNotify(v: Boolean) { notify = v; put("notify", v) }
+    fun changeTrackMinutes(v: Int) { trackMinutes = v.coerceIn(1, 240); prefs?.edit()?.putInt("trackMinutes", trackMinutes)?.apply() }
+}
+
+/** The colour scheme with Android's wallpaper accent in place of the app's own, when that is switched on. */
+@androidx.compose.runtime.Composable
+fun withWallpaperAccent(base: androidx.compose.material3.ColorScheme, dark: Boolean): androidx.compose.material3.ColorScheme {
+    if (!UiPrefs.wallpaperAccent) return base
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val d = if (dark) androidx.compose.material3.dynamicDarkColorScheme(context) else androidx.compose.material3.dynamicLightColorScheme(context)
+    // Only the accent and what sits on it; the paper, ink and surfaces stay the app's own.
+    return base.copy(
+        primary = d.primary, onPrimary = d.onPrimary, primaryContainer = d.primaryContainer, onPrimaryContainer = d.onPrimaryContainer,
+        secondaryContainer = d.secondaryContainer, onSecondaryContainer = d.onSecondaryContainer,
+        tertiaryContainer = d.tertiaryContainer, onTertiaryContainer = d.onTertiaryContainer,
+    )
 }

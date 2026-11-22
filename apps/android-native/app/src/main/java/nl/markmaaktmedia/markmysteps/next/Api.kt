@@ -318,7 +318,7 @@ object Remote {
             trips = o.optInt("trips"), days = o.optInt("days"),
             countries = (0 until (c?.length() ?: 0)).map { c!!.getString(it) },
             places = o.optInt("places"), flights = o.optInt("flights"),
-            km = o.optDouble("distanceKm", 0.0).toInt(), photos = o.optInt("photoCount"), ongoing = o.optInt("ongoing"),
+            km = o.optDouble("distanceKm", 0.0).toInt(), photos = if (UiPrefs.ownPhotosOnly) o.optInt("ownPhotoCount", o.optInt("photoCount")) else o.optInt("photoCount"), ongoing = o.optInt("ongoing"),
         )
     }
 
@@ -634,6 +634,7 @@ object Remote {
                 km = o.optDouble("distanceKm").takeIf { !it.isNaN() }?.toInt(),
                 color = color,
                 route = routes.ifEmpty { stopPoints },
+                stopPoints = stopPoints,
                 flights = flights,
                 upcoming = !end.isBefore(today),
                 startsInDays = ChronoUnit.DAYS.between(today, start).toInt().takeIf { it > 0 },

@@ -15,7 +15,18 @@ object SettingsRemote {
 
     suspend fun account(): Account = JSONObject(Api.get("/api/users/me")).let {
         Account(it.optString("id"), it.optString("email"), it.optString("username"), it.optString("displayName"), it.optString("role") == "ADMIN", it.optBoolean("hasAvatar"))
-    }
+    }.also { Api.remember("admin", if (it.admin) "1" else "0") }
+
+    /** A trip's settings as the cached trip list holds them, so the page opens complete before the server answers. */
+    fun cachedTrip(id: String): TripInfo? = runCatching {
+        val a = JSONArray(Api.recall("trips") ?: return null)
+        (0 until a.length()).map { a.getJSONObject(it) }.firstOrNull { it.optString("id") == id }?.let {
+            TripInfo(
+                it.optString("id"), it.optString("title"), it.optString("startDate").take(10), it.optString("endDate").take(10), it.optBoolean("autoTrack"),
+                it.str("color"), it.optString("ownerId"), it.dbl("markerLng"), it.dbl("markerLat"), it.str("resolvedCoverId"),
+            )
+        }
+    }.getOrNull()
 
     /** PATCH /users/me: the name always, the username when it is meant to change. */
     suspend fun saveProfile(displayName: String, username: String?): String? {
@@ -41,6 +52,9 @@ object SettingsRemote {
     data class Setup(val secret: String, val uri: String)
 
     suspend fun twoFactor(): TwoFactor = JSONObject(Api.get("/api/auth/2fa")).let { TwoFactor(it.optBoolean("enabled"), it.optInt("recoveryCodesLeft")) }
+        .also { Api.remember("2fa", "${it.enabled},${it.codesLeft}") }
+
+    fun cachedTwoFactor(): TwoFactor? = Api.recall("2fa")?.split(',')?.takeIf { it.size == 2 }?.let { TwoFactor(it[0] == "true", it[1].toIntOrNull() ?: 0) }
 
     /** Null when the answer holds no secret (as in test mode). */
     suspend fun twoFactorSetup(password: String): Setup? =
@@ -66,13 +80,22 @@ object SettingsRemote {
 
     /** Null when not connected (the server answers 404). */
     suspend fun immich(): Immich? = try {
-        val o = JSONObject(Api.get("/api/immich/connection"))
-        o.optString("serverUrl").takeIf { it.isNotBlank() }?.let {
-            Immich(it, o.str("publicUrl"), o.optString("apiKeyPreview"), o.str("lastSyncAt"), o.str("lastSyncError"))
-        }
+        val raw = Api.get("/api/immich/connection")
+        Api.remember("immich", raw)
+        parseImmich(JSONObject(raw))
     } catch (e: Api.Failure) {
-        if (e.status == 404) null else throw e
+        if (e.status == 404) { Api.remember("immich", "{}"); null } else throw e
     }
+
+    private fun parseImmich(o: JSONObject): Immich? = o.optString("serverUrl").takeIf { it.isNotBlank() }?.let {
+        Immich(it, o.str("publicUrl"), o.optString("apiKeyPreview"), o.str("lastSyncAt"), o.str("lastSyncError"))
+    }
+
+    /** The last answer, so the panel opens complete; null inside means "not connected", no cache at all means unknown. */
+    fun cachedImmich(): Pair<Immich?, Boolean> = Api.recall("immich")?.let { runCatching { parseImmich(JSONObject(it)) to true }.getOrNull() } ?: (null to false)
+
+    /** Whether the signed-in account was an admin when last asked, so the Accounts row is there at once. */
+    fun cachedAdmin(): Boolean = Api.recall("admin") == "1"
 
     suspend fun connectImmich(serverUrl: String, apiKey: String, publicUrl: String?): Immich? {
         val body = JSONObject().put("serverUrl", serverUrl.trim()).put("apiKey", apiKey.trim())

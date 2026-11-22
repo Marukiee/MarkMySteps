@@ -104,12 +104,14 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
     val canEdit = isOwner || (myRole != null && myRole != "GUEST")
     val ended = trip.start != null && trip.start.plusDays(trip.days.toLong()).isBefore(LocalDate.now())
 
-    var info by remember { mutableStateOf<SettingsRemote.TripInfo?>(null) }
-    var title by remember { mutableStateOf(trip.title) }
-    var start by remember { mutableStateOf(trip.start?.toString() ?: "") }
-    var end by remember { mutableStateOf(trip.start?.plusDays((trip.days - 1).toLong())?.toString() ?: "") }
-    var autoTrack by remember { mutableStateOf(false) }
-    var color by remember { mutableStateOf<String?>(null) }
+    // From the cached trip list first, so colour, tracking and the dot are right from the first frame.
+    val cached = remember(id) { SettingsRemote.cachedTrip(id) }
+    var info by remember { mutableStateOf(cached) }
+    var title by remember { mutableStateOf(cached?.title ?: trip.title) }
+    var start by remember { mutableStateOf(cached?.start ?: trip.start?.toString() ?: "") }
+    var end by remember { mutableStateOf(cached?.end ?: trip.start?.plusDays((trip.days - 1).toLong())?.toString() ?: "") }
+    var autoTrack by remember { mutableStateOf(cached?.autoTrack ?: false) }
+    var color by remember { mutableStateOf(cached?.color) }
     LaunchedEffect(id) {
         runCatching { SettingsRemote.trip(id) }.onSuccess {
             info = it; title = it.title; start = it.start; end = it.end; autoTrack = it.autoTrack; color = it.color
