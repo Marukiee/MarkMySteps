@@ -996,10 +996,13 @@ private fun TripCardMorph(
 ) {
     val cs = MaterialTheme.colorScheme
     val motion = MaterialTheme.motionScheme
-    val t by animateFloatAsState(if (big) 1f else 0f, motion.defaultSpatialSpec(), label = "cardSize")
+    // Calm and without overshoot: the expressive spring bounced, so the bottom edge went past and came back.
+    val calm = androidx.compose.animation.core.spring<Float>(dampingRatio = 1f, stiffness = 380f)
+    val calmDp = androidx.compose.animation.core.spring<androidx.compose.ui.unit.Dp>(dampingRatio = 1f, stiffness = 380f)
+    val t by animateFloatAsState(if (big) 1f else 0f, calm, label = "cardSize")
     val k = t.coerceIn(0f, 1f)
-    val top by animateDpAsState(rowTop, motion.defaultSpatialSpec(), label = "rowTop")
-    val bottom by animateDpAsState(rowBottom, motion.defaultSpatialSpec(), label = "rowBottom")
+    val top by animateDpAsState(rowTop, calmDp, label = "rowTop")
+    val bottom by animateDpAsState(rowBottom, calmDp, label = "rowBottom")
     val round = 32.dp
     val shape = RoundedCornerShape(
         topStart = androidx.compose.ui.unit.lerp(top, round, k), topEnd = androidx.compose.ui.unit.lerp(top, round, k),

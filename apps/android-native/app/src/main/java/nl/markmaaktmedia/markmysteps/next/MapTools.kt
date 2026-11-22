@@ -110,37 +110,61 @@ fun DayPill(state: TripMapState, onOpen: () -> Unit, modifier: Modifier = Modifi
     }
 }
 
-/** The list of days: the whole trip above a line, every day under it with its number of photos. */
+/**
+ * The list of days: the whole trip above a line, every day under it. Each row: a small date tile on the left
+ * (the number big, the weekday small), where you were that day with the date under it, and its photos on the
+ * right. The chosen row turns warm, its tile fills with the accent and a tick takes the place of the count.
+ */
 @Composable
-fun DaySheet(state: TripMapState, onPick: (LocalDate?) -> Unit, onDismiss: () -> Unit) {
+fun DaySheet(state: TripMapState, onPick: (LocalDate?) -> Unit, onDismiss: () -> Unit, placeOf: (LocalDate) -> String? = { null }) {
     val cs = MaterialTheme.colorScheme
     val haptics = rememberHaptics()
+    val motion = MaterialTheme.motionScheme
     AppSheet(onDismiss = onDismiss) {
         Text(stringResource(R.string.map_day_title), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface), modifier = Modifier.padding(horizontal = 20.dp))
         Text(stringResource(R.string.map_day_hint), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp))
-        @Composable fun Row(label: String, count: String, chosen: Boolean, camera: Boolean, onClick: () -> Unit) {
-            val bg by animateColorAsState(if (chosen) cs.secondaryContainer else cs.surfaceContainerHigh, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "dayRow")
+        @Composable fun DayRow(chosen: Boolean, title: String, subtitle: String, photos: Int?, tile: @Composable (Color) -> Unit, onClick: () -> Unit) {
+            val bg by animateColorAsState(if (chosen) cs.secondaryContainer else cs.surfaceContainerHigh, motion.defaultEffectsSpec(), label = "dayRow")
+            val tileBg by animateColorAsState(if (chosen) cs.primary else cs.surfaceContainerHighest, motion.defaultEffectsSpec(), label = "dayTile")
+            val tileFg by animateColorAsState(if (chosen) cs.onPrimary else cs.onSurface, motion.defaultEffectsSpec(), label = "dayTileFg")
             androidx.compose.foundation.layout.Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).height(54.dp).clip(RoundedCornerShape(18.dp)).background(bg)
-                    .dip { if (!chosen) haptics(Haptic.Tick); onClick() }.padding(horizontal = 16.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).clip(RoundedCornerShape(20.dp)).background(bg)
+                    .dip { if (!chosen) haptics(Haptic.Tick); onClick() }.padding(start = 10.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
-                    androidx.compose.animation.AnimatedVisibility(chosen, enter = scaleIn(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeIn(), exit = scaleOut() + fadeOut()) {
-                        LineIcon(Glyphs.check, cs.primary, size = 20.dp, stroke = 2.6f)
+                Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(tileBg), contentAlignment = Alignment.Center) { tile(tileFg) }
+                androidx.compose.foundation.layout.Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                    Text(title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 16.sp, color = cs.onSurface))
+                    Text(subtitle, maxLines = 1, style = ValueStyle.copy(fontSize = 13.sp, color = cs.onSurfaceVariant))
+                }
+                androidx.compose.animation.AnimatedContent(chosen, transitionSpec = {
+                    (fadeIn(motion.fastEffectsSpec()) + scaleIn(motion.fastSpatialSpec(), initialScale = 0.7f)) togetherWith fadeOut(motion.fastEffectsSpec())
+                }, label = "dayEnd") { on ->
+                    if (on) LineIcon(Glyphs.check, cs.primary, size = 20.dp, stroke = 2.6f)
+                    else if (photos != null) androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                        LineIcon(Glyphs.camera, cs.onSurfaceVariant, size = 15.dp, stroke = 1.9f, modifier = Modifier.padding(end = 5.dp))
+                        Text("$photos", style = ValueStyle.copy(color = cs.onSurfaceVariant))
                     }
                 }
-                Text(label, style = TitleStyle.copy(fontSize = 16.sp, color = cs.onSurface), modifier = Modifier.weight(1f).padding(start = 10.dp))
-                if (camera) LineIcon(Glyphs.camera, cs.onSurfaceVariant, size = 15.dp, stroke = 1.9f, modifier = Modifier.padding(end = 5.dp))
-                Text(count, style = ValueStyle.copy(color = cs.onSurfaceVariant))
             }
         }
         val dismiss = { close() }
         LazyColumn(Modifier.heightIn(max = 520.dp).padding(bottom = 16.dp)) {
-            item { Row(stringResource(R.string.map_whole_trip), stringResource(R.string.map_days_count, state.days.size), state.day == null, camera = false) { onPick(null); dismiss() } }
+            item {
+                DayRow(state.day == null, stringResource(R.string.map_whole_trip), stringResource(R.string.map_days_count, state.days.size), null,
+                    tile = { fg -> LineIcon(CalendarGlyph, fg, size = 22.dp, stroke = 2f) }) { onPick(null); dismiss() }
+            }
             item { Box(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 8.dp).height(1.dp).background(cs.outlineVariant)) }
             items(state.days, key = { it.day.toString() }) { d ->
-                Row(shortDay(d.day), "${d.photos}", state.day == d.day, camera = true) { onPick(d.day); dismiss() }
+                val date = "${d.day.dayOfMonth} ${DateText.month(d.day.monthValue)}"
+                val place = placeOf(d.day)
+                DayRow(state.day == d.day, place ?: shortDay(d.day), if (place != null) "${DateText.weekday(d.day.dayOfWeek)} $date" else "", d.photos,
+                    tile = { fg ->
+                        androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("${d.day.dayOfMonth}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 18.sp, lineHeight = 19.sp, color = fg))
+                            Text(DateText.weekday(d.day.dayOfWeek), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 10.5.sp, lineHeight = 12.sp, color = fg.copy(alpha = 0.8f)))
+                        }
+                    }) { onPick(d.day); dismiss() }
             }
         }
     }
@@ -392,7 +416,8 @@ class MapLayers(
     val colorOf: (String) -> Color,
     val onRoute: (String) -> Unit,
     val onPhoto: (String) -> Unit,
-    val onAllPhotos: (Boolean) -> Unit,
+    /** All on or all off; [press] false is a second tap on the lit one, which puts back the choice before it. */
+    val onAllPhotos: (on: Boolean, press: Boolean) -> Unit,
 )
 
 /** The two lists of the map settings, as the web's MapLayersSheet: routes per traveller, photos per traveller with all on or off. */
@@ -431,7 +456,7 @@ fun MapLayersSections(layers: MapLayers) {
         listOf(true to stringResource(R.string.map_all_on), false to stringResource(R.string.map_all_off)).forEachIndexed { i, (on, label) ->
             ToggleButton(
                 checked = if (on) all else none,
-                onCheckedChange = { haptics(Haptic.Tick); layers.onAllPhotos(on) },
+                onCheckedChange = { press -> haptics(Haptic.Tick); layers.onAllPhotos(on, press) },
                 modifier = Modifier.weight(1f).height(48.dp),
                 shapes = if (i == 0) ButtonGroupDefaults.connectedLeadingButtonShapes() else ButtonGroupDefaults.connectedTrailingButtonShapes(),
                 colors = ToggleButtonDefaults.toggleButtonColors(containerColor = cs.surfaceContainerHigh, contentColor = cs.onSurfaceVariant, checkedContainerColor = cs.primary, checkedContentColor = cs.onPrimary),

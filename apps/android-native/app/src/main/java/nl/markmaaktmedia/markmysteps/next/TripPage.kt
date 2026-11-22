@@ -469,6 +469,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 }
             }
         }
+        // The photo choice from before "Allemaal aan" or "uit", so a second tap on it goes back to that.
+        var photosBefore by remember { androidx.compose.runtime.mutableStateOf<Set<String>?>(null) }
         if (mapSheet) MapSheet(onDismiss = { mapSheet = false }, layers = trip.remoteId?.let { id ->
             // Only travellers who put something on this map: a switch for someone with nothing on it does nothing.
             val contributed = mapState.routes.orEmpty().filter { it.points.isNotEmpty() }.map { it.userId }.toSet() + media.orEmpty().map { it.userId } + mapState.live.map { it.userId }
@@ -480,11 +482,15 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 members, mapState.routeUsers ?: emptySet(), photoSet, mapState.live,
                 colorOf = { routeColor(trip, it, primary, dark) },
                 onRoute = { uid -> val cur = mapState.routeUsers ?: emptySet(); mapState.routeUsers = if (uid in cur) cur - uid else cur + uid },
-                onPhoto = { uid -> savePhotos(if (uid in photoSet) photoSet - uid else photoSet + uid) },
-                onAllPhotos = { on -> savePhotos(if (on) null else emptySet()) },
+                onPhoto = { uid -> photosBefore = null; savePhotos(if (uid in photoSet) photoSet - uid else photoSet + uid) },
+                onAllPhotos = { on, press ->
+                    if (press) { if (photosBefore == null) photosBefore = photoSet; savePhotos(if (on) null else emptySet()) }
+                    else photosBefore?.let { savePhotos(it); photosBefore = null }
+                },
             )
         })
-        if (daySheet) DaySheet(mapState, onPick = { d -> dayPicked = true; mapState.day = d }, onDismiss = { daySheet = false })
+        if (daySheet) DaySheet(mapState, onPick = { d -> dayPicked = true; mapState.day = d }, onDismiss = { daySheet = false },
+            placeOf = { d -> trip.stops.lastOrNull { s -> s.start != null && !s.start.isAfter(d) }?.name })
         lineAt?.let { at ->
             LineMenuSheet(
                 trip, mapState, at, onDismiss = { lineAt = null }, onTrain = { prefill -> trainFor = at to prefill },

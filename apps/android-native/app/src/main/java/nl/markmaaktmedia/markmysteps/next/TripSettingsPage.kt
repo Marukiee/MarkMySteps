@@ -57,6 +57,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -267,23 +269,32 @@ private fun TrackNowPanel(trip: Trip, id: String, ended: Boolean, myRole: String
 private fun CoverHeader(trip: Trip, coverId: String?, title: String, start: String, end: String, accent: Color, canPick: Boolean, onPicked: () -> Unit) {
     var pick by remember { mutableStateOf(false) }
     Spacer(Modifier.height(16.dp))
-    // Darkened a little, so the white name on it reads on every colour (a yellow or light blue too).
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(androidx.compose.ui.graphics.lerp(accent, Color.Black, 0.3f))) {
-        Box(Modifier.fillMaxWidth().height(180.dp)) {
-            Cover(trip.copy(coverId = coverId), Modifier.fillMaxSize(), size = "preview")
-            if (canPick) Box(Modifier.align(Alignment.BottomEnd).padding(12.dp)) {
-                Row(
-                    Modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)).dip { pick = true }.padding(horizontal = 14.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    LineIcon(Glyphs.photo, Color.White, size = 16.dp, stroke = 2f)
-                    Text(stringResource(R.string.tripsettings_cover_choose), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = Color.White), modifier = Modifier.padding(start = 6.dp))
-                }
-            }
+    // The same front as the trip page's cover (photo edge to edge, a soft dark fade, the name in Outfit), without
+    // the faces; choosing another cover sits where the faces are there.
+    val shown = trip.copy(coverId = coverId)
+    val hasPhoto = shown.coverId != null || shown.cover != null
+    Box(Modifier.fillMaxWidth().height(236.dp).clip(RoundedCornerShape(32.dp))) {
+        if (hasPhoto) {
+            Cover(shown, Modifier.fillMaxSize(), size = "preview")
+            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.62f))))
+        } else {
+            val deep = Color(0xFF1B2440).copy(alpha = 0.55f).compositeOver(accent)
+            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(accent, deep))))
         }
-        Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
-            Text(title.ifBlank { trip.title }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = Color.White))
-            Text(rangeText(start, end), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(550), fontSize = 13.5.sp, color = Color.White.copy(alpha = 0.85f)))
+        if (canPick) Row(
+            Modifier.align(Alignment.TopEnd).padding(14.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.38f)).dip { pick = true }.padding(horizontal = 14.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LineIcon(Glyphs.photo, Color.White, size = 16.dp, stroke = 2f)
+            Text(stringResource(R.string.tripsettings_cover_choose), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = Color.White), modifier = Modifier.padding(start = 6.dp))
+        }
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
+            Text(
+                title.ifBlank { trip.title }, maxLines = 2,
+                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 32.sp, lineHeight = 35.sp, letterSpacing = (-0.02).em, color = Color.White,
+                    shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.3f), blurRadius = 10f)),
+            )
+            Text(rangeText(start, end), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = Color.White.copy(alpha = 0.88f)), modifier = Modifier.padding(top = 2.dp))
         }
     }
     if (pick) CoverSheet(trip, coverId, onDismiss = { pick = false }, onPicked = onPicked)
