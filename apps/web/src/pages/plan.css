@@ -639,57 +639,9 @@
   inset: 0;
 }
 
-/* No `position` of its own: MapLibre gives the marker element
-   `position: absolute` and then places it with a transform, and a `relative`
-   here (same specificity, later sheet) won that fight — the pins drifted off
-   their coordinates and slid around on every zoom. z-index needs no help; the
-   element is already positioned. */
-.stop-marker {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--paper);
-  display: grid;
-  place-content: center;
-  font-weight: 700;
-  font-size: 0.85rem;
-  border: 2.5px solid #fff;
-  box-shadow: var(--shadow-m);
-  cursor: pointer;
-  /* Over the airport dots: a place you went outranks the terminal you passed
-     through to get there. */
-  z-index: 3;
-}
-
-/* The flag fills the marker: it IS the marker's face, not a glyph inside it.
-   Laid over the marker rather than placed inside it — as a grid item under
-   `place-content: center` the track sized itself to the image, so a flag that
-   is wider than it is tall came out an oval instead of a circle. */
-.stop-marker-flag {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  display: block;
-}
-
-.stop-marker-pending {
-  background: var(--accent);
-  animation: pulse 1.2s ease-in-out infinite;
-}
-
-/* A day trip is a real place, but not a stop on the route — smaller, so the
-   itinerary still reads as the itinerary. */
-.stop-marker-day {
-  width: 22px;
-  height: 22px;
-  font-size: 0.7rem;
-  border-width: 2px;
-  background: var(--ink-soft, #58636f);
-}
+/* The pins themselves (.stop-marker, .airport-marker) live in
+   components/mapmarkers.css, next to the code that makes them, so every map
+   that draws them has them: the shared trip page never loads this file. */
 
 .stop-search {
   position: relative;
@@ -1773,16 +1725,4 @@
   animation: rise 0.4s var(--ease) backwards;
 }
 
-/* Where a flight leaves from or lands: the same small grey dot the globe uses,
-   so an arc starts and ends somewhere rather than out of nowhere. */
-.airport-marker {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #8a94a3;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
-  /* Behind the stops. These are drawn after them, so without this they sat on
-     top of the pin for the city they belong to. */
-  z-index: 1;
-}
+

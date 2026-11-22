@@ -38,5 +38,8 @@
   "share.page.recenter": "Terug naar de hele reis",
   "share.page.sharedWith": "Gedeeld met <brand></brand>",
   "share.page.fresh_one": "Er staat {count} nieuwe foto sinds je laatste bezoek",
-  "share.page.fresh_other": "Er staan {count} nieuwe foto's sinds je laatste bezoek"
+  "share.page.fresh_other": "Er staan {count} nieuwe foto's sinds je laatste bezoek",
+  "share.page.goneHint": "Misschien is hij ingetrokken. Vraag degene die hem stuurde om een nieuwe link.",
+  "share.page.failedHint": "Controleer je verbinding en probeer het opnieuw.",
+  "share.page.noPhotos": "Er staan nog geen foto's in deze reis."
 }

@@ -1,19 +1,36 @@
 /* ==========================================================
-   Public share page — the read-only view behind a share link.
+   Public share page: the read-only view behind a share link.
    Deliberately mirrors the app's trip page (header card with
    facts, route rail, timeline) so both feel like one product.
+
+   Type: Outfit for the brand, the trip's title, the section
+   title and the big numbers; Inter for text; Fraunces stays on
+   the day headings and the day stories, as in the app.
    ========================================================== */
 
-/* ---------- Gate: link info / password ---------- */
+/* ---------- Gate: link info, password, loading ---------- */
 
 .share-gate {
   min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: 2rem 1.25rem;
+  padding: 2rem max(1.25rem, env(safe-area-inset-right)) 2rem max(1.25rem, env(safe-area-inset-left));
   background:
     radial-gradient(120% 80% at 50% -10%, var(--accent-soft), transparent 60%),
     var(--paper);
+}
+
+/* While the trip loads, the same screen lies over it, and fades away once
+   everything under it is in place. */
+.share-gate.is-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.share-gate.is-cover.closing {
+  animation: shareFadeOut 0.24s var(--ease) forwards;
+  pointer-events: none;
 }
 
 .share-gate-inner {
@@ -22,7 +39,13 @@
   justify-items: center;
   gap: 0.6rem;
   text-align: center;
-  animation: shareRise 0.5s var(--ease) both;
+  animation: shareRise 0.32s var(--ease) both;
+}
+
+/* The cover takes over from the gate without a second entrance: on screen the
+   two are the same picture. */
+.share-gate.is-cover .share-gate-inner {
+  animation: none;
 }
 
 .share-gate-brand {
@@ -38,7 +61,27 @@
 }
 
 .share-gate h1 {
-  font-size: clamp(1.7rem, 6vw, 2.3rem);
+  font-family: var(--font-brand);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-size: clamp(1.6rem, 6vw, 2.1rem);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.share-gate-text {
+  margin: 0;
+  color: var(--ink-soft);
+  text-wrap: balance;
+}
+
+/* Left-aligned in the card: lines simply run to the edge. */
+.share-gate-card .share-gate-text {
+  text-wrap: wrap;
+}
+
+.share-gate-inner > .btn {
+  margin-top: 0.6rem;
 }
 
 .share-gate-card {
@@ -48,31 +91,64 @@
   display: grid;
   gap: 0.85rem;
   text-align: left;
-  animation: shareRise 0.5s var(--ease) 0.08s both;
+  animation: shareRise 0.32s var(--ease) 0.06s both;
 }
 
+/* iOS zooms the whole page in on a field under 16px the moment it is tapped. */
+.share-gate-card input {
+  width: 100%;
+  font-size: 16px;
+}
+
+.share-gate-lead {
+  display: grid;
+}
+
+.share-gate-lead > * {
+  grid-area: 1 / 1;
+  transition: opacity 0.2s var(--ease);
+}
+
+.share-gate-lead > [aria-hidden='true'],
+.share-gate-error:empty {
+  opacity: 0;
+}
+
+.share-gate-card .share-gate-error {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* The line only appears when loading takes long enough to need saying: a link
+   that opens straight away shows nothing but the brand for a moment. */
 .share-gate-loading {
-  animation: sharePulse 1.4s ease-in-out infinite;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  animation:
+    shareFadeIn 0.3s var(--ease) 0.6s both,
+    sharePulse 1.4s ease-in-out 0.9s infinite;
 }
 
 @keyframes sharePulse {
   50% {
-    opacity: 0.4;
+    opacity: 0.45;
   }
 }
 
 /* ---------- Page shell ---------- */
 
-/* Wider than it was, and far tighter on a phone: this page is mostly photos,
-   and a 1.25rem gutter on a 393px screen was four percent of it spent on paper
-   either side. The timeline reads --page-pad back to place its rail. */
+/* Wider than the app's column, and tighter on a phone: this page is mostly
+   photos, and a 1.25rem gutter on a 393px screen was four percent of it spent
+   on paper either side. The timeline reads --page-pad back to place its rail. */
 .share-view {
   --page-pad: 0.85rem;
   max-width: 1180px;
   margin: 0 auto;
-  padding: 0 var(--page-pad) 4rem;
+  padding: 0 max(var(--page-pad), env(safe-area-inset-right)) calc(4rem + var(--safe-bottom, 0px))
+    max(var(--page-pad), env(safe-area-inset-left));
   display: grid;
   gap: 1.5rem;
+  animation: shareRise 0.32s var(--ease) both;
 }
 
 @media (min-width: 640px) {
@@ -84,7 +160,7 @@
 .share-topbar {
   display: flex;
   align-items: center;
-  padding: 1.1rem 0 0.2rem;
+  padding: calc(1.1rem + var(--safe-top, 0px)) 0 0.2rem;
 }
 
 .share-brand {
@@ -110,12 +186,14 @@
   background: var(--paper-raised);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-s);
-  animation: shareRise 0.55s var(--ease) both;
 }
 
+/* The height is the cover's from the first frame; the photo fades in over a
+   tone of its own instead of the box growing when it arrives. */
 .share-headcard.has-cover {
   border: none;
   min-height: clamp(220px, 34vw, 320px);
+  background: var(--paper-sunken);
 }
 
 .share-headcard-img {
@@ -124,6 +202,12 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.35s var(--ease);
+}
+
+.share-headcard-img[data-loaded='1'] {
+  opacity: 1;
 }
 
 .share-headcard-body {
@@ -138,12 +222,17 @@
 
 .share-headcard.has-cover .share-headcard-body {
   padding-top: 5rem;
-  background: linear-gradient(to top, rgb(16 21 27 / 0.68), rgb(16 21 27 / 0.05) 72%, transparent);
+  background: linear-gradient(to top, rgb(16 21 27 / 0.7), rgb(16 21 27 / 0.08) 72%, transparent);
   color: #fff;
 }
 
 .share-headcard h1 {
-  font-size: clamp(1.5rem, 4.5vw, 2.1rem);
+  font-family: var(--font-brand);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-size: clamp(1.55rem, 4.5vw, 2.2rem);
+  line-height: 1.12;
+  text-wrap: balance;
 }
 
 .share-headcard.has-cover h1 {
@@ -153,19 +242,27 @@
 
 .share-headcard-dates {
   font-size: 0.9rem;
-  color: var(--ink-faint);
+  color: var(--ink-soft);
+  text-wrap: balance;
 }
 
 .share-headcard.has-cover .share-headcard-dates {
-  color: rgb(255 255 255 / 0.85);
+  color: rgb(255 255 255 / 0.88);
+}
+
+/* The big numbers in the brand's letter, as in the apps. */
+.share-headcard .tstat strong {
+  font-family: var(--font-brand);
+  font-weight: 650;
 }
 
 /* The fact chips come from the app's TripFacts; only the light-on-photo
-   variant needs restating here. */
+   variant needs restating here. The app's light tint, without its blur: a
+   blur behind every chip repaints the cover on each frame of scrolling on an
+   ordinary phone, and the scrim already darkens what is behind them. */
 .share-headcard.has-cover .tstat {
-  background: rgb(255 255 255 / 0.16);
+  background: rgb(255 255 255 / 0.18);
   color: rgb(255 255 255 / 0.9);
-  backdrop-filter: blur(6px);
 }
 
 .share-headcard.has-cover .tstat strong {
@@ -176,27 +273,42 @@
   margin: -0.6rem 0 0;
   color: var(--ink-soft);
   max-width: 62ch;
+  text-wrap: pretty;
 }
 
 /* ---------- Map ---------- */
 
+/* The box is there at its full size before the map engine has even arrived,
+   in a quiet tone, so nothing below it moves when the map draws in. */
 .share-map {
   position: relative;
   height: clamp(300px, 48vh, 460px);
-  border: none;
   border-radius: var(--radius-l);
   overflow: hidden;
+  background: var(--paper-sunken);
   box-shadow: var(--shadow-m);
-  animation: shareRise 0.55s var(--ease) 0.06s both;
 }
 
-.share-map-inner {
+/* Two classes deep: MapLibre's stylesheet arrives with the map, after this
+   one, and its `.maplibregl-map { position: relative }` would otherwise win and
+   fold the map to nothing. */
+.share-map > .share-map-inner {
   position: absolute;
   inset: 0;
 }
 
+.share-map-inner {
+  opacity: 0;
+  transition: opacity 0.35s var(--ease);
+}
+
+/* Shown once the first screenful of tiles is drawn, not tile by tile. */
+.share-map-inner.is-drawn {
+  opacity: 1;
+}
+
 /* A WebGL canvas is composited on the GPU, so the parent's overflow:hidden
-   doesn't clip it — the corners have to be rounded on the canvas itself. */
+   doesn't clip it: the corners have to be rounded on the canvas itself. */
 .share-map-inner,
 .share-map-inner .maplibregl-canvas-container,
 .share-map-inner canvas {
@@ -206,14 +318,14 @@
 }
 
 /* Back to the whole trip, in the map's own corner. The app's map wears the
-   same glass button in the same place. */
+   same button in the same place. */
 .share-map-recenter {
   position: absolute;
-  right: 0.7rem;
-  bottom: 0.7rem;
+  right: 0.8rem;
+  bottom: 0.8rem;
   z-index: 3;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-content: center;
   border-radius: 50%;
@@ -222,12 +334,15 @@
   color: var(--ink-soft);
   box-shadow: var(--shadow-m);
   cursor: pointer;
+  animation: shareFadeIn 0.3s var(--ease) both;
   transition: color 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
 
-.share-map-recenter:hover {
-  color: var(--ink);
-  box-shadow: var(--shadow-l);
+@media (hover: hover) {
+  .share-map-recenter:hover {
+    color: var(--ink);
+    box-shadow: var(--shadow-l);
+  }
 }
 
 .share-map-recenter svg {
@@ -240,21 +355,21 @@
 
 /* MapLibre's "use two fingers" screen, in this page's own voice: its stylesheet
    sets a 12px Helvetica stack on the map and the message inherits it, which is
-   a different typeface from every other word on the page. */
+   a different typeface from every other word on the page. A plain dark veil
+   rather than a blur, for the same reason as the chips on the cover. */
 .share-map-inner .maplibregl-cooperative-gesture-screen {
   font-family: var(--font-body);
   font-size: 0.95rem;
   font-weight: 600;
   line-height: 1.35;
   text-align: center;
-  background: rgb(10 13 18 / 0.45);
-  backdrop-filter: blur(2px);
+  background: rgb(10 13 18 / 0.58);
   border-radius: inherit;
 }
 
-/* The ⓘ steps aside for it, the way it does on the app's map. */
+/* The (i) steps aside for it, the way it does on the app's map. */
 .share-map-inner .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
-  margin-right: 46px;
+  margin-right: 50px;
 }
 
 /* ---------- Sections ---------- */
@@ -262,37 +377,76 @@
 .share-section {
   display: grid;
   gap: 0.85rem;
+  min-width: 0;
 }
 
 .share-section-title {
-  font-size: 1.25rem;
+  font-family: var(--font-brand);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  font-size: 1.3rem;
+  color: var(--ink);
+}
+
+/* A trip with nothing in it yet says so, once and quietly, on the page edge. */
+.share-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
   color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.share-empty svg {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
 }
 
 /* ---------- Timeline ---------- */
 
 /*
  * The shared timeline IS the app's timeline: the markup and every class come
- * from Timeline.tsx and timeline.css, so there is nothing here to restate.
- * What used to live in this file — a rail of its own, numbered stop beads,
- * travel-mode pills, a square photo grid — was a second design of the same
- * thing, and it drifted from the app the moment either one changed.
+ * from Timeline.tsx and timeline.css, so there is little to restate here.
  *
- * The one thing the app gets for free and this page does not: the app's
- * thumbnails come through <AuthImage>, which fades them in once they have
- * decoded (.auth-img). The shared page loads plain <img> tags so the browser
- * can lazy-load and cache them itself, and marks each one as it lands.
+ * The app's thumbnails come through <AuthImage>, which fades them in once they
+ * have decoded (.auth-img). The shared page loads plain <img> tags so the
+ * browser can lazy-load and cache them itself, and marks each one as it lands.
  */
 .share-view .timeline-img {
   opacity: 0;
   /* The zoom is restated because this rule replaces the timeline's transition
      rather than adding to it, and dropping it left the hover snapping. */
-  transition: opacity 0.4s var(--ease),
+  transition:
+    opacity 0.3s var(--ease),
     transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .share-view .timeline-img[data-loaded='1'] {
   opacity: 1;
+}
+
+/* The page writes the day with its capital already in place: capitalising
+   every word turned "vrijdag 1 mei" into "Vrijdag 1 Mei". */
+.share-view .timeline-day h3 {
+  text-transform: none;
+}
+
+/* A jump to a day (the places row, the "new photos" banner) lands below the
+   back-to-top button, which sits over the top of the screen once you are that
+   far down, instead of under it. */
+.share-view .timeline-day {
+  scroll-margin-top: calc(4rem + var(--safe-top, 0px));
+}
+
+/* Readable on the paper in light mode, where the faint grey was not. */
+.share-view .timeline-place {
+  color: var(--ink-soft);
+}
+
+.share-view .timeline-photo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ---------- Footer ---------- */
@@ -304,14 +458,14 @@
   gap: 0.4rem;
   padding-top: 1rem;
   border-top: 1px solid var(--line);
-  color: var(--ink-faint);
+  color: var(--ink-soft);
   font-size: 0.88rem;
 }
 
 .share-footer strong {
   font-family: var(--font-brand);
   font-weight: 620;
-  color: var(--ink-soft);
+  color: var(--ink);
 }
 
 /* ---------- Shared motion ---------- */
@@ -319,11 +473,23 @@
 @keyframes shareRise {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes shareFadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes shareFadeOut {
+  to {
+    opacity: 0;
   }
 }
 
@@ -336,7 +502,7 @@
  */
 .share-backtop {
   position: fixed;
-  top: calc(0.8rem + var(--safe-top));
+  top: calc(0.8rem + var(--safe-top, 0px));
   left: 50%;
   z-index: 40;
   display: grid;
@@ -355,12 +521,28 @@
   animation: shareBackTopIn 0.28s var(--ease);
 }
 
-.share-backtop:active {
-  transform: translateX(-50%) scale(0.9);
+.share-backtop.leaving {
+  animation: shareBackTopOut 0.2s var(--ease) forwards;
+  pointer-events: none;
+}
+
+.share-backtop svg {
+  transition: transform 0.16s var(--ease);
+}
+
+.share-backtop:active svg {
+  transform: scale(0.86);
 }
 
 @keyframes shareBackTopIn {
   from {
+    opacity: 0;
+    transform: translate(-50%, -10px) scale(0.85);
+  }
+}
+
+@keyframes shareBackTopOut {
+  to {
     opacity: 0;
     transform: translate(-50%, -10px) scale(0.85);
   }
@@ -371,13 +553,13 @@
 .share-fresh {
   position: fixed;
   left: 50%;
-  bottom: calc(1rem + var(--safe-bottom));
+  bottom: calc(1rem + var(--safe-bottom, 0px));
   z-index: 41;
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  width: min(560px, calc(100vw - 1.6rem));
-  padding: 0.7rem 0.8rem 0.7rem 0.95rem;
+  gap: 0.6rem;
+  width: min(560px, calc(100vw - 2 * max(0.85rem, env(safe-area-inset-left))));
+  padding: 0.45rem 0.45rem 0.45rem 1rem;
   border-radius: 999px;
   border: 1px solid var(--glass-border);
   background: var(--glass);
@@ -415,34 +597,50 @@
 
 .share-fresh-go {
   flex: 0 0 auto;
-  padding: 0.4rem 0.85rem;
-  border-radius: 999px;
-  border: none;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.84rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.share-fresh-go:active {
-  transform: scale(0.95);
 }
 
 .share-fresh-close {
   flex: 0 0 auto;
   display: grid;
   place-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  color: var(--ink-faint);
+  color: var(--ink-soft);
   cursor: pointer;
 }
 
+/* ---------- Less motion ---------- */
+
 @media (prefers-reduced-motion: reduce) {
+  .share-gate-inner,
+  .share-gate-card,
+  .share-gate-error,
+  .share-gate-loading,
+  .share-gate.is-cover.closing,
+  .share-view,
+  .share-map-recenter,
   .share-backtop,
-  .share-fresh {
+  .share-backtop.leaving,
+  .share-fresh,
+  .share-fresh.closing {
+    animation: none;
+  }
+
+  .share-headcard-img,
+  .share-map-inner,
+  .share-view .timeline-img {
+    transition: none;
+  }
+
+  /* The ones that waited for their exit to play simply go. */
+  .share-gate.is-cover.closing,
+  .share-backtop.leaving,
+  .share-fresh.closing {
+    opacity: 0;
+  }
+
+  .share-view .timeline-day {
     animation: none;
   }
 }

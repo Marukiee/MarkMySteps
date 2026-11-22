@@ -1,5 +1,5 @@
 import { CSSProperties, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { haversineKm, STOP_NEAR_KM } from '../lib/arc';
+import { haversineKm, STOP_NEAR_KM } from '../lib/geo';
 import { t } from '../i18n';
 import './stopjump.css';
 

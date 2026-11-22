@@ -38,5 +38,8 @@
   "share.page.recenter": "Back to the whole trip",
   "share.page.sharedWith": "Shared with <brand></brand>",
   "share.page.fresh_one": "There is {count} new photo since your last visit",
-  "share.page.fresh_other": "There are {count} new photos since your last visit"
+  "share.page.fresh_other": "There are {count} new photos since your last visit",
+  "share.page.goneHint": "It may have been withdrawn. Ask whoever sent it for a new link.",
+  "share.page.failedHint": "Check your connection and try again.",
+  "share.page.noPhotos": "There are no photos in this trip yet."
 }

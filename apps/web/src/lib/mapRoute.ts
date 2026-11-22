@@ -1,5 +1,6 @@
 import maplibregl, { Map as MapLibreMap } from './mapgl';
 import { paintMarker } from '../components/Flag';
+import '../components/mapmarkers.css';
 import { buildLegs, flightArc, haversineKm, StopPoint, trimOutlierEnds } from './arc';
 
 /**

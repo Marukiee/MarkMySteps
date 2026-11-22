@@ -87,7 +87,7 @@ export function registerMapCache(gl: { addProtocol: typeof addProtocol }): void 
     .catch(() => undefined);
 
   gl.addProtocol(CACHE_SCHEME, async (params, abortController) => {
-    const target = params.url.slice(PREFIX.length);
+    const target = upstreamUrl(params.url);
 
     if (regionsKnown) {
       await regionsKnown;
@@ -108,6 +108,20 @@ export function registerMapCache(gl: { addProtocol: typeof addProtocol }): void 
     }
     return { data: await response.arrayBuffer() };
   });
+}
+
+/**
+ * The real address behind an `mmsc://` request.
+ *
+ * MapLibre puts the sprite URL through the browser's URL parser before asking
+ * for it. To that parser `mmsc://https://host/path` is a URL whose host is
+ * "https" with an empty port, and an empty port is dropped on the way out:
+ * what arrived here was `mmsc://https//host/path`. Sliced off, that is a
+ * relative path, so the sprite was fetched from the page's own server, came
+ * back as the app's index.html, and every map icon in the style was missing.
+ */
+function upstreamUrl(url: string): string {
+  return url.slice(PREFIX.length).replace(/^(https?)\/\/(?!\/)/, '$1://');
 }
 
 /** The style URL MapLibre should be given, so its resources come through here. */

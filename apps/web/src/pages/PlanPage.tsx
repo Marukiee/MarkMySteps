@@ -22,6 +22,7 @@ import { PlaceSuggestion, searchPlaces } from '../lib/geocode';
 import { getMapStyle } from '../lib/prefs';
 import { t, intlLocale } from '../i18n';
 import './plan.css';
+import '../components/mapmarkers.css';
 import { Flag, paintMarker } from '../components/Flag';
 import { legTitle } from '../lib/legs';
 
