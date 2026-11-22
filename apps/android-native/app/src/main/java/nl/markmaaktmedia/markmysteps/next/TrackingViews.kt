@@ -99,7 +99,8 @@ private fun LogRow(e: Tracker.FixLog, now: Long, full: Boolean) {
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(e.movedM?.let { "$it m" } ?: "start", style = ValueStyle.copy(fontWeight = FontWeight(650), color = cs.onSurface))
             e.accuracyM?.let { Text("±$it m", style = ValueStyle.copy(color = cs.onSurfaceVariant)) }
-            if (e.stayCount > 0) Text("×${e.stayCount}", style = ValueStyle.copy(fontWeight = FontWeight(650), color = cs.onSecondaryContainer),
+            // How many checks on the same spot were merged into this one.
+            if (e.stayCount > 0) Text("+${e.stayCount}", style = ValueStyle.copy(fontWeight = FontWeight(650), color = cs.onSecondaryContainer),
                 modifier = Modifier.clip(CircleShape).background(cs.secondaryContainer).padding(horizontal = 7.dp, vertical = 1.dp))
         }
         Text(

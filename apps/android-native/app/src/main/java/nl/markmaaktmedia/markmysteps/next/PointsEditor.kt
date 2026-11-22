@@ -311,7 +311,7 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
                 }
             }
             Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(28.dp))) {
-                EditorMap(dark, points.orEmpty(), day, selected?.id, adding, onSelect = { selected = it; if (it != null) haptics(Haptic.Tap) }, onMove = { p, at -> haptics(Haptic.GestureEnd); move(p, at) }, onAdd = { insert(it) })
+                EditorMap(dark, points.orEmpty(), points != null, day, selected?.id, adding, onSelect = { selected = it; if (it != null) haptics(Haptic.Tap) }, onMove = { p, at -> haptics(Haptic.GestureEnd); move(p, at) }, onAdd = { insert(it) })
                 androidx.compose.animation.AnimatedVisibility(adding, modifier = Modifier.align(Alignment.TopCenter).padding(12.dp), enter = fadeIn() + slideInVertically { -it }, exit = fadeOut() + slideOutVertically { -it }) {
                     Text("Tik op de kaart om een punt toe te voegen", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(550), fontSize = 13.5.sp, color = cs.inverseOnSurface),
                         modifier = Modifier.clip(CircleShape).background(cs.inverseSurface).padding(horizontal = 16.dp, vertical = 10.dp))
@@ -347,7 +347,7 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
  */
 @Composable
 private fun EditorMap(
-    dark: Boolean, points: List<MapRemote.TrackPoint>, day: LocalDate, selectedId: String?, adding: Boolean,
+    dark: Boolean, points: List<MapRemote.TrackPoint>, loaded: Boolean, day: LocalDate, selectedId: String?, adding: Boolean,
     onSelect: (MapRemote.TrackPoint?) -> Unit, onMove: (MapRemote.TrackPoint, LonLat) -> Unit, onAdd: (LonLat) -> Unit,
 ) {
     val view = rememberMapView(dark)
@@ -446,15 +446,17 @@ private fun EditorMap(
         }
         view
     }, modifier = Modifier.fillMaxSize())
-    LaunchedEffect(style, points, selectedId) {
+    LaunchedEffect(style, points, selectedId, loaded) {
         val st = style ?: return@LaunchedEffect
         val (line, dots) = data(points, selectedId)
         (st.getSource("te-line") as? GeoJsonSource)?.setGeoJson(line)
         (st.getSource("te-dots") as? GeoJsonSource)?.setGeoJson(dots)
         val m = map ?: return@LaunchedEffect
-        // Framed once per day, not after every drag.
-        if (points.isNotEmpty() && framedDay != day) { framedDay = day; frame(m, points.map { it.at }, (60 * density).toInt(), 15.0, animate = true) }
-        else if (points.isEmpty() && framedDay != day) {
+        // A camera worked out before the view has its size lands nowhere: wait for the layout first.
+        while (view.width == 0 || view.height == 0) kotlinx.coroutines.delay(16)
+        // Framed once per day, not after every drag; the first day at once, a later one with a glide.
+        if (points.isNotEmpty() && framedDay != day) { val first = framedDay == null; framedDay = day; frame(m, points.map { it.at }, (60 * density).toInt(), 15.0, animate = !first) }
+        else if (loaded && points.isEmpty() && framedDay != day) {
             framedDay = day
             (Tracker.lastFix?.let { it.first to it.second })?.let { m.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(it.second, it.first), 12.0)) }
         }

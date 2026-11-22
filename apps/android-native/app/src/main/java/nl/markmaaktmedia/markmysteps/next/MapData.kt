@@ -169,7 +169,9 @@ object MapPhotosPref {
     fun get(tripId: String): Set<String>? = cache[tripId] ?: prefs?.getString("mapPhotos.$tripId", null)?.let { raw ->
         runCatching { JSONArray(raw).let { a -> (0 until a.length()).map { a.getString(it) }.toSet() } }.getOrNull()?.also { cache[tripId] = it }
     }
-    fun set(tripId: String, users: Set<String>) {
+    /** [users] null is everyone again, also whoever joins the trip later. */
+    fun set(tripId: String, users: Set<String>?) {
+        if (users == null) { cache.remove(tripId); prefs?.edit()?.remove("mapPhotos.$tripId")?.apply(); return }
         cache[tripId] = users
         prefs?.edit()?.putString("mapPhotos.$tripId", JSONArray(users.toList()).toString())?.apply()
     }

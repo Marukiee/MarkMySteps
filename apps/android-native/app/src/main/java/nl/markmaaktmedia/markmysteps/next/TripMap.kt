@@ -200,7 +200,9 @@ fun TripMap(
                 m.addOnMapClickListener { ll ->
                     val p = m.projection.toScreenLocation(ll)
                     val r = 16 * density
-                    val hit = runCatching { m.queryRenderedFeatures(android.graphics.RectF(p.x - r, p.y - r, p.x + r, p.y + r), "stop-dots", "daytrip-dots") }.getOrNull()?.firstOrNull()
+                    // The dot nearest the finger, when a stop and its day trip lie close together.
+                    val hit = runCatching { m.queryRenderedFeatures(android.graphics.RectF(p.x - r, p.y - r, p.x + r, p.y + r), "stop-dots", "daytrip-dots") }.getOrNull()
+                        ?.minByOrNull { f -> (f.geometry() as? Point)?.let { pt -> m.projection.toScreenLocation(LatLng(pt.latitude(), pt.longitude())).let { s -> kotlin.math.hypot((s.x - p.x).toDouble(), (s.y - p.y).toDouble()) } } ?: Double.MAX_VALUE }
                     val id = hit?.getStringProperty("id")
                     val t = calls.value.third
                     val found = id?.let { sid -> labelFor(t, sid) }
@@ -612,8 +614,11 @@ private fun StopLabelCard(map: org.maplibre.android.maps.MapLibreMap?, tick: Int
     var w by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     var h by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val gap = with(density) { 14.dp.toPx() }
+    // Kept on screen at the edges: it shifts sideways rather than running off.
+    val screenW = with(density) { androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp.toPx() }
+    val margin = with(density) { 12.dp.toPx() }
     androidx.compose.foundation.layout.Row(
-        Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x - w / 2f).toInt(), (p.y - gap - h).toInt()) }
+        Modifier.offset { androidx.compose.ui.unit.IntOffset((p.x - w / 2f).coerceIn(margin, (screenW - w - margin).coerceAtLeast(margin)).toInt(), (p.y - gap - h).toInt()) }
             .onSizeChanged { w = it.width; h = it.height }
             .graphicsLayer { scaleX = 0.7f + 0.3f * k; scaleY = 0.7f + 0.3f * k; alpha = k; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f) }
             .widthIn(max = 240.dp)

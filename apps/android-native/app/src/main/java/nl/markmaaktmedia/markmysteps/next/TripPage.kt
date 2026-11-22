@@ -441,18 +441,23 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
             val members = trip.members.filter { it.userId in contributed }.ifEmpty { trip.members.filter { it.role != "GUEST" } }
             val primary = primaryTraveller(trip, mapState.routes)
             val photoSet = mapState.photoUsers ?: trip.members.map { it.userId }.toSet()
-            fun savePhotos(set: Set<String>) { mapState.photoUsers = set; MapPhotosPref.set(id, set) }
+            fun savePhotos(set: Set<String>?) { mapState.photoUsers = set; MapPhotosPref.set(id, set) }
             MapLayers(
                 members, mapState.routeUsers ?: emptySet(), photoSet, mapState.live,
                 colorOf = { routeColor(trip, it, primary, dark) },
                 onRoute = { uid -> val cur = mapState.routeUsers ?: emptySet(); mapState.routeUsers = if (uid in cur) cur - uid else cur + uid },
                 onPhoto = { uid -> savePhotos(if (uid in photoSet) photoSet - uid else photoSet + uid) },
-                onAllPhotos = { on -> savePhotos(if (on) members.map { it.userId }.toSet() else emptySet()) },
+                onAllPhotos = { on -> savePhotos(if (on) null else emptySet()) },
             )
         })
         if (daySheet) DaySheet(mapState, onPick = { d -> dayPicked = true; mapState.day = d }, onDismiss = { daySheet = false })
         lineAt?.let { at ->
-            LineMenuSheet(trip, mapState, at, onDismiss = { lineAt = null }, onTrain = { prefill -> trainFor = at to prefill }, onDone = { msg -> mapNote = msg?.let { it to false } })
+            LineMenuSheet(
+                trip, mapState, at, onDismiss = { lineAt = null }, onTrain = { prefill -> trainFor = at to prefill },
+                run = { block, done ->
+                    scope.launch { mapNote = runCatching { block(); mapState.reloadRoutes() }.fold({ done to false }, { (it.message ?: "Dat lukte niet") to false }) }
+                },
+            )
         }
         trainFor?.let { (at, prefill) ->
             TrainSheet(prefill, onDraw = { from, to ->

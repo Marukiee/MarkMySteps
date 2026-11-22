@@ -200,9 +200,12 @@ fun nearestLeg(trip: Trip, at: LonLat): Stop? {
 
 /** What a long press on the line offers, as the web: draw by road, draw a train ride, wipe a drawn stretch, hide a leg. */
 @Composable
-fun LineMenuSheet(trip: Trip, state: TripMapState, at: LonLat, onDismiss: () -> Unit, onTrain: (prefill: Pair<String, String>?) -> Unit, onDone: (String?) -> Unit) {
+fun LineMenuSheet(
+    trip: Trip, state: TripMapState, at: LonLat, onDismiss: () -> Unit, onTrain: (prefill: Pair<String, String>?) -> Unit,
+    /** Runs a change in the page's own scope (it outlives this sheet) and says [done] when it went through. */
+    run: (block: suspend () -> Unit, done: String) -> Unit,
+) {
     val cs = MaterialTheme.colorScheme
-    val scope = rememberCoroutineScope()
     val tripId = state.tripId ?: return
     val leg = remember(at) { nearestLeg(trip, at) }
     // Asked for, not waited for: the wipe comes in with the server's answer.
@@ -210,11 +213,10 @@ fun LineMenuSheet(trip: Trip, state: TripMapState, at: LonLat, onDismiss: () -> 
     LaunchedEffect(at) { near = MapRemote.drawnNear(tripId, at) }
     val byTrain = leg?.mode == Mode.Train
     val hidden = leg?.id?.let { state.hiddenLegs[it] } ?: leg?.hideLeg ?: false
+    // The sheet goes at once; the drawing (seconds, for a road) carries on in the page, which reloads the line after.
     fun act(close: () -> Unit, block: suspend () -> Unit, done: String) {
         close()
-        scope.launch {
-            onDone(runCatching { block(); state.reloadRoutes() }.fold({ done }, { it.message ?: "Dat lukte niet" }))
-        }
+        run(block, done)
     }
     AppSheet(onDismiss = onDismiss) {
         val dismiss = { close() }

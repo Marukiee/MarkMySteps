@@ -83,6 +83,20 @@ object OfflineMaps {
     suspend fun find(context: android.content.Context, tripId: String): Saved? =
         regions(context).firstNotNullOfOrNull { r -> metaOf(r)?.takeIf { it.optString("trip") == tripId && it.optBoolean("done") }?.let { Saved(r, it.optLong("bytes"), it.optString("style")) } }
 
+    /** A download that was cut off (the app closed during it) leaves a half region behind: it goes, so it never lingers unseen. */
+    suspend fun dropUnfinished(context: android.content.Context, tripId: String) {
+        if (progress.containsKey(tripId)) return
+        for (r in regions(context)) {
+            val m = metaOf(r) ?: continue
+            if (m.optString("trip") == tripId && !m.optBoolean("done")) suspendCancellableCoroutine { cont ->
+                r.delete(object : OfflineRegion.OfflineRegionDeleteCallback {
+                    override fun onDelete() { if (cont.isActive) cont.resume(Unit) }
+                    override fun onError(error: String) { if (cont.isActive) cont.resume(Unit) }
+                })
+            }
+        }
+    }
+
     suspend fun delete(context: android.content.Context, tripId: String) {
         for (r in regions(context)) if (metaOf(r)?.optString("trip") == tripId) suspendCancellableCoroutine { cont ->
             r.setDownloadState(OfflineRegion.STATE_INACTIVE)
@@ -186,11 +200,13 @@ fun OfflineMapPanel(trip: Trip, tripId: String) {
     var checked by remember { mutableStateOf(false) }
     val progress = OfflineMaps.progress[tripId]
     var error by remember { mutableStateOf<String?>(null) }
+    var wiping by remember { mutableStateOf(false) }
     var routes by remember { mutableStateOf<List<MapRemote.RouteLine>?>(null) }
     // A download that finished (here or while the page was away) says how it went.
     val result = OfflineMaps.results[tripId]
     LaunchedEffect(result) { result?.onSuccess { saved = it }?.onFailure { error = it.message ?: "Downloaden mislukt" } }
     LaunchedEffect(tripId) {
+        runCatching { OfflineMaps.dropUnfinished(context, tripId) }
         saved = runCatching { OfflineMaps.find(context, tripId) }.getOrNull(); checked = true
         routes = runCatching { MapRemote.routes(tripId, null) }.getOrNull()
     }
@@ -213,9 +229,11 @@ fun OfflineMapPanel(trip: Trip, tripId: String) {
         }
         AnimatedVisibility(progress == null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Wiping a large region takes a moment: the button says so until it is gone.
                 if (saved != null) QuietDangerButton("Wissen", {
-                    scope.launch { runCatching { OfflineMaps.delete(context, tripId) }; saved = null }
-                }, Modifier.weight(0.75f), icon = Glyphs.trash)
+                    wiping = true
+                    scope.launch { runCatching { OfflineMaps.delete(context, tripId) }; saved = null; wiping = false }
+                }, Modifier.weight(0.75f), icon = Glyphs.trash, busy = wiping)
                 SoftButton(if (saved != null) "Opnieuw ophalen" else "Downloaden", {
                     val b = bounds ?: return@SoftButton
                     val style = mapStyleUrl(dark)
