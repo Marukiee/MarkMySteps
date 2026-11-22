@@ -205,6 +205,11 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
     var selfLocation by remember { mutableStateOf(false) }
     var notify by remember { mutableStateOf(true) }
     var offlineMap by remember { mutableStateOf(false) }
+    // The real values from the server, read when the page opens.
+    val tfa by androidx.compose.runtime.produceState<Pair<Boolean, Int>?>(null, Data.live) { if (Data.live) value = runCatching { Remote.twoFactor() }.getOrNull() }
+    val immich by androidx.compose.runtime.produceState<Pair<String, String?>?>(null, Data.live) { if (Data.live) value = Remote.immich() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "" }
 
     Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
@@ -222,7 +227,7 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
                 Item(Glyphs.person, "Profiel", "naam, foto"),
                 Item(Glyphs.lock, "Wachtwoord"),
                 // Signed in, its real state is not read yet, so no made-up switch: it opens its page.
-                if (Data.live) Item(Glyphs.shield, "Tweestapsverificatie") else Item(Glyphs.shield, "Tweestapsverificatie", toggle = twoFactor, action = { twoFactor = !twoFactor }),
+                if (Data.live) Item(Glyphs.shield, "Tweestapsverificatie", tfa?.let { (on, left) -> if (on) "aan, nog $left herstelcodes" else "uit" }) else Item(Glyphs.shield, "Tweestapsverificatie", toggle = twoFactor, action = { twoFactor = !twoFactor }),
             )).also {
                 Group("Server", listOf(Item(Glyphs.globe, "Server", Api.base.removePrefix("https://").ifBlank { "voorbeelden" }), Item(Glyphs.arrowRight, if (Data.live) "Uitloggen" else "Inloggen", action = onSignIn)))
             }
@@ -257,7 +262,9 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
                 Group("Importeren", listOf(Item(Glyphs.download, "Route-bestanden", "GPX, KML"), Item(Glyphs.compass, "Polarsteps importeren")))
             }
             3 -> Group("Bron", listOf(
-                Item(Glyphs.photo, "Immich", if (Data.live) null else "verbonden"),
+                Item(Glyphs.photo, "Immich", if (!Data.live) "verbonden" else immich?.let { (url, last) ->
+                    url.removePrefix("https://").removePrefix("http://").trimEnd('/') + (last?.let { " · bijgewerkt " + runCatching { java.time.LocalDate.parse(it.take(10)).let { d -> "${d.dayOfMonth} ${d.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL")).trimEnd('.')}" } }.getOrDefault("") } ?: "")
+                } ?: "niet verbonden"),
                 Item(Glyphs.camera, "Foto's in je statistieken", "alles van de dagen samen"),
             ))
             4 -> Group("Op je telefoon", listOf(
@@ -271,7 +278,7 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
             ))
             6 -> Group("Nieuwe versies", listOf(
                 Item(Glyphs.download, "Automatisch controleren", toggle = autoUpdate, action = { autoUpdate = !autoUpdate }),
-                Item(Glyphs.download, "Nu controleren", "testversie"),
+                Item(Glyphs.download, "Nu controleren", "versie $version (testversie)"),
             ))
             else -> Group("MarkMySteps", listOf(
                 Item(Glyphs.help, "Wat is er nieuw"),

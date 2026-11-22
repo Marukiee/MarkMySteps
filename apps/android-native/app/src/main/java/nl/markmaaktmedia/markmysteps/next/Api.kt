@@ -442,6 +442,15 @@ object Remote {
         w
     }
 
+    /** Whether the account has an authenticator app, and how many recovery codes are left. */
+    suspend fun twoFactor(): Pair<Boolean, Int> = JSONObject(Api.get("/api/auth/2fa")).let { it.optBoolean("enabled") to it.optInt("recoveryCodesLeft") }
+
+    /** The Immich connection: where, and when photos were last fetched (null when not connected). */
+    suspend fun immich(): Pair<String, String?>? = runCatching {
+        val o = JSONObject(Api.get("/api/immich/connection"))
+        o.optString("serverUrl").takeIf { it.isNotBlank() }?.let { it to o.optString("lastSyncAt").takeIf { s -> s.isNotBlank() && s != "null" } }
+    }.getOrNull()
+
     suspend fun friends(): List<Friend> {
         val a = JSONArray(Api.get("/api/users/friends"))
         return (0 until a.length()).map { a.getJSONObject(it) }.map {
