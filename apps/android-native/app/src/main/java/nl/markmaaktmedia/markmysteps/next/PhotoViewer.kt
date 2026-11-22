@@ -445,8 +445,8 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBo
                         )
                     }
                     if (trip.remoteId != null) Box {
-                        var menuOut by remember { mutableStateOf(false) }
-                        Box(Modifier.graphicsLayer { alpha = if (menuOut) 0f else 1f }) {
+                        var menuOut by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+                        Box(Modifier.graphicsLayer { alpha = 1f - menuOut }) {
                             RoundButton(onClick = { menu = true }) { LineIcon(Glyphs.dotsCircles, Color.White, size = 20.dp, filled = true) }
                         }
                         ViewerMenu(trip, current, stops, immich, expanded = menu, onDismiss = { menu = false }, onNote = { text, sticky -> note = text; noteSticky = sticky }, onShowing = { menuOut = it })
@@ -599,7 +599,7 @@ private fun PlaceLine(current: Media, list: List<Media>, page: Int, stops: List<
  * the original saved to the phone, opened in or shared with another app, and your own photo in Immich.
  */
 @Composable
-private fun ViewerMenu(trip: Trip, media: Media, stops: List<ViewerApi.StopRow>?, immich: String?, expanded: Boolean, onDismiss: () -> Unit, onNote: (String?, Boolean) -> Unit, onShowing: (Boolean) -> Unit = {}) {
+private fun ViewerMenu(trip: Trip, media: Media, stops: List<ViewerApi.StopRow>?, immich: String?, expanded: Boolean, onDismiss: () -> Unit, onNote: (String?, Boolean) -> Unit, onShowing: (Float) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val me = Data.me?.id

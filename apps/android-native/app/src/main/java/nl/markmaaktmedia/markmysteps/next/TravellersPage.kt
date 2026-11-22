@@ -327,7 +327,8 @@ private fun StatTile(value: Int?, label: String, icon: List<Shape24>, mark: Shap
         Column(Modifier.align(Alignment.BottomStart)) {
             val figure = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 34.sp, letterSpacing = (-0.03).em, color = fg)
             androidx.compose.animation.Crossfade(value == null, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "figure") { waiting ->
-                if (waiting) Text("0000", style = figure.copy(color = Color.Transparent), modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(fg.copy(alpha = 0.12f)))
+                // Empty while it is read (it keeps its height), then the figure counts up: no grey block flashing first.
+                if (waiting) Text("0000", style = figure.copy(color = Color.Transparent))
                 else Text(dots(count.value.roundToInt()), style = figure)
             }
             Text(label, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.sp, color = fg.copy(alpha = 0.8f)))

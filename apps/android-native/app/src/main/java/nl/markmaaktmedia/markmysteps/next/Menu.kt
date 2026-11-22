@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
@@ -50,7 +53,7 @@ class MenuEntry(
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntry>>, anchorHeight: androidx.compose.ui.unit.Dp = 40.dp, buttonColor: Color? = null, onShowing: ((Boolean) -> Unit)? = null) {
+fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntry>>, anchorHeight: androidx.compose.ui.unit.Dp = 40.dp, buttonColor: Color? = null, onShowing: ((Float) -> Unit)? = null) {
     val cs = MaterialTheme.colorScheme
     val shown = groups.filter { it.isNotEmpty() }
     // Taken here, outside the popup: the popup's own view is gone by the time an entry acts.
@@ -70,7 +73,10 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
     // While it is out, the button it grows from is hidden (the menu is that button now), so the round button
     // never peeks out past the menu's corner; it is back the moment the menu has folded into it.
     val showing = expanded || open.value > 0f
-    androidx.compose.runtime.SideEffect { onShowing?.invoke(showing) }
+    // How far the button is gone: it hands over to the menu in the first part of opening and comes back in the
+    // last part of closing, a crossfade, so its own glass never jumps back in one frame.
+    val handover = if (showing) (open.value / 0.3f).coerceIn(0f, 1f) else 0f
+    androidx.compose.runtime.SideEffect { onShowing?.invoke(handover) }
     if (!showing) return
     // The button it came from, as the popup is placed on it.
     var anchor by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
@@ -105,6 +111,7 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                     androidx.compose.ui.graphics.Outline.Rounded(androidx.compose.ui.geometry.RoundRect(size.width - w, 0f, size.width, h, androidx.compose.ui.geometry.CornerRadius(r)))
             }
             clip = true
+            alpha = handover
         },
       ) {
       androidx.compose.foundation.layout.Box(Modifier.drawWithContent {
@@ -139,7 +146,7 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                 val lines = entries.filterNot { it.inline }
                 // Measured on screen: the group's own edge above and below its items was 9 px against 11 px at the
                 // sides. A little more top and bottom makes all four the same.
-                if (inlines.isEmpty()) Spacer(Modifier.height(0.75.dp))
+                if (inlines.isEmpty()) Spacer(Modifier.height(0.25.dp))
                 if (inlines.isNotEmpty()) {
                     // One choice out of a few: connected buttons side by side, the chosen one filled.
                     androidx.compose.foundation.layout.Row(
@@ -179,25 +186,37 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                 lines.forEachIndexed { i, e ->
                     val on = e.selected == true
                     val tint = when { e.danger -> cs.error; on -> cs.onPrimaryContainer; else -> cs.onSurface }
+                    // Concentric with the menu: 24 dp where an item meets the menu's 28 dp corner, tight elsewhere.
+                    val itemShape = run {
+                        val edge = 24.dp; val tight = 6.dp
+                        val top = if (g == 0 && inlines.isEmpty() && i == 0) edge else tight
+                        val bottom = if (g == shown.lastIndex && i == lines.lastIndex) edge else tight
+                        androidx.compose.foundation.shape.RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
+                    }
                     DropdownMenuItem(
                         selected = on,
                         onClick = { if (e.selected == false) haptics(Haptic.Tick); onDismiss(); e.onClick() },
                         text = { Text(e.label, style = text, color = tint) },
-                        // Concentric with the menu: 24 dp where an item meets the menu's 28 dp corner, tight elsewhere.
-                        shapes = run {
-                            val edge = 24.dp; val tight = 6.dp
-                            val top = if (g == 0 && inlines.isEmpty() && i == 0) edge else tight
-                            val bottom = if (g == shown.lastIndex && i == lines.lastIndex) edge else tight
-                            val shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
-                            androidx.compose.material3.MenuItemShapes(shape, shape)
+                        // Its own fill in a true rounded rectangle: the item's built in shape is drawn as a morphable
+                        // polygon whose corners measured flatter (about 21 dp) than asked, so they did not run
+                        // alongside the menu's corner.
+                        modifier = run {
+                            val fill = if (on) cs.primaryContainer else cs.surfaceContainerLow
+                            Modifier.drawBehind {
+                                // The item's own margin inside the group, as Material leaves it (measured on screen).
+                                val ix = 4.dp.toPx(); val iy = 2.dp.toPx()
+                                val o = itemShape.createOutline(androidx.compose.ui.geometry.Size(size.width - 2 * ix, size.height - 2 * iy), layoutDirection, this)
+                                translate(ix, iy) { drawOutline(o, fill) }
+                            }
                         },
+                        shapes = androidx.compose.material3.MenuItemShapes(itemShape, itemShape),
                         leadingIcon = { LineIcon(e.icon, tint, size = 20.dp) },
                         trailingIcon = if (on) ({ LineIcon(Glyphs.check, tint, size = 18.dp, stroke = 2.4f) }) else null,
                         // The chosen one in the app's own warm accent, not the scheme's teal.
-                        colors = MenuDefaults.selectableItemColors(containerColor = cs.surfaceContainerLow, selectedContainerColor = cs.primaryContainer),
+                        colors = MenuDefaults.selectableItemColors(containerColor = Color.Transparent, selectedContainerColor = Color.Transparent),
                     )
                 }
-                Spacer(Modifier.height(0.75.dp))
+                Spacer(Modifier.height(0.25.dp))
             }
         }
     }

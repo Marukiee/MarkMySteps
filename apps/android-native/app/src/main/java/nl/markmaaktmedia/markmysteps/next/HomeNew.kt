@@ -813,7 +813,7 @@ private fun PastOrShared(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Mo
 @Composable
 private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Unit = {}, onPeople: (() -> Unit)? = null, light: Boolean = true, autoBig: Boolean = false, lightCover: Boolean = false) {
     var menu by remember { mutableStateOf(false) }
-    var menuOut by remember { mutableStateOf(false) }
+    var menuOut by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     var renaming by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     var leaving by remember { mutableStateOf(false) }
@@ -829,7 +829,7 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
             // A solid tonal disc on photos, so the dots read on a bright sky too.
             // Same white glass on every photo; over a light corner it is less see-through and the dots go dark.
             // Hidden as a whole (its glass too) while the menu is out: the menu is this button then.
-            Modifier.graphicsLayer { alpha = if (menuOut) 0f else 1f }.size(40.dp).then(if (light) Modifier.glass(CircleShape, veil = veil) else Modifier.clip(CircleShape)).bouncyClickable({ menu = true }, feel = null).a11y(stringResource(R.string.a11y_more)), // the menu ticks as it opens
+            Modifier.graphicsLayer { alpha = 1f - menuOut }.size(40.dp).then(if (light) Modifier.glass(CircleShape, veil = veil) else Modifier.clip(CircleShape)).bouncyClickable({ menu = true }, feel = null).a11y(stringResource(R.string.a11y_more)), // the menu ticks as it opens
             contentAlignment = Alignment.Center,
         ) { LineIcon(Glyphs.dotsCircles, if (light) dots else cs.onSurfaceVariant, size = 20.dp, filled = true) }
         val chosen = CardSizePref.overrides[trip.id] ?: CardSizePref.AUTO
@@ -843,7 +843,7 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
                 mine -> listOf(MenuEntry(stringResource(R.string.home_rename), Glyphs.pencil) { renaming = true }, MenuEntry(stringResource(R.string.home_delete), Glyphs.trash, danger = true) { deleting = true })
                 else -> listOf(MenuEntry(stringResource(R.string.home_leave), Glyphs.signOut, danger = true) { leaving = true })
             },
-        ), buttonColor = if (light) Color.White.copy(alpha = veil.coerceIn(0.5f, 0.95f)) else MaterialTheme.colorScheme.surfaceContainerHigh, onShowing = { menuOut = it })
+        ), buttonColor = if (light) Color.White.copy(alpha = veil.coerceIn(0.5f, 0.95f)) else Color.Transparent, onShowing = { menuOut = it })
     }
     if (renaming) {
         var title by remember { mutableStateOf(trip.title) }
