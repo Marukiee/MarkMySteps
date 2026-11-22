@@ -37,14 +37,14 @@ enum Brand {
     /// The logo is always the brand orange, also in dark mode.
     static let logo = Color(hex: 0xE8613C)
     static let accent = Color.accentColor
-    /// Warm paper in light, the web's dark paper in dark (a normal dark mode, not black).
-    /// A touch deeper than #FBF7F2 so white cards stand off it clearly.
-    static let paper = Color(light: 0xF6F0E7, dark: 0x14181D)
-    /// Cards and grouped rows. No shadows anywhere: tone alone sets them off.
-    static let raised = Color(light: 0xFFFFFF, dark: 0x222A33)
-    /// Fields, chips and controls inside a card.
-    static let sunken = Color(light: 0xEFE7DB, dark: 0x2E3742)
-    static let line = Color(light: 0xE2D9CB, dark: 0x3A444F)
+    /// Warm paper in light (Android's background), the web's dark paper in dark (a normal dark mode, not black).
+    static let paper = Color(light: 0xFBF7F2, dark: 0x14181D)
+    /// Cards and grouped rows. Never white on the light beige: a deeper warm tone, as Android's surface
+    /// containers. No shadows anywhere: tone alone sets them off.
+    static let raised = Color(light: 0xF0E8DB, dark: 0x222A33)
+    /// Fields, chips and controls inside a card, a step deeper again so they stand off the card.
+    static let sunken = Color(light: 0xE5DACA, dark: 0x2E3742)
+    static let line = Color(light: 0xDCD1C0, dark: 0x3A444F)
     static let ink = Color(light: 0x1B2530, dark: 0xEEF1F4)
     static let inkSoft = Color(light: 0x5E6B77, dark: 0xA7B2BD)
 }

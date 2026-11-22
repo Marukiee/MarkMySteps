@@ -73,13 +73,6 @@ struct LoginView: View {
                     .buttonBorderShape(.capsule)
                     .controlSize(.large)
                     .padding(.top, 12)
-
-                    Text("Deze testapp leest alleen. Hij verandert niets aan je reizen.")
-                        .font(.inter(12.5, 500))
-                        .foregroundStyle(Brand.inkSoft)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 14)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 24)

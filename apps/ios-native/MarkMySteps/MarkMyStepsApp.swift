@@ -8,6 +8,15 @@ struct MarkMyStepsApp: App {
         // Navigation titles in the brand font; the bars themselves stay the system's glass.
         UINavigationBar.appearance().largeTitleTextAttributes = [.font: Fonts.ui("Outfit", 34, 680)]
         UINavigationBar.appearance().titleTextAttributes = [.font: Fonts.ui("Outfit", 17, 620)]
+        // The chosen segment as a warm accent pill with white text, as Android's connected buttons: never a white
+        // segment on the light beige.
+        // Plain UIColors with the asset's values: reading the asset catalog this early made SwiftUI lose the app's
+        // accent colour (everything turned system blue).
+        let segments = UISegmentedControl.appearance()
+        segments.selectedSegmentTintColor = UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: 0xF0714D) : UIColor(hex: 0xE8613C) }
+        segments.setTitleTextAttributes([.foregroundColor: UIColor.white, .font: Fonts.ui("Inter", 14, 620)], for: .selected)
+        segments.setTitleTextAttributes([.foregroundColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: 0xEEF1F4) : UIColor(hex: 0x1B2530) },
+                                         .font: Fonts.ui("Inter", 14, 520)], for: .normal)
     }
 
     var body: some Scene {

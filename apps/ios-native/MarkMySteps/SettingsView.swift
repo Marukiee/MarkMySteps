@@ -245,13 +245,29 @@ private struct AppearancePage: View {
                     .sensoryFeedback(.selection, trigger: sizes.standard)
                 } header: { Text("Reiskaarten op de homepage") }
                 Section {
+                    // With nothing to wipe the row says so in muted words instead of a grey button that only
+                    // looks broken; with choices it is a red action with how many trips it resets.
+                    let count = sizes.overrides.count
                     Button(role: .destructive) {
                         withAnimation(.calm) { sizes.clear() }
                         Haptic.tap()
                     } label: {
-                        Label("Handmatige keuzes wissen", systemImage: "trash").foregroundStyle(sizes.overrides.isEmpty ? Brand.inkSoft : .red)
+                        HStack {
+                            if count == 0 {
+                                Label("Geen handmatige keuzes", systemImage: "checkmark.circle")
+                                    .foregroundStyle(Brand.inkSoft.opacity(0.75))
+                            } else {
+                                Label("Handmatige keuzes wissen", systemImage: "trash").foregroundStyle(.red)
+                                Spacer()
+                                Text(count == 1 ? "1 reis" : "\(count) reizen")
+                                    .font(.inter(15, 500))
+                                    .foregroundStyle(Brand.inkSoft)
+                                    .contentTransition(.numericText())
+                            }
+                        }
+                        .animation(.calm, value: count)
                     }
-                    .disabled(sizes.overrides.isEmpty)
+                    .disabled(count == 0)
                 } footer: {
                     Text("Automatisch: aankomende reizen en de laatste reis groot, de rest als rij. Per reis kies je het ook in het menu van de reis.")
                 }

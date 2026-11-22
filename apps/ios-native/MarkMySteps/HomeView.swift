@@ -15,7 +15,6 @@ struct HomeView: View {
     @State private var newTrip = false
     /// Just the status bar: the globe runs up under it, the logo floats below it.
     @State private var topInset: CGFloat = 62
-    @State private var scrolled = false
     @State private var renaming: Trip?
     @State private var deleting: Trip?
     @State private var leaving: Trip?
@@ -33,19 +32,11 @@ struct HomeView: View {
                 }
                 .scrollIndicators(.hidden)
                 .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { if $0 > 0 { topInset = $0 } }
-                .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.contentInsets.top > 40 } action: { _, v in
-                    withAnimation(.easeOut(duration: 0.2)) { scrolled = v }
-                }
+                // The homepage runs full screen under the clock, also while scrolling: no band of page colour and
+                // no blur of the system's scroll edge behind the clock, unlike the other pages.
+                .scrollEdgeEffectHidden(true, for: .top)
                 .ignoresSafeArea(.container, edges: .top)
                 .background(Brand.paper)
-                // Behind the clock and the battery once the page scrolls under them; no bar otherwise.
-                .overlay(alignment: .top) {
-                    LinearGradient(stops: [.init(color: Brand.paper, location: 0), .init(color: Brand.paper, location: 0.7), .init(color: Brand.paper.opacity(0), location: 1)], startPoint: .top, endPoint: .bottom)
-                        .frame(height: topInset + 14)
-                        .ignoresSafeArea(.container, edges: .top)
-                        .opacity(scrolled ? 1 : 0)
-                        .allowsHitTesting(false)
-                }
                 .onAppear {
                     guard Launch.page == "trips" || Launch.page == nil, let anchor = Launch.scroll else { return }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { proxy.scrollTo(anchor, anchor: UnitPoint(x: 0.5, y: 0.13)) }
