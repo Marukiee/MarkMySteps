@@ -87,7 +87,7 @@ private val Friends = listOf(
     Friend("Daan", "daan", Color(0xFF7A5BD6), 1),
 )
 
-private fun dots(n: Int) = "%,d".format(n).replace(',', '.')
+private fun dots(n: Int) = "%,d".format(Lang.locale, n)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

@@ -367,8 +367,6 @@
     <string name="access_link_password">Een gedeelde reis met een wachtwoord. Je bent er zelf niet op, dus hij opent op de website.</string>
     <string name="access_link_other">Een gedeelde reis van iemand anders. Je bent er zelf niet op, dus hij opent op de website.</string>
     <string name="access_open_website">Openen op de website</string>
-    <string name="access_added_one">Je bent toegevoegd aan 1 reis!</string>
-    <string name="access_added_many">Je bent toegevoegd aan %1$s reizen!</string>
     <string name="access_invite_by">door %1$s</string>
     <string name="access_later">Later</string>
     <string name="access_view_trip">Bekijk de reis</string>
@@ -448,8 +446,6 @@
     <string name="people_add_someone">Iemand toevoegen</string>
     <string name="people_search">Zoek op naam of @gebruikersnaam</string>
     <string name="people_none_found">Niemand gevonden met die naam.</string>
-    <string name="people_add_one_as">1 persoon toevoegen als</string>
-    <string name="people_add_many_as">%1$s mensen toevoegen als</string>
     <string name="people_share_owner">Publieke, alleen-lezen link voor thuisblijvers, zonder account.</string>
     <string name="people_share_member">De link die de beheerder maakte. Doorsturen mag; wijzigen doet de beheerder.</string>
     <string name="people_copy">Kopieer</string>
@@ -611,8 +607,6 @@
     <string name="points_remove_failed">Punt verwijderen mislukt</string>
     <string name="points_today">Punten van vandaag</string>
     <string name="points_of_day">Punten van %1$s</string>
-    <string name="points_one">1 punt</string>
-    <string name="points_many">%1$s punten</string>
     <string name="points_today_short">Vandaag</string>
     <string name="points_tap_to_add">Tik op de kaart om een punt toe te voegen</string>
     <string name="points_tap_where">Tik op de kaart waar het punt moet komen.</string>
@@ -694,4 +688,8 @@
     <string name="fact_photos">Foto\'s</string>
     <string name="fact_travellers">Reisgenoten</string>
     <string name="fact_countries">Landen</string>
+    <string name="viewer_open_in_title">Openen in</string>
+    <plurals name="people_add_as"><item quantity="one">%1$d persoon toevoegen als</item><item quantity="other">%1$d mensen toevoegen als</item></plurals>
+    <plurals name="points_count"><item quantity="one">%1$d punt</item><item quantity="other">%1$d punten</item></plurals>
+    <plurals name="access_added"><item quantity="one">Je bent toegevoegd aan %1$d reis!</item><item quantity="other">Je bent toegevoegd aan %1$d reizen!</item></plurals>
 </resources>

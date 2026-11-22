@@ -671,7 +671,7 @@ fun chosenFacts(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<String
     val ids = TripFactsPref.chosen[trip.id] ?: return null
     return ids.map { f ->
         when (f) {
-            "km" -> (trip.km?.let { "%,d".format(it).replace(',', '.') } ?: "0") to Lang.text(R.string.tripsettings_fact_km)
+            "km" -> (trip.km?.let { "%,d".format(Lang.locale, it) } ?: "0") to Lang.text(R.string.tripsettings_fact_km)
             "days" -> "${trip.days}" to (if (trip.days == 1) Lang.text(R.string.tripsettings_fact_day) else Lang.text(R.string.tripsettings_fact_days))
             "stops" -> (if (stopsKnown) "${trip.stops.size}" else null) to (if (trip.stops.size == 1) Lang.text(R.string.tripsettings_fact_stop) else Lang.text(R.string.tripsettings_fact_stops))
             "photos" -> (photos?.toString() ?: if (trip.remoteId != null) null else "${trip.photos}") to Lang.text(R.string.tripsettings_fact_photos)

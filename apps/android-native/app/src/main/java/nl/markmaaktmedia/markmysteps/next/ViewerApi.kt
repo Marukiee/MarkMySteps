@@ -203,7 +203,7 @@ object ViewerApi {
     /** Another app opens the photo (an editor, a gallery). */
     fun openIn(context: Context, uri: Uri, type: String) {
         val view = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        context.startActivity(Intent.createChooser(view, "Openen in").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+        context.startActivity(Intent.createChooser(view, Lang.text(R.string.viewer_open_in_title)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
     }
 
     /** The share sheet with the photo itself. */

@@ -77,7 +77,7 @@ fun StatsListSheet(kind: StatsKind, lists: SocialRemote.Lists, onDismiss: () -> 
         val sheet = this
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             Text(title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
-            airKm?.let { Text(stringResource(R.string.stats_km_air, "%,d".format(it).replace(',', '.')), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp)) }
+            airKm?.let { Text(stringResource(R.string.stats_km_air, "%,d".format(Lang.locale, it)), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp)) }
             val go: (String) -> Unit = { id -> sheet.close(); onGo(id) }
             LazyColumn(Modifier.padding(top = 14.dp).heightIn(max = maxH), verticalArrangement = Arrangement.spacedBy(3.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
                 when (kind) {
@@ -85,7 +85,7 @@ fun StatsListSheet(kind: StatsKind, lists: SocialRemote.Lists, onDismiss: () -> 
                         Slab(i, lists.trips.size) {
                             Visit(
                                 dot = tripColor(t.color, cs.primary), title = t.title, line = stretch(t.from, t.to),
-                                second = listOfNotNull(plural(t.days, stringResource(R.string.home_day), stringResource(R.string.home_days)), t.km.takeIf { it > 0 }?.let { "${"%,d".format(it).replace(',', '.')} km" }, plural(t.photos, stringResource(R.string.trip_fact_photo), stringResource(R.string.summary_fact_photos))).joinToString(" · "),
+                                second = listOfNotNull(plural(t.days, stringResource(R.string.home_day), stringResource(R.string.home_days)), t.km.takeIf { it > 0 }?.let { "${"%,d".format(Lang.locale, it)} km" }, plural(t.photos, stringResource(R.string.trip_fact_photo), stringResource(R.string.summary_fact_photos))).joinToString(" · "),
                                 onGo = { go(t.id) },
                             )
                         }

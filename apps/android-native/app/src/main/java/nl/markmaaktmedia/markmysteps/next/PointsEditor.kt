@@ -72,6 +72,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 
 /*
  * The raw points of one day of your own route, on a map of their own, as the web's TrackPointsEditor: drag a
@@ -301,7 +302,7 @@ fun PointsEditor(tripId: String, onClose: () -> Unit) {
                 Column(Modifier.padding(start = 14.dp)) {
                     Text(if (day == today) stringResource(R.string.points_today) else stringResource(R.string.points_of_day, shortDay(day)), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
                     val n = points?.size
-                    Text(if (n == null) " " else if (n == 1) stringResource(R.string.points_one) else stringResource(R.string.points_many, n), style = ValueStyle.copy(color = cs.onSurfaceVariant))
+                    Text(if (n == null) " " else pluralStringResource(R.plurals.points_count, n, n), style = ValueStyle.copy(color = cs.onSurfaceVariant))
                 }
             }
             // The days with points, today first; the row runs to the screen's edge.

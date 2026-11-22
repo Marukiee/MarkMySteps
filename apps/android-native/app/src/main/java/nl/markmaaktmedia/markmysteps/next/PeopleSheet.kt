@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 
 /*
  * People and sharing, as on the web (MembersPanel, MemberAdd, SharePanel): who
@@ -275,7 +276,7 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
     AnimatedVisibility(picked.isNotEmpty(), enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
         Column(Modifier.padding(top = 12.dp)) {
             Text(
-                if (picked.size == 1) stringResource(R.string.people_add_one_as) else stringResource(R.string.people_add_many_as, picked.size),
+                pluralStringResource(R.plurals.people_add_as, picked.size, picked.size),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 8.dp),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween), verticalAlignment = Alignment.CenterVertically) {

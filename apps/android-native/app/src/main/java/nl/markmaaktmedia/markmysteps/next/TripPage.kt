@@ -582,7 +582,7 @@ private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<St
     // Each figure that has something to say, by its id; the trip's own choice (Reisinstellingen > Feitjes)
     // comes first, topped up from the fixed order, as the web's resolveFacts.
     val facts = linkedMapOf<String, Pair<String?, String>>()
-    trip.km?.takeIf { it > 0 }?.let { facts["km"] = "%,d".format(it).replace(',', '.') to Lang.text(R.string.summary_fact_km) }
+    trip.km?.takeIf { it > 0 }?.let { facts["km"] = "%,d".format(Lang.locale, it) to Lang.text(R.string.summary_fact_km) }
     trip.days.takeIf { it > 0 }?.let { facts["days"] = "$it" to (if (it == 1) Lang.text(R.string.home_day) else Lang.text(R.string.home_days)) }
     trip.stops.size.takeIf { it > 1 }?.let { facts["stops"] = "$it" to "stops" }
     (photos ?: trip.photos).takeIf { it > 0 }?.let { facts["photos"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos)) }

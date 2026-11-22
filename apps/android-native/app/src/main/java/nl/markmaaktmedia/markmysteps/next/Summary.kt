@@ -478,7 +478,7 @@ private fun PosterPhoto(r: Rated, modifier: Modifier) {
     PhotoView(shown.photo, modifier.posterShared("s-${r.photo.id}").then(if (swap != null) Modifier.clickable { swap(r) } else Modifier), placeholder = Color(shown.look.average))
 }
 
-private fun monthLabel(trip: Trip) = "${trip.month} ${trip.year}"
+private fun monthLabel(trip: Trip) = "${DateText.longMonth(trip.month)} ${trip.year}"
 
 private fun subtitle(trip: Trip): String {
     val stops = trip.stops

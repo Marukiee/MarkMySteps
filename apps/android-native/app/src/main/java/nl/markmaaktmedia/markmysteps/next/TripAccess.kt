@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 
 /*
  * The ways into a trip from outside it: a trip you are not on (ask to look along), a link someone sent you
@@ -309,7 +310,7 @@ fun InviteDialog(preview: Boolean, onOpenTrip: (String) -> Unit) {
         ) {
             LineIcon(Glyphs.logo, cs.primary, size = 48.dp, stroke = 2.1f)
             Text(
-                if (single) stringResource(R.string.access_added_one) else stringResource(R.string.access_added_many, invites.size), textAlign = TextAlign.Center,
+                pluralStringResource(R.plurals.access_added, invites.size, invites.size), textAlign = TextAlign.Center,
                 style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 23.sp, lineHeight = 27.sp, color = cs.onSurface), modifier = Modifier.padding(top = 14.dp),
             )
             Column(Modifier.padding(top = 18.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {

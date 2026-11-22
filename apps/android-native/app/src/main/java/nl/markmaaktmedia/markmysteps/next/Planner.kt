@@ -212,7 +212,7 @@ private fun stay(from: LocalDate, to: LocalDate): String = when {
     else -> "${day(from, month = from.month != to.month)} t/m ${day(to, year = true)}"
 }
 
-private fun km(value: Int): String = "%,d km".format(value).replace(',', '.')
+private fun km(value: Int): String = "%,d km".format(Lang.locale, value)
 
 private fun contrast(a: Color, b: Color): Float {
     val x = a.luminance(); val y = b.luminance()

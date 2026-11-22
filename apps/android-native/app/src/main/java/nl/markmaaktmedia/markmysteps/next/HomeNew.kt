@@ -886,7 +886,7 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip("${shortMonthName(trip.month)} ${trip.year}")
                 Chip(androidx.compose.ui.res.pluralStringResource(R.plurals.home_days_chip, trip.days, trip.days))
-                trip.km?.takeIf { it > 0 }?.let { Chip("%,d km".format(it).replace(',', '.')) }
+                trip.km?.takeIf { it > 0 }?.let { Chip("%,d km".format(Lang.locale, it)) }
                 Spacer(Modifier.weight(1f))
                 FaceStack(trip.people, trip.extraPeople, ring = Color(0xFF2A2F36))
             }
@@ -919,18 +919,15 @@ private fun TripRow(trip: Trip, shape: Shape, dark: Boolean, onOpen: () -> Unit,
             Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                 Text(trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 18.sp, lineHeight = 21.sp, color = cs.onSurface))
                 // No distance measured: say nothing rather than "0 km".
-                val km = trip.km?.takeIf { it > 0 }?.let { " · " + "%,d".format(it).replace(',', '.') + " km" } ?: ""
-                Text(stringResource(R.string.home_trip_line_new, trip.month, trip.year, pluralStringResource(R.plurals.home_trip_days, trip.days, trip.days), km), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                val km = trip.km?.takeIf { it > 0 }?.let { " · " + "%,d".format(Lang.locale, it) + " km" } ?: ""
+                Text(stringResource(R.string.home_trip_line_new, DateText.longMonth(trip.month), trip.year, pluralStringResource(R.plurals.home_trip_days, trip.days, trip.days), km), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
             }
             MenuDots(trip, onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, light = false, autoBig = autoBig)
         }
     }
 }
 
-fun shortMonthName(month: String): String = mapOf(
-    "januari" to "jan", "februari" to "feb", "maart" to "mrt", "april" to "apr", "mei" to "mei", "juni" to "jun",
-    "juli" to "jul", "augustus" to "aug", "september" to "sep", "oktober" to "okt", "november" to "nov", "december" to "dec",
-)[month] ?: month.take(3)
+fun shortMonthName(month: String): String = DateText.shortMonthOf(month)
 
 /**
  * The floating toolbar with the three tabs, the open one widening into a pill

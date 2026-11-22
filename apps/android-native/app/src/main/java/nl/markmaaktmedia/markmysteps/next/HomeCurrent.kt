@@ -223,12 +223,12 @@ private fun BigTripCard(trip: Trip) {
                 ),
             )
             Row(Modifier.padding(top = 8.8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Meta(trip.month, trip.year)
+                Meta(DateText.longMonth(trip.month), trip.year)
                 Spacer(Modifier.width(12.dp))
                 Meta("${trip.days}", stringResource(R.string.home_days))
                 if (trip.km != null) {
                     Spacer(Modifier.width(12.dp))
-                    Meta("%,d".format(trip.km).replace(',', '.'), "km")
+                    Meta("%,d".format(Lang.locale, trip.km), "km")
                 }
                 Spacer(Modifier.weight(1f))
                 Faces(trip.people, trip.extraPeople)
@@ -333,7 +333,7 @@ private fun CompactTripCard(trip: Trip) {
                 trip.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = 19.2.sp, letterSpacing = (-0.015).em, color = c.ink),
             )
-            val km = trip.km?.let { " · " + "%,d".format(it).replace(',', '.') + " km" } ?: ""
+            val km = trip.km?.let { " · " + "%,d".format(Lang.locale, it) + " km" } ?: ""
             Text(
                 stringResource(R.string.home_trip_line, shortMonth(trip.month), trip.year, trip.days, km),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.3.sp, color = c.inkFaint),
@@ -369,7 +369,4 @@ private fun NavItem(icon: List<Shape24>, label: String, active: Boolean, modifie
 }
 
 /** The short month names Intl writes in Dutch: "mrt", not "maa". */
-private fun shortMonth(month: String): String = mapOf(
-    "januari" to "jan", "februari" to "feb", "maart" to "mrt", "april" to "apr", "mei" to "mei", "juni" to "jun",
-    "juli" to "jul", "augustus" to "aug", "september" to "sep", "oktober" to "okt", "november" to "nov", "december" to "dec",
-)[month] ?: month.take(3)
+private fun shortMonth(month: String): String = DateText.shortMonthOf(month)

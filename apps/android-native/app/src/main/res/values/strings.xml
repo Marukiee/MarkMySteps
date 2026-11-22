@@ -368,8 +368,6 @@
     <string name="access_link_password">A shared trip with a password. You are not on it yourself, so it opens on the website.</string>
     <string name="access_link_other">A shared trip from someone else. You are not on it yourself, so it opens on the website.</string>
     <string name="access_open_website">Open on the website</string>
-    <string name="access_added_one">You have been added to 1 trip!</string>
-    <string name="access_added_many">You have been added to %1$s trips!</string>
     <string name="access_invite_by">by %1$s</string>
     <string name="access_later">Later</string>
     <string name="access_view_trip">View the trip</string>
@@ -449,8 +447,6 @@
     <string name="people_add_someone">Add someone</string>
     <string name="people_search">Search by name or @username</string>
     <string name="people_none_found">Nobody found with that name.</string>
-    <string name="people_add_one_as">Add 1 person as</string>
-    <string name="people_add_many_as">Add %1$s people as</string>
     <string name="people_share_owner">Public, read-only link for the folks at home, no account needed.</string>
     <string name="people_share_member">The link the organiser made. You may pass it on; the organiser changes it.</string>
     <string name="people_copy">Copy</string>
@@ -612,8 +608,6 @@
     <string name="points_remove_failed">Removing the point failed</string>
     <string name="points_today">Points of today</string>
     <string name="points_of_day">Points of %1$s</string>
-    <string name="points_one">1 point</string>
-    <string name="points_many">%1$s points</string>
     <string name="points_today_short">Today</string>
     <string name="points_tap_to_add">Tap the map to add a point</string>
     <string name="points_tap_where">Tap the map where the point should go.</string>
@@ -695,4 +689,8 @@
     <string name="fact_photos">Photos</string>
     <string name="fact_travellers">Travel companions</string>
     <string name="fact_countries">Countries</string>
+    <string name="viewer_open_in_title">Open in</string>
+    <plurals name="people_add_as"><item quantity="one">Add %1$d person as</item><item quantity="other">Add %1$d people as</item></plurals>
+    <plurals name="points_count"><item quantity="one">%1$d point</item><item quantity="other">%1$d points</item></plurals>
+    <plurals name="access_added"><item quantity="one">You have been added to %1$d trip!</item><item quantity="other">You have been added to %1$d trips!</item></plurals>
 </resources>

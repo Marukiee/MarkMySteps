@@ -15,6 +15,20 @@ object DateText {
     /** The short month name for a month number from 1 to 12. */
     fun month(m: Int): String = if (Lang.dutch) dutchMonths[m - 1] else java.time.Month.of(m).getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
 
+    private val dutchLong = listOf("januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december")
+
+    /** A trip keeps its month as the Dutch long name ("juni"); this is that month in the chosen language. */
+    fun longMonth(dutchName: String): String {
+        val i = dutchLong.indexOf(dutchName)
+        return if (i < 0 || Lang.dutch) dutchName else java.time.Month.of(i + 1).getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+    }
+
+    /** The same, short: "jun", "Jun". */
+    fun shortMonthOf(dutchName: String): String {
+        val i = dutchLong.indexOf(dutchName)
+        return if (i < 0) dutchName.take(3) else month(i + 1)
+    }
+
     /** The short weekday name. */
     fun weekday(d: DayOfWeek): String = if (Lang.dutch) dutchDays[d.value - 1] else d.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
 
