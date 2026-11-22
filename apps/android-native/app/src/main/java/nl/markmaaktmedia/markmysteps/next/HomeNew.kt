@@ -80,6 +80,8 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.composed
@@ -243,6 +245,12 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         // Reizigers opens at the top, bell in view, each time you come to it from another tab (back included).
         // A trip opened from it keeps the page as it was, so coming back from the trip lands where you were.
         androidx.compose.runtime.LaunchedEffect(page) { if (page != 1) holder.removeState("page1") }
+        // A trip you left opens fresh the next time: at the top, its places row back at the first place.
+        val lastTrip = remember { mutableStateOf<String?>(null) }
+        androidx.compose.runtime.LaunchedEffect(open?.id) {
+            lastTrip.value?.takeIf { it != open?.id }?.let { holder.removeState(it) }
+            lastTrip.value = open?.id
+        }
         val backScope = androidx.compose.runtime.rememberCoroutineScope()
         // Exactly as Tandem: one seekable transition drives every page change, the back gesture
         // included. While the finger drags the transition is seeked, letting go plays the same
@@ -403,7 +411,17 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                 }
             }
 
-            Column(Modifier.padding(horizontal = Pad)) {
+            // With the update card there, the card and the page under it move up over the globe's faded edge,
+            // so the card does not sit alone in the empty band and the trips are not pushed far down.
+            val update = Updates.updater?.state?.collectAsState()?.value
+            val cardShown = update != null && update !is nl.markmaaktmedia.markupdate.UpdateState.Idle &&
+                update !is nl.markmaaktmedia.markupdate.UpdateState.Checking && update !is nl.markmaaktmedia.markupdate.UpdateState.UpToDate
+            val lift by androidx.compose.animation.core.animateDpAsState(if (cardShown) 120.dp else 0.dp, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "updateLift")
+            Column(Modifier.layout { m, c ->
+                val p = m.measure(c)
+                val up = lift.roundToPx()
+                layout(p.width, (p.height - up).coerceAtLeast(0)) { p.place(0, -up) }
+            }.padding(horizontal = Pad)) {
                 // A newer build: the update card all of Marks apps share, at the top of the page (Update.kt).
                 MmsUpdateCard(Modifier.padding(top = 8.dp, bottom = 6.dp))
                 // After an admin reset: choose your own password, until you did.

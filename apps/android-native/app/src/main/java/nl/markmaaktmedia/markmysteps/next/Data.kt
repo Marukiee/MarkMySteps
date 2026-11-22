@@ -200,6 +200,9 @@ object ThemePref {
         mode = value
         prefs?.edit()?.putInt(KEY, value)?.apply()
     }
+
+    /** Shows a choice without keeping it (the onboarding preview); [set] or another [show] undoes it. */
+    fun show(value: Int) { mode = value }
 }
 
 /** The map style, as on the web: three OpenFreeMap styles or Esri satellite. Kept on the phone. */

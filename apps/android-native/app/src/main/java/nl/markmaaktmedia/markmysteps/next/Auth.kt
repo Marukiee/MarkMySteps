@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.pager.HorizontalPager
@@ -368,6 +369,9 @@ fun OnboardingPage(preview: Boolean, local: Boolean, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
     val motion = MaterialTheme.motionScheme
     var theme by remember { mutableIntStateOf(ThemePref.mode) }
+    // The preview shows the theme you pick at once, like the real one, and puts yours back when it closes.
+    val ownTheme = remember { ThemePref.mode }
+    if (preview) androidx.compose.runtime.DisposableEffect(Unit) { onDispose { ThemePref.show(ownTheme) } }
     var name by remember { mutableStateOf(if (preview) "" else LocalMode.name) }
     fun granted(p: String) = context.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
     var location by remember { mutableStateOf<Boolean?>(if (granted(android.Manifest.permission.ACCESS_FINE_LOCATION)) true else null) }
@@ -404,7 +408,7 @@ fun OnboardingPage(preview: Boolean, local: Boolean, onDone: () -> Unit) {
         if (!local) add(Slide("share", Glyphs.send, R.string.onb_share_title, R.string.onb_share_body))
         add(Slide("offline", Glyphs.cloud, R.string.onb_offline_title, R.string.onb_offline_body))
         add(Slide("theme", Glyphs.sun, R.string.onb_theme_title, R.string.onb_theme_body) {
-            Choices(listOf(0 to stringResource(R.string.settings_theme_light), 1 to stringResource(R.string.settings_theme_dark), 2 to stringResource(R.string.common_system)), theme, { theme = it; if (!preview) ThemePref.set(it) })
+            Choices(listOf(0 to stringResource(R.string.settings_theme_light), 1 to stringResource(R.string.settings_theme_dark), 2 to stringResource(R.string.common_system)), theme, { theme = it; if (preview) ThemePref.show(it) else ThemePref.set(it) })
         })
         add(Slide("airports", Glyphs.plane, R.string.onb_airports_title, R.string.onb_airports_body) {
             // The real panel; in a preview it only shows, so nothing is kept.
@@ -469,15 +473,24 @@ fun OnboardingPage(preview: Boolean, local: Boolean, onDone: () -> Unit) {
                 Spacer(Modifier.height(24.dp))
             }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AnimatedVisibility(!last, modifier = Modifier.weight(1f)) {
-                SoftButton(stringResource(R.string.onb_skip), { scope.launch { pager.animateScrollToPage(slides.lastIndex) } }, Modifier.fillMaxWidth())
+        // On the last slide "Overslaan" makes way and the main button grows into its place, as one movement:
+        // both widths come from the same animated fraction, so nothing jumps.
+        val gone by androidx.compose.animation.core.animateFloatAsState(if (last) 1f else 0f, motion.defaultSpatialSpec(), label = "skipGone")
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
+            val gap = 10.dp
+            val full = maxWidth
+            val skipW = ((full - gap) / 2.6f) * (1f - gone)
+            Row(Modifier.fillMaxWidth()) {
+                if (skipW > 0.5.dp) Box(Modifier.width(skipW).graphicsLayer { alpha = (1f - gone * 1.6f).coerceIn(0f, 1f) }) {
+                    SoftButton(stringResource(R.string.onb_skip), { scope.launch { pager.animateScrollToPage(slides.lastIndex) } }, Modifier.requiredWidth((full - gap) / 2.6f).align(Alignment.CenterStart))
+                }
+                Spacer(Modifier.width(gap * (1f - gone)))
+                MainButton(
+                    stringResource(if (last) R.string.onb_finish else R.string.common_next),
+                    { if (last) finish() else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } },
+                    Modifier.weight(1f),
+                )
             }
-            MainButton(
-                stringResource(if (last) R.string.onb_finish else R.string.common_next),
-                { if (last) finish() else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } },
-                Modifier.weight(if (last) 1f else 1.6f),
-            )
         }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
