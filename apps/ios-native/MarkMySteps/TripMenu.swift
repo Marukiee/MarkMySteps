@@ -70,8 +70,8 @@ struct TripMenu<Label: View>: View {
             })) {
                 // The chosen size carries a checkmark: the system's own pale box behind it was too faint to see.
                 ForEach([(CardSizes.auto, "Auto"), (CardSizes.large, "Groot"), (CardSizes.compact, "Klein")], id: \.0) { tag, title in
-                    Image(uiImage: SizeChip.image(title, chosen: sizes.choice(trip.id) == tag, dark: scheme == .dark))
-                        .accessibilityLabel(title)
+                    // The words stay as the label's title for VoiceOver; the palette shows only the picture.
+                    SwiftUI.Label { Text(title) } icon: { Image(uiImage: SizeChip.image(title, chosen: sizes.choice(trip.id) == tag, dark: scheme == .dark)) }
                         .tag(tag)
                 }
             } label: {
