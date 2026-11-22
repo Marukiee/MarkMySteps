@@ -1,10 +1,10 @@
 import SwiftUI
 
 /*
- * Signing in: the globe turning above, the app's name, and one card with the
- * server, the name and the password. An account with an authenticator app
- * gets a second step for its code. "Bekijk met voorbeelden" opens the app on
- * the invented trips instead.
+ * Signing in, short and calm as on Android: the compass in a slowly turning cookie shape, the app's name and one
+ * line, then one card with the server (a line you tap to change), the name and the password. An account with an
+ * authenticator app gets a second step for its code. Under the card two joined pills: Account maken, and Zonder
+ * server, which on iPhone explains that a phone without a server is not there yet and offers the examples.
  */
 struct LoginView: View {
     /// Why signing in is asked again, e.g. an expired session.
@@ -23,8 +23,10 @@ struct LoginView: View {
     @State private var busy = false
     @State private var error: String?
     @FocusState private var focus: Field?
-    @State private var topInset: CGFloat = 60
     @State private var registering = Launch.page == "register"
+    /// The server is set once and rarely changed: one line to tap, a field only then.
+    @State private var editServer = Api.shared.host.isEmpty
+    @State private var noServer = false
 
     private enum Field { case server, name, password, code }
 
@@ -37,58 +39,28 @@ struct LoginView: View {
     var body: some View {
         ScrollViewReader { proxy in
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                // A fixed height: the globe must not shrink when the keyboard takes room. It stays below the
-                // Dynamic Island; above it the page colour fades softly into the globe, never a hard band.
-                GlobeHero(trips: Demo.past + [Demo.upcoming])
-                    .frame(height: 270)
-                    .frame(maxWidth: .infinity)
-                    .overlay(alignment: .top) {
-                        LinearGradient(colors: [Brand.paper, Brand.paper.opacity(0)], startPoint: .top, endPoint: .bottom)
-                            .frame(height: 56)
-                            .allowsHitTesting(false)
-                    }
-                    .padding(.top, topInset)
-                    .overlay(alignment: .bottom) {
-                        LinearGradient(colors: [Brand.paper.opacity(0), Brand.paper], startPoint: .top, endPoint: .bottom)
-                            .frame(height: 90)
-                            .allowsHitTesting(false)
-                    }
+            VStack(spacing: 0) {
+                brand
+                    .padding(.top, 36)
+                    .padding(.bottom, 28)
 
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 14) {
-                        // The brand mark as everywhere: the compass on its own, in the accent colour.
-                        CompassLogo(size: 40)
-                        Text("MarkMySteps").font(.outfit(30, 700)).tracking(-0.6).foregroundStyle(Brand.ink)
-                    }
-                    Text("Log in op je eigen server om je reizen te zien.")
-                        .font(.inter(15, 500))
-                        .foregroundStyle(Brand.inkSoft)
-                        .padding(.top, 10)
-                        .padding(.bottom, 20)
-
                     card
 
-                    Button(action: onDemo) {
-                        Text("Bekijk met voorbeelden").font(.outfit(16, 600)).frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .buttonBorderShape(.capsule)
-                    .controlSize(.large)
-                    .padding(.top, 12)
-
-                    // The other way in, as on the web and Android: ask your server for an account.
+                    // The other ways in, as on Android: ask your server for an account, or (on Android) keep
+                    // everything on this phone. Two tonal pills joined as one group, under the card.
                     if mfaToken == nil {
-                        Button("Account maken") { Haptic.tap(); registering = true }
-                            .font(.outfit(15.5, 600))
-                            .buttonStyle(.borderless)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 14)
-                            .transition(.opacity)
+                        HStack(spacing: 3) {
+                            joinedPill("Account maken", leading: true) { Haptic.tap(); registering = true }
+                            joinedPill("Zonder server", leading: false) { Haptic.tap(); noServer = true }
+                        }
+                        .padding(.top, 12)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 24)
+                .animation(.calm, value: mfaToken)
             }
         }
         // The focused field, and the button under it, scroll up above the keyboard.
@@ -104,12 +76,60 @@ struct LoginView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .scrollIndicators(.hidden)
-        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { if $0 > 0 { topInset = $0 } }
-        .ignoresSafeArea(.container, edges: .top)
+        .scrollBounceBehavior(.basedOnSize)
         .background(Brand.paper)
         .fullScreenCover(isPresented: $registering) {
             RegisterView(onApproved: { registering = false; onDone() }, onPending: { registering = false; onPending() })
         }
+        .alert("Zonder server", isPresented: $noServer) {
+            Button("Bekijk voorbeelden") { onDemo() }
+            Button("Annuleren", role: .cancel) {}
+        } message: {
+            Text("Op de iPhone werkt MarkMySteps nog niet zonder eigen server: daar is opslag op de telefoon voor nodig. Zolang kun je de app bekijken met voorbeeldreizen.")
+        }
+    }
+
+    /// The brand on its own: the compass, still, in a soft cookie shape that turns slowly behind it.
+    private var brand: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                SpinningCookie()
+                    .foregroundStyle(Brand.accent.opacity(0.16))
+                CompassLogo(size: 58, lineWidth: 2)
+            }
+            .frame(width: 120, height: 120)
+            Text("MarkMySteps")
+                .font(.outfit(34, 700))
+                .tracking(-0.7)
+                .foregroundStyle(Brand.ink)
+                .padding(.top, 22)
+            Text("Log in op je eigen server om je reizen te zien.")
+                .font(.inter(15, 500))
+                .foregroundStyle(Brand.inkSoft)
+                .multilineTextAlignment(.center)
+                .padding(.top, 6)
+                .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// One of the two joined pills: round on the outside, tight where they meet.
+    private func joinedPill(_ label: String, leading: Bool, action: @escaping () -> Void) -> some View {
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: leading ? 26 : 8, bottomLeadingRadius: leading ? 26 : 8,
+            bottomTrailingRadius: leading ? 8 : 26, topTrailingRadius: leading ? 8 : 26, style: .continuous
+        )
+        return Button(action: action) {
+            Text(label)
+                .font(.outfit(15, 600))
+                .foregroundStyle(Brand.ink)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .background(Brand.raised, in: shape)
+                .contentShape(shape)
+        }
+        .buttonStyle(PressStyle(scale: 0.97))
     }
 
     private var card: some View {
@@ -117,15 +137,20 @@ struct LoginView: View {
             Group {
                 if mfaToken == nil {
                     VStack(alignment: .leading, spacing: 14) {
-                        field("Server") {
-                            TextField("jouw-server.nl", text: $server)
-                                .keyboardType(.URL)
-                                .textContentType(.URL)
-                                .textInputAutocapitalization(.never)
-                                .focused($focus, equals: .server)
-                                .id(Field.server)
-                                .submitLabel(.next)
-                                .onSubmit { focus = .name }
+                        if editServer {
+                            field("Server") {
+                                TextField("jouw-server.nl", text: $server)
+                                    .keyboardType(.URL)
+                                    .textContentType(.URL)
+                                    .textInputAutocapitalization(.never)
+                                    .focused($focus, equals: .server)
+                                    .id(Field.server)
+                                    .submitLabel(.next)
+                                    .onSubmit { focus = .name }
+                            }
+                            .transition(.opacity)
+                        } else {
+                            serverLine.transition(.opacity)
                         }
                         field("Gebruikersnaam of e-mail") {
                             TextField("", text: $name)
@@ -228,6 +253,33 @@ struct LoginView: View {
         .onAppear { if error == nil, let notice { error = notice } }
     }
 
+    /// The server as one quiet line: what it is, the address, a pencil. A tap turns it into the field.
+    private var serverLine: some View {
+        Button {
+            Haptic.tap()
+            withAnimation(.calm) { editServer = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { focus = .server }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "cloud").font(.system(size: 17, weight: .semibold)).foregroundStyle(Brand.accent)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Server").font(.outfit(12.5, 600)).foregroundStyle(Brand.inkSoft)
+                    Text(server.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: ""))
+                        .font(.inter(15, 500)).foregroundStyle(Brand.ink).lineLimit(1).truncationMode(.middle)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "pencil").font(.system(size: 15, weight: .semibold)).foregroundStyle(Brand.inkSoft)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Brand.sunken, in: .rect(cornerRadius: 18, style: .continuous))
+            .contentShape(.rect(cornerRadius: 18))
+        }
+        .buttonStyle(PressStyle(scale: 0.98))
+        .accessibilityLabel("Server: \(server). Wijzigen")
+    }
+
     private func field<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label).font(.outfit(14, 600)).foregroundStyle(Brand.inkSoft).padding(.leading, 6)
@@ -270,6 +322,44 @@ struct LoginView: View {
                 }
             } catch {
                 self.error = "Kan de server niet bereiken"
+            }
+        }
+    }
+}
+
+/// Material's nine-sided cookie, as a shape: a circle with nine soft bumps.
+struct CookieShape: Shape {
+    var lobes = 9
+    var depth: CGFloat = 0.075
+
+    nonisolated func path(in rect: CGRect) -> Path {
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        let outer = min(rect.width, rect.height) / 2
+        let steps = 240
+        var path = Path()
+        for i in 0...steps {
+            let t = Double(i) / Double(steps) * 2 * .pi
+            // Peaks at the full radius, valleys a little in: (1 - depth) + depth * (1 + cos) / 2.
+            let r = outer * ((1 - depth) + depth * (1 + cos(Double(lobes) * t)) / 2)
+            let p = CGPoint(x: c.x + r * cos(t - .pi / 2), y: c.y + r * sin(t - .pi / 2))
+            if i == 0 { path.move(to: p) } else { path.addLine(to: p) }
+        }
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// The cookie turning once every 40 seconds, steadily; still under Reduce Motion and in screenshots.
+private struct SpinningCookie: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        if reduceMotion || Launch.shot {
+            CookieShape()
+        } else {
+            TimelineView(.animation) { tl in
+                let t = tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 40) / 40
+                CookieShape().rotationEffect(.degrees(t * 360))
             }
         }
     }
