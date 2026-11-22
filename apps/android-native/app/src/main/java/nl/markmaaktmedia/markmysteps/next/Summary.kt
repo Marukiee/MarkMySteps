@@ -175,7 +175,7 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                     LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f)
                 }
                 Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                    Text("Samenvatting", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface))
+                    Text(betaTitle("Samenvatting", cs.onSurfaceVariant, 13.sp), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface))
                     Text(trip.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
                 }
             }

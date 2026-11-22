@@ -313,7 +313,7 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             CircleButton(onBack) { LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
             Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                Text("Fotoboek", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface))
+                Text(betaTitle("Fotoboek", cs.onSurfaceVariant, 13.sp), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface))
                 val chosen = ctx.picked.days.sumOf { it.photos.size }
                 Text(
                     "${sheets.size} pagina's · $chosen van ${ctx.picked.photoCount} foto's",

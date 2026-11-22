@@ -94,3 +94,12 @@ fun androidx.compose.ui.Modifier.bleed(gutter: androidx.compose.ui.unit.Dp): and
         val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
         layout(constraints.maxWidth, placeable.height) { placeable.place(-extra / 2, 0) }
     })
+
+/** A title with a small, quiet "(bèta)" after it, as the web marks the photo book and the summary. */
+fun betaTitle(title: String, color: androidx.compose.ui.graphics.Color, size: androidx.compose.ui.unit.TextUnit) =
+    androidx.compose.ui.text.buildAnnotatedString {
+        append(title)
+        pushStyle(androidx.compose.ui.text.SpanStyle(fontFamily = Inter, fontWeight = androidx.compose.ui.text.font.FontWeight(700), fontSize = size, color = color))
+        append(" (bèta)")
+        pop()
+    }

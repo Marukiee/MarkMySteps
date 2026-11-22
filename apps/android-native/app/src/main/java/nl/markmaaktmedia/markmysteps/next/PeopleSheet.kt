@@ -155,7 +155,7 @@ private fun Make(onMake: (String) -> Unit) {
             ) {
                 LineIcon(glyph, cs.onSurface, size = 22.dp, modifier = Modifier.padding(start = 6.dp))
                 Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                    Text(title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 16.5.sp, color = cs.onSurface))
+                    Text(betaTitle(title, cs.onSurfaceVariant, 12.sp), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 16.5.sp, color = cs.onSurface))
                     Text(line, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
                 }
                 LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 20.dp)
