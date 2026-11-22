@@ -229,6 +229,8 @@ private struct SectionPage: View {
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())
             .sensoryFeedback(.selection, trigger: sizes.standard)
+        } header: { Text("Reizen op de homepage") }
+        Section {
             Button(role: .destructive) {
                 withAnimation(.calm) { sizes.clear() }
                 Haptic.tap()
@@ -236,8 +238,8 @@ private struct SectionPage: View {
                 Label("Handmatige keuzes wissen", systemImage: "trash").foregroundStyle(sizes.overrides.isEmpty ? Brand.inkSoft : .red)
             }
             .disabled(sizes.overrides.isEmpty)
-        } header: { Text("Reizen op de homepage") } footer: {
-            Text("Automatisch: aankomende reizen en de laatste reis groot, de rest als rij. Per reis kies je het ook in het ⋯-menu.")
+        } footer: {
+            Text("Automatisch: aankomende reizen en de laatste reis groot, de rest als rij. Per reis kies je het ook in het menu van de reis.")
         }
         Section("Taal en kaart") {
             LabeledContent { Text("Nederlands") } label: { Label("Taal", systemImage: "globe") }

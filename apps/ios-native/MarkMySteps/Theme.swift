@@ -5,7 +5,7 @@ import UIKit
 // MARK: Colours
 
 extension UIColor {
-    convenience init(hex: UInt32, alpha: CGFloat = 1) {
+    nonisolated convenience init(hex: UInt32, alpha: CGFloat = 1) {
         self.init(
             red: CGFloat((hex >> 16) & 0xFF) / 255,
             green: CGFloat((hex >> 8) & 0xFF) / 255,
@@ -22,7 +22,13 @@ extension Color {
 
     /// One colour for light and one for dark, resolved by the system.
     init(light: UInt32, dark: UInt32) {
-        self.init(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) })
+        self.init(uiColor: Color.dynamic(light: light, dark: dark))
+    }
+
+    /// Resolved by UIKit on whatever thread renders (SwiftUI resolves colours off the main thread too), so the
+    /// provider must not be tied to the main actor.
+    nonisolated private static func dynamic(light: UInt32, dark: UInt32) -> UIColor {
+        UIColor { @Sendable traits in traits.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) }
     }
 }
 

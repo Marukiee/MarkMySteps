@@ -59,7 +59,7 @@ struct TripMenu<Label: View>: View {
 
     var body: some View {
         Menu {
-            Picker("Grootte", selection: Binding(get: { sizes.choice(trip.id) }, set: { value in
+            Picker(selection: Binding(get: { sizes.choice(trip.id) }, set: { value in
                 Haptic.select()
                 // After the menu has folded away, so the card turns into a row (or back) in plain sight.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
@@ -69,8 +69,12 @@ struct TripMenu<Label: View>: View {
                 Text("Auto").tag(CardSizes.auto)
                 Text("Groot").tag(CardSizes.large)
                 Text("Klein").tag(CardSizes.compact)
+            } label: {
+                // No title: the three choices speak for themselves, in full contrast.
+                EmptyView()
             }
             .pickerStyle(.palette)
+            .accessibilityLabel("Grootte")
             if trip.remoteId != nil {
                 Section {
                     if mine {
