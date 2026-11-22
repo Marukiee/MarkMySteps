@@ -22,9 +22,15 @@ struct PeopleSheet: View {
     @State private var newPassword = ""
     @State private var passwordFor: Remote.ShareLink?
     @State private var passwordText = ""
+    @State private var picked: Set<String> = []
+    @State private var asGuest = false
+    @State private var daysFor: Person?
+    @State private var revealed: (link: Remote.ShareLink, password: String?, recoverable: Bool)?
 
     private var live: Bool { trip.remoteId != nil }
-    private var canManage: Bool { live && trip.ownerId != nil && trip.ownerId == store.me?.id }
+    /// Screenshots only (`-menuPreview YES`): the demo trip as your own, with the demo's friends as suggestions; nothing
+    /// can be sent, a demo trip has no server id.
+    private var canManage: Bool { (live && trip.ownerId != nil && trip.ownerId == store.me?.id) || Launch.menuPreview }
     /// The trip as the store has it now, so changes show as soon as the list reloads.
     private var current: Trip { store.trips.first { $0.id == trip.id } ?? trip }
 
@@ -51,7 +57,13 @@ struct PeopleSheet: View {
                 .listRowBackground(Brand.raised)
 
                 if canManage {
-                    Section("Iemand toevoegen") {
+                    Section {
+                        Picker("Toevoegen als", selection: $asGuest) {
+                            Text("Reisgenoot").tag(false)
+                            Text("Gast").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                        .sensoryFeedback(.selection, trigger: asGuest)
                         HStack(spacing: 10) {
                             Image(systemName: "magnifyingglass").foregroundStyle(Brand.inkSoft)
                             TextField("Naam of gebruikersnaam", text: $query)
@@ -60,24 +72,66 @@ struct PeopleSheet: View {
                                 .autocorrectionDisabled()
                                 .submitLabel(.search)
                         }
+                        // Pick several, then add them in one go.
                         ForEach(suggestions.filter { s in !current.members.contains { $0.userId == s.id } }) { s in
-                            HStack(spacing: 12) {
-                                Avatar(userId: s.id, hasAvatar: s.hasAvatar, initial: String(s.name.prefix(1)).uppercased(), color: Color(hex: 0x5B8DEF), size: 36)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(s.name).font(.inter(16, 550))
-                                    Text("@\(s.username)").font(.inter(13, 450)).foregroundStyle(Brand.inkSoft)
+                            let on = picked.contains(s.username)
+                            Button {
+                                Haptic.select()
+                                withAnimation(.calm) { if on { picked.remove(s.username) } else { picked.insert(s.username) } }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Avatar(userId: s.id, hasAvatar: s.hasAvatar, initial: String(s.name.prefix(1)).uppercased(), color: Color(hex: 0x5B8DEF), size: 36)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(s.name).font(.inter(16, 550)).foregroundStyle(Brand.ink)
+                                        Text("@\(s.username)").font(.inter(13, 450)).foregroundStyle(Brand.inkSoft)
+                                    }
+                                    Spacer()
+                                    Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 22))
+                                        .foregroundStyle(on ? Brand.accent : Brand.inkSoft.opacity(0.5))
+                                        .contentTransition(.symbolEffect(.replace))
                                 }
-                                Spacer()
-                                Button {
-                                    act("add\(s.id)") { try await Remote.addMember(current, username: s.username) }
-                                } label: {
-                                    if busy == "add\(s.id)" { ProgressView().controlSize(.small) } else { Text("Toevoegen").font(.inter(15, 600)) }
-                                }
-                                .buttonStyle(.bordered)
-                                .buttonBorderShape(.capsule)
-                                .disabled(busy != nil)
+                                .contentShape(.rect)
                             }
+                            .buttonStyle(.plain)
                         }
+                        if !picked.isEmpty {
+                            Button {
+                                let names = Array(picked)
+                                let guest = asGuest
+                                act("add") {
+                                    try await Remote.addMembers(current, usernames: names)
+                                    // Added as companions by the server; guests get their role straight after.
+                                    if guest {
+                                        await store.load()
+                                        let now = store.trips.first { $0.id == trip.id }?.members ?? []
+                                        for m in now where names.contains(m.username) && m.role != "GUEST" {
+                                            if let id = m.userId { try await Remote.updateMember(current, userId: id, role: "GUEST") }
+                                        }
+                                    }
+                                    picked = []
+                                    query = ""
+                                }
+                            } label: {
+                                HStack {
+                                    Spacer()
+                                    if busy == "add" { ProgressView().controlSize(.small) }
+                                    Text("\(picked.count) toevoegen als \(asGuest ? (picked.count == 1 ? "gast" : "gasten") : (picked.count == 1 ? "reisgenoot" : "reisgenoten"))")
+                                        .font(.outfit(16, 650))
+                                    Spacer()
+                                }
+                                .foregroundStyle(.white)
+                                .frame(height: 46)
+                                .background(Brand.accent, in: .capsule)
+                            }
+                            .buttonStyle(PressStyle(scale: 0.97))
+                            .disabled(busy != nil)
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                        }
+                    } header: { Text("Iemand toevoegen") } footer: {
+                        Text(asGuest ? "Een gast kijkt mee en kan reageren, maar verandert niets aan de reis." : "Een reisgenoot reist mee: foto's tellen mee en de route kan bijgehouden worden.")
                     }
                     .listRowBackground(Brand.raised)
                 }
@@ -112,6 +166,8 @@ struct PeopleSheet: View {
                     }
                 } header: {
                     Text("Deellinks")
+                } footer: {
+                    if live && !canManage { Text("Alleen de beheerder van de reis maakt, wijzigt of trekt links in. Kopiëren mag iedereen.") }
                 }
                 .listRowBackground(Brand.raised)
 
@@ -134,6 +190,10 @@ struct PeopleSheet: View {
                 // A short pause while typing, then the server's suggestions, companions first.
                 try? await Task.sleep(for: .milliseconds(250))
                 guard !Task.isCancelled else { return }
+                if Launch.menuPreview && !live {
+                    suggestions = Demo.friends.map { Remote.Friend(id: $0.handle, name: $0.name, username: $0.handle, hasAvatar: false, sharedTrips: $0.shared) }
+                    return
+                }
                 suggestions = (try? await Remote.suggestions(query)) ?? []
             }
             .confirmationDialog("Deze deellink intrekken?", isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } }), titleVisibility: .visible) {
@@ -162,7 +222,28 @@ struct PeopleSheet: View {
         } message: {
             Text("Wie de link opent, vult dit eerst in.")
         }
+        .alert("Wachtwoord van de link", isPresented: Binding(get: { revealed != nil }, set: { if !$0 { revealed = nil } })) {
+            if let pw = revealed?.password {
+                Button("Kopieer") { UIPasteboard.general.string = pw; Haptic.tap() }
+            }
+            Button("OK", role: .cancel) {}
+        } message: {
+            if let pw = revealed?.password { Text(pw) }
+            else { Text("Dit wachtwoord is van voor de tijd dat wachtwoorden leesbaar bewaard werden. Stel een nieuw in om het te kunnen delen.") }
+        }
+        .sheet(item: Binding(get: { daysFor.map { PersonDays(person: $0) } }, set: { if $0 == nil { daysFor = nil } })) { item in
+            AlongSheet(trip: current, person: item.person) { from, to in
+                if let id = item.person.userId { act("days\(id)") { try await Remote.updateMember(current, userId: id, days: (from, to)) } }
+            }
+        }
         .presentationDetents([.medium, .large])
+    }
+
+    /// "4 t/m 7 dec" when someone was along for part of the trip.
+    private func along(_ p: Person) -> String? {
+        guard p.fromDate != nil || p.toDate != nil, let first = current.start else { return nil }
+        let last = Format.calendar.date(byAdding: .day, value: max(0, current.days - 1), to: first) ?? first
+        return Format.range(p.fromDate ?? first, p.toDate ?? last, withYear: false)
     }
 
     private func roleName(_ role: String) -> String {
@@ -178,21 +259,28 @@ struct PeopleSheet: View {
             Avatar(userId: p.userId, hasAvatar: p.hasAvatar, initial: p.initial, color: p.color, size: 38)
             VStack(alignment: .leading, spacing: 1) {
                 Text(p.name.isEmpty ? p.initial : p.name).font(.inter(16, 550)).foregroundStyle(Brand.ink).lineLimit(1)
-                if !p.username.isEmpty {
-                    Text("@\(p.username)").font(.inter(13, 450)).foregroundStyle(Brand.inkSoft).lineLimit(1)
+                let extra = [p.username.isEmpty ? nil : "@\(p.username)", along(p), p.role == "MEMBER" && !p.canTrack ? "tracken uit" : nil].compactMap { $0 }
+                if !extra.isEmpty {
+                    Text(extra.joined(separator: " · ")).font(.inter(13, 450)).foregroundStyle(Brand.inkSoft).lineLimit(1)
                 }
             }
             Spacer(minLength: 8)
             if canManage && p.role != "OWNER", let id = p.userId {
                 Menu {
-                    Picker("Rol", selection: Binding(get: { p.role }, set: { role in act("role\(id)") { try await Remote.setRole(current, userId: id, role: role) } })) {
+                    Picker("Rol", selection: Binding(get: { p.role }, set: { role in act("role\(id)") { try await Remote.updateMember(current, userId: id, role: role) } })) {
                         Text("Reisgenoot").tag("MEMBER")
                         Text("Gast").tag("GUEST")
+                    }
+                    if p.role == "MEMBER" {
+                        Toggle("Mag tracken", systemImage: "location.north.line", isOn: Binding(get: { p.canTrack }, set: { on in
+                            act("track\(id)") { try await Remote.updateMember(current, userId: id, canTrack: on) }
+                        }))
+                        Button("Dagen mee", systemImage: "calendar") { daysFor = p }
                     }
                     Button("Van de reis halen", systemImage: "person.badge.minus", role: .destructive) { removing = p }
                 } label: {
                     HStack(spacing: 4) {
-                        if busy == "role\(id)" || busy == "remove\(id)" { ProgressView().controlSize(.small) }
+                        if busy == "role\(id)" || busy == "remove\(id)" || busy == "track\(id)" || busy == "days\(id)" { ProgressView().controlSize(.small) }
                         Text(roleName(p.role)).font(.inter(15, 500))
                         Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold))
                     }
@@ -238,6 +326,12 @@ struct PeopleSheet: View {
                         passwordFor = link; passwordText = ""
                     }
                     if link.hasPassword {
+                        Button("Wachtwoord bekijken", systemImage: "eye") {
+                            Task {
+                                if let r = try? await Remote.linkPassword(current, link) { revealed = (link, r.password, r.recoverable) }
+                                else { error = "Het wachtwoord kon niet worden opgehaald" }
+                            }
+                        }
                         Button("Wachtwoord weghalen", systemImage: "lock.open") {
                             act("pw\(link.id)") { try await Remote.setLinkPassword(current, link, nil); await loadLinks() }
                         }
@@ -281,5 +375,56 @@ struct PeopleSheet: View {
             }
             busy = nil
         }
+    }
+}
+
+private struct PersonDays: Identifiable {
+    let person: Person
+    var id: String { person.userId ?? person.name }
+}
+
+/// The days someone was along, in the app's range calendar, kept inside the trip.
+private struct AlongSheet: View {
+    let trip: Trip
+    let person: Person
+    let onSave: (Date?, Date?) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var a: Date?
+    @State private var b: Date?
+
+    private var first: Date { trip.start ?? Format.calendar.startOfDay(for: Date()) }
+    private var last: Date { Format.calendar.date(byAdding: .day, value: max(0, trip.days - 1), to: first) ?? first }
+    private func clamp(_ d: Date?) -> Date? { d.map { min(max($0, first), last) } }
+
+    var body: some View {
+        let from = clamp(a) ?? first, to = clamp(b ?? a) ?? last
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Dagen mee").font(.outfit(14, 600)).foregroundStyle(Brand.inkSoft)
+                Text(from == first && to == last ? "De hele reis" : Format.range(from, to, withYear: false))
+                    .font(.outfit(21, 650)).foregroundStyle(Brand.ink)
+                    .contentTransition(.opacity)
+                    .animation(.calm, value: [from, to])
+                RangeCalendar(start: $a, end: $b).padding(.top, 12)
+                Button("Hele reis") { a = first; b = last }.font(.outfit(15, 600)).padding(.top, 4)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .background(Brand.paper)
+            .navigationTitle(person.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Annuleren") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Klaar") {
+                        // The trip's own first or last day is sent as nothing: along from the start, or to the end.
+                        onSave(from == first ? nil : from, to == last ? nil : to)
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.large])
+        .onAppear { a = person.fromDate ?? first; b = person.toDate ?? last }
     }
 }

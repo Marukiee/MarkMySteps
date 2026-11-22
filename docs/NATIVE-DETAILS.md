@@ -160,7 +160,10 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Geplande landen op Reizigers (met zandloper) komen ingelogd alleen uit de stops van je echte aankomende reizen die nog niet in de bezochte landen van de server staan. (klaar)
 - Statistiektegels: getal en label even ver van de onderkant (16 pt) als het icoon van de bovenkant. (klaar)
 - Kaart: de route past precies in het vrije deel (onder de knoppen, boven de paginarand), vluchten grijs gestippeld met vliegveldbolletjes, je foto's als rondjes die nooit op elkaar stapelen. Plaatsnamen volgen de taal van het toestel (MapKit). (klaar)
-- Alles wat hierboven voor Android klaar is, ook op iOS in Apple's stijl. (deels: account, reisinstellingen-pagina en het accounts-overzicht voor "Aanvragen bekijken" nog niet)
+- Alles wat hierboven voor Android klaar is, ook op iOS in Apple's stijl. (klaar voor account, reisinstellingen als pagina, Instellingen-tabs en het accounts-overzicht voor "Aanvragen bekijken"; samenvatting en fotoboek nog niet)
+- Fotoviewer iOS: ⋯-menu naast sluiten (omslag van reis of stop alleen voor de eigenaar, downloaden naar Foto's, openen in of delen, Openen in Immich alleen voor je eigen foto met een publiek adres), plaats onder de datum zonder flitsen, videobalk met afspelen, tijd, schuiven en geluid, tik op het hartje opent de vijf reacties met een beetje leven, je eigen keuze nog eens tikken haalt hem weg. (klaar iOS)
+- Routeplanner iOS: vervoer kiezen uit een menu, Vlucht opent het vluchtvel (nummer, vliegvelden alleen via een aangetikte suggestie, overstappen, reistijd), dagtrips per stop met dagkeuze, heen- en terugreis toevoegen via een menu en wegvegen met ongedaan maken. (klaar iOS)
+- Wat (nog) niet werkt staat grijs en zegt pas bij een tik waarom; nooit een schakelaar die niets doet. Toestemming (locatie, meldingen, Foto's) wordt pas gevraagd op het moment dat je het aanzet, met eerst een Nederlandse uitleg. (klaar iOS)
 
 ## Werkwijze
 

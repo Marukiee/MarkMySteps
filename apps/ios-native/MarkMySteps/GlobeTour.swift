@@ -230,7 +230,9 @@ final class GlobeScene {
     let freeStops: [String: [LonLat]]
     private var colors: [String: Color] = [:]
 
-    static func key(_ trips: [Trip]) -> String { trips.map { "\($0.id):\($0.segments.count):\($0.flights.count):\($0.stops.count)" }.joined(separator: ",") }
+    static func key(_ trips: [Trip]) -> String {
+        trips.map { "\($0.id):\($0.segments.count):\($0.flights.count):\($0.stops.count):\($0.marker.map { "\($0.lon),\($0.lat)" } ?? "")" }.joined(separator: ",")
+    }
 
     init(trips: [Trip]) {
         key = GlobeScene.key(trips)
@@ -274,6 +276,11 @@ final class GlobeScene {
             }
         }
         for trip in trips {
+            // A dot placed by hand in the trip's settings stands for the whole trip, as on the web.
+            if let marker = trip.marker {
+                add(marker, trip)
+                continue
+            }
             var points: [LonLat] = []
             if let f = trip.routePieces.first?.first { points.append(f) }
             if let l = trip.routePieces.last?.last { points.append(l) }
@@ -605,6 +612,15 @@ struct GlobeCanvas {
         drawLand(&ctx, proj)
         drawScene(&ctx, proj, motion)
         drawJourney(&ctx, proj, motion)
+        // Your own position while tracking, when Voorkeuren › Eigen locatie says so.
+        if let me = Tracker.selfDot {
+            let (pt, near) = proj.project(me.lon, me.lat)
+            if near {
+                ctx.fill(Path(ellipseIn: circle(pt, 9)), with: .color(Color(hex: 0x3B82F6).opacity(0.22)))
+                ctx.fill(Path(ellipseIn: circle(pt, 5)), with: .color(.white))
+                ctx.fill(Path(ellipseIn: circle(pt, 3.6)), with: .color(Color(hex: 0x3B82F6)))
+            }
+        }
     }
 
     private func drawLand(_ ctx: inout GraphicsContext, _ proj: Ortho) {
@@ -683,6 +699,19 @@ struct GlobeCanvas {
 
         let ds = CGFloat(min(1.12, 0.75 * pow(Double(motion.zoom), 0.21)))
         let rimColor = dark ? Color(red: 20 / 255, green: 25 / 255, blue: 32 / 255).opacity(0.65) : Color.white.opacity(0.9)
+        // Voorkeuren › Globe › Altijd: every other trip's stops too, small and quiet.
+        if Prefs.globeStopsAlways {
+            for trip in scene.trips where (motion.stopReveal[trip.id] ?? 0) < 0.012 {
+                let color = colorOf(trip)
+                for s in scene.freeStops[trip.id] ?? [] {
+                    let (pt, near) = proj.project(s.lon, s.lat)
+                    guard near else { continue }
+                    let r = 2.3 * ds
+                    ctx.fill(Path(ellipseIn: circle(pt, r)), with: .color(color.opacity(0.85)))
+                    ctx.stroke(Path(ellipseIn: circle(pt, r)), with: .color(rimColor.opacity(0.85)), lineWidth: 0.9)
+                }
+            }
+        }
         // The stops of the trip on show, one after another in travel order, each popping in.
         for trip in scene.trips {
             guard let reveal = motion.stopReveal[trip.id], reveal >= 0.012, let stops = scene.freeStops[trip.id], !stops.isEmpty else { continue }

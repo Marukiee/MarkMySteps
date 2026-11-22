@@ -14,6 +14,11 @@ struct MarkMyStepsApp: App {
         WindowGroup {
             RootView()
         }
+        // The notifications check iOS runs now and then, also with the app closed.
+        .backgroundTask(.appRefresh(Notices.task)) {
+            await Notices.check()
+            await MainActor.run { Notices.schedule() }
+        }
     }
 }
 
@@ -51,6 +56,7 @@ struct RootView: View {
     /// light, dark or system; a `-theme` launch argument overrides it for that run.
     @AppStorage("theme") private var theme = "system"
     @State private var signedOut: Bool
+    @Environment(\.scenePhase) private var phase
 
     init() {
         let page = Launch.page
@@ -84,7 +90,17 @@ struct RootView: View {
         .environment(store)
         .tint(Brand.accent)
         .preferredColorScheme(theme == "light" ? .light : theme == "dark" ? .dark : nil)
-        .task { await store.load() }
+        .task {
+            await store.load()
+            Tracker.shared.autoStart(store.trips, me: store.me?.id)
+            Notices.schedule()
+        }
+        .onChange(of: phase) { _, now in
+            // Back in the app: tracking picks up (or stops after the trip's last day), the notifications look again.
+            guard now == .active, store.live else { return }
+            Tracker.shared.autoStart(store.trips, me: store.me?.id)
+            Task { await Notices.check() }
+        }
         // A session the server no longer accepts goes back to signing in, never on to the demo's trips.
         .onChange(of: store.sessionExpired) { _, expired in
             if expired { withAnimation(.smooth(duration: 0.45)) { signedOut = true } }
@@ -104,6 +120,8 @@ struct MainTabs: View {
     @State private var homeReset = 0
     @State private var travellersReset = 0
     @State private var settingsReset = 0
+    /// A settings page to open from elsewhere: your account from the face on the homepage, Accounts from a request.
+    @State private var settingsRequest: SettingsRequest?
 
     private static var startTab: AppTab {
         switch Launch.page {
@@ -116,13 +134,13 @@ struct MainTabs: View {
     var body: some View {
         TabView(selection: $tab) {
             Tab("Reizen", systemImage: "safari", value: AppTab.trips) {
-                HomeView(onAvatar: { tab = .settings }, resetToken: homeReset)
+                HomeView(onAvatar: { open(.account) }, resetToken: homeReset)
             }
             Tab("Reizigers", systemImage: "person.2", value: AppTab.travellers) {
-                TravellersView(resetToken: travellersReset, onOpenRequests: { tab = .settings })
+                TravellersView(resetToken: travellersReset, onOpenRequests: { open(.accounts) })
             }
             Tab("Instellingen", systemImage: "gearshape", value: AppTab.settings) {
-                SettingsView(onSignIn: onSignIn, resetToken: settingsReset)
+                SettingsView(onSignIn: onSignIn, resetToken: settingsReset, request: settingsRequest)
             }
         }
         // The bar always stays whole, also while scrolling: never shrunk into a circle.
@@ -136,5 +154,11 @@ struct MainTabs: View {
             if old == .travellers && new != .travellers { travellersReset += 1 }
             if old == .settings && new != .settings { settingsReset += 1 }
         }
+    }
+
+    private func open(_ section: SettingsSection) {
+        tab = .settings
+        // After the tab has changed, so the reset of a tab left behind never undoes it.
+        DispatchQueue.main.async { settingsRequest = SettingsRequest(section: section, token: (settingsRequest?.token ?? 0) + 1) }
     }
 }
