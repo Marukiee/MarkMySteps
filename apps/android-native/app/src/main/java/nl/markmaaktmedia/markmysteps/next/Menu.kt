@@ -95,9 +95,9 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                 if (inlines.isNotEmpty()) {
                     // One choice out of a few: connected buttons side by side, the chosen one filled.
                     androidx.compose.foundation.layout.Row(
-                        // On the same edges as the lines under it (each line keeps a small inset inside its group).
-                        // The same gap above and below it as between the lines under it.
-                        Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 2.dp).offset(y = (-1.5).dp),
+                        // On the same edges as the lines under it (each line keeps a small inset inside its group),
+                        // and the same 4 dp above it as beside it; the group's own spacing gives the gap below.
+                        Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 4.dp),
                         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.material3.ButtonGroupDefaults.ConnectedSpaceBetween),
                     ) {
                         inlines.forEachIndexed { i, e ->

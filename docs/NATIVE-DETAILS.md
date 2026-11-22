@@ -50,6 +50,12 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Menu's zonder schaduw. (klaar Android)
 - Rijen die de webversie openen tonen een "open buiten de app"-icoon, geen pijltje alsof het een eigen pagina is. (klaar Android)
 
+- Elke dialoog: annuleren als tonale pil, bevestigen als gevulde pil (rood bij verwijderen of verlaten), via `DialogButtons`. Nooit losse tekstknoppen.
+- Keuzes van een soort in een menu (kaartgrootte, rol) staan als verbonden knoppen naast elkaar, met boven en opzij dezelfde 4 dp.
+- Een knop met alleen een icoon heeft altijd een voorleestekst voor TalkBack.
+- Een lijst met een knop naar de reis: alleen een rond pijltje, zodat lange titels hun ruimte houden.
+- Dagen in het verleden zien er in de kalender gewoon uit: ze zijn te kiezen.
+
 ## Navigatie en gebaren
 
 - Terugveeggebaar precies zoals Tandem en PixelPlayer: één seekbare shared-axis-overgang (350 ms, emphasized), de pagina gaat mee met je vinger en de vorige schuift er al onder in; loslaten speelt verder, terugtrekken springt terug. Vloeiend op elk toestel (release-build, geen debug). (klaar Android)
