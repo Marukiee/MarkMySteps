@@ -69,7 +69,7 @@ dependencies {
     // The web app's own flat flag set (SVG), drawn instead of the font's waving emoji flags.
     implementation("com.caverock:androidsvg-aar:1.4")
     // A light blur of the photo behind the pills and buttons on the trip cards.
-    implementation("dev.chrisbanes.haze:haze:2.0.1")
+    implementation("dev.chrisbanes.haze:haze:1.7.1")
     // Installs the Compose libraries' baseline profiles, so the first scrolls and gestures are compiled ahead.
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 }
