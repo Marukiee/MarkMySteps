@@ -88,6 +88,7 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit, onMake
     val editor = owner || trip.members.any { it.userId == me && it.role == "MEMBER" }
     var members by remember(trip.id) { mutableStateOf(trip.members.sortedBy { when (it.role) { "OWNER" -> 0; "MEMBER" -> 1; else -> 2 } }) }
     var error by remember { mutableStateOf<String?>(null) }
+    HapticOn(error, Haptic.Reject)
     var removing by remember { mutableStateOf<Member?>(null) }
 
     AppSheet(onDismiss = onDismiss) {
@@ -209,6 +210,7 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
     var picked by remember { mutableStateOf(setOf<String>()) }
     var guest by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    val haptics = rememberHaptics()
     LaunchedEffect(query) {
         if (query.isBlank()) { found = null; return@LaunchedEffect }
         delay(250) // one lookup per pause in typing, not per letter
@@ -231,7 +233,7 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
                 val on = f.username in picked
                 Row(
                     Modifier.fillMaxWidth().clip(slab(i, minOf(8, list.size))).background(if (on) cs.secondaryContainer else cs.surfaceContainerHigh)
-                        .clickable { picked = if (on) picked - f.username else picked + f.username }.padding(horizontal = 12.dp, vertical = 9.dp),
+                        .clickable { haptics.toggle(!on); picked = if (on) picked - f.username else picked + f.username }.padding(horizontal = 12.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Avatar(f.id, f.name, f.hasAvatar, personColor(f.id), Modifier.size(36.dp))
@@ -253,7 +255,7 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween), verticalAlignment = Alignment.CenterVertically) {
                 listOf(false to "Reisgenoot", true to "Gast").forEachIndexed { i, (isGuest, label) ->
                     ToggleButton(
-                        checked = guest == isGuest, onCheckedChange = { guest = isGuest },
+                        checked = guest == isGuest, onCheckedChange = { if (guest != isGuest) haptics(Haptic.Tick); guest = isGuest },
                         modifier = Modifier.weight(1f).height(48.dp),
                         shapes = if (i == 0) ButtonGroupDefaults.connectedLeadingButtonShapes() else ButtonGroupDefaults.connectedTrailingButtonShapes(),
                         colors = ToggleButtonDefaults.toggleButtonColors(containerColor = cs.surfaceContainerHighest, contentColor = cs.onSurfaceVariant, checkedContainerColor = cs.secondaryContainer, checkedContentColor = cs.onSecondaryContainer),
@@ -264,7 +266,7 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
                     onClick = {
                         busy = true
                         scope.launch {
-                            runCatching { Remote.addMembers(trip, picked.toList(), guest) }.onSuccess { picked = emptySet(); query = ""; onAdded() }
+                            runCatching { Remote.addMembers(trip, picked.toList(), guest) }.onSuccess { haptics(Haptic.Confirm); picked = emptySet(); query = ""; onAdded() }
                             busy = false
                         }
                     },
@@ -294,6 +296,8 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
     var newPassword by remember { mutableStateOf("") }
     var creating by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val haptics = rememberHaptics()
+    HapticOn(error, Haptic.Reject)
     LaunchedEffect(trip.id) { links = runCatching { Remote.shareLinks(trip) }.getOrNull() ?: emptyList() }
     LaunchedEffect(copied) { if (copied != null) { delay(1600); copied = null } }
 
@@ -314,6 +318,7 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                         // the accent; a tap copies it, the same as the button.
                         val copy = {
                             (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("MarkMySteps", link.url))
+                            haptics(Haptic.Confirm)
                             copied = link.id
                         }
                         val line = cs.primary.copy(alpha = 0.4f)
@@ -333,6 +338,7 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                     // A clear primary button, so "Kopieer" reads on the row's tone.
                     androidx.compose.material3.Button(onClick = {
                         (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("MarkMySteps", link.url))
+                        haptics(Haptic.Confirm)
                         copied = link.id
                     }, shapes = ButtonDefaults.shapes(), modifier = Modifier.padding(start = 10.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                         Text(if (copied == link.id) "Gekopieerd" else "Kopieer", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp))
@@ -361,7 +367,7 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                         creating = true; error = null
                         scope.launch {
                             runCatching { Remote.createShareLink(trip, newPassword.ifBlank { null }) }
-                                .onSuccess { links = (links ?: emptyList()) + it; newPassword = "" }
+                                .onSuccess { haptics(Haptic.Confirm); links = (links ?: emptyList()) + it; newPassword = "" }
                                 .onFailure { error = "Aanmaken mislukt" }
                             creating = false
                         }
@@ -392,6 +398,7 @@ private fun LinkSettings(trip: Trip, link: Remote.ShareLink, onDismiss: () -> Un
     var password by remember { mutableStateOf("") }
     var confirmRevoke by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    HapticOn(error, Haptic.Reject)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (confirmRevoke) "Link intrekken?" else "Instellingen van deze link", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },

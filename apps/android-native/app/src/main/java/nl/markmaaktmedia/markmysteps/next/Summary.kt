@@ -266,11 +266,12 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
 @Composable
 private fun <T> Choices(items: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
+    val haptics = rememberHaptics()
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
         items.forEachIndexed { i, item ->
             ToggleButton(
                 checked = item == selected,
-                onCheckedChange = { onPick(item) },
+                onCheckedChange = { if (item != selected) haptics(Haptic.Tick); onPick(item) },
                 modifier = Modifier.weight(1f).height(46.dp),
                 shapes = when (i) {
                     0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()

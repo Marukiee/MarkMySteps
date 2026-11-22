@@ -597,6 +597,7 @@ private fun TouringGlobe(
                 if (v != visible) visible = v
             },
     ) {
+        val haptics = rememberHaptics()
         Canvas(
             Modifier.fillMaxSize().pointerInput(Unit) {
                 awaitEachGesture {
@@ -633,7 +634,10 @@ private fun TouringGlobe(
                     motion.lastInteract = System.nanoTime() / 1e6
                     if (!pinched && moved <= TAP_SLOP_DP) {
                         aim(size.width.toFloat(), size.height.toFloat())
+                        val before = motion.selectedId
                         motion.tap(proj.invert(down.position.x, down.position.y), currentTrips)
+                        // A light tick as the name card moves to the trip that was tapped.
+                        if (motion.selectedId != null && motion.selectedId != before) haptics(Haptic.Tick)
                     } else if (!pinched) {
                         val v = tracker.calculateVelocity()
                         motion.fling(v.x / density, v.y / density)
@@ -658,6 +662,7 @@ private fun TouringGlobe(
 @Composable
 private fun NameCard(trip: Trip, motion: GlobeMotion, tick: MutableLongState, box: FloatArray, onTap: () -> Unit) {
     val cs = MaterialTheme.colorScheme
+    val haptics = rememberHaptics()
     val density = LocalDensity.current.density
     val origin = remember { FloatArray(2) }
     // Which side of the dot the card goes: away from the rest of the trip, so a small trip stays visible
@@ -711,7 +716,7 @@ private fun NameCard(trip: Trip, motion: GlobeMotion, tick: MutableLongState, bo
             }
             .clip(RoundedCornerShape(12.dp))
             .background(cs.surface.copy(alpha = 0.96f))
-            .clickable(remember { MutableInteractionSource() }, indication = null) { if (motion.cardOpacity > 0.6f) onTap() }
+            .clickable(remember { MutableInteractionSource() }, indication = null) { if (motion.cardOpacity > 0.6f) { haptics(Haptic.Tap); onTap() } }
             .padding(horizontal = 11.dp, vertical = 7.dp),
     ) {
         Text(

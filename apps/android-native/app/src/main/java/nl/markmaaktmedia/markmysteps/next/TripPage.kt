@@ -85,13 +85,13 @@ private fun Modifier.press(onClick: () -> Unit = {}): Modifier = composed {
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.96f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "press")
     // A light tick under the finger on every tap, as Tandem and PixelPlayer do.
-    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
-    clickable(source, ripple(), onClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick); onClick() }).graphicsLayer { scaleX = scale; scaleY = scale }
+    val haptics = rememberHaptics()
+    clickable(source, ripple(), onClick = { haptics(Haptic.Tap); onClick() }).graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
 @Composable
 fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? = null) {
-    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val haptics = rememberHaptics()
     val cs = MaterialTheme.colorScheme
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     // A trip from the server brings its stops and photos in only when it is opened.
@@ -169,7 +169,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                     listOf("Tijdlijn", "Routeplanner").forEachIndexed { i, label ->
                         ToggleButton(
                             checked = tab == i,
-                            onCheckedChange = { if (tab != i) haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentTick); tab = i },
+                            onCheckedChange = { if (tab != i) haptics(Haptic.Tick); tab = i },
                             modifier = Modifier.weight(1f).height(48.dp),
                             shapes = if (i == 0) ButtonGroupDefaults.connectedLeadingButtonShapes() else ButtonGroupDefaults.connectedTrailingButtonShapes(),
                             colors = ToggleButtonDefaults.toggleButtonColors(

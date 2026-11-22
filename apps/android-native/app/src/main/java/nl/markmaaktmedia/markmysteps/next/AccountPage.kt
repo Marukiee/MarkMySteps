@@ -372,6 +372,7 @@ fun copySecret(context: android.content.Context, label: String, text: String) {
 private fun TwoFactorPanel() {
     val cs = MaterialTheme.colorScheme
     val context = LocalContext.current
+    val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
     // The last known state first (only on/off and how many codes are left), so the panel opens complete.
     var status by remember { mutableStateOf(SettingsRemote.cachedTwoFactor()) }
@@ -455,7 +456,7 @@ private fun TwoFactorPanel() {
                         Hint("Staat de app op deze telefoon? Tik op de sleutel om hem te kopiëren en plak hem in je app.")
                         Row(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainerHigh)
-                                .dip { copySecret(context, "Sleutel", su.secret); copied = true }.padding(horizontal = 14.dp, vertical = 12.dp),
+                                .dip { copySecret(context, "Sleutel", su.secret); haptics(Haptic.Confirm); copied = true }.padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(su.secret.chunked(4).joinToString(" "), style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
@@ -487,7 +488,7 @@ private fun TwoFactorPanel() {
                             }
                         }
                         ButtonRow {
-                            SoftButton(if (copied) "Gekopieerd" else "Kopiëren", { copySecret(context, "Herstelcodes", codes.joinToString("\n")); copied = true }, Modifier.weight(1f), icon = if (copied) Glyphs.check else null, enabled = codes.isNotEmpty())
+                            SoftButton(if (copied) "Gekopieerd" else "Kopiëren", { copySecret(context, "Herstelcodes", codes.joinToString("\n")); haptics(Haptic.Confirm); copied = true }, Modifier.weight(1f), icon = if (copied) Glyphs.check else null, enabled = codes.isNotEmpty())
                             MainButton("Ik heb ze bewaard", { go("idle") }, Modifier.weight(1f))
                         }
                     }

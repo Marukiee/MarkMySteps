@@ -464,7 +464,7 @@ private fun slab(i: Int, n: Int): Shape {
 }
 
 /** Tandem's bouncyClickable: the ripple at full size, the content dipping on a spring. */
-private fun Modifier.bouncyClickable(onClick: () -> Unit = {}): Modifier = composed {
+private fun Modifier.bouncyClickable(onClick: () -> Unit = {}, feel: Haptic? = Haptic.Tap): Modifier = composed {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -473,8 +473,8 @@ private fun Modifier.bouncyClickable(onClick: () -> Unit = {}): Modifier = compo
         label = "press",
     )
     // A light tick under the finger on every tap, as Tandem and PixelPlayer do.
-    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
-    clickable(source, ripple(), onClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick); onClick() }).graphicsLayer {
+    val haptics = rememberHaptics()
+    clickable(source, ripple(), onClick = { feel?.let { haptics(it) }; onClick() }).graphicsLayer {
         scaleX = scale
         scaleY = scale
     }
@@ -623,14 +623,13 @@ private fun FaceStack(people: List<Person>, extraIn: Int, ring: Color) {
 /** Past or shared: a connected toggle group, the open one filled and fully round. */
 @Composable
 private fun PastOrShared(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
-    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
-
+    val haptics = rememberHaptics()
     val options = listOf("Afgelopen reizen" to Data.past.size, "Gedeeld" to Data.shared)
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
         options.forEachIndexed { i, (label, count) ->
             ToggleButton(
                 checked = tab == i,
-                onCheckedChange = { if (it) haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentTick); onTab(i) },
+                onCheckedChange = { if (tab != i) haptics(Haptic.Tick); onTab(i) },
                 modifier = Modifier.weight(1f).height(52.dp),
                 shapes = when (i) {
                     0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
@@ -670,7 +669,7 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
     Box(modifier) {
         Box(
             // A solid tonal disc on photos, so the dots read on a bright sky too.
-            Modifier.size(40.dp).then(if (light) Modifier.glass(CircleShape) else Modifier.clip(CircleShape)).bouncyClickable { menu = true },
+            Modifier.size(40.dp).then(if (light) Modifier.glass(CircleShape) else Modifier.clip(CircleShape)).bouncyClickable({ menu = true }, feel = null), // the menu ticks as it opens
             contentAlignment = Alignment.Center,
         ) { LineIcon(Glyphs.dotsCircles, if (light) Color.White else cs.onSurfaceVariant, size = 20.dp, filled = true) }
         val chosen = CardSizePref.overrides[trip.id] ?: CardSizePref.AUTO
@@ -849,6 +848,7 @@ fun shortMonthName(month: String): String = mapOf(
 private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
     val items = listOf(Glyphs.compass to "Reizen", Glyphs.friends to "Reizigers", Glyphs.settings to "Instellingen")
+    val haptics = rememberHaptics()
     Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         // Its own light tone and the floating toolbar's soft shadow, so it stands off
         // whatever scrolls under it (the one place Mark wants a shadow).
@@ -861,7 +861,7 @@ private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modi
                 val on = i == active
                 val bg by animateColorAsState(if (on) cs.primary else Color.Transparent, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "navBg")
                 Row(
-                    Modifier.height(48.dp).clip(CircleShape).background(bg).bouncyClickable { onNav(i) }.padding(horizontal = 14.dp),
+                    Modifier.height(48.dp).clip(CircleShape).background(bg).bouncyClickable({ if (!on) haptics(Haptic.Tick); onNav(i) }, feel = null).padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // The icon's colour moves with the pill, so it never turns white on beige before the pill is there.

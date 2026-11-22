@@ -240,7 +240,9 @@ private fun CoverSheet(trip: Trip, current: String?, onDismiss: () -> Unit, onPi
     val scope = rememberCoroutineScope()
     val media by produceState<List<Media>?>(null, trip.id) { value = runCatching { Remote.media(trip) }.getOrDefault(emptyList()) }
     var chosen by remember { mutableStateOf(current) }
+    val haptics = rememberHaptics()
     fun choose(mediaId: String?) {
+        if (mediaId != chosen) haptics(Haptic.Tick)
         chosen = mediaId
         scope.launch {
             runCatching { Api.send("PATCH", "/api/trips/${trip.remoteId}", org.json.JSONObject().put("coverMediaId", mediaId ?: org.json.JSONObject.NULL)) }.onSuccess { onPicked() }
@@ -327,6 +329,7 @@ private class MorphShape(private val morph: androidx.graphics.shapes.Morph, priv
 @Composable
 private fun ColorPicker(current: String?, onPick: (String?) -> Unit) {
     val cs = MaterialTheme.colorScheme
+    val haptics = rememberHaptics()
     val morph = remember { androidx.graphics.shapes.Morph(MaterialShapes.Circle, MaterialShapes.Cookie9Sided) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // A colour from before these eight (the old palette) comes first, so the current choice is always marked.
@@ -341,7 +344,7 @@ private fun ColorPicker(current: String?, onPick: (String?) -> Unit) {
                     Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
                         Box(
                             Modifier.size(48.dp).graphicsLayer { val k = 1f + 0.12f * t; scaleX = k; scaleY = k; rotationZ = 40f * t }
-                                .clip(MorphShape(morph, t.coerceIn(0f, 1f))).background(fill).dip { onPick(hex) },
+                                .clip(MorphShape(morph, t.coerceIn(0f, 1f))).background(fill).dip { if (!on) haptics(Haptic.Tick); onPick(hex) },
                             contentAlignment = Alignment.Center,
                         ) {
                             Box(Modifier.graphicsLayer { rotationZ = -40f * t }, contentAlignment = Alignment.Center) {

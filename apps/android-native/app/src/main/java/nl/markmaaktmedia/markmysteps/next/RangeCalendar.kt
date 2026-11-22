@@ -34,10 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -63,7 +61,7 @@ fun RangeCalendar(start: LocalDate?, end: LocalDate?, onChange: (LocalDate?, Loc
     val cs = MaterialTheme.colorScheme
     val today = remember { LocalDate.now() }
     var month by remember { mutableStateOf(YearMonth.from(start ?: today)) }
-    val haptics = LocalHapticFeedback.current
+    val haptics = rememberHaptics()
     val motion = MaterialTheme.motionScheme
 
     Column(modifier.fillMaxWidth()) {
@@ -72,7 +70,7 @@ fun RangeCalendar(start: LocalDate?, end: LocalDate?, onChange: (LocalDate?, Loc
             @Composable
             fun Arrow(step: Long) = Box(
                 Modifier.size(44.dp).clip(CircleShape)
-                    .pointerInput(step) { awaitEachGesture { awaitFirstDown(); val up = waitForUpOrCancellation(); if (up != null) { haptics.performHapticFeedback(HapticFeedbackType.ContextClick); month = month.plusMonths(step) } } },
+                    .pointerInput(step) { awaitEachGesture { awaitFirstDown(); val up = waitForUpOrCancellation(); if (up != null) { haptics(Haptic.Tap); month = month.plusMonths(step) } } },
                 contentAlignment = Alignment.Center,
             ) { LineIcon(if (step < 0) listOf(P("m15 18-6-6 6-6")) else Glyphs.chevronRight, cs.onSurfaceVariant, size = 22.dp, stroke = 2.2f) }
             Arrow(-1)
@@ -105,7 +103,7 @@ fun RangeCalendar(start: LocalDate?, end: LocalDate?, onChange: (LocalDate?, Loc
 @Composable
 private fun MonthGrid(month: YearMonth, start: LocalDate?, end: LocalDate?, today: LocalDate, onChange: (LocalDate?, LocalDate?) -> Unit) {
     val cs = MaterialTheme.colorScheme
-    val haptics = LocalHapticFeedback.current
+    val haptics = rememberHaptics()
     val lead = month.atDay(1).dayOfWeek.value - 1
     val days = month.lengthOfMonth()
     val rows = (lead + days + 6) / 7
@@ -145,7 +143,7 @@ private fun MonthGrid(month: YearMonth, start: LocalDate?, end: LocalDate?, toda
                     travelled += c.positionChange().getDistance()
                     if (!dragged && travelled > slop) {
                         dragged = true
-                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        haptics(Haptic.Tick)
                         if (holding == "new") change(first, first)
                     }
                     if (dragged) {
@@ -153,7 +151,7 @@ private fun MonthGrid(month: YearMonth, start: LocalDate?, end: LocalDate?, toda
                         val d = dayAt(c.position.x, c.position.y) ?: continue
                         if (d != last) {
                             last = d
-                            haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                            haptics(Haptic.DragTick)
                             // The held end follows the finger; past the other end the two simply swap roles.
                             if (d.isBefore(anchor)) change(d, anchor) else change(anchor, d)
                         }
@@ -161,7 +159,7 @@ private fun MonthGrid(month: YearMonth, start: LocalDate?, end: LocalDate?, toda
                 }
                 if (!dragged) {
                     // A tap: the first day of a new range, or the last day of one that has only a start.
-                    haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                    haptics(Haptic.Tap)
                     when {
                         s != null && e == null && !first.isBefore(s) -> change(s, first)
                         else -> change(first, null)

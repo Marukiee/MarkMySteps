@@ -66,6 +66,8 @@ private fun NewTripSheetBody(onDismiss: () -> Unit, onCreated: (String) -> Unit)
     var title by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    HapticOn(error, Haptic.Reject)
+    val haptics = rememberHaptics()
     var start by remember { mutableStateOf<java.time.LocalDate?>(null) }
     var end by remember { mutableStateOf<java.time.LocalDate?>(null) }
     AppSheet(onDismiss = onDismiss) {
@@ -104,7 +106,7 @@ private fun NewTripSheetBody(onDismiss: () -> Unit, onCreated: (String) -> Unit)
                         runCatching {
                             val body = JSONObject().put("title", title.trim()).put("startDate", s.toString()).put("endDate", (end ?: s).toString())
                             JSONObject(Api.send("POST", "/api/trips", body)).getString("id")
-                        }.onSuccess { id -> Data.load(); onCreated(id) }.onFailure { error = "Aanmaken mislukt" }
+                        }.onSuccess { id -> haptics(Haptic.Confirm); Data.load(); onCreated(id) }.onFailure { error = "Aanmaken mislukt" }
                         busy = false
                     }
                 },
