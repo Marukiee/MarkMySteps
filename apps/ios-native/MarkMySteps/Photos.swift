@@ -330,11 +330,14 @@ struct MediaView: View {
     }
 }
 
-/// Which photos the viewer pages through (the whole trip), and where it starts.
+/// Which photos the viewer pages through (the whole trip, or one pin's photos from the map), and where it starts.
 struct ViewerItem: Identifiable {
     let trip: Trip
     let photos: [Media]
     let start: Media
+    /// Opened from a pin on the map: the transition source it grows out of and closes back into, instead of the tile
+    /// of the photo on show.
+    var source: String? = nil
     var id: String { start.id }
 }
 
