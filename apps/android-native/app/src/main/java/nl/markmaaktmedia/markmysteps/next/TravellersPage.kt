@@ -74,7 +74,7 @@ private fun Modifier.tap(onClick: () -> Unit = {}): Modifier = composed {
 
 private class Stat(val value: Int?, val label: String, val icon: List<Shape24>, val shape: androidx.graphics.shapes.RoundedPolygon)
 
-private var lastStats: Remote.Stats? = null
+private var lastProfile: SocialRemote.Profile? = null
 
 private data class Friend(val name: String, val handle: String, val color: Color, val shared: Int, val id: String? = null, val hasAvatar: Boolean = false)
 
@@ -95,9 +95,11 @@ fun TravellersPage(onOpenTrip: (String) -> Unit = {}, onOpenRequests: () -> Unit
     val listScroll = androidx.compose.foundation.rememberScrollState()
     val me0 = Data.me
     // The last figures are kept, so coming back to Reizigers shows them at once while fresh ones are read.
-    val liveStats by androidx.compose.runtime.produceState(lastStats, me0?.id, Data.version) {
-        if (Data.live && me0 != null) runCatching { Remote.stats(me0.id) }.getOrNull()?.let { value = it; lastStats = it }
+    // With the figures come your last trips and the lists behind the tiles, in the same read.
+    val profile by androidx.compose.runtime.produceState(lastProfile, me0?.id, Data.version) {
+        if (Data.live && me0 != null) runCatching { SocialRemote.profile(me0.id) }.getOrNull()?.let { value = it; lastProfile = it }
     }
+    val liveStats = profile?.stats
     val friendList by androidx.compose.runtime.produceState<List<Remote.Friend>?>(null, Data.version) {
         value = if (Data.live) runCatching { Remote.friends() }.getOrNull() else null
     }
@@ -134,8 +136,8 @@ fun TravellersPage(onOpenTrip: (String) -> Unit = {}, onOpenRequests: () -> Unit
         contentKey = { it?.id ?: it?.name },
     ) { friend ->
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            if (friend == null) TravellersList(onFriend = { openFriend = it }, live = liveStats, friends = friendList, pageScroll = listScroll, onOpenTrip = onOpenTrip, onOpenRequests = onOpenRequests)
-            else FriendPage(friend, onBack = { openFriend = null })
+            if (friend == null) TravellersList(onFriend = { openFriend = it }, live = liveStats, friends = friendList, pageScroll = listScroll, onOpenTrip = onOpenTrip, onOpenRequests = onOpenRequests, profile = profile)
+            else FriendPage(friend, onBack = { openFriend = null }, onOpenTrip = onOpenTrip)
         }
     }
 }
@@ -143,10 +145,12 @@ fun TravellersPage(onOpenTrip: (String) -> Unit = {}, onOpenRequests: () -> Unit
 @Composable
 private fun TravellersList(
     onFriend: (Friend) -> Unit, live: Remote.Stats?, friends: List<Remote.Friend>?, pageScroll: androidx.compose.foundation.ScrollState,
-    onOpenTrip: (String) -> Unit, onOpenRequests: () -> Unit,
+    onOpenTrip: (String) -> Unit, onOpenRequests: () -> Unit, profile: SocialRemote.Profile? = null,
 ) {
     val cs = MaterialTheme.colorScheme
     val trips = Data.past
+    // The list behind a tile, when the server sent the lists.
+    var list by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<StatsKind?>(null) }
     val countries = Data.all.flatMap { t -> t.stops.map { it.flag } }.distinct()
     val names = mapOf(
         "🇮🇸" to "IJsland", "🇩🇰" to "Denemarken", "🇸🇪" to "Zweden", "🇮🇹" to "Italië", "🇵🇹" to "Portugal",
@@ -193,11 +197,13 @@ private fun TravellersList(
                     Text(me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
                     Text("Jouw statistieken", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
                 }
+                // Travelling right now: the green pill with its pulse, as on the web.
+                OngoingPill(live?.ongoing ?: 0)
             }
 
             // The tiles are always there with their icon, colour and label; only a figure not known yet waits as a
             // soft shape in its own place, so nothing shows a grey block or a wrong number first.
-            StatsGrid(if (Data.live && live == null) stats.map { Stat(null, it.label, it.icon, it.shape) } else stats)
+            StatsGrid(if (Data.live && live == null) stats.map { Stat(null, it.label, it.icon, it.shape) } else stats, onOpen = if (profile?.lists != null) ({ list = it }) else null)
 
             // Where you have been, in one panel: the slowly turning globe with those countries filled in, and the
             // same countries as chips under it, because that is what the globe shows.
@@ -249,6 +255,8 @@ private fun TravellersList(
                 }
             }
 
+            RecentTrips(profile?.recent.orEmpty(), who = null, onOpen = onOpenTrip, modifier = Modifier.padding(top = 28.dp))
+
             Text(
                 "Mensen op je reizen",
                 style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant),
@@ -290,12 +298,16 @@ private fun TravellersList(
         }
         StatusScrim(pageScroll)
     }
-
+    val lists = profile?.lists
+    list?.let { k -> if (lists != null) StatsListSheet(k, lists, onDismiss = { list = null }, onGo = onOpenTrip) }
 }
+
+/** Which list each tile opens, in the order of the tiles: trips, countries, distance, days, photos, flights. */
+private fun kindOf(i: Int) = when (i) { 1 -> StatsKind.Countries; 5 -> StatsKind.Flights; else -> StatsKind.Trips }
 
 /** A big number on a tonal tile, counting up when the page arrives; a small shape in the corner. */
 @Composable
-private fun StatTile(value: Int?, label: String, icon: List<Shape24>, mark: Shape, shape: Shape, order: Int, modifier: Modifier) {
+private fun StatTile(value: Int?, label: String, icon: List<Shape24>, mark: Shape, shape: Shape, order: Int, modifier: Modifier, onClick: (() -> Unit)? = null) {
     val cs = MaterialTheme.colorScheme
     // Figures already known (kept from the last visit) stand at once; only new ones count up.
     val count = remember { Animatable(value?.toFloat() ?: 0f) }
@@ -307,7 +319,7 @@ private fun StatTile(value: Int?, label: String, icon: List<Shape24>, mark: Shap
     }
     val tones = listOf(cs.primaryContainer to cs.onPrimaryContainer, cs.secondaryContainer to cs.onSecondaryContainer, cs.tertiaryContainer to cs.onTertiaryContainer)
     val (bg, fg) = tones[order % tones.size]
-    Box(modifier.height(112.dp).clip(shape).background(bg).tap().padding(16.dp)) {
+    Box(modifier.height(112.dp).clip(shape).background(bg).then(if (onClick != null) Modifier.tap(onClick) else Modifier).padding(16.dp)) {
         // The figure's icon on its own in the top right corner, as on the web.
         LineIcon(icon, fg.copy(alpha = 0.85f), size = 26.dp, stroke = 1.9f, modifier = Modifier.align(Alignment.TopEnd))
         Column(Modifier.align(Alignment.BottomStart)) {
@@ -324,7 +336,7 @@ private fun StatTile(value: Int?, label: String, icon: List<Shape24>, mark: Shap
 
 /** Two columns of tonal tiles, one connected block with round outer corners. */
 @Composable
-private fun StatsGrid(stats: List<Stat>) {
+private fun StatsGrid(stats: List<Stat>, onOpen: ((StatsKind) -> Unit)? = null) {
     stats.chunked(2).forEachIndexed { row, pair ->
         Row(Modifier.fillMaxWidth().padding(bottom = 3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             pair.forEachIndexed { col, stat ->
@@ -336,7 +348,7 @@ private fun StatsGrid(stats: List<Stat>) {
                     topStart = if (i == 0) outer else inner, topEnd = if (i == 1) outer else inner,
                     bottomStart = if (i == last - 1) outer else inner, bottomEnd = if (i == last) outer else inner,
                 )
-                StatTile(stat.value, stat.label, stat.icon, stat.shape.toShape(), tileShape, i, Modifier.weight(1f))
+                StatTile(stat.value, stat.label, stat.icon, stat.shape.toShape(), tileShape, i, Modifier.weight(1f), onClick = onOpen?.let { go -> { go(kindOf(i)) } })
             }
         }
     }
@@ -345,9 +357,11 @@ private fun StatsGrid(stats: List<Stat>) {
 /** A companion's own figures and countries, as the web's traveller page. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FriendPage(f: Friend, onBack: () -> Unit) {
+private fun FriendPage(f: Friend, onBack: () -> Unit, onOpenTrip: (String) -> Unit) {
     val cs = MaterialTheme.colorScheme
-    val stats by androidx.compose.runtime.produceState<Remote.Stats?>(null, f.id) { value = f.id?.let { runCatching { Remote.stats(it) }.getOrNull() } }
+    val profile by androidx.compose.runtime.produceState<SocialRemote.Profile?>(null, f.id) { value = f.id?.let { runCatching { SocialRemote.profile(it) }.getOrNull() } }
+    val stats = profile?.stats
+    var list by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<StatsKind?>(null) }
     val scroll = rememberScrollState()
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(scroll).padding(horizontal = 16.dp)) {
@@ -360,6 +374,7 @@ private fun FriendPage(f: Friend, onBack: () -> Unit) {
             Column(Modifier.padding(start = 16.dp)) {
                 Text(f.name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 28.sp, letterSpacing = (-0.02).em, color = cs.onBackground))
                 Text("@${f.handle} · ${f.shared} ${if (f.shared == 1) "reis samen" else "reizen samen"}", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
+                OngoingPill(stats?.ongoing ?: 0, Modifier.padding(top = 6.dp))
             }
         }
         val st = stats
@@ -374,7 +389,7 @@ private fun FriendPage(f: Friend, onBack: () -> Unit) {
                 Stat(st.days, "dagen op reis", Glyphs.hourglass, MaterialShapes.Sunny),
                 Stat(st.photos, "foto's", Glyphs.camera, MaterialShapes.Flower),
                 Stat(st.flights, "vluchten", Glyphs.plane, MaterialShapes.SoftBurst),
-            ))
+            ), onOpen = if (profile?.lists != null) ({ list = it }) else null)
             if (st.countries.isNotEmpty()) {
                 Box(Modifier.fillMaxWidth().padding(top = 22.dp), contentAlignment = Alignment.Center) {
                     CountryGlobe(st.countries, dark = cs.background.luminance() < 0.5f, modifier = Modifier.size(200.dp))
@@ -389,10 +404,14 @@ private fun FriendPage(f: Friend, onBack: () -> Unit) {
                 }
             }
         }
+        // Their last trips; one you are not on asks to look along.
+        RecentTrips(profile?.recent.orEmpty(), who = f.name, onOpen = onOpenTrip, modifier = Modifier.padding(top = 28.dp))
         Spacer(Modifier.height(120.dp))
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
     // Behind the clock once the page scrolls under it, as on every other page.
     StatusScrim(scroll)
     }
+    val lists = profile?.lists
+    list?.let { k -> if (lists != null) StatsListSheet(k, lists, onDismiss = { list = null }, onGo = onOpenTrip) }
 }

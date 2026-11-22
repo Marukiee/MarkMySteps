@@ -159,7 +159,7 @@ private val DarkScheme = darkColorScheme(
 private val Pad = 16.dp
 
 @Composable
-fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, startPage: String? = null) {
+fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, startPage: String? = null, previews: Previews = Previews()) {
     MaterialExpressiveTheme(
         colorScheme = animatedScheme(withWallpaperAccent(if (dark) DarkScheme else LightScheme, dark)),
         motionScheme = MotionScheme.expressive(),
@@ -168,7 +168,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         if (Data.live) NewLookDialog()
         // First the sign-in, unless signed in already or a test opens a page straight away.
         var gate by androidx.compose.runtime.saveable.rememberSaveable {
-            mutableStateOf(if (Api.signedIn || startTrip != null || startPage != null) "app" else "login")
+            mutableStateOf(if (previews.mfa) "login" else if (Api.signedIn || startTrip != null || startPage != null) "app" else "login")
         }
         val scope = androidx.compose.runtime.rememberCoroutineScope()
         LaunchedEffect(Unit) { Data.load() }
@@ -179,7 +179,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             label = "gate",
         ) { which ->
         if (which == "login") {
-            LoginPage(dark, onDone = { Data.begin(); gate = "app"; scope.launch { Data.load() } }, onDemo = { gate = "app" })
+            LoginPage(dark, onDone = { Data.begin(); gate = "app"; scope.launch { Data.load() } }, onDemo = { gate = "app" }, mfaPreview = previews.mfa)
             return@AnimatedContent
         }
         var open by remember { mutableStateOf(Data.all.firstOrNull { it.id == startTrip }) }
@@ -188,8 +188,26 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             if (open == null && startTrip != null) open = Data.all.firstOrNull { it.id == startTrip || it.title == startTrip }
         }
         var page by remember { mutableIntStateOf(when (startPage) { "settings" -> 2; "travellers" -> 1; else -> 0 }) }
+        // A trip you are not on (ask to look along), or a share link that is not one of your trips: pages of their own.
+        var outside by remember { mutableStateOf<String?>(null) }
+        /** A trip by its id: yours opens, anyone else's asks to look along. */
+        fun openTripId(id: String) {
+            val mine = Data.all.firstOrNull { it.id == id || it.remoteId == id }
+            if (mine != null) { outside = null; open = mine } else outside = "access:$id"
+        }
+        // A share or trip link that opened the app, once there are trips to look it up in.
+        LaunchedEffect(DeepLink.pending, Data.version, Data.live) {
+            val uri = DeepLink.pending ?: return@LaunchedEffect
+            if (!Data.live || Data.loading) return@LaunchedEffect
+            DeepLink.pending = null
+            when (val t = DeepLink.parse(uri)) {
+                is DeepLink.Target.Trip -> openTripId(t.id)
+                is DeepLink.Target.Share -> { open = null; outside = "share:${t.slug}|$uri" }
+                null -> Unit
+            }
+        }
         val motion = MaterialTheme.motionScheme
-        val target = open?.id ?: "page$page"
+        val target = open?.id ?: outside ?: "page$page"
         // Predictive back: the back gesture seeks this transition, so the page under the
         // finger shrinks and the one it goes back to already shows; letting go finishes
         // it, pulling back springs it into place again.
@@ -204,7 +222,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         // Off to another tab, the home page forgets where it was scrolled: back on it, it starts at
         // the top. Back from a trip it keeps its place, so you can carry on down the list.
         LaunchedEffect(page) { if (page != 0) holder.removeState("page0") }
-        val backTo: String? = when { open != null -> "page$page"; page != 0 -> "page0"; else -> null }
+        val backTo: String? = when { open != null || outside != null -> "page$page"; page != 0 -> "page0"; else -> null }
         androidx.activity.compose.PredictiveBackHandler(enabled = backTo != null) { events ->
             val to = backTo ?: return@PredictiveBackHandler
             fromTabBack = open == null
@@ -212,7 +230,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                 events.collect { e -> pages.seekTo(e.progress, to) }
                 pages.animateTo(to)
                 // Last, so the handler switching itself off cannot cut the animation short.
-                if (open != null) open = null else page = 0
+                if (open != null) open = null else if (outside != null) outside = null else page = 0
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { pages.snapTo(target) }
                 // A cancelled gesture must not leave the next tab switch playing the back animation.
@@ -251,9 +269,13 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                         val trip = Data.all.firstOrNull { it.id == key }
                         when {
                             trip != null -> TripPage(trip, dark, onBack = { open = null }, startExtra = startPage)
+                            key.startsWith("access:") -> TripAccessPage(key.removePrefix("access:"), onBack = { outside = null }, onOpenTrip = { id -> openTripId(id) })
+                            key.startsWith("share:") -> key.removePrefix("share:").split('|', limit = 2).let { (slug, url) ->
+                                ShareLinkPage(slug, url, onBack = { outside = null }, onOpenTrip = { id -> openTripId(id) })
+                            }
                             key == "page2" -> SettingsPage(onSignIn = { Data.signOut(); page = 0; gate = "login" })
-                            key == "page1" -> TravellersPage(onOpenTrip = { id -> Data.all.firstOrNull { it.id == id || it.remoteId == id }?.let { open = it } }, onOpenRequests = { Data.openSettings = "accounts"; page = 2 })
-                            else -> AccountHost(onSignIn = { Data.signOut(); page = 0; gate = "login" }) { openAccount -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it }, onProfile = openAccount, onPeople = { Data.peopleFor = it.id; open = it }) }
+                            key == "page1" -> TravellersPage(onOpenTrip = { id -> openTripId(id) }, onOpenRequests = { Data.openSettings = "accounts"; page = 2 })
+                            else -> AccountHost(onSignIn = { Data.signOut(); page = 0; gate = "login" }) { openAccount -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it }, onProfile = openAccount, onPeople = { Data.peopleFor = it.id; open = it }, tempPassword = previews.tempPassword) }
                         }
                     }
                 }
@@ -261,13 +283,17 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             AnimatedVisibility(
                 // Only once a page without the bar is really gone: during the back gesture from a trip it stays
                 // away, and it slides in after the home page has settled, not at the first touch.
-                visible = !Data.all.any { it.id == pages.targetState || it.id == pages.currentState },
+                visible = !Data.all.any { it.id == pages.targetState || it.id == pages.currentState } &&
+                    !pages.targetState.startsWith("access:") && !pages.currentState.startsWith("access:") &&
+                    !pages.targetState.startsWith("share:") && !pages.currentState.startsWith("share:"),
                 modifier = Modifier.align(Alignment.BottomCenter),
                 enter = slideInVertically(motion.defaultSpatialSpec()) { it } + fadeIn(motion.defaultEffectsSpec()),
                 exit = slideOutVertically(motion.fastSpatialSpec()) { it } + fadeOut(motion.fastEffectsSpec()),
             ) {
                 Toolbar(page, onNav = { fromTabBack = false; page = it })
             }
+            // Someone put you on trips: said once, with the way into the trip.
+            InviteDialog(previews.invite, onOpenTrip = { id -> openTripId(id) })
         }
         }
     }
@@ -277,7 +303,7 @@ private const val SharedAxisMillis = 350
 private val Emphasized = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 @Composable
-private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Trip) -> Unit, onProfile: () -> Unit = {}, onPeople: (Trip) -> Unit = {}) {
+private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Trip) -> Unit, onProfile: () -> Unit = {}, onPeople: (Trip) -> Unit = {}, tempPassword: Boolean = false) {
     val cs = MaterialTheme.colorScheme
     val screenH = LocalConfiguration.current.screenHeightDp
     val heroH = (screenH * 0.5f).coerceIn(320f, 560f).dp
@@ -313,6 +339,8 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
             }
 
             Column(Modifier.padding(horizontal = Pad)) {
+                // After an admin reset: choose your own password, until you did.
+                TempPasswordBar(Data.live && (Data.me?.mustChange == true || tempPassword), onOpen = onProfile, modifier = Modifier.padding(top = 4.dp, bottom = 10.dp))
                 // The new-trip button stays where it was: beside the heading.
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp).arrive(0), verticalAlignment = Alignment.CenterVertically) {
                     Text(

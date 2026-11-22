@@ -39,7 +39,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
@@ -58,9 +57,9 @@ class TimelineMarks {
     fun put(day: LocalDate, at: LayoutCoordinates, place: String?) { days[day] = at to place }
     fun clear() = days.clear()
 
-    /** The day whose heading last passed [line] (a y on screen), with its place. */
+    /** The day whose heading last passed [line] (a y on screen), with its place. Unclipped positions: a heading far off screen is not at the edge. */
     fun dayAt(line: Float): Pair<LocalDate, String?>? =
-        days.entries.filter { it.value.first.isAttached && it.value.first.boundsInRoot().top <= line }.maxByOrNull { it.key }?.let { it.key to it.value.second }
+        days.entries.filter { it.value.first.isAttached && it.value.first.positionInRoot().y <= line }.maxByOrNull { it.key }?.let { it.key to it.value.second }
             ?: days.entries.filter { it.value.first.isAttached }.minByOrNull { it.key }?.let { it.key to it.value.second }
 }
 

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -17,6 +19,11 @@ android {
         versionCode = 1
         versionName = "0.0.1"
         ndk { abiFilters += "arm64-v8a" }
+        // The host whose share and trip links open in the app: linkHost in local.properties, else the public default server.
+        val props = Properties().apply { rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) } }
+        val linkHost = props.getProperty("linkHost") ?: "reis.markmaaktmedia.nl"
+        manifestPlaceholders["linkHost"] = linkHost
+        resValue("string", "link_host", linkHost)
     }
 
     compileOptions {
