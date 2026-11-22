@@ -36,28 +36,34 @@ suspend fun serverMedia(trip: Trip): List<TripPhoto> {
     }.sortedBy { it.takenAt }
 }
 
-/** Looks and shapes per photo id, in the app's own files, one file per trip. */
+/** Looks and shapes per photo id, and photos that failed with when, in the app's own files, one file per trip. */
 object LookStore {
+    class Stored(val looks: Map<String, Pair<Look, Float>>, val failed: Map<String, Long>)
+
     private fun file(context: Context, trip: String) = File(context.filesDir, "looks2/$trip.json")
 
-    suspend fun load(context: Context, trip: String): Map<String, Pair<Look, Float>> = withContext(Dispatchers.IO) {
+    suspend fun load(context: Context, trip: String): Stored = withContext(Dispatchers.Default) {
         val f = file(context, trip)
-        if (!f.exists()) return@withContext emptyMap()
+        if (!f.exists()) return@withContext Stored(emptyMap(), emptyMap())
         runCatching {
             val o = JSONObject(f.readText())
-            o.keys().asSequence().associateWith { id ->
+            val failedJson = o.optJSONObject("_failed")
+            val failed = failedJson?.keys()?.asSequence()?.associateWith { failedJson.getLong(it) }.orEmpty()
+            val looks = o.keys().asSequence().filter { it != "_failed" }.associateWith { id ->
                 val a = o.getJSONArray(id)
                 Look(a.getDouble(0).toFloat(), a.getDouble(1).toFloat(), a.getDouble(2).toFloat(), a.getString(3).toULong(16).toLong(), a.getInt(4), a.optDouble(6, 0.0).toFloat()) to a.getDouble(5).toFloat()
             }
-        }.getOrDefault(emptyMap())
+            Stored(looks, failed)
+        }.getOrDefault(Stored(emptyMap(), emptyMap()))
     }
 
-    suspend fun save(context: Context, trip: String, looks: Map<String, Look>, aspects: Map<String, Float>) = withContext(Dispatchers.IO) {
+    suspend fun save(context: Context, trip: String, looks: Map<String, Look>, aspects: Map<String, Float>, failed: Map<String, Long>) = withContext(Dispatchers.IO) {
         val o = JSONObject()
         for ((id, l) in looks) {
             val aspect = aspects[id] ?: continue
             o.put(id, JSONArray().put(l.sharp.toDouble()).put(l.exposure.toDouble()).put(l.colour.toDouble()).put(l.hash.toULong().toString(16)).put(l.average).put(aspect.toDouble()).put(l.face.toDouble()))
         }
+        o.put("_failed", JSONObject().apply { failed.forEach { (id, t) -> put(id, t) } })
         val f = file(context, trip)
         f.parentFile?.mkdirs()
         f.writeText(o.toString())

@@ -66,6 +66,9 @@ val ServerPhotos = PhotoLoader { id, size -> Photos.load(id, size.query ?: "prev
 
 val LocalPhotoLoader = staticCompositionLocalOf<PhotoLoader?> { ServerPhotos }
 
+/** Photos a screen holds on to while it is open (the summary's posters), past the app-wide cache. */
+val LocalHeldPhotos = staticCompositionLocalOf<Map<String, Bitmap>> { emptyMap() }
+
 private fun cachedBitmap(id: String, size: PhotoSize): Bitmap? = Photos.cached("$id/${size.query ?: "preview"}")
 
 /**
@@ -76,7 +79,8 @@ private fun cachedBitmap(id: String, size: PhotoSize): Bitmap? = Photos.cached("
 fun PhotoView(photo: TripPhoto, modifier: Modifier = Modifier, size: PhotoSize = PhotoSize.Preview, placeholder: Color? = null) {
     val loader = LocalPhotoLoader.current
     val key = "${photo.id}/${size.name}"
-    var bitmap by remember(key) { mutableStateOf<ImageBitmap?>(cachedBitmap(photo.id, size)?.asImageBitmap()) }
+    val held = LocalHeldPhotos.current
+    var bitmap by remember(key) { mutableStateOf<ImageBitmap?>((held[key] ?: cachedBitmap(photo.id, size))?.asImageBitmap()) }
     if (photo.scene == null && bitmap == null && loader != null) {
         LaunchedEffect(key) {
             // Show a smaller rendition first, when there is one, so something is there at once.

@@ -56,6 +56,7 @@ import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -179,68 +180,82 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                 }
             }
 
-            if (picked == null) {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Reading(reading, "Mooiste foto's zoeken") }
-            } else {
-                val data = remember(picked, dark) {
-                    PosterData(
-                        trip, picked, dark, legibleColor(trip.color, dark), tripFacts(trip, picked),
-                        perStop = picked.highlights.filter { it.stop != null }.groupBy { it.stop!! }
-                            .map { (i, l) -> i to l.maxBy { it.showScore } }.sortedBy { it.first },
-                    )
-                }
-                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                    val w = min(maxWidth.value - 40f, maxHeight.value * format.aspect).dp
-                    SharedTransitionLayout {
-                        val motion = MaterialTheme.motionScheme
-                        AnimatedContent(
-                            template to format,
-                            transitionSpec = {
-                                (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.97f)) togetherWith
-                                    fadeOut(motion.fastEffectsSpec())
-                            },
-                            label = "poster",
-                        ) { (t, f) ->
-                            val pw = min(maxWidth.value - 40f, maxHeight.value * f.aspect).dp
-                            CompositionLocalProvider(LocalPosterShared provides (this@SharedTransitionLayout to this@AnimatedContent)) {
-                                Box(
-                                    Modifier.width(pw).aspectRatio(f.aspect)
-                                        .clip(RoundedCornerShape(18.dp))
-                                        .border(1.dp, cs.outlineVariant, RoundedCornerShape(18.dp))
-                                        .then(
-                                            if (t == template && f == format) Modifier.drawWithContent {
-                                                // Recorded at 1080 wide for saving, shown at screen size.
-                                                val k = 1080f / size.width
-                                                layer.record(IntSize(1080, (size.height * k).roundToInt())) {
-                                                    scale(k, k, Offset.Zero) { this@drawWithContent.drawContent() }
-                                                }
-                                                scale(1f / k, 1f / k, Offset.Zero) { drawLayer(layer) }
-                                            } else Modifier,
-                                        ),
-                                ) { Poster(t, f, data) }
+            // From reading to the poster in one fade, nothing jumping.
+            androidx.compose.animation.Crossfade(picked, Modifier.weight(1f).fillMaxWidth(), animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "summary") { picked ->
+                if (picked == null) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Reading(reading, "Mooiste foto's zoeken") }
+                } else Column(Modifier.fillMaxSize()) {
+                    // Every photo any template or format can show, fetched ahead, so switching shows them at once.
+                    val loader = LocalPhotoLoader.current
+                    val held = remember(picked) { androidx.compose.runtime.mutableStateMapOf<String, Bitmap>() }
+                    LaunchedEffect(picked) {
+                        if (loader != null) (listOfNotNull(picked.cover) + picked.highlights).distinctBy { it.photo.id }
+                            .filter { it.photo.scene == null }
+                            .forEach { r -> loader.load(r.photo.id, PhotoSize.Preview)?.let { held["${r.photo.id}/${PhotoSize.Preview.name}"] = it } }
+                    }
+                    val data = remember(picked, dark) {
+                        PosterData(
+                            trip, picked, dark, legibleColor(trip.color, dark), tripFacts(trip, picked),
+                            perStop = picked.highlights.filter { it.stop != null }.groupBy { it.stop!! }
+                                .map { (i, l) -> i to l.maxBy { it.showScore } }.sortedBy { it.first },
+                        )
+                    }
+                    CompositionLocalProvider(LocalHeldPhotos provides held) {
+                    BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                        val w = min(maxWidth.value - 40f, maxHeight.value * format.aspect).dp
+                        SharedTransitionLayout {
+                            val motion = MaterialTheme.motionScheme
+                            AnimatedContent(
+                                template to format,
+                                transitionSpec = {
+                                    (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.97f)) togetherWith
+                                        fadeOut(motion.fastEffectsSpec())
+                                },
+                                label = "poster",
+                            ) { (t, f) ->
+                                val pw = min(maxWidth.value - 40f, maxHeight.value * f.aspect).dp
+                                CompositionLocalProvider(LocalPosterShared provides (this@SharedTransitionLayout to this@AnimatedContent)) {
+                                    Box(
+                                        Modifier.width(pw).aspectRatio(f.aspect)
+                                            .clip(RoundedCornerShape(18.dp))
+                                            .border(1.dp, cs.outlineVariant, RoundedCornerShape(18.dp))
+                                            .then(
+                                                if (t == template && f == format) Modifier.drawWithContent {
+                                                    // Recorded at 1080 wide for saving, shown at screen size.
+                                                    val k = 1080f / size.width
+                                                    layer.record(IntSize(1080, (size.height * k).roundToInt())) {
+                                                        scale(k, k, Offset.Zero) { this@drawWithContent.drawContent() }
+                                                    }
+                                                    scale(1f / k, 1f / k, Offset.Zero) { drawLayer(layer) }
+                                                } else Modifier,
+                                            ),
+                                    ) { Poster(t, f, data) }
+                                }
+                            }
+                        }
+                        if (w < 0.dp) Spacer(Modifier)
+                    }
+                    }
+
+                    Choices(Template.entries, template, { it.label }, { template = it; saved = null }, Modifier.padding(horizontal = 16.dp))
+                    Choices(Format.entries, format, { it.label }, { format = it; saved = null }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        BigButton(if (saved != null) "Bewaard" else "Bewaar", Glyphs.download, tonal = true, Modifier.weight(1f)) {
+                            scope.launch { saved = savePoster(context, layer.toImageBitmap().asAndroidBitmap(), trip, template) }
+                        }
+                        BigButton("Delen", Glyphs.arrowRight, tonal = false, Modifier.weight(1f)) {
+                            scope.launch {
+                                val uri = saved ?: savePoster(context, layer.toImageBitmap().asAndroidBitmap(), trip, template).also { saved = it }
+                                if (uri != null) context.startActivity(
+                                    Intent.createChooser(
+                                        Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                                        trip.title,
+                                    ),
+                                )
                             }
                         }
                     }
-                    if (w < 0.dp) Spacer(Modifier)
-                }
-
-                Choices(Template.entries, template, { it.label }, { template = it; saved = null }, Modifier.padding(horizontal = 16.dp))
-                Choices(Format.entries, format, { it.label }, { format = it; saved = null }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BigButton(if (saved != null) "Bewaard" else "Bewaar", Glyphs.download, tonal = true, Modifier.weight(1f)) {
-                        scope.launch { saved = savePoster(context, layer.toImageBitmap().asAndroidBitmap(), trip, template) }
-                    }
-                    BigButton("Delen", Glyphs.arrowRight, tonal = false, Modifier.weight(1f)) {
-                        scope.launch {
-                            val uri = saved ?: savePoster(context, layer.toImageBitmap().asAndroidBitmap(), trip, template).also { saved = it }
-                            if (uri != null) context.startActivity(
-                                Intent.createChooser(
-                                    Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                                    trip.title,
-                                ),
-                            )
-                        }
-                    }
+        
                 }
             }
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -501,6 +516,8 @@ private fun RibbonPoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
 private fun StatsPoster(data: PosterData, format: Format, u: Dp) {
     val hero = data.picked.cover ?: data.picked.highlights.firstOrNull()
     val (lon, lat, zoom) = remember(data.trip) { tripFrame(data.trip) }
+    // A square has less height: smaller numbers and title, so the flags still fit.
+    val k = if (format == Format.Square) 0.78f else 1f
     Box(Modifier.fillMaxSize()) {
         if (hero != null) PosterPhoto(hero, Modifier.fillMaxSize())
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x80000000), 0.3f to Color(0x1A000000), 0.55f to Color(0x33000000), 1f to Color(0xE6000000))))
@@ -515,14 +532,14 @@ private fun StatsPoster(data: PosterData, format: Format, u: Dp) {
             Spacer(Modifier.weight(1f))
             Text(
                 data.trip.title, maxLines = 2,
-                style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(600), fontSize = (u * 0.1f).sp(), lineHeight = (u * 0.105f).sp(), color = Color.White),
+                style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(600), fontSize = (u * 0.1f * k).sp(), lineHeight = (u * 0.105f * k).sp(), color = Color.White),
             )
-            Text(data.trip.dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.034f).sp(), color = Color.White.copy(alpha = 0.85f)), modifier = Modifier.padding(top = u * 0.01f, bottom = u * 0.05f))
+            Text(data.trip.dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.034f).sp(), color = Color.White.copy(alpha = 0.85f)), modifier = Modifier.padding(top = u * 0.01f, bottom = u * 0.05f * k))
             data.facts.chunked(2).forEach { pair ->
-                Row(Modifier.fillMaxWidth().padding(bottom = u * 0.035f)) {
+                Row(Modifier.fillMaxWidth().padding(bottom = u * 0.035f * k)) {
                     pair.forEach { (v, l) ->
                         Column(Modifier.weight(1f)) {
-                            Text(v, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.12f).sp(), lineHeight = (u * 0.12f).sp(), letterSpacing = (-0.03).em, color = Color.White))
+                            Text(v, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.12f * k).sp(), lineHeight = (u * 0.12f * k).sp(), letterSpacing = (-0.03).em, color = Color.White))
                             Text(l.uppercase(), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.028f).sp(), letterSpacing = 0.08.em, color = data.accent.copy(alpha = 1f)))
                         }
                     }

@@ -99,6 +99,9 @@ import kotlin.math.min
 
 const val PAGE_ASPECT = 210f / 297f
 
+/** A closed book, 24 by 24 like the other line icons. */
+val BookGlyph = listOf(P("M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"))
+
 // The page's margins and folio, as fractions of the page width.
 private const val SIDE = 0.07f
 private const val TOP = 0.075f
@@ -175,31 +178,55 @@ private fun Modifier.bookTile(r: Rated, ctx: BookContext): Modifier =
         .graphicsLayer { alpha = if (ctx.hidden == r.photo.id) 0f else 1f }
         .clickable { ctx.onPhoto(r) }
 
+/** A trip's media with what each photo looks like, read once per trip. */
+private class Loaded(val media: List<TripPhoto>, val looks: Map<String, Look>, val aspects: Map<String, Float>, val start: java.time.LocalDate?)
+
+private val cachedLoads = HashMap<String, Loaded>()
+
 /**
- * The state a book or summary screen loads: the trip's photos read and
- * picked. Picked again once the stops have come in, since they name the days.
+ * The state a book or summary screen loads: the trip's photos read once, then
+ * picked. A trip read from the server brings its stops in a moment after it
+ * opens; picking waits briefly for them (they name the days), so the book
+ * appears once and does not rebuild under the reader's hands.
  */
 @Composable
 fun rememberPicked(trip: Trip): Pair<Picked?, Reading> {
     val loader = LocalPhotoLoader.current
     val context = LocalContext.current.applicationContext
-    val key = "${trip.id}/${trip.stops.size}"
-    var picked by remember(key) { mutableStateOf<Picked?>(cachedPicks[key]) }
-    var reading by remember(key) { mutableStateOf(Reading(0, 0)) }
-    if (picked == null) LaunchedEffect(key) {
+    var loaded by remember(trip.id) { mutableStateOf(cachedLoads[trip.id]) }
+    var reading by remember(trip.id) { mutableStateOf(Reading(0, 0)) }
+    if (loaded == null) LaunchedEffect(trip.id) {
         val remote = trip.remoteId
         val media = if (remote != null) runCatching { serverMedia(trip) }.getOrDefault(emptyList()) else demoMedia(trip).first
         val start = if (remote != null) trip.start else demoStart(trip)
-        val known = if (remote != null) LookStore.load(context, remote) else emptyMap()
-        val todo = media.filter { it.id !in known }
+        val stored = if (remote != null) LookStore.load(context, remote) else LookStore.Stored(emptyMap(), emptyMap())
+        // A photo that would not load in the last day is not asked for again yet.
+        val dayAgo = System.currentTimeMillis() - 24 * 3_600_000L
+        val todo = media.filter { it.id !in stored.looks && (stored.failed[it.id] ?: 0L) < dayAgo }
         reading = Reading(0, todo.size)
         val (fresh, freshAspects) = readLooks(todo, if (remote != null) loader else null) { reading = it }
-        val looks = known.mapValues { it.value.first } + fresh
-        val aspects = known.mapValues { it.value.second } + freshAspects
-        if (remote != null && fresh.isNotEmpty()) LookStore.save(context, remote, looks, aspects)
-        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { pickPhotos(media, looks, aspects, trip.stops, start, coverId = trip.coverId) }
+        val looks = stored.looks.mapValues { it.value.first } + fresh
+        val aspects = stored.looks.mapValues { it.value.second } + freshAspects
+        if (remote != null && todo.isNotEmpty()) {
+            val now = System.currentTimeMillis()
+            val failed = stored.failed.filterValues { it >= dayAgo } + todo.filter { it.id !in fresh }.associate { it.id to now }
+            LookStore.save(context, remote, looks, aspects, failed)
+        }
+        cachedLoads[trip.id] = Loaded(media, looks, aspects, start).also { loaded = it }
+    }
+    val key = "${trip.id}/${trip.stops.size}"
+    var picked by remember(trip.id) { mutableStateOf(cachedPicks[key]) }
+    val ready = loaded
+    LaunchedEffect(ready, key) {
+        if (ready == null) return@LaunchedEffect
+        cachedPicks[key]?.let { picked = it; return@LaunchedEffect }
+        if (trip.remoteId != null && trip.stops.isEmpty() && picked == null) kotlinx.coroutines.delay(3_000)
+        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            pickPhotos(ready.media, ready.looks, ready.aspects, trip.stops, ready.start, coverId = trip.coverId)
+        }
         cachedPicks[key] = result
-        picked = result
+        // Once a book is on screen it only changes when the stops add something to it.
+        if (picked == null || trip.stops.isNotEmpty()) picked = result
     }
     return picked to reading
 }
@@ -233,14 +260,17 @@ fun PhotoBook(trip: Trip, dark: Boolean, onBack: () -> Unit) {
     BackHandler(enabled = viewing == null) { onBack() }
 
     Box(Modifier.fillMaxSize().background(cs.background)) {
-        if (picked == null) {
-            Reading(reading, "Foto's bekijken", Modifier.align(Alignment.Center))
-        } else {
-            BookPages(
-                sheets, pager,
-                BookContext(trip, picked, dark, accent, tiles, hidden = shown, onPhoto = { r -> viewing = all.indexOf(r).takeIf { it >= 0 } }),
-                onBack = onBack,
-            )
+        // From reading to the book in one fade, nothing jumping.
+        androidx.compose.animation.Crossfade(picked, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "book") { ready ->
+            if (ready == null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Reading(reading, "Foto's bekijken") }
+            } else {
+                BookPages(
+                    sheets, pager,
+                    BookContext(trip, ready, dark, accent, tiles, hidden = shown, onPhoto = { r -> viewing = all.indexOf(r).takeIf { it >= 0 } }),
+                    onBack = onBack,
+                )
+            }
         }
         viewing?.let { start ->
             PhotoViewer(
@@ -354,12 +384,17 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                 ) {
-                    val label = when {
-                        d == null -> if (on) "Begin" else "★"
-                        on -> "Dag ${d.number}" + (d.place?.let { " · $it" } ?: "")
-                        else -> "${d.number}"
+                    if (d == null && !on) {
+                        // The start of the book: a drawn book, never a sign from a font.
+                        LineIcon(BookGlyph, fg, size = 20.dp)
+                    } else {
+                        val label = when {
+                            d == null -> "Begin"
+                            on -> "Dag ${d.number}" + (d.place?.let { " · $it" } ?: "")
+                            else -> "${d.number}"
+                        }
+                        Text(label, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = fg))
                     }
-                    Text(label, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = fg))
                 }
             }
         }
@@ -401,7 +436,11 @@ private fun CoverSheet(ctx: BookContext, u: Dp) {
     val cover = ctx.picked.cover
     Box(Modifier.fillMaxSize()) {
         if (cover != null) PhotoView(cover.photo, Modifier.fillMaxSize().bookTile(cover, ctx), placeholder = Color(cover.look.average))
-        Box(Modifier.fillMaxSize().background(scrim))
+        if (ctx.hidden != cover?.photo?.id) {
+            Box(Modifier.fillMaxSize().background(scrim))
+            // A soft shade at the top too, so the wordmark reads on a light sky.
+            Box(Modifier.fillMaxWidth().height(u * 0.3f).background(Brush.verticalGradient(listOf(Color(0x59000000), Color.Transparent))))
+        }
         Text(
             "MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.036f).sp(), color = Color.White, letterSpacing = 0.01.em),
             modifier = Modifier.padding(start = u * SIDE, top = u * TOP),
@@ -490,7 +529,7 @@ fun tripFacts(trip: Trip, picked: Picked?): List<Pair<String, String>> {
     val countries = trip.stops.map { it.flag }.distinct().size
     return buildList {
         add("${trip.days}" to "dagen")
-        trip.km?.takeIf { it > 0 }?.let { add("%,d".format(it).replace(',', '.') to "km") }
+        trip.km?.takeIf { it > 0 }?.let { add("%,d".format(it).replace(',', '.') to "kilometer") }
         if (trip.stops.size > 1) add("${trip.stops.size}" to "stops")
         if (countries > 1) add("$countries" to "landen")
         else picked?.let { add("${it.photoCount}" to "foto's") }
@@ -523,7 +562,7 @@ private fun OpenerSheet(sheet: Sheet.Opener, ctx: BookContext, u: Dp) {
     val day = sheet.day
     Box(Modifier.fillMaxSize()) {
         PhotoView(sheet.photo.photo, Modifier.fillMaxSize().bookTile(sheet.photo, ctx), placeholder = Color(sheet.photo.look.average))
-        Box(Modifier.fillMaxSize().background(scrim))
+        if (ctx.hidden != sheet.photo.photo.id) Box(Modifier.fillMaxSize().background(scrim))
         Column(Modifier.align(Alignment.BottomStart).padding(start = u * SIDE, end = u * SIDE, bottom = u * 0.08f)) {
             StopBadge(stopIndex(ctx, day), ctx.accent, u * 0.12f, "${day.number}")
             Text(

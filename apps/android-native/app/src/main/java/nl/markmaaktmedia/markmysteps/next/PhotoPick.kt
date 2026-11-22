@@ -92,24 +92,30 @@ fun zoneAt(where: LonLat?, stops: List<Stop>, at: Instant? = null): ZoneId {
         stops.firstOrNull { s -> s.start != null && !day.isBefore(s.start) && day.isBefore(s.start.plusDays(s.nights.coerceAtLeast(1).toLong())) }
     }
     val code = near?.flag?.let(::countryOf)
-    if (code != null) {
-        val zones = android.icu.util.TimeZone.getAvailableIDs(code).map { it to android.icu.util.TimeZone.getTimeZone(it).rawOffset }
-        if (zones.isNotEmpty()) {
-            val offsets = zones.map { it.second }
-            // Spain has the Canaries and Portugal the Azores: there the country's usual zone counts,
-            // only a country spanning several hours (the US, Russia, Brazil) goes by the longitude.
-            val pick = if (offsets.max() - offsets.min() <= 2 * 3_600_000) {
-                val usual = offsets.groupingBy { it }.eachCount().maxBy { it.value }.key
-                zones.first { it.second == usual }.first
-            } else {
-                val lon = where?.first ?: near.at.first
-                zones.minBy { abs(it.second / 3_600_000.0 - lon / 15.0) }.first
-            }
-            runCatching { ZoneId.of(pick) }.getOrNull()?.let { return it }
-        }
-    }
+    if (code != null) countryZone(code, where?.first ?: near.at.first)?.let { return it }
     if (where == null || abs(where.first - HomeAirport.first) < 22) return ZoneId.systemDefault()
     return java.time.ZoneOffset.ofHours((where.first / 15.0).roundToInt().coerceIn(-12, 14))
+}
+
+/** A country's zones and their offsets, looked up once: the lookup is slow and a trip asks hundreds of times. */
+private val zonesOf = java.util.concurrent.ConcurrentHashMap<String, List<Pair<String, Int>>>()
+private val zoneIds = java.util.concurrent.ConcurrentHashMap<String, ZoneId>()
+
+private fun countryZone(code: String, lon: Double): ZoneId? {
+    val zones = zonesOf.getOrPut(code) {
+        android.icu.util.TimeZone.getAvailableIDs(code).map { it to android.icu.util.TimeZone.getTimeZone(it).rawOffset }
+    }
+    if (zones.isEmpty()) return null
+    val offsets = zones.map { it.second }
+    // Spain has the Canaries and Portugal the Azores: there the country's usual zone counts,
+    // only a country spanning several hours (the US, Russia, Brazil) goes by the longitude.
+    val pick = if (offsets.max() - offsets.min() <= 2 * 3_600_000) {
+        val usual = offsets.groupingBy { it }.eachCount().maxBy { it.value }.key
+        zones.first { it.second == usual }.first
+    } else {
+        zones.minBy { abs(it.second / 3_600_000.0 - lon / 15.0) }.first
+    }
+    return zoneIds.getOrPut(pick) { runCatching { ZoneId.of(pick) }.getOrNull() ?: return null }
 }
 
 /** "🇲🇦" to "MA": a flag is two regional indicator letters. */
