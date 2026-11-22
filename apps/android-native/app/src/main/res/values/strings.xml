@@ -681,4 +681,18 @@
     <plurals name="nights_count"><item quantity="one">%1$d night</item><item quantity="other">%1$d nights</item></plurals>
     <plurals name="trackview_checks"><item quantity="one">%1$d check</item><item quantity="other">%1$d checks</item></plurals>
     <plurals name="plannerx_stays"><item quantity="one">%1$d place where you stayed the night</item><item quantity="other">%1$d places where you stayed the night</item></plurals>
+    <string name="date_through">to</string>
+    <string name="mode_car">Car</string>
+    <string name="mode_train">Train</string>
+    <string name="mode_bus">Bus</string>
+    <string name="mode_boat">Boat</string>
+    <string name="mode_flight">Flight</string>
+    <string name="mapstyle_satellite">Satellite</string>
+    <string name="leg_home">Home</string>
+    <string name="fact_distance">Distance</string>
+    <string name="fact_days">Days</string>
+    <string name="fact_stops">Stops</string>
+    <string name="fact_photos">Photos</string>
+    <string name="fact_travellers">Travel companions</string>
+    <string name="fact_countries">Countries</string>
 </resources>

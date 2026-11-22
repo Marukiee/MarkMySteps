@@ -169,7 +169,7 @@ private fun TravellersList(
         Stat(live?.photos ?: trips.sumOf { it.photos }, stringResource(R.string.travellers_stat_photos), Glyphs.camera, MaterialShapes.Flower),
         Stat(live?.flights ?: trips.sumOf { it.flights.size }, stringResource(R.string.travellers_stat_flights), Glyphs.plane, MaterialShapes.SoftBurst),
     )
-    val countryFlags = live?.countries?.map { Remote.flag(it) to java.util.Locale("", it).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL")) }
+    val countryFlags = live?.countries?.map { Remote.flag(it) to java.util.Locale("", it).getDisplayCountry(java.util.Locale.forLanguageTag(Lang.current)) }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(pageScroll).padding(horizontal = 16.dp)) {
@@ -213,7 +213,7 @@ private fun TravellersList(
                 Modifier.padding(top = 22.dp).fillMaxWidth().clip(RoundedCornerShape(32.dp)).background(cs.surfaceContainerLow).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 18.dp),
             ) {
                 // Visited (from the server) and, after them, the countries of the trips still to come.
-                val nl = java.util.Locale.forLanguageTag("nl-NL")
+                val nl = java.util.Locale.forLanguageTag(Lang.current)
                 val visitedCodes = live?.countries?.map { it.uppercase() }.orEmpty()
                 val plannedCodes = if (live == null) emptyList() else Data.upcoming.flatMap { t -> t.stops.mapNotNull { flagCode(it.flag)?.uppercase() } }
                     .distinct().filter { it !in visitedCodes }
@@ -400,7 +400,7 @@ private fun FriendPage(f: Friend, onBack: () -> Unit, onOpenTrip: (String) -> Un
                     st.countries.forEach { code ->
                         Row(Modifier.height(40.dp).clip(CircleShape).background(cs.secondaryContainer).padding(start = 10.dp, end = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             FlagIcon(code, 15.dp)
-                            Text(java.util.Locale("", code).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL")), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSecondaryContainer), modifier = Modifier.padding(start = 8.dp))
+                            Text(java.util.Locale("", code).getDisplayCountry(java.util.Locale.forLanguageTag(Lang.current)), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSecondaryContainer), modifier = Modifier.padding(start = 8.dp))
                         }
                     }
                 }

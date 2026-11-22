@@ -680,4 +680,18 @@
     <plurals name="nights_count"><item quantity="one">%1$d nacht</item><item quantity="other">%1$d nachten</item></plurals>
     <plurals name="trackview_checks"><item quantity="one">%1$d check</item><item quantity="other">%1$d checks</item></plurals>
     <plurals name="plannerx_stays"><item quantity="one">%1$d plek waar je bleef slapen</item><item quantity="other">%1$d plekken waar je bleef slapen</item></plurals>
+    <string name="date_through">t/m</string>
+    <string name="mode_car">Auto</string>
+    <string name="mode_train">Trein</string>
+    <string name="mode_bus">Bus</string>
+    <string name="mode_boat">Boot</string>
+    <string name="mode_flight">Vlucht</string>
+    <string name="mapstyle_satellite">Satelliet</string>
+    <string name="leg_home">Thuis</string>
+    <string name="fact_distance">Afstand</string>
+    <string name="fact_days">Dagen</string>
+    <string name="fact_stops">Stops</string>
+    <string name="fact_photos">Foto\'s</string>
+    <string name="fact_travellers">Reisgenoten</string>
+    <string name="fact_countries">Landen</string>
 </resources>

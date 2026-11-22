@@ -68,11 +68,8 @@ import androidx.compose.ui.res.stringResource
  * the sheet that draws a train ride, the question on an ongoing trip and the picker for a new stop's place.
  */
 
-private val WeekDays = listOf("ma", "di", "wo", "do", "vr", "za", "zo")
-private val MonthsShort = listOf("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec")
-
 /** "di 12 aug": short enough for the pill, clear in a list. */
-fun shortDay(d: LocalDate) = "${WeekDays[d.dayOfWeek.value - 1]} ${d.dayOfMonth} ${MonthsShort[d.monthValue - 1]}"
+fun shortDay(d: LocalDate) = "${DateText.weekday(d.dayOfWeek)} ${d.dayOfMonth} ${DateText.month(d.monthValue)}"
 
 val LocateGlyph = listOf(C(12f, 12f, 3.2f), C(12f, 12f, 7.5f), P("M12 2v3M12 19v3M2 12h3M19 12h3"))
 private val CalendarGlyph = listOf(P("M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"), P("M3 10h18"), P("M8 3v4M16 3v4"))

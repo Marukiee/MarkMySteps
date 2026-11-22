@@ -339,14 +339,12 @@ private fun visibleOn(trip: Trip, id: String, day: LocalDate?): Boolean {
     return day == null || dt.day == null || dt.day == day
 }
 
-private val Months = listOf("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec")
-
 /** The label of a stop or a day trip by its id: name and when, as the web's stop popup. */
 private fun labelFor(trip: Trip, id: String): StopLabel? {
     trip.stops.firstOrNull { (it.id ?: "stop:${it.name}") == id }?.let { s -> return StopLabel(id, s.at, s.name, s.dates) }
     for (s in trip.stops) for (dt in s.dayTrips) if (dt.id == id) {
         val at = dt.at ?: return null
-        return StopLabel(id, at, dt.name, dt.day?.let { Lang.text(R.string.map_day_trip_on, it.dayOfMonth, Months[it.monthValue - 1]) } ?: Lang.text(R.string.planner_day_trip))
+        return StopLabel(id, at, dt.name, dt.day?.let { Lang.text(R.string.map_day_trip_on, it.dayOfMonth, DateText.month(it.monthValue)) } ?: Lang.text(R.string.planner_day_trip))
     }
     return null
 }

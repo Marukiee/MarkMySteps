@@ -37,7 +37,12 @@ data class Stop(
 data class DayTrip(val id: String, val name: String, val flag: String, val at: LonLat?, val day: LocalDate?)
 
 /** How a leg is travelled, in the order the mode menu lists them. */
-enum class Mode(val label: String) { Car("Auto"), Train("Trein"), Bus("Bus"), Boat("Boot"), Flight("Vlucht") }
+enum class Mode(private val res: Int) {
+    Car(R.string.mode_car), Train(R.string.mode_train), Bus(R.string.mode_bus), Boat(R.string.mode_boat), Flight(R.string.mode_flight);
+
+    /** The word for it in the chosen language. */
+    val label: String get() = Lang.text(res)
+}
 
 /** The way there or back: by air between two airports, or over land. */
 data class Leg(

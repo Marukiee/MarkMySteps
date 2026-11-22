@@ -212,18 +212,16 @@ object SocialRemote {
 }
 
 /** Short dates as the web writes them: "12 t/m 14 aug", "30 aug t/m 2 sep", one date when it is one day. */
-private val ShortMonths = listOf("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec")
-
 fun shortRange(from: LocalDate, to: LocalDate, year: Boolean = false): String {
-    val end = "${to.dayOfMonth} ${ShortMonths[to.monthValue - 1]}" + if (year) " ${to.year}" else ""
+    val end = "${to.dayOfMonth} ${DateText.month(to.monthValue)}" + if (year) " ${to.year}" else ""
     return when {
         from == to -> end
-        from.month == to.month && from.year == to.year -> "${from.dayOfMonth} t/m $end"
-        else -> "${from.dayOfMonth} ${ShortMonths[from.monthValue - 1]} t/m $end"
+        from.month == to.month && from.year == to.year -> "${from.dayOfMonth} ${DateText.through} $end"
+        else -> "${from.dayOfMonth} ${DateText.month(from.monthValue)} ${DateText.through} $end"
     }
 }
 
-fun shortDay(d: LocalDate, year: Boolean = true): String = "${d.dayOfMonth} ${ShortMonths[d.monthValue - 1]}" + if (year) " ${d.year}" else ""
+fun shortDay(d: LocalDate, year: Boolean = true): String = "${d.dayOfMonth} ${DateText.month(d.monthValue)}" + if (year) " ${d.year}" else ""
 
 fun parseDay(s: String?): LocalDate? = s?.take(10)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 

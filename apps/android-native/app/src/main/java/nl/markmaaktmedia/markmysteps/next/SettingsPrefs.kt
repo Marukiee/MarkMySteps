@@ -101,7 +101,7 @@ object AirportPref {
  */
 object TripFactsPref {
     val Ids = listOf("km", "days", "stops", "photos", "travellers", "countries")
-    val Names = mapOf("km" to "Afstand", "days" to "Dagen", "stops" to "Stops", "photos" to "Foto's", "travellers" to "Reisgenoten", "countries" to "Landen")
+    val Names get() = mapOf("km" to Lang.text(R.string.fact_distance), "days" to Lang.text(R.string.fact_days), "stops" to Lang.text(R.string.fact_stops), "photos" to Lang.text(R.string.fact_photos), "travellers" to Lang.text(R.string.fact_travellers), "countries" to Lang.text(R.string.fact_countries))
     const val MAX = 4
     private var prefs: android.content.SharedPreferences? = null
     val chosen = androidx.compose.runtime.mutableStateMapOf<String, List<String>>()

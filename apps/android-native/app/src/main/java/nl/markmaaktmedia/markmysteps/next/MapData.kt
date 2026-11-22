@@ -129,7 +129,7 @@ object MapRemote {
     }.getOrNull()
 
     private fun dutchCountry(cc: String?, fallback: String): String =
-        cc?.let { java.util.Locale("", it).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL")) }?.takeIf { it.isNotBlank() && it != cc } ?: fallback
+        cc?.let { java.util.Locale("", it).getDisplayCountry(Lang.locale) }?.takeIf { it.isNotBlank() && it != cc } ?: fallback
 
     private val MainStation = listOf("centraal", "central", "centrale", "hauptbahnhof", "hbf", "hovedbanegård", "hlavní nádraží", "termini", "kolodvor", "główny", "principal")
 

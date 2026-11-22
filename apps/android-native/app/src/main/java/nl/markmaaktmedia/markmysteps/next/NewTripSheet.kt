@@ -55,8 +55,8 @@ import java.time.ZoneOffset
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewTripSheet(onDismiss: () -> Unit, onCreated: (String) -> Unit) {
-    // The calendar in Dutch, with Monday first, as everywhere else in the app.
-    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalProvidableLocaleList provides androidx.compose.ui.text.intl.LocaleList("nl-NL")) { NewTripSheetBody(onDismiss, onCreated) }
+    // The calendar in the chosen language, with Monday first, as everywhere else in the app.
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalProvidableLocaleList provides androidx.compose.ui.text.intl.LocaleList(Lang.locale.toLanguageTag())) { NewTripSheetBody(onDismiss, onCreated) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,7 +84,7 @@ private fun NewTripSheetBody(onDismiss: () -> Unit, onCreated: (String) -> Unit)
                 }
                 // The label on the line of "Naam", the chosen days under it in a soft cross-fade.
                 Text(stringResource(R.string.newtrip_when), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 18.dp, bottom = 4.dp))
-                val nl = java.util.Locale.forLanguageTag("nl-NL")
+                val nl = Lang.locale
                 fun mon(d: java.time.LocalDate) = d.month.getDisplayName(java.time.format.TextStyle.SHORT, nl).trimEnd('.')
                 val s0 = start; val e0 = end
                 val label = when {

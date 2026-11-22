@@ -133,7 +133,7 @@ object ViewerApi {
             fun s(k: String) = p.optString(k).takeIf { it.isNotBlank() }
             val city = s("city") ?: s("district") ?: s("locality") ?: s("name") ?: s("county") ?: s("state")
             // The country in Dutch from its code ("Marokko", not "Morocco"); Photon itself has no Dutch.
-            val country = s("countrycode")?.let { java.util.Locale("", it.uppercase()).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL")).takeIf { n -> n.isNotBlank() } } ?: s("country")
+            val country = s("countrycode")?.let { java.util.Locale("", it.uppercase()).getDisplayCountry(Lang.locale).takeIf { n -> n.isNotBlank() } } ?: s("country")
             return listOfNotNull(city, country).joinToString(", ")
         } finally { c.disconnect() }
     }

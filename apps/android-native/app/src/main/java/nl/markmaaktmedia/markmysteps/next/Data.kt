@@ -196,7 +196,7 @@ object ThemePref {
 
 /** The map style, as on the web: three OpenFreeMap styles or Esri satellite. Kept on the phone. */
 object MapStylePref {
-    val ids = listOf("positron" to "Positron", "bright" to "Bright", "liberty" to "Liberty", "satellite" to "Satelliet")
+    val ids get() = listOf("positron" to "Positron", "bright" to "Bright", "liberty" to "Liberty", "satellite" to Lang.text(R.string.mapstyle_satellite))
     private var prefs: android.content.SharedPreferences? = null
     var id by mutableStateOf("positron")
         private set

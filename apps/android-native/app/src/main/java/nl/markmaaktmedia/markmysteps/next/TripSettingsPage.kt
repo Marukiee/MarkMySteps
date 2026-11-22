@@ -282,12 +282,10 @@ private fun CoverHeader(trip: Trip, coverId: String?, title: String, start: Stri
     if (pick) CoverSheet(trip, coverId, onDismiss = { pick = false }, onPicked = onPicked)
 }
 
-private val Months = listOf("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec")
-
 private fun rangeText(start: String, end: String): String = runCatching {
     val a = LocalDate.parse(start); val b = LocalDate.parse(end)
-    val tail = "${b.dayOfMonth} ${Months[b.monthValue - 1]} ${b.year}"
-    if (a.month == b.month && a.year == b.year) "${a.dayOfMonth} t/m $tail" else "${a.dayOfMonth} ${Months[a.monthValue - 1]}${if (a.year != b.year) " ${a.year}" else ""} t/m $tail"
+    val tail = "${b.dayOfMonth} ${DateText.month(b.monthValue)} ${b.year}"
+    if (a.month == b.month && a.year == b.year) "${a.dayOfMonth} ${DateText.through} $tail" else "${a.dayOfMonth} ${DateText.month(a.monthValue)}${if (a.year != b.year) " ${a.year}" else ""} ${DateText.through} $tail"
 }.getOrDefault("")
 
 /** The trip's photos to pick the cover from; Automatisch lets the server choose. */
@@ -683,12 +681,9 @@ fun chosenFacts(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<String
     }
 }
 
-/** Month and day names in Dutch, like the rest of the app, whatever language the phone speaks. */
-private val DutchLocale: java.util.Locale = java.util.Locale.forLanguageTag("nl-NL")
-
 @Composable
 private fun Dutch(content: @Composable () -> Unit) {
     val cfg = androidx.compose.ui.platform.LocalConfiguration.current
-    val nl = remember(cfg) { android.content.res.Configuration(cfg).apply { setLocale(java.util.Locale.forLanguageTag("nl-NL")) } }
+    val nl = remember(cfg) { android.content.res.Configuration(cfg).apply { setLocale(Lang.locale) } }
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalConfiguration provides nl) { content() }
 }

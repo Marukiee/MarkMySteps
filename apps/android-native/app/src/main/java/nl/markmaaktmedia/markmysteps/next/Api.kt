@@ -655,7 +655,7 @@ object Remote {
                 val name = p.optString("name").takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 val cc = p.optString("countrycode").takeIf { it.isNotBlank() }?.uppercase()
                 // Photon only speaks English, German and French: the country is named in Dutch from its code, the region stays as given.
-                val country = cc?.let { java.util.Locale("", it).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL")) }?.takeIf { it.isNotBlank() && it != cc } ?: p.optString("country")
+                val country = cc?.let { java.util.Locale("", it).getDisplayCountry(Lang.locale) }?.takeIf { it.isNotBlank() && it != cc } ?: p.optString("country")
                 Place(name, listOf(p.optString("state"), country).filter { it.isNotBlank() }.joinToString(", "), cc, g.getDouble(0) to g.getDouble(1))
             }.distinctBy { it.name + it.region }.take(6)
         }.getOrDefault(emptyList())
@@ -905,7 +905,7 @@ object Remote {
             // The way there and back are stops of their own with no nights, at the ends.
             if (nights == 0 && (index == 0 || index == rows.lastIndex) && (name.startsWith("Heen") || name.startsWith("Terug"))) {
                 val leg = Leg(
-                    mode, o.optString("fromAirport").ifBlank { "Thuis" }, o.optString("toAirport").ifBlank { "" }, 0,
+                    mode, o.optString("fromAirport").ifBlank { Lang.text(R.string.leg_home) }, o.optString("toAirport").ifBlank { "" }, 0,
                     id = o.optString("id"), flightNumber = text(o, "flightNumber"), fromAirport = text(o, "fromAirport"), toAirport = text(o, "toAirport"),
                     viaAirports = vias(o), placeName = text(o, "notes"), place = if (lat.isNaN() || lon.isNaN()) null else lon to lat,
                 )
