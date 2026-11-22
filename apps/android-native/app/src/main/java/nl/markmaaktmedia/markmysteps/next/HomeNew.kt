@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.blur
 import kotlin.math.roundToInt
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -247,7 +248,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                         when {
                             trip != null -> TripPage(trip, dark, onBack = { open = null }, startExtra = startPage)
                             key == "page2" -> SettingsPage(onSignIn = { Data.signOut(); page = 0; gate = "login" })
-                            key == "page1" -> TravellersPage()
+                            key == "page1" -> TravellersPage(onOpenTrip = { id -> Data.all.firstOrNull { it.id == id || it.remoteId == id }?.let { open = it } }, onOpenRequests = { page = 2 })
                             else -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it }, onProfile = { page = 2 }, onPeople = { Data.peopleFor = it.id; open = it })
                         }
                     }
@@ -358,25 +359,43 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                             val list = if (which == 0) Data.past else Data.sharedTrips
                             // Each trip big or as a row: its own choice from the menu, else the default from Weergave
                             // (Automatisch: the latest one big, the rest rows). Rows next to each other join into a slab.
+                            // Every trip is its own item, so changing its size morphs it in place (card to row and
+                            // back) while the trips around it slide along, instead of the list being rebuilt.
                             val first = list.firstOrNull()
-                            val firstBig = first != null && CardSizePref.big(first.id, autoBig = true)
-                            if (first != null && firstBig) BigTripCard(first, onOpen = { onOpenTrip(first) }, onPeopleTrip = onPeople, modifier = Modifier.padding(top = 14.dp).arrive(4), autoBig = true)
+                            fun isBig(t: Trip) = CardSizePref.big(t.id, autoBig = t.id == first?.id)
+                            val sizeMotion = MaterialTheme.motionScheme
+                            @Composable
+                            fun Item(trip: Trip, big: Boolean, prevBig: Boolean?, nextBig: Boolean?, order: Int) {
+                                val gap by animateDpAsState(when { prevBig == null -> 0.dp; big || prevBig -> 10.dp; else -> 3.dp }, sizeMotion.defaultSpatialSpec(), label = "gap")
+                                androidx.compose.runtime.key(trip.id) {
+                                    AnimatedContent(
+                                        big,
+                                        modifier = Modifier.padding(top = gap),
+                                        transitionSpec = {
+                                            (fadeIn(sizeMotion.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(sizeMotion.defaultSpatialSpec(), initialScale = 0.94f)) togetherWith
+                                                fadeOut(sizeMotion.fastEffectsSpec()) using androidx.compose.animation.SizeTransform(clip = false) { _, _ -> sizeMotion.defaultSpatialSpec() }
+                                        },
+                                        label = "size",
+                                    ) { b ->
+                                        if (b) BigTripCard(trip, onOpen = { onOpenTrip(trip) }, onPeopleTrip = onPeople, modifier = Modifier.arrive(4 + order), autoBig = trip.id == first?.id)
+                                        else {
+                                            val startOfRun = prevBig != false; val endOfRun = nextBig != false
+                                            val shape = RoundedCornerShape(
+                                                topStart = if (startOfRun) 26.dp else 6.dp, topEnd = if (startOfRun) 26.dp else 6.dp,
+                                                bottomStart = if (endOfRun) 26.dp else 6.dp, bottomEnd = if (endOfRun) 26.dp else 6.dp,
+                                            )
+                                            TripRow(trip, shape, dark, onOpen = { onOpenTrip(trip) }, onPeopleTrip = onPeople, modifier = Modifier.arrive(5 + order), autoBig = trip.id == first?.id)
+                                        }
+                                    }
+                                }
+                            }
+                            val firstBig = first != null && isBig(first)
+                            if (first != null && firstBig) Box(Modifier.padding(top = 14.dp)) { Item(first, true, null, null, 0) }
                             (if (firstBig) list.drop(1) else list).groupBy { it.year }.forEach { (year, trips) ->
                                 SectionTitle(year, Modifier.padding(top = 18.dp, bottom = 10.dp), small = true)
-                                val runs = mutableListOf<MutableList<Trip>>()
-                                trips.forEach { t ->
-                                    val big = CardSizePref.big(t.id, autoBig = t.id == first?.id)
-                                    val last = runs.lastOrNull()
-                                    if (!big && last != null && !CardSizePref.big(last.last().id, autoBig = last.last().id == first?.id)) last += t else runs += mutableListOf(t)
-                                }
-                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    runs.forEach { run ->
-                                        val lone = run.single().takeIf { run.size == 1 }
-                                        if (lone != null && CardSizePref.big(lone.id, autoBig = lone.id == first?.id)) {
-                                            BigTripCard(lone, onOpen = { onOpenTrip(lone) }, onPeopleTrip = onPeople, modifier = Modifier.arrive(5), autoBig = lone.id == first?.id)
-                                        } else Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                            run.forEachIndexed { i, trip -> TripRow(trip, slab(i, run.size), dark, onOpen = { onOpenTrip(trip) }, onPeopleTrip = onPeople, modifier = Modifier.arrive(5 + i), autoBig = trip.id == first?.id) }
-                                        }
+                                Column {
+                                    trips.forEachIndexed { i, trip ->
+                                        Item(trip, isBig(trip), trips.getOrNull(i - 1)?.let { isBig(it) }, trips.getOrNull(i + 1)?.let { isBig(it) }, i)
                                     }
                                 }
                             }
@@ -400,12 +419,7 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
             newTrip = false
             Data.all.firstOrNull { it.id == id }?.let(onOpenTrip)
         })
-        // Behind the clock and the battery once the page scrolls under them.
-        val scrim by animateFloatAsState(if (scroll.value > 40) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "scrim")
-        Column(Modifier.fillMaxWidth().alpha(scrim)) {
-            Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(cs.background))
-            Spacer(Modifier.fillMaxWidth().height(18.dp).background(Brush.verticalGradient(listOf(cs.background, Color.Transparent))))
-        }
+        // No band behind the clock here: the homepage runs full screen under it (Mark found the fading band ugly).
 
     }
 }
@@ -623,9 +637,9 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
                 onPeople?.let { MenuEntry("Mensen en delen", Glyphs.friends) { it() } },
             ),
             listOf(
-                MenuEntry(if (autoBig) "Automatisch (groot)" else "Automatisch (klein)", Glyphs.cardAuto, selected = chosen == CardSizePref.AUTO) { CardSizePref.set(trip.id, null) },
-                MenuEntry("Groot", Glyphs.cardLarge, selected = chosen == CardSizePref.LARGE) { CardSizePref.set(trip.id, CardSizePref.LARGE) },
-                MenuEntry("Klein", Glyphs.cardRow, selected = chosen == CardSizePref.COMPACT) { CardSizePref.set(trip.id, CardSizePref.COMPACT) },
+                MenuEntry("Auto", Glyphs.cardAuto, selected = chosen == CardSizePref.AUTO, inline = true) { CardSizePref.set(trip.id, null) },
+                MenuEntry("Groot", Glyphs.cardLarge, selected = chosen == CardSizePref.LARGE, inline = true) { CardSizePref.set(trip.id, CardSizePref.LARGE) },
+                MenuEntry("Klein", Glyphs.cardRow, selected = chosen == CardSizePref.COMPACT, inline = true) { CardSizePref.set(trip.id, CardSizePref.COMPACT) },
             ),
             when {
                 !remote -> emptyList()

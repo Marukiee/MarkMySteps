@@ -3,6 +3,7 @@ package nl.markmaaktmedia.markmysteps.next
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
@@ -24,6 +25,8 @@ class MenuEntry(
     val icon: List<Shape24>,
     val danger: Boolean = false,
     val selected: Boolean? = null,
+    /** Choices of one kind (a group of only inline entries) sit side by side as connected buttons. */
+    val inline: Boolean = false,
     val onClick: () -> Unit,
 )
 
@@ -50,9 +53,40 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                 shadowElevation = 0.dp,
                 border = edge,
             ) {
-                entries.forEachIndexed { i, e ->
+                if (entries.all { it.inline }) {
+                    // One choice out of a few: connected buttons side by side, the chosen one filled.
+                    androidx.compose.foundation.layout.Row(
+                        Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.material3.ButtonGroupDefaults.ConnectedSpaceBetween),
+                    ) {
+                        entries.forEachIndexed { i, e ->
+                            val on = e.selected == true
+                            androidx.compose.material3.ToggleButton(
+                                checked = on,
+                                onCheckedChange = { onDismiss(); e.onClick() },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                // Squarer where they meet, and the chosen one morphs into a full pill.
+                                shapes = run {
+                                    val outer = 24.dp; val inner = 8.dp
+                                    val base = androidx.compose.foundation.shape.RoundedCornerShape(
+                                        topStart = if (i == 0) outer else inner, bottomStart = if (i == 0) outer else inner,
+                                        topEnd = if (i == entries.lastIndex) outer else inner, bottomEnd = if (i == entries.lastIndex) outer else inner,
+                                    )
+                                    androidx.compose.material3.ToggleButtonShapes(base, base, androidx.compose.foundation.shape.CircleShape)
+                                },
+                                colors = androidx.compose.material3.ToggleButtonDefaults.toggleButtonColors(
+                                    containerColor = cs.surfaceContainerHighest, contentColor = cs.onSurface,
+                                    checkedContainerColor = cs.primary, checkedContentColor = cs.onPrimary,
+                                ),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
+                            ) {
+                                Text(e.label, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
+                            }
+                        }
+                    }
+                } else entries.forEachIndexed { i, e ->
                     val on = e.selected == true
-                    val tint = when { e.danger -> cs.error; on -> cs.onTertiaryContainer; else -> cs.onSurface }
+                    val tint = when { e.danger -> cs.error; on -> cs.onPrimaryContainer; else -> cs.onSurface }
                     DropdownMenuItem(
                         selected = on,
                         onClick = { onDismiss(); e.onClick() },
@@ -60,6 +94,8 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                         shapes = MenuDefaults.itemShape(i, entries.size),
                         leadingIcon = { LineIcon(e.icon, tint, size = 20.dp) },
                         trailingIcon = if (on) ({ LineIcon(Glyphs.check, tint, size = 18.dp, stroke = 2.4f) }) else null,
+                        // The chosen one in the app's own warm accent, not the scheme's teal.
+                        colors = MenuDefaults.selectableItemColors(selectedContainerColor = cs.primaryContainer),
                     )
                 }
             }

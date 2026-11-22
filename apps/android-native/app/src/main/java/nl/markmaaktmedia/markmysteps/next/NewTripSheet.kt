@@ -21,7 +21,9 @@ import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -64,12 +66,10 @@ private fun NewTripSheetBody(onDismiss: () -> Unit, onCreated: (String) -> Unit)
     var title by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val range = rememberDateRangePickerState()
-    fun day(ms: Long?) = ms?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
-    val start = day(range.selectedStartDateMillis)
-    val end = day(range.selectedEndDateMillis) ?: start
-    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = cs.surfaceContainerLow) {
-        Column(Modifier.fillMaxWidth().imePadding().padding(bottom = 20.dp)) {
+    var start by remember { mutableStateOf<java.time.LocalDate?>(null) }
+    var end by remember { mutableStateOf<java.time.LocalDate?>(null) }
+    AppSheet(onDismiss = onDismiss) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 12.dp)) {
             Column(Modifier.padding(horizontal = 16.dp)) {
                 Text("Nieuwe reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
                 Text("Naam", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 16.dp, bottom = 6.dp))
@@ -79,27 +79,21 @@ private fun NewTripSheetBody(onDismiss: () -> Unit, onCreated: (String) -> Unit)
                         BasicTextField(title, { title = it.take(120) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
                     }
                 }
-            }
-            // The sheet is a window of its own with its own configuration, so the Dutch calendar is set in here.
-            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalProvidableLocaleList provides androidx.compose.ui.text.intl.LocaleList("nl-NL")) {
-            DateRangePicker(
-                state = range,
-                modifier = Modifier.fillMaxWidth().height(420.dp),
-                title = null,
-                headline = {
-                    // A label in the same style and on the same line as "Naam", the chosen days under it.
-                    Column(Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)) {
-                        Text("Wanneer", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 6.dp))
-                        Text(
-                            if (start == null) "Kies de dagen" else if (end == null || end == start) "${start.dayOfMonth} ${start.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL"))}"
-                            else "${start.dayOfMonth} ${if (start.month != end.month) start.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL")) + " " else ""}t/m ${end.dayOfMonth} ${end.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL"))} ${end.year}",
-                            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 20.sp, color = cs.onSurface),
-                        )
-                    }
-                },
-                showModeToggle = false,
-                colors = DatePickerDefaults.colors(containerColor = cs.surfaceContainerLow),
-            )
+                // The label on the line of "Naam", the chosen days under it in a soft cross-fade.
+                Text("Wanneer", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 18.dp, bottom = 4.dp))
+                val nl = java.util.Locale.forLanguageTag("nl-NL")
+                fun mon(d: java.time.LocalDate) = d.month.getDisplayName(java.time.format.TextStyle.SHORT, nl).trimEnd('.')
+                val s0 = start; val e0 = end
+                val label = when {
+                    s0 == null -> "Kies de dagen"
+                    e0 == null || e0 == s0 -> "${s0.dayOfMonth} ${mon(s0)} ${s0.year}"
+                    else -> "${s0.dayOfMonth}${if (s0.month != e0.month || s0.year != e0.year) " " + mon(s0) else ""}${if (s0.year != e0.year) " " + s0.year else ""} t/m ${e0.dayOfMonth} ${mon(e0)} ${e0.year}"
+                }
+                val fade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+                androidx.compose.animation.AnimatedContent(label, transitionSpec = { androidx.compose.animation.fadeIn(fade) togetherWith androidx.compose.animation.fadeOut(fade) }, label = "range") { t ->
+                    Text(t, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = if (s0 == null) cs.onSurfaceVariant else cs.onSurface))
+                }
+                RangeCalendar(start, end, onChange = { a, b -> start = a; end = b }, modifier = Modifier.padding(top = 16.dp))
             }
             error?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.error), modifier = Modifier.padding(horizontal = 22.dp)) }
             Button(

@@ -87,7 +87,17 @@ private fun dots(n: Int) = "%,d".format(n).replace(',', '.')
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TravellersPage() {
+fun TravellersPage(onOpenTrip: (String) -> Unit = {}, onOpenRequests: () -> Unit = {}) {
+    // The list's state lives here, above the switch to a companion's page, so coming back finds the list where
+    // you left it (scroll, figures, no counting up again). Switching tabs makes a new page, so that opens at the top.
+    val listScroll = androidx.compose.foundation.rememberScrollState()
+    val me0 = Data.me
+    val liveStats by androidx.compose.runtime.produceState<Remote.Stats?>(null, me0?.id, Data.version) {
+        if (Data.live && me0 != null) value = runCatching { Remote.stats(me0.id) }.getOrNull()
+    }
+    val friendList by androidx.compose.runtime.produceState<List<Remote.Friend>?>(null, Data.version) {
+        value = if (Data.live) runCatching { Remote.friends() }.getOrNull() else null
+    }
     var openFriend by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Friend?>(null) }
     // A companion's own page slides in over the list; back follows the finger with the list already
     // showing underneath, the same seekable shared-axis transition as Settings, the pages and Tandem.
@@ -121,14 +131,17 @@ fun TravellersPage() {
         contentKey = { it?.id ?: it?.name },
     ) { friend ->
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            if (friend == null) TravellersList(onFriend = { openFriend = it })
+            if (friend == null) TravellersList(onFriend = { openFriend = it }, live = liveStats, friends = friendList, pageScroll = listScroll, onOpenTrip = onOpenTrip, onOpenRequests = onOpenRequests)
             else FriendPage(friend, onBack = { openFriend = null })
         }
     }
 }
 
 @Composable
-private fun TravellersList(onFriend: (Friend) -> Unit) {
+private fun TravellersList(
+    onFriend: (Friend) -> Unit, live: Remote.Stats?, friends: List<Remote.Friend>?, pageScroll: androidx.compose.foundation.ScrollState,
+    onOpenTrip: (String) -> Unit, onOpenRequests: () -> Unit,
+) {
     val cs = MaterialTheme.colorScheme
     val trips = Data.past
     val countries = Data.all.flatMap { t -> t.stops.map { it.flag } }.distinct()
@@ -139,12 +152,6 @@ private fun TravellersList(onFriend: (Friend) -> Unit) {
     val visited = trips.flatMap { t -> t.stops.map { it.flag } }.distinct()
     // Signed in, the figures come from the server (as on the web); the demo counts its own trips.
     val me = Data.me
-    val live by androidx.compose.runtime.produceState<Remote.Stats?>(null, me?.id, Data.version) {
-        if (Data.live && me != null) value = runCatching { Remote.stats(me.id) }.getOrNull()
-    }
-    val friends by androidx.compose.runtime.produceState<List<Remote.Friend>?>(null, Data.version) {
-        value = if (Data.live) runCatching { Remote.friends() }.getOrNull() else null
-    }
     val stats = listOf(
         Stat(live?.trips ?: trips.size, "reizen", Glyphs.compass, MaterialShapes.Cookie9Sided),
         Stat(live?.countries?.size ?: visited.size, "landen", Glyphs.globe, MaterialShapes.Clover4Leaf),
@@ -155,7 +162,6 @@ private fun TravellersList(onFriend: (Friend) -> Unit) {
     )
     val countryFlags = live?.countries?.map { Remote.flag(it) to java.util.Locale("", it).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL")) }
 
-    val pageScroll = rememberScrollState()
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(pageScroll).padding(horizontal = 16.dp)) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
@@ -174,7 +180,7 @@ private fun TravellersList(onFriend: (Friend) -> Unit) {
                     // The dot only when there is something unread or waiting for an answer.
                     if (unread > 0) Box(Modifier.align(Alignment.TopEnd).padding(top = 11.dp, end = 12.dp).size(9.dp).clip(CircleShape).background(cs.primary))
                 }
-                if (bell) NoticesSheet(onDismiss = { bell = false }, onChanged = { unread = 0 })
+                if (bell) NoticesSheet(onDismiss = { bell = false }, onChanged = { unread = 0 }, onOpenTrip = onOpenTrip, onOpenRequests = onOpenRequests)
             }
 
             // Whose numbers these are.
@@ -192,40 +198,45 @@ private fun TravellersList(onFriend: (Friend) -> Unit) {
                 repeat(3) { Row(Modifier.fillMaxWidth().padding(bottom = 3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) { repeat(2) { Box(Modifier.weight(1f).height(112.dp).clip(RoundedCornerShape(8.dp)).background(tone)) } } }
             } else StatsGrid(stats)
 
-            // The countries you have been to on a slowly turning globe, as on the web.
-            if (Data.live && live == null) {
-                // While the countries are read, the globe's own round shape holds its place, so nothing below jumps.
-                Box(Modifier.fillMaxWidth().padding(top = 22.dp), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(192.dp).clip(CircleShape).background(cs.surfaceContainerHigh))
+            // Where you have been, in one panel: the slowly turning globe with those countries filled in, and the
+            // same countries as chips under it, because that is what the globe shows.
+            Column(
+                Modifier.padding(top = 22.dp).fillMaxWidth().clip(RoundedCornerShape(32.dp)).background(cs.surfaceContainerLow).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 18.dp),
+            ) {
+                val list = countryFlags ?: countries.map { it to (names[it] ?: "") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Landen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface), modifier = Modifier.weight(1f))
+                    if (!(Data.live && live == null)) Text(
+                        "${list.count { countryFlags != null || it.first in visited }}",
+                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 15.sp, color = cs.onSecondaryContainer),
+                        modifier = Modifier.clip(CircleShape).background(cs.secondaryContainer).padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
                 }
-            } else if (!countryFlags.isNullOrEmpty() || !Data.live) {
-                val codes = live?.countries ?: countries.mapNotNull { flagCode(it)?.uppercase() }
-                Box(Modifier.fillMaxWidth().padding(top = 22.dp), contentAlignment = Alignment.Center) {
-                    CountryGlobe(codes, dark = cs.background.luminance() < 0.5f, modifier = Modifier.size(200.dp))
+                Box(Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+                    if (Data.live && live == null) {
+                        // The globe's own round shape holds its place while the countries are read, so nothing jumps.
+                        Box(Modifier.size(220.dp).clip(CircleShape).background(cs.surfaceContainerHigh))
+                    } else {
+                        val codes = live?.countries ?: countries.mapNotNull { flagCode(it)?.uppercase() }
+                        CountryGlobe(codes, dark = cs.background.luminance() < 0.5f, modifier = Modifier.size(220.dp))
+                    }
                 }
-            }
-            Text(
-                "Landen",
-                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant),
-                modifier = Modifier.padding(top = 24.dp, bottom = 10.dp),
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                (countryFlags ?: countries.map { it to (names[it] ?: "") }).forEach { (flag, countryName) ->
-                    val planned = countryFlags == null && flag !in visited
-                    Row(
-                        Modifier.height(40.dp).clip(CircleShape)
-                            .background(if (planned) cs.surfaceContainerLow else cs.secondaryContainer)
-                            .padding(start = 10.dp, end = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        FlagIcon(flag, 15.dp)
-                        Text(
-                            countryName,
-                            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = if (planned) cs.onSurfaceVariant else cs.onSecondaryContainer),
-                            modifier = Modifier.padding(start = 8.dp),
-                        )
-                        if (planned) {
-                            LineIcon(Glyphs.hourglass, cs.onSurfaceVariant, size = 14.dp, stroke = 2f, modifier = Modifier)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    list.forEach { (flag, countryName) ->
+                        val planned = countryFlags == null && flag !in visited
+                        Row(
+                            Modifier.height(40.dp).clip(CircleShape)
+                                .background(if (planned) cs.surfaceContainerHigh else cs.secondaryContainer)
+                                .padding(start = 10.dp, end = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            FlagIcon(flag, 15.dp)
+                            Text(
+                                countryName,
+                                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = if (planned) cs.onSurfaceVariant else cs.onSecondaryContainer),
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                            if (planned) LineIcon(Glyphs.hourglass, cs.onSurfaceVariant, size = 14.dp, stroke = 2f, modifier = Modifier.padding(start = 6.dp))
                         }
                     }
                 }

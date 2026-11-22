@@ -211,10 +211,21 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                     modifier = Modifier.weight(1f).padding(horizontal = 14.dp).graphicsLayer { alpha = bar; translationY = (1f - bar) * 12.dp.toPx() },
                 )
                 // Their own buttons, as on the web: people and sharing, the map's settings, the trip's settings.
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (trip.remoteId != null) RoundButton(onClick = { people = true }) { LineIcon(Glyphs.friends, cs.onSurface, size = 22.dp, stroke = 1.9f) }
-                    RoundButton(onClick = { mapSheet = true }) { LineIcon(listOf(P("M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5Z"), P("M9 4v13.5"), P("M15 6.5V20")), cs.onSurface, size = 21.dp, stroke = 1.9f) }
-                    if (trip.remoteId != null) RoundButton(onClick = { tripSheet = true }) { LineIcon(Glyphs.settings, cs.onSurface, size = 21.dp, stroke = 1.8f) }
+                // One connected group, as Material 3 Expressive does it: round on the outside, tight where they meet.
+                val buttons = buildList<Pair<() -> Unit, @Composable () -> Unit>> {
+                    if (trip.remoteId != null) add({ people = true } to { LineIcon(Glyphs.friends, cs.onSurface, size = 22.dp, stroke = 1.9f) })
+                    add({ mapSheet = true } to { LineIcon(listOf(P("M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5Z"), P("M9 4v13.5"), P("M15 6.5V20")), cs.onSurface, size = 21.dp, stroke = 1.9f) })
+                    if (trip.remoteId != null) add({ tripSheet = true } to { LineIcon(Glyphs.settings, cs.onSurface, size = 21.dp, stroke = 1.8f) })
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    buttons.forEachIndexed { i, (go, icon) ->
+                        val outer = 24.dp; val inner = 8.dp
+                        val shape = RoundedCornerShape(
+                            topStart = if (i == 0) outer else inner, bottomStart = if (i == 0) outer else inner,
+                            topEnd = if (i == buttons.lastIndex) outer else inner, bottomEnd = if (i == buttons.lastIndex) outer else inner,
+                        )
+                        Box(Modifier.size(width = 54.dp, height = 48.dp).clip(shape).background(cs.surfaceContainerHighest).press(go), contentAlignment = Alignment.Center) { icon() }
+                    }
                 }
             }
         }
@@ -224,7 +235,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
         val typing = WindowInsets.isImeVisible
         val atEnd = scroll.maxValue - scroll.value < with(density) { 140.dp.toPx() }
         androidx.compose.animation.AnimatedVisibility(
-            scroll.value > with(density) { (mapH + 80.dp).toPx() } && viewing == null && !typing && !atEnd,
+            scroll.value > with(density) { (mapH + 80.dp).toPx() } && viewing == null && !typing && !atEnd && tab == 0,
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 24.dp).windowInsetsPadding(WindowInsets.navigationBars),
             enter = androidx.compose.animation.fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(MaterialTheme.motionScheme.fastSpatialSpec(), initialScale = 0.6f),
             exit = androidx.compose.animation.fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.6f),

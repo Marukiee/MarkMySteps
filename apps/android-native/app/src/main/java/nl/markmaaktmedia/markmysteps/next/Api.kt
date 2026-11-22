@@ -407,7 +407,7 @@ object Remote {
     data class Notice(
         val id: String, val kind: String, val at: java.time.Instant, val read: Boolean,
         val actorId: String?, val actor: String?, val actorAvatar: Boolean, val tripId: String?, val trip: String?,
-        val requestId: String?, val requestStatus: String?, val detail: String?,
+        val requestId: String?, val requestStatus: String?, val detail: String?, val message: String? = null,
     )
 
     suspend fun noticeCount(): Int {
@@ -423,11 +423,15 @@ object Remote {
                 o.getString("id"), o.optString("kind"), runCatching { java.time.Instant.parse(o.getString("createdAt")) }.getOrDefault(java.time.Instant.now()), o.optBoolean("read"),
                 actor?.optString("id"), actor?.optString("displayName"), actor?.optBoolean("hasAvatar") == true, trip?.optString("id"), trip?.optString("title"),
                 req?.optString("id"), req?.optString("status"), o.optString("detail").takeIf { it.isNotBlank() && it != "null" },
+                req?.optString("message")?.takeIf { it.isNotBlank() && it != "null" },
             )
         }
     }
 
     suspend fun markNoticesRead() { Api.send("POST", "/api/notifications/read") }
+
+    /** Takes one line off the list; an unanswered request itself stays open, as on the web. */
+    suspend fun dismissNotice(id: String) { Api.send("DELETE", "/api/notifications/$id") }
 
     /** Let someone look along as a guest, or turn them down; making them a companion lives in people and sharing. */
     suspend fun answerAccess(requestId: String, approve: Boolean) {
