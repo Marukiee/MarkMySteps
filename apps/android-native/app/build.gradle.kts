@@ -64,6 +64,8 @@ dependencies {
     implementation("org.maplibre.gl:android-sdk:11.8.0")
     // Colours from a cover photo, for the rows that take on the tone of their trip.
     implementation("androidx.palette:palette-ktx:1.0.0")
+    // The QR code for setting up two-step verification, drawn from its module matrix (encoding only).
+    implementation("com.google.zxing:core:3.5.3")
     // The web app's own flat flag set (SVG), drawn instead of the font's waving emoji flags.
     implementation("com.caverock:androidsvg-aar:1.4")
     // Installs the Compose libraries' baseline profiles, so the first scrolls and gestures are compiled ahead.

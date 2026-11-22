@@ -47,9 +47,8 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
 /*
- * The trip page's own sheets, opened from their buttons as on the web: the
- * map's settings (its style) and the trip's settings (its colour, fetching the
- * photos again).
+ * The trip page's map sheet, opened from its button as on the web: the map's
+ * style. The trip's own settings are a page of their own (TripSettingsPage.kt).
  */
 
 /** The map's look: the web's four styles as one connected group. */
@@ -61,26 +60,7 @@ fun MapSheet(onDismiss: () -> Unit) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
             Text("Kaart", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             Text("Stijl van de kaart", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
-            // A preview of each style, as on the web: two by two, the chosen one outlined.
-            val dark = cs.background.luminance() < 0.5f
-            MapStylePref.ids.chunked(2).forEach { pair ->
-                Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    pair.forEach { (id, label) ->
-                        val on = MapStylePref.id == id
-                        Column(
-                            Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(if (on) cs.secondaryContainer else cs.surfaceContainerHigh)
-                                .border(2.dp, if (on) cs.primary else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(22.dp))
-                                .clickable { MapStylePref.set(id) }.padding(8.dp),
-                        ) {
-                            MapStylePreview(id, dark, Modifier.fillMaxWidth().height(84.dp).clip(RoundedCornerShape(16.dp)))
-                            Row(Modifier.padding(top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = if (on) cs.onSecondaryContainer else cs.onSurface), modifier = Modifier.weight(1f))
-                                if (on) LineIcon(listOf(P("m5 12 5 5 9-10")), cs.primary, size = 18.dp, stroke = 2.6f)
-                            }
-                        }
-                    }
-                }
-            }
+            MapStyleGrid()
             Text(
                 "In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.",
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant),
@@ -90,77 +70,9 @@ fun MapSheet(onDismiss: () -> Unit) {
     }
 }
 
-private val TripColors = listOf(
-    "#E8613C", "#E34B8A", "#7A5BD6", "#5B8DEF", "#2BB6A8", "#4CAF50", "#D9A441", "#C9772E", "#8D6E63", "#607D8B",
-)
-
-/** The trip's own settings: its colour on the globe and the map, and fetching its photos again. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TripSettingsSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    val scope = rememberCoroutineScope()
-    var color by remember { mutableStateOf(trip.color) }
-    var syncing by remember { mutableStateOf(false) }
-    var note by remember { mutableStateOf<String?>(null) }
-    val owner = trip.ownerId != null && trip.ownerId == Data.me?.id
-    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = cs.surfaceContainerLow) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
-            Text("Reisinstellingen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
-            Text("${trip.title} · ${trip.dates}", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
-
-            Text("Kleur", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 10.dp))
-            // The trip's own colour first when it is not one of the ten, so the current choice is always marked.
-            val own = "#%06X".format(0xFFFFFF and trip.color.toArgb())
-            val colours = if (TripColors.any { Color(android.graphics.Color.parseColor(it)).toArgb() == trip.color.toArgb() }) TripColors else listOf(own) + TripColors.dropLast(1)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                colours.take(5).forEach { hex -> Swatch(hex, color, owner) { c -> color = c; scope.launch { runCatching { Remote.setTripColor(trip, hex) }.onSuccess { onChanged() } } } }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                colours.drop(5).forEach { hex -> Swatch(hex, color, owner) { c -> color = c; scope.launch { runCatching { Remote.setTripColor(trip, hex) }.onSuccess { onChanged() } } } }
-            }
-
-            Text("Foto's", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 24.dp, bottom = 10.dp))
-            FilledTonalButton(
-                onClick = {
-                    syncing = true; note = null
-                    scope.launch {
-                        note = if (runCatching { Remote.syncPhotos(trip) }.isSuccess) "Foto's worden opgehaald" else "Ophalen mislukt"
-                        syncing = false
-                        onChanged()
-                    }
-                },
-                enabled = !syncing, shapes = ButtonDefaults.shapes(), modifier = Modifier.height(48.dp),
-            ) {
-                // The spinner takes the icon's place, so the button keeps its size.
-                Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
-                    if (syncing) LoadingIndicator(Modifier.size(20.dp), color = cs.onSecondaryContainer)
-                    else LineIcon(Glyphs.download, cs.onSecondaryContainer, size = 20.dp, stroke = 2f)
-                }
-                Spacer(Modifier.size(8.dp))
-                Text("Foto's opnieuw ophalen uit Immich", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
-            }
-            note?.let { Text(it, style = TextStyle(fontFamily = Inter, fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 8.dp)) }
-        }
-    }
-}
-
-@Composable
-private fun Swatch(hex: String, current: Color, enabled: Boolean, onPick: (Color) -> Unit) {
-    val c = Color(android.graphics.Color.parseColor(hex))
-    val on = c.toArgb() == current.toArgb()
-    Box(
-        Modifier.size(48.dp).clip(if (on) MaterialShapes.Cookie9Sided.toShape() else CircleShape).background(c)
-            .clickable(enabled = enabled) { onPick(c) },
-        contentAlignment = Alignment.Center,
-    ) { if (on) LineIcon(listOf(P("m5 12 5 5 9-10")), Color.White, size = 20.dp, stroke = 2.6f) }
-}
-
-
 /** The web's drawn swatch of each map style (mapstyle.css), in light and dark. */
 @Composable
-private fun MapStylePreview(id: String, dark: Boolean, modifier: Modifier) {
+fun MapStylePreview(id: String, dark: Boolean, modifier: Modifier) {
     androidx.compose.foundation.Canvas(modifier) {
         val w = size.width; val h = size.height
         fun band(c: Color, angle: Float, from: Float, to: Float) {

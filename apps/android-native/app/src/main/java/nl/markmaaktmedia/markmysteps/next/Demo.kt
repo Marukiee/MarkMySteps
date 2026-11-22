@@ -79,8 +79,8 @@ data class Member(
     val role: String, val canTrack: Boolean, val from: String?, val to: String?,
 )
 
-/** The home airport: a flight from here gets no dot of its own on the globe. */
-val HomeAirport: LonLat = 4.76 to 52.31
+/** The home airport (the first of Instellingen › Voorkeuren): a flight from here gets no dot of its own on the globe. */
+val HomeAirport: LonLat get() = AirportPref.home
 
 private val sanne = Person("S", Color(0xFFD9A441))
 private val joris = Person("J", Color(0xFF5B8DEF))

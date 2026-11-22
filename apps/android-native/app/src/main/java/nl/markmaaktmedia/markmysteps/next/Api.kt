@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.LruCache
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -36,6 +38,12 @@ object Api {
     }
 
     val signedIn: Boolean get() = access != null && base.isNotEmpty()
+
+    /** Another server, from the settings: kept for the sign-in page, which the caller opens after signing out. */
+    fun setServer(url: String) {
+        base = url.trim().trimEnd('/')
+        save()
+    }
 
     fun remember(key: String, value: String) = prefs.edit().putString("cache.$key", value).apply()
     fun recall(key: String): String? = prefs.getString("cache.$key", null)
@@ -142,10 +150,50 @@ object Api {
 
     suspend fun send(method: String, path: String, body: JSONObject? = null): String = withContext(Dispatchers.IO) {
         if (dryRun && method != "GET") {
-            android.util.Log.i("MmsDryRun", "$method $path ${body ?: ""}")
+            // Only the names of the fields: a body can hold a password, a code or a key, and logcat is no place for them.
+            android.util.Log.i("MmsDryRun", "$method ${path.substringBefore('?')} ${body?.keys()?.asSequence()?.toList()?.joinToString(",", "{", "}") ?: ""}")
             return@withContext "{}"
         }
         request(method, path, body?.toString())
+    }
+
+    /**
+     * A file sent as the multipart field [field], as the web's FormData does (a profile photo, a Polarsteps zip,
+     * a GPX track). In test mode nothing is opened at all: only the path and the size are logged.
+     */
+    suspend fun upload(path: String, field: String, filename: String, mime: String, data: ByteArray): String = withContext(Dispatchers.IO) {
+        if (dryRun) {
+            android.util.Log.i("MmsDryRun", "POST ${path.substringBefore('?')} [file ${data.size} bytes]")
+            return@withContext "{}"
+        }
+        multipart(path, field, filename, mime, data)
+    }
+
+    private fun multipart(path: String, field: String, filename: String, mime: String, data: ByteArray, retried: Boolean = false): String {
+        val boundary = "mms" + java.util.UUID.randomUUID().toString().replace("-", "")
+        val c = open("POST", path, auth = true)
+        try {
+            c.doOutput = true
+            c.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            val safeName = filename.replace(Regex("[\\r\\n\"]"), "_")
+            c.outputStream.use { out ->
+                out.write("--$boundary\r\nContent-Disposition: form-data; name=\"$field\"; filename=\"$safeName\"\r\nContent-Type: $mime\r\n\r\n".toByteArray())
+                out.write(data)
+                out.write("\r\n--$boundary--\r\n".toByteArray())
+            }
+            val code = c.responseCode
+            if (code == 401 && !retried && renew()) return multipart(path, field, filename, mime, data, retried = true)
+            if (code !in 200..299) {
+                val text = c.errorStream?.bufferedReader()?.readText().orEmpty()
+                val message = runCatching { JSONObject(text).optString("message") }.getOrNull()?.takeIf { it.isNotBlank() }
+                throw Failure(message ?: "De server gaf $code", code)
+            }
+            return c.inputStream.bufferedReader().readText()
+        } catch (e: java.io.IOException) {
+            throw Failure("Kan de server niet bereiken")
+        } finally {
+            c.disconnect()
+        }
     }
 
     /** An image from the server, with the token, as bytes. */
@@ -194,6 +242,15 @@ object Photos {
     }
 
     fun clear() = cache.evictAll()
+
+    /** What the photos in memory take now, in bytes. */
+    fun usedBytes(): Long = small.size().toLong() + large.size().toLong()
+
+    /** Drops one picture (a profile photo just replaced), so the next look fetches it anew. */
+    fun forget(key: String) { small.remove(key); large.remove(key); if (key.startsWith("avatar/")) avatarStamp++ }
+
+    /** Bumped when a profile photo changed, so every face on screen reads it again. */
+    var avatarStamp by androidx.compose.runtime.mutableIntStateOf(0)
 
     /** A ratio for layout: the server's, or the one learnt from the picture when the server had none. */
     fun ratioOf(m: Media): Float = if (m.sized) m.ratio else ratios[m.id] ?: m.ratio

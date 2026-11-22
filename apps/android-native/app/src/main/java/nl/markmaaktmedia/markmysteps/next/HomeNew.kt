@@ -249,7 +249,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                             trip != null -> TripPage(trip, dark, onBack = { open = null }, startExtra = startPage)
                             key == "page2" -> SettingsPage(onSignIn = { Data.signOut(); page = 0; gate = "login" })
                             key == "page1" -> TravellersPage(onOpenTrip = { id -> Data.all.firstOrNull { it.id == id || it.remoteId == id }?.let { open = it } }, onOpenRequests = { page = 2 })
-                            else -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it }, onProfile = { page = 2 }, onPeople = { Data.peopleFor = it.id; open = it })
+                            else -> AccountHost(onSignIn = { Data.signOut(); page = 0; gate = "login" }) { openAccount -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it }, onProfile = openAccount, onPeople = { Data.peopleFor = it.id; open = it }) }
                         }
                     }
                 }

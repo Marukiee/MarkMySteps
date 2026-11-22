@@ -28,6 +28,8 @@ class MainActivity : ComponentActivity() {
         ThemePref.init(applicationContext)
         MapStylePref.init(applicationContext)
         CardSizePref.init(applicationContext)
+        AirportPref.init(applicationContext)
+        TripFactsPref.init(applicationContext)
         Photos.initRatios(applicationContext)
         // The start screen (the orange compass) stays until there are trips to show: with trips kept from last
         // time that is at once; on a first start it waits for the server, and the compass needle starts turning.

@@ -147,8 +147,9 @@ fun coverTone(trip: Trip): androidx.compose.ui.graphics.Color? {
 /** A person's face: their photo from the server when they have one, else their initial on a colour. */
 @Composable
 fun Avatar(userId: String?, name: String, hasAvatar: Boolean, color: androidx.compose.ui.graphics.Color, modifier: Modifier, shape: androidx.compose.ui.graphics.Shape = androidx.compose.foundation.shape.CircleShape) {
-    val bitmap by produceState<Bitmap?>(userId?.let { Photos.cached("avatar/$it") }, userId, hasAvatar) {
-        if (value == null && userId != null && hasAvatar) value = Photos.avatar(userId)
+    val bitmap by produceState<Bitmap?>(userId?.let { Photos.cached("avatar/$it") }, userId, hasAvatar, Photos.avatarStamp) {
+        // Read again when the photo changed or went (Photos.avatarStamp), else from the cache.
+        value = if (userId != null && hasAvatar) Photos.cached("avatar/$userId") ?: Photos.avatar(userId) else null
     }
     Box(modifier.clip(shape).background(color), contentAlignment = androidx.compose.ui.Alignment.Center) {
         androidx.compose.material3.Text(
