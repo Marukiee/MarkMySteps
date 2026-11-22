@@ -28,6 +28,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -430,6 +432,14 @@ fun Planner(
     val heights = remember { mutableStateMapOf<Int, Int>() }
     var dragKey by remember { mutableStateOf<Int?>(null) }
     var dragY by remember { mutableFloatStateOf(0f) }
+    // Where each stop's card lies on screen (without the lift), and how tall it is. The held card follows the
+    // finger on screen and swaps with a neighbour once its middle passes that neighbour's middle: measured on
+    // the cards alone, as the leg above a stop changes height when it moves (the stop flipped back and forth).
+    val cardTop = remember { mutableStateMapOf<Int, Float>() }
+    val cardH = remember { mutableMapOf<Int, Int>() }
+    var heldFrom by remember { mutableFloatStateOf(0f) }
+    var finger by remember { mutableFloatStateOf(0f) }
+    var swapAt by remember { mutableStateOf<Float?>(null) }
     // Let go, the stop glides the last bit into its place instead of jumping there.
     var settleKey by remember { mutableStateOf<Int?>(null) }
     val settle = remember { Animatable(0f) }
@@ -467,30 +477,25 @@ fun Planner(
                 visibleState = visible,
                 enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()),
                 exit = shrinkVertically(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec()),
-                modifier = Modifier.zIndex(if (dragKey == stop.key) 1f else 0f),
+                // Neighbours glide to their new place while a stop is moved past them, instead of jumping. Measured
+                // here, on the item in the list: inside it the position never changes, so nothing glided.
+                modifier = Modifier.zIndex(if (dragKey == stop.key) 1f else 0f).glideToPlace(active = { dragKey != null && dragKey != stop.key }),
             ) {
                 val lifted = dragKey == stop.key
                 val lift by animateFloatAsState(if (lifted) 1f else 0f, motion.fastSpatialSpec(), label = "lift")
                 Column(
                     Modifier
-                        // Neighbours glide to their new place while a stop is moved past them, instead of jumping.
-                        .glideToPlace(active = { dragKey != null && !lifted })
                         .onSizeChanged { heights[stop.key] = it.height }
                         .swipeCollapse(swipe)
-                        .graphicsLayer {
-                            translationY = if (lifted) dragY else if (settleKey == stop.key) settle.value else 0f
-                            // Lifted: a little bigger and a slight tilt, as on the web.
-                            scaleX = 1f + 0.02f * lift; scaleY = 1f + 0.02f * lift
-                            rotationZ = -0.4f * lift
-                        }
                         .pointerInput(stop.key) {
                             detectDragGesturesAfterLongPress(
                                 onDragStart = {
-                                    dragKey = stop.key; dragY = 0f
+                                    dragKey = stop.key; dragY = 0f; finger = 0f; swapAt = null
+                                    heldFrom = cardTop[stop.key] ?: 0f
                                     view.haptic(Haptic.LongPress)
                                 },
                                 onDragEnd = {
-                                    val left = dragY
+                                    val left = heldFrom + finger - (cardTop[stop.key] ?: heldFrom)
                                     settleKey = stop.key; dragKey = null; dragY = 0f
                                     scope.launch { settle.snapTo(left); settle.animateTo(0f, motion.fastSpatialSpec()); if (settleKey == stop.key) settleKey = null }
                                     saveOrder()
@@ -498,16 +503,25 @@ fun Planner(
                                 onDragCancel = { dragKey = null; dragY = 0f },
                                 onDrag = { change, amount ->
                                     change.consume()
-                                    dragY += amount.y
+                                    finger += amount.y
+                                    val top = heldFrom + finger
                                     val i = stops.indexOfFirst { it.key == stop.key }
+                                    // One swap at a time: the next waits until the list has moved the card there.
+                                    if (swapAt != null && swapAt == cardTop[stop.key]) return@detectDragGesturesAfterLongPress
+                                    swapAt = null
+                                    // Past halfway over a neighbour, it takes that place: the card's bottom edge
+                                    // going down, its top edge going up, with a little slack so it never flips back.
+                                    val bottom = top + (cardH[stop.key] ?: 0)
+                                    val slack = 12.dp.toPx()
+                                    fun midOf(k: Int) = (cardTop[k] ?: 0f) + (cardH[k] ?: 0) / 2f
                                     val below = stops.getOrNull(i + 1)
                                     val above = stops.getOrNull(i - 1)
-                                    if (below != null && dragY > (heights[below.key] ?: 0) / 2f) {
-                                        dragY -= heights[below.key] ?: 0
+                                    if (below != null && bottom > midOf(below.key) + slack) {
+                                        swapAt = cardTop[stop.key]
                                         stops.add(i + 1, stops.removeAt(i))
                                         view.haptic(Haptic.Tick)
-                                    } else if (above != null && dragY < -(heights[above.key] ?: 0) / 2f) {
-                                        dragY += heights[above.key] ?: 0
+                                    } else if (above != null && top < midOf(above.key) - slack) {
+                                        swapAt = cardTop[stop.key]
                                         stops.add(i - 1, stops.removeAt(i))
                                         view.haptic(Haptic.Tick)
                                     }
@@ -516,14 +530,24 @@ fun Planner(
                         },
                 ) {
                     val prev = stops.getOrNull(index - 1)
-                    if (index > 0) {
+                    // Only the stop is picked up: its leg above stays behind and steps aside while it is held (the
+                    // line behind the list carries on there), then comes back at the stop's new place.
+                    if (index > 0) Box(Modifier.graphicsLayer { alpha = 1f - lift }) {
                         val km = prev?.let { (angle(it.at, stop.at) * 111.2 * if (stop.mode == Mode.Flight) 1.0 else 1.25).roundToInt() }
                         Connector(
                             stop.mode, km, color, dark, airports,
                             flightNumber = stop.flightNumber, fromAirport = stop.fromAirport, toAirport = stop.toAirport, vias = stop.vias,
                             onMode = { pickStopMode(stop, it) }, onFlight = { stopFlight(stop) },
                         )
-                    } else if (outbound != null) Line(color)
+                    } else if (outbound != null) Box(Modifier.graphicsLayer { alpha = 1f - lift }) { Line(color) }
+                    Box(Modifier.zIndex(1f).onGloballyPositioned { c ->
+                        cardTop[stop.key] = c.positionInRoot().y; cardH[stop.key] = c.size.height
+                    }.graphicsLayer {
+                        translationY = if (lifted) heldFrom + finger - (cardTop[stop.key] ?: heldFrom) else if (settleKey == stop.key) settle.value else 0f
+                        // Lifted: a little bigger and a slight tilt, as on the web.
+                        scaleX = 1f + 0.02f * lift; scaleY = 1f + 0.02f * lift
+                        rotationZ = -0.4f * lift
+                    }) {
                     SwipeSurface(swipe, enabled = { dragKey == null }) {
                         StopCard(
                             trip = trip, stop = stop, index = index, from = from, to = to, color = color, dark = dark, lifted = lift,
@@ -552,6 +576,7 @@ fun Planner(
                                 }
                             },
                         )
+                    }
                     }
                 }
             }
@@ -827,10 +852,11 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
     var atRight by remember { mutableStateOf(false) }
     // Folds out calmly, no overshoot (the expressive spring bounced it), once it knows where it is.
     LaunchedEffect(placed) { if (placed) { haptics(Haptic.Tap); open.animateTo(1f, tween(260, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f))) } }
-    fun close(then: () -> Unit = {}) {
+    fun close(then: (() -> Unit)? = null) {
         if (closing) return
         closing = true
-        then()
+        // Folding in gets the same light tick as unfolding; a choice already ticked for itself.
+        if (then == null) haptics(Haptic.Tap) else then()
         scope.launch { open.animateTo(0f, tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing)); onClosed() }
     }
     val margin = with(density) { 12.dp.roundToPx() }

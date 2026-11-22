@@ -118,7 +118,7 @@ internal class TourTrip(val trip: Trip) {
     }
     val flights: List<List<LonLat>> = trip.flightLegs.ifEmpty { trip.flights.map { listOf(it.first, it.second) } }
     // The trip's own dot when one was placed by hand (trip settings), else where its route starts.
-    val anchor: LonLat = trip.marker ?: trip.route.firstOrNull() ?: trip.stops.firstOrNull()?.at ?: HomeAirport
+    val anchor: LonLat = trip.marker ?: trip.route.firstOrNull { !AirportPref.isHome(it) } ?: trip.stops.firstOrNull()?.at ?: trip.route.firstOrNull() ?: HomeAirport
     val size: Double = trip.km?.takeIf { it > 0 }?.toDouble() ?: (trip.days * 40.0)
 
     /** What a tap can hit: the route, the stops and the far ends of flights. */
@@ -126,7 +126,7 @@ internal class TourTrip(val trip: Trip) {
         add(anchor)
         segments.forEach { addAll(it) }
         trip.stops.forEach { add(it.at) }
-        for (f in flights) for (p in listOf(f.first(), f.last())) if (angle(p, HomeAirport) >= 0.4) add(p)
+        for (f in flights) for (p in listOf(f.first(), f.last())) if (!AirportPref.isHome(p)) add(p)
     }
 
     /** The middle of everything the trip touches, as unit vectors (safe across the date line). */

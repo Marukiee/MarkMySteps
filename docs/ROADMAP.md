@@ -15,11 +15,23 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       hieronder, kolom iPhone: nee).
 - [ ] iPhone: alle animaties nalopen, gelijk aan Android en mooi (in het
       werk, twee delen: reispagina/kaart/viewer en de rest).
+- [ ] Reis openen vanaf de homepage: stops en foto's flitsen kort (laden).
+      Getallen bewaren zodat ze meteen staan; verandert er later iets, dan
+      pas na een moment met een animatie van het getal. iPhone: nee
+- [ ] Navigatiebalk: twee soorten animatie (gewoon tikken is snel, een paar
+      keer heen en weer is anders). Opnemen en gelijk maken. iPhone: nee
 - [ ] Release (merge naar main) pas na Marks akkoord, met fotoboek en
       samenvatting erbij.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] Homepage-globe: de naam en de stip van een reis staan waar de reis
+      begint, niet op Schiphol waar de GPS al aanstond; alle thuisvliegvelden
+      tellen als thuis. iPhone: nee
+- [x] Routeplanner slepen: alleen de stop gaat mee (het lijntje erboven
+      blijft), bovenste stop kan omlaag, buren schuiven mooi opzij, geen
+      heen-en-weer springen. iPhone: nee
+- [x] Vervoerspil: ook een tikje bij het inklappen. iPhone: nee
 - [x] ⋯ menu: de ronde hoeken van de regels lopen nog niet gelijk met de hoek
       van het menu (gemeten: 21 dp in plaats van 24, nu als echte afgeronde
       rechthoek getekend). iPhone: nee

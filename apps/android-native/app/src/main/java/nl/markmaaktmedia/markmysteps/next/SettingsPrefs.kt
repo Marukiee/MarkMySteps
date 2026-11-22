@@ -32,11 +32,11 @@ object Airports {
         city = list.map { fold(it.city) }
         name = list.map { fold(it.name) }
         all = parsed.map { (a, words) -> fold("${a.iata} ${a.city} ${a.name} $words") }
-        android.os.Handler(android.os.Looper.getMainLooper()).post { ready = true }
+        android.os.Handler(android.os.Looper.getMainLooper()).post { ready = true; AirportPref.refresh() }
     }
 
     /** On the main thread: reads the list if it is not there yet and marks it ready at once. */
-    @Synchronized fun loadNow(context: android.content.Context) { load(context); ready = true }
+    @Synchronized fun loadNow(context: android.content.Context) { load(context); ready = true; AirportPref.refresh() }
 
     private fun fold(text: String) = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").lowercase()
 
@@ -72,6 +72,24 @@ object AirportPref {
     var home by mutableStateOf<LonLat>(4.76 to 52.31)
         private set
 
+    /**
+     * Where every one of them lies, as on the web: each airport you fly out of is home, not a destination, so a
+     * flight from Eindhoven gets no trip dot (nor the trip's name) there either. Kept so the globe needs no
+     * airport list at start.
+     */
+    val homes = mutableStateListOf<LonLat>(4.76 to 52.31, 5.37 to 51.45)
+
+    /** Is this point one of your home airports? */
+    fun isHome(p: LonLat, within: Double = 0.4): Boolean = homes.any { angle(it, p) < within }
+
+    /** Fills [homes] from the airport list once it is read, for codes chosen before it was kept. */
+    fun refresh() {
+        val found = codes.mapNotNull { c -> Airports.byCode(c)?.let { it.lon to it.lat } }
+        if (found.isEmpty() || found == homes.toList()) return
+        homes.clear(); homes += found
+        prefs?.edit()?.putString("airportHomes", found.joinToString(";") { "${it.first},${it.second}" })?.apply()
+    }
+
     /** The city of each, kept with it, so the chips show it at once without the airport list. */
     val cities = androidx.compose.runtime.mutableStateMapOf("AMS" to "Amsterdam", "EIN" to "Eindhoven")
 
@@ -82,6 +100,8 @@ object AirportPref {
             val a = org.json.JSONArray(prefs?.getString("airports", null) ?: return@runCatching)
             if (a.length() > 0) { codes.clear(); for (i in 0 until a.length()) codes += a.getString(i) }
         }
+        prefs?.getString("airportHomes", null)?.split(';')?.mapNotNull { q -> q.split(',').takeIf { it.size == 2 }?.let { (a, b) -> a.toDoubleOrNull()?.let { x -> b.toDoubleOrNull()?.let { y -> x to y } } } }
+            ?.takeIf { it.isNotEmpty() }?.let { homes.clear(); homes += it }
         prefs?.getString("airportHome", null)?.split(',')?.let { p -> if (p.size == 2) home = (p[0].toDoubleOrNull() ?: home.first) to (p[1].toDoubleOrNull() ?: home.second) }
     }
 
@@ -90,6 +110,7 @@ object AirportPref {
         codes.clear(); codes += cleaned
         Airports.byCode(cleaned.first())?.let { home = it.lon to it.lat }
         cleaned.forEach { c -> Airports.byCode(c)?.let { cities[c] = it.city } }
+        refresh()
         prefs?.edit()?.putString("airports", org.json.JSONArray(cleaned).toString())?.putString("airportHome", "${home.first},${home.second}")
             ?.putString("airportCities", org.json.JSONObject(cities.toMap()).toString())?.apply()
     }

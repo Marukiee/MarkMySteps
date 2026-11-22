@@ -429,11 +429,13 @@ private fun buildScene(trips: List<Trip>, dark: Boolean): GlobeScene {
             continue
         }
         val points = mutableListOf<LonLat>()
-        trip.route.firstOrNull()?.let { points += it }
-        trip.route.lastOrNull()?.let { points += it }
+        // A track that starts or ends at one of your home airports (the phone already on at Schiphol) does
+        // not make that airport a place of the trip: its dot is where the trip itself begins and ends.
+        trip.route.firstOrNull { !AirportPref.isHome(it, HOME_AIRPORT_DEG) }?.let { points += it }
+        trip.route.lastOrNull { !AirportPref.isHome(it, HOME_AIRPORT_DEG) }?.let { points += it }
         for ((s, e) in trip.flights) {
-            if (angle(s, HomeAirport) >= HOME_AIRPORT_DEG) points += s
-            if (angle(e, HomeAirport) >= HOME_AIRPORT_DEG) points += e
+            if (!AirportPref.isHome(s, HOME_AIRPORT_DEG)) points += s
+            if (!AirportPref.isHome(e, HOME_AIRPORT_DEG)) points += e
         }
         points.forEach { addEndpoint(snapToStop(trip, it), trip) }
     }
@@ -454,7 +456,8 @@ private fun buildScene(trips: List<Trip>, dark: Boolean): GlobeScene {
     }
 
     val labelAt = trips.associate { trip ->
-        val want = trip.marker ?: trip.segments.firstOrNull()?.firstOrNull() ?: trip.route.firstOrNull() ?: trip.stops.firstOrNull()?.at ?: HomeAirport
+        // The name goes where the trip begins, never on the home airport the track happened to start at.
+        val want = trip.marker ?: trip.segments.flatten().firstOrNull { !AirportPref.isHome(it, HOME_AIRPORT_DEG) } ?: trip.route.firstOrNull { !AirportPref.isHome(it, HOME_AIRPORT_DEG) } ?: trip.stops.firstOrNull()?.at ?: trip.route.firstOrNull() ?: HomeAirport
         trip.id to (places.filter { trip in it.members }.minByOrNull { angle(it.at, want) }?.at ?: want)
     }
     val freeStops = trips.associate { trip ->
