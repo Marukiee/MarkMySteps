@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -82,7 +83,15 @@ fun AppSheet(onDismiss: () -> Unit, content: @Composable AppSheetScope.() -> Uni
     var closing by remember { mutableStateOf(false) }
     // In: one smooth glide of 0.4 s on the standard emphasized curve. A spring from standstill got going too
     // slowly; emphasized decelerate shot off and then braked hard, as if in two parts.
-    LaunchedEffect(Unit) { down.animateTo(0f, tween(400, easing = Emphasized)) }
+    // Measured on a recording: the dialog window is only drawn a few frames after it is asked for, and by then a
+    // clock started straight away had already run almost half the movement (the sheet popped up halfway). So it
+    // starts at the first frame the sheet is really drawn, and the whole glide is seen.
+    var drawn by remember { mutableStateOf(false) }
+    LaunchedEffect(drawn) {
+        if (!drawn) return@LaunchedEffect
+        androidx.compose.runtime.withFrameNanos { }
+        down.animateTo(0f, tween(320, easing = Emphasized))
+    }
     // Out: thrown hard it leaves at the speed of the throw; let go slowly (or by back or a tap) it glides out.
     fun closeAt(velocity: Float) {
         if (closing) return
@@ -128,6 +137,16 @@ fun AppSheet(onDismiss: () -> Unit, content: @Composable AppSheetScope.() -> Uni
         }
     }
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        // Only our own movement: the window's own dim and enter animation are switched off. They ran first (the
+        // page greyed for about 150 ms before the sheet moved), so opening felt like two movements in a row.
+        val view = androidx.compose.ui.platform.LocalView.current
+        androidx.compose.runtime.SideEffect {
+            (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.let { w ->
+                w.setWindowAnimations(0)
+                w.setDimAmount(0f)
+                w.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            }
+        }
         PredictiveBackHandler { events ->
             try {
                 // Follows the finger on the emphasized curve: quick at first, then calmer, nearly gone at the end.
@@ -148,6 +167,7 @@ fun AppSheet(onDismiss: () -> Unit, content: @Composable AppSheetScope.() -> Uni
             )
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().statusBarsPadding().padding(top = 24.dp)
+                    .drawWithContent { drawContent(); if (!drawn) drawn = true }
                     .onSizeChanged { height = it.height.toFloat().coerceAtLeast(1f) }
                     .graphicsLayer {
                         translationY = size.height * down.value

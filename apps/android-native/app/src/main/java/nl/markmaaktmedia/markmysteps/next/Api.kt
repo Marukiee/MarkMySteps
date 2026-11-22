@@ -497,18 +497,25 @@ object Photos {
 
     suspend fun loadPath(key: String, path: String, now: Boolean = false, lane: kotlinx.coroutines.sync.Semaphore? = null): Bitmap? {
         cache.get(key)?.let { return it }
+        // A photo already kept on the phone is read straight away: it never waits in the queue behind the photos
+        // that still come from the server (on a cold start that queue made every kept cover look like it loaded).
+        withContext(Dispatchers.IO) { (DeviceMedia.bytes(key) ?: PhotoDisk.get(key))?.let { decode(key, it) } }?.let { return it }
         return (lane ?: if (now) urgent else lanes).withPermitCompat {
             cache.get(key)?.let { return@withPermitCompat it }
-            // From the phone's own copy when there is one, else from the server and then kept (AppCore.kt).
-            val data = DeviceMedia.bytes(key) ?: PhotoDisk.get(key) ?: Api.bytes(path)?.also { PhotoDisk.put(key, it) } ?: return@withPermitCompat null
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
-            // An original can be 50 megapixels: bring it down to about a screen and a half.
-            var sample = 1
-            while (bounds.outWidth / (sample * 2) >= 2400 || bounds.outHeight / (sample * 2) >= 2400) sample *= 2
-            val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
-            bitmap?.also { cache.put(key, it); learn(key, it) }
+            // From the server, and then kept on the phone (AppCore.kt).
+            val data = Api.bytes(path)?.also { PhotoDisk.put(key, it) } ?: return@withPermitCompat null
+            decode(key, data)
         }
+    }
+
+    private fun decode(key: String, data: ByteArray): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+        // An original can be 50 megapixels: bring it down to about a screen and a half.
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= 2400 || bounds.outHeight / (sample * 2) >= 2400) sample *= 2
+        val bitmap = runCatching { BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample }) }.getOrNull()
+        return bitmap?.also { cache.put(key, it); learn(key, it) }
     }
 
     private suspend fun <T> kotlinx.coroutines.sync.Semaphore.withPermitCompat(block: suspend () -> T): T {

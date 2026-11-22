@@ -127,8 +127,17 @@ fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail", eage
     val bitmap = state.value
     if (bitmap != null && onShown != null) androidx.compose.runtime.SideEffect { onShown(bitmap) }
     val under = placeholder?.takeIf { it != size }?.let { p -> androidx.compose.runtime.remember(id, p) { Photos.cached("$id/$p") } }
-    // Already there at the first frame (or stood in for): no fade, it simply shows.
-    val shown by animateFloatAsState(if (bitmap != null) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "photo")
+    // Already there at the first frame (or stood in for), or read from the phone's own copy a moment later: no
+    // fade, it simply shows. Only a photo that really comes from the server fades in.
+    val born = androidx.compose.runtime.remember(id, size) { android.os.SystemClock.uptimeMillis() }
+    val shownAnim = androidx.compose.runtime.remember(id, size) { androidx.compose.animation.core.Animatable(if (bitmap != null) 1f else 0f) }
+    val fadeSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    androidx.compose.runtime.LaunchedEffect(bitmap != null) {
+        if (bitmap != null && shownAnim.value < 1f) {
+            if (android.os.SystemClock.uptimeMillis() - born < 250) shownAnim.snapTo(1f) else shownAnim.animateTo(1f, fadeSpec)
+        }
+    }
+    val shown = if (bitmap != null && android.os.SystemClock.uptimeMillis() - born < 250) 1f else shownAnim.value
     // While it loads the frame breathes softly (as on the web), then the photo fades in over it.
     val breathe = if (bitmap == null && under == null) androidx.compose.animation.core.rememberInfiniteTransition(label = "breathe").animateFloat(
         0.55f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(1100), androidx.compose.animation.core.RepeatMode.Reverse), label = "a",
