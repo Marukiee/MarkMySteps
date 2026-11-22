@@ -1,6 +1,7 @@
 package nl.markmaaktmedia.markmysteps.next
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +37,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,21 +60,24 @@ fun MapSheet(onDismiss: () -> Unit) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
             Text("Kaart", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             Text("Stijl van de kaart", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
-                MapStylePref.ids.forEachIndexed { i, (id, label) ->
-                    ToggleButton(
-                        checked = MapStylePref.id == id, onCheckedChange = { MapStylePref.set(id) },
-                        modifier = Modifier.weight(1f).height(52.dp),
-                        shapes = when (i) {
-                            0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                            MapStylePref.ids.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                            else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                        },
-                        colors = ToggleButtonDefaults.toggleButtonColors(
-                            containerColor = cs.surfaceContainerHighest, contentColor = cs.onSurfaceVariant,
-                            checkedContainerColor = cs.primary, checkedContentColor = cs.onPrimary,
-                        ),
-                    ) { Text(label, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
+            // A preview of each style, as on the web: two by two, the chosen one outlined.
+            val dark = cs.background.luminance() < 0.5f
+            MapStylePref.ids.chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    pair.forEach { (id, label) ->
+                        val on = MapStylePref.id == id
+                        Column(
+                            Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(if (on) cs.secondaryContainer else cs.surfaceContainerHigh)
+                                .border(2.dp, if (on) cs.primary else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(22.dp))
+                                .clickable { MapStylePref.set(id) }.padding(8.dp),
+                        ) {
+                            MapStylePreview(id, dark, Modifier.fillMaxWidth().height(84.dp).clip(RoundedCornerShape(16.dp)))
+                            Row(Modifier.padding(start = 6.dp, top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = if (on) cs.onSecondaryContainer else cs.onSurface), modifier = Modifier.weight(1f))
+                                if (on) LineIcon(listOf(P("m5 12 5 5 9-10")), cs.primary, size = 18.dp, stroke = 2.6f)
+                            }
+                        }
+                    }
                 }
             }
             Text(
@@ -145,4 +151,45 @@ private fun Swatch(hex: String, current: Color, enabled: Boolean, onPick: (Color
             .clickable(enabled = enabled) { onPick(c) },
         contentAlignment = Alignment.Center,
     ) { if (on) LineIcon(listOf(P("m5 12 5 5 9-10")), Color.White, size = 20.dp, stroke = 2.6f) }
+}
+
+
+/** The web's drawn swatch of each map style (mapstyle.css), in light and dark. */
+@Composable
+private fun MapStylePreview(id: String, dark: Boolean, modifier: Modifier) {
+    androidx.compose.foundation.Canvas(modifier) {
+        val w = size.width; val h = size.height
+        fun band(c: Color, angle: Float, from: Float, to: Float) {
+            // A straight band across the swatch at an angle, like the CSS gradients' stripes.
+            val p = androidx.compose.ui.graphics.Path()
+            val rad = Math.toRadians(angle.toDouble()); val dx = kotlin.math.cos(rad).toFloat(); val dy = kotlin.math.sin(rad).toFloat()
+            val len = w + h
+            val c0 = androidx.compose.ui.geometry.Offset(w / 2, h / 2)
+            val n = androidx.compose.ui.geometry.Offset(-dy, dx)
+            fun pt(s: Float, t: Float) = c0 + androidx.compose.ui.geometry.Offset(dx * s + n.x * t, dy * s + n.y * t)
+            val a0 = (from - 0.5f) * len; val a1 = (to - 0.5f) * len
+            p.moveTo(pt(-len, a0).x, pt(-len, a0).y); p.lineTo(pt(len, a0).x, pt(len, a0).y); p.lineTo(pt(len, a1).x, pt(len, a1).y); p.lineTo(pt(-len, a1).x, pt(-len, a1).y); p.close()
+            drawPath(p, c)
+        }
+        when (id) {
+            "positron" -> {
+                drawRect(if (dark) Color(0xFF212933) else Color(0xFFF3F1EC))
+                band(if (dark) Color(0xFF2B3A2E) else Color(0xFFD7DDB9), 20f, 0.6f, 1.2f)
+                band(if (dark) Color(0xFF3B4652) else Color(0xFFCFD6DD), -65f, 0.44f, 0.47f)
+            }
+            "bright" -> {
+                drawRect(if (dark) Color(0xFF2A3A2C) else Color(0xFFD9EFC7))
+                band(if (dark) Color(0xFF6A5C37) else Color(0xFFE9D79A), -60f, 0.4f, 1.2f)
+                drawCircle(if (dark) Color(0xFF2F6F9E) else Color(0xFF7FC8F0), h * 0.32f, androidx.compose.ui.geometry.Offset(w * 0.7f, h * 0.3f))
+            }
+            "liberty" -> {
+                drawRect(Brush.verticalGradient(if (dark) listOf(Color(0xFF2C2822), Color(0xFF211E19)) else listOf(Color(0xFFEFE7D6), Color(0xFFE2D7BF))))
+                band(if (dark) Color(0xFF7A6C52) else Color(0xFFB9A98A), -45f, 0.46f, 0.49f)
+            }
+            else -> {
+                drawRect(Brush.linearGradient(listOf(Color(0xFF2F4A63), Color(0xFF47624A), Color(0xFF6B6A45))))
+                drawCircle(Color(0xFF3F5D3A), h * 0.42f, androidx.compose.ui.geometry.Offset(w * 0.4f, h * 0.6f))
+            }
+        }
+    }
 }

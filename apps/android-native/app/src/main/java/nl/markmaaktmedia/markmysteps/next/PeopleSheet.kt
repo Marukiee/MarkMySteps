@@ -288,7 +288,8 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                     Column(Modifier.weight(1f)) {
                         // The link reads as a link: orange and underlined, and a tap opens it.
                         Text(
-                            link.url.removePrefix("https://"), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            // Only the part after the server: that is what tells two links apart.
+                            link.url.substringAfter("://").substringAfter('/').let { "/$it" }, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                             style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.5.sp, color = cs.primary, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline),
                             modifier = Modifier.clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(link.url))) } },
                         )
@@ -297,10 +298,11 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                             Text("Met wachtwoord", style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp))
                         }
                     }
-                    FilledTonalButton(onClick = {
+                    // A clear primary button, so "Kopieer" reads on the row's tone.
+                    androidx.compose.material3.Button(onClick = {
                         (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("MarkMySteps", link.url))
                         copied = link.id
-                    }, shapes = ButtonDefaults.shapes()) {
+                    }, shapes = ButtonDefaults.shapes(), modifier = Modifier.padding(start = 10.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                         Text(if (copied == link.id) "Gekopieerd" else "Kopieer", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp))
                     }
                     if (owner && link.canManage) {

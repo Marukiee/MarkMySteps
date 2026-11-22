@@ -164,7 +164,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                     }
                 }
 
-                Column(Modifier.padding(top = 16.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
+                // No animateContentSize here: it clips, which cut the places row off before the screen edge.
+                Column(Modifier.padding(top = 16.dp)) {
                     if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
                 }
                 Spacer(Modifier.height(24.dp))
