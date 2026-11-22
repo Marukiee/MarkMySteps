@@ -191,3 +191,11 @@ object MapStylePref {
     }
     fun set(value: String) { id = value; prefs?.edit()?.putString("mapStyle", value)?.apply() }
 }
+
+private val PersonPalette = listOf(
+    androidx.compose.ui.graphics.Color(0xFFE8613C), androidx.compose.ui.graphics.Color(0xFF5B8DEF), androidx.compose.ui.graphics.Color(0xFF2BB6A8),
+    androidx.compose.ui.graphics.Color(0xFFD9A441), androidx.compose.ui.graphics.Color(0xFF7A5BD6), androidx.compose.ui.graphics.Color(0xFFE34B8A), androidx.compose.ui.graphics.Color(0xFF4CAF50),
+)
+
+/** One colour per person, the same on every screen (behind their initial when they have no photo). */
+fun personColor(key: String?): androidx.compose.ui.graphics.Color = PersonPalette[((key ?: "").hashCode() and 0x7fffffff) % PersonPalette.size]

@@ -155,7 +155,7 @@ private fun TravellersList(onFriend: (Friend) -> Unit) {
             }
 
             // Whose numbers these are.
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, bottom = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 14.dp)) {
                 Avatar(me?.id, me?.name ?: "Mark", me?.hasAvatar == true, cs.primary, Modifier.size(52.dp), MaterialShapes.Cookie12Sided.toShape())
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
                     Text(me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
@@ -179,7 +179,7 @@ private fun TravellersList(onFriend: (Friend) -> Unit) {
             Text(
                 "Landen",
                 style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant),
-                modifier = Modifier.padding(start = 6.dp, top = 24.dp, bottom = 10.dp),
+                modifier = Modifier.padding(top = 24.dp, bottom = 10.dp),
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 (countryFlags ?: countries.map { it to (names[it] ?: "") }).forEach { (flag, countryName) ->
@@ -197,7 +197,7 @@ private fun TravellersList(onFriend: (Friend) -> Unit) {
                             modifier = Modifier.padding(start = 8.dp),
                         )
                         if (planned) {
-                            LineIcon(Glyphs.hourglass, cs.onSurfaceVariant, size = 14.dp, stroke = 2f, modifier = Modifier.padding(start = 6.dp))
+                            LineIcon(Glyphs.hourglass, cs.onSurfaceVariant, size = 14.dp, stroke = 2f, modifier = Modifier)
                         }
                     }
                 }
@@ -206,16 +206,16 @@ private fun TravellersList(onFriend: (Friend) -> Unit) {
             Text(
                 "Mensen op je reizen",
                 style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant),
-                modifier = Modifier.padding(start = 6.dp, top = 28.dp, bottom = 4.dp),
+                modifier = Modifier.padding(top = 28.dp, bottom = 4.dp),
             )
             Text(
                 "Toevoegen doe je per reis: open een reis en tik op de mensen.",
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant),
-                modifier = Modifier.padding(start = 6.dp, bottom = 12.dp),
+                modifier = Modifier.padding(bottom = 12.dp),
             )
             val palette = listOf(Color(0xFFE8613C), Color(0xFF5B8DEF), Color(0xFF2BB6A8), Color(0xFFD9A441), Color(0xFF7A5BD6), Color(0xFFE34B8A), Color(0xFF4CAF50))
             // Each person their own colour behind their initial, stable per name.
-            val people = friends?.map { Friend(it.name, it.username, palette[(it.username.hashCode() and 0x7fffffff) % palette.size], it.sharedTrips, it.id, it.hasAvatar) } ?: if (Data.live) emptyList() else Friends
+            val people = friends?.map { Friend(it.name, it.username, personColor(it.id), it.sharedTrips, it.id, it.hasAvatar) } ?: if (Data.live) emptyList() else Friends
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 people.forEachIndexed { i, f ->
                     val shape = RoundedCornerShape(

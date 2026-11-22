@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -88,7 +89,7 @@ fun PeopleSheet(trip: Trip, onDismiss: () -> Unit, onChanged: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var removing by remember { mutableStateOf<Member?>(null) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = cs.surfaceContainerLow) {
+    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = cs.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
             Text("Mensen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
             Text(
@@ -140,7 +141,7 @@ private fun MemberRow(m: Member, i: Int, n: Int, canChange: Boolean, onRole: (St
     val cs = MaterialTheme.colorScheme
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().clip(slab(i, n)).background(cs.surfaceContainerHigh).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Avatar(m.userId, m.name, m.hasAvatar, PersonColors[i % PersonColors.size], Modifier.size(44.dp))
+        Avatar(m.userId, m.name, m.hasAvatar, personColor(m.userId), Modifier.size(44.dp))
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(m.name, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 16.5.sp, color = cs.onSurface))
             val role = when (m.role) { "OWNER" -> "organisator"; "GUEST" -> "gast"; else -> "reisgenoot" }
@@ -190,7 +191,7 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
         delay(250) // one lookup per pause in typing, not per letter
         found = runCatching { Remote.findPeople(query) }.getOrNull()?.filter { it.username !in existing }
     }
-    Text("Iemand toevoegen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 8.dp))
+    Text("Iemand toevoegen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
     Row(Modifier.fillMaxWidth().height(52.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         LineIcon(Glyphs.search, cs.onSurfaceVariant, size = 20.dp)
         Box(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -201,7 +202,7 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
     val list = found
     if (list != null) {
         if (list.isEmpty()) {
-            Text("Niemand gevonden met die naam.", style = TextStyle(fontFamily = Inter, fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 10.dp))
+            Text("Niemand gevonden met die naam.", style = TextStyle(fontFamily = Inter, fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 10.dp))
         } else Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             list.take(8).forEachIndexed { i, f ->
                 val on = f.username in picked
@@ -210,7 +211,7 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
                         .clickable { picked = if (on) picked - f.username else picked + f.username }.padding(horizontal = 12.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Avatar(f.id, f.name, f.hasAvatar, PersonColors[i % PersonColors.size], Modifier.size(36.dp))
+                    Avatar(f.id, f.name, f.hasAvatar, personColor(f.id), Modifier.size(36.dp))
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(f.name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface))
                         Text("@${f.username}", style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant))
@@ -224,7 +225,7 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
         Column(Modifier.padding(top = 12.dp)) {
             Text(
                 if (picked.size == 1) "1 persoon toevoegen als" else "${picked.size} mensen toevoegen als",
-                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 8.dp),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween), verticalAlignment = Alignment.CenterVertically) {
                 listOf(false to "Reisgenoot", true to "Gast").forEachIndexed { i, (isGuest, label) ->
@@ -273,10 +274,10 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
     LaunchedEffect(trip.id) { links = runCatching { Remote.shareLinks(trip) }.getOrNull() ?: emptyList() }
     LaunchedEffect(copied) { if (copied != null) { delay(1600); copied = null } }
 
-    Text("Delen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 24.dp, bottom = 4.dp))
+    Text("Delen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 24.dp, bottom = 4.dp))
     Text(
         if (owner) "Publieke, alleen-lezen link voor thuisblijvers, zonder account." else "De link die de beheerder maakte. Doorsturen mag; wijzigen doet de beheerder.",
-        style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, bottom = 10.dp),
+        style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 10.dp),
     )
     val list = links
     if (list == null) {
@@ -295,7 +296,7 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                         )
                         if (link.hasPassword) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
                             LineIcon(Glyphs.lock, cs.onSurfaceVariant, size = 13.dp, stroke = 2f)
-                            Text("Met wachtwoord", style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp))
+                            Text("Met wachtwoord", style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier)
                         }
                     }
                     // A clear primary button, so "Kopieer" reads on the row's tone.
@@ -343,7 +344,7 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                     Text("Deellink", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
                 }
             }
-            error?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.error), modifier = Modifier.padding(start = 4.dp, top = 8.dp)) }
+            error?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.error), modifier = Modifier.padding(top = 8.dp)) }
         }
     }
 

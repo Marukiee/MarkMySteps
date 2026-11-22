@@ -229,8 +229,12 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
             enter = androidx.compose.animation.fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + androidx.compose.animation.scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec(), initialScale = 0.92f),
             exit = androidx.compose.animation.fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.92f),
         ) {
-            androidx.activity.compose.BackHandler { bigMap = false }
-            Box(Modifier.fillMaxSize().background(cs.background)) {
+            // Predictive back: the full map shrinks with the finger and the trip page shows behind it.
+            var backT by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+            androidx.activity.compose.PredictiveBackHandler { events ->
+                try { events.collect { backT = it.progress }; bigMap = false } catch (e: kotlin.coroutines.cancellation.CancellationException) { backT = 0f; throw e }
+            }
+            Box(Modifier.fillMaxSize().graphicsLayer { val k = 1f - 0.12f * backT; scaleX = k; scaleY = k; shape = RoundedCornerShape((32 * backT).dp.toPx()); clip = true }.background(cs.background)) {
                 TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 0)
                 Column {
                     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
@@ -271,7 +275,8 @@ private fun RoundButton(onClick: () -> Unit = {}, content: @Composable () -> Uni
 @Composable
 private fun People(people: List<Person>, extra: Int, ring: Color = MaterialTheme.colorScheme.background) {
     val cs = MaterialTheme.colorScheme
-    val faces = people.take(if (people.size + extra <= 4) 4 else 3)
+    // Two faces then "+n", as on the cards; three people show all three.
+    val faces = people.take(if (people.size + extra <= 3) 3 else 2)
     val more = people.size - faces.size + extra
     val count = faces.size + if (more > 0) 1 else 0
     if (count == 0) return

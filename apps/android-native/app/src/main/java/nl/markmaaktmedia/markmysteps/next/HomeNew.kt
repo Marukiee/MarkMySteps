@@ -158,7 +158,7 @@ private val Pad = 16.dp
 @Composable
 fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, startPage: String? = null) {
     MaterialExpressiveTheme(
-        colorScheme = if (dark) DarkScheme else LightScheme,
+        colorScheme = animatedScheme(if (dark) DarkScheme else LightScheme),
         motionScheme = MotionScheme.expressive(),
     ) {
         // First the sign-in, unless signed in already or a test opens a page straight away.
@@ -352,14 +352,13 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                     trips.forEachIndexed { i, trip -> TripRow(trip, slab(i, trips.size), dark, onOpen = { onOpenTrip(trip) }, onPeopleTrip = onPeople, modifier = Modifier.arrive(5 + i)) }
                                 }
-
-                                if ((if (which == 0) Data.past else Data.sharedTrips).isEmpty()) {
+                            }
+                            if ((if (which == 0) Data.past else Data.sharedTrips).isEmpty()) {
                                     Text(
                                         if (which == 0) "Nog geen afgelopen reizen" else "Nog niemand deelde een reis met je",
                                         style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant),
                                         modifier = Modifier.padding(top = 18.dp, start = 4.dp),
                                     )
-                                }
                             }
                         }
                         }
@@ -494,7 +493,7 @@ private fun NextTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mo
             }
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip("${shortMonthName(trip.month)} ${trip.year}")
-                Chip("${trip.days} dagen")
+                Chip(if (trip.days == 1) "1 dag" else "${trip.days} dagen")
                 Spacer(Modifier.weight(1f))
                 FaceStack(trip.people, trip.extraPeople, ring = deep)
             }
@@ -572,9 +571,10 @@ private fun MenuDots(modifier: Modifier = Modifier, onOpen: () -> Unit = {}, onP
     val cs = MaterialTheme.colorScheme
     Box(modifier) {
         Box(
-            Modifier.size(40.dp).clip(CircleShape).background(if (light) Color.Black.copy(alpha = 0.22f) else Color.Transparent).bouncyClickable { menu = true },
+            // A solid tonal disc on photos, so the dots read on a bright sky too.
+            Modifier.size(40.dp).clip(CircleShape).background(if (light) cs.surfaceContainerHighest else Color.Transparent).bouncyClickable { menu = true },
             contentAlignment = Alignment.Center,
-        ) { LineIcon(Glyphs.dotsCircles, if (light) Color.White else cs.onSurfaceVariant, size = 20.dp, filled = true) }
+        ) { LineIcon(Glyphs.dotsCircles, if (light) cs.onSurface else cs.onSurfaceVariant, size = 20.dp, filled = true) }
         androidx.compose.material3.DropdownMenu(menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(20.dp), containerColor = cs.surfaceContainerHighest) {
             androidx.compose.material3.DropdownMenuItem(
                 text = { Text("Openen", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
@@ -627,7 +627,7 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
             Text(trip.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 26.sp, letterSpacing = (-0.015).em, color = Color.White))
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip("${shortMonthName(trip.month)} ${trip.year}")
-                Chip("${trip.days} dagen")
+                Chip(if (trip.days == 1) "1 dag" else "${trip.days} dagen")
                 trip.km?.takeIf { it > 0 }?.let { Chip("%,d km".format(it).replace(',', '.')) }
                 Spacer(Modifier.weight(1f))
                 FaceStack(trip.people, trip.extraPeople, ring = Color(0xFF2A2F36))
@@ -658,10 +658,10 @@ private fun TripRow(trip: Trip, shape: Shape, dark: Boolean, onOpen: () -> Unit,
                 Cover(trip, Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)))
             }
             Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                Text(trip.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 18.sp, color = cs.onSurface))
+                Text(trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 18.sp, lineHeight = 21.sp, color = cs.onSurface))
                 // No distance measured: say nothing rather than "0 km".
                 val km = trip.km?.takeIf { it > 0 }?.let { " · " + "%,d".format(it).replace(',', '.') + " km" } ?: ""
-                Text("${trip.month} ${trip.year} · ${trip.days} dagen$km", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                Text("${trip.month} ${trip.year} · ${if (trip.days == 1) "1 dag" else "${trip.days} dagen"}$km", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
             }
             MenuDots(onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, light = false)
         }
@@ -696,7 +696,9 @@ private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modi
                     Modifier.height(48.dp).clip(CircleShape).background(bg).bouncyClickable { onNav(i) }.padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    LineIcon(icon, if (on) cs.onPrimary else cs.onSurfaceVariant, size = 22.dp, stroke = if (on) 2.1f else 1.9f)
+                    // The icon's colour moves with the pill, so it never turns white on beige before the pill is there.
+                    val fg by animateColorAsState(if (on) cs.onPrimary else cs.onSurfaceVariant, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "navFg")
+                    LineIcon(icon, fg, size = 22.dp, stroke = if (on) 2.1f else 1.9f)
                     AnimatedVisibility(
                         visible = on,
                         // The label unfolds from the icon's side, so icon and text stay together while it grows.
@@ -777,4 +779,23 @@ fun StatusScrim(scroll: androidx.compose.foundation.ScrollState) {
         Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(cs.background))
         Spacer(Modifier.fillMaxWidth().height(18.dp).background(Brush.verticalGradient(listOf(cs.background, Color.Transparent))))
     }
+}
+
+
+/** The colour scheme glides to a new theme instead of every colour switching in one frame. */
+@Composable
+private fun animatedScheme(target: androidx.compose.material3.ColorScheme): androidx.compose.material3.ColorScheme {
+    val spec = androidx.compose.animation.core.tween<Color>(380)
+    @Composable fun a(c: Color) = animateColorAsState(c, spec, label = "scheme").value
+    return target.copy(
+        primary = a(target.primary), onPrimary = a(target.onPrimary),
+        primaryContainer = a(target.primaryContainer), onPrimaryContainer = a(target.onPrimaryContainer),
+        secondaryContainer = a(target.secondaryContainer), onSecondaryContainer = a(target.onSecondaryContainer),
+        tertiaryContainer = a(target.tertiaryContainer), onTertiaryContainer = a(target.onTertiaryContainer),
+        background = a(target.background), onBackground = a(target.onBackground),
+        surface = a(target.surface), onSurface = a(target.onSurface), onSurfaceVariant = a(target.onSurfaceVariant),
+        surfaceContainerLowest = a(target.surfaceContainerLowest), surfaceContainerLow = a(target.surfaceContainerLow),
+        surfaceContainer = a(target.surfaceContainer), surfaceContainerHigh = a(target.surfaceContainerHigh),
+        surfaceContainerHighest = a(target.surfaceContainerHighest), outlineVariant = a(target.outlineVariant),
+    )
 }

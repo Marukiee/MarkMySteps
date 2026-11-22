@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -84,7 +85,7 @@ fun NoticesSheet(onDismiss: () -> Unit, onChanged: () -> Unit) {
         items = runCatching { Remote.notices() }.getOrNull() ?: emptyList()
         runCatching { Remote.markNoticesRead() }.onSuccess { onChanged() }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = cs.surfaceContainerLow) {
+    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), containerColor = cs.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
             Text("Meldingen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface), modifier = Modifier.padding(bottom = 14.dp))
             val list = items
@@ -101,7 +102,7 @@ fun NoticesSheet(onDismiss: () -> Unit, onChanged: () -> Unit) {
                         )
                         Column(Modifier.fillMaxWidth().clip(shape).background(if (n.read) cs.surfaceContainerHigh else cs.secondaryContainer).padding(12.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Avatar(n.actorId, n.actor ?: "?", n.actorAvatar, Color(0xFF5B8DEF), Modifier.size(40.dp))
+                                Avatar(n.actorId, n.actor ?: "?", n.actorAvatar, personColor(n.actorId), Modifier.size(40.dp))
                                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                                     Text(describe(n), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.5.sp, lineHeight = 20.sp, color = cs.onSurface))
                                     Text(ago(n.at), style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp))

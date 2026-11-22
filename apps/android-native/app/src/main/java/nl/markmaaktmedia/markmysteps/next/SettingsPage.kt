@@ -304,7 +304,7 @@ private fun Header(text: String) {
     Text(
         text,
         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant),
-        modifier = Modifier.padding(start = 6.dp, top = 24.dp, bottom = 10.dp),
+        modifier = Modifier.padding(top = 24.dp, bottom = 10.dp),
     )
 }
 

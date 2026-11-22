@@ -85,7 +85,7 @@ fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Me
     if (places.size > 1) Text(
         "Plaatsen",
         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
-        modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
+        modifier = Modifier.padding(bottom = 12.dp),
     )
     // The places, each a photo with its name, wider than the screen so the row asks to be swiped.
     if (places.size > 1) Row(
@@ -222,7 +222,7 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
         Text(
             "Plaatsen",
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
-            modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
+            modifier = Modifier.padding(bottom = 12.dp),
         )
         Row(Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             trip.stops.distinctBy { it.name }.forEach { stop ->

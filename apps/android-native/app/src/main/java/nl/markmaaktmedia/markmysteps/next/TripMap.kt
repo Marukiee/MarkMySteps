@@ -121,6 +121,8 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
                 } else {
                     val bounds = LatLngBounds.Builder().apply { points.forEach { include(LatLng(it.second, it.first)) } }.build()
                     m.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, (96 * density).toInt(), pad, ((bottomInsetDp + 24) * density).toInt()))
+                    // A city trip opens at city level, not on a street corner.
+                    if (m.cameraPosition.zoom > 11.5) m.moveCamera(CameraUpdateFactory.zoomTo(11.5))
                 }
             }
         }

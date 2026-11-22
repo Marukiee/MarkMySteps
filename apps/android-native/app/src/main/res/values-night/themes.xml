@@ -4,5 +4,7 @@
         <item name="android:windowBackground">#14181D</item>
         <item name="android:windowSplashScreenBackground">#14181D</item>
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <!-- The icon on its own dark disc, as on the home screen; the bare compass vanished on the page colour. -->
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/ic_launcher_background</item>
     </style>
 </resources>
