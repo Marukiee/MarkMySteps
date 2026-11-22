@@ -145,6 +145,11 @@ fun Planner(trip: Trip, dark: Boolean) {
     var undo by remember { mutableStateOf<Pair<Pair<PlanStop, Int>, kotlinx.coroutines.Job>?>(null) }
     fun save(block: suspend () -> Unit) { if (live) scope.launch { runCatching { block() }.onSuccess { saveError = null }.onFailure { saveError = "Opslaan mislukt" } } }
     val planned = stops.sumOf { it.nights }
+    // Every stop of the route in its new order, with the way there first and the way back last, as the server asks.
+    fun routeOrder(): List<String> {
+        val legs = trip.remoteId?.let { Remote.legStopIds[it] }
+        return listOfNotNull(legs?.first) + stops.mapNotNull { it.id } + listOfNotNull(legs?.second)
+    }
 
     // The first day and month of the trip, from the first stop's dates.
     // Real dates, so a stay across the end of a month reads "30 aug t/m 2 sep", not "30 t/m 33 aug".
@@ -208,7 +213,7 @@ fun Planner(trip: Trip, dark: Boolean) {
                         .pointerInput(stop.key) {
                             detectDragGesturesAfterLongPress(
                                 onDragStart = { dragKey = stop.key; dragY = 0f; haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
-                                onDragEnd = { dragKey = null; dragY = 0f; save { Remote.reorderStops(trip, stops.mapNotNull { it.id }) } },
+                                onDragEnd = { dragKey = null; dragY = 0f; save { Remote.reorderStops(trip, routeOrder()) } },
                                 onDragCancel = { dragKey = null; dragY = 0f },
                                 onDrag = { change, amount ->
                                     change.consume()
@@ -302,9 +307,10 @@ fun Planner(trip: Trip, dark: Boolean) {
     if (saveError != null) Text(saveError ?: "", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.error), modifier = Modifier.padding(top = 12.dp, start = 4.dp))
     AddStop(trip, taken = stops.map { it.name }.toSet(), onAdd = { place ->
         val id = java.util.UUID.randomUUID().toString()
+        val after = stops.lastOrNull()?.id ?: trip.remoteId?.let { Remote.legStopIds[it]?.first }
         stops.add(PlanStop(nextKey, place.name, Remote.flag(place.countryCode), place.at, 1, Mode.Car, if (live) id else null))
         nextKey += 1
-        save { Remote.addStop(trip, id, place, 1) }
+        save { Remote.addStop(trip, id, place, 1, afterStopId = after) }
     })
 }
 

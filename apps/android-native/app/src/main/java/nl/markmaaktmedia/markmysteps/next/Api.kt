@@ -338,9 +338,14 @@ object Remote {
         Api.send("PUT", "/api/trips/${trip.remoteId}/stops/order", JSONObject().put("stopIds", JSONArray(ids)))
     }
 
-    suspend fun addStop(trip: Trip, id: String, place: Place, nights: Int) {
+    /** The way there and back are stops on the server too; the planner shows them as legs, but every reorder must name them. */
+    val legStopIds = HashMap<String, Pair<String?, String?>>()
+
+    suspend fun addStop(trip: Trip, id: String, place: Place, nights: Int, afterStopId: String? = null) {
         Api.send("POST", "/api/trips/${trip.remoteId}/stops", JSONObject().apply {
             put("id", id); put("name", place.name); put("nights", nights)
+            // Before the way back, never after it.
+            afterStopId?.let { put("afterStopId", it) }
             put("latitude", place.at.second); put("longitude", place.at.first)
             place.countryCode?.let { put("countryCode", it) }
         })
@@ -562,6 +567,8 @@ object Remote {
         val stops = mutableListOf<Stop>()
         var outbound: Leg? = null
         var back: Leg? = null
+        var outboundId: String? = null
+        var backId: String? = null
         val rows = (0 until list.length()).map { list.getJSONObject(it) }
             .filter { it.isNull("parentStopId") }
             .sortedBy { it.optInt("orderIndex") }
@@ -575,7 +582,7 @@ object Remote {
             // The way there and back are stops of their own with no nights, at the ends.
             if (nights == 0 && (index == 0 || index == rows.lastIndex) && (name.startsWith("Heen") || name.startsWith("Terug"))) {
                 val leg = Leg(mode, o.optString("fromAirport").ifBlank { "Thuis" }, o.optString("toAirport").ifBlank { "" }, 0)
-                if (index == 0) outbound = leg else back = leg
+                if (index == 0) { outbound = leg; outboundId = o.optString("id") } else { back = leg; backId = o.optString("id") }
                 return@forEachIndexed
             }
             val from = day
@@ -591,6 +598,7 @@ object Remote {
                 id = o.optString("id"),
             )
         }
+        trip.remoteId?.let { legStopIds[it] = outboundId to backId }
         return stops to (outbound to back)
     }
 
