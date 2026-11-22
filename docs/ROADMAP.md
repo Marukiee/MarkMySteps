@@ -15,21 +15,23 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       nalopen op de simulator. Nog open op iPhone: lijn in het gat bij slepen,
       melding als alle foto's uit staan, tijdlijnrijen die bij foto's
       inpoppen, dagpil die een pin kan bedekken (Mark beslist), routes per
-      reiziger, cijfers onthouden bij openen.
+      reiziger.
 - [ ] iPhone: alle animaties nalopen, gelijk aan Android en mooi (in het
       werk, twee delen: reispagina/kaart/viewer en de rest).
-- [ ] Webversie van de app nalopen met dezelfde punten (wat daar ook
-      geldt), en goed controleren.
+- [ ] Webversie van de app: bijwerken naar het nieuwe ontwerp en
+      optimaliseren, met dezelfde punten, en goed controleren.
 - [ ] Stijlgids voor andere Android-apps in deze stijl (PixelPlayer en
       MarkMySteps): docs/STIJLGIDS.md, bijhouden bij elke nieuwe opmerking.
 - [ ] Kwaliteitsronde: een kwaliteitsagent loopt de iPhone- en Android-app
       langs en legt alle punten aan Mark voor, met screenshots en een
       voorgestelde oplossing per punt.
-- [ ] Release (merge naar main) pas na Marks akkoord, met fotoboek en
-      samenvatting erbij.
+- [ ] Release op 23 november (Mark gaf toestemming): alles als nieuwe
+      release en update, met fotoboek en samenvatting erbij.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] iPhone: ⋯ op de reiskaart 40 pt (was veel te groot), 14 pt van de rand.
+- [x] iPhone: cijfers van een reis onthouden en meteen goed bij openen.
 - [x] Navigatiebalk: een vaste animatie (geen veer meer die snelheid meenam
       naar de volgende tik), oranje vervaagt zonder bruin, geen grijze ripple.
       iPhone: nee

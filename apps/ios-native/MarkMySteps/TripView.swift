@@ -632,8 +632,8 @@ struct FactsRow: View {
                 // No "0 kilometer": a trip without a measured distance leaves the number empty.
                 case "km": return (trip.km.flatMap { $0 > 0 ? Format.number($0) : nil }, "kilometer")
                 case "days": return ("\(trip.days)", trip.days == 1 ? "dag" : "dagen")
-                case "stops": return (stopsKnown ? "\(stops)" : nil, stops == 1 ? "stop" : "stops")
-                case "photos": return (photos.map { Format.number($0) } ?? (trip.remoteId == nil ? "\(trip.photos)" : nil), "foto's")
+                case "stops": return (stopsKnown ? "\(stops)" : FactsMemory.stops(trip.id).map { "\($0)" }, stops == 1 ? "stop" : "stops")
+                case "photos": return (photos.map { Format.number($0) } ?? FactsMemory.photos(trip.id).map { Format.number($0) } ?? (trip.remoteId == nil ? "\(trip.photos)" : nil), "foto's")
                 case "travellers": return ("\(nonGuests > 0 ? nonGuests : trip.people.count + trip.extraPeople)", "reizigers")
                 default:
                     let n = Set(trip.stops.map(\.flag).filter { !$0.isEmpty && $0 != "📍" }).count
@@ -657,13 +657,16 @@ struct FactsRow: View {
         }
         // As on Android: while the page's own stops and photos are on their way, the tiles already stand with their
         // label, filled from what the trip list knows; only a number nobody knows yet waits as empty space.
+        // Best of all, what this page itself counted the last time it was open, so the figures stand right at once.
         let photosWaiting = trip.remoteId != nil && photos == nil
         let shots = photos ?? trip.photos
+        let guessPhotos = FactsMemory.photos(trip.id) ?? trip.photos
+        let rememberedStops = FactsMemory.stops(trip.id)
         let list: [(String?, String)?] = [
             trip.km.flatMap { $0 > 0 ? (Format.number($0), "kilometer") : nil },
             trip.days > 0 ? ("\(trip.days)", trip.days == 1 ? "dag" : "dagen") : nil,
-            !stopsKnown ? (nil, "stops") : (stops > 1 ? ("\(stops)", "stops") : nil),
-            photosWaiting ? (trip.photos > 0 ? Format.number(trip.photos) : nil, trip.photos == 1 ? "foto" : "foto's")
+            !stopsKnown ? (rememberedStops.flatMap { $0 > 1 ? "\($0)" : nil }, "stops") : (stops > 1 ? ("\(stops)", "stops") : nil),
+            photosWaiting ? (guessPhotos > 0 ? Format.number(guessPhotos) : nil, guessPhotos == 1 ? "foto" : "foto's")
                 : (shots > 0 ? (Format.number(shots), shots == 1 ? "foto" : "foto's") : nil),
             travellers > 1 ? ("\(travellers)", "reizigers") : nil,
             stopsKnown ? countryFact : nil,
@@ -671,9 +674,17 @@ struct FactsRow: View {
         return Array(list.compactMap { $0 }.prefix(4))
     }
 
+    @State private var openedAt = Date()
+    /// The figures on screen: a change once the page is open waits until it has settled, then rolls over.
+    @State private var held: [String?]? = nil
+
     var body: some View {
         let _ = factsData
-        let items = FactsRow.facts(trip, photos: photos, stopsKnown: stopsKnown)
+        let fresh = FactsRow.facts(trip, photos: photos, stopsKnown: stopsKnown)
+        let items: [(String?, String)] = fresh.enumerated().map { i, f in
+            guard let held, held.count == fresh.count, let old = held[i], f.0 != nil else { return f }
+            return (old, f.1)
+        }
         let tile = (tone ?? trip.color).opacity(scheme == .dark ? 0.34 : 0.24)
         return HStack(spacing: 4) {
             ForEach(Array(items.enumerated()), id: \.offset) { i, item in
@@ -702,6 +713,28 @@ struct FactsRow: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .animation(.calm, value: items.map { ($0.0 ?? "") + $0.1 })
+        .task(id: fresh.map { ($0.0 ?? "-") + $0.1 }.joined(separator: "|")) {
+            // Keep what this page counted for the next time it opens.
+            if stopsKnown, trip.remoteId != nil { FactsMemory.keep(trip.id, stops: trip.stops.count) }
+            if let photos { FactsMemory.keep(trip.id, photos: photos) }
+            let values = fresh.map(\.0)
+            if held == nil { held = values; return }
+            let wait = 0.9 - Date().timeIntervalSince(openedAt)
+            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            withAnimation(.smooth(duration: 0.42)) { held = values }
+        }
+    }
+}
+
+/// The figures a trip's page counted the last time it was open (stops, photos), kept on the phone so the page
+/// opens with them at once instead of a guess from the trip list that changes a moment later.
+enum FactsMemory {
+    private static let d = UserDefaults.standard
+    static func stops(_ id: String) -> Int? { d.object(forKey: "facts.\(id).stops") as? Int }
+    static func photos(_ id: String) -> Int? { d.object(forKey: "facts.\(id).photos") as? Int }
+    static func keep(_ id: String, stops: Int? = nil, photos: Int? = nil) {
+        if let stops, self.stops(id) != stops { d.set(stops, forKey: "facts.\(id).stops") }
+        if let photos, self.photos(id) != photos { d.set(photos, forKey: "facts.\(id).photos") }
     }
 }
 

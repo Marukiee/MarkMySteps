@@ -134,7 +134,7 @@ struct HomeView: View {
                         NavigationLink(value: trip.id) { NextTripCard(trip: trip) }
                             .buttonStyle(PressStyle())
                             .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 30)) }
-                            .overlay(alignment: .topTrailing) { cardMenu(trip).padding(12) }
+                            .overlay(alignment: .topTrailing) { cardMenu(trip).padding(14) }
                     } row: {
                         TripRow(trip: trip, top: 22, bottom: 22, zoom: zoom) { rowMenu(trip) }
                     }
@@ -251,13 +251,14 @@ struct HomeView: View {
     private func cardMenu(_ trip: Trip) -> some View {
         tripMenu(trip) {
             Image(systemName: "ellipsis")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Brand.ink)
-                .frame(width: 26, height: 26)
+                .frame(width: 25, height: 25)
         }
         .buttonStyle(.glass)
         .buttonBorderShape(.circle)
-        .controlSize(.large)
+        // 40 pt across, as the ⋯ on Android's cards (the large size made a circle far too big for the card).
+        .controlSize(.regular)
     }
 
     /// The ⋯ at the end of a row, quiet in the row's own tone: just the dots, no circle or fill behind them.
