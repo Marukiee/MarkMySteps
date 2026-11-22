@@ -263,7 +263,7 @@ private fun PreferencesPage(onBack: () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AirportsPanel() {
+internal fun AirportsPanel() {
     val cs = MaterialTheme.colorScheme
     val context = LocalContext.current
     // Normally read in the background at start; if not yet, once here before the first frame (a few ms), so names never pop in.

@@ -169,9 +169,22 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         if (Data.live) NewLookDialog()
         // First the sign-in, unless signed in already or a test opens a page straight away.
         var gate by androidx.compose.runtime.saveable.rememberSaveable {
-            mutableStateOf(if (Api.signedIn || startTrip != null || startPage != null) "app" else "login")
+            mutableStateOf(when {
+                startTrip != null || startPage != null -> "app"
+                !Api.signedIn -> "login"
+                // Signed up but not let in yet; or new here and the tour not done (Auth.kt).
+                Api.pending -> "pending"
+                !Onboarding.done -> "onboarding"
+                else -> "app"
+            })
         }
         val scope = androidx.compose.runtime.rememberCoroutineScope()
+        var localSheet by remember { mutableStateOf(false) }
+        // In after signing in, signing up or starting without a server: waiting for the admin, the tour, or the app.
+        fun enter() {
+            gate = when { Api.pending -> "pending"; !Onboarding.done -> "onboarding"; else -> "app" }
+            if (gate != "pending") { Data.begin(); scope.launch { Data.load() } }
+        }
         LaunchedEffect(Unit) { Data.load() }
         // At most every six hours, as the shared updater wants; it only ever offers this app's own apk (Update.kt).
         LaunchedEffect(Unit) { Updates.checkIfDue() }
@@ -181,9 +194,15 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             transitionSpec = { (fadeIn(gateMotion.slowEffectsSpec()) + scaleIn(gateMotion.defaultSpatialSpec(), initialScale = 0.96f)) togetherWith fadeOut(gateMotion.fastEffectsSpec()) },
             label = "gate",
         ) { which ->
-        if (which == "login") {
-            LoginPage(dark, onDone = { Data.begin(); gate = "app"; scope.launch { Data.load() } }, onDemo = { gate = "app" })
-            return@AnimatedContent
+        when (which) {
+            "login" -> {
+                LoginPage(dark, onDone = { enter() }, onDemo = { gate = "app" }, onRegister = { gate = "register" }, onLocal = { localSheet = true })
+                if (localSheet) LocalModeSheet(onDismiss = { localSheet = false }, onStart = { localSheet = false; LocalMode.start(); enter() })
+                return@AnimatedContent
+            }
+            "register" -> { RegisterPage(preview = false, onBack = { gate = "login" }, onApproved = { enter() }, onPending = { gate = "pending" }); return@AnimatedContent }
+            "pending" -> { PendingPage(preview = false, onApproved = { enter() }, onSignOut = { Data.signOut(); gate = "login" }); return@AnimatedContent }
+            "onboarding" -> { OnboardingPage(preview = false, local = LocalMode.on, onDone = { gate = "app" }); return@AnimatedContent }
         }
         var open by remember { mutableStateOf(Data.all.firstOrNull { it.id == startTrip }) }
         // The adb extra "trip" may name a server trip, by id or title, which only exists once it has loaded.
@@ -275,6 +294,36 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             // No connection: a strip at the top says so, with the changes that wait (AppScreens.kt).
             OfflineBanner(Modifier.align(Alignment.TopCenter))
         }
+        }
+        // A new user's screen opened from the developer page: over everything, and nothing in it can sign in,
+        // sign up or keep a choice (Api.previewing, Auth.kt).
+        val preview = Previews.open
+        androidx.compose.runtime.DisposableEffect(preview != null) {
+            Api.previewing = preview != null
+            onDispose { if (preview != null) Api.previewing = false }
+        }
+        Chrome.Immersive(preview != null)
+        AnimatedContent(
+            preview,
+            transitionSpec = { (fadeIn(gateMotion.defaultEffectsSpec()) + scaleIn(gateMotion.defaultSpatialSpec(), initialScale = 0.96f)) togetherWith fadeOut(gateMotion.fastEffectsSpec()) },
+            label = "preview",
+        ) { kind ->
+            if (kind == null) return@AnimatedContent
+            val close = { Previews.open = null }
+            androidx.activity.compose.BackHandler(onBack = close)
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                when (kind) {
+                    "onboarding" -> OnboardingPage(preview = true, local = false, onDone = close)
+                    "onboarding-local" -> OnboardingPage(preview = true, local = true, onDone = close)
+                    "register" -> RegisterPage(preview = true, onBack = close, onApproved = close, onPending = { Previews.open = "pending" })
+                    "pending" -> PendingPage(preview = true, onApproved = close, onSignOut = close)
+                    else -> {
+                        var sheet by remember { mutableStateOf(false) }
+                        LoginPage(dark, onDone = close, onDemo = close, onRegister = { Previews.open = "register" }, onLocal = { sheet = true })
+                        if (sheet) LocalModeSheet(onDismiss = { sheet = false }, onStart = { sheet = false; Previews.open = "onboarding-local" })
+                    }
+                }
+            }
         }
     }
 }

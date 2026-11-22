@@ -45,6 +45,8 @@ class MainActivity : ComponentActivity() {
         TripFactsPref.init(applicationContext)
         UiPrefs.init(applicationContext)
         AppPrefs.init(applicationContext)
+        Onboarding.init(applicationContext)
+        LocalMode.init(applicationContext)
         PhotoDisk.init(applicationContext)
         DeviceMedia.init(applicationContext)
         Offline.init(applicationContext)

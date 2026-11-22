@@ -77,7 +77,7 @@ import kotlinx.coroutines.launch
  */
 
 @Composable
-fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
+fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, onRegister: () -> Unit = {}, onLocal: () -> Unit = {}) {
     val cs = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     var server by rememberSaveable { mutableStateOf(Api.base) }
@@ -195,7 +195,12 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
                     else Text(if (mfaToken == null) "Inloggen" else "Bevestigen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp))
                 }
             }
-            TextButton(onClick = onDemo, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp)) {
+            // The other ways in, as on the web: ask for an account, or keep everything on this phone (Auth.kt).
+            Row(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp)) {
+                TextButton(onClick = onRegister) { Text(androidx.compose.ui.res.stringResource(R.string.auth_create_account), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
+                TextButton(onClick = onLocal) { Text(androidx.compose.ui.res.stringResource(R.string.auth_no_server), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
+            }
+            TextButton(onClick = onDemo, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                 Text("Bekijk met voorbeelden", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
             }
             Text(

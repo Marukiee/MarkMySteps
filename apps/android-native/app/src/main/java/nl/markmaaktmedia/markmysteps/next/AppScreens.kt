@@ -352,7 +352,7 @@ fun OfflineBanner(modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
     var dismissed by remember { mutableStateOf(false) }
     LaunchedEffect(Offline.reachable) { if (Offline.reachable) dismissed = false }
-    val offline = Data.live && !Offline.reachable && !Api.dryRun
+    val offline = Data.live && !Offline.reachable && !Api.dryRun && !LocalMode.on
     val waiting = Offline.count > 0 && Data.live
     val shown = (offline && !dismissed) || waiting
     val motion = MaterialTheme.motionScheme

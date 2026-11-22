@@ -66,7 +66,47 @@ object Api {
         data class NeedsCode(val mfaToken: String) : Login
     }
 
+    /**
+     * A screen of a new user opened as a preview from the developer page: signing in or up is refused on the
+     * phone, before anything is sent or the server is changed.
+     */
+    @Volatile var previewing = false
+
+    /** Whether the signed-in account still waits for an admin: its token says so ("pending"). */
+    val pending: Boolean get() = access?.let { token ->
+        runCatching {
+            val part = token.split('.')[1]
+            JSONObject(String(android.util.Base64.decode(part, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING))).optBoolean("pending")
+        }.getOrDefault(false)
+    } ?: false
+
+    /**
+     * Asks the server for an account (POST /api/auth/register: email, username, displayName, password). The first
+     * account of a server is approved at once, the rest wait for an admin. Never sent in a dry run or a preview.
+     */
+    suspend fun register(server: String, email: String, username: String, displayName: String, password: String): String = withContext(Dispatchers.IO) {
+        if (previewing || dryRun) {
+            android.util.Log.i("MmsDryRun", "POST /api/auth/register {email,username,displayName,password}")
+            throw Failure(Lang.text(R.string.auth_preview_note), -1)
+        }
+        base = server.trim().trimEnd('/').let { if (it.startsWith("http")) it else "https://$it" }
+        val body = JSONObject().put("email", email.trim()).put("username", username.trim()).put("displayName", displayName.trim()).put("password", password)
+        val answer = JSONObject(request("POST", "/api/auth/register", body.toString(), auth = false))
+        tokens(answer)
+        answer.optString("status", "PENDING")
+    }
+
+    /** A waiting account asks where it stands (GET /api/auth/status): PENDING, APPROVED or REJECTED, and whether it was just approved. */
+    suspend fun approval(): Pair<String, Boolean> = withContext(Dispatchers.IO) {
+        val o = JSONObject(request("GET", "/api/auth/status"))
+        o.optString("status") to o.optBoolean("justApproved")
+    }
+
+    /** Approved: a fresh token without "pending", so the rest of the server opens. */
+    suspend fun upgrade(): Boolean = withContext(Dispatchers.IO) { renew() }
+
     suspend fun login(server: String, identifier: String, password: String): Login = withContext(Dispatchers.IO) {
+        if (previewing) throw Failure(Lang.text(R.string.auth_preview_note), -1)
         base = server.trim().trimEnd('/').let { if (it.startsWith("http")) it else "https://$it" }
         val body = JSONObject().put("identifier", identifier.trim()).put("password", password)
         val answer = JSONObject(request("POST", "/api/auth/login", body.toString(), auth = false))
@@ -76,6 +116,7 @@ object Api {
     }
 
     suspend fun loginCode(mfaToken: String, code: String) = withContext(Dispatchers.IO) {
+        if (previewing) throw Failure(Lang.text(R.string.auth_preview_note), -1)
         val body = JSONObject().put("mfaToken", mfaToken).put("code", code.trim())
         tokens(JSONObject(request("POST", "/api/auth/login/mfa", body.toString(), auth = false)))
     }
@@ -116,7 +157,16 @@ object Api {
         }
     }
 
+    /** "Doorgaan zonder server": from now on the app's server is the phone itself (Local.kt). */
+    fun startLocal() {
+        base = LocalMode.BASE
+        access = LocalMode.BASE
+        refresh = null
+        save()
+    }
+
     private fun request(method: String, path: String, body: String? = null, auth: Boolean = true, retried: Boolean = false): String {
+        if (base == LocalMode.BASE) return LocalBackend.handle(method, path, body)
         val c = open(method, path, auth)
         try {
             if (body != null) {
@@ -219,6 +269,7 @@ object Api {
      * so an original of fifty megabytes goes straight to disk and never sits in memory. Blocking.
      */
     fun <T> stream(path: String, retried: Boolean = false, block: (HttpURLConnection) -> T): T? {
+        if (base == LocalMode.BASE) return null
         val c = open("GET", path, auth = true)
         return try {
             c.readTimeout = 60_000
@@ -229,6 +280,7 @@ object Api {
     }
 
     fun bytes(path: String, retried: Boolean = false): ByteArray? {
+        if (base == LocalMode.BASE) return null
         val c = open("GET", path, auth = true)
         return try {
             val code = c.responseCode
