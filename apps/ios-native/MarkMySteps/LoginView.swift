@@ -11,6 +11,8 @@ struct LoginView: View {
     var notice: String? = nil
     let onDone: () -> Void
     let onDemo: () -> Void
+    /// A new account that waits for the server's admin.
+    var onPending: () -> Void = {}
 
     @State private var server = Api.shared.host
     @State private var name = ""
@@ -22,6 +24,7 @@ struct LoginView: View {
     @State private var error: String?
     @FocusState private var focus: Field?
     @State private var topInset: CGFloat = 60
+    @State private var registering = Launch.page == "register"
 
     private enum Field { case server, name, password, code }
 
@@ -73,6 +76,16 @@ struct LoginView: View {
                     .buttonBorderShape(.capsule)
                     .controlSize(.large)
                     .padding(.top, 12)
+
+                    // The other way in, as on the web and Android: ask your server for an account.
+                    if mfaToken == nil {
+                        Button("Account maken") { Haptic.tap(); registering = true }
+                            .font(.outfit(15.5, 600))
+                            .buttonStyle(.borderless)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 14)
+                            .transition(.opacity)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 24)
@@ -94,6 +107,9 @@ struct LoginView: View {
         .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { if $0 > 0 { topInset = $0 } }
         .ignoresSafeArea(.container, edges: .top)
         .background(Brand.paper)
+        .fullScreenCover(isPresented: $registering) {
+            RegisterView(onApproved: { registering = false; onDone() }, onPending: { registering = false; onPending() })
+        }
     }
 
     private var card: some View {

@@ -65,11 +65,14 @@ struct RootView: View {
     /// light, dark or system; a `-theme` launch argument overrides it for that run.
     @AppStorage("theme") private var theme = "system"
     @State private var signedOut: Bool
+    /// A new account still waiting for the server's admin: the waiting page, never the trips.
+    @State private var pending: Bool
     @Environment(\.scenePhase) private var phase
 
     init() {
         let page = Launch.page
-        _signedOut = State(initialValue: page == "login" || (page == nil && !Api.shared.signedIn))
+        _signedOut = State(initialValue: page == "login" || page == "register" || (page == nil && !Api.shared.signedIn))
+        _pending = State(initialValue: page == "pending" || (page == nil && Api.shared.pending))
     }
 
     var body: some View {
@@ -85,9 +88,21 @@ struct RootView: View {
                     onDemo: {
                         store.sessionExpired = false
                         withAnimation(.smooth(duration: 0.45)) { signedOut = false }
+                    },
+                    onPending: {
+                        withAnimation(.smooth(duration: 0.45)) { pending = true; signedOut = false }
                     }
                 )
                 .transition(.opacity.combined(with: .scale(scale: 1.04)))
+            } else if pending {
+                PendingView(onApproved: {
+                    withAnimation(.smooth(duration: 0.45)) { pending = false }
+                    Task { await store.load() }
+                }, onSignOut: {
+                    store.signOut()
+                    withAnimation(.smooth(duration: 0.45)) { pending = false; signedOut = true }
+                }, preview: Launch.page == "pending")
+                .transition(.opacity)
             } else {
                 MainTabs(onSignIn: {
                     store.signOut()

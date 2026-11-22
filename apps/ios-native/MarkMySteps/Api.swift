@@ -89,6 +89,16 @@ final class Api {
     }
 
     var signedIn: Bool { access != nil && !base.isEmpty }
+    /// A new account that waits for the server's admin: its token opens nothing but the status, so the app shows
+    /// the waiting page instead of loading trips. Read from the token's own "pending" flag, as Android does, so it
+    /// also holds after signing in with a password while still waiting.
+    var pending: Bool {
+        guard signedIn, let part = access?.split(separator: ".").dropFirst().first else { return false }
+        var b64 = part.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        while b64.count % 4 != 0 { b64 += "=" }
+        guard let data = Data(base64Encoded: b64), let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+        return o["pending"] as? Bool ?? false
+    }
 
     /// The server as shown to people: without the scheme.
     var host: String { base.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "") }
@@ -120,6 +130,34 @@ final class Api {
         let answer = try json(await request("POST", "/api/auth/login/mfa", body: ["mfaToken": mfaToken, "code": code.trimmingCharacters(in: .whitespaces)], auth: false))
         try tokens(answer)
     }
+
+    /// Asks the server for an account (POST /api/auth/register), as Android and the web. The first account of a
+    /// server is in at once; anyone after waits for the admin. Never sent in test mode.
+    func register(server: String, email: String, username: String, displayName: String, password: String) async throws -> String {
+        if Api.dryRun {
+            Api.log.notice("dryRun: POST /api/auth/register not sent")
+            throw Failure(message: "Testmodus: er is niets verstuurd en geen account gemaakt.")
+        }
+        var b = server.trimmingCharacters(in: .whitespacesAndNewlines)
+        while b.hasSuffix("/") { b.removeLast() }
+        if !b.hasPrefix("http") { b = "https://" + b }
+        base = b
+        UserDefaults.standard.set(b, forKey: "server")
+        let answer = try json(await request("POST", "/api/auth/register", body: [
+            "email": email.trimmingCharacters(in: .whitespaces), "username": username.trimmingCharacters(in: .whitespaces),
+            "displayName": displayName.trimmingCharacters(in: .whitespaces), "password": password,
+        ], auth: false))
+        try tokens(answer)
+        return answer["status"] as? String ?? "PENDING"
+    }
+
+    /// Where a waiting account stands (GET /api/auth/status): PENDING, APPROVED or REJECTED.
+    func approval() async throws -> String {
+        try json(await request("GET", "/api/auth/status"))["status"] as? String ?? "PENDING"
+    }
+
+    /// Approved: a fresh token without the waiting flag, so the rest of the server opens.
+    func upgrade() async -> Bool { await renew() == .renewed }
 
     /// Another server, from Diensten: the login page then opens on it. Tokens belong to the old one, so sign out after.
     func setServer(_ address: String) {
@@ -958,7 +996,7 @@ final class Store {
     }
 
     func load() async {
-        guard Api.shared.signedIn else { return }
+        guard Api.shared.signedIn, !Api.shared.pending else { return }
         do {
             let me = try await Remote.me()
             self.me = me
