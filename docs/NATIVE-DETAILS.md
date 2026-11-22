@@ -65,6 +65,15 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Cijfers die nog laden: lege ruimte van de juiste hoogte, geen grijs blokje.
 - Een reis of pagina die je verlaat opent de volgende keer weer bovenaan.
 
+- Menuregels zijn echte afgeronde rechthoeken (Material's eigen vorm werd platter: 21 in plaats van 24 dp); de ruimte tot de menurand is langs de hele bocht 11 px. (klaar Android)
+- De ⋯-knop en het menu vloeien in elkaar over bij openen en sluiten; een knop zonder vlak (kleine reiskaart) toont nooit een rondje. (klaar Android)
+- Navigatiebalk: een vaste tween van 260 ms, oranje vervaagt zonder bruin, geen grijze ripple. (klaar Android)
+- Slepen in de planner: alleen de stop gaat omhoog, het lijntje en de vervoerpil erboven blijven staan; wisselen bij half over de buur met speling; buren glijden. (klaar Android)
+- Uitklappil: tikje bij uitklappen en bij inklappen. (klaar Android)
+- Een reispagina toont meteen de cijfers die hij vorige keer telde; een latere wijziging rolt na een moment naar het nieuwe getal. (klaar Android)
+- Wereldbol: alle thuisvliegvelden tellen als thuis; een reis begint (stip en naam) waar de route het eerst niet op een thuisvliegveld is. (klaar Android)
+- Reizigers: cijfers leeg tot ze komen, geen grijze blokjes. (klaar Android)
+
 ## Navigatie en gebaren
 
 - Terugveeggebaar precies zoals Tandem en PixelPlayer: één seekbare shared-axis-overgang (350 ms, emphasized), de pagina gaat mee met je vinger en de vorige schuift er al onder in; loslaten speelt verder, terugtrekken springt terug. Vloeiend op elk toestel (release-build, geen debug). (klaar Android)
