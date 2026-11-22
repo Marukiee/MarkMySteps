@@ -405,6 +405,43 @@ object Remote {
         Api.send("POST", "/api/access-requests/$requestId/${if (approve) "approve" else "deny"}", if (approve) JSONObject().put("role", "GUEST") else null)
     }
 
+    data class Note(val day: String, val title: String?, val body: String, val author: String)
+
+    suspend fun notes(trip: Trip): List<Note> {
+        val a = JSONArray(Api.get("/api/trips/${trip.remoteId}/notes"))
+        return (0 until a.length()).map { a.getJSONObject(it) }.map {
+            Note(it.optString("day"), it.optString("title").takeIf { t -> t.isNotBlank() && t != "null" }, it.optString("body"), it.optString("authorName"))
+        }
+    }
+
+    /** A day's weather where you were, as the web reads it: open-meteo, the archive for days older than 90. */
+    data class Weather(val maxC: Int, val code: Int)
+
+    private val weatherCache = HashMap<String, Weather?>()
+
+    suspend fun weather(at: LonLat, day: LocalDate): Weather? = withContext(Dispatchers.IO) {
+        val key = "%.2f,%.2f,%s".format(java.util.Locale.ROOT, at.second, at.first, day)
+        if (weatherCache.containsKey(key)) return@withContext weatherCache[key]
+        Api.recall("w.$key")?.split(',')?.let { p -> return@withContext Weather(p[0].toInt(), p[1].toInt()).also { weatherCache[key] = it } }
+        if (day.isAfter(LocalDate.now().plusDays(14))) return@withContext null
+        val old = java.time.temporal.ChronoUnit.DAYS.between(day, LocalDate.now()) > 90
+        val host = if (old) "archive-api.open-meteo.com/v1/archive" else "api.open-meteo.com/v1/forecast"
+        val url = URL("https://$host?latitude=${at.second}&longitude=${at.first}&daily=weather_code,temperature_2m_max,precipitation_sum,precipitation_hours&start_date=$day&end_date=$day&timezone=auto")
+        val w = runCatching {
+            val c = (url.openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+            val d = JSONObject(c.inputStream.bufferedReader().readText()).getJSONObject("daily")
+            val t = d.getJSONArray("temperature_2m_max").optDouble(0); var code = d.getJSONArray("weather_code").optInt(0, -1)
+            val mm = d.optJSONArray("precipitation_sum")?.optDouble(0, 0.0) ?: 0.0
+            val hours = d.optJSONArray("precipitation_hours")?.optDouble(0, 0.0) ?: 0.0
+            // Under half a millimetre nothing meaningful fell: the day was just clouded over (web dayCondition).
+            if (code in 51..86 && code !in 71..77 && code !in 85..86 && (mm < 0.5 || hours < 1)) code = 3
+            if (t.isNaN() || code < 0) null else Weather(kotlin.math.round(t).toInt(), code)
+        }.getOrNull()
+        weatherCache[key] = w
+        if (w != null && !day.isAfter(LocalDate.now().minusDays(2))) Api.remember("w.$key", "${w.maxC},${w.code}")
+        w
+    }
+
     suspend fun friends(): List<Friend> {
         val a = JSONArray(Api.get("/api/users/friends"))
         return (0 until a.length()).map { a.getJSONObject(it) }.map {

@@ -207,6 +207,8 @@ private fun Photo(scene: Scene, modifier: Modifier) {
 private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Unit, bounds: TileBounds?, hidden: String?, onJump: (Float) -> Unit) {
     // Where each day's heading sits, so a place tile can scroll to its first day.
     val dayAt = androidx.compose.runtime.remember { HashMap<LocalDate, androidx.compose.ui.layout.LayoutCoordinates>() }
+    // The trip's day notes, read once, shown under their day as on the web.
+    val notes by androidx.compose.runtime.produceState(emptyList<Remote.Note>(), trip.id) { value = runCatching { Remote.notes(trip) }.getOrDefault(emptyList()) }
     val cs = MaterialTheme.colorScheme
     // Photos and videos together, as on the web; a video carries a play badge.
     val photos = media
@@ -278,6 +280,8 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                 )
             }
             if (stop != null) {
+                // Where you were and that day's real weather there.
+                val weather by androidx.compose.runtime.produceState<Remote.Weather?>(null, stop.at, date) { value = Remote.weather(stop.at, date) }
                 Row(Modifier.padding(start = 27.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     FlagIcon(stop.flag, 14.dp)
                     Text(
@@ -285,6 +289,21 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                         style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurfaceVariant),
                         modifier = Modifier.padding(start = 6.dp),
                     )
+                    androidx.compose.animation.AnimatedVisibility(weather != null, enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
+                        weather?.let { w ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                LineIcon(weatherGlyph(w.code), cs.onSurfaceVariant, size = 17.dp, stroke = 1.8f, modifier = Modifier.padding(start = 12.dp))
+                                Text("${w.maxC}°", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 5.dp))
+                            }
+                        }
+                    }
+                }
+            }
+            notes.filter { it.day == date.toString() }.forEach { n ->
+                Column(Modifier.padding(start = 27.dp, top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(cs.surfaceContainerLow).padding(14.dp)) {
+                    n.title?.let { Text(it, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp, color = cs.onSurface)) }
+                    Text(n.body, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(450), fontSize = 15.sp, lineHeight = 22.sp, color = cs.onSurface), modifier = Modifier.padding(top = if (n.title != null) 4.dp else 0.dp))
+                    Text(n.author, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 6.dp))
                 }
             }
             Column(
@@ -354,4 +373,15 @@ private fun TimelinePlaceholder() {
             }
         }
     }
+}
+
+
+/** The weather code as one of the app's line icons (WMO codes, as open-meteo gives them). */
+private fun weatherGlyph(code: Int): List<Shape24> = when (code) {
+    0, 1 -> Glyphs.sun
+    2 -> Glyphs.partly
+    in 71..77, 85, 86 -> Glyphs.snow
+    in 95..99 -> Glyphs.storm
+    in 51..67, in 80..82 -> Glyphs.rain
+    else -> Glyphs.cloud
 }
