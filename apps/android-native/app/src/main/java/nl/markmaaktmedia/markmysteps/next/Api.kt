@@ -747,7 +747,8 @@ object Remote {
         if (weatherCache.containsKey(key)) return@withContext weatherCache[key]
         Api.recall("w.$key")?.split(',')?.let { p -> return@withContext Weather(p[0].toInt(), p[1].toInt()).also { weatherCache[key] = it } }
         if (day.isAfter(LocalDate.now().plusDays(14))) return@withContext null
-        val old = java.time.temporal.ChronoUnit.DAYS.between(day, LocalDate.now()) > 90
+        // The forecast only reaches a few days back reliably; the archive has everything up to about a week ago.
+        val old = java.time.temporal.ChronoUnit.DAYS.between(day, LocalDate.now()) > 7
         val host = if (old) "archive-api.open-meteo.com/v1/archive" else "api.open-meteo.com/v1/forecast"
         val url = URL("https://$host?latitude=${coarse(at.second)}&longitude=${coarse(at.first)}&daily=weather_code,temperature_2m_max,precipitation_sum,precipitation_hours&start_date=$day&end_date=$day&timezone=auto")
         val w = runCatching {
