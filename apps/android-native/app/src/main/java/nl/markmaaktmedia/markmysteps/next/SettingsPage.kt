@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -87,13 +88,44 @@ private class Item(
     val toggle: Boolean? = null,
 )
 
+/** A page of settings under the main list: its icon, name, the line that says how it stands, and its rows. */
+private class Section(val icon: List<Shape24>, val title: String, val summary: String)
+
+private val Sections = listOf(
+    Section(Glyphs.person, "Account", "Profiel, wachtwoord, tweestapsverificatie"),
+    Section(Glyphs.sun, "Weergave", "Thema, taal, globe"),
+    Section(Glyphs.distance, "Reizen en route", "Tracking, eigen locatie, vliegvelden"),
+    Section(Glyphs.photo, "Foto's", "Immich verbonden"),
+    Section(Glyphs.bell, "Meldingen", "Reacties en nieuwe foto's"),
+    Section(Glyphs.download, "Opslag en back-up", "Offline kaart, foto-cache"),
+    Section(Glyphs.shield, "Updates", "Automatisch, build 267"),
+    Section(Glyphs.help, "Over", "MarkMySteps, AGPL-3.0"),
+)
+
 @Composable
 fun SettingsPage() {
-    val cs = MaterialTheme.colorScheme
-    var theme by remember { mutableIntStateOf(2) }
-    var autoUpdate by remember { mutableStateOf(true) }
-    var twoFactor by remember { mutableStateOf(true) }
+    var open by remember { mutableStateOf<Int?>(null) }
+    androidx.activity.compose.BackHandler(enabled = open != null) { open = null }
+    val motion = MaterialTheme.motionScheme
+    // Into a section and back: the shared X axis of Material motion, the list sliding a little and fading.
+    androidx.compose.animation.AnimatedContent(
+        targetState = open,
+        transitionSpec = {
+            val forward = targetState != null
+            (androidx.compose.animation.slideInHorizontally(motion.defaultSpatialSpec()) { w -> if (forward) w / 5 else -w / 5 } +
+                androidx.compose.animation.fadeIn(motion.defaultEffectsSpec())) togetherWith
+                (androidx.compose.animation.slideOutHorizontally(motion.defaultSpatialSpec()) { w -> if (forward) -w / 5 else w / 5 } +
+                    androidx.compose.animation.fadeOut(motion.fastEffectsSpec()))
+        },
+        label = "settings",
+    ) { which ->
+        if (which == null) SettingsMain(onOpen = { open = it }) else SectionPage(which, onBack = { open = null })
+    }
+}
 
+@Composable
+private fun SettingsMain(onOpen: (Int) -> Unit) {
+    val cs = MaterialTheme.colorScheme
     Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Text(
@@ -101,10 +133,9 @@ fun SettingsPage() {
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
             modifier = Modifier.padding(top = 20.dp, bottom = 18.dp),
         )
-
         // Who is signed in, on which server.
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(cs.surfaceContainerLow).dip().padding(16.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(cs.surfaceContainerLow).dip { onOpen(0) }.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(64.dp).clip(MaterialShapes.Cookie12Sided.toShape()).background(cs.primaryContainer), contentAlignment = Alignment.Center) {
@@ -116,59 +147,111 @@ fun SettingsPage() {
             }
             LineIcon(Glyphs.pencil, cs.onSurfaceVariant, size = 20.dp, stroke = 2f)
         }
-
-        Group("Account", listOf(
-            Item(Glyphs.person, "Profiel", "naam, foto"),
-            Item(Glyphs.lock, "Wachtwoord"),
-            Item(Glyphs.shield, "Tweestapsverificatie", toggle = twoFactor),
-        ), onToggle = { twoFactor = !twoFactor })
-
-        // The theme as one connected group, the open one filled.
-        Header("Weergave")
-        Column(Modifier.fillMaxWidth().clip(slabShape(0, 3)).background(cs.surfaceContainerLow).padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconTile(Glyphs.sun, 1)
-                Text("Thema", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 14.dp))
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
-                listOf("Licht", "Donker", "Systeem").forEachIndexed { i, label ->
-                    ToggleButton(
-                        checked = theme == i,
-                        onCheckedChange = { theme = i },
-                        modifier = Modifier.weight(1f).height(44.dp),
-                        shapes = when (i) {
-                            0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                            2 -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                            else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                        },
-                        colors = ToggleButtonDefaults.toggleButtonColors(
-                            containerColor = cs.surfaceContainerHigh, contentColor = cs.onSurfaceVariant,
-                            checkedContainerColor = cs.primary, checkedContentColor = cs.onPrimary,
-                        ),
-                    ) { Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)) }
+        Spacer(Modifier.height(18.dp))
+        // One slab of sections, each opening a page of its own.
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Sections.forEachIndexed { i, sec ->
+                Row(
+                    Modifier.fillMaxWidth().height(80.dp).clip(slabShape(i, Sections.size)).background(cs.surfaceContainerLow)
+                        .dip { onOpen(i) }.padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconTile(sec.icon, i, big = true)
+                    Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                        Text(sec.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = cs.onSurface))
+                        Text(sec.summary, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                    }
+                    LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
                 }
             }
         }
-        Spacer(Modifier.height(3.dp))
-        Row0(Item(Glyphs.globe, "Taal", "Nederlands"), 1, 3, 2)
-        Spacer(Modifier.height(3.dp))
-        Row0(Item(Glyphs.bell, "Meldingen", "reacties, nieuwe foto's"), 2, 3, 3)
+        Spacer(Modifier.height(120.dp))
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+}
 
-        Group("Diensten", listOf(
-            Item(Glyphs.photo, "Immich", "verbonden"),
-            Item(Glyphs.plane, "Vliegvelden", "AMS, EIN"),
-        ))
+@Composable
+private fun SectionPage(index: Int, onBack: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val sec = Sections[index]
+    var theme by remember { mutableIntStateOf(2) }
+    var autoUpdate by remember { mutableStateOf(true) }
+    var twoFactor by remember { mutableStateOf(true) }
+    var tracking by remember { mutableStateOf(true) }
+    var selfLocation by remember { mutableStateOf(false) }
+    var notify by remember { mutableStateOf(true) }
+    var offlineMap by remember { mutableStateOf(false) }
 
-        Group("Updates", listOf(
-            Item(Glyphs.download, "Automatisch controleren", toggle = autoUpdate),
-            Item(Glyphs.download, "Nu controleren", "build 267"),
-        ), onToggle = { autoUpdate = !autoUpdate })
-
-        Group("Over", listOf(
-            Item(Glyphs.help, "Wat is er nieuw"),
-            Item(Glyphs.logo, "Over MarkMySteps", "AGPL-3.0"),
-        ))
-
+    Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+        Box(
+            Modifier.padding(top = 8.dp).size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh).dip(onBack),
+            contentAlignment = Alignment.Center,
+        ) { LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
+        Text(
+            sec.title,
+            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
+            modifier = Modifier.padding(top = 18.dp, bottom = 4.dp),
+        )
+        when (index) {
+            0 -> Group("Jij", listOf(
+                Item(Glyphs.person, "Profiel", "naam, foto"),
+                Item(Glyphs.lock, "Wachtwoord"),
+                Item(Glyphs.shield, "Tweestapsverificatie", toggle = twoFactor),
+            ), onToggle = { twoFactor = !twoFactor }).also {
+                Group("Server", listOf(Item(Glyphs.globe, "Server", "eigen server"), Item(Glyphs.arrowRight, "Uitloggen")))
+            }
+            1 -> {
+                Header("Thema")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
+                    listOf("Licht", "Donker", "Systeem").forEachIndexed { i, label ->
+                        ToggleButton(
+                            checked = theme == i,
+                            onCheckedChange = { theme = i },
+                            modifier = Modifier.weight(1f).height(52.dp),
+                            shapes = when (i) {
+                                0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                2 -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                            },
+                            colors = ToggleButtonDefaults.toggleButtonColors(
+                                containerColor = cs.surfaceContainerHigh, contentColor = cs.onSurfaceVariant,
+                                checkedContainerColor = cs.primary, checkedContentColor = cs.onPrimary,
+                            ),
+                        ) { Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
+                    }
+                }
+                Group("Taal en kaart", listOf(Item(Glyphs.globe, "Taal", "Nederlands"), Item(Glyphs.compass, "Globe", "draait mee met je vinger")))
+            }
+            2 -> Group("Onderweg", listOf(
+                Item(Glyphs.distance, "Route-tracking", toggle = tracking),
+                Item(Glyphs.pin, "Eigen locatie", toggle = selfLocation),
+                Item(Glyphs.plane, "Standaard vliegvelden", "AMS, EIN"),
+            ), onToggle = { tracking = !tracking }).also {
+                Group("Importeren", listOf(Item(Glyphs.download, "Route-bestanden", "GPX, KML"), Item(Glyphs.compass, "Polarsteps importeren")))
+            }
+            3 -> Group("Bron", listOf(
+                Item(Glyphs.photo, "Immich", "verbonden"),
+                Item(Glyphs.camera, "Foto's in je statistieken", "alles van de dagen samen"),
+            ))
+            4 -> Group("Op je telefoon", listOf(
+                Item(Glyphs.bell, "Meldingen", toggle = notify),
+                Item(Glyphs.friends, "Reacties", "op je foto's en dagen"),
+            ), onToggle = { notify = !notify })
+            5 -> Group("Op dit toestel", listOf(
+                Item(Glyphs.globe, "Kaart offline bewaren", toggle = offlineMap),
+                Item(Glyphs.photo, "Foto-cache", "412 MB"),
+                Item(Glyphs.download, "Back-up", "laatst gisteren"),
+            ), onToggle = { offlineMap = !offlineMap })
+            6 -> Group("Nieuwe versies", listOf(
+                Item(Glyphs.download, "Automatisch controleren", toggle = autoUpdate),
+                Item(Glyphs.download, "Nu controleren", "build 267"),
+            ), onToggle = { autoUpdate = !autoUpdate })
+            else -> Group("MarkMySteps", listOf(
+                Item(Glyphs.help, "Wat is er nieuw"),
+                Item(Glyphs.logo, "Over MarkMySteps", "AGPL-3.0"),
+            ))
+        }
         Spacer(Modifier.height(120.dp))
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
@@ -192,9 +275,9 @@ private fun Group(title: String, items: List<Item>, onToggle: () -> Unit = {}) {
 }
 
 @Composable
-private fun IconTile(icon: List<Shape24>, seed: Int) {
+private fun IconTile(icon: List<Shape24>, seed: Int, big: Boolean = false) {
     val cs = MaterialTheme.colorScheme
-    Box(Modifier.size(42.dp).clip(IconShapes[seed % IconShapes.size].toShape()).background(cs.secondaryContainer), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(if (big) 50.dp else 42.dp).clip(IconShapes[seed % IconShapes.size].toShape()).background(cs.secondaryContainer), contentAlignment = Alignment.Center) {
         LineIcon(icon, cs.onSecondaryContainer, size = 20.dp, stroke = 2f)
     }
 }

@@ -1,0 +1,191 @@
+package nl.markmaaktmedia.markmysteps.next
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import java.time.LocalDate
+import java.time.format.TextStyle as DateStyle
+import java.util.Locale
+
+/*
+ * The timeline as in today's app: the places of the trip as a row of photo
+ * cards at the top, then day by day the date, where you were and the weather,
+ * with all of that day's photos underneath, joined by a line down the left.
+ */
+
+private val Dutch = Locale.forLanguageTag("nl-NL")
+private val MonthIndex = listOf("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec")
+
+/** One day of the trip: its date and the stop it was spent at. */
+private data class Day(val date: LocalDate, val stop: Stop, val stopIndex: Int)
+
+private fun daysOf(trip: Trip): List<Day> {
+    val first = trip.stops.firstOrNull() ?: return emptyList()
+    val day = first.dates.takeWhile { it.isDigit() }.toIntOrNull() ?: 1
+    val month = MonthIndex.indexOf(first.dates.substringAfterLast(' ')).coerceAtLeast(0) + 1
+    var date = LocalDate.of(trip.year.toIntOrNull() ?: 2026, month, day)
+    val out = mutableListOf<Day>()
+    trip.stops.forEachIndexed { i, stop ->
+        repeat(stop.nights.coerceAtLeast(1)) {
+            out += Day(date, stop, i)
+            date = date.plusDays(1)
+        }
+    }
+    return out
+}
+
+@Composable
+fun Timeline(trip: Trip, dark: Boolean) {
+    val cs = MaterialTheme.colorScheme
+    val scenes = Scene.entries
+
+    Text(
+        "Plekken",
+        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
+        modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
+    )
+    // The places, each a photo with its name, wider than the screen so the row asks to be swiped.
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        trip.stops.distinctBy { it.name }.forEachIndexed { i, stop ->
+            Box(Modifier.width(138.dp).height(168.dp).clip(RoundedCornerShape(22.dp))) {
+                Scenery(scenes[(i * 2 + 1) % scenes.size], Modifier.fillMaxSize())
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.6f))))
+                Text(
+                    stop.name, maxLines = 1,
+                    style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = Color.White),
+                    modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                )
+            }
+        }
+    }
+
+    val days = daysOf(trip)
+    val accent = legibleColor(trip.color, dark)
+    val line = cs.outlineVariant
+    Spacer(Modifier.height(26.dp))
+    days.forEachIndexed { d, day ->
+        val last = d == days.lastIndex
+        Column(
+            Modifier.fillMaxWidth().drawBehind {
+                // The line down the left, from this day's dot to the next one.
+                val x = 6.dp.toPx()
+                drawLine(line, Offset(x, 22.dp.toPx()), Offset(x, if (last) 40.dp.toPx() else size.height), strokeWidth = 2.dp.toPx())
+            },
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(13.dp).clip(CircleShape).background(cs.primary))
+                val weekday = day.date.dayOfWeek.getDisplayName(DateStyle.FULL, Dutch).replaceFirstChar { it.uppercase() }
+                val month = day.date.month.getDisplayName(DateStyle.FULL, Dutch)
+                Text(
+                    "$weekday ${day.date.dayOfMonth} $month",
+                    style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = 24.sp, letterSpacing = (-0.01).em, color = cs.onBackground),
+                    modifier = Modifier.padding(start = 14.dp),
+                )
+            }
+            Row(Modifier.padding(start = 27.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(day.stop.flag, fontSize = 15.sp)
+                Text(
+                    day.stop.name,
+                    style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurfaceVariant),
+                    modifier = Modifier.padding(start = 6.dp),
+                )
+                LineIcon(Glyphs.cloud, cs.onSurfaceVariant, size = 16.dp, stroke = 1.8f, modifier = Modifier.padding(start = 12.dp))
+                Text(
+                    "${weatherFor(trip, d)}°",
+                    style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurfaceVariant),
+                    modifier = Modifier.padding(start = 5.dp),
+                )
+            }
+
+            Column(Modifier.padding(start = 27.dp, top = 12.dp, bottom = 30.dp)) {
+                if (trip.upcoming) {
+                    // Nothing taken yet: the photos arrive here by themselves once the trip starts.
+                    Box(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(cs.surfaceContainerLow).padding(horizontal = 16.dp, vertical = 14.dp),
+                    ) {
+                        Text(
+                            "De foto's van deze dag komen hier vanzelf",
+                            style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant),
+                        )
+                    }
+                } else {
+                    DayPhotos(seed = d + trip.id.length, count = 3 + (d * 7 + trip.id.length) % 5)
+                }
+            }
+        }
+    }
+}
+
+/** The weather of a day in this test: a mild, slightly wandering temperature per trip. */
+private fun weatherFor(trip: Trip, day: Int): Int {
+    val base = when (trip.id) {
+        "iceland" -> 11; "sweden" -> 21; "sicily" -> 24; "lisbon" -> 17; "marrakech" -> 22; "norway" -> 15; "georgia" -> 4
+        else -> 18
+    }
+    return base + ((day * 37) % 5) - 2
+}
+
+/**
+ * A day's photos in rows, as the app lays them out: a narrow and a wide one,
+ * then two of equal size, now and then one across the whole width.
+ */
+@Composable
+private fun DayPhotos(seed: Int, count: Int) {
+    val scenes = Scene.entries
+    var left = count
+    var k = 0
+    var row = 0
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        while (left > 0) {
+            val kind = if (left == 1) 2 else (row + seed) % 3
+            when (kind) {
+                0 -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Photo(scenes[(seed + k) % scenes.size], Modifier.weight(1f).height(170.dp))
+                    Photo(scenes[(seed + k + 1) % scenes.size], Modifier.weight(2f).height(170.dp))
+                }.also { k += 2; left -= 2 }
+                1 -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Photo(scenes[(seed + k) % scenes.size], Modifier.weight(1f).height(140.dp))
+                    Photo(scenes[(seed + k + 1) % scenes.size], Modifier.weight(1f).height(140.dp))
+                }.also { k += 2; left -= 2 }
+                else -> Photo(scenes[(seed + k) % scenes.size], Modifier.fillMaxWidth().height(200.dp)).also { k += 1; left -= 1 }
+            }
+            row++
+        }
+    }
+}
+
+@Composable
+private fun Photo(scene: Scene, modifier: Modifier) {
+    Box(modifier.clip(RoundedCornerShape(14.dp))) { Scenery(scene, Modifier.fillMaxSize()) }
+}

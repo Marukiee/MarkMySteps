@@ -243,12 +243,13 @@ private fun LegCard(name: String, leg: Leg, onMode: () -> Unit) {
     ) {
         Text(name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.width(54.dp))
         ModePill(leg.mode, onMode)
-        Text(
-            if (leg.mode == Mode.Flight) "${leg.from} → ${leg.to}" else "${leg.from} → ${leg.to}",
-            maxLines = 1,
-            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface),
-            modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
-        )
+        // Where from and where to, with the arrow drawn as one of the app's icons, not a font's.
+        Row(Modifier.weight(1f).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            val code = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface)
+            Text(leg.from, maxLines = 1, style = code)
+            LineIcon(Glyphs.arrowRight, cs.onSurfaceVariant, size = 16.dp, stroke = 2.2f, modifier = Modifier.padding(horizontal = 6.dp))
+            Text(leg.to, maxLines = 1, style = code)
+        }
         Text(km(leg.km), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
     }
 }

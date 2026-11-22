@@ -64,6 +64,9 @@ object Glyphs {
     val minus = listOf(P("M5 12h14"))
     val trash = listOf(P("M4 7h16"), P("M10 11v6M14 11v6"), P("M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"), P("M9 7V4h6v3"))
     val search = listOf(C(11f, 11f, 7f), P("m20 20-3.5-3.5"))
+    val camera = listOf(P("M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"), C(12f, 13f, 3.2f))
+    val arrowRight = listOf(P("M5 12h14"), P("m13 6 6 6-6 6"))
+    val cloud = listOf(P("M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 7 18Z"))
     val grip = listOf(C(9f, 6f, 1.3f), C(15f, 6f, 1.3f), C(9f, 12f, 1.3f), C(15f, 12f, 1.3f), C(9f, 18f, 1.3f), C(15f, 18f, 1.3f))
 }
 
