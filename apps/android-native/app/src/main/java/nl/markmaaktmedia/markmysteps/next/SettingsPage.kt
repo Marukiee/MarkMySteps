@@ -375,7 +375,7 @@ private fun ImmichPanel() {
         PathHint("Maak er een in ", listOf("Immich", "Accountinstellingen", "API-keys"), ". Hij wordt versleuteld opgeslagen.")
         FormField("Publieke URL (optioneel)", publicUrl, { publicUrl = it; note = null }, hint = "Voor de knop Openen in Immich", type = KeyboardType.Uri)
         ButtonRow {
-            if (status != null) SoftButton("Verbreken", { confirmOff = true }, Modifier.weight(1f), danger = true)
+            if (status != null) QuietDangerButton("Verbreken", { confirmOff = true }, Modifier.weight(1f))
             MainButton(if (status != null) "Bijwerken" else "Verbinden", {
                 busy = true; note = null
                 val key = apiKey; apiKey = ""

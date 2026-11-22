@@ -430,7 +430,7 @@ private fun TwoFactorPanel() {
                             )
                             if (st?.enabled == true) ButtonRow {
                                 SoftButton("Nieuwe codes", { go("renew") }, Modifier.weight(1f))
-                                SoftButton("Uitschakelen", { go("disable") }, Modifier.weight(1f), danger = true)
+                                QuietDangerButton("Uitschakelen", { go("disable") }, Modifier.weight(1f))
                             } else MainButton("Inschakelen", { go("password") }, Modifier.fillMaxWidth(), icon = Glyphs.shield, enabled = Data.live && st != null)
                         }
                     }

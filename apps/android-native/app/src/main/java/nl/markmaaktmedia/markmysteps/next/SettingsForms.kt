@@ -329,6 +329,20 @@ private fun ButtonInside(label: String, icon: List<Shape24>?, busy: Boolean) {
     Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
 }
 
+/**
+ * A danger that is not the biggest one on the page (wiping data, disconnecting, turning off): error-coloured
+ * text in an error outline, quieter than the filled red of deleting the whole thing.
+ */
+@Composable
+fun QuietDangerButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: List<Shape24>? = null, busy: Boolean = false, enabled: Boolean = true) {
+    val cs = MaterialTheme.colorScheme
+    androidx.compose.material3.OutlinedButton(
+        onClick = onClick, enabled = enabled && !busy, shapes = ButtonDefaults.shapes(), modifier = modifier.height(50.dp),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = cs.error),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, if (enabled && !busy) cs.error.copy(alpha = 0.7f) else cs.onSurface.copy(alpha = 0.12f)),
+    ) { ButtonInside(label, icon, busy) }
+}
+
 /** Two buttons side by side, each half the width. */
 @Composable
 fun ButtonRow(content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {

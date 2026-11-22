@@ -1,6 +1,7 @@
 package nl.markmaaktmedia.markmysteps.next
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -196,7 +197,8 @@ fun TripSettingsPage(trip: Trip, onBack: () -> Unit, onChanged: () -> Unit, onPe
 private fun CoverHeader(trip: Trip, coverId: String?, title: String, start: String, end: String, accent: Color, canPick: Boolean, onPicked: () -> Unit) {
     var pick by remember { mutableStateOf(false) }
     Spacer(Modifier.height(16.dp))
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(accent)) {
+    // Darkened a little, so the white name on it reads on every colour (a yellow or light blue too).
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(androidx.compose.ui.graphics.lerp(accent, Color.Black, 0.3f))) {
         Box(Modifier.fillMaxWidth().height(180.dp)) {
             Cover(trip.copy(coverId = coverId), Modifier.fillMaxSize(), size = "preview")
             if (canPick) Box(Modifier.align(Alignment.BottomEnd).padding(12.dp)) {
@@ -282,7 +284,7 @@ private fun DatesField(start: String, end: String, onChange: (String, String) ->
         }
     }
     if (open) {
-        val state = rememberDateRangePickerState(initialSelectedStartDateMillis = millis(start), initialSelectedEndDateMillis = millis(end))
+        val state = remember { androidx.compose.material3.DateRangePickerState(locale = DutchLocale, initialSelectedStartDateMillis = millis(start), initialSelectedEndDateMillis = millis(end)) }
         DatePickerDialog(
             onDismissRequest = { open = false },
             confirmButton = {
@@ -293,7 +295,21 @@ private fun DatesField(start: String, end: String, onChange: (String, String) ->
                 }, enabled = state.selectedStartDateMillis != null) { Text("Klaar", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
             },
             dismissButton = { TextButton(onClick = { open = false }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
-        ) { DateRangePicker(state, Modifier.height(520.dp), title = { Text("Datums van de reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp), modifier = Modifier.padding(start = 24.dp, top = 16.dp)) }) }
+        ) {
+            Dutch {
+                DateRangePicker(
+                    state, Modifier.height(520.dp), showModeToggle = false,
+                    title = { Text("Datums van de reis", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp), modifier = Modifier.padding(start = 24.dp, top = 16.dp)) },
+                    headline = {
+                        val s = state.selectedStartDateMillis?.let { isoDay(it) }; val e = state.selectedEndDateMillis?.let { isoDay(it) }
+                        Text(
+                            when { s == null -> "Kies het begin"; e == null -> "${shortDate(s)}, kies het eind"; else -> rangeText(s, e) },
+                            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 22.sp), modifier = Modifier.padding(start = 24.dp, bottom = 12.dp),
+                        )
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -418,19 +434,35 @@ private fun MarkerPanel(trip: Trip, id: String, info: SettingsRemote.TripInfo?) 
         scope.launch { runCatching { SettingsRemote.setMarker(id, p) }.onFailure { error = it.message ?: "Markering opslaan mislukt" } }
     }
     Header("Bolletje op de globe")
-    Panel {
-        Hint(
-            when {
-                marker != null -> "Eigen plek ingesteld. Tik op de kaart om hem te verplaatsen."
-                placing -> "Tik op de kaart om de plek te kiezen."
-                else -> "Op de globe staat deze reis met een bolletje op het begin en het eind. Kies hier één eigen plek, handig bij een rondreis."
-            },
-        )
-        AnimatedVisibility(marker != null || placing, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+    val motion = MaterialTheme.motionScheme
+    val enter = fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec())
+    val exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.defaultSpatialSpec())
+    Panel(Modifier.animateContentSize(motion.defaultSpatialSpec())) {
+        // The text changes with a cross-fade and the panel grows to it, so nothing jumps.
+        androidx.compose.animation.Crossfade(if (marker != null) 2 else if (placing) 1 else 0, animationSpec = motion.defaultEffectsSpec(), label = "markerHint") { st ->
+            Hint(
+                when (st) {
+                    2 -> "Eigen plek ingesteld. Tik op de kaart om hem te verplaatsen."
+                    1 -> "Tik op de kaart om de plek te kiezen."
+                    else -> "Op de globe staat deze reis met een bolletje op het begin en het eind. Kies hier één eigen plek, handig bij een rondreis."
+                },
+            )
+        }
+        AnimatedVisibility(marker != null || placing, enter = enter, exit = exit) {
             MarkerMap(trip, marker, dark, Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(20.dp))) { save(it) }
         }
-        if (marker != null) SoftButton("Terug naar automatisch", { save(null); placing = false }, Modifier.fillMaxWidth())
-        else if (!placing) SoftButton("Bolletje zelf plaatsen", { placing = true }, Modifier.fillMaxWidth(), icon = Glyphs.pin, enabled = info != null)
+        // One button at a time: each comes in and goes out on its own, growing and fading.
+        Column {
+            AnimatedVisibility(marker != null, enter = enter, exit = exit) {
+                SoftButton("Terug naar automatisch", { save(null); placing = false }, Modifier.fillMaxWidth())
+            }
+            AnimatedVisibility(marker == null && !placing, enter = enter, exit = exit) {
+                SoftButton("Bolletje zelf plaatsen", { placing = true }, Modifier.fillMaxWidth(), icon = Glyphs.pin, enabled = info != null)
+            }
+            AnimatedVisibility(marker == null && placing, enter = enter, exit = exit) {
+                SoftButton("Annuleren", { placing = false }, Modifier.fillMaxWidth())
+            }
+        }
         Note(error, true)
     }
 }
@@ -452,16 +484,16 @@ private fun DangerPanel(trip: Trip, id: String, isOwner: Boolean, canEdit: Boole
         Hint("Verwijdert jouw GPS-route; de reis en de foto's blijven. Kies een dag, of wis alles.")
         ButtonRow {
             SoftButton(day?.let { shortDate(it) } ?: "Kies een dag", { pickDay = true }, Modifier.weight(1f), icon = listOf(P("M8 2v4"), P("M16 2v4"), P("M3 10h18"), P("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z")))
-            SoftButton("Wis dag", { ask = "day" }, Modifier.weight(1f), danger = true, enabled = day != null && !busy)
+            QuietDangerButton("Wis dag", { ask = "day" }, Modifier.weight(1f), enabled = day != null && !busy)
         }
-        SoftButton("Alles wissen", { ask = "all" }, Modifier.fillMaxWidth(), danger = true, enabled = !busy)
+        QuietDangerButton("Alles wissen", { ask = "all" }, Modifier.fillMaxWidth(), enabled = !busy)
     }
     if (canEdit) {
         Spacer(Modifier.height(10.dp))
         Panel {
             Text("Getekende routes wissen", style = TitleStyle.copy(color = cs.onSurface))
             PathHint("Alleen de routes die je tekende via ", listOf("Ingedrukt houden", "Route via wegen"), ". Je eigen getrackte GPS blijft staan.")
-            SoftButton("Wissen", { ask = "routes" }, Modifier.fillMaxWidth(), danger = true, enabled = !busy)
+            QuietDangerButton("Wissen", { ask = "routes" }, Modifier.fillMaxWidth(), enabled = !busy)
         }
     }
     Note(note?.first, note?.second == true)
@@ -494,19 +526,28 @@ private fun DangerPanel(trip: Trip, id: String, isOwner: Boolean, canEdit: Boole
     if (pickDay) {
         val first = trip.start ?: LocalDate.now()
         val last = first.plusDays((trip.days - 1).coerceAtLeast(0).toLong())
-        val state = rememberDatePickerState(
+        val state = remember { androidx.compose.material3.DatePickerState(
             initialSelectedDateMillis = millis((day ?: first.toString())),
             initialDisplayedMonthMillis = millis(first.withDayOfMonth(1).toString()),
             selectableDates = object : SelectableDates {
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean = LocalDate.parse(isoDay(utcTimeMillis)).let { !it.isBefore(first) && !it.isAfter(last) }
                 override fun isSelectableYear(year: Int): Boolean = year in first.year..last.year
             },
-        )
+            locale = DutchLocale,
+        ) }
         DatePickerDialog(
             onDismissRequest = { pickDay = false },
             confirmButton = { TextButton(onClick = { state.selectedDateMillis?.let { day = isoDay(it) }; pickDay = false }) { Text("Klaar", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
             dismissButton = { TextButton(onClick = { pickDay = false }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
-        ) { DatePicker(state) }
+        ) {
+            Dutch {
+                DatePicker(
+                    state, showModeToggle = false,
+                    title = { Text("Dag om te wissen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp), modifier = Modifier.padding(start = 24.dp, top = 16.dp)) },
+                    headline = { Text(state.selectedDateMillis?.let { shortDate(isoDay(it)) } ?: "Kies een dag", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 22.sp), modifier = Modifier.padding(start = 24.dp, bottom = 12.dp)) },
+                )
+            }
+        }
     }
 }
 
@@ -589,4 +630,14 @@ fun chosenFacts(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<String
             else -> (if (stopsKnown) "${trip.stops.map { it.flag }.distinct().size}" else null) to "landen"
         }
     }
+}
+
+/** Month and day names in Dutch, like the rest of the app, whatever language the phone speaks. */
+private val DutchLocale: java.util.Locale = java.util.Locale.forLanguageTag("nl-NL")
+
+@Composable
+private fun Dutch(content: @Composable () -> Unit) {
+    val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+    val nl = remember(cfg) { android.content.res.Configuration(cfg).apply { setLocale(java.util.Locale.forLanguageTag("nl-NL")) } }
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalConfiguration provides nl) { content() }
 }
