@@ -293,6 +293,97 @@ function trackedJourney(line: [number, number][], flights: [number, number][][])
   return journey;
 }
 
+/** One traveller's recorded route on a trip. */
+export type TravellerLine = {
+  userId: string;
+  /** Length of the full recording, before simplifying. */
+  meters: number;
+  /** The simplified line, [lng, lat], in the order it was recorded. */
+  line: [number, number][];
+};
+
+/**
+ * Every traveller's recorded route per trip, one line each.
+ *
+ * A line per trip over everybody's points ran in time order through all of
+ * them, so wherever two people tracked at once it swung from one to the other
+ * and back in straight lines: Marrakesh to Rabat beside the train, Granada to
+ * Madrid. Grouped per traveller, each line is one person's own way.
+ *
+ * The tolerance is in degrees: 0.05 is roughly 5 km, between the 0.08 this used
+ * to be and the 0.03 it briefly was. Finer than the coastline it is drawn over
+ * looks stranger than coarser does (a route threading past headlands the land
+ * outline does not have reads as a mistake), and the home screen asks for
+ * every trip at once, so the line has to stay cheap. The length is measured on
+ * the full recording, so simplifying never shortens the distance.
+ */
+export async function travellerLines(
+  prisma: Pick<PrismaService, '$queryRaw'>,
+  tripIds: string[],
+): Promise<Map<string, TravellerLine[]>> {
+  const rows = await prisma.$queryRaw<
+    { tripId: string; userId: string; meters: number | null; geojson: string | null }[]
+  >`
+    SELECT "tripId", "userId",
+           ST_Length(line::geography) AS meters,
+           ST_AsGeoJSON(ST_Simplify(line, 0.05)) AS geojson
+    FROM (
+      SELECT "tripId", "userId", ST_MakeLine(geom ORDER BY "recordedAt") AS line
+      FROM location_points
+      WHERE "tripId" = ANY(${tripIds}::uuid[])
+      GROUP BY "tripId", "userId"
+    ) per_traveller
+  `;
+  const byTrip = new Map<string, TravellerLine[]>();
+  for (const row of rows) {
+    if (!row.geojson) continue;
+    try {
+      const geom = JSON.parse(row.geojson) as { type: string; coordinates: number[][] };
+      if (geom.type !== 'LineString' || geom.coordinates.length < 2) continue;
+      // A tracked GPS route is real travel: kept whole, NL included (an
+      // interrail trip that starts at home must still show that leg). Only
+      // photo-derived lines strip NL (a home snapshot isn't a journey).
+      const list = byTrip.get(row.tripId) ?? [];
+      list.push({
+        userId: row.userId,
+        meters: Number(row.meters ?? 0),
+        line: geom.coordinates as [number, number][],
+      });
+      byTrip.set(row.tripId, list);
+    } catch {
+      /* ignore malformed geometry */
+    }
+  }
+  return byTrip;
+}
+
+/**
+ * Whose recorded lines the globe shows, in the order they are drawn.
+ *
+ * The same choice the map on the trip page makes when it opens: the
+ * organiser's line and your own when you travel along, and everyone's when
+ * neither of you recorded anything, so a trip somebody did track is never
+ * left blank. The organiser comes first: the globe starts a trip at the first
+ * point of its first line, and the journey and the distance are theirs.
+ *
+ * `viewerId` is the person looking, or null when they only look on (a guest).
+ */
+export function pickTravellerLines(
+  lines: TravellerLine[],
+  ownerId: string,
+  viewerId: string | null,
+): TravellerLine[] {
+  const drawn = lines.filter((l) => l.line.length >= 2);
+  const wanted = [ownerId, viewerId].filter((id): id is string => id !== null);
+  const mine = wanted
+    .filter((id, i) => wanted.indexOf(id) === i)
+    .map((id) => drawn.find((l) => l.userId === id))
+    .filter((l): l is TravellerLine => l !== undefined);
+  if (mine.length > 0) return mine;
+  // Nobody wanted recorded anything: everyone's, the longest first.
+  return [...drawn].sort((a, b) => b.meters - a.meters || a.userId.localeCompare(b.userId));
+}
+
 /** Drops small leading/trailing photo clusters that sit far from the trip's
  *  main body (a couple of snaps taken at home), so the globe line doesn't run
  *  from home to the first real destination. */
@@ -365,46 +456,9 @@ export class TripsService {
     });
     if (trips.length === 0) return [];
 
-    // One grouped query for route distance per trip (cheap panel stat).
-    const distances = await this.prisma.$queryRaw<{ tripId: string; meters: number | null }[]>`
-      SELECT "tripId", ST_Length(ST_MakeLine(geom ORDER BY "recordedAt")::geography) AS meters
-      FROM location_points
-      WHERE "tripId" = ANY(${trips.map((t) => t.id)}::uuid[])
-      GROUP BY "tripId"
-    `;
-    const kmByTrip = new Map(
-      distances.map((d) => [d.tripId, Math.round((d.meters ?? 0) / 1000)]),
-    );
-
-    // Simplified tracked route per trip, as GeoJSON, for the globe overview.
-    // The tolerance is in degrees: 0.05 is roughly 5 km, between the 0.08 this
-    // used to be and the 0.03 it briefly was. Finer than the coastline it is
-    // drawn over looks stranger than coarser does — a route threading past
-    // headlands the land outline does not have reads as a mistake — and the
-    // home screen asks for every trip at once, so the line has to stay cheap.
+    // Every traveller's recorded route, one line each, with its length.
     const tripIds = trips.map((t) => t.id);
-    const routeRows = await this.prisma.$queryRaw<{ tripId: string; geojson: string | null }[]>`
-      SELECT "tripId",
-             ST_AsGeoJSON(ST_Simplify(ST_MakeLine(geom ORDER BY "recordedAt"), 0.05)) AS geojson
-      FROM location_points
-      WHERE "tripId" = ANY(${tripIds}::uuid[])
-      GROUP BY "tripId"
-    `;
-    const routeByTrip = new Map<string, [number, number][]>();
-    for (const row of routeRows) {
-      if (!row.geojson) continue;
-      try {
-        const geom = JSON.parse(row.geojson) as { type: string; coordinates: number[][] };
-        if (geom.type === 'LineString' && geom.coordinates.length >= 2) {
-          // A tracked GPS route is real travel — keep it whole, NL included (an
-          // interrail trip that starts at home must still show that leg). Only
-          // photo-derived lines strip NL (a home snapshot isn't a journey).
-          routeByTrip.set(row.tripId, geom.coordinates as [number, number][]);
-        }
-      } catch {
-        /* ignore malformed geometry */
-      }
-    }
+    const linesByTrip = await travellerLines(this.prisma, tripIds);
 
     // Planned route for trips without a tracked route. Flight legs are drawn as
     // great-circle arcs (through any airports/layovers) so they read as flights,
@@ -532,12 +586,20 @@ export class TripsService {
     const live = await this.liveCovers(trips);
     return trips.map((t) => {
       const base = mapMembers(t, live);
-      const tracked = routeByTrip.get(t.id);
+      // You count as travelling along when you could record on it yourself.
+      const role = t.members.find((m) => m.userId === userId)?.role;
+      const viewer = t.ownerId === userId || (role && role !== TripRole.GUEST) ? userId : null;
+      const tracks = pickTravellerLines(linesByTrip.get(t.id) ?? [], t.ownerId, viewer);
+      // The journey and the distance follow ONE traveller. Two people side by
+      // side did not travel twice as far, and a journey laid end to end from
+      // two lines would bridge the gap between them with exactly the straight
+      // jump that splitting the lines took away.
+      const tracked = tracks[0]?.line;
       const planned = stopsByTrip.get(t.id);
       const photoLine = photosByTrip.get(t.id);
       const routePath: [number, number][][] | undefined =
-        tracked && tracked.length >= 2
-          ? [tracked]
+        tracks.length > 0
+          ? tracks.map((l) => l.line)
           : planned && planned.length > 0
             ? planned
             : photoLine && photoLine.length >= 2
@@ -548,14 +610,13 @@ export class TripsService {
       // Whichever line is actually drawn is the one the journey describes: the
       // recording when there is one (which carries its own order, having been
       // built in time order), otherwise the plan.
-      const journey =
-        tracked && tracked.length >= 2
-          ? trackedJourney(tracked, flightPath ?? [])
-          : journeyByTrip.get(t.id);
+      const journey = tracked
+        ? trackedJourney(tracked, flightPath ?? [])
+        : journeyByTrip.get(t.id);
       return {
         ...base,
         anchor,
-        distanceKm: kmByTrip.get(t.id) ?? 0,
+        distanceKm: Math.round((tracks[0]?.meters ?? 0) / 1000),
         routePath,
         flightPath,
         journey,
