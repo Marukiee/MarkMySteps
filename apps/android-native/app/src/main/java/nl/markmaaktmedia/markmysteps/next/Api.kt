@@ -133,7 +133,19 @@ object Api {
     suspend fun get(path: String): String = withContext(Dispatchers.IO) { request("GET", path) }
 
     /** A change the user made themselves (a reaction, a comment): sent as it is, nothing else. */
-    suspend fun send(method: String, path: String, body: JSONObject? = null): String = withContext(Dispatchers.IO) { request(method, path, body?.toString()) }
+    /**
+     * Test mode: started with `--ez dryRun true`, every write is answered here and never leaves the phone, so a
+     * test can tap delete, reorder or rename on real data without changing anything. Lives until the app stops.
+     */
+    @Volatile var dryRun = false
+
+    suspend fun send(method: String, path: String, body: JSONObject? = null): String = withContext(Dispatchers.IO) {
+        if (dryRun && method != "GET") {
+            android.util.Log.i("MmsDryRun", "$method $path ${body ?: ""}")
+            return@withContext "{}"
+        }
+        request(method, path, body?.toString())
+    }
 
     /** An image from the server, with the token, as bytes. */
     fun bytes(path: String, retried: Boolean = false): ByteArray? {
@@ -372,6 +384,18 @@ object Remote {
 
     /** A playable address for a video: the server hands out a short-lived token in the URL. */
     suspend fun videoUrl(mediaId: String): String = Api.base + JSONObject(Api.get("/api/media/$mediaId/video-url")).getString("url")
+
+    suspend fun renameTrip(trip: Trip, title: String) {
+        Api.send("PATCH", "/api/trips/${trip.remoteId}", JSONObject().put("title", title.trim()))
+    }
+
+    suspend fun deleteTrip(trip: Trip) { Api.send("DELETE", "/api/trips/${trip.remoteId}") }
+
+    /** Leaving a trip someone else made: you take yourself off its members. */
+    suspend fun leaveTrip(trip: Trip) {
+        val me = cachedMe()?.id ?: return
+        Api.send("DELETE", "/api/trips/${trip.remoteId}/members/$me")
+    }
 
     suspend fun setTripColor(trip: Trip, hex: String?) {
         Api.send("PATCH", "/api/trips/${trip.remoteId}", JSONObject().put("color", hex ?: JSONObject.NULL))

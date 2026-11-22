@@ -24,8 +24,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Api.init(applicationContext)
+        if (intent?.getBooleanExtra("dryRun", false) == true) Api.dryRun = true
         ThemePref.init(applicationContext)
         MapStylePref.init(applicationContext)
+        CardSizePref.init(applicationContext)
         Photos.initRatios(applicationContext)
         val startStyle = intent.getStringExtra("style") ?: "new"
         val forcedTheme = intent.getStringExtra("theme")

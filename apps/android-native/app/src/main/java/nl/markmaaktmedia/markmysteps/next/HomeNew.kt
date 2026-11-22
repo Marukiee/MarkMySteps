@@ -331,7 +331,12 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                     if (loading) HomePlaceholders() else Column {
                         if (Data.upcoming.isNotEmpty()) SectionTitle("Aankomend & onderweg", Modifier.padding(top = 22.dp, bottom = 12.dp).arrive(1))
                         // Every trip of your own under way or to come, not only the first.
-                        Data.upcoming.forEachIndexed { i, next -> NextTripCard(next, onOpen = { onOpenTrip(next) }, onPeopleTrip = onPeople, modifier = Modifier.padding(top = if (i == 0) 0.dp else 10.dp).arrive(2 + i)) }
+                        Data.upcoming.forEachIndexed { i, next ->
+                            // Big by default; "Klein" from its menu makes it a row like the trips below.
+                            val m = Modifier.padding(top = if (i == 0) 0.dp else 10.dp).arrive(2 + i)
+                            if (CardSizePref.big(next.id, autoBig = true)) NextTripCard(next, onOpen = { onOpenTrip(next) }, onPeopleTrip = onPeople, modifier = m)
+                            else TripRow(next, RoundedCornerShape(28.dp), dark, onOpen = { onOpenTrip(next) }, onPeopleTrip = onPeople, modifier = m, autoBig = true)
+                        }
                         if (Data.live && Data.trips.isEmpty()) EmptyTrips()
                         PastOrShared(tab, onTab = { tab = it }, modifier = Modifier.padding(top = 26.dp, bottom = 4.dp).arrive(3))
                         // A trip can be shown big, as the first one here, or as a row with its photo blurred behind it.
@@ -350,11 +355,28 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                         ) { which ->
                             Column {
                             val list = if (which == 0) Data.past else Data.sharedTrips
-                            list.firstOrNull()?.let { first -> BigTripCard(first, onOpen = { onOpenTrip(first) }, onPeopleTrip = onPeople, modifier = Modifier.padding(top = 14.dp).arrive(4)) }
-                            list.drop(1).groupBy { it.year }.forEach { (year, trips) ->
+                            // Each trip big or as a row: its own choice from the menu, else the default from Weergave
+                            // (Automatisch: the latest one big, the rest rows). Rows next to each other join into a slab.
+                            val first = list.firstOrNull()
+                            val firstBig = first != null && CardSizePref.big(first.id, autoBig = true)
+                            if (first != null && firstBig) BigTripCard(first, onOpen = { onOpenTrip(first) }, onPeopleTrip = onPeople, modifier = Modifier.padding(top = 14.dp).arrive(4), autoBig = true)
+                            (if (firstBig) list.drop(1) else list).groupBy { it.year }.forEach { (year, trips) ->
                                 SectionTitle(year, Modifier.padding(top = 18.dp, bottom = 10.dp), small = true)
-                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    trips.forEachIndexed { i, trip -> TripRow(trip, slab(i, trips.size), dark, onOpen = { onOpenTrip(trip) }, onPeopleTrip = onPeople, modifier = Modifier.arrive(5 + i)) }
+                                val runs = mutableListOf<MutableList<Trip>>()
+                                trips.forEach { t ->
+                                    val big = CardSizePref.big(t.id, autoBig = t.id == first?.id)
+                                    val last = runs.lastOrNull()
+                                    if (!big && last != null && !CardSizePref.big(last.last().id, autoBig = last.last().id == first?.id)) last += t else runs += mutableListOf(t)
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    runs.forEach { run ->
+                                        val lone = run.single().takeIf { run.size == 1 }
+                                        if (lone != null && CardSizePref.big(lone.id, autoBig = lone.id == first?.id)) {
+                                            BigTripCard(lone, onOpen = { onOpenTrip(lone) }, onPeopleTrip = onPeople, modifier = Modifier.arrive(5), autoBig = lone.id == first?.id)
+                                        } else Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            run.forEachIndexed { i, trip -> TripRow(trip, slab(i, run.size), dark, onOpen = { onOpenTrip(trip) }, onPeopleTrip = onPeople, modifier = Modifier.arrive(5 + i), autoBig = trip.id == first?.id) }
+                                        }
+                                    }
                                 }
                             }
                             if ((if (which == 0) Data.past else Data.sharedTrips).isEmpty()) {
@@ -461,7 +483,7 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier, small: Boo
 
 /** The next trip: its colour edge to edge, the days left as a big number and a wavy bar. */
 @Composable
-private fun NextTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Modifier, onPeopleTrip: (Trip) -> Unit = {}) {
+private fun NextTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Modifier, onPeopleTrip: (Trip) -> Unit = {}, autoBig: Boolean = true) {
     val shape = RoundedCornerShape(32.dp)
     val base = trip.color
     val deep = Color(0xFF1B2440).copy(alpha = 0.55f).compositeOver(base)
@@ -478,7 +500,7 @@ private fun NextTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mo
             Glyphs.compass, Color.White, size = 170.dp, stroke = 1.3f,
             modifier = Modifier.align(Alignment.TopEnd).offset(x = 46.dp, y = (-22).dp).rotate(-12f).alpha(0.16f),
         )
-        MenuDots(Modifier.align(Alignment.TopEnd).padding(14.dp), onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null)
+        MenuDots(trip, Modifier.align(Alignment.TopEnd).padding(14.dp), onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, autoBig = autoBig)
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(big, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(800), fontSize = 60.sp, lineHeight = 60.sp, letterSpacing = (-0.03).em, color = Color.White))
@@ -568,27 +590,109 @@ private fun PastOrShared(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Mo
     }
 }
 
-/** The trip menu on a card with a picture behind it: three dots on a soft dark disc. */
+/**
+ * The trip menu, as Material 3 Expressive's segmented menu: rounded groups with a gap between them, as on the
+ * web. Open and share; the card's size with a tick on the chosen one; rename and delete (or leave a trip
+ * someone else made). No shadow: the groups stand off the page by their own tone and a fine edge.
+ */
 @Composable
-private fun MenuDots(modifier: Modifier = Modifier, onOpen: () -> Unit = {}, onPeople: (() -> Unit)? = null, light: Boolean = true) {
+private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Unit = {}, onPeople: (() -> Unit)? = null, light: Boolean = true, autoBig: Boolean = false) {
     var menu by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
+    var leaving by remember { mutableStateOf(false) }
     val cs = MaterialTheme.colorScheme
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val remote = trip.remoteId != null
+    val mine = remote && (trip.ownerId.isNullOrBlank() || trip.ownerId == Data.me?.id)
     Box(modifier) {
         Box(
             // A solid tonal disc on photos, so the dots read on a bright sky too.
             Modifier.size(40.dp).clip(CircleShape).background(if (light) cs.surfaceContainerHighest else Color.Transparent).bouncyClickable { menu = true },
             contentAlignment = Alignment.Center,
         ) { LineIcon(Glyphs.dotsCircles, if (light) cs.onSurface else cs.onSurfaceVariant, size = 20.dp, filled = true) }
-        androidx.compose.material3.DropdownMenu(menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(20.dp), containerColor = cs.surfaceContainerHighest, tonalElevation = 0.dp, shadowElevation = 0.dp) {
-            androidx.compose.material3.DropdownMenuItem(
-                text = { Text("Openen", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
-                onClick = { menu = false; onOpen() }, leadingIcon = { LineIcon(Glyphs.compass, cs.onSurface, size = 20.dp) },
-            )
-            if (onPeople != null) androidx.compose.material3.DropdownMenuItem(
-                text = { Text("Mensen en delen", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
-                onClick = { menu = false; onPeople() }, leadingIcon = { LineIcon(Glyphs.friends, cs.onSurface, size = 20.dp) },
-            )
-        }
+        val chosen = CardSizePref.overrides[trip.id] ?: CardSizePref.AUTO
+        AppMenu(menu, onDismiss = { menu = false }, groups = listOf(
+            listOfNotNull(
+                MenuEntry("Openen", Glyphs.compass) { onOpen() },
+                onPeople?.let { MenuEntry("Mensen en delen", Glyphs.friends) { it() } },
+            ),
+            listOf(
+                MenuEntry(if (autoBig) "Automatisch (groot)" else "Automatisch (klein)", Glyphs.cardAuto, selected = chosen == CardSizePref.AUTO) { CardSizePref.set(trip.id, null) },
+                MenuEntry("Groot", Glyphs.cardLarge, selected = chosen == CardSizePref.LARGE) { CardSizePref.set(trip.id, CardSizePref.LARGE) },
+                MenuEntry("Klein", Glyphs.cardRow, selected = chosen == CardSizePref.COMPACT) { CardSizePref.set(trip.id, CardSizePref.COMPACT) },
+            ),
+            when {
+                !remote -> emptyList()
+                mine -> listOf(MenuEntry("Hernoemen", Glyphs.pencil) { renaming = true }, MenuEntry("Verwijderen", Glyphs.trash, danger = true) { deleting = true })
+                else -> listOf(MenuEntry("Reis verlaten", Glyphs.signOut, danger = true) { leaving = true })
+            },
+        ))
+    }
+    if (renaming) {
+        var title by remember { mutableStateOf(trip.title) }
+        var busy by remember { mutableStateOf(false) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { if (!busy) renaming = false },
+            title = { Text("Hernoemen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
+            text = { TripField(title, { title = it.take(120) }) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(enabled = !busy && title.isNotBlank() && title.trim() != trip.title, onClick = {
+                    busy = true
+                    scope.launch { runCatching { Remote.renameTrip(trip, title) }; Data.load(); busy = false; renaming = false }
+                }) { Text("Opslaan", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { renaming = false }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+        )
+    }
+    if (deleting) {
+        // As on the web: the trip's name typed out first, because it cannot be undone.
+        var typed by remember { mutableStateOf("") }
+        var busy by remember { mutableStateOf(false) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { if (!busy) deleting = false },
+            title = { Text("Reis verwijderen?", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
+            text = {
+                Column {
+                    Text("\"${trip.title}\" wordt definitief verwijderd, samen met de route, de notities en de foto-koppelingen. Dit kan niet ongedaan gemaakt worden.", style = TextStyle(fontFamily = Inter, fontSize = 15.sp))
+                    Text("Typ de naam van de reis om te bevestigen.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
+                    TripField(typed, { typed = it }, placeholder = trip.title)
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(enabled = !busy && typed.trim() == trip.title.trim(), onClick = {
+                    busy = true
+                    scope.launch { runCatching { Remote.deleteTrip(trip) }; CardSizePref.set(trip.id, null); Data.load(); busy = false; deleting = false }
+                }) { Text("Verwijderen", color = if (typed.trim() == trip.title.trim()) cs.error else cs.onSurface.copy(alpha = 0.38f), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { deleting = false }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+        )
+    }
+    if (leaving) {
+        var busy by remember { mutableStateOf(false) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { if (!busy) leaving = false },
+            title = { Text("Reis verlaten?", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
+            text = { Text("Je verlaat \"${trip.title}\". Je kunt er altijd opnieuw op gezet worden.", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(enabled = !busy, onClick = {
+                    busy = true
+                    scope.launch { runCatching { Remote.leaveTrip(trip) }; Data.load(); busy = false; leaving = false }
+                }) { Text("Verlaten", color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { leaving = false }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+        )
+    }
+}
+
+/** A text field in the app's own style: a tonal rounded box, as the name field of Nieuwe reis. */
+@Composable
+private fun TripField(value: String, onChange: (String) -> Unit, placeholder: String = "") {
+    val cs = MaterialTheme.colorScheme
+    Box(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
+        if (value.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
+        androidx.compose.foundation.text.BasicTextField(value, onChange, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurface),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -611,7 +715,7 @@ private fun Modifier.arrive(order: Int): Modifier = composed {
 
 /** A trip shown big: its photo edge to edge, the name and facts on it. */
 @Composable
-private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Modifier, onPeopleTrip: (Trip) -> Unit = {}) {
+private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Modifier, onPeopleTrip: (Trip) -> Unit = {}, autoBig: Boolean = true) {
     val shape = RoundedCornerShape(32.dp)
     Box(modifier.fillMaxWidth().aspectRatio(16f / 11f).clip(shape).bouncyClickable(onOpen)) {
         if (trip.coverId == null && trip.remoteId != null) {
@@ -626,7 +730,7 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
             Cover(trip, Modifier.matchParentSize(), size = "preview")
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color(0xC010151B))))
         }
-        MenuDots(Modifier.align(Alignment.TopEnd).padding(14.dp), onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null)
+        MenuDots(trip, Modifier.align(Alignment.TopEnd).padding(14.dp), onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, autoBig = autoBig)
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
             Text(trip.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 26.sp, letterSpacing = (-0.015).em, color = Color.White))
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -645,7 +749,7 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
  * in the page colour, the photo itself as a thumbnail, the facts and a menu.
  */
 @Composable
-private fun TripRow(trip: Trip, shape: Shape, dark: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier, onPeopleTrip: (Trip) -> Unit = {}) {
+private fun TripRow(trip: Trip, shape: Shape, dark: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier, onPeopleTrip: (Trip) -> Unit = {}, autoBig: Boolean = false) {
     val cs = MaterialTheme.colorScheme
     // The row takes on the tone of its cover photo, tinted enough to read on; it flows
     // over from the plain surface once the photo is there instead of popping in.
@@ -667,7 +771,7 @@ private fun TripRow(trip: Trip, shape: Shape, dark: Boolean, onOpen: () -> Unit,
                 val km = trip.km?.takeIf { it > 0 }?.let { " · " + "%,d".format(it).replace(',', '.') + " km" } ?: ""
                 Text("${trip.month} ${trip.year} · ${if (trip.days == 1) "1 dag" else "${trip.days} dagen"}$km", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
             }
-            MenuDots(onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, light = false)
+            MenuDots(trip, onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, light = false, autoBig = autoBig)
         }
     }
 }

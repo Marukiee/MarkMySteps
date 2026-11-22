@@ -36,6 +36,11 @@ object Glyphs {
     val hourglass = listOf(P("M7 4h10M7 20h10"), P("M7 4c0 4 3 5 5 8 2-3 5-4 5-8"), P("M7 20c0-4 3-5 5-8 2 3 5 4 5 8"))
     val plus = listOf(P("M12 5v14"), P("M5 12h14"))
     val chevronRight = listOf(P("m9 18 6-6-6-6"))
+    /** Card sizes in the trip menu: chosen for you, one big card, a row. */
+    val cardAuto = listOf(P("M12 3.5l1.9 4.9 4.9 1.9-4.9 1.9L12 17.1l-1.9-4.9-4.9-1.9 4.9-1.9Z"), P("M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8Z"))
+    val cardLarge = listOf(P("M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"), P("M7 16h6"))
+    val cardRow = listOf(P("M5 8h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2Z"), P("M7 12h.01"), P("M11 12h6"))
+    val check = listOf(P("m5 12 5 5 9-10"))
     /** Opens outside the app, in the browser. */
     val external = listOf(P("M14 4h6v6"), P("M20 4 11 13"), P("M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"))
     val signOut = listOf(P("M9 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3"), P("m15 16 4-4-4-4"), P("M19 12H9"))

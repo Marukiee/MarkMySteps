@@ -192,6 +192,41 @@ object MapStylePref {
     fun set(value: String) { id = value; prefs?.edit()?.putString("mapStyle", value)?.apply() }
 }
 
+/**
+ * How big a trip shows on the homepage, as on the web: a default for all trips (Automatisch: the trips to come
+ * and the latest one big, the rest as rows) and per trip a choice from its menu that wins over it. Kept on
+ * this phone only.
+ */
+object CardSizePref {
+    const val AUTO = "auto"; const val LARGE = "large"; const val COMPACT = "compact"
+    private var prefs: android.content.SharedPreferences? = null
+    var standard by mutableStateOf(AUTO)
+        private set
+    val overrides = androidx.compose.runtime.mutableStateMapOf<String, String>()
+    fun init(context: android.content.Context) {
+        prefs = context.getSharedPreferences("mms.next.ui", android.content.Context.MODE_PRIVATE)
+        standard = prefs?.getString("cardSize", AUTO) ?: AUTO
+        runCatching {
+            val o = org.json.JSONObject(prefs?.getString("cardSizeOverrides", "{}") ?: "{}")
+            o.keys().forEach { k -> overrides[k] = o.getString(k) }
+        }
+    }
+    fun choose(v: String) { standard = v; prefs?.edit()?.putString("cardSize", v)?.apply() }
+    /** null follows the default. */
+    fun set(tripId: String, v: String?) {
+        if (v == null || v == AUTO) overrides.remove(tripId) else overrides[tripId] = v
+        save()
+    }
+    fun clear() { overrides.clear(); save() }
+    private fun save() { prefs?.edit()?.putString("cardSizeOverrides", org.json.JSONObject(overrides.toMap()).toString())?.apply() }
+    /** Whether this trip shows big; [autoBig] is what Automatisch means for it. */
+    fun big(tripId: String, autoBig: Boolean): Boolean = when (overrides[tripId] ?: standard) {
+        LARGE -> true
+        COMPACT -> false
+        else -> autoBig
+    }
+}
+
 private val PersonPalette = listOf(
     androidx.compose.ui.graphics.Color(0xFFE8613C), androidx.compose.ui.graphics.Color(0xFF5B8DEF), androidx.compose.ui.graphics.Color(0xFF2BB6A8),
     androidx.compose.ui.graphics.Color(0xFFD9A441), androidx.compose.ui.graphics.Color(0xFF7A5BD6), androidx.compose.ui.graphics.Color(0xFFE34B8A), androidx.compose.ui.graphics.Color(0xFF4CAF50),

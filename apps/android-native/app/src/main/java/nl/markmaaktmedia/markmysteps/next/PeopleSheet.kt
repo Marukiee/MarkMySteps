@@ -184,23 +184,15 @@ private fun MemberRow(m: Member, i: Int, n: Int, canChange: Boolean, onRole: (St
                 Box(Modifier.size(40.dp).clip(CircleShape).clickable { menu = true }, contentAlignment = Alignment.Center) {
                     LineIcon(Glyphs.dotsCircles, cs.onSurfaceVariant, size = 20.dp, filled = true)
                 }
-                DropdownMenu(menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(20.dp), containerColor = cs.surfaceContainerHighest, tonalElevation = 0.dp, shadowElevation = 0.dp) {
-                    DropdownMenuItem(
-                        text = { Text(if (m.role == "GUEST") "Maak reisgenoot" else "Maak gast", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
-                        onClick = { menu = false; onRole(if (m.role == "GUEST") "MEMBER" else "GUEST") },
-                        leadingIcon = { LineIcon(Glyphs.friends, cs.onSurface, size = 20.dp) },
-                    )
-                    if (m.role != "GUEST") DropdownMenuItem(
-                        text = { Text(if (m.canTrack) "Mag niet meer tracken" else "Mag tracken", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
-                        onClick = { menu = false; onTrack(!m.canTrack) },
-                        leadingIcon = { LineIcon(Glyphs.distance, cs.onSurface, size = 20.dp) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Verwijderen", color = cs.error, style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
-                        onClick = { menu = false; onRemove() },
-                        leadingIcon = { LineIcon(Glyphs.trash, cs.error, size = 20.dp) },
-                    )
-                }
+                // The same menu as everywhere: the role as a choice with a tick, tracking, then removing.
+                AppMenu(menu, onDismiss = { menu = false }, groups = listOf(
+                    listOf(
+                        MenuEntry("Reisgenoot", Glyphs.friends, selected = m.role != "GUEST") { if (m.role == "GUEST") onRole("MEMBER") },
+                        MenuEntry("Gast", Glyphs.person, selected = m.role == "GUEST") { if (m.role != "GUEST") onRole("GUEST") },
+                    ),
+                    if (m.role != "GUEST") listOf(MenuEntry("Mag tracken", Glyphs.distance, selected = m.canTrack) { onTrack(!m.canTrack) }) else emptyList(),
+                    listOf(MenuEntry("Verwijderen", Glyphs.trash, danger = true) { onRemove() }),
+                ))
             }
         }
     }
