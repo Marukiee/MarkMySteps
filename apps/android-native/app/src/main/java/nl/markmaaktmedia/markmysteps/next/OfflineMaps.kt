@@ -52,6 +52,25 @@ object OfflineMaps {
 
     data class Saved(val region: OfflineRegion, val bytes: Long, val style: String)
 
+    /** Downloads under way, per trip: done and total resources. They go on when the page is left. */
+    val progress = androidx.compose.runtime.mutableStateMapOf<String, Pair<Long, Long>>()
+    /** What finished while the page may have been away, per trip: the saved region or the error. */
+    val results = androidx.compose.runtime.mutableStateMapOf<String, Result<Saved>>()
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
+
+    /** Starts a download that outlives the page; [progress] and [results] tell how it goes. */
+    fun start(context: android.content.Context, tripId: String, style: String, bounds: LatLngBounds) {
+        if (progress.containsKey(tripId)) return
+        val app = context.applicationContext
+        progress[tripId] = 0L to 0L
+        results.remove(tripId)
+        scope.launch {
+            val r = download(app, tripId, style, bounds) { d, t -> progress[tripId] = d to t }
+            progress.remove(tripId)
+            results[tripId] = r
+        }
+    }
+
     private fun metaOf(r: OfflineRegion): JSONObject? = runCatching { JSONObject(String(r.metadata)) }.getOrNull()
 
     private suspend fun regions(context: android.content.Context): List<OfflineRegion> = suspendCancellableCoroutine { cont ->
@@ -165,9 +184,12 @@ fun OfflineMapPanel(trip: Trip, tripId: String) {
     val dark = cs.background.luminance() < 0.5f
     var saved by remember { mutableStateOf<OfflineMaps.Saved?>(null) }
     var checked by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+    val progress = OfflineMaps.progress[tripId]
     var error by remember { mutableStateOf<String?>(null) }
     var routes by remember { mutableStateOf<List<MapRemote.RouteLine>?>(null) }
+    // A download that finished (here or while the page was away) says how it went.
+    val result = OfflineMaps.results[tripId]
+    LaunchedEffect(result) { result?.onSuccess { saved = it }?.onFailure { error = it.message ?: "Downloaden mislukt" } }
     LaunchedEffect(tripId) {
         saved = runCatching { OfflineMaps.find(context, tripId) }.getOrNull(); checked = true
         routes = runCatching { MapRemote.routes(tripId, null) }.getOrNull()
@@ -193,18 +215,14 @@ fun OfflineMapPanel(trip: Trip, tripId: String) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (saved != null) QuietDangerButton("Wissen", {
                     scope.launch { runCatching { OfflineMaps.delete(context, tripId) }; saved = null }
-                }, Modifier.weight(1f), icon = Glyphs.trash)
+                }, Modifier.weight(0.75f), icon = Glyphs.trash)
                 SoftButton(if (saved != null) "Opnieuw ophalen" else "Downloaden", {
                     val b = bounds ?: return@SoftButton
                     val style = mapStyleUrl(dark)
                     if (style == null) { error = "Satellietkaart kan niet offline bewaard worden. Kies een andere kaartstijl."; return@SoftButton }
-                    error = null; progress = 0L to 0L
-                    scope.launch {
-                        OfflineMaps.download(context, tripId, style, b) { d, t -> progress = d to t }
-                            .onSuccess { saved = it }.onFailure { error = it.message ?: "Downloaden mislukt" }
-                        progress = null
-                    }
-                }, Modifier.weight(1f), icon = Glyphs.download, enabled = bounds != null)
+                    error = null
+                    OfflineMaps.start(context, tripId, style, b)
+                }, Modifier.weight(if (saved != null) 1.25f else 1f), icon = Glyphs.download, enabled = bounds != null)
             }
         }
         Note(error, true)
