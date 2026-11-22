@@ -19,6 +19,8 @@ struct TravellersView: View {
     @State private var unread = 0
     /// Where the list is; set back to its very top (large title and bell in view) when the tab was left.
     @State private var scroll = ScrollPosition(edge: .top)
+    @State private var topInset: CGFloat = 62
+    @State private var scrolled = false
     @Namespace private var zoom
 
     var body: some View {
@@ -26,7 +28,8 @@ struct TravellersView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        profile.arrive(0).id("top")
+                        header.id("top")
+                        profile.arrive(0).padding(.top, 10)
                         stats.padding(.top, 14)
                         countries
                         people
@@ -35,6 +38,18 @@ struct TravellersView: View {
                     .padding(.bottom, 24)
                 }
                 .scrollPosition($scroll)
+                .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { if $0 > 0 { topInset = $0 } }
+                .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.contentInsets.top > 8 } action: { _, v in
+                    withAnimation(.easeOut(duration: 0.2)) { scrolled = v }
+                }
+                // Behind the clock and the battery once the page scrolls under them; no bar otherwise.
+                .overlay(alignment: .top) {
+                    LinearGradient(stops: [.init(color: Brand.paper, location: 0), .init(color: Brand.paper, location: 0.7), .init(color: Brand.paper.opacity(0), location: 1)], startPoint: .top, endPoint: .bottom)
+                        .frame(height: topInset + 14)
+                        .ignoresSafeArea(.container, edges: .top)
+                        .opacity(scrolled ? 1 : 0)
+                        .allowsHitTesting(false)
+                }
                 .onAppear {
                     guard Launch.page == "travellers", let anchor = Launch.scroll else { return }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { proxy.scrollTo(anchor, anchor: UnitPoint(x: 0.5, y: 0.13)) }
@@ -52,39 +67,10 @@ struct TravellersView: View {
                 }
             }
             .background(Brand.paper)
+            // The title stays for the back button of the pages under it; the page draws its own heading with
+            // the bell beside it, as on Android, instead of the bell on a row of its own above the title.
             .navigationTitle("Reizigers")
-            .toolbar {
-                // Requests to join a trip and invitations land here, where the people are.
-                ToolbarItem(placement: .topBarTrailing) {
-                    // The dot only when there really is something new.
-                    let dot = store.live ? unread > 0 : true
-                    Button { Haptic.tap(); requests = true } label: {
-                        Image(systemName: dot ? "bell.badge" : "bell")
-                            .symbolRenderingMode(.palette)
-                            .foregroundStyle(Brand.accent, Brand.ink)
-                    }
-                    .tint(.primary)
-                    .accessibilityLabel(dot ? "Meldingen, iets nieuws" : "Meldingen")
-                    // A floating panel out of the bell's corner, not a sheet from the bottom.
-                    .popover(isPresented: $requests, arrowEdge: .top) {
-                        NoticesPanel(
-                            demo: !store.live,
-                            onChanged: { unread = 0 },
-                            onOpenTrip: { id in
-                                requests = false
-                                if let trip = store.trips.first(where: { $0.id == id || $0.remoteId == id }) {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { path.append(trip.id) }
-                                }
-                            },
-                            onOpenRequests: {
-                                requests = false
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onOpenRequests() }
-                            }
-                        )
-                        .presentationCompactAdaptation(.popover)
-                    }
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .task(id: store.live) {
                 if store.live { unread = (try? await Remote.noticeCount()) ?? 0 }
             }
@@ -99,6 +85,51 @@ struct TravellersView: View {
     }
 
     private var name: String { store.me?.name.isEmpty == false ? store.me!.name : "Mark" }
+
+    /// "Reizigers" in the large title's font, the bell beside it on the same line.
+    private var header: some View {
+        HStack(alignment: .center) {
+            Text("Reizigers").font(.outfit(34, 680)).foregroundStyle(Brand.ink)
+            Spacer()
+            bell
+        }
+        .padding(.top, 6)
+    }
+
+    /// Requests to join a trip and invitations land here, where the people are.
+    private var bell: some View {
+        // The dot only when there really is something new.
+        let dot = store.live ? unread > 0 : true
+        return Button { Haptic.tap(); requests = true } label: {
+            Image(systemName: dot ? "bell.badge" : "bell")
+                .font(.system(size: 17, weight: .semibold))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(Brand.accent, Brand.ink)
+                .frame(width: 26, height: 26)
+        }
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
+        .controlSize(.large)
+        .accessibilityLabel(dot ? "Meldingen, iets nieuws" : "Meldingen")
+        // A floating panel out of the bell's corner, not a sheet from the bottom.
+        .popover(isPresented: $requests, arrowEdge: .top) {
+            NoticesPanel(
+                demo: !store.live,
+                onChanged: { unread = 0 },
+                onOpenTrip: { id in
+                    requests = false
+                    if let trip = store.trips.first(where: { $0.id == id || $0.remoteId == id }) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { path.append(trip.id) }
+                    }
+                },
+                onOpenRequests: {
+                    requests = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onOpenRequests() }
+                }
+            )
+            .presentationCompactAdaptation(.popover)
+        }
+    }
 
     private var profile: some View {
         HStack(spacing: 14) {
