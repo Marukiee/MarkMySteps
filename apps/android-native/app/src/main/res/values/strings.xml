@@ -324,7 +324,6 @@
     <string name="login_sign_in">Sign in</string>
     <string name="login_confirm">Confirm</string>
     <string name="login_demo">Look around with examples</string>
-    <string name="login_test_note">This test app only reads. It changes nothing about your trips.</string>
     <string name="track_loc_title">Location for your route</string>
     <string name="track_loc_body">To record your route the app needs your location, also with the screen off. You see a notification while it runs. Android asks you for permission in a moment.</string>
     <string name="track_waiting_fix">Waiting for the first position</string>

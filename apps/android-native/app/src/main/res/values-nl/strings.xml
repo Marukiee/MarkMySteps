@@ -323,7 +323,6 @@
     <string name="login_sign_in">Inloggen</string>
     <string name="login_confirm">Bevestigen</string>
     <string name="login_demo">Bekijk met voorbeelden</string>
-    <string name="login_test_note">Deze testapp leest alleen. Hij verandert niets aan je reizen.</string>
     <string name="track_loc_title">Locatie voor je route</string>
     <string name="track_loc_body">Om je route bij te houden heeft de app je locatie nodig, ook met het scherm uit. Je ziet een melding zolang hij loopt. Android vraagt je zo om toestemming.</string>
     <string name="track_waiting_fix">Wachten op de eerste positie</string>
