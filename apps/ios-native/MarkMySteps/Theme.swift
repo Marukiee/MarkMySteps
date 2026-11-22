@@ -177,6 +177,8 @@ extension Animation {
 enum Haptic {
     static func tap() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
     static func select() { UISelectionFeedbackGenerator().selectionChanged() }
+    /// Past the end of a range, or something that cannot be done here: a short firm knock that says no.
+    static func reject() { UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.75) }
 }
 
 // MARK: Text helpers
