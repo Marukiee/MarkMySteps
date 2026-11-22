@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The MarkMySteps compass on its own, in the accent colour, as on the homepage. It sits still at first and
+     the needle starts to turn when starting takes long, as it always did. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector android:width="288dp" android:height="288dp" android:viewportWidth="72" android:viewportHeight="72">
+            <group android:translateX="20" android:translateY="20" android:scaleX="1.3333" android:scaleY="1.3333">
+                <path android:pathData="M12,2.6a9.4,9.4 0 1,0 0.0001,0Z" android:strokeColor="#E8613C" android:strokeWidth="2.1" android:fillColor="#00000000" />
+                <group android:name="needle" android:pivotX="12" android:pivotY="12">
+                    <path android:pathData="M16.4,7.6L13.9,13.9L7.6,16.4L10.1,10.1Z" android:strokeColor="#E8613C" android:strokeWidth="2.1" android:strokeLineJoin="round" android:fillColor="#00000000" />
+                </group>
+            </group>
+        </vector>
+    </aapt:attr>
+    <target android:name="needle">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="rotation" android:valueFrom="0" android:valueTo="360"
+                android:startOffset="700" android:duration="1100" android:repeatCount="infinite"
+                android:interpolator="@android:interpolator/accelerate_decelerate" />
+        </aapt:attr>
+    </target>
+</animated-vector>

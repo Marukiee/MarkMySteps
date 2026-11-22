@@ -3,6 +3,7 @@ package nl.markmaaktmedia.markmysteps.next
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
@@ -59,7 +60,8 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                 if (inlines.isNotEmpty()) {
                     // One choice out of a few: connected buttons side by side, the chosen one filled.
                     androidx.compose.foundation.layout.Row(
-                        Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        // On the same edges as the lines under it.
+                        Modifier.fillMaxWidth(),
                         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.material3.ButtonGroupDefaults.ConnectedSpaceBetween),
                     ) {
                         inlines.forEachIndexed { i, e ->
@@ -67,7 +69,7 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                             androidx.compose.material3.ToggleButton(
                                 checked = on,
                                 onCheckedChange = { onDismiss(); e.onClick() },
-                                modifier = Modifier.weight(1f).height(48.dp),
+                                modifier = Modifier.weight(1f).height(52.dp),
                                 // Squarer where they meet, and the chosen one morphs into a full pill.
                                 shapes = run {
                                     val outer = 24.dp; val inner = 8.dp
@@ -83,7 +85,7 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
                                 ),
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
                             ) {
-                                Text(e.label, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp))
+                                Text(e.label, maxLines = 1, style = text)
                             }
                         }
                     }

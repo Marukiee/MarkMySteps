@@ -156,14 +156,16 @@ fun TripMap(trip: Trip, dark: Boolean, modifier: Modifier = Modifier, bottomInse
                 // The flights' bows count too, so the whole route with its arcs fits on screen.
                 val bowPoints = trip.flightLegs.ifEmpty { trip.flights.map { listOf(it.first, it.second) } }.flatMap { hops -> hops.zipWithNext().flatMap { (a, b) -> flightArc(a, b, 12) } }
                 val points = (trip.stops.map { it.at } + trip.route + bowPoints).ifEmpty { listOf(HomeAirport) }
-                val pad = (24 * density).toInt()
+                // Room on every side, more at the bottom for the panel's corner and the expand button, so the
+                // route sits nicely in the middle instead of against the edges.
+                val pad = (44 * density).toInt()
                 fit[0] = {
                     if (view.width > 0 && view.height > 0) {
                         if (points.size == 1) {
                             m.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(points[0].second, points[0].first), 9.0))
                         } else {
                             val bounds = LatLngBounds.Builder().apply { points.forEach { include(LatLng(it.second, it.first)) } }.build()
-                            m.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, ((topInsetDp + 24) * density).toInt(), pad, ((bottomInsetDp + 24) * density).toInt()))
+                            m.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, ((topInsetDp + 28) * density).toInt(), pad, ((bottomInsetDp + 56) * density).toInt()))
                             // A city trip opens at city level, not on a street corner.
                             if (m.cameraPosition.zoom > 11.5) m.moveCamera(CameraUpdateFactory.zoomTo(11.5))
                         }
@@ -192,7 +194,13 @@ private fun draw(style: Style, trip: Trip, color: Int, dark: Boolean) {
         return hops.any { (f, t) -> (near(a, f, reach) && near(b, t, reach)) || (near(a, t, reach) && near(b, f, reach)) }
     }
     val ground = mutableListOf<List<LonLat>>()
-    val bows = hops.map { (a, b) -> flightArc(a, b) }.toMutableList()
+    // There and back between the same airports is one bow, not two on top of each other (with their dashes
+    // out of step that read as one thick line); both bow the same way, to the north.
+    val drawnHops = hops.fold(mutableListOf<Pair<LonLat, LonLat>>()) { acc, (a, b) ->
+        if (acc.none { (f, t) -> (near(a, f, 30.0) && near(b, t, 30.0)) || (near(a, t, 30.0) && near(b, f, 30.0)) }) acc += a to b
+        acc
+    }
+    val bows = drawnHops.map { (a, b) -> flightArc(a, b) }.toMutableList()
     val pieces = trip.segments.ifEmpty { listOf(trip.route.ifEmpty { trip.stops.map { it.at } }) }
     for (piece in pieces) {
         var run = mutableListOf<LonLat>()

@@ -334,9 +334,11 @@ private fun People(people: List<Person>, extra: Int, ring: Color = MaterialTheme
 private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<String?, String>> = if (trip.upcoming) listOfNotNull(
     trip.startsInDays?.let { "$it" to (if (it == 1) "dag tot vertrek" else "dagen tot vertrek") },
     "${trip.days}" to "dagen",
-    (if (stopsKnown) "${trip.stops.size}" else null) to (if (trip.stops.size == 1) "stop" else "stops"),
-    "${trip.people.size + trip.extraPeople}" to "reizigers",
-) else if (trip.remoteId != null && (!stopsKnown || photos == null)) List(4) { null to " " } else {
+    // As for a past trip: stops only for a route of two or more, travellers only when you are not alone.
+    if (!stopsKnown) null to "stops" else trip.stops.size.takeIf { it > 1 }?.let { "$it" to "stops" },
+    (trip.people.size + trip.extraPeople).takeIf { it > 1 }?.let { "$it" to "reizigers" },
+    if (stopsKnown) trip.stops.mapNotNull { it.flag.takeIf { f -> f.isNotBlank() } }.distinct().size.takeIf { it > 0 }?.let { "$it" to (if (it == 1) "land" else "landen") } else null,
+).take(4) else if (trip.remoteId != null && (!stopsKnown || photos == null)) List(4) { null to " " } else {
     // As the web (lib/tripFacts.ts): the first four that have something to say, in a fixed order: distance,
     // days, stops (only for a route of two or more), photos, travellers (more than you alone), countries.
     val travellers = trip.members.count { it.role != "GUEST" }.takeIf { it > 0 } ?: (trip.people.size + trip.extraPeople)

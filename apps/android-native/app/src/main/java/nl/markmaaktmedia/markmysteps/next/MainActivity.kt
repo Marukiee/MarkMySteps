@@ -29,6 +29,18 @@ class MainActivity : ComponentActivity() {
         MapStylePref.init(applicationContext)
         CardSizePref.init(applicationContext)
         Photos.initRatios(applicationContext)
+        // The start screen (the orange compass) stays until there are trips to show: with trips kept from last
+        // time that is at once; on a first start it waits for the server, and the compass needle starts turning.
+        val started = System.currentTimeMillis()
+        val content = findViewById<android.view.View>(android.R.id.content)
+        content.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                val waiting = Api.signedIn && Data.all.isEmpty() && Data.loading && System.currentTimeMillis() - started < 8000
+                if (waiting) { content.postDelayed({ content.invalidate() }, 120); return false }
+                content.viewTreeObserver.removeOnPreDrawListener(this)
+                return true
+            }
+        })
         val startStyle = intent.getStringExtra("style") ?: "new"
         val forcedTheme = intent.getStringExtra("theme")
         val startTrip = intent.getStringExtra("trip")
