@@ -2,9 +2,9 @@ import MapKit
 import SwiftUI
 
 /*
- * The trip page's two small sheets, behind round glass buttons as on the web:
- * Kaart (the map's style, four previews two by two) and Reisinstellingen
- * (the trip's colour and fetching its photos from Immich again).
+ * The trip page's small sheet behind a round glass button, as on the web:
+ * Kaart (the map's style, four previews two by two). Reisinstellingen is
+ * a page of its own, see TripSettings.swift.
  */
 
 /// The web's four map styles, drawn by MapKit; in dark mode the light ones turn dark by themselves.
@@ -116,88 +116,5 @@ struct MapStyleSheet: View {
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() }.tint(.primary) } }
         }
         .presentationDetents([.medium])
-    }
-}
-
-/// The trip's own settings: its colour, and fetching its photos from Immich again.
-struct TripSettingsSheet: View {
-    let trip: Trip
-    @Environment(Store.self) private var store
-    @Environment(\.dismiss) private var dismiss
-    @State private var busy = false
-    @State private var note: String?
-
-    static let colours = ["#E8613C", "#E34B8A", "#7A5BD6", "#5B8DEF", "#2BB6A8", "#4CAF50", "#D9A441", "#C9772E", "#8D6E63", "#607D8B"]
-
-    private var live: Bool { trip.remoteId != nil }
-    private var current: Trip { store.trips.first { $0.id == trip.id } ?? trip }
-    private var canEdit: Bool { live && current.ownerId == store.me?.id }
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 5), spacing: 12) {
-                        ForEach(Self.colours, id: \.self) { hex in
-                            let colour = Color(hex: UInt32(hex.dropFirst(), radix: 16) ?? 0)
-                            let on = current.colorHex?.uppercased() == hex
-                            Button { setColour(hex) } label: {
-                                Circle().fill(colour)
-                                    .frame(width: 44, height: 44)
-                                    .overlay { if on { Image(systemName: "checkmark").font(.system(size: 17, weight: .bold)).foregroundStyle(.white) } }
-                                    .overlay { Circle().strokeBorder(on ? Brand.ink.opacity(0.35) : .clear, lineWidth: 2).padding(-4) }
-                            }
-                            .buttonStyle(PressStyle(scale: 0.9))
-                            .disabled(!canEdit || busy)
-                            .accessibilityLabel("Kleur \(hex)")
-                        }
-                    }
-                    .padding(.vertical, 6)
-                } header: {
-                    Text("Kleur van de reis")
-                } footer: {
-                    if !live { Text("In de voorbeelden verander je niets.") }
-                    else if !canEdit { Text("Alleen de eigenaar kiest de kleur.") }
-                }
-                .listRowBackground(Brand.raised)
-
-                Section {
-                    Button {
-                        guard live else { return }
-                        busy = true
-                        Task {
-                            do { try await Remote.syncPhotos(current); note = "Foto's worden opgehaald" } catch { note = "Ophalen mislukt" }
-                            busy = false
-                        }
-                    } label: {
-                        HStack {
-                            Label("Foto's opnieuw ophalen uit Immich", systemImage: "arrow.triangle.2.circlepath")
-                            Spacer()
-                            if busy { CompassSpinner(size: 22) }
-                        }
-                    }
-                    .disabled(!live || busy)
-                } footer: {
-                    Text(note ?? "Nieuwe foto's komen ook vanzelf binnen; dit haalt ze nu meteen op.")
-                }
-                .listRowBackground(Brand.raised)
-            }
-            .scrollContentBackground(.hidden)
-            .background(Brand.paper)
-            .navigationTitle("Reisinstellingen")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() }.tint(.primary) } }
-            .animation(.calm, value: note)
-        }
-        .presentationDetents([.medium])
-    }
-
-    private func setColour(_ hex: String) {
-        guard canEdit else { return }
-        busy = true
-        Task {
-            do { try await Remote.setTripColor(current, hex); await store.load() } catch { note = "Kleur opslaan mislukt" }
-            busy = false
-        }
     }
 }

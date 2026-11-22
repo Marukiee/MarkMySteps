@@ -136,6 +136,10 @@ struct Trip: Identifiable, Hashable {
     var remoteId: String? = nil
     var coverId: String? = nil
     var start: Date? = nil
+    /// One dot of its own on the globe instead of one at the start and one at the end (trip settings).
+    var marker: LonLat? = nil
+    /// Route tracking starts by itself while the trip is under way, on a phone that allowed it.
+    var autoTrack = false
 
     struct Flight: Hashable {
         let from: LonLat

@@ -230,7 +230,9 @@ final class GlobeScene {
     let freeStops: [String: [LonLat]]
     private var colors: [String: Color] = [:]
 
-    static func key(_ trips: [Trip]) -> String { trips.map { "\($0.id):\($0.segments.count):\($0.flights.count):\($0.stops.count)" }.joined(separator: ",") }
+    static func key(_ trips: [Trip]) -> String {
+        trips.map { "\($0.id):\($0.segments.count):\($0.flights.count):\($0.stops.count):\($0.marker.map { "\($0.lon),\($0.lat)" } ?? "")" }.joined(separator: ",")
+    }
 
     init(trips: [Trip]) {
         key = GlobeScene.key(trips)
@@ -274,6 +276,11 @@ final class GlobeScene {
             }
         }
         for trip in trips {
+            // A dot placed by hand in the trip's settings stands for the whole trip, as on the web.
+            if let marker = trip.marker {
+                add(marker, trip)
+                continue
+            }
             var points: [LonLat] = []
             if let f = trip.routePieces.first?.first { points.append(f) }
             if let l = trip.routePieces.last?.last { points.append(l) }

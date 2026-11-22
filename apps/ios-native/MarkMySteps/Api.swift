@@ -434,7 +434,12 @@ enum Remote {
                 ownerId: o["ownerId"] as? String,
                 remoteId: id,
                 coverId: (cover?.isEmpty ?? true) ? nil : cover,
-                start: start
+                start: start,
+                marker: {
+                    guard let lng = (o["markerLng"] as? NSNumber)?.doubleValue, let lat = (o["markerLat"] as? NSNumber)?.doubleValue else { return nil }
+                    return LonLat(lng, lat)
+                }(),
+                autoTrack: o["autoTrack"] as? Bool ?? false
             )
         }
         .sorted { ($0.start ?? .distantPast) > ($1.start ?? .distantPast) }

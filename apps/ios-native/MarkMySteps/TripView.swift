@@ -6,6 +6,7 @@ import SwiftUI
 struct TripView: View {
     let base: Trip
     @Environment(Store.self) private var store
+    @Environment(\.dismiss) private var dismiss
     @State private var trip: Trip
     @State private var media: [Media]?
     @State private var tab: TripTab
@@ -191,7 +192,19 @@ struct TripView: View {
         }
         .sheet(isPresented: $showPeople) { PeopleSheet(trip: trip) }
         .sheet(isPresented: $showMapStyle) { MapStyleSheet() }
-        .sheet(isPresented: $showSettings) { TripSettingsSheet(trip: trip) }
+        .navigationDestination(isPresented: $showSettings) {
+            TripSettingsPage(trip: store.trips.first { $0.id == trip.id }.map { fresh in
+                var t = fresh
+                t.stops = trip.stops
+                return t
+            } ?? trip, onPeople: {
+                showSettings = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { showPeople = true }
+            }, onGone: {
+                showSettings = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { dismiss() }
+            })
+        }
         .fullScreenCover(isPresented: $showMap) {
             FullMapView(trip: trip, photos: mapPhotos) { m in
                 // Out of the big map into the photo: the map closes, the viewer opens.
@@ -360,9 +373,27 @@ struct FactsRow: View {
     var tone: Color? = nil
     var stopsKnown = true
     @Environment(\.colorScheme) private var scheme
+    /// The figures picked in trip settings; read here so a new pick shows at once.
+    @AppStorage("tripFacts") private var factsData: Data?
 
     static func facts(_ trip: Trip, photos: Int?, stopsKnown: Bool) -> [(String?, String)] {
         let stops = trip.stops.count
+        // The figures picked in the trip's settings, in their order; one still unknown waits as a quiet shape.
+        if let chosen = Prefs.facts(trip.id) {
+            let nonGuests = trip.members.filter { $0.role != "GUEST" }.count
+            return chosen.map { f in
+                switch f {
+                case "km": return (trip.km.map { Format.number($0) } ?? "0", "kilometer")
+                case "days": return ("\(trip.days)", trip.days == 1 ? "dag" : "dagen")
+                case "stops": return (stopsKnown ? "\(stops)" : nil, stops == 1 ? "stop" : "stops")
+                case "photos": return (photos.map { Format.number($0) } ?? (trip.remoteId == nil ? "\(trip.photos)" : nil), "foto's")
+                case "travellers": return ("\(nonGuests > 0 ? nonGuests : trip.people.count + trip.extraPeople)", "reizigers")
+                default:
+                    let n = Set(trip.stops.map(\.flag).filter { !$0.isEmpty && $0 != "📍" }).count
+                    return (stopsKnown ? "\(n)" : nil, n == 1 ? "land" : "landen")
+                }
+            }
+        }
         let nonGuests = trip.members.filter { $0.role != "GUEST" }.count
         let travellers = nonGuests > 0 ? nonGuests : trip.people.count + trip.extraPeople
         let countries = Set(trip.stops.map(\.flag).filter { !$0.isEmpty && $0 != "📍" }).count
@@ -391,6 +422,7 @@ struct FactsRow: View {
     }
 
     var body: some View {
+        let _ = factsData
         let items = FactsRow.facts(trip, photos: photos, stopsKnown: stopsKnown)
         let tile = (tone ?? trip.color).opacity(scheme == .dark ? 0.34 : 0.24)
         return HStack(spacing: 4) {
