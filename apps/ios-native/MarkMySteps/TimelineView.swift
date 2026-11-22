@@ -104,9 +104,13 @@ struct TimelineRows: View {
             let rows = day.rows
             let iso = PlannerRemote.isoDay(day.day.date)
             let notes = stories.notes.filter { $0.day == iso }
-            DayHeader(day: day, live: trip.remoteId != nil, line: !(lastDay && rows.isEmpty && !trip.upcoming && notes.isEmpty))
-                .plainRow(top: i == 0 ? 26 : 0)
+            if i == 0 { Color.clear.frame(height: 26).plainRow() }
+            // A row without height right on top of the day, so a jump to it lands the heading exactly where asked
+            // (a List lines up the same point of the row and of the screen, which a tall row would shift).
+            Color.clear.frame(height: 0).plainRow()
                 .id(i == 0 ? "days" : "day\(i)")
+            DayHeader(day: day, live: trip.remoteId != nil, line: !(lastDay && rows.isEmpty && !trip.upcoming && notes.isEmpty))
+                .plainRow()
             if (trip.remoteId != nil || Launch.menuPreview) && (!notes.isEmpty || stories.canWrite) {
                 DayStoryRow(
                     day: day.day.date, notes: notes, comments: stories.comments[iso] ?? 0, me: stories.me,
@@ -142,27 +146,41 @@ struct TimelineRows: View {
         }
     }
 
-    /// The places, each a photo with its name; a tap goes to that place's first day.
-    /// The row runs to the screen edges, the first tile on the page's line.
     private var places: some View {
+        PlacesRow(trip: trip, media: media, onPlace: onPlace)
+    }
+}
+
+/// The places, each a small photo with its name, four in view as on Android (92 by 116, corners 18); a tap goes to
+/// that place's first day. The row runs to the screen edges with the first tile on the page's line, without a fade at
+/// the sides, and keeps where it was scrolled to while the app runs, also after going home and back.
+private struct PlacesRow: View {
+    let trip: Trip
+    let media: [Media]?
+    let onPlace: (String) -> Void
+    @State private var position: ScrollPosition
+
+    /// How far each trip's row was scrolled, while the app runs.
+    @MainActor private static var offsets: [String: CGFloat] = [:]
+
+    init(trip: Trip, media: [Media]?, onPlace: @escaping (String) -> Void) {
+        self.trip = trip
+        self.media = media
+        self.onPlace = onPlace
+        _position = State(initialValue: ScrollPosition(x: PlacesRow.offsets[trip.id] ?? 0))
+    }
+
+    var body: some View {
         let unique = trip.mapStops.map(\.stop)
-        return ScrollView(.horizontal) {
+        ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(Array(unique.enumerated()), id: \.element.name) { i, stop in
+                    let picks = candidates(stop)
                     Button { onPlace(stop.name) } label: {
-                        placePhoto(stop, index: i)
-                            .frame(width: 138, height: 168)
-                            .overlay {
-                                LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: .black.opacity(0.62), location: 1)], startPoint: .top, endPoint: .bottom)
-                            }
-                            .overlay(alignment: .bottomLeading) {
-                                Text(stop.name)
-                                    .font(.outfit(17, 650))
-                                    .foregroundStyle(.white)
-                                    .lineLimit(2)
-                                    .padding(12)
-                            }
-                            .clipShape(.rect(cornerRadius: 22))
+                        tile(stop, index: i, picks: picks)
+                            .frame(width: 92, height: 116)
+                            .clipShape(.rect(cornerRadius: 18))
+                            .contentShape(.rect(cornerRadius: 18))
                     }
                     .buttonStyle(PressStyle(scale: 0.95))
                     .accessibilityLabel("Naar \(stop.name)")
@@ -171,19 +189,46 @@ struct TimelineRows: View {
         }
         .contentMargins(.horizontal, 16, for: .scrollContent)
         .scrollIndicators(.hidden)
+        .scrollPosition($position)
+        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x + $0.contentInsets.leading } action: { _, x in
+            PlacesRow.offsets[trip.id] = max(0, x)
+        }
     }
 
-    @ViewBuilder private func placePhoto(_ stop: Stop, index: Int) -> some View {
-        if trip.remoteId != nil && media == nil {
-            Rectangle().fill(Brand.sunken)
-        } else if let media {
-            if let pick = media.first(where: { !$0.video && Timeline.stopOn(trip, $0.takenAt)?.name == stop.name }) {
-                RemotePhoto(id: pick.id, size: "preview")
+    /// The photos of the stay at that place, in order: the first that loads is shown.
+    private func candidates(_ stop: Stop) -> [String] {
+        guard let media else { return [] }
+        return media.filter { !$0.video && Timeline.stopOn(trip, $0.takenAt)?.name == stop.name }.prefix(8).map(\.id)
+    }
+
+    @ViewBuilder private func tile(_ stop: Stop, index: Int, picks: [String]) -> some View {
+        let photo = media == nil ? trip.remoteId == nil : !picks.isEmpty
+        ZStack(alignment: .bottomLeading) {
+            if trip.remoteId != nil && media == nil {
+                // The photos are on their way: the tile's own quiet tone, the name already on it.
+                Rectangle().fill(Brand.raised)
+            } else if media != nil {
+                if !picks.isEmpty {
+                    RemotePhoto(ids: picks, size: "thumbnail")
+                } else {
+                    // No photo of this place: the trip's colour with its flag, instead of an empty frame.
+                    LinearGradient(colors: [trip.color.opacity(0.35), trip.color.opacity(0.12)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        .background(Brand.raised)
+                        .overlay(alignment: .topLeading) { FlagView(flag: stop.flag, height: 15).padding(10) }
+                }
             } else {
-                Rectangle().fill(Brand.sunken)
+                LandscapeView(scene: Landscape.allCases[(index * 2 + 1) % Landscape.allCases.count])
             }
-        } else {
-            LandscapeView(scene: Landscape.allCases[(index * 2 + 1) % Landscape.allCases.count])
+            if photo {
+                LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: .black.opacity(0.62), location: 1)], startPoint: .top, endPoint: .bottom)
+            }
+            Text(stop.name)
+                .font(.outfit(14, 650))
+                .foregroundStyle(photo ? Color.white : Brand.ink)
+                .lineLimit(2)
+                .lineSpacing(-1)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 8)
         }
     }
 }

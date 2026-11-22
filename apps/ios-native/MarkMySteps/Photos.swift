@@ -1,6 +1,62 @@
 import AVFoundation
+import CryptoKit
 import SwiftUI
 import UIKit
+
+/// Photos kept on the phone once fetched (thumbnails and previews, not originals or faces), as Android's PhotoDisk:
+/// a photo seen before reads from here straight away, before anything waits for the network.
+enum PhotoDisk {
+    nonisolated private static let dir: URL = {
+        let d = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("photos", isDirectory: true)
+        try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+        return d
+    }()
+    /// About 400 MB; the least recently used go first.
+    nonisolated private static let limit = 400 * 1024 * 1024
+    nonisolated(unsafe) private static var writes = 0
+
+    nonisolated static func wanted(_ key: String) -> Bool { !key.hasSuffix("/original") && !key.hasPrefix("avatar/") }
+
+    nonisolated private static func file(_ key: String) -> URL {
+        let hash = Insecure.SHA1.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+        return dir.appendingPathComponent(hash)
+    }
+
+    nonisolated static func get(_ key: String) -> Data? {
+        guard wanted(key) else { return nil }
+        let url = file(key)
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
+        return data
+    }
+
+    nonisolated static func put(_ key: String, _ data: Data) {
+        guard wanted(key) else { return }
+        try? data.write(to: file(key), options: .atomic)
+        writes += 1
+        if writes % 150 == 1 { Task.detached(priority: .background) { trim() } }
+    }
+
+    nonisolated static func remove(_ key: String) { try? FileManager.default.removeItem(at: file(key)) }
+
+    nonisolated static func clear() { for url in (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [] { try? FileManager.default.removeItem(at: url) } }
+
+    nonisolated private static func trim() {
+        let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
+        guard let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: keys) else { return }
+        var items = files.compactMap { url -> (URL, Int, Date)? in
+            guard let v = try? url.resourceValues(forKeys: Set(keys)) else { return nil }
+            return (url, v.fileSize ?? 0, v.contentModificationDate ?? .distantPast)
+        }
+        var total = items.reduce(0) { $0 + $1.1 }
+        guard total > limit else { return }
+        items.sort { $0.2 < $1.2 }
+        for item in items where total > limit * 8 / 10 {
+            try? FileManager.default.removeItem(at: item.0)
+            total -= item.1
+        }
+    }
+}
 
 /// Photos from the server: kept in memory while the app runs, six downloads at a time.
 final class ImageLoader {
@@ -28,10 +84,16 @@ final class ImageLoader {
         return await UIImageReader(configuration: config).image(data: data)
     }
 
-    func clear() { cache.removeAllObjects(); tones.removeAll() }
+    func clear() { cache.removeAllObjects(); tones.removeAll(); Task.detached(priority: .utility) { PhotoDisk.clear() } }
 
     /// Drops one picture (a new avatar), so it is fetched again.
-    func forget(_ key: String) { cache.removeObject(forKey: key as NSString) }
+    func forget(_ key: String) { cache.removeObject(forKey: key as NSString); PhotoDisk.remove(key) }
+
+    /// A photo kept on the phone, read and decoded off the main thread.
+    @concurrent nonisolated private static func fromDisk(_ key: String, original: Bool) async -> UIImage? {
+        guard let data = PhotoDisk.get(key) else { return nil }
+        return await decode(data, original: original)
+    }
 
     private var tones: [String: Color] = [:]
 
@@ -78,18 +140,29 @@ final class ImageLoader {
         if let hit = cache.object(forKey: key as NSString) { return hit }
         if let task = inFlight[key] { return await task.value }
         let task = Task<UIImage?, Never> {
+            // A photo already kept on the phone never waits in the queue behind those that still come from the
+            // server: on a cold start that queue made every kept cover look as if it loaded.
+            if let kept = await Self.fromDisk(key, original: original) {
+                keep(kept, key)
+                return kept
+            }
             await acquire()
             defer { release() }
             guard let data = await Api.shared.bytes(path) else { return nil }
             guard let image = await Self.decode(data, original: original) else { return nil }
-            let cost = Int(image.size.width * image.size.height * image.scale * image.scale * 4)
-            cache.setObject(image, forKey: key as NSString, cost: cost)
+            keep(image, key)
+            Task.detached(priority: .utility) { PhotoDisk.put(key, data) }
             return image
         }
         inFlight[key] = task
         let image = await task.value
         inFlight[key] = nil
         return image
+    }
+
+    private func keep(_ image: UIImage, _ key: String) {
+        let cost = Int(image.size.width * image.size.height * image.scale * image.scale * 4)
+        cache.setObject(image, forKey: key as NSString, cost: cost)
     }
 
     private func acquire() async {
@@ -102,11 +175,26 @@ final class ImageLoader {
     }
 }
 
-/// A photo from the server, fading in once it is there, on a quiet tone until then.
+/// A photo from the server on a quiet tone until it is there. Already in memory, or read from the phone a moment
+/// later (within 250 ms), it simply shows; only a photo that really comes over the network fades in. With more than
+/// one candidate, a photo that does not load gives way to the next one (one broken photo made a stop flicker).
 struct RemotePhoto: View {
-    let id: String
+    let ids: [String]
     var size = "thumbnail"
     @State private var image: UIImage?
+
+    init(id: String, size: String = "thumbnail") {
+        self.ids = [id]
+        self.size = size
+        _image = State(initialValue: ImageLoader.shared.cached(id, size))
+    }
+
+    /// The first of `ids` that loads.
+    init(ids: [String], size: String = "thumbnail") {
+        self.ids = ids
+        self.size = size
+        _image = State(initialValue: ids.lazy.compactMap { ImageLoader.shared.cached($0, size) }.first)
+    }
 
     var body: some View {
         Rectangle()
@@ -117,10 +205,18 @@ struct RemotePhoto: View {
                 }
             }
             .clipped()
-            .task(id: "\(id)/\(size)") {
-                if let hit = ImageLoader.shared.cached(id, size) { image = hit; return }
-                let loaded = await ImageLoader.shared.load(id, size)
-                withAnimation(.easeOut(duration: 0.25)) { image = loaded }
+            .task(id: "\(ids.first ?? "")/\(ids.count)/\(size)") {
+                if let first = ids.first, let hit = ImageLoader.shared.cached(first, size) { image = hit; return }
+                let born = Date()
+                for id in ids.prefix(8) {
+                    guard let loaded = await ImageLoader.shared.load(id, size) else { continue }
+                    if Date().timeIntervalSince(born) < 0.25 || image != nil {
+                        image = loaded
+                    } else {
+                        withAnimation(.easeOut(duration: 0.25)) { image = loaded }
+                    }
+                    return
+                }
             }
     }
 }
@@ -149,8 +245,9 @@ struct Avatar: View {
             .task(id: "\(userId ?? "")/\(hasAvatar)/\(Store.shared.version)") {
                 guard let userId, hasAvatar else { image = nil; return }
                 if let hit = ImageLoader.shared.cached("avatar", userId) { image = hit; return }
+                let born = Date()
                 let loaded = await ImageLoader.shared.avatar(userId)
-                withAnimation(.easeOut(duration: 0.25)) { image = loaded }
+                if Date().timeIntervalSince(born) < 0.25 { image = loaded } else { withAnimation(.easeOut(duration: 0.25)) { image = loaded } }
             }
     }
 }
@@ -233,11 +330,14 @@ struct MediaView: View {
     }
 }
 
-/// Which photos the viewer pages through (the whole trip), and where it starts.
+/// Which photos the viewer pages through (the whole trip, or one pin's photos from the map), and where it starts.
 struct ViewerItem: Identifiable {
     let trip: Trip
     let photos: [Media]
     let start: Media
+    /// Opened from a pin on the map: the transition source it grows out of and closes back into, instead of the tile
+    /// of the photo on show.
+    var source: String? = nil
     var id: String { start.id }
 }
 
@@ -247,6 +347,8 @@ struct ViewerItem: Identifiable {
 struct ZoomablePhoto: View {
     let media: Media
     @Binding var zoomed: Bool
+    /// Every tap, at once (a double tap is two of them, so the buttons end as they were).
+    var onTap: () -> Void = {}
     @State private var image: UIImage?
     @State private var scale: CGFloat = 1
     @State private var base: CGFloat = 1
@@ -254,9 +356,10 @@ struct ZoomablePhoto: View {
     @State private var lastOffset: CGSize = .zero
     @State private var box: CGSize = .zero
 
-    init(media: Media, zoomed: Binding<Bool>) {
+    init(media: Media, zoomed: Binding<Bool>, onTap: @escaping () -> Void = {}) {
         self.media = media
         _zoomed = zoomed
+        self.onTap = onTap
         // Whatever is already in memory shows at once: no spinner, no wait.
         let cache = ImageLoader.shared
         _image = State(initialValue: cache.cached(media.id, "original") ?? cache.cached(media.id, "preview") ?? cache.cached(media.id, "thumbnail"))
@@ -303,6 +406,8 @@ struct ZoomablePhoto: View {
                 },
             isEnabled: scale > 1.01
         )
+        // The single tap answers at once instead of waiting to see whether a second one follows.
+        .simultaneousGesture(TapGesture().onEnded { onTap() })
         .onTapGesture(count: 2) { point in
             withAnimation(.spring(duration: 0.25)) {
                 if scale > 1.01 {

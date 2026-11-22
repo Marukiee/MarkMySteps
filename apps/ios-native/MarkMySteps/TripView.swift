@@ -38,8 +38,15 @@ struct TripView: View {
     @State private var dayRoute: [[LonLat]] = []
     @State private var serverDays: [(day: Date, points: Int, photos: Int)] = []
     @State private var mapSize: CGSize = .zero
-    /// Room kept free on the map: the bar with the buttons on top, the sheet's edge and the expand button below.
-    private static let mapInsets = EdgeInsets(top: 130, leading: 40, bottom: 70, trailing: 40)
+    /// Whose photos the map shows (nil: everyone's), kept per trip; and the choice from before "Allemaal aan" or
+    /// "uit", so a second tap on it goes back to that.
+    @State private var photoUsers: Set<String>?
+    @State private var photosBefore: Set<String>?
+    /// The page's own scroll view, for a jump that lands exactly.
+    @State private var pageScroll = ScrollFinder.Holder()
+    /// Room kept free on the map, as Android's padding: the bar with the buttons on top, the sheet's edge below, and
+    /// half a photo pin with its count at the sides. More would leave the trip a small strip on this short map.
+    private static let mapInsets = EdgeInsets(top: 124, leading: 48, bottom: 72, trailing: 48)
     @Namespace private var ns
 
     enum TripTab: Hashable { case timeline, planner }
@@ -51,6 +58,7 @@ struct TripView: View {
         _plan = State(initialValue: PlanState(trip: base))
         _stopsKnown = State(initialValue: base.remoteId == nil)
         _mapPosition = State(initialValue: .rect(base.mapRect()))
+        _photoUsers = State(initialValue: base.remoteId.flatMap { MapPhotosPref.get($0) })
     }
 
     /// The map's height: as on Android a bit under half the screen, and low enough that the Tijdlijn and
@@ -62,6 +70,7 @@ struct TripView: View {
             let days = Timeline.days(trip, media, notes: notes)
             List {
                 mapHeader
+                    .background { ScrollFinder(holder: pageScroll).frame(width: 0, height: 0) }
                     .id("top")
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
@@ -91,10 +100,12 @@ struct TripView: View {
                         viewerCurrent = item.start.id
                         viewer = item
                     }, onPlace: { name in
-                        // A place tile goes to the first day spent there.
-                        if let i = days.firstIndex(where: { $0.day.stop?.name == name }) {
-                            withAnimation(.smooth) { proxy.scrollTo(i == 0 ? "days" : "day\(i)", anchor: UnitPoint(x: 0.5, y: 0.12)) }
-                        }
+                        // A place tile goes to the first day spent there, its heading just under the solid bar. Rows
+                        // further down only take their real height once they come near, so a second pass lands it
+                        // exactly once the first one has brought them in.
+                        guard let i = days.firstIndex(where: { $0.day.stop?.name == name }) else { return }
+                        Haptic.tap()
+                        jump(to: i == 0 ? "days" : "day\(i)", proxy: proxy)
                     }, stories: stories)
                 case .planner:
                     PlannerRows(trip: trip, plan: $plan, onFocusAdd: {
@@ -124,7 +135,7 @@ struct TripView: View {
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
             // While the viewer pages, the timeline behind it keeps that photo in view.
             .onChange(of: viewerCurrent) {
-                guard viewer != nil, let m = days.flatMap(\.photos).first(where: { $0.id == viewerCurrent }),
+                guard let v = viewer, v.source == nil, let m = days.flatMap(\.photos).first(where: { $0.id == viewerCurrent }),
                       let row = Timeline.rowId(m, in: days) else { return }
                 proxy.scrollTo(row, anchor: .center)
             }
@@ -233,7 +244,7 @@ struct TripView: View {
             }
         } message: { Text("Dit kan niet ongedaan worden gemaakt.") }
         .sheet(isPresented: $showPeople) { PeopleSheet(trip: trip) }
-        .sheet(isPresented: $showMapStyle) { MapStyleSheet() }
+        .sheet(isPresented: $showMapStyle) { MapStyleSheet(layers: photoLayers) }
         .navigationDestination(isPresented: $showSettings) {
             TripSettingsPage(trip: store.trips.first { $0.id == trip.id }.map { fresh in
                 var t = fresh
@@ -248,16 +259,13 @@ struct TripView: View {
             })
         }
         .fullScreenCover(isPresented: $showMap) {
-            FullMapView(trip: trip, photos: shownPhotos, focus: focus, days: mapDays, day: $mapDay) { m in
-                // Out of the big map into the photo: the map closes, the viewer opens.
-                showMap = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { openFromMap(m) }
-            }
+            // The big map opens its pins' photos itself, so closing the viewer comes back onto the big map.
+            FullMapView(trip: trip, photos: shownPhotos, focus: focus, days: mapDays, day: $mapDay)
                 .navigationTransition(.zoom(sourceID: "map", in: ns))
         }
         .fullScreenCover(item: $viewer) { item in
             PhotoViewer(item: item, current: $viewerCurrent)
-                .navigationTransition(.zoom(sourceID: viewerCurrent, in: ns))
+                .navigationTransition(.zoom(sourceID: item.source ?? viewerCurrent, in: ns))
         }
         .task(id: "\(base.id)/\(store.version)") { await loadMore() }
         .onChange(of: mapDay) { _, day in Task { await showDay(day) } }
@@ -276,6 +284,34 @@ struct TripView: View {
                 let photos = Demo.media(trip, day: 0, date: first.date)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { viewerCurrent = photos[0].id; viewer = ViewerItem(trip: trip, photos: photos, start: photos[0]) }
             }
+        }
+    }
+
+    /// Scrolls the page so the row `id` stands just under the solid bar, in one glide. A List only lines rows up at
+    /// its top, middle or bottom (an anchor of 0.12 became the middle, so a place landed mid screen). Its own glide to
+    /// the top is exact, also past rows that only take their real height on the way, and it keeps clear of the
+    /// scroll view's inset: so for the length of the glide the page gets an inset as tall as the bar, and the day
+    /// lands right under it.
+    private func jump(to id: String, proxy: ScrollViewProxy) {
+        let bar = topInset + 58 + 8
+        guard let scroll = pageScroll.view else {
+            withAnimation(.smooth(duration: 0.5)) { proxy.scrollTo(id, anchor: .top) }
+            return
+        }
+        // The page's own inset is kept once, so a second tap during a glide never makes the extra room stay.
+        let base = pageScroll.baseTop ?? scroll.contentInset.top
+        pageScroll.baseTop = base
+        pageScroll.jumps += 1
+        let jump = pageScroll.jumps
+        scroll.contentInset.top = base + bar
+        withAnimation(.smooth(duration: 0.55)) { proxy.scrollTo(id, anchor: .top) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            guard pageScroll.jumps == jump else { return }
+            // The inset goes again without moving anything: the content stays where it is.
+            let offset = scroll.contentOffset
+            scroll.contentInset.top = base
+            scroll.contentOffset = offset
+            pageScroll.baseTop = nil
         }
     }
 
@@ -331,10 +367,40 @@ struct TripView: View {
         .accessibilityAddTraits(open ? .isSelected : [])
     }
 
-    /// Your photos where they were taken, for the map: the real ones once read, in the demo the drawn ones at
-    /// the day's stop.
+    /// "Foto's op de kaart" in the map settings: only travellers who put photos on this map (a switch for someone
+    /// with nothing on it does nothing).
+    private var photoLayers: MapPhotoLayers? {
+        guard let rid = trip.remoteId, let media else { return nil }
+        let contributed = Set(media.compactMap(\.userId))
+        let members = trip.members.filter { $0.userId.map(contributed.contains) ?? false }
+        guard !members.isEmpty else { return nil }
+        let on = photoUsers ?? Set(trip.members.compactMap(\.userId))
+        func save(_ set: Set<String>?) {
+            photoUsers = set
+            MapPhotosPref.set(rid, set)
+        }
+        return MapPhotoLayers(members: members, me: store.me?.id, on: on, onToggle: { id in
+            photosBefore = nil
+            save(on.contains(id) ? on.subtracting([id]) : on.union([id]))
+        }, onAll: { all, press in
+            if press {
+                if photosBefore == nil { photosBefore = on }
+                save(all ? nil : [])
+            } else if let before = photosBefore {
+                save(before)
+                photosBefore = nil
+            }
+        })
+    }
+
+    /// Your photos where they were taken, for the map: the real ones once read (those of the travellers picked in
+    /// the map settings), in the demo the drawn ones at the day's stop.
     private var mapPhotos: [Media] {
-        if let media { return media.filter { $0.lat != nil && $0.lon != nil && !$0.video } }
+        if let media {
+            return media.filter { m in
+                m.lat != nil && m.lon != nil && !m.video && (photoUsers.map { users in m.userId.map(users.contains) ?? true } ?? true)
+            }
+        }
         guard trip.remoteId == nil, !trip.upcoming else { return [] }
         return Timeline.days(trip, nil).flatMap { day -> [Media] in
             guard let at = day.day.stop?.at else { return [] }
@@ -348,10 +414,11 @@ struct TripView: View {
         }
     }
 
-    private func openFromMap(_ m: Media) {
-        let all = media ?? Timeline.days(trip, nil).flatMap(\.photos)
-        viewerCurrent = m.id
-        viewer = ViewerItem(trip: trip, photos: all.isEmpty ? [m] : all, start: m)
+    /// A pin on the map opens just its own photos, the one in front first, growing out of the pin and closing back
+    /// into it.
+    private func openFromMap(_ photos: [Media], _ front: Media) {
+        viewerCurrent = front.id
+        viewer = ViewerItem(trip: trip, photos: photos, start: front, source: "pin-\(front.id)")
     }
 
     /// The days the map can show on their own: those with photos on the map or, from the server, a recorded route.
@@ -408,7 +475,7 @@ struct TripView: View {
 
     private var mapHeader: some View {
         // The map moves under your finger without the page scrolling along, with your photos on it.
-        TripMap(trip: trip, interactive: true, position: $mapPosition, photos: shownPhotos, focus: focus, onPhoto: openFromMap)
+        TripMap(trip: trip, interactive: true, position: $mapPosition, photos: shownPhotos, focus: focus, ns: ns, onGroup: openFromMap)
             .frame(height: mapHeight)
             // The camera frames the trip in the part of the map left free by the bar above and the sheet below.
             .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
@@ -443,7 +510,7 @@ struct TripView: View {
             .overlay(alignment: .bottomLeading) {
                 // The day on the map, level with the expand button, as on Android.
                 if mapDays.count >= 2 {
-                    MapDayPill(days: mapDays, day: $mapDay)
+                    MapDayPill(trip: trip, days: mapDays, day: $mapDay)
                         .padding(.leading, 14)
                         .padding(.bottom, 42)
                 }
@@ -461,7 +528,8 @@ struct TripView: View {
             t.back = back
             trip = t
             plan = PlanState(trip: t)
-            withAnimation(.calm) { mapPosition = .rect(t.fittedRect(size: mapSize, insets: TripView.mapInsets)) }
+            // The camera glides to the stops at the pace of Android's 700 ms fly, not in a quick jump.
+            if mapDay == nil { withAnimation(.smooth(duration: 0.6)) { mapPosition = .rect(t.fittedRect(size: mapSize, insets: TripView.mapInsets)) } }
         }
         withAnimation(.calm) { stopsKnown = true }
         media = (try? await Remote.media(base)) ?? []
@@ -472,6 +540,31 @@ struct TripView: View {
         async let c = Remote.comments(base)
         notes = (try? await n) ?? notes
         comments = (try? await c) ?? comments
+    }
+}
+
+/// Finds the scroll view a view sits in, so the trip page can glide to an exact offset.
+struct ScrollFinder: UIViewRepresentable {
+    final class Holder {
+        weak var view: UIScrollView?
+        /// The scroll view's own top inset while a jump lends it extra room, and which jump is the latest.
+        var baseTop: CGFloat?
+        var jumps = 0
+    }
+    let holder: Holder
+
+    func makeUIView(context: Context) -> UIView {
+        let v = UIView()
+        v.isUserInteractionEnabled = false
+        return v
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        DispatchQueue.main.async {
+            var next = view.superview
+            while let s = next, !(s is UIScrollView) { next = s.superview }
+            if let found = next as? UIScrollView { holder.view = found }
+        }
     }
 }
 
@@ -536,7 +629,8 @@ struct FactsRow: View {
             let nonGuests = trip.members.filter { $0.role != "GUEST" }.count
             return chosen.map { f in
                 switch f {
-                case "km": return (trip.km.map { Format.number($0) } ?? "0", "kilometer")
+                // No "0 kilometer": a trip without a measured distance leaves the number empty.
+                case "km": return (trip.km.flatMap { $0 > 0 ? Format.number($0) : nil }, "kilometer")
                 case "days": return ("\(trip.days)", trip.days == 1 ? "dag" : "dagen")
                 case "stops": return (stopsKnown ? "\(stops)" : nil, stops == 1 ? "stop" : "stops")
                 case "photos": return (photos.map { Format.number($0) } ?? (trip.remoteId == nil ? "\(trip.photos)" : nil), "foto's")
@@ -561,15 +655,18 @@ struct FactsRow: View {
             ]
             return Array(list.compactMap { $0 }.prefix(4))
         }
-        if trip.remoteId != nil && (!stopsKnown || photos == nil) { return Array(repeating: (nil, " "), count: 4) }
+        // As on Android: while the page's own stops and photos are on their way, the tiles already stand with their
+        // label, filled from what the trip list knows; only a number nobody knows yet waits as empty space.
+        let photosWaiting = trip.remoteId != nil && photos == nil
         let shots = photos ?? trip.photos
         let list: [(String?, String)?] = [
             trip.km.flatMap { $0 > 0 ? (Format.number($0), "kilometer") : nil },
             trip.days > 0 ? ("\(trip.days)", trip.days == 1 ? "dag" : "dagen") : nil,
-            stops > 1 ? ("\(stops)", "stops") : nil,
-            shots > 0 ? (Format.number(shots), shots == 1 ? "foto" : "foto's") : nil,
+            !stopsKnown ? (nil, "stops") : (stops > 1 ? ("\(stops)", "stops") : nil),
+            photosWaiting ? (trip.photos > 0 ? Format.number(trip.photos) : nil, trip.photos == 1 ? "foto" : "foto's")
+                : (shots > 0 ? (Format.number(shots), shots == 1 ? "foto" : "foto's") : nil),
             travellers > 1 ? ("\(travellers)", "reizigers") : nil,
-            countryFact,
+            stopsKnown ? countryFact : nil,
         ]
         return Array(list.compactMap { $0 }.prefix(4))
     }
@@ -581,20 +678,16 @@ struct FactsRow: View {
         return HStack(spacing: 4) {
             ForEach(Array(items.enumerated()), id: \.offset) { i, item in
                 VStack(alignment: .leading, spacing: 2) {
-                    Group {
-                        if let value = item.0 {
-                            Text(value)
-                                .font(.outfit(21, 700))
-                                .tracking(-0.4)
-                                .foregroundStyle(Brand.ink)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                                .contentTransition(.numericText())
-                        } else {
-                            // Waiting for the server: a quiet bar in the number's place, never a wrong 0.
-                            Capsule().fill(Brand.ink.opacity(0.08)).frame(width: 34, height: 16).padding(.vertical, 5)
-                        }
-                    }
+                    // Waiting for the server: empty space of the number's exact height, no grey block and never a
+                    // wrong 0; the number fades in there the moment it is known.
+                    Text(item.0 ?? "0")
+                        .font(.outfit(21, 700))
+                        .tracking(-0.4)
+                        .foregroundStyle(Brand.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .opacity(item.0 == nil ? 0 : 1)
+                        .contentTransition(.numericText())
                     Text(item.1).font(.inter(12, 500)).foregroundStyle(Brand.inkSoft).lineLimit(2)
                     Spacer(minLength: 0)
                 }
@@ -614,7 +707,7 @@ struct FactsRow: View {
 
 /// The trip on MapKit: the route in the trip's colour (dotted before the trip), flights as grey dashed bows
 /// with a small grey airport dot where one starts or ends away from a stop, the stops as numbered dots, and
-/// your photos as round thumbnails grouped per zoom level (a tap opens one, a group zooms in).
+/// your photos as round thumbnails grouped per half zoom step, as on Android (a tap opens that group's photos).
 struct TripMap: View {
     let trip: Trip
     var interactive = false
@@ -623,12 +716,24 @@ struct TripMap: View {
     var photos: [Media] = []
     /// One day picked on the map: the rest of the trip goes faint under that day's own route and stops.
     var focus: MapFocus? = nil
-    var onPhoto: (Media) -> Void = { _ in }
+    /// Where the photo viewer grows out of and closes back into: each pin is a source named "pin-" and its front id.
+    var ns: Namespace.ID? = nil
+    /// A tapped pin: its photos, the one in front first.
+    var onGroup: ([Media], Media) -> Void = { _, _ in }
     @Environment(\.colorScheme) private var scheme
     @AppStorage("mapStyle") private var look = MapLook.positron.rawValue
-    /// What the camera shows across, to group the photos the way MapLibre's zoom levels would.
+    /// What the camera shows across, for the stops a pin covers (told when the camera stops).
     @State private var span: MKCoordinateSpan?
     @State private var width: CGFloat = 400
+    /// The live camera, while it moves: the zoom decides the half step, the span how far a glide reaches.
+    @State private var liveSpan: MKCoordinateSpan?
+    /// The half zoom step the photos are grouped at; it only changes when the camera crosses a step, so panning or
+    /// a small pinch never regroups anything.
+    @State private var step: Double?
+    @State private var levels = PhotoLevels()
+    /// What is drawn: every group by its front photo, and the groups that just joined another, on their way into it.
+    @State private var shown: [String: ShownPin] = [:]
+    @State private var lastGroups: [PhotoGroup]?
 
     var body: some View {
         Group {
@@ -641,7 +746,64 @@ struct TripMap: View {
         .mapStyle(satellite ? MapLook.satellite.style : (MapLook(rawValue: look) ?? .positron).style)
         .mapControlVisibility(.hidden)
         .onMapCameraChange(frequency: .onEnd) { ctx in span = ctx.region.span }
+        .onMapCameraChange(frequency: .continuous) { ctx in
+            liveSpan = ctx.region.span
+            let next = PhotoLevels.step(zoom: zoom(ctx.region.span))
+            if next != step { step = next; regroup() }
+        }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .onAppear { regroup() }
+        .onChange(of: photos.map(\.id)) { regroup() }
+    }
+
+    /// The camera's zoom as MapLibre counts it (the world 512 points wide at zoom 0), so the steps match Android.
+    private func zoom(_ span: MKCoordinateSpan?) -> Double {
+        let delta = span?.longitudeDelta ?? trip.mapSpanDegrees
+        return log2(360 * Double(max(width, 1)) / (512 * max(delta, 1e-6)))
+    }
+
+    /// Points on screen between two photos at the camera's zoom, for a pin gliding from one spot to another.
+    private func offset(from a: Media, to b: Media) -> CGSize {
+        guard let la = a.lat, let lo = a.lon, let lb = b.lat, let lob = b.lon else { return .zero }
+        let delta = (liveSpan ?? span)?.longitudeDelta ?? trip.mapSpanDegrees
+        let k = Double(max(width, 1)) / max(delta, 1e-6)
+        return CGSize(width: (lo - lob) * k, height: -(TripMap.mercY(la) - TripMap.mercY(lb)) * k)
+    }
+
+    /// Passing a half step, groups split or join as one movement: the photos of a group that splits glide out of it
+    /// to their own spots, a group that joins another glides into it and fades there. The photo in front stays the
+    /// same photo the whole way.
+    private func regroup() {
+        levels.use(photos)
+        let groups = levels.at(step ?? PhotoLevels.step(zoom: zoom(span)))
+        let before = lastGroups
+        lastGroups = groups
+        let now = Set(groups.map(\.front.id))
+        func holder(_ list: [PhotoGroup]?, _ id: String) -> PhotoGroup? { list?.first { g in g.members.contains { $0.id == id } } }
+        var next = shown
+        // Gone from the photos altogether (another day picked): no glide, simply away.
+        let ids = Set(photos.map(\.id))
+        next = next.filter { ids.contains($0.value.group.front.id) }
+        for g in groups {
+            if let old = next[g.front.id], !old.leaving {
+                next[g.front.id] = ShownPin(group: g, from: old.from, leaving: false, born: old.born)
+            } else {
+                // New on the map: out of the group it was part of a moment ago (or simply there at the first draw).
+                let parent = before == nil ? nil : holder(before, g.front.id)
+                let from = parent.map { offset(from: $0.front, to: g.front) } ?? .zero
+                next[g.front.id] = ShownPin(group: g, from: from, leaving: false, born: UUID())
+            }
+        }
+        for (key, pin) in next where !now.contains(key) && !pin.leaving {
+            // Joined another group: into that group's spot, fading there, then gone.
+            let into = holder(groups, key).map { offset(from: $0.front, to: pin.group.front) } ?? .zero
+            let born = UUID()
+            next[key] = ShownPin(group: pin.group, from: into, leaving: true, born: born)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.36) {
+                if shown[key]?.born == born { shown[key] = nil }
+            }
+        }
+        shown = next
     }
 
     private var flightGrey: Color { scheme == .dark || satellite ? Color(hex: 0x9AA4B3) : Color(hex: 0x8A94A3) }
@@ -678,36 +840,27 @@ struct TripMap: View {
             }
             .annotationTitles(.hidden)
         }
-        let groups = photoGroups
+        let groups = lastGroups ?? []
         ForEach(visibleStops(groups), id: \.number) { item in
             Annotation(item.stop.name, coordinate: item.stop.at.coordinate, anchor: .center) {
                 StopDot(number: item.number, color: color, upcoming: trip.upcoming)
             }
             .annotationTitles(interactive ? .automatic : .hidden)
         }
-        ForEach(groups, id: \.key) { group in
-            Annotation("", coordinate: CLLocationCoordinate2D(latitude: group.first.lat ?? 0, longitude: group.first.lon ?? 0), anchor: .center) {
-                PhotoPin(media: group.first, count: group.count, ring: color) { tapped(group) }
+        // The ones on their way into another group first, so they pass under the pins that stay.
+        let pins = shown.values.sorted { $0.leaving && !$1.leaving }
+        ForEach(pins, id: \.id) { pin in
+            Annotation("", coordinate: CLLocationCoordinate2D(latitude: pin.group.front.lat ?? 0, longitude: pin.group.front.lon ?? 0), anchor: .center) {
+                PhotoPin(media: pin.group.front, count: pin.group.members.count, ring: color, from: pin.from, leaving: pin.leaving, ns: ns) {
+                    Haptic.tap()
+                    onGroup(pin.group.members, pin.group.front)
+                }
             }
             .annotationTitles(.hidden)
         }
     }
 
-    private struct PhotoGroup {
-        let key: String
-        let first: Media
-        let count: Int
-    }
-
-    /// Degrees across one photo pin and a little air at the camera's zoom level, rounded the way MapLibre's
-    /// levels would be so a small pan or pinch never regroups anything.
-    private var pinReach: Double {
-        let delta = span?.longitudeDelta ?? trip.mapSpanDegrees
-        let level = (log2(360 * Double(width) / (512 * max(delta, 1e-6)))).rounded()
-        return 52 * 360 / (512 * pow(2, level))
-    }
-
-    private static func mercY(_ lat: Double) -> Double { log(tan(.pi / 4 + max(-85, min(85, lat)) * Geo.rad / 2)) / Geo.rad }
+    static func mercY(_ lat: Double) -> Double { log(tan(.pi / 4 + max(-85, min(85, lat)) * Geo.rad / 2)) / Geo.rad }
 
     /// The numbered stops, without the ones a photo pin would cover: a number half under a round photo (and its
     /// count) reads as a mistake, and the photo already marks the place.
@@ -719,7 +872,7 @@ struct TripMap: View {
         let delta = span?.longitudeDelta ?? trip.mapSpanDegrees
         let near = 38 * delta / Double(max(width, 1))
         let pins = groups.compactMap { g -> (Double, Double)? in
-            guard let lat = g.first.lat, let lon = g.first.lon else { return nil }
+            guard let lat = g.front.lat, let lon = g.front.lon else { return nil }
             return (lon, TripMap.mercY(lat))
         }
         return all.filter { item in
@@ -728,41 +881,83 @@ struct TripMap: View {
         }
     }
 
-    /// The photos grouped for the zoom level, the way MapLibre's levels would (rounded, so a small pan or pinch
-    /// never regroups them): a photo joins the first group whose pin it would overlap, so the round
-    /// thumbnails stand apart instead of piling up.
-    private var photoGroups: [PhotoGroup] {
-        guard !photos.isEmpty else { return [] }
-        let reach = pinReach
-        func mercY(_ lat: Double) -> Double { TripMap.mercY(lat) }
-        var groups: [(x: Double, y: Double, first: Media, count: Int)] = []
-        for m in photos {
-            guard let lat = m.lat, let lon = m.lon else { continue }
-            let x = lon, y = mercY(lat)
-            if let i = groups.firstIndex(where: { abs($0.x - x) < reach && abs($0.y - y) < reach }) {
-                groups[i].count += 1
-            } else {
-                groups.append((x, y, m, 1))
-            }
-        }
-        return groups.map { PhotoGroup(key: $0.first.id, first: $0.first, count: $0.count) }
+}
+
+/// A group of photos on the map: `front` is the one shown, the others are counted on it.
+struct PhotoGroup {
+    let front: Media
+    let members: [Media]
+}
+
+/// A pin as drawn: its group, where it glides from (in points, out of its parent) or into (when leaving).
+struct ShownPin {
+    let group: PhotoGroup
+    let from: CGSize
+    let leaving: Bool
+    let born: UUID
+    var id: String { group.front.id + (leaving ? "~" : "") }
+}
+
+/// The groups at every half zoom step, as Android (and Hiero's stickers): worked out from close up downwards, each
+/// step from the step above it, so zooming out only ever joins groups and zooming in only splits them, and the photo
+/// in front of a group stays in front of the bigger group it joins. Each step is worked out once, then kept.
+final class PhotoLevels {
+    private static let top = 17.0
+    private var ids: [String] = []
+    private var byStep: [Double: [PhotoGroup]] = [:]
+    private var lowest = PhotoLevels.top
+
+    static func step(zoom: Double) -> Double { min(top, max(0, (zoom * 2).rounded(.down) / 2)) }
+
+    /// Starts over when the photos change (another day, more photos).
+    func use(_ photos: [Media]) {
+        let located = photos.filter { $0.lat != nil && $0.lon != nil && !$0.video }
+        let now = located.map(\.id)
+        guard now != ids else { return }
+        ids = now
+        lowest = PhotoLevels.top
+        byStep = [PhotoLevels.top: PhotoLevels.join(located.map { PhotoGroup(front: $0, members: [$0]) }, zoom: PhotoLevels.top, reach: 2)]
     }
 
-    private func tapped(_ group: PhotoGroup) {
-        Haptic.tap()
-        guard group.count > 1, let position, let lat = group.first.lat, let lon = group.first.lon else {
-            onPhoto(group.first)
-            return
+    func at(_ step: Double) -> [PhotoGroup] {
+        let step = min(PhotoLevels.top, max(0, step))
+        // A pin and the count on its corner: groups closer than that join.
+        while lowest > step {
+            let next = lowest - 0.5
+            byStep[next] = PhotoLevels.join(byStep[lowest] ?? [], zoom: next, reach: 50)
+            lowest = next
         }
-        // A group zooms in to split it.
-        let current = span ?? MKCoordinateSpan(latitudeDelta: trip.mapSpanDegrees, longitudeDelta: trip.mapSpanDegrees)
-        let k = pow(2, 2.5)
-        withAnimation(.smooth(duration: 0.45)) {
-            position.wrappedValue = .region(MKCoordinateRegion(
-                center: CLLocationCoordinate2D(latitude: lat, longitude: lon),
-                span: MKCoordinateSpan(latitudeDelta: max(current.latitudeDelta / k, 0.004), longitudeDelta: max(current.longitudeDelta / k, 0.004))
-            ))
+        return byStep[step] ?? []
+    }
+
+    /// Where a spot lies at a zoom, in map points (Web Mercator, 512 points wide at zoom 0, as MapLibre).
+    private static func point(_ m: Media, zoom: Double) -> (Double, Double) {
+        let size = 512 * pow(2, zoom)
+        let s = sin(max(-85, min(85, m.lat ?? 0)) * .pi / 180)
+        return (((m.lon ?? 0) + 180) / 360 * size, (0.5 - log((1 + s) / (1 - s)) / (4 * .pi)) * size)
+    }
+
+    /// Joins groups whose front photos lie closer than `reach` points at `zoom`, in their order (the first keeps its
+    /// front). A grid of cells as wide as `reach` keeps it quick for hundreds of photos.
+    private static func join(_ groups: [PhotoGroup], zoom: Double, reach: Double) -> [PhotoGroup] {
+        var fronts: [Media] = [], members: [[Media]] = [], spots: [(Double, Double)] = []
+        var cells: [Int64: [Int]] = [:]
+        func cell(_ x: Int64, _ y: Int64) -> Int64 { x &* 1_000_003 &+ y }
+        for g in groups {
+            let at = point(g.front, zoom: zoom)
+            let cx = Int64((at.0 / reach).rounded(.down)), cy = Int64((at.1 / reach).rounded(.down))
+            var near = -1
+            for dx in -1...1 { for dy in -1...1 { for i in cells[cell(cx + Int64(dx), cy + Int64(dy))] ?? [] {
+                if (near < 0 || i < near) && hypot(spots[i].0 - at.0, spots[i].1 - at.1) < reach { near = i }
+            } } }
+            if near >= 0 {
+                members[near] += g.members
+            } else {
+                fronts.append(g.front); members.append(g.members); spots.append(at)
+                cells[cell(cx, cy), default: []].append(fronts.count - 1)
+            }
         }
+        return fronts.indices.map { PhotoGroup(front: fronts[$0], members: members[$0]) }
     }
 }
 
@@ -772,35 +967,32 @@ struct MapFocus: Equatable {
     var stops: Set<String>
 }
 
-/// "Hele reis" or the day the map shows, as on Android: a glass pill on the map, lit in the accent while one day
-/// is picked, that unfolds the list of days (a menu shows one line per day, so without the photo counts).
+/// "Hele reis" or the day the map shows, as on Android: a glass pill on the map, lit in the accent while one day is
+/// picked, that opens the list of days in a sheet.
 struct MapDayPill: View {
+    let trip: Trip
     let days: [(day: Date, photos: Int)]
     @Binding var day: Date?
+    @State private var open = false
 
     private static let weekdays = ["zo", "ma", "di", "wo", "do", "vr", "za"]
 
-    /// "di 7 jul": short enough for the pill, clear in the list.
+    /// "di 7 jul": short enough for the pill.
     static func label(_ d: Date) -> String {
-        "\(weekdays[(Format.calendar.component(.weekday, from: d) - 1) % 7]) \(Format.shortDay(d))"
+        "\(weekday(d)) \(Format.shortDay(d))"
     }
 
+    static func weekday(_ d: Date) -> String { weekdays[(Format.calendar.component(.weekday, from: d) - 1) % 7] }
+
     var body: some View {
-        Menu {
-            Picker("Dag op de kaart", selection: Binding(get: { day }, set: { v in
-                Haptic.select()
-                withAnimation(.calm) { day = v }
-            })) {
-                Text("Hele reis").tag(Date?.none)
-                ForEach(days, id: \.day) { d in
-                    Text(MapDayPill.label(d.day)).tag(Optional(d.day))
-                }
-            }
-            .pickerStyle(.inline)
+        Button {
+            Haptic.tap()
+            open = true
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "calendar").font(.system(size: 14, weight: .semibold))
                 Text(day.map(MapDayPill.label) ?? "Hele reis").font(.outfit(15, 600)).lineLimit(1)
+                    .contentTransition(.interpolate)
                 Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold))
             }
             .foregroundStyle(day == nil ? Brand.ink : .white)
@@ -808,28 +1000,141 @@ struct MapDayPill: View {
             .frame(height: 48)
             .contentShape(.capsule)
         }
+        .buttonStyle(.plain)
         .glassEffect(day == nil ? .regular.interactive() : .regular.tint(Brand.accent).interactive(), in: .capsule)
         .animation(.calm, value: day)
         .accessibilityLabel("Dag op de kaart")
+        .sheet(isPresented: $open) {
+            MapDaySheet(trip: trip, days: days, day: day) { picked in
+                Haptic.select()
+                withAnimation(.calm) { day = picked }
+            }
+        }
     }
 }
 
-/// A photo on the map: a round thumbnail with a ring in the trip's colour, and the count on a group.
+/// The list of days, as on Android: the whole trip above a line, every day under it. Each row: a date tile on the left
+/// (the number big, the weekday small), where you were that day as the title with "Dag 3" under it, and its photos on
+/// the right; the chosen row turns warm, its tile fills with the accent and a check takes the place of the count.
+/// The rows' corners follow the sheet's own.
+struct MapDaySheet: View {
+    let trip: Trip
+    let days: [(day: Date, photos: Int)]
+    let day: Date?
+    let onPick: (Date?) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        let first = trip.start ?? days.first?.day
+        ScrollView {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Dag op de kaart").font(.outfit(22, 650)).foregroundStyle(Brand.ink)
+                    .padding(.horizontal, 8)
+                Text("Kies één dag om alleen die route en die foto's te zien.")
+                    .font(.inter(13.5, 500)).foregroundStyle(Brand.inkSoft)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 12)
+                row(chosen: day == nil, title: "Hele reis", subtitle: "\(days.count) dagen", photos: nil, value: nil) { fg in
+                    Image(systemName: "calendar").font(.system(size: 20, weight: .semibold)).foregroundStyle(fg)
+                }
+                Rectangle().fill(Brand.line).frame(height: 1).padding(.horizontal, 12).padding(.vertical, 8)
+                ForEach(days, id: \.day) { d in
+                    // The tile already says the date; the line under the place says which day of the trip it was.
+                    let nth = first.map { (Format.calendar.dateComponents([.day], from: Format.calendar.startOfDay(for: $0), to: d.day).day ?? 0) + 1 }
+                    let dayN = nth.map { "Dag \($0)" } ?? ""
+                    let place = Timeline.stopOn(trip, d.day)?.name
+                    row(chosen: day == d.day, title: place ?? dayN, subtitle: place != nil ? dayN : Format.shortDay(d.day), photos: d.photos, value: d.day) { fg in
+                        VStack(spacing: 0) {
+                            Text("\(Format.calendar.component(.day, from: d.day))").font(.outfit(18, 700))
+                            Text(MapDayPill.weekday(d.day)).font(.inter(10.5, 600)).opacity(0.8)
+                        }
+                        .foregroundStyle(fg)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 22)
+            .padding(.bottom, 16)
+        }
+        .scrollIndicators(.hidden)
+        .presentationDetents(days.count > 6 ? [.medium, .large] : [.medium])
+        .presentationBackground(Brand.paper)
+    }
+
+    private func row(chosen: Bool, title: String, subtitle: String, photos: Int?, value: Date?, @ViewBuilder tile: (Color) -> some View) -> some View {
+        Button {
+            onPick(value)
+            dismiss()
+        } label: {
+            HStack(spacing: 14) {
+                tile(chosen ? .white : Brand.ink)
+                    .frame(width: 46, height: 46)
+                    .background(chosen ? Brand.accent : Brand.sunken, in: .rect(cornerRadius: 14))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.outfit(16, 600)).foregroundStyle(Brand.ink).lineLimit(1)
+                    Text(subtitle).font(.inter(13, 500)).foregroundStyle(Brand.inkSoft).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                if chosen {
+                    Image(systemName: "checkmark").font(.system(size: 17, weight: .bold)).foregroundStyle(Brand.accent)
+                        .transition(.scale(scale: 0.7).combined(with: .opacity))
+                } else if let photos, photos > 0 {
+                    HStack(spacing: 5) {
+                        Image(systemName: "camera").font(.system(size: 13, weight: .semibold))
+                        Text("\(photos)").font(.inter(13, 600)).monospacedDigit()
+                    }
+                    .foregroundStyle(Brand.inkSoft)
+                }
+            }
+            .padding(.leading, 10)
+            .padding(.trailing, 16)
+            .padding(.vertical, 10)
+            .background(chosen ? Brand.accent.opacity(0.16) : Brand.raised,
+                        in: ConcentricRectangle(corners: .concentric(minimum: .fixed(20)), isUniform: true))
+            .contentShape(.rect)
+        }
+        .buttonStyle(PressStyle(scale: 0.98))
+        .accessibilityAddTraits(chosen ? .isSelected : [])
+    }
+}
+
+/// A photo on the map: a round thumbnail with a ring in the trip's colour, and the count on a group. New on the map
+/// it glides out of its parent's spot (`from`), growing and coming in; leaving, it glides into the group it joins
+/// and fades there. 320 ms on Android's emphasized curve, with nothing to do once it stands still.
 struct PhotoPin: View {
     let media: Media
     let count: Int
     let ring: Color
+    var from: CGSize = .zero
+    var leaving = false
+    var ns: Namespace.ID? = nil
     let action: () -> Void
+    @State private var t: CGFloat
+
+    static let glide = Animation.timingCurve(0.2, 0, 0, 1, duration: 0.32)
+
+    init(media: Media, count: Int, ring: Color, from: CGSize = .zero, leaving: Bool = false, ns: Namespace.ID? = nil, action: @escaping () -> Void) {
+        self.media = media
+        self.count = count
+        self.ring = ring
+        self.from = from
+        self.leaving = leaving
+        self.ns = ns
+        self.action = action
+        _t = State(initialValue: leaving || from == .zero ? 1 : 0)
+    }
 
     var body: some View {
+        let scale = leaving ? 0.8 + 0.2 * t : 0.85 + 0.15 * t
         Button(action: action) {
             MediaView(media: media)
                 .frame(width: 40, height: 40)
                 .clipShape(.circle)
                 .padding(3)
                 .background(ring, in: .circle)
+                .modifier(PinSource(id: "pin-\(media.id)", ns: leaving ? nil : ns))
                 .overlay(alignment: .topTrailing) {
-                    if count > 1 {
+                    if count > 1 && !leaving {
                         Text(count > 99 ? "99+" : "\(count)")
                             .font(.outfit(11, 700))
                             .foregroundStyle(.white)
@@ -838,11 +1143,31 @@ struct PhotoPin: View {
                             .background(ring, in: .capsule)
                             .overlay { Capsule().strokeBorder(.white, lineWidth: 1.5) }
                             .offset(x: 8, y: -6)
+                            .opacity(t)
+                            .contentTransition(.numericText())
+                            .animation(.calm, value: count)
                     }
                 }
         }
         .buttonStyle(PressStyle(scale: 0.92))
-        .accessibilityLabel(count > 1 ? "\(count) foto's, inzoomen" : "Foto openen")
+        .disabled(leaving)
+        .scaleEffect(scale)
+        .opacity(leaving ? t : 0.4 + 0.6 * t)
+        .offset(x: from.width * (1 - t), y: from.height * (1 - t))
+        .onAppear {
+            guard t != (leaving ? 0 : 1) else { return }
+            withAnimation(PhotoPin.glide) { t = leaving ? 0 : 1 }
+        }
+        .accessibilityLabel(count > 1 ? "\(count) foto's" : "Foto openen")
+    }
+}
+
+/// The pin as the place the viewer grows out of and closes back into, when there is a namespace for it.
+private struct PinSource: ViewModifier {
+    let id: String
+    let ns: Namespace.ID?
+    func body(content: Content) -> some View {
+        if let ns { content.matchedTransitionSource(id: id, in: ns) { $0.clipShape(.rect(cornerRadius: 23)) } } else { content }
     }
 }
 
@@ -872,12 +1197,15 @@ extension Trip {
         return out
     }
 
-    /// Everything the map draws: the stops (or the route) and the flights' bows, so no arc is cut off.
+    /// What frames the map, as Android's framePoints: the trip itself decides the view. With two stops or more the
+    /// stops alone (the recorded route usually starts and ends at home, the drive to the airport, which pulled
+    /// Amsterdam in and left Morocco small in a corner); otherwise the stops and the route, and only a trip that is
+    /// nothing but flights is framed by its bows.
     private var mapPoints: [LonLat] {
-        // As on Android: the stops, the recorded route and the bows together.
-        let base = stops.map(\.at) + route
-        let bows = pieces.bows.flatMap { Geo.flightArc($0.0, $0.1, steps: 12) }
-        return base + bows
+        let at = stops.map(\.at)
+        let own = at.count >= 2 ? at : at + route
+        if own.count >= 2 { return own }
+        return own + pieces.bows.flatMap { Geo.flightArc($0.0, $0.1, steps: 12) }
     }
 
     /// The part of the world the trip covers, with room on every side; `bottomRoom` adds a share of the height at
@@ -935,22 +1263,22 @@ struct FullMapView: View {
     var focus: MapFocus? = nil
     var days: [(day: Date, photos: Int)] = []
     var day: Binding<Date?>? = nil
-    var onPhoto: (Media) -> Void = { _ in }
     @State private var satellite = false
+    @State private var viewer: ViewerItem?
+    @State private var viewerCurrent = ""
+    @Namespace private var pins
     @State private var position: MapCameraPosition
     @State private var size: CGSize = .zero
     private static let insets = EdgeInsets(top: 130, leading: 36, bottom: 70, trailing: 36)
     @Environment(\.dismiss) private var dismiss
     @Namespace private var glass
 
-    init(trip: Trip, photos: [Media] = [], focus: MapFocus? = nil, days: [(day: Date, photos: Int)] = [], day: Binding<Date?>? = nil,
-         onPhoto: @escaping (Media) -> Void = { _ in }) {
+    init(trip: Trip, photos: [Media] = [], focus: MapFocus? = nil, days: [(day: Date, photos: Int)] = [], day: Binding<Date?>? = nil) {
         self.trip = trip
         self.photos = photos
         self.focus = focus
         self.days = days
         self.day = day
-        self.onPhoto = onPhoto
         _position = State(initialValue: .rect(trip.mapRect()))
     }
 
@@ -961,17 +1289,26 @@ struct FullMapView: View {
     }
 
     var body: some View {
-        TripMap(trip: trip, interactive: true, satellite: satellite, position: $position, photos: photos, focus: focus, onPhoto: onPhoto)
+        TripMap(trip: trip, interactive: true, satellite: satellite, position: $position, photos: photos, focus: focus, ns: pins) { group, front in
+            viewerCurrent = front.id
+            viewer = ViewerItem(trip: trip, photos: group, start: front, source: "pin-\(front.id)")
+        }
             .ignoresSafeArea()
+            .fullScreenCover(item: $viewer) { item in
+                PhotoViewer(item: item, current: $viewerCurrent)
+                    .navigationTransition(.zoom(sourceID: item.source ?? viewerCurrent, in: pins))
+            }
             .onGeometryChange(for: CGSize.self) { $0.size } action: { new in
                 guard new != size else { return }
                 size = new
                 position = .rect(frame)
             }
             .onChange(of: focus) { withAnimation(.smooth(duration: 0.5)) { position = .rect(frame) } }
+            // Opened before the stops were read: framed again on them once they are there.
+            .onChange(of: trip.stops.count) { withAnimation(.smooth(duration: 0.6)) { position = .rect(frame) } }
             .overlay(alignment: .bottomLeading) {
                 if let day, days.count >= 2 {
-                    MapDayPill(days: days, day: day)
+                    MapDayPill(trip: trip, days: days, day: day)
                         .padding(.leading, 16)
                         .padding(.bottom, 8)
                 }

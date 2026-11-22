@@ -70,7 +70,29 @@ struct MapLookPreview: View {
     }
 }
 
+/// Whose photos the map shows, kept per trip (nil: everyone's), as Android's MapPhotosPref.
+enum MapPhotosPref {
+    static func get(_ tripId: String) -> Set<String>? {
+        (UserDefaults.standard.array(forKey: "mapPhotos.\(tripId)") as? [String]).map(Set.init)
+    }
+
+    static func set(_ tripId: String, _ users: Set<String>?) {
+        if let users { UserDefaults.standard.set(Array(users), forKey: "mapPhotos.\(tripId)") } else { UserDefaults.standard.removeObject(forKey: "mapPhotos.\(tripId)") }
+    }
+}
+
+/// What the map settings need for "Foto's op de kaart": the travellers who put photos on this map and whose are on.
+struct MapPhotoLayers {
+    let members: [Person]
+    let me: String?
+    let on: Set<String>
+    let onToggle: (String) -> Void
+    /// All on or all off; `press` false is a second tap on the lit one, which puts back the choice before it.
+    let onAll: (_ on: Bool, _ press: Bool) -> Void
+}
+
 struct MapStyleSheet: View {
+    var layers: MapPhotoLayers? = nil
     @AppStorage("mapStyle") private var chosen = MapLook.positron.rawValue
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dismiss) private var dismiss
@@ -107,6 +129,9 @@ struct MapStyleSheet: View {
                     }
                     Text("In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.")
                         .font(.inter(13, 450)).foregroundStyle(Brand.inkSoft)
+                    if let layers, !layers.members.isEmpty {
+                        photoSection(layers).padding(.top, 14)
+                    }
                 }
                 .padding(16)
             }
@@ -115,6 +140,78 @@ struct MapStyleSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() }.tint(.primary) } }
         }
-        .presentationDetents([.medium])
+        .presentationDetents(layers?.members.isEmpty == false ? [.medium, .large] : [.medium])
+    }
+
+    /// As the web's MapLayersSheet and Android: per traveller whether their photos show, with all on or all off;
+    /// a second tap on the lit one of those two goes back to the choice from before.
+    @ViewBuilder private func photoSection(_ layers: MapPhotoLayers) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Foto's op de kaart").font(.outfit(17, 650)).foregroundStyle(Brand.ink)
+            Text("Wiens foto's als bolletjes op de kaart staan. Zet ze allemaal uit om alleen de route te zien.")
+                .font(.inter(13, 500)).foregroundStyle(Brand.inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, 8)
+            VStack(spacing: 3) {
+                ForEach(Array(layers.members.enumerated()), id: \.element.userId) { i, m in
+                    let id = m.userId ?? ""
+                    let on = layers.on.contains(id)
+                    Button {
+                        Haptic.select()
+                        withAnimation(.calm) { layers.onToggle(id) }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Avatar(userId: m.userId, hasAvatar: m.hasAvatar, initial: m.initial, color: m.color, size: 31)
+                                .padding(2.5)
+                                .background(m.color, in: .circle)
+                            Text(m.name + (id == layers.me ? " (ik)" : "")).font(.outfit(16, 600)).foregroundStyle(Brand.ink).lineLimit(1)
+                            Spacer(minLength: 8)
+                            // An empty ring when off, filling with the accent and a check when on.
+                            ZStack {
+                                Circle().strokeBorder(on ? Brand.accent : Brand.line, lineWidth: 2)
+                                Circle().fill(Brand.accent).opacity(on ? 1 : 0)
+                                Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundStyle(.white)
+                                    .scaleEffect(on ? 1 : 0.4).opacity(on ? 1 : 0)
+                            }
+                            .frame(width: 26, height: 26)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Brand.raised, in: UnevenRoundedRectangle(
+                            topLeadingRadius: i == 0 ? 20 : 6, bottomLeadingRadius: i == layers.members.count - 1 ? 20 : 6,
+                            bottomTrailingRadius: i == layers.members.count - 1 ? 20 : 6, topTrailingRadius: i == 0 ? 20 : 6))
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(PressStyle())
+                    .accessibilityAddTraits(on ? .isSelected : [])
+                }
+            }
+            let all = layers.members.allSatisfy { layers.on.contains($0.userId ?? "") }
+            let none = !layers.members.contains { layers.on.contains($0.userId ?? "") }
+            HStack(spacing: 2) {
+                allButton("Allemaal aan", lit: all, leading: true) { layers.onAll(true, !all) }
+                allButton("Allemaal uit", lit: none, leading: false) { layers.onAll(false, !none) }
+            }
+            .padding(.top, 10)
+        }
+    }
+
+    private func allButton(_ label: String, lit: Bool, leading: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptic.select()
+            withAnimation(.calm) { action() }
+        } label: {
+            Text(label)
+                .font(.outfit(15, 600))
+                .foregroundStyle(lit ? Color.white : Brand.ink)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(lit ? Brand.accent : Brand.raised, in: UnevenRoundedRectangle(
+                    topLeadingRadius: lit || leading ? 24 : 8, bottomLeadingRadius: lit || leading ? 24 : 8,
+                    bottomTrailingRadius: lit || !leading ? 24 : 8, topTrailingRadius: lit || !leading ? 24 : 8))
+                .contentShape(.rect)
+        }
+        .buttonStyle(PressStyle(scale: 0.97))
+        .accessibilityAddTraits(lit ? .isSelected : [])
     }
 }
