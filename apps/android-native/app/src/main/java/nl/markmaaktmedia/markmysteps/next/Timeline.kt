@@ -35,6 +35,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -243,10 +244,20 @@ private fun LiveTimeline(
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
             modifier = Modifier.padding(bottom = 12.dp),
         )
-        Row(Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Four in view as on the web, with a soft fade at both sides where the row runs off the screen.
+        Row(
+            Modifier.bleed(16.dp)
+                .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    drawRect(Brush.horizontalGradient(0f to Color.Transparent, 0.05f to Color.Black, 0.95f to Color.Black, 1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                }
+                .horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             trip.stops.distinctBy { it.name }.forEach { stop ->
                 val pick = photos.firstOrNull { stopOn(it.takenAt)?.name == stop.name }
-                Box(Modifier.width(138.dp).height(168.dp).clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerHigh)
+                Box(Modifier.width(92.dp).height(116.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh)
                     .clickable(enabled = pick != null) {
                         // A tap goes to that place's first day, as on the web.
                         // Where that day is, asked again as the page scrolls: rows further down only take their real
@@ -262,12 +273,12 @@ private fun LiveTimeline(
                     } else {
                         // No photo yet: the place in the trip's colour, with its flag, instead of an empty frame.
                         Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(trip.color.copy(alpha = 0.35f), trip.color.copy(alpha = 0.12f)))))
-                        FlagIcon(stop.flag, 24.dp, Modifier.padding(14.dp))
+                        FlagIcon(stop.flag, 20.dp, Modifier.padding(10.dp))
                     }
                     Text(
                         stop.name, maxLines = 2,
-                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, lineHeight = 19.sp, color = if (pick != null) Color.White else cs.onSurface),
-                        modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp, lineHeight = 16.sp, color = if (pick != null) Color.White else cs.onSurface),
+                        modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 9.dp, vertical = 8.dp),
                     )
                 }
             }

@@ -640,7 +640,7 @@ private fun ViewerMenu(trip: Trip, media: Media, stops: List<ViewerApi.StopRow>?
         if (immich != null && media.immichAssetId != null && media.userId.isNotBlank() && media.userId == me)
             listOf(MenuEntry(stringResource(R.string.viewer_open_immich), Glyphs.globe) { ViewerApi.browse(context, "$immich/photos/${media.immichAssetId}") })
         else emptyList(),
-    ))
+    ), buttonColor = Color(0xFF2E2E2E))
 }
 
 @Composable
