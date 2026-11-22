@@ -184,7 +184,7 @@ private fun TravellersList(
                 var bell by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
                 var unread by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
                 androidx.compose.runtime.LaunchedEffect(Data.version) { if (Data.live) unread = runCatching { Remote.noticeCount() }.getOrDefault(0) }
-                Box(Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHigh).tap { if (Data.live) bell = true }, contentAlignment = Alignment.Center) {
+                Box(Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHigh).tap { if (Data.live) bell = true }.a11y(stringResource(R.string.a11y_notifications)), contentAlignment = Alignment.Center) {
                     LineIcon(Glyphs.bell, cs.onSurface, size = 22.dp)
                     // The dot only when there is something unread or waiting for an answer.
                     if (unread > 0) Box(Modifier.align(Alignment.TopEnd).padding(top = 11.dp, end = 12.dp).size(9.dp).clip(CircleShape).background(cs.primary))

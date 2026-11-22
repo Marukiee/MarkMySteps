@@ -1,5 +1,9 @@
 package nl.markmaaktmedia.markmysteps.next
 
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
@@ -122,3 +126,12 @@ fun SmoothProgress(value: Float, modifier: androidx.compose.ui.Modifier = androi
     )
     androidx.compose.material3.LinearWavyProgressIndicator(progress = { shown }, modifier = modifier)
 }
+
+
+/** What TalkBack reads for a button that only shows an icon (and, for tabs, whether it is the chosen one). */
+fun androidx.compose.ui.Modifier.a11y(label: String, role: androidx.compose.ui.semantics.Role = androidx.compose.ui.semantics.Role.Button, selected: Boolean? = null): androidx.compose.ui.Modifier =
+    this.then(androidx.compose.ui.Modifier.semantics {
+        contentDescription = label
+        this.role = role
+        if (selected != null) this.selected = selected
+    })

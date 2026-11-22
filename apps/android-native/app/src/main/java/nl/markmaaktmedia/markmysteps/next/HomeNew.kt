@@ -950,7 +950,8 @@ private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modi
                 val on = i == active
                 val bg by animateColorAsState(if (on) cs.primary else Color.Transparent, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "navBg")
                 Row(
-                    Modifier.height(48.dp).clip(CircleShape).background(bg).bouncyClickable({ if (!on) haptics(Haptic.Tick); onNav(i) }, feel = null).padding(horizontal = 14.dp),
+                    Modifier.height(48.dp).clip(CircleShape).background(bg).bouncyClickable({ if (!on) haptics(Haptic.Tick); onNav(i) }, feel = null)
+                        .a11y(label, androidx.compose.ui.semantics.Role.Tab, selected = on).padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // The icon's colour moves with the pill, so it never turns white on beige before the pill is there.

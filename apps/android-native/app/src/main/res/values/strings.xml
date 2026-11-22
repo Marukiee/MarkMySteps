@@ -693,4 +693,11 @@
     <plurals name="people_add_as"><item quantity="one">Add %1$d person as</item><item quantity="other">Add %1$d people as</item></plurals>
     <plurals name="points_count"><item quantity="one">%1$d point</item><item quantity="other">%1$d points</item></plurals>
     <plurals name="access_added"><item quantity="one">You have been added to %1$d trip!</item><item quantity="other">You have been added to %1$d trips!</item></plurals>
+    <string name="a11y_people">People and sharing</string>
+    <string name="a11y_map">Map settings</string>
+    <string name="a11y_trip_settings">Trip settings</string>
+    <string name="a11y_back">Back</string>
+    <string name="a11y_notifications">Notifications</string>
+    <string name="a11y_more">More options</string>
+    <string name="a11y_expand">Enlarge map</string>
 </resources>

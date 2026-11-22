@@ -692,4 +692,11 @@
     <plurals name="people_add_as"><item quantity="one">%1$d persoon toevoegen als</item><item quantity="other">%1$d mensen toevoegen als</item></plurals>
     <plurals name="points_count"><item quantity="one">%1$d punt</item><item quantity="other">%1$d punten</item></plurals>
     <plurals name="access_added"><item quantity="one">Je bent toegevoegd aan %1$d reis!</item><item quantity="other">Je bent toegevoegd aan %1$d reizen!</item></plurals>
+    <string name="a11y_people">Mensen en delen</string>
+    <string name="a11y_map">Kaartinstellingen</string>
+    <string name="a11y_trip_settings">Reisinstellingen</string>
+    <string name="a11y_back">Terug</string>
+    <string name="a11y_notifications">Meldingen</string>
+    <string name="a11y_more">Meer opties</string>
+    <string name="a11y_expand">Kaart vergroten</string>
 </resources>

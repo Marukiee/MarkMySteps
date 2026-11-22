@@ -286,7 +286,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                         mapState, showLocate, locating, mapNote, onDays = { daySheet = true }, onLocate = { locate() },
                         onPhotosOff = { mapSheet = true }, onNote = { if (mapNote?.second == true) openAppSettings(context) },
                     ) {
-                        RoundButton(onClick = { bigMap = true }) {
+                        RoundButton(onClick = { bigMap = true }, label = Lang.text(R.string.a11y_expand)) {
                             LineIcon(listOf(P("M4 9V4h5"), P("M20 9V4h-5"), P("M4 15v5h5"), P("M20 15v5h-5")), cs.onSurface, size = 20.dp, stroke = 2.2f)
                         }
                     }
@@ -367,7 +367,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
         Column(Modifier.background(cs.surfaceContainer.copy(alpha = bar))) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                RoundButton(onBack) { LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
+                RoundButton(onBack, label = Lang.text(R.string.a11y_back)) { LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
                 Text(
                     trip.title, maxLines = 1,
                     style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 19.sp, color = cs.onSurface),
@@ -376,11 +376,11 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 // Their own buttons, as on the web: people and sharing, the map's settings, the trip's settings.
                 // One connected group, as Material 3 Expressive does it: round on the outside, tight where they meet.
                 // The one whose panel is open turns into an orange pill, and back when the panel closes.
-                data class TopButton(val open: Boolean, val go: () -> Unit, val icon: List<Shape24>, val size: androidx.compose.ui.unit.Dp, val stroke: Float)
+                data class TopButton(val open: Boolean, val go: () -> Unit, val icon: List<Shape24>, val size: androidx.compose.ui.unit.Dp, val stroke: Float, val label: String)
                 val buttons = buildList {
-                    if (trip.remoteId != null) add(TopButton(people, { people = true }, Glyphs.friends, 22.dp, 1.9f))
-                    add(TopButton(mapSheet, { mapSheet = true }, listOf(P("M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5Z"), P("M9 4v13.5"), P("M15 6.5V20")), 21.dp, 1.9f))
-                    if (trip.remoteId != null) add(TopButton(tripSettings == true, { tripSettings = true }, Glyphs.settings, 21.dp, 1.8f))
+                    if (trip.remoteId != null) add(TopButton(people, { people = true }, Glyphs.friends, 22.dp, 1.9f, Lang.text(R.string.a11y_people)))
+                    add(TopButton(mapSheet, { mapSheet = true }, listOf(P("M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5Z"), P("M9 4v13.5"), P("M15 6.5V20")), 21.dp, 1.9f, Lang.text(R.string.a11y_map)))
+                    if (trip.remoteId != null) add(TopButton(tripSettings == true, { tripSettings = true }, Glyphs.settings, 21.dp, 1.8f, Lang.text(R.string.a11y_trip_settings)))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
                     buttons.forEachIndexed { i, b ->
@@ -392,7 +392,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                         val bg by androidx.compose.animation.animateColorAsState(if (b.open) cs.primary else cs.surfaceContainerHighest, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "bg")
                         val fg by androidx.compose.animation.animateColorAsState(if (b.open) cs.onPrimary else cs.onSurface, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "fg")
                         val shape = RoundedCornerShape(topStart = tl, bottomStart = tl, topEnd = tr, bottomEnd = tr)
-                        Box(Modifier.size(width = w, height = 48.dp).clip(shape).background(bg).press(b.go), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(width = w, height = 48.dp).clip(shape).background(bg).press(b.go).a11y(b.label), contentAlignment = Alignment.Center) {
                             LineIcon(b.icon, fg, size = b.size, stroke = b.stroke)
                         }
                     }
@@ -451,7 +451,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 Column {
                     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                     Box(Modifier.padding(12.dp)) {
-                        RoundButton(onClick = { bigMap = false }) { LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
+                        RoundButton(onClick = { bigMap = false }, label = Lang.text(R.string.common_close)) { LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
                     }
                 }
             }
@@ -535,11 +535,11 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
 }
 
 @Composable
-private fun RoundButton(onClick: () -> Unit = {}, content: @Composable () -> Unit) {
+private fun RoundButton(onClick: () -> Unit = {}, label: String? = null, content: @Composable () -> Unit) {
     val cs = MaterialTheme.colorScheme
     // Solid tone, no shadow (Expressive separates by colour), so it reads on any part of the map.
     Box(
-        Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest).press(onClick),
+        Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest).press(onClick).then(if (label != null) Modifier.a11y(label) else Modifier),
         contentAlignment = Alignment.Center,
     ) { content() }
 }
