@@ -370,7 +370,7 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                                 }
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     runs.forEach { run ->
-                                        val lone = run.single().takeIf { run.size == 1 }
+                                        val lone = run.singleOrNull()
                                         if (lone != null && CardSizePref.big(lone.id, autoBig = lone.id == first?.id)) {
                                             BigTripCard(lone, onOpen = { onOpenTrip(lone) }, onPeopleTrip = onPeople, modifier = Modifier.arrive(5), autoBig = lone.id == first?.id)
                                         } else Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {

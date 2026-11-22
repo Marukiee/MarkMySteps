@@ -1,20 +1,33 @@
 package nl.markmaaktmedia.markmysteps.next
 
+import android.view.View
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -23,74 +36,106 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularWavyProgressIndicator
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ripple
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import androidx.compose.animation.core.VectorConverter
-import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.layout.positionInParent
-import androidx.compose.ui.layout.onPlaced
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import kotlin.math.roundToInt
+import androidx.core.view.HapticFeedbackConstantsCompat
+import androidx.core.view.ViewCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlin.math.sign
 
 /*
- * The route planner, the second tab of a trip, as in the web app: how many of
- * the trip's nights are planned, the way there, every stop with its nights and
- * the road from the stop before, the way back, and a field to add a stop.
+ * The route planner, the second tab of a trip, with everything the web planner
+ * has: how many of the trip's nights are planned, the way there and back with
+ * their flights, every stop with a photo from its days, its nights and its day
+ * trips, the road from the stop before, and a field to add a stop.
  *
- * In Material 3 Expressive: the nights as a wavy ring, the stepper as one
- * connected group, the mode as a pill that walks through car, train, bus,
- * boat and flight. Swipe a stop to the left to remove it, hold it to move it.
+ * In Material 3 Expressive, tonal and without shadows: the mode is picked from
+ * the app's menu, a flight is filled in on a sheet, a stop is swiped away the
+ * way PixelPlayer removes a song from its queue, and held to move it.
  */
-
-private val StopShapes = listOf(
-    MaterialShapes.Cookie9Sided, MaterialShapes.Sunny, MaterialShapes.Clover4Leaf,
-    MaterialShapes.Cookie6Sided, MaterialShapes.SoftBurst, MaterialShapes.Flower, MaterialShapes.Pentagon,
-)
 
 fun Mode.icon(): List<Shape24> = when (this) {
     Mode.Car -> Glyphs.car
@@ -100,13 +145,40 @@ fun Mode.icon(): List<Shape24> = when (this) {
     Mode.Flight -> Glyphs.plane
 }
 
-private fun Mode.next(): Mode = Mode.entries[(ordinal + 1) % Mode.entries.size]
+/** A day trip on the plan, with a key that stays the same while the list changes. */
+private class PlanDayTrip(val key: Int, val id: String?, val name: String, val flag: String, val at: LonLat?, val day: LocalDate?)
 
 /** One row of the plan, with a key that stays the same while it moves. */
-private class PlanStop(val key: Int, val name: String, val flag: String, val at: LonLat, nights: Int, mode: Mode, val id: String? = null) {
+private class PlanStop(
+    val key: Int, val name: String, val flag: String, val at: LonLat, nights: Int, mode: Mode, val id: String? = null,
+    flightNumber: String? = null, fromAirport: String? = null, toAirport: String? = null, dayTrips: List<PlanDayTrip> = emptyList(),
+) {
     var nights by mutableStateOf(nights)
     var mode by mutableStateOf(mode)
+    var flightNumber by mutableStateOf(flightNumber)
+    var fromAirport by mutableStateOf(fromAirport)
+    var toAirport by mutableStateOf(toAirport)
+    val dayTrips = mutableStateListOf<PlanDayTrip>().apply { addAll(dayTrips) }
+
+    fun copy(key: Int) = PlanStop(key, name, flag, at, nights, mode, id, flightNumber, fromAirport, toAirport, dayTrips.toList())
 }
+
+/** The way there or back, a stop of its own on the server with no nights. */
+private class PlanLeg(val outbound: Boolean, val id: String?, mode: Mode, number: String?, from: String?, to: String?, val km: Int) {
+    var mode by mutableStateOf(mode)
+    var flightNumber by mutableStateOf(number)
+    var fromAirport by mutableStateOf(from)
+    var toAirport by mutableStateOf(to)
+}
+
+/** What the flight sheet edits, and where the result goes. */
+private class FlightTarget(
+    val title: String, val subtitle: String?, val number: String?, val from: String?, val to: String?,
+    val nearFrom: LonLat?, val nearTo: LonLat?, val onSave: (String?, String?, String?) -> Unit,
+)
+
+/** A removal that waits 7 s for "Ongedaan maken" before it reaches the server. */
+private class Pending(val name: String, val restore: () -> Unit, val commit: suspend () -> Unit) { var job: Job? = null }
 
 /** Places the search field knows in this test, per country of the trip. */
 private val Places = listOf(
@@ -117,6 +189,39 @@ private val Places = listOf(
 )
 
 private val Months = listOf("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec")
+private val Teal = Color(0xFF2BB6A8)
+private val IataCode = Regex("[A-Z]{3,4}")
+
+private fun day(d: LocalDate, month: Boolean = true, year: Boolean = false) =
+    "${d.dayOfMonth}" + (if (month) " ${Months[d.monthValue - 1]}" else "") + (if (year) " ${d.year}" else "")
+
+/** "16 t/m 23 dec 2026", "30 aug t/m 2 sep 2026", "30 dec 2026 t/m 2 jan 2027", or one day for no nights. */
+private fun stay(from: LocalDate, to: LocalDate): String = when {
+    from == to -> day(from, year = true)
+    from.year != to.year -> "${day(from, year = true)} t/m ${day(to, year = true)}"
+    else -> "${day(from, month = from.month != to.month)} t/m ${day(to, year = true)}"
+}
+
+private fun km(value: Int): String = "%,d km".format(value).replace(',', '.')
+
+private fun contrast(a: Color, b: Color): Float {
+    val x = a.luminance(); val y = b.luminance()
+    return (maxOf(x, y) + 0.05f) / (minOf(x, y) + 0.05f)
+}
+
+/** The colour itself when it reads well enough on [bg], else moved toward black or white until it does (4.5:1). */
+private fun readable(fg: Color, bg: Color, dark: Boolean): Color {
+    var c = fg
+    var t = 0f
+    while (contrast(c, bg) < 4.5f && t < 1f) { t += 0.05f; c = lerp(fg, if (dark) Color.White else Color.Black, t) }
+    return c
+}
+
+/**
+ * Black or white on a coloured badge, whichever reads best. Pure black, not a near black: only then does one
+ * of the two clear 4.5:1 on every colour (the worst, a mid tone, still gets 4.6:1).
+ */
+private fun onBadge(bg: Color): Color = listOf(Color.White, Color.Black).maxBy { contrast(it, bg) }
 
 private fun Modifier.squish(onClick: () -> Unit): Modifier = composed {
     val source = remember { MutableInteractionSource() }
@@ -125,95 +230,218 @@ private fun Modifier.squish(onClick: () -> Unit): Modifier = composed {
     clickable(source, ripple(), onClick = onClick).graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
+/** The photo in the middle of a stay: the first ones are often still the station or the airport. */
+private fun photoFor(media: List<Media>?, from: LocalDate?, nights: Int): String? {
+    if (media == null || from == null) return null
+    val until = from.plusDays(nights.coerceAtLeast(1).toLong())
+    val list = media.filter { !it.video && !it.takenAt.isBefore(from) && it.takenAt.isBefore(until) }
+    return list.getOrNull(list.size / 2)?.id
+}
+
 @Composable
-fun Planner(trip: Trip, dark: Boolean) {
+fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
     val cs = MaterialTheme.colorScheme
     val color = legibleColor(trip.color, dark)
+    val context = LocalContext.current
+    var nextKey by remember { mutableIntStateOf(trip.stops.size) }
+    fun newKey() = nextKey.also { nextKey += 1 }
+    var dayTripKey by remember { mutableIntStateOf(0) }
     val stops = remember(trip.id) {
-        mutableStateListOf<PlanStop>().apply { trip.stops.forEachIndexed { i, s -> add(PlanStop(i, s.name, s.flag, s.at, s.nights, s.mode, s.id)) } }
+        mutableStateListOf<PlanStop>().apply {
+            trip.stops.forEachIndexed { i, s ->
+                add(PlanStop(i, s.name, s.flag, s.at, s.nights, s.mode, s.id, s.flightNumber, s.fromAirport, s.toAirport,
+                    s.dayTrips.map { d -> PlanDayTrip(dayTripKey++, d.id, d.name, d.flag, d.at, d.day) }))
+            }
+        }
     }
-    var nextKey by remember { mutableStateOf(trip.stops.size) }
-    var outbound by remember(trip.id) { mutableStateOf(trip.outbound) }
-    var back by remember(trip.id) { mutableStateOf(trip.back) }
+    fun legOf(l: Leg?, outbound: Boolean): PlanLeg? = l?.let {
+        // The demo's flights name their airports in from and to; a server leg has them apart.
+        val code = { s: String -> s.takeIf { l.id == null && l.mode == Mode.Flight && it.matches(IataCode) } }
+        PlanLeg(outbound, l.id ?: trip.remoteId?.let { id -> Remote.legStopIds[id]?.let { if (outbound) it.first else it.second } },
+            l.mode, l.flightNumber, l.fromAirport ?: code(l.from), l.toAirport ?: code(l.to), l.km)
+    }
+    var outbound by remember(trip.id) { mutableStateOf(legOf(trip.outbound, true)) }
+    var back by remember(trip.id) { mutableStateOf(legOf(trip.back, false)) }
+    // The airports are read from the app's assets once, for the flight times and the flight sheet.
+    val airports by produceState(Airports.ready) { Airports.load(context); value = true }
+
+    // The window makes room for the keyboard instead of sliding up as a whole, so the trip's top bar
+    // and the status bar backdrop stay put while a field scrolls itself above the keyboard.
+    val activity = context as? android.app.Activity
+    DisposableEffect(activity) {
+        val window = activity?.window
+        val before = window?.attributes?.softInputMode
+        window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        onDispose { if (before != null) window.setSoftInputMode(before) }
+    }
+
     // A trip of 19 days has 18 nights.
     val totalNights = (trip.days - 1).coerceAtLeast(1)
     // A trip from the server saves every change straight away, as the web planner does; a failure says so.
     val live = trip.remoteId != null
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     var saveError by remember { mutableStateOf<String?>(null) }
-    val nightJobs = remember { HashMap<Int, kotlinx.coroutines.Job>() }
-    var undo by remember { mutableStateOf<Pair<Pair<PlanStop, Int>, kotlinx.coroutines.Job>?>(null) }
+    val nightJobs = remember { HashMap<Int, Job>() }
+    var undo by remember { mutableStateOf<Pending?>(null) }
     fun save(block: suspend () -> Unit) { if (live) scope.launch { runCatching { block() }.onSuccess { saveError = null }.onFailure { saveError = "Opslaan mislukt" } } }
-    val planned = stops.sumOf { it.nights }
+
+    /** A removal that waited for undo goes through now (a new removal, or a reorder that must name every stop the server still has). */
+    suspend fun flushUndo() {
+        val p = undo ?: return
+        p.job?.cancel(); undo = null
+        runCatching { p.commit() }.onFailure { saveError = "Opslaan mislukt" }
+    }
+    fun offerUndo(name: String, restore: () -> Unit, commit: suspend () -> Unit) {
+        val previous = undo
+        val p = Pending(name, restore, commit)
+        undo = p
+        p.job = scope.launch {
+            previous?.let { it.job?.cancel(); runCatching { it.commit() } }
+            delay(7000)
+            if (live) runCatching { commit() }.onFailure { saveError = "Opslaan mislukt" }
+            if (undo === p) undo = null
+        }
+    }
+
     // Every stop of the route in its new order, with the way there first and the way back last, as the server asks.
     fun routeOrder(): List<String> {
         val legs = trip.remoteId?.let { Remote.legStopIds[it] }
-        return listOfNotNull(legs?.first) + stops.mapNotNull { it.id } + listOfNotNull(legs?.second)
+        return listOfNotNull(outbound?.id ?: legs?.first) + stops.mapNotNull { it.id } + listOfNotNull(back?.id ?: legs?.second)
     }
+    fun saveOrder() = save { flushUndo(); Remote.reorderStops(trip, routeOrder()) }
+    fun syncLegIds() { trip.remoteId?.let { Remote.legStopIds[it] = outbound?.id to back?.id } }
 
-    // The first day and month of the trip, from the first stop's dates.
-    // Real dates, so a stay across the end of a month reads "30 aug t/m 2 sep", not "30 t/m 33 aug".
+    val planned = stops.sumOf { it.nights }
+    // The first day of the trip; real dates, so a stay across the end of a month reads "30 aug t/m 2 sep".
     val firstDate = trip.start ?: trip.stops.firstOrNull()?.start ?: run {
         val d = trip.stops.firstOrNull()?.dates?.takeWhile { it.isDigit() }?.toIntOrNull() ?: 1
         val m = trip.stops.firstOrNull()?.dates?.substringAfterLast(' ')?.let { Months.indexOf(it) }?.takeIf { it >= 0 } ?: 0
-        java.time.LocalDate.of(trip.year.toIntOrNull() ?: 2026, m + 1, d)
+        LocalDate.of(trip.year.toIntOrNull() ?: 2026, m + 1, d)
     }
 
-    // Nights planned, out of the trip's: a wavy ring that fills and then settles.
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, bottom = 14.dp)) {
-        val share by animateFloatAsState((planned.toFloat() / totalNights).coerceIn(0f, 1f), MaterialTheme.motionScheme.slowSpatialSpec(), label = "nights")
-        // A clear opening between where the ring starts and ends, so nearly full never reads as a ring
-        // that just fails to close; all nights planned closes it.
-        CircularWavyProgressIndicator(
-            progress = { share }, modifier = Modifier.size(34.dp), color = color, trackColor = color.copy(alpha = 0.18f),
-            gapSize = if (share >= 1f) 0.dp else 7.dp,
-        )
-        Text(
-            "$planned/$totalNights nachten gepland",
-            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface),
-            modifier = Modifier.padding(start = 12.dp),
-        )
+    var flight by remember { mutableStateOf<FlightTarget?>(null) }
+    fun legFlight(leg: PlanLeg) {
+        flight = FlightTarget(
+            if (leg.outbound) "Heenvlucht" else "Terugvlucht", if (leg.outbound) stops.firstOrNull()?.let { "Naar ${it.name}" } else stops.lastOrNull()?.let { "Vanuit ${it.name}" },
+            leg.flightNumber, leg.fromAirport, leg.toAirport,
+            nearFrom = if (leg.outbound) HomeAirport else stops.lastOrNull()?.at, nearTo = if (leg.outbound) stops.firstOrNull()?.at else HomeAirport,
+        ) { n, f, t ->
+            leg.mode = Mode.Flight
+            PlannerRemote.cleanNumber(n)?.let { leg.flightNumber = it }
+            PlannerRemote.cleanCode(f)?.let { leg.fromAirport = it }
+            PlannerRemote.cleanCode(t)?.let { leg.toAirport = it }
+            leg.id?.let { id -> save { PlannerRemote.saveFlight(trip, id, n, f, t) } }
+        }
+    }
+    fun stopFlight(stop: PlanStop) {
+        val prev = stops.getOrNull(stops.indexOf(stop) - 1)
+        flight = FlightTarget(
+            "Vlucht naar ${stop.name}", prev?.let { "Vanuit ${it.name}" }, stop.flightNumber, stop.fromAirport, stop.toAirport,
+            nearFrom = prev?.at, nearTo = stop.at,
+        ) { n, f, t ->
+            stop.mode = Mode.Flight
+            PlannerRemote.cleanNumber(n)?.let { stop.flightNumber = it }
+            PlannerRemote.cleanCode(f)?.let { stop.fromAirport = it }
+            PlannerRemote.cleanCode(t)?.let { stop.toAirport = it }
+            stop.id?.let { id -> save { PlannerRemote.saveFlight(trip, id, n, f, t) } }
+        }
+    }
+    fun pickLegMode(leg: PlanLeg, m: Mode) {
+        if (m != leg.mode) {
+            leg.mode = m
+            // Away from a flight the server forgets the airports; so does the screen.
+            if (m != Mode.Flight) { leg.flightNumber = null; leg.fromAirport = null; leg.toAirport = null }
+            leg.id?.let { id -> save { PlannerRemote.setMode(trip, id, m) } }
+        }
+        if (m == Mode.Flight) legFlight(leg)
+    }
+    fun pickStopMode(stop: PlanStop, m: Mode) {
+        if (m != stop.mode) {
+            stop.mode = m
+            if (m != Mode.Flight) { stop.flightNumber = null; stop.fromAirport = null; stop.toAirport = null }
+            stop.id?.let { id -> save { PlannerRemote.setMode(trip, id, m) } }
+        }
+        if (m == Mode.Flight) stopFlight(stop)
+    }
+    fun addLeg(outboundLeg: Boolean, m: Mode) {
+        val id = if (live) java.util.UUID.randomUUID().toString() else null
+        val leg = PlanLeg(outboundLeg, id, m, null, null, null, 0)
+        if (outboundLeg) outbound = leg else back = leg
+        syncLegIds()
+        if (id != null) save { flushUndo(); PlannerRemote.addLeg(trip, id, outboundLeg, m, if (outboundLeg) routeOrder() else null) }
+        if (m == Mode.Flight) legFlight(leg)
+    }
+    fun removeLeg(leg: PlanLeg) {
+        if (leg.outbound) outbound = null else back = null
+        syncLegIds()
+        offerUndo(if (leg.outbound) "Heen" else "Terug", restore = {
+            if (leg.outbound) outbound = PlanLeg(true, leg.id, leg.mode, leg.flightNumber, leg.fromAirport, leg.toAirport, leg.km)
+            else back = PlanLeg(false, leg.id, leg.mode, leg.flightNumber, leg.fromAirport, leg.toAirport, leg.km)
+            syncLegIds()
+        }) { leg.id?.let { Remote.deleteStop(trip, it) } }
     }
 
-    outbound?.let { leg -> LegCard("Heen", leg, onMode = { outbound = leg.copy(mode = leg.mode.next()) }) }
+    // Nights planned, out of the trip's: a pill with a dot in the trip's colour that turns teal once all are planned.
+    NightsPill(planned, totalNights, color)
 
     // Holding a stop lifts it; it follows the finger and swaps with a neighbour once past its middle.
     val heights = remember { mutableStateMapOf<Int, Int>() }
     var dragKey by remember { mutableStateOf<Int?>(null) }
     var dragY by remember { mutableFloatStateOf(0f) }
-    val haptics = LocalHapticFeedback.current
+    // Let go, the stop glides the last bit into its place instead of jumping there.
+    var settleKey by remember { mutableStateOf<Int?>(null) }
+    val settle = remember { Animatable(0f) }
+    val view = LocalView.current
+    val motion = MaterialTheme.motionScheme
+
+    LegSlot(outbound, outboundSide = true, color = color, dark = dark, airports = airports, hasStops = stops.isNotEmpty(),
+        onAdd = { addLeg(true, it) }, onMode = { leg, m -> pickLegMode(leg, m) }, onFlight = { legFlight(it) }, onRemove = { removeLeg(it) })
 
     var day = firstDate
     stops.forEachIndexed { index, stop ->
         val from = day
         day = day.plusDays(stop.nights.toLong())
-        fun d(x: java.time.LocalDate, withMonth: Boolean) = if (withMonth) "${x.dayOfMonth} ${Months[x.monthValue - 1]}" else "${x.dayOfMonth}"
-        val dates = if (stop.nights == 0) d(from, true) else "${d(from, from.month != day.month)} t/m ${d(day, true)}"
-        androidx.compose.runtime.key(stop.key) {
+        val to = day
+        key(stop.key) {
             val visible = remember { MutableTransitionState(stop.key < trip.stops.size).apply { targetState = true } }
+            val swipe = rememberSwipeRemove {
+                // Folded away by the swipe itself: gone from the list straight away, on the server after 7 s.
+                val at = stops.indexOf(stop)
+                stops.remove(stop)
+                offerUndo(stop.name, restore = { stops.add(at.coerceIn(0, stops.size), stop.copy(newKey())) }) { stop.id?.let { Remote.deleteStop(trip, it) } }
+            }
             AnimatedVisibility(
                 visibleState = visible,
-                enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
-                exit = shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
+                enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()),
+                exit = shrinkVertically(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec()),
                 modifier = Modifier.zIndex(if (dragKey == stop.key) 1f else 0f),
             ) {
                 val lifted = dragKey == stop.key
-                val lift by animateFloatAsState(if (lifted) 1f else 0f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "lift")
+                val lift by animateFloatAsState(if (lifted) 1f else 0f, motion.fastSpatialSpec(), label = "lift")
                 Column(
                     Modifier
                         // Neighbours glide to their new place while a stop is moved past them, instead of jumping.
-                        .then(if (lifted) Modifier else Modifier.glideToPlace())
+                        .glideToPlace(active = { dragKey != null && !lifted })
                         .onSizeChanged { heights[stop.key] = it.height }
+                        .swipeCollapse(swipe)
                         .graphicsLayer {
-                            translationY = if (lifted) dragY else 0f
+                            translationY = if (lifted) dragY else if (settleKey == stop.key) settle.value else 0f
                             // Lifted: a little bigger and a slight tilt, as on the web.
                             scaleX = 1f + 0.02f * lift; scaleY = 1f + 0.02f * lift
                             rotationZ = -0.4f * lift
                         }
                         .pointerInput(stop.key) {
                             detectDragGesturesAfterLongPress(
-                                onDragStart = { dragKey = stop.key; dragY = 0f; haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
-                                onDragEnd = { dragKey = null; dragY = 0f; save { Remote.reorderStops(trip, routeOrder()) } },
+                                onDragStart = {
+                                    dragKey = stop.key; dragY = 0f
+                                    ViewCompat.performHapticFeedback(view, HapticFeedbackConstantsCompat.LONG_PRESS)
+                                },
+                                onDragEnd = {
+                                    val left = dragY
+                                    settleKey = stop.key; dragKey = null; dragY = 0f
+                                    scope.launch { settle.snapTo(left); settle.animateTo(0f, motion.fastSpatialSpec()); if (settleKey == stop.key) settleKey = null }
+                                    saveOrder()
+                                },
                                 onDragCancel = { dragKey = null; dragY = 0f },
                                 onDrag = { change, amount ->
                                     change.consume()
@@ -224,242 +452,514 @@ fun Planner(trip: Trip, dark: Boolean) {
                                     if (below != null && dragY > (heights[below.key] ?: 0) / 2f) {
                                         dragY -= heights[below.key] ?: 0
                                         stops.add(i + 1, stops.removeAt(i))
-                                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                        ViewCompat.performHapticFeedback(view, HapticFeedbackConstantsCompat.SEGMENT_TICK)
                                     } else if (above != null && dragY < -(heights[above.key] ?: 0) / 2f) {
                                         dragY += heights[above.key] ?: 0
                                         stops.add(i - 1, stops.removeAt(i))
-                                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                        ViewCompat.performHapticFeedback(view, HapticFeedbackConstantsCompat.SEGMENT_TICK)
                                     }
                                 },
                             )
                         },
                 ) {
-                    if (index > 0 || outbound != null) {
-                        val prev = stops.getOrNull(index - 1)
+                    val prev = stops.getOrNull(index - 1)
+                    if (index > 0) {
                         val km = prev?.let { (angle(it.at, stop.at) * 111.2 * if (stop.mode == Mode.Flight) 1.0 else 1.25).roundToInt() }
-                        Connector(stop.mode, km, color, showMode = index > 0, onMode = {
-                            stop.mode = stop.mode.next()
-                            stop.id?.let { id -> save { Remote.updateStop(trip, id, mode = stop.mode) } }
-                        })
-                    }
-                    StopRow(
-                        name = stop.name, flag = stop.flag, dates = dates, nights = stop.nights, index = index,
-                        color = color, dark = dark, lifted = lift,
-                        onNights = {
-                            stop.nights = (stop.nights + it).coerceIn(0, 60)
-                            // Taps in a row become one save, after a short pause.
-                            stop.id?.let { id ->
-                                nightJobs[stop.key]?.cancel()
-                                nightJobs[stop.key] = scope.launch { kotlinx.coroutines.delay(600); runCatching { Remote.updateStop(trip, id, nights = stop.nights) }.onFailure { saveError = "Opslaan mislukt" } }
-                            }
-                        },
-                        onRemove = { visible.targetState = false },
-                    )
-                }
-            }
-            // Gone from the list only once it has folded away.
-            if (visible.isIdle && !visible.currentState) {
-                androidx.compose.runtime.LaunchedEffect(Unit) {
-                    val at = stops.indexOf(stop)
-                    stops.remove(stop)
-                    // Kept back for 7 s so "Ongedaan maken" can put it back; only then is it deleted on the server.
-                    undo?.second?.cancel()
-                    undo = (stop to at) to scope.launch {
-                        kotlinx.coroutines.delay(7000)
-                        stop.id?.let { id -> runCatching { Remote.deleteStop(trip, id) }.onFailure { saveError = "Opslaan mislukt" } }
-                        undo = null
+                        Connector(
+                            stop.mode, km, color, dark, airports,
+                            flightNumber = stop.flightNumber, fromAirport = stop.fromAirport, toAirport = stop.toAirport,
+                            onMode = { pickStopMode(stop, it) }, onFlight = { stopFlight(stop) },
+                        )
+                    } else if (outbound != null) Line(color)
+                    SwipeSurface(swipe, enabled = { dragKey == null }) {
+                        StopCard(
+                            trip = trip, stop = stop, index = index, from = from, to = to, color = color, dark = dark, lifted = lift,
+                            photo = photoFor(media, from, stop.nights), media = media,
+                            onNights = {
+                                stop.nights = (stop.nights + it).coerceIn(0, 60)
+                                // Taps in a row become one save, after a short pause.
+                                stop.id?.let { id ->
+                                    nightJobs[stop.key]?.cancel()
+                                    if (live) nightJobs[stop.key] = scope.launch { delay(600); runCatching { Remote.updateStop(trip, id, nights = stop.nights) }.onFailure { saveError = "Opslaan mislukt" } }
+                                }
+                            },
+                            onAddDayTrip = { place, d ->
+                                val id = java.util.UUID.randomUUID().toString()
+                                stop.dayTrips.add(PlanDayTrip(dayTripKey++, if (live) id else null, place.name, Remote.flag(place.countryCode), place.at, d))
+                                val parent = stop.id
+                                if (parent != null) save { PlannerRemote.addDayTrip(trip, id, parent, place, d) }
+                            },
+                            onRemoveDayTrip = { dt ->
+                                val at = stop.dayTrips.indexOf(dt)
+                                stop.dayTrips.remove(dt)
+                                offerUndo(dt.name, restore = { stop.dayTrips.add(at.coerceIn(0, stop.dayTrips.size), PlanDayTrip(dayTripKey++, dt.id, dt.name, dt.flag, dt.at, dt.day)) }) {
+                                    dt.id?.let { Remote.deleteStop(trip, it) }
+                                }
+                            },
+                        )
                     }
                 }
             }
         }
     }
 
-    back?.let { leg ->
-        Spacer(Modifier.height(12.dp))
-        LegCard("Terug", leg, onMode = { back = leg.copy(mode = leg.mode.next()) })
-    }
+    if (back != null && stops.isNotEmpty()) Line(color)
+    else if (back == null) Spacer(Modifier.height(12.dp))
+    LegSlot(back, outboundSide = false, color = color, dark = dark, airports = airports, hasStops = stops.isNotEmpty(),
+        onAdd = { addLeg(false, it) }, onMode = { leg, m -> pickLegMode(leg, m) }, onFlight = { legFlight(it) }, onRemove = { removeLeg(it) })
 
-    // The undo pill floats at the bottom of the screen, above everything, the moment a stop is swiped
-    // away; inside the list it could sit off screen and the stop was gone before anyone saw it.
+    // The undo pill floats at the bottom of the screen, above everything, the moment something is removed;
+    // inside the list it could sit off screen and the stop was gone before anyone saw it.
     if (undo != null) androidx.compose.ui.window.Popup(
         alignment = Alignment.BottomCenter,
         properties = androidx.compose.ui.window.PopupProperties(focusable = false),
-    ) { Box(Modifier.padding(horizontal = 16.dp).padding(bottom = 96.dp)) { UndoPill(undo?.first?.first?.name, onUndo = {
-        undo?.let { (pair, job) -> job.cancel(); val (st, at) = pair; stops.add(at.coerceIn(0, stops.size), PlanStop(nextKey, st.name, st.flag, st.at, st.nights, st.mode, st.id)); nextKey += 1 }
+    ) { Box(Modifier.padding(horizontal = 16.dp).padding(bottom = 96.dp)) { UndoPill(undo?.name, onUndo = {
+        undo?.let { p -> p.job?.cancel(); p.restore() }
         undo = null
     }) } }
-    if (false) androidx.compose.animation.AnimatedVisibility(
-        undo != null,
-        enter = androidx.compose.animation.slideInVertically(MaterialTheme.motionScheme.fastSpatialSpec()) { it } + fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
-        exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()),
-    ) {
-        Row(
-            Modifier.padding(top = 12.dp).fillMaxWidth().clip(CircleShape).background(cs.inverseSurface).padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("${undo?.first?.first?.name ?: "Stop"} verwijderd", maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.inverseOnSurface), modifier = Modifier.weight(1f))
-            androidx.compose.material3.TextButton(onClick = {
-                undo?.let { (pair, job) -> job.cancel(); val (s, at) = pair; stops.add(at.coerceIn(0, stops.size), PlanStop(nextKey, s.name, s.flag, s.at, s.nights, s.mode, s.id)); nextKey += 1 }
-                undo = null
-            }) { Text("Ongedaan maken", color = cs.inversePrimary, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp)) }
-        }
-    }
     if (saveError != null) Text(saveError ?: "", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.error), modifier = Modifier.padding(top = 12.dp, start = 4.dp))
     AddStop(trip, taken = stops.map { it.name }.toSet(), onAdd = { place ->
         val id = java.util.UUID.randomUUID().toString()
-        val after = stops.lastOrNull()?.id ?: trip.remoteId?.let { Remote.legStopIds[it]?.first }
-        stops.add(PlanStop(nextKey, place.name, Remote.flag(place.countryCode), place.at, 1, Mode.Car, if (live) id else null))
-        nextKey += 1
+        // Before the way back, never after it.
+        val after = stops.lastOrNull()?.id ?: outbound?.id
+        stops.add(PlanStop(newKey(), place.name, Remote.flag(place.countryCode), place.at, 1, Mode.Car, if (live) id else null))
         save { Remote.addStop(trip, id, place, 1, afterStopId = after) }
     })
+
+    flight?.let { f -> FlightSheet(f, color, dark, onDismiss = { flight = null }) }
 }
 
-/** The way there or back: its name, the mode pill, where from and where to, and how far. */
+/** "7/7 nachten gepland" on a tonal pill, the count rolling and the dot turning teal once every night is planned. */
 @Composable
-private fun LegCard(name: String, leg: Leg, onMode: () -> Unit) {
+private fun NightsPill(planned: Int, total: Int, color: Color) {
     val cs = MaterialTheme.colorScheme
+    val motion = MaterialTheme.motionScheme
+    val dot by animateColorAsState(if (planned == total) Teal else color, motion.defaultEffectsSpec(), label = "dot")
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(cs.surfaceContainerLow).padding(horizontal = 14.dp, vertical = 12.dp),
+        Modifier.padding(bottom = 14.dp).clip(CircleShape).background(cs.surfaceContainerHigh).padding(start = 12.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.width(54.dp))
-        ModePill(leg.mode, onMode)
-        // Where from and where to, with the arrow drawn as one of the app's icons, not a font's.
-        Row(Modifier.weight(1f).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            val code = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface)
-            Text(leg.from, maxLines = 1, style = code)
-            LineIcon(Glyphs.arrowRight, cs.onSurfaceVariant, size = 16.dp, stroke = 2.2f, modifier = Modifier.padding(horizontal = 6.dp))
-            Text(leg.to, maxLines = 1, style = code)
-        }
-        if (leg.km > 0) Text(km(leg.km), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+        Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
+        val style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurface)
+        AnimatedContent(
+            planned,
+            transitionSpec = {
+                val up = targetState > initialState
+                (slideInVertically(motion.fastSpatialSpec()) { if (up) it else -it } + fadeIn(motion.fastEffectsSpec())) togetherWith
+                    (slideOutVertically(motion.fastSpatialSpec()) { if (up) -it else it } + fadeOut(motion.fastEffectsSpec()))
+            },
+            label = "planned",
+            modifier = Modifier.padding(start = 8.dp),
+        ) { n -> Text("$n", style = style) }
+        Text("/$total nachten gepland", style = style)
     }
 }
 
-private fun km(value: Int): String = "%,d km".format(value).replace(',', '.')
+/** The short line in the trip's colour between a leg and the stop beside it. */
+@Composable
+private fun Line(color: Color) {
+    Box(Modifier.padding(start = 45.dp).width(2.dp).height(16.dp).background(color.copy(alpha = 0.35f)))
+}
 
-/** A pill with the mode's icon and name; a tap walks to the next mode, the icon turning over. */
+/** The way there or back as a row, or a button to add it; a row is swiped away like a stop. */
+@Composable
+private fun LegSlot(
+    leg: PlanLeg?, outboundSide: Boolean, color: Color, dark: Boolean, airports: Boolean, hasStops: Boolean,
+    onAdd: (Mode) -> Unit, onMode: (PlanLeg, Mode) -> Unit, onFlight: (PlanLeg) -> Unit, onRemove: (PlanLeg) -> Unit,
+) {
+    val motion = MaterialTheme.motionScheme
+    AnimatedContent(
+        leg,
+        transitionSpec = {
+            (fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec())) togetherWith
+                (fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.fastSpatialSpec()))
+        },
+        contentKey = { it?.let { l -> System.identityHashCode(l) } ?: 0 },
+        label = "leg",
+    ) { l ->
+        if (l != null) {
+            val swipe = rememberSwipeRemove { onRemove(l) }
+            Box(Modifier.swipeCollapse(swipe)) {
+                SwipeSurface(swipe, enabled = { true }) { LegRow(l, color, dark, airports, onMode = { onMode(l, it) }, onFlight = { onFlight(l) }) }
+            }
+        } else if (hasStops || outboundSide) {
+            AddLegRow(if (outboundSide) "Heenreis toevoegen" else "Terugreis toevoegen", onAdd)
+        } else Spacer(Modifier.height(0.dp))
+    }
+}
+
+/** "Heen" or "Terug": the airports on an accent pill and the flight time, the mode on the right. */
+@Composable
+private fun LegRow(leg: PlanLeg, color: Color, dark: Boolean, airports: Boolean, onMode: (Mode) -> Unit, onFlight: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(cs.surfaceContainerLow).padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(if (leg.outbound) "Heen" else "Terug", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.widthIn(min = 52.dp))
+        Row(Modifier.weight(1f).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            AnimatedVisibility(
+                leg.mode == Mode.Flight,
+                enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + scaleIn(MaterialTheme.motionScheme.fastSpatialSpec(), initialScale = 0.8f),
+                exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.8f),
+            ) { AirportPill(leg.flightNumber, leg.fromAirport, leg.toAirport, color, dark, onFlight) }
+            val time = flightTime(leg.mode, leg.fromAirport, leg.toAirport, airports) ?: leg.km.takeIf { it > 0 && leg.mode != Mode.Flight }?.let { km(it) }
+            if (time != null) Text(time, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp))
+        }
+        ModeChooser(leg.mode, onMode)
+    }
+}
+
+/** "5u 38m" for a flight with both airports known, as the web estimates it from the distance between them. */
+private fun flightTime(mode: Mode, from: String?, to: String?, airports: Boolean): String? {
+    if (mode != Mode.Flight || !airports) return null
+    val a = Airports.byCode(from) ?: return null
+    val b = Airports.byCode(to) ?: return null
+    return estimateDuration(Airports.km(a, b), Mode.Flight)
+}
+
+/** A quiet row to add the way there or back; the mode is picked from the menu it opens. */
+@Composable
+private fun AddLegRow(label: String, onAdd: (Mode) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier.clip(CircleShape).background(cs.surfaceContainerLow).squish { open = true }.padding(start = 14.dp, end = 18.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LineIcon(Glyphs.plus, cs.primary, size = 18.dp, stroke = 2.4f)
+            Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.5.sp, color = cs.primary), modifier = Modifier.padding(start = 8.dp))
+        }
+        AppMenu(open, { open = false }, listOf(Mode.entries.map { m -> MenuEntry(m.label, m.icon()) { onAdd(m) } }))
+    }
+}
+
+/** The outlined accent pill of a flight: its airports, else its number, else an invitation to fill it in. */
+@Composable
+private fun AirportPill(number: String?, from: String?, to: String?, color: Color, dark: Boolean, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val fill = color.copy(alpha = if (dark) 0.18f else 0.10f).compositeOver(cs.surfaceContainerLow)
+    val ink = readable(color, fill, dark)
+    Row(
+        Modifier.height(32.dp).clip(CircleShape).background(fill).border(1.5.dp, color, CircleShape).squish(onClick).padding(start = 10.dp, end = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LineIcon(Glyphs.plane, ink, size = 15.dp, stroke = 1.8f)
+        val style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = ink)
+        if (from != null && to != null) {
+            Text(from, style = style, modifier = Modifier.padding(start = 6.dp))
+            LineIcon(Glyphs.chevronRight, ink, size = 13.dp, stroke = 2.2f, modifier = Modifier.padding(horizontal = 2.dp))
+            Text(to, style = style)
+        } else Text(number ?: "Toevoegen", style = style, modifier = Modifier.padding(start = 6.dp))
+    }
+}
+
+/** The mode pill with the app's menu of every mode under it, the current one ticked. */
+@Composable
+private fun ModeChooser(mode: Mode, onPick: (Mode) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        ModePill(mode) { open = true }
+        AppMenu(open, { open = false }, listOf(Mode.entries.map { m -> MenuEntry(m.label, m.icon(), selected = m == mode) { onPick(m) } }))
+    }
+}
+
+/**
+ * The mode's icon and name with a chevron, on a pill as wide as its name. The pill grows before a longer name
+ * shows, and a shorter name shows before the pill shrinks, so a name never sticks out of it or is cut off.
+ */
 @Composable
 private fun ModePill(mode: Mode, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val motion = MaterialTheme.motionScheme
-    Row(
-        Modifier.height(36.dp).clip(CircleShape).background(cs.secondaryContainer).squish(onClick).padding(start = 10.dp, end = 13.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val density = LocalDensity.current
+    val style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onSecondaryContainer)
+    val measurer = rememberTextMeasurer()
+    fun widthOf(m: Mode): Float = measurer.measure(m.label, style).size.width + with(density) { (11.dp + 18.dp + 6.dp + 5.dp + 14.dp + 9.dp).toPx() }
+    val width = remember { Animatable(widthOf(mode)) }
+    var shown by remember { mutableStateOf(mode) }
+    val fade = 110
+    LaunchedEffect(mode) {
+        val target = widthOf(mode)
+        if (target <= width.value + 0.5f) {
+            // Shorter: the new name first, then the pill closes in once the old one has faded.
+            shown = mode
+            delay(fade.toLong())
+            width.animateTo(target, motion.fastSpatialSpec())
+        } else {
+            // Longer: the pill opens first; the new name only once there is room for all of it.
+            launch { width.animateTo(target, motion.fastSpatialSpec()) }
+            snapshotFlow { width.value }.first { it >= target - 0.5f }
+            shown = mode
+        }
+    }
+    Box(
+        Modifier.height(36.dp).width(with(density) { width.value.toDp() }).clip(CircleShape).background(cs.secondaryContainer).squish(onClick),
+        contentAlignment = Alignment.CenterStart,
     ) {
         AnimatedContent(
-            mode,
+            shown,
             transitionSpec = {
-                (scaleIn(motion.fastSpatialSpec(), initialScale = 0.4f) + fadeIn(motion.fastEffectsSpec())) togetherWith
-                    (scaleOut(motion.fastSpatialSpec(), targetScale = 0.4f) + fadeOut(motion.fastEffectsSpec()))
+                (fadeIn(tween(fade)) + scaleIn(motion.fastSpatialSpec(), initialScale = 0.85f)) togetherWith fadeOut(tween(fade))
             },
             label = "mode",
+            modifier = Modifier.padding(start = 11.dp),
         ) { m ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 LineIcon(m.icon(), cs.onSecondaryContainer, size = 18.dp, stroke = 1.9f)
-                Text(m.label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onSecondaryContainer), modifier = Modifier.padding(start = 6.dp))
+                Text(m.label, maxLines = 1, softWrap = false, style = style, modifier = Modifier.padding(start = 6.dp))
             }
         }
+        LineIcon(listOf(P("m6 9 6 6 6-6")), cs.onSecondaryContainer, size = 14.dp, stroke = 2.2f, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 9.dp))
     }
 }
 
-/** Between two stops: the line in the trip's colour, how the road was travelled and how far. */
+/** Between two stops: the line in the trip's colour, the mode, a flight's airports, and how far. */
 @Composable
-private fun Connector(mode: Mode, km: Int?, color: Color, showMode: Boolean, onMode: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    Row(Modifier.height(if (showMode) 56.dp else 16.dp).padding(start = 33.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(2.dp).fillMaxHeight().background(color.copy(alpha = 0.35f)))
-        if (showMode) {
-            Spacer(Modifier.width(18.dp))
-            ModePill(mode, onMode)
-            if (km != null) {
-                Text(
-                    if (km < 5) "in de buurt" else km(km),
-                    style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant),
-                    modifier = Modifier.padding(start = 10.dp),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun StopRow(
-    name: String, flag: String, dates: String, nights: Int, index: Int, color: Color, dark: Boolean, lifted: Float,
-    onNights: (Int) -> Unit, onRemove: () -> Unit,
+private fun Connector(
+    mode: Mode, km: Int?, color: Color, dark: Boolean, airports: Boolean,
+    flightNumber: String?, fromAirport: String?, toAirport: String?, onMode: (Mode) -> Unit, onFlight: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    val tile = color.copy(alpha = if (dark) 0.32f else 0.2f).compositeOver(cs.surfaceContainerLow)
-    val swipe = rememberSwipeToDismissBoxState()
-    SwipeToDismissBox(
-        state = swipe,
-        enableDismissFromStartToEnd = false,
-        onDismiss = { if (it == SwipeToDismissBoxValue.EndToStart) onRemove() },
-        backgroundContent = {
-            val bg by animateColorAsState(
-                if (swipe.targetValue == SwipeToDismissBoxValue.EndToStart) cs.error else cs.errorContainer,
-                MaterialTheme.motionScheme.fastEffectsSpec(), label = "swipeBg",
-            )
-            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(26.dp)).background(bg).padding(end = 24.dp), contentAlignment = Alignment.CenterEnd) {
-                LineIcon(Glyphs.trash, if (swipe.targetValue == SwipeToDismissBoxValue.EndToStart) cs.onError else cs.onErrorContainer, size = 22.dp)
-            }
-        },
+    val line = color.copy(alpha = 0.35f)
+    val density = LocalDensity.current
+    // The line is drawn behind the row, so it runs the full height when the row wraps on a narrow phone.
+    Row(
+        Modifier.fillMaxWidth().drawBehind {
+            val x = with(density) { 45.dp.toPx() }
+            drawRect(line, topLeft = Offset(x, 0f), size = Size(with(density) { 2.dp.toPx() }, size.height))
+        }.padding(start = 64.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(26.dp))
-                .background(androidx.compose.ui.graphics.lerp(cs.surfaceContainerLow, cs.secondaryContainer, lifted))
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(46.dp).clip(StopShapes[index % StopShapes.size].toShape()).background(tile), contentAlignment = Alignment.Center) {
-                Text("${index + 1}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 17.sp, color = color))
-            }
-            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    FlagIcon(flag, 15.dp)
-                    Text(name, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
-                }
-                Text(dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
-            }
-            Stepper(nights, onNights)
+        ModeChooser(mode, onMode)
+        AnimatedVisibility(
+            mode == Mode.Flight,
+            enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + androidx.compose.animation.expandHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()),
+            exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()),
+        ) { Box(Modifier.padding(start = 8.dp)) { AirportPill(flightNumber, fromAirport, toAirport, color, dark, onFlight) } }
+        val time = flightTime(mode, fromAirport, toAirport, airports)
+        val text = time ?: km?.let { if (it < 5) "in de buurt" else km(it) }
+        if (text != null) {
+            Text(text, maxLines = 2, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp))
         }
     }
 }
 
-/** Fewer, the count, more: one connected group, outer ends round, the number rolling. */
+/** A stop: its photo with the number on the corner, name and dates, the nights, and its day trips. */
+@Composable
+private fun StopCard(
+    trip: Trip, stop: PlanStop, index: Int, from: LocalDate, to: LocalDate, color: Color, dark: Boolean, lifted: Float,
+    photo: String?, media: List<Media>?,
+    onNights: (Int) -> Unit, onAddDayTrip: (Remote.Place, LocalDate) -> Unit, onRemoveDayTrip: (PlanDayTrip) -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val motion = MaterialTheme.motionScheme
+    var adding by remember { mutableStateOf(false) }
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(26.dp))
+            .background(lerp(cs.surfaceContainerLow, cs.secondaryContainer, lifted))
+            .padding(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(62.dp)) {
+                Thumb(photo, stop.flag, color, dark, Modifier.align(Alignment.BottomEnd).size(56.dp), RoundedCornerShape(16.dp))
+                // The number on the photo's corner, ringed in the card's tone so it stands off any photo.
+                val badge = color
+                Box(
+                    Modifier.size(24.dp).clip(CircleShape).background(lerp(cs.surfaceContainerLow, cs.secondaryContainer, lifted)).padding(2.dp).clip(CircleShape).background(badge),
+                    contentAlignment = Alignment.Center,
+                ) { Text("${index + 1}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 11.5.sp, lineHeight = 12.sp, color = onBadge(badge))) }
+            }
+            Column(Modifier.weight(1f).padding(start = 10.dp, end = 10.dp)) {
+                Text(stop.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, lineHeight = 21.sp, color = cs.onSurface))
+                Text(stay(from, to), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp))
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Stepper(stop.nights, onNights)
+                // Opens the place search for a day trip from here; the plus turns into a cross to close it again.
+                val turn by animateFloatAsState(if (adding) 45f else 0f, motion.fastSpatialSpec(), label = "turn")
+                Row(
+                    Modifier.padding(top = 4.dp).clip(CircleShape).squish { adding = !adding }.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LineIcon(Glyphs.plus, cs.primary, size = 15.dp, stroke = 2.4f, modifier = Modifier.graphicsLayer { rotationZ = turn })
+                    Text("Dagtrip", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.primary), modifier = Modifier.padding(start = 4.dp))
+                }
+            }
+        }
+        // Day trips under their stop, each sliding open when added and folding away when removed.
+        stop.dayTrips.forEach { dt ->
+            key(dt.key) {
+                val shown = remember { MutableTransitionState(false).apply { targetState = true } }
+                AnimatedVisibility(shown, enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()), exit = shrinkVertically(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec())) {
+                    DayTripRow(dt, photoFor(media, dt.day, 0), color, dark, onRemove = { shown.targetState = false })
+                }
+                if (shown.isIdle && !shown.currentState) LaunchedEffect(Unit) { onRemoveDayTrip(dt) }
+            }
+        }
+        AnimatedVisibility(adding, enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()), exit = shrinkVertically(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec())) {
+            DayTripPanel(trip, stop.name, from, stop.nights, taken = stop.dayTrips.map { it.name }.toSet() + stop.name, onPick = { place, d -> onAddDayTrip(place, d); adding = false }, onClose = { adding = false })
+        }
+    }
+}
+
+/** A photo from the stop's days, else its flag on the trip's colour. */
+@Composable
+private fun Thumb(photo: String?, flag: String, color: Color, dark: Boolean, modifier: Modifier, shape: RoundedCornerShape) {
+    val cs = MaterialTheme.colorScheme
+    val tile = color.copy(alpha = if (dark) 0.32f else 0.2f).compositeOver(cs.surfaceContainerLow)
+    Box(modifier.clip(shape).background(tile), contentAlignment = Alignment.Center) {
+        FlagIcon(flag, 18.dp)
+        if (photo != null) RemotePhoto(photo, Modifier.matchParentSize())
+    }
+}
+
+@Composable
+private fun DayTripRow(dt: PlanDayTrip, photo: String?, color: Color, dark: Boolean, onRemove: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainer).padding(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Thumb(photo, dt.flag, color, dark, Modifier.size(40.dp), RoundedCornerShape(12.dp))
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text(dt.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface))
+            Text("Dagtrip" + (dt.day?.let { " · ${day(it)}" } ?: ""), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant))
+        }
+        // A day trip keeps a cross, as on the web: the rows are small, and a swipe on something this size is fiddly.
+        Box(Modifier.size(36.dp).clip(CircleShape).background(cs.surfaceContainerHighest).squish(onRemove), contentAlignment = Alignment.Center) {
+            LineIcon(listOf(P("M6 6l12 12"), P("M18 6 6 18")), cs.onSurfaceVariant, size = 15.dp, stroke = 2.2f)
+        }
+    }
+}
+
+/** Where the day trip went, searched like a new stop, and on which day of the stay. */
+@Composable
+private fun DayTripPanel(trip: Trip, parent: String, from: LocalDate, nights: Int, taken: Set<String>, onPick: (Remote.Place, LocalDate) -> Unit, onClose: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    var query by remember { mutableStateOf("") }
+    val days = (0 until nights.coerceAtLeast(1)).map { from.plusDays(it.toLong()) }
+    var chosen by remember { mutableStateOf(days.first()) }
+    val matches = placeMatches(trip, query, taken)
+    val focus = remember { FocusRequester() }
+    val above = rememberAboveKeyboard()
+    LaunchedEffect(Unit) { delay(320); runCatching { focus.requestFocus() } }
+    LaunchedEffect(matches.size, query.isNotEmpty(), above.keyboard) { delay(150); above.show() }
+    Column(Modifier.padding(top = 10.dp).fillMaxWidth().then(above.modifier)) {
+        SearchField(query, { query = it }, "Waar ging je heen vanuit $parent?", Modifier.focusRequester(focus))
+        if (days.size > 1) {
+            Text("Welke dag?", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 6.dp))
+            // Out to the card's edges, so a day that scrolls past is cut by the card and not short of it.
+            Row(Modifier.bleedSides(12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                days.forEach { d ->
+                    val on = d == chosen
+                    val bg by animateColorAsState(if (on) cs.secondaryContainer else cs.surfaceContainerHighest, MaterialTheme.motionScheme.fastEffectsSpec(), label = "day")
+                    Row(Modifier.height(34.dp).clip(CircleShape).background(bg).squish { chosen = d }.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        AnimatedVisibility(on) { LineIcon(Glyphs.check, cs.onSecondaryContainer, size = 15.dp, stroke = 2.4f, modifier = Modifier.padding(end = 5.dp)) }
+                        Text(day(d), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.sp, color = if (on) cs.onSecondaryContainer else cs.onSurface))
+                    }
+                }
+            }
+        }
+        PlaceList(matches, trip) { onPick(it, chosen) }
+        if (query.isBlank()) Text(
+            "Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary),
+            modifier = Modifier.padding(top = 8.dp).clip(CircleShape).clickable(onClick = onClose).padding(horizontal = 8.dp, vertical = 8.dp),
+        )
+    }
+}
+
+/** Fewer, the count, more: one pill, the number rolling. */
 @Composable
 private fun Stepper(nights: Int, onChange: (Int) -> Unit) {
     val cs = MaterialTheme.colorScheme
     val motion = MaterialTheme.motionScheme
-    val outer = 20.dp
-    val inner = 6.dp
-    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(38.dp).clip(RoundedCornerShape(topStart = outer, bottomStart = outer, topEnd = inner, bottomEnd = inner))
-                .background(cs.surfaceContainerHighest).squish { onChange(-1) },
-            contentAlignment = Alignment.Center,
-        ) { LineIcon(Glyphs.minus, cs.onSurface, size = 16.dp, stroke = 2.4f) }
-        Box(Modifier.height(38.dp).width(52.dp).clip(RoundedCornerShape(inner)).background(cs.secondaryContainer), contentAlignment = Alignment.Center) {
+    Row(Modifier.height(40.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(3.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(34.dp).clip(CircleShape).background(cs.surfaceContainerLow).squish { onChange(-1) }, contentAlignment = Alignment.Center) {
+            LineIcon(Glyphs.minus, cs.onSurface, size = 15.dp, stroke = 2.4f)
+        }
+        Box(Modifier.width(50.dp), contentAlignment = Alignment.Center) {
             AnimatedContent(
                 nights,
                 transitionSpec = {
                     val up = targetState > initialState
-                    (androidx.compose.animation.slideInVertically(motion.fastSpatialSpec()) { if (up) it else -it } + fadeIn(motion.fastEffectsSpec())) togetherWith
-                        (androidx.compose.animation.slideOutVertically(motion.fastSpatialSpec()) { if (up) -it else it } + fadeOut(motion.fastEffectsSpec()))
+                    (slideInVertically(motion.fastSpatialSpec()) { if (up) it else -it } + fadeIn(motion.fastEffectsSpec())) togetherWith
+                        (slideOutVertically(motion.fastSpatialSpec()) { if (up) -it else it } + fadeOut(motion.fastEffectsSpec()))
                 },
                 label = "nights",
             ) { n ->
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("$n", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 16.sp, lineHeight = 16.sp, color = cs.onSecondaryContainer))
-                    Text(if (n == 1) "nacht" else "nachten", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 9.5.sp, lineHeight = 10.sp, color = cs.onSecondaryContainer))
+                    Text("$n", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 16.sp, lineHeight = 17.sp, color = cs.onSurface))
+                    Text(if (n == 1) "nacht" else "nachten", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 10.sp, lineHeight = 11.sp, color = cs.onSurfaceVariant))
                 }
             }
         }
-        Box(
-            Modifier.size(38.dp).clip(RoundedCornerShape(topStart = inner, bottomStart = inner, topEnd = outer, bottomEnd = outer))
-                .background(cs.surfaceContainerHighest).squish { onChange(1) },
-            contentAlignment = Alignment.Center,
-        ) { LineIcon(Glyphs.plus, cs.onSurface, size = 16.dp, stroke = 2.4f) }
+        Box(Modifier.size(34.dp).clip(CircleShape).background(cs.surfaceContainerLow).squish { onChange(1) }, contentAlignment = Alignment.Center) {
+            LineIcon(Glyphs.plus, cs.onSurface, size = 15.dp, stroke = 2.4f)
+        }
+    }
+}
+
+/** Signed in, real towns from the place search; the demo picks from a few it knows. */
+@Composable
+private fun placeMatches(trip: Trip, query: String, taken: Set<String>): List<Remote.Place> {
+    val live by produceState<List<Remote.Place>?>(null, query, trip.remoteId) {
+        value = if (trip.remoteId == null || query.isBlank()) null else { delay(300); Remote.searchPlaces(query) }
+    }
+    if (trip.remoteId != null) return if (query.isBlank()) emptyList() else live?.filter { it.name !in taken }.orEmpty()
+    val flag = trip.stops.firstOrNull()?.flag
+    return Places.filter { (name, f, _) ->
+        name !in taken && if (query.isBlank()) f == flag else name.contains(query.trim(), ignoreCase = true)
+    }.take(4).map { (name, _, at) -> Remote.Place(name, "", null, at) }
+}
+
+@Composable
+private fun SearchField(query: String, onQuery: (String) -> Unit, hint: String, modifier: Modifier = Modifier) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().height(52.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LineIcon(Glyphs.search, cs.onSurfaceVariant, size = 20.dp)
+        Box(Modifier.weight(1f).padding(start = 12.dp)) {
+            if (query.isEmpty()) Text(hint, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurfaceVariant))
+            BasicTextField(
+                query, onQuery, singleLine = true,
+                textStyle = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurface),
+                cursorBrush = SolidColor(cs.primary),
+                modifier = Modifier.fillMaxWidth().then(modifier),
+            )
+        }
+    }
+}
+
+/** Places that match, one connected group, one tap picks it. */
+@Composable
+private fun PlaceList(matches: List<Remote.Place>, trip: Trip, onPick: (Remote.Place) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val flag = trip.stops.firstOrNull()?.flag
+    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        matches.forEachIndexed { i, place ->
+            val top = if (i == 0) 18.dp else 6.dp
+            val bottom = if (i == matches.lastIndex) 18.dp else 6.dp
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(top, top, bottom, bottom))
+                    .background(cs.surfaceContainer).clickable { onPick(place) }.padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val shownFlag = place.countryCode?.let { Remote.flag(it) } ?: Places.firstOrNull { it.first == place.name }?.second ?: flag ?: ""
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        FlagIcon(shownFlag, 13.dp)
+                        Text(place.name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
+                    }
+                    if (place.region.isNotBlank()) Text(place.region, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant))
+                }
+                LineIcon(Glyphs.plus, cs.primary, size = 18.dp, stroke = 2.4f)
+            }
+        }
     }
 }
 
@@ -468,58 +968,14 @@ private fun Stepper(nights: Int, onChange: (Int) -> Unit) {
 private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (Remote.Place) -> Unit) {
     val cs = MaterialTheme.colorScheme
     var query by remember { mutableStateOf("") }
-    val flag = trip.stops.firstOrNull()?.flag
-    // Signed in, real towns from the place search; the demo picks from a few it knows.
-    val live by androidx.compose.runtime.produceState<List<Remote.Place>?>(null, query, trip.remoteId) {
-        value = if (trip.remoteId == null || query.isBlank()) null else { kotlinx.coroutines.delay(300); Remote.searchPlaces(query) }
-    }
-    val matches = live?.filter { it.name !in taken } ?: Places.filter { (name, f, _) ->
-        name !in taken && if (query.isBlank()) f == flag else name.contains(query.trim(), ignoreCase = true)
-    }.take(4).map { (name, f, at) -> Remote.Place(name, "", null, at).also { } }.let { list ->
-        if (trip.remoteId != null && query.isBlank()) emptyList() else list
-    }
-
+    val matches = placeMatches(trip, query, taken)
     // The card scrolls itself into view above the keyboard as places come in.
-    val into = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
-    androidx.compose.runtime.LaunchedEffect(matches.size, query.isNotEmpty()) { if (query.isNotEmpty()) { kotlinx.coroutines.delay(120); into.bringIntoView() } }
-    Column(Modifier.padding(top = 20.dp).fillMaxWidth().bringIntoViewRequester(into).clip(RoundedCornerShape(28.dp)).background(cs.surfaceContainerLow).padding(14.dp)) {
+    val above = rememberAboveKeyboard()
+    LaunchedEffect(matches.size, query.isNotEmpty(), above.keyboard) { if (query.isNotEmpty() || above.keyboard) { delay(120); above.show() } }
+    Column(Modifier.padding(top = 20.dp).fillMaxWidth().then(above.modifier).clip(RoundedCornerShape(28.dp)).background(cs.surfaceContainerLow).padding(14.dp)) {
         Text("Nieuwe stop", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
-        Row(
-            Modifier.fillMaxWidth().height(52.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            LineIcon(Glyphs.search, cs.onSurfaceVariant, size = 20.dp)
-            Box(Modifier.weight(1f).padding(start = 12.dp)) {
-                if (query.isEmpty()) {
-                    Text(if (trip.remoteId != null) "Zoek een stad, bijv. Hanoi" else "Zoek een stad, bijv. Mestia", style = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurfaceVariant))
-                }
-                BasicTextField(
-                    query, { query = it }, singleLine = true,
-                    textStyle = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurface),
-                    cursorBrush = SolidColor(cs.primary),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-        Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            matches.forEachIndexed { i, place ->
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(if (i == 0) 18.dp else 6.dp, if (i == 0) 18.dp else 6.dp, if (i == matches.lastIndex) 18.dp else 6.dp, if (i == matches.lastIndex) 18.dp else 6.dp))
-                        .background(cs.surfaceContainer).clickable { onAdd(place); query = "" }.padding(horizontal = 14.dp, vertical = 11.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val shownFlag = place.countryCode?.let { Remote.flag(it) } ?: Places.firstOrNull { it.first == place.name }?.second ?: flag ?: ""
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            FlagIcon(shownFlag, 13.dp)
-                            Text(place.name, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
-                        }
-                        if (place.region.isNotBlank()) Text(place.region, maxLines = 1, style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant))
-                    }
-                    LineIcon(Glyphs.plus, cs.primary, size = 18.dp, stroke = 2.4f)
-                }
-            }
-        }
+        SearchField(query, { query = it }, if (trip.remoteId != null) "Zoek een stad, bijv. Hanoi" else "Zoek een stad, bijv. Mestia")
+        PlaceList(matches, trip) { onAdd(it); query = "" }
         if (query.isNotBlank() && matches.isEmpty() && trip.remoteId == null) {
             Button(
                 onClick = { onAdd(Remote.Place(query.trim(), "", null, trip.stops.lastOrNull()?.at ?: trip.route.lastOrNull() ?: HomeAirport)); query = "" },
@@ -531,26 +987,129 @@ private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (Remote.Place) -> Uni
     }
 }
 
+/** A flight filled in properly: its number and the airports it flew from and to, each searched in the airport list. */
+@Composable
+private fun FlightSheet(target: FlightTarget, color: Color, dark: Boolean, onDismiss: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val scope = rememberCoroutineScope()
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // An empty airport starts at the one nearest the city it leaves from or flies to, as on the web.
+    var number by remember { mutableStateOf(target.number.orEmpty()) }
+    var from by remember { mutableStateOf(target.from ?: Airports.nearest(target.nearFrom)?.iata.orEmpty()) }
+    var to by remember { mutableStateOf(target.to ?: Airports.nearest(target.nearTo)?.iata.orEmpty()) }
+    fun valid(code: String) = code.isBlank() || PlannerRemote.cleanCode(code) != null
+    fun close() { scope.launch { sheet.hide() }.invokeOnCompletion { onDismiss() } }
+    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.statusBarsPadding(), sheetState = sheet, containerColor = cs.surfaceContainerLow) {
+        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
+            Text(target.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
+            target.subtitle?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp)) }
+            Label("Vluchtnummer")
+            SheetField(number, { number = it.uppercase().take(16) }, "bijv. KL1703")
+            // While a field is being typed in, its text is a search, not yet a wrong code.
+            var typingFrom by remember { mutableStateOf(false) }
+            var typingTo by remember { mutableStateOf(false) }
+            Label("Van")
+            AirportField(from, { from = it }, "Stad, vliegveld of code") { typingFrom = it }
+            Label("Naar")
+            AirportField(to, { to = it }, "Stad, vliegveld of code") { typingTo = it }
+            val ok = valid(from) && valid(to)
+            AnimatedVisibility(!ok && !typingFrom && !typingTo) {
+                Text("Een vliegveld is een code van 3 of 4 letters, bijv. AMS", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.error), modifier = Modifier.padding(top = 10.dp, start = 4.dp))
+            }
+            val time = flightTime(Mode.Flight, PlannerRemote.cleanCode(from), PlannerRemote.cleanCode(to), Airports.ready)
+            AnimatedVisibility(time != null && ok) {
+                Row(Modifier.padding(top = 14.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    LineIcon(Glyphs.plane, readable(color, cs.surfaceContainerLow, dark), size = 16.dp, stroke = 1.8f)
+                    Text("Ongeveer ${time.orEmpty()} reizen", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+            Button(
+                onClick = { target.onSave(number, from, to); close() },
+                enabled = ok,
+                shapes = ButtonDefaults.shapes(),
+                contentPadding = PaddingValues(vertical = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+            ) { Text("Opslaan", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp)) }
+        }
+    }
+}
 
-/** Animates a change of place in its parent from where it was to where it is now. */
-private fun Modifier.glideToPlace(): Modifier = composed {
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    var target by remember { mutableStateOf<androidx.compose.ui.unit.IntOffset?>(null) }
-    val anim = remember { mutableStateOf<androidx.compose.animation.core.Animatable<androidx.compose.ui.unit.IntOffset, androidx.compose.animation.core.AnimationVector2D>?>(null) }
-    val spec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
+@Composable
+private fun Label(text: String) {
+    Text(text, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant), modifier = Modifier.padding(top = 16.dp, bottom = 6.dp, start = 4.dp))
+}
+
+@Composable
+private fun SheetField(value: String, onValue: (String) -> Unit, hint: String, trailing: String? = null, modifier: Modifier = Modifier) {
+    val cs = MaterialTheme.colorScheme
+    Row(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f)) {
+            if (value.isEmpty()) Text(hint, style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
+            BasicTextField(
+                value, onValue, singleLine = true,
+                textStyle = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 16.sp, color = cs.onSurface),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                cursorBrush = SolidColor(cs.primary),
+                modifier = Modifier.fillMaxWidth().then(modifier),
+            )
+        }
+        if (trailing != null) Text(trailing, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp).widthIn(max = 180.dp))
+    }
+}
+
+/** A code, or a city or airport to search for; a known code shows its city beside it. */
+@Composable
+private fun AirportField(value: String, onValue: (String) -> Unit, hint: String, onFocus: (Boolean) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    var focused by remember { mutableStateOf(false) }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val known = Airports.byCode(value)
+    val wanted = focused && value.trim().length >= 2 && known?.iata != value.trim().uppercase()
+    val typed = value
+    val results by produceState(emptyList<Airports.Airport>(), typed, wanted) { this.value = if (wanted) Airports.search(typed) else emptyList() }
+    SheetField(value, { onValue(it.take(40)) }, hint, trailing = known?.city, modifier = Modifier.onFocusChanged { focused = it.isFocused; onFocus(it.isFocused) })
+    AnimatedVisibility(results.isNotEmpty(), enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeIn(), exit = shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeOut()) {
+        Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            results.forEachIndexed { i, a ->
+                val top = if (i == 0) 18.dp else 6.dp
+                val bottom = if (i == results.lastIndex) 18.dp else 6.dp
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(top, top, bottom, bottom)).background(cs.surfaceContainer)
+                        .clickable { onValue(a.iata); focusManager.clearFocus() }.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(a.iata, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.width(48.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(a.city, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface))
+                        val country = java.util.Locale("", a.country).getDisplayCountry(java.util.Locale.forLanguageTag("nl-NL"))
+                        Text("${a.name} · $country", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontSize = 12.5.sp, color = cs.onSurfaceVariant))
+                    }
+                    FlagIcon(Remote.flag(a.country), 13.dp)
+                }
+            }
+        }
+    }
+}
+
+/** Animates a change of place in its parent from where it was to where it is now, while [active]; else it just goes there. */
+private fun Modifier.glideToPlace(active: () -> Boolean): Modifier = composed {
+    val scope = rememberCoroutineScope()
+    var target by remember { mutableStateOf<IntOffset?>(null) }
+    val anim = remember { mutableStateOf<Animatable<IntOffset, androidx.compose.animation.core.AnimationVector2D>?>(null) }
+    val spec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
     this
         .onPlaced { c ->
             val p = c.positionInParent()
-            target = androidx.compose.ui.unit.IntOffset(p.x.toInt(), p.y.toInt())
+            target = IntOffset(p.x.toInt(), p.y.toInt())
         }
         .offset {
-            val t = target ?: return@offset androidx.compose.ui.unit.IntOffset.Zero
-            val a = anim.value ?: androidx.compose.animation.core.Animatable(t, androidx.compose.ui.unit.IntOffset.VectorConverter).also { anim.value = it }
-            if (a.targetValue != t) scope.launch { a.animateTo(t, spec) }
+            val t = target ?: return@offset IntOffset.Zero
+            val a = anim.value ?: Animatable(t, IntOffset.VectorConverter).also { anim.value = it }
+            // Only a reorder glides; a stop folding away above already moves the rest smoothly by itself.
+            if (a.targetValue != t) scope.launch { if (active() || a.isRunning) a.animateTo(t, spec) else a.snapTo(t) }
             a.value - t
         }
 }
-
 
 @Composable
 private fun UndoPill(name: String?, onUndo: () -> Unit) {
@@ -559,7 +1118,217 @@ private fun UndoPill(name: String?, onUndo: () -> Unit) {
         Modifier.fillMaxWidth().clip(CircleShape).background(cs.inverseSurface).padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("${name ?: "Stop"} verwijderd", maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.inverseOnSurface), modifier = Modifier.weight(1f))
+        Text("${name ?: "Stop"} verwijderd", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.inverseOnSurface), modifier = Modifier.weight(1f))
         androidx.compose.material3.TextButton(onClick = onUndo) { Text("Ongedaan maken", color = cs.inversePrimary, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp)) }
     }
 }
+
+/*
+ * Swipe to remove, ported from PixelPlayer's queue (SwipeToActionRow with
+ * SongSwipeActionGestureHandler and removesRow): the same phases, springs,
+ * thresholds, haptics, panel and collapse, to the left only.
+ */
+
+private enum class SwipePhase { Idle, Tension, Snapping, FreeDrag }
+
+private class SwipeRemove(private val scope: CoroutineScope, private val density: Density, private val view: View, private val onRemove: () -> Unit) {
+    val offset = Animatable(0f)
+    /** 1 is the full height; folds to 0 while a removing swipe flings off, so the gap closes smoothly. */
+    val collapse = Animatable(1f)
+    var width by mutableFloatStateOf(0f)
+    /** Latched while the row is away from rest, so the bounce past 0 never flashes a panel on the other side. */
+    var active by mutableStateOf(false)
+        private set
+    private var phase = SwipePhase.Idle
+    private var dragged = 0f
+    private var inZone = false
+
+    private fun haptic(constant: Int) { ViewCompat.performHapticFeedback(view, constant) }
+
+    fun start() {
+        phase = SwipePhase.Tension
+        dragged = 0f
+        inZone = false
+        scope.launch { offset.stop() }
+    }
+
+    fun drag(amount: Float) {
+        if (width <= 0f) return
+        dragged += amount
+        if (dragged != 0f) active = dragged < 0f
+        // Only to the left: a swipe the other way stays put.
+        if (dragged > 0f) { dragged = 0f; scope.launch { offset.snapTo(0f) }; return }
+        val dir = sign(dragged)
+        when (phase) {
+            SwipePhase.Tension -> {
+                // The first 60 dp move the row at most 20 dp, so a scroll that drifts sideways never removes anything.
+                val threshold = 60f * density.density
+                if (abs(dragged) < threshold) {
+                    val fraction = (abs(dragged) / threshold).coerceIn(0f, 1f)
+                    scope.launch { offset.snapTo(dir * 20f * density.density * fraction) }
+                } else phase = SwipePhase.Snapping
+            }
+            SwipePhase.Snapping -> {
+                haptic(HapticFeedbackConstantsCompat.GESTURE_THRESHOLD_ACTIVATE)
+                scope.launch { offset.animateTo(dragged, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessLow)) }
+                phase = SwipePhase.FreeDrag
+            }
+            SwipePhase.FreeDrag -> {
+                val now = abs(dragged) > width * 0.40f
+                if (now != inZone) {
+                    inZone = now
+                    haptic(if (now) HapticFeedbackConstantsCompat.GESTURE_THRESHOLD_ACTIVATE else HapticFeedbackConstantsCompat.GESTURE_THRESHOLD_DEACTIVATE)
+                }
+                scope.launch { offset.animateTo(dragged, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh)) }
+            }
+            SwipePhase.Idle -> Unit
+        }
+    }
+
+    fun end() {
+        val committed = abs(dragged) > width * 0.40f && dragged < 0f
+        phase = SwipePhase.Idle
+        inZone = false
+        if (committed) {
+            haptic(HapticFeedbackConstantsCompat.GESTURE_END)
+            dragged = 0f
+            // Flung off to the left while the height folds in step; only then is it removed.
+            scope.launch { collapse.animateTo(0f, tween(260, easing = FastOutSlowInEasing)) }
+            scope.launch {
+                offset.animateTo(-width * 1.1f, tween(260, easing = FastOutSlowInEasing))
+                onRemove()
+            }
+            return
+        }
+        springBack()
+    }
+
+    fun cancel() { phase = SwipePhase.Idle; inZone = false; springBack() }
+
+    private fun springBack() {
+        dragged = 0f
+        scope.launch {
+            offset.animateTo(0f, spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium))
+            active = false
+        }
+    }
+}
+
+@Composable
+private fun rememberSwipeRemove(onRemove: () -> Unit): SwipeRemove {
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val view = LocalView.current
+    val latest = androidx.compose.runtime.rememberUpdatedState(onRemove)
+    return remember { SwipeRemove(scope, density, view) { latest.value() } }
+}
+
+/** Folds the whole row (the road above a stop too) as its card flies off. */
+private fun Modifier.swipeCollapse(state: SwipeRemove): Modifier = this
+    .then(if (state.collapse.value < 1f) Modifier.clipToBounds() else Modifier)
+    .layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        layout(placeable.width, (placeable.height * state.collapse.value).roundToInt().coerceAtLeast(0)) { placeable.place(0, 0) }
+    }
+
+/** The card that slides, with PixelPlayer's panel growing from the right edge behind it: the trash and "Verwijderen". */
+@Composable
+private fun SwipeSurface(state: SwipeRemove, enabled: () -> Boolean, content: @Composable () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val density = LocalDensity.current
+    var height by remember { mutableFloatStateOf(0f) }
+    var labelWidth by remember { mutableIntStateOf(0) }
+    Box(Modifier.fillMaxWidth().onSizeChanged { state.width = it.width.toFloat() }) {
+        val off = state.offset.value
+        if (state.active && off < 0f && height > 0f) {
+            val reveal = -off
+            val progress = (reveal / with(density) { 56.dp.toPx() }).coerceIn(0f, 1f)
+            val committed = reveal > state.width * 0.40f
+            val panel by animateColorAsState(if (committed) cs.errorContainer else cs.errorContainer.copy(alpha = 0.82f), tween(150), label = "panel")
+            val iconAlpha by animateFloatAsState(progress * if (committed) 1f else 0.88f, tween(120), label = "icon")
+            // The label waits until all of it fits, so it never shows cut off.
+            val fits = labelWidth > 0 && reveal >= with(density) { (52.dp + 16.dp).toPx() } + labelWidth
+            val textAlpha by animateFloatAsState(if (fits) iconAlpha else 0f, tween(120), label = "label")
+            val h = with(density) { height.toDp() }
+            Box(
+                Modifier.align(Alignment.CenterEnd).height(h)
+                    // Reaches under the card, so its round corners sit against the panel without a gap.
+                    .width(with(density) { reveal.toDp() } + h / 2)
+                    .clip(RoundedCornerShape(topEnd = 26.dp, bottomEnd = 26.dp))
+                    .background(panel),
+            ) {
+                LineIcon(Glyphs.trash, cs.onErrorContainer, size = 22.dp, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 18.dp).graphicsLayer { alpha = iconAlpha })
+                Text(
+                    "Verwijderen", maxLines = 1, softWrap = false,
+                    style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onErrorContainer),
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 52.dp)
+                        .wrapContentWidthUnbounded()
+                        .onSizeChanged { labelWidth = it.width }
+                        .graphicsLayer { alpha = textAlpha },
+                )
+            }
+        }
+        Box(
+            Modifier.fillMaxWidth()
+                .onSizeChanged { height = it.height.toFloat() }
+                .offset { IntOffset(state.offset.value.roundToInt(), 0) }
+                .pointerInput(state) {
+                    // The first clear movement decides: sideways is ours (every change consumed so the page cannot
+                    // scroll under a swipe), up or down goes to the page, untouched.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var dx = 0f; var dy = 0f
+                        var lock = 0
+                        var started = false
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                            if (change == null || !change.pressed) { if (started) state.end(); break }
+                            // Held and lifted to be moved: the reorder owns this gesture.
+                            if (!enabled()) { if (started) state.cancel(); break }
+                            val delta = change.positionChange()
+                            if (lock == 0) {
+                                dx += delta.x; dy += delta.y
+                                val slop = viewConfiguration.touchSlop
+                                if (abs(dx) >= slop || abs(dy) >= slop) {
+                                    if (abs(dx) > abs(dy)) {
+                                        lock = 1; started = true
+                                        state.start(); change.consume(); state.drag(dx)
+                                    } else break
+                                }
+                            } else { change.consume(); state.drag(delta.x) }
+                        }
+                    }
+                },
+        ) { content() }
+    }
+}
+
+private fun Modifier.wrapContentWidthUnbounded(): Modifier = wrapContentWidth(Alignment.End, unbounded = true)
+
+/** Widens a row by [by] on both sides, past the padding of what holds it. */
+private fun Modifier.bleedSides(by: androidx.compose.ui.unit.Dp): Modifier = layout { measurable, constraints ->
+    val extra = by.roundToPx() * 2
+    val placeable = measurable.measure(constraints.copy(minWidth = constraints.minWidth + extra, maxWidth = constraints.maxWidth + extra))
+    layout(placeable.width - extra, placeable.height) { placeable.place(-extra / 2, 0) }
+}
+
+/**
+ * Brings something into view above the keyboard. The page scrolls under the keyboard rather than above it,
+ * so "in view" alone could leave it behind the keys: the request reaches the keyboard's height further down.
+ */
+private class AboveKeyboard(val modifier: Modifier, val keyboard: Boolean, val show: suspend () -> Unit)
+
+@Composable
+private fun rememberAboveKeyboard(): AboveKeyboard {
+    val density = LocalDensity.current
+    val ime = WindowInsets.ime.getBottom(density)
+    val into = remember { BringIntoViewRequester() }
+    var size by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    val imeNow = androidx.compose.runtime.rememberUpdatedState(ime)
+    return AboveKeyboard(
+        Modifier.bringIntoViewRequester(into).onSizeChanged { size = it },
+        keyboard = ime > 0,
+    ) { into.bringIntoView(androidx.compose.ui.geometry.Rect(0f, 0f, size.width.toFloat(), size.height + imeNow.value.toFloat())) }
+}
+

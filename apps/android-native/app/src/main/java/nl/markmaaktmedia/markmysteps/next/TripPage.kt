@@ -186,7 +186,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                         label = "tripTab",
                     ) { which ->
                         Column {
-                            if (which == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                            if (which == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark, media) }
                         }
                     }
                 }

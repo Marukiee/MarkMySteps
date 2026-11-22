@@ -21,13 +21,29 @@ data class Stop(
     val start: LocalDate? = null,
     /** Its id on the server, so changes in the planner can be saved. */
     val id: String? = null,
+    /** For a flight to here: the flight number and the airports (IATA codes), as filled in on the planner. */
+    val flightNumber: String? = null,
+    val fromAirport: String? = null,
+    val toAirport: String? = null,
+    /** Excursions from here and back the same day; never a leg of the route and never a night. */
+    val dayTrips: List<DayTrip> = emptyList(),
 )
 
-/** How a leg is travelled, in the order a tap on the pill walks through them. */
+/** A day trip from a stop (Saltsjöbaden to Stockholm and back): where, and on which day. */
+data class DayTrip(val id: String, val name: String, val flag: String, val at: LonLat?, val day: LocalDate?)
+
+/** How a leg is travelled, in the order the mode menu lists them. */
 enum class Mode(val label: String) { Car("Auto"), Train("Trein"), Bus("Bus"), Boat("Boot"), Flight("Vlucht") }
 
 /** The way there or back: by air between two airports, or over land. */
-data class Leg(val mode: Mode, val from: String, val to: String, val km: Int)
+data class Leg(
+    val mode: Mode, val from: String, val to: String, val km: Int,
+    /** Read from a server: the leg's own stop, and its flight as filled in (null when not known). */
+    val id: String? = null,
+    val flightNumber: String? = null,
+    val fromAirport: String? = null,
+    val toAirport: String? = null,
+)
 
 /** Stand-in for a cover photo in this test: a drawn landscape, see Scenery.kt. */
 enum class Scene { Desert, SunsetSea, Snow, Coast, Highlands, Fjord, Mountains }
