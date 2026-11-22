@@ -228,10 +228,11 @@ object CardSizePref {
     }
 }
 
+// Twelve clearly different hues (one yellow only), so the people on one trip rarely share a colour.
 private val PersonPalette = listOf(
-    androidx.compose.ui.graphics.Color(0xFFE8613C), androidx.compose.ui.graphics.Color(0xFF5B8DEF), androidx.compose.ui.graphics.Color(0xFF2BB6A8),
-    androidx.compose.ui.graphics.Color(0xFFD9A441), androidx.compose.ui.graphics.Color(0xFF7A5BD6), androidx.compose.ui.graphics.Color(0xFFE34B8A), androidx.compose.ui.graphics.Color(0xFF4CAF50),
-)
+    0xFFE8613C, 0xFF5B8DEF, 0xFF2BB6A8, 0xFFD9A441, 0xFF7A5BD6, 0xFFE34B8A,
+    0xFF4CAF50, 0xFF3FA7D6, 0xFFB5651D, 0xFF9C27B0, 0xFF00897B, 0xFFC0392B,
+).map { androidx.compose.ui.graphics.Color(it) }
 
 /** One colour per person, the same on every screen (behind their initial when they have no photo). */
 fun personColor(key: String?): androidx.compose.ui.graphics.Color = PersonPalette[((key ?: "").hashCode() and 0x7fffffff) % PersonPalette.size]
