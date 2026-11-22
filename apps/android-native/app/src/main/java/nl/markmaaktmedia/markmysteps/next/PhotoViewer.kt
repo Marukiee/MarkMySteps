@@ -32,6 +32,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.platform.LocalDensity
@@ -307,10 +310,13 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBo
                     animate(0f, 1f, animationSpec = MotionScheme.standard().defaultSpatialSpec()) { v, _ -> heroT = v }
                 }
             } else {
-                // No tile on screen (scrolled away): the photo drops a little further while everything fades.
+                // No tile to fly into (scrolled away, or opened from the map): the photo goes on down where it was
+                // heading while everything fades, calmly and at one pace (the quick effects motion made it vanish
+                // the moment a slow back gesture was let go).
+                val calm = tween<Float>(320, easing = FastOutSlowInEasing)
                 coroutineScope {
-                    launch { animate(closeFade, 1f, animationSpec = motion.fastEffectsSpec()) { v, _ -> closeFade = v } }
-                    animate(Offset.VectorConverter, drag, drag + Offset(0f, areaHeight * 0.2f), Offset(velocity.x, velocity.y), motion.fastSpatialSpec()) { v, _ -> drag = v }
+                    launch { animate(closeFade, 1f, animationSpec = calm) { v, _ -> closeFade = v } }
+                    animate(Offset.VectorConverter, drag, drag + Offset(0f, areaHeight * 0.25f), Offset(velocity.x, velocity.y), tween(320, easing = FastOutSlowInEasing)) { v, _ -> drag = v }
                 }
             }
             onCurrent(null)
@@ -477,7 +483,11 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBo
                 val handle = if (current.video) videos[current.id] else null
                 if (current.video) VideoControls(handle, Modifier.padding(bottom = 12.dp))
                 // Opened from the map: every photo of that spot in a strip, as a gallery app has it.
-                if (strip && list.size > 1) Filmstrip(list, pager.currentPage, Modifier.padding(bottom = 12.dp)) { i -> scope.launch { pager.animateScrollToPage(i) } }
+                if (strip && list.size > 1) Filmstrip(
+                    list, pager.currentPage, Modifier.padding(bottom = 12.dp),
+                    onPick = { i -> scope.launch { pager.animateScrollToPage(i) } },
+                    onScrub = { i -> scope.launch { pager.scrollToPage(i) } },
+                )
                 // A photo linked from this phone lives only here: no reactions or comments on the server.
                 if (!DeviceMedia.isDevice(current.id)) SocialBar(
                     mine = reactions.mine[current.id],
@@ -1007,32 +1017,66 @@ private fun ViewerVideo(
 
 
 /**
- * The photos of one spot as a strip of small tiles, as a phone's gallery shows them under a photo: the one on
- * screen a little wider with room around it, kept in the middle while you page; a tap goes to that photo.
+ * The photos of one spot as a strip of small tiles, as a phone's gallery shows them under a photo. The one on
+ * screen stands in the middle, a little wider, the first one too. Sliding the strip pages the photo along with
+ * it (the tile in the middle is the photo shown), with a tick for each one, and it comes to rest on a tile; a tap
+ * goes to that photo. It runs to the screen's edges.
  */
 @Composable
-private fun Filmstrip(list: List<Media>, current: Int, modifier: Modifier = Modifier, onPick: (Int) -> Unit) {
+private fun Filmstrip(list: List<Media>, current: Int, modifier: Modifier = Modifier, onPick: (Int) -> Unit, onScrub: (Int) -> Unit) {
     val state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = current)
-    val density = LocalDensity.current
-    BoxWithConstraints(modifier.fillMaxWidth()) {
-        val half = with(density) { (maxWidth / 2 - 26.dp).roundToPx() }
-        LaunchedEffect(current) { state.animateScrollToItem(current, -half) }
+    val haptics = rememberHaptics()
+    val slot = 44.dp
+    val dragged by state.interactionSource.collectIsDraggedAsState()
+    // From the finger on the strip until it comes to rest: the strip leads and the photo follows.
+    var scrubbing by remember { mutableStateOf(false) }
+    LaunchedEffect(dragged, state.isScrollInProgress) {
+        if (dragged) scrubbing = true else if (!state.isScrollInProgress) scrubbing = false
+    }
+    // The tile under the middle of the strip.
+    val centred by remember {
+        androidx.compose.runtime.derivedStateOf {
+            val info = state.layoutInfo
+            val middle = (info.viewportStartOffset + info.viewportEndOffset) / 2
+            info.visibleItemsInfo.minByOrNull { kotlin.math.abs(it.offset + it.size / 2 - middle) }?.index ?: current
+        }
+    }
+    LaunchedEffect(centred, scrubbing) {
+        if (scrubbing && centred != current) { haptics(Haptic.Tick); onScrub(centred) }
+    }
+    // Paged by swiping the photo (or a tap): the strip brings that tile to the middle.
+    LaunchedEffect(current) { if (!scrubbing) state.animateScrollToItem(current) }
+    BoxWithConstraints(
+        modifier.fillMaxWidth().layout { m, c ->
+            // Past the padding of the bar it sits in, to the screen's edges.
+            val extra = 32.dp.roundToPx()
+            val p = m.measure(c.copy(minWidth = c.minWidth + extra, maxWidth = c.maxWidth + extra))
+            layout(p.width - extra, p.height) { p.place(-extra / 2, 0) }
+        },
+    ) {
+        // Room on both sides, so the first and the last tile can stand in the middle too.
+        val side = (maxWidth + 32.dp - slot) / 2
         androidx.compose.foundation.lazy.LazyRow(
             state = state,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = side),
+            flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(
+                state, androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
+            ),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().height(60.dp),
         ) {
             items(list.size, key = { list[it].id }) { i ->
                 val on = i == current
-                // Calm, no overshoot: a bouncing spring took the gap below zero, and a negative padding crashes.
-                val calm = androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-                val w by animateDpAsState(if (on) 52.dp else 36.dp, calm, label = "stripW")
-                val gap by animateDpAsState(if (on) 8.dp else 0.dp, calm, label = "stripGap")
-                Box(
-                    Modifier.padding(horizontal = gap.coerceAtLeast(0.dp)).width(w).height(if (on) 56.dp else 50.dp).clip(RoundedCornerShape(if (on) 10.dp else 6.dp))
-                        .background(Color.White.copy(alpha = 0.12f)).clickable { onPick(i) },
-                ) { RemotePhoto(list[i].id, Modifier.fillMaxSize()) }
+                // Every slot is as wide as the next, so the strip never shifts under the finger; only the tile
+                // in it grows. Calm, no overshoot (a bouncing size can go below zero).
+                val calm = androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(180, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                val w by animateDpAsState(if (on) 44.dp else 36.dp, calm, label = "stripW")
+                val h by animateDpAsState(if (on) 58.dp else 50.dp, calm, label = "stripH")
+                Box(Modifier.width(slot).height(60.dp).clickable { onPick(i) }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.width(w.coerceAtLeast(1.dp)).height(h.coerceAtLeast(1.dp)).clip(RoundedCornerShape(if (on) 10.dp else 7.dp)).background(Color.White.copy(alpha = 0.12f))) {
+                        RemotePhoto(list[i].id, Modifier.fillMaxSize())
+                    }
+                }
             }
         }
     }
