@@ -841,7 +841,7 @@ private fun MenuDots(trip: Trip, modifier: Modifier = Modifier, onOpen: () -> Un
                 mine -> listOf(MenuEntry(stringResource(R.string.home_rename), Glyphs.pencil) { renaming = true }, MenuEntry(stringResource(R.string.home_delete), Glyphs.trash, danger = true) { deleting = true })
                 else -> listOf(MenuEntry(stringResource(R.string.home_leave), Glyphs.signOut, danger = true) { leaving = true })
             },
-        ))
+        ), buttonColor = if (light) Color.White.copy(alpha = veil.coerceIn(0.5f, 0.95f)) else MaterialTheme.colorScheme.surfaceContainerHigh)
     }
     if (renaming) {
         var title by remember { mutableStateOf(trip.title) }

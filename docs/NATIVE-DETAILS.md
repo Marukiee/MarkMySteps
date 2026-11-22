@@ -57,7 +57,7 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Een lijst met een knop naar de reis: alleen een rond pijltje, zodat lange titels hun ruimte houden.
 - Dagen in het verleden zien er in de kalender gewoon uit: ze zijn te kiezen.
 
-- Panels (sheets) komen meteen op gang en landen rustig: emphasized decelerate, geen veer vanuit stilstand.
+- Panels (sheets) zijn Material's eigen sheet met exact de beweging van het Connect device-paneel in PixelPlayer: expressive motion, sluiten met 380 ms FastOutSlowIn (`PanelMotion` in Sheet.kt). Goedgekeurd door Mark, niet meer aan sleutelen.
 - Formaat wisselen (groot, klein) zonder doorschieten: niets gaat voorbij zijn plek en terug.
 - Fotorondjes op de kaart groeperen pas als het zoomen stilstaat; wat verdwijnt vervaagt op zijn plek in 0,2 s (zoals de web).
 - Een vervoerpil klapt uit tot een lijst onder de pil, een vorm met een fijne rand, over de inhoud heen.
