@@ -21,7 +21,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -115,7 +115,8 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(rememberScrollState())) {
+    // imePadding shrinks the page above the keyboard, so the focused field is scrolled into view.
+    Column(Modifier.fillMaxSize().background(cs.background).imePadding().verticalScroll(rememberScrollState())) {
         Box(Modifier.fillMaxWidth().height(heroH)) {
             Globe(
                 trips = DemoPast + DemoUpcoming,
@@ -196,7 +197,6 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit) {
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 24.dp),
             )
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.ime))
         }
     }
 }

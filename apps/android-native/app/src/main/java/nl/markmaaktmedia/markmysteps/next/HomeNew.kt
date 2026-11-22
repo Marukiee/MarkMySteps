@@ -587,7 +587,8 @@ private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modi
     val cs = MaterialTheme.colorScheme
     val items = listOf(Glyphs.compass to "Reizen", Glyphs.friends to "Reizigers", Glyphs.settings to "Instellingen")
     Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        // Its own tone and a soft shadow, so it stands off whatever scrolls under it.
+        // Its own light tone and the floating toolbar's soft shadow, so it stands off
+        // whatever scrolls under it (the one place Mark wants a shadow).
         HorizontalFloatingToolbar(
             expanded = true,
             colors = FloatingToolbarDefaults.standardFloatingToolbarColors(toolbarContainerColor = cs.surfaceContainerHighest),
@@ -600,7 +601,7 @@ private fun Toolbar(active: Int, onNav: (Int) -> Unit, modifier: Modifier = Modi
                     Modifier.height(48.dp).clip(CircleShape).background(bg).bouncyClickable { onNav(i) }.padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    LineIcon(icon, if (on) cs.onPrimary else cs.onSurfaceVariant, size = 22.dp, stroke = if (on) 2.1f else 1.8f)
+                    LineIcon(icon, if (on) cs.onPrimary else cs.onSurfaceVariant, size = 22.dp, stroke = if (on) 2.1f else 1.9f)
                     AnimatedVisibility(
                         visible = on,
                         enter = expandHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),

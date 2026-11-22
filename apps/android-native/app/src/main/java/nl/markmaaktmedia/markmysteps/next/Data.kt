@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -117,4 +118,20 @@ fun coverTone(trip: Trip): androidx.compose.ui.graphics.Color? {
         }
     }
     return tone
+}
+
+/** A person's face: their photo from the server when they have one, else their initial on a colour. */
+@Composable
+fun Avatar(userId: String?, name: String, hasAvatar: Boolean, color: androidx.compose.ui.graphics.Color, modifier: Modifier, shape: androidx.compose.ui.graphics.Shape = androidx.compose.foundation.shape.CircleShape) {
+    val bitmap by produceState<Bitmap?>(userId?.let { Photos.cached("avatar/$it") }, userId, hasAvatar) {
+        if (value == null && userId != null && hasAvatar) value = Photos.avatar(userId)
+    }
+    Box(modifier.clip(shape).background(color), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        androidx.compose.material3.Text(
+            name.take(1).uppercase(),
+            style = androidx.compose.ui.text.TextStyle(fontFamily = Outfit, fontWeight = androidx.compose.ui.text.font.FontWeight(700), fontSize = androidx.compose.ui.unit.TextUnit(17f, androidx.compose.ui.unit.TextUnitType.Sp), color = androidx.compose.ui.graphics.Color.White),
+        )
+        val shown by animateFloatAsState(if (bitmap != null) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "avatar")
+        bitmap?.let { Image(it.asImageBitmap(), null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().graphicsLayer { alpha = shown }) }
+    }
 }

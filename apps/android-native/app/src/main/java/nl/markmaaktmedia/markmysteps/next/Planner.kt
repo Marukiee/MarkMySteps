@@ -56,7 +56,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.compositeOver
@@ -325,9 +324,8 @@ private fun StopRow(
     ) {
         Row(
             Modifier.fillMaxWidth()
-                .shadow((8 * lifted).dp, RoundedCornerShape(26.dp))
                 .clip(RoundedCornerShape(26.dp))
-                .background(if (lifted > 0f) cs.surfaceContainerHigh else cs.surfaceContainerLow)
+                .background(androidx.compose.ui.graphics.lerp(cs.surfaceContainerLow, cs.secondaryContainer, lifted))
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

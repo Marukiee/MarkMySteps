@@ -147,12 +147,16 @@ object Photos {
      * screen, "original" for the file as taken, which is the one that still
      * carries an HDR gain map.
      */
-    suspend fun load(id: String, size: String): Bitmap? {
-        val key = "$id/$size"
+    suspend fun load(id: String, size: String): Bitmap? = loadPath("$id/$size", "/api/media/$id/thumbnail?size=$size")
+
+    /** Someone's profile photo. */
+    suspend fun avatar(userId: String): Bitmap? = loadPath("avatar/$userId", "/api/users/$userId/avatar")
+
+    suspend fun loadPath(key: String, path: String): Bitmap? {
         cache.get(key)?.let { return it }
         return lanes.withPermitCompat {
             cache.get(key)?.let { return@withPermitCompat it }
-            val data = Api.bytes("/api/media/$id/thumbnail?size=$size") ?: return@withPermitCompat null
+            val data = Api.bytes(path) ?: return@withPermitCompat null
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
             // An original can be 50 megapixels: bring it down to about a screen and a half.
@@ -174,7 +178,33 @@ data class Media(val id: String, val takenAt: LocalDate, val video: Boolean, val
 
 /** Reads the signed-in account's trips into the same shapes the demo uses. */
 object Remote {
-    data class Me(val id: String, val name: String, val username: String)
+    data class Me(val id: String, val name: String, val username: String, val hasAvatar: Boolean = false)
+
+    /** Your travelling in numbers, as the web's Reizigers page shows it. */
+    data class Stats(
+        val trips: Int, val days: Int, val countries: List<String>, val places: Int,
+        val flights: Int, val km: Int, val photos: Int, val ongoing: Int,
+    )
+
+    data class Friend(val id: String, val name: String, val username: String, val hasAvatar: Boolean, val sharedTrips: Int)
+
+    suspend fun stats(userId: String): Stats {
+        val o = JSONObject(Api.get("/api/users/$userId/stats"))
+        val c = o.optJSONArray("countries")
+        return Stats(
+            trips = o.optInt("trips"), days = o.optInt("days"),
+            countries = (0 until (c?.length() ?: 0)).map { c!!.getString(it) },
+            places = o.optInt("places"), flights = o.optInt("flights"),
+            km = o.optDouble("distanceKm", 0.0).toInt(), photos = o.optInt("photoCount"), ongoing = o.optInt("ongoing"),
+        )
+    }
+
+    suspend fun friends(): List<Friend> {
+        val a = JSONArray(Api.get("/api/users/friends"))
+        return (0 until a.length()).map { a.getJSONObject(it) }.map {
+            Friend(it.getString("id"), it.optString("displayName"), it.optString("username"), it.optBoolean("hasAvatar"), it.optInt("sharedTrips"))
+        }
+    }
 
     suspend fun me(): Me {
         val raw = Api.get("/api/users/me")
@@ -184,7 +214,7 @@ object Remote {
 
     fun cachedMe(): Me? = Api.recall("me")?.let { runCatching { parseMe(it) }.getOrNull() }
 
-    private fun parseMe(raw: String): Me = JSONObject(raw).let { o -> Me(o.getString("id"), o.optString("displayName"), o.optString("username")) }
+    private fun parseMe(raw: String): Me = JSONObject(raw).let { o -> Me(o.getString("id"), o.optString("displayName"), o.optString("username"), o.optBoolean("hasAvatar")) }
 
     private val Palette = listOf(0xFFE8613C, 0xFF2BB6A8, 0xFFD08A2A, 0xFF7A5BD6, 0xFFE34B8A, 0xFF5B8DEF, 0xFFC9772E, 0xFF7DA7D9)
 

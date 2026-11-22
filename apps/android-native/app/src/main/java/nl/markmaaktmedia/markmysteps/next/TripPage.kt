@@ -45,11 +45,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -180,9 +180,9 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
 @Composable
 private fun RoundButton(onClick: () -> Unit = {}, content: @Composable () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    // Solid, with a soft shadow, so it reads on any part of the map.
+    // Solid tone, no shadow (Expressive separates by colour), so it reads on any part of the map.
     Box(
-        Modifier.size(48.dp).shadow(6.dp, CircleShape).clip(CircleShape).background(cs.surfaceContainerHighest).press(onClick),
+        Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest).press(onClick),
         contentAlignment = Alignment.Center,
     ) { content() }
 }
@@ -214,7 +214,7 @@ private fun factsOf(trip: Trip, photos: Int?): List<Pair<String, String>> = if (
     "${trip.stops.size}" to (if (trip.stops.size == 1) "stop" else "stops"),
     "${trip.people.size + trip.extraPeople}" to "reizigers",
 ) else listOfNotNull(
-    trip.km?.takeIf { it > 0 }?.let { "%,d".format(it).replace(',', '.') to "km" },
+    trip.km?.takeIf { it > 0 }?.let { "%,d".format(it).replace(',', '.') to "kilometer" },
     "${trip.days}" to "dagen",
     "${trip.stops.size}" to (if (trip.stops.size == 1) "stop" else "stops"),
     "${photos ?: trip.photos}" to "foto's",
@@ -256,6 +256,14 @@ private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier) {
 @Composable
 private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null) {
     val items = factsOf(trip, photos)
+    // The tone of the cover above, so the figures belong to it and stand off the page.
+    val cs = MaterialTheme.colorScheme
+    val dark = cs.background.luminance() < 0.5f
+    val tone = coverTone(trip)
+    val tile by androidx.compose.animation.animateColorAsState(
+        (tone ?: trip.color).copy(alpha = if (dark) 0.34f else 0.26f).compositeOver(cs.surfaceContainerLow),
+        MaterialTheme.motionScheme.slowEffectsSpec(), label = "factsTone",
+    )
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         items.forEachIndexed { i, (value, label) ->
             // Joined to the cover above it: tight on top, round only at the outer bottom corners.
@@ -264,7 +272,7 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
                 bottomStart = if (i == 0) 24.dp else 6.dp, bottomEnd = if (i == items.lastIndex) 24.dp else 6.dp,
             )
             Column(
-                Modifier.weight(if (label == "km") 1.3f else if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(horizontal = 12.dp, vertical = 12.dp),
+                Modifier.weight(if (label == "kilometer") 1.3f else if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(tile).padding(horizontal = 12.dp, vertical = 12.dp),
             ) {
                 Text(value, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 21.sp, letterSpacing = (-0.02).em, color = MaterialTheme.colorScheme.onSurface))
                 Text(label, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant))
