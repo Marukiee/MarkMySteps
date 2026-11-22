@@ -26,7 +26,7 @@ struct HomeView: View {
                 }
                 .scrollIndicators(.hidden)
                 .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { if $0 > 0 { topInset = $0 } }
-                .ignoresSafeArea(edges: .top)
+                .ignoresSafeArea(.container, edges: .top)
                 .background(Brand.paper)
                 .onAppear {
                     guard Launch.page == "trips" || Launch.page == nil, let anchor = Launch.scroll else { return }

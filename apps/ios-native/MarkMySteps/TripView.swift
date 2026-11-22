@@ -53,7 +53,12 @@ struct TripView: View {
                 case .timeline:
                     TimelineRows(trip: trip, media: media, ns: ns) { viewer = $0 }
                 case .planner:
-                    PlannerRows(trip: trip, plan: $plan)
+                    PlannerRows(trip: trip, plan: $plan) {
+                        // Lift the field and its suggestions above the keyboard.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            withAnimation(.smooth) { proxy.scrollTo("add", anchor: .bottom) }
+                        }
+                    }
                 }
 
                 Color.clear.frame(height: 28).plainRow()
@@ -62,7 +67,7 @@ struct TripView: View {
             .scrollContentBackground(.hidden)
             .environment(\.defaultMinListRowHeight, 0)
             .background(Brand.paper)
-            .ignoresSafeArea(edges: .top)
+            .ignoresSafeArea(.container, edges: .top)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
             .onScrollGeometryChange(for: Bool.self) { geo in
                 geo.contentOffset.y + geo.contentInsets.top > 300

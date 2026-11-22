@@ -37,6 +37,8 @@ struct PlanState {
 struct PlannerRows: View {
     let trip: Trip
     @Binding var plan: PlanState
+    /// Called when the add-a-stop field gets the keyboard, so the page can lift it into view.
+    var onFocusAdd: () -> Void = {}
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
@@ -95,7 +97,7 @@ struct PlannerRows: View {
                 .plainRow(top: 12)
         }
 
-        AddStopCard(trip: trip, plan: $plan)
+        AddStopCard(trip: trip, plan: $plan, onFocus: onFocusAdd)
             .plainRow(top: 20)
             .id("add")
     }
@@ -256,6 +258,7 @@ private struct StopRow: View {
 private struct AddStopCard: View {
     let trip: Trip
     @Binding var plan: PlanState
+    var onFocus: () -> Void = {}
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -275,6 +278,7 @@ private struct AddStopCard: View {
                     .focused($focused)
                     .submitLabel(.done)
                     .autocorrectionDisabled()
+                    .onChange(of: focused) { _, on in if on { onFocus() } }
                 if !plan.query.isEmpty {
                     Button { plan.query = "" } label: {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(Brand.inkSoft)

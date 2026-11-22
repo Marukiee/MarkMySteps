@@ -30,10 +30,12 @@ struct LoginView: View {
     }
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                // A fixed height: the globe must not shrink when the keyboard takes room.
                 GlobeHero(trips: Demo.past + [Demo.upcoming])
-                    .containerRelativeFrame(.vertical) { length, _ in length * 0.32 }
+                    .frame(height: 270)
                     .frame(maxWidth: .infinity)
                     .padding(.top, topInset)
                     .overlay(alignment: .bottom) {
@@ -75,10 +77,21 @@ struct LoginView: View {
                 .padding(.bottom, 24)
             }
         }
+        // The focused field, and the button under it, scroll up above the keyboard.
+        .onChange(of: focus) { _, field in
+            guard let field else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                withAnimation(.smooth) {
+                    if field == .password || field == .code { proxy.scrollTo("submit", anchor: .bottom) }
+                    else { proxy.scrollTo(field, anchor: .center) }
+                }
+            }
+        }
+        }
         .scrollDismissesKeyboard(.interactively)
         .scrollIndicators(.hidden)
         .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { if $0 > 0 { topInset = $0 } }
-        .ignoresSafeArea(edges: .top)
+        .ignoresSafeArea(.container, edges: .top)
         .background(Brand.paper)
     }
 
@@ -93,6 +106,7 @@ struct LoginView: View {
                                 .textContentType(.URL)
                                 .textInputAutocapitalization(.never)
                                 .focused($focus, equals: .server)
+                                .id(Field.server)
                                 .submitLabel(.next)
                                 .onSubmit { focus = .name }
                         }
@@ -102,6 +116,7 @@ struct LoginView: View {
                                 .textContentType(.username)
                                 .textInputAutocapitalization(.never)
                                 .focused($focus, equals: .name)
+                                .id(Field.name)
                                 .submitLabel(.next)
                                 .onSubmit { focus = .password }
                         }
@@ -172,6 +187,8 @@ struct LoginView: View {
             .controlSize(.large)
             // Stays in its own colour while busy; a second tap is ignored in submit().
             .disabled(!canSubmit && !busy)
+            .padding(.bottom, 8)
+            .id("submit")
 
             if mfaToken != nil {
                 Button {
