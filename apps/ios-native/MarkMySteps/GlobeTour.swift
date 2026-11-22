@@ -98,11 +98,13 @@ final class TourTrip {
         else if trip.route.count >= 2 { segments = [trip.route] }
         else { segments = [] }
         flights = trip.flights.map { [$0.from, $0.to] }
-        anchor = trip.route.first ?? trip.stops.first?.at ?? Demo.homeAirport
+        // Where the trip begins: never the home airport the track happened to start at (the phone already on at
+        // Schiphol put the Afrika trip's name there).
+        anchor = trip.marker ?? trip.route.first { !HomeAirports.contains($0) } ?? trip.stops.first?.at ?? trip.route.first ?? Demo.homeAirport
         var hits = [anchor]
         for s in segments { hits += s }
         hits += trip.stops.map(\.at)
-        for f in flights { for p in [f[0], f[f.count - 1]] where Geo.angle(p, Demo.homeAirport) >= 0.4 { hits.append(p) } }
+        for f in flights { for p in [f[0], f[f.count - 1]] where !HomeAirports.contains(p) { hits.append(p) } }
         hitPoints = hits
 
         let points = segments.flatMap { $0 } + flights.flatMap { $0 }
@@ -282,11 +284,14 @@ final class GlobeScene {
                 continue
             }
             var points: [LonLat] = []
-            if let f = trip.routePieces.first?.first { points.append(f) }
-            if let l = trip.routePieces.last?.last { points.append(l) }
+            // A track that starts or ends at one of your home airports does not make that airport a place of the
+            // trip: its dots are where the trip itself begins and ends.
+            let route = trip.routePieces.joined()
+            if let f = route.first(where: { !HomeAirports.contains($0) }) { points.append(f) }
+            if let l = route.last(where: { !HomeAirports.contains($0) }) { points.append(l) }
             for f in trip.flights {
-                if Geo.angle(f.from, Demo.homeAirport) >= 0.4 { points.append(f.from) }
-                if Geo.angle(f.to, Demo.homeAirport) >= 0.4 { points.append(f.to) }
+                if !HomeAirports.contains(f.from) { points.append(f.from) }
+                if !HomeAirports.contains(f.to) { points.append(f.to) }
             }
             for p in points {
                 let snapped = trip.stops.map(\.at).filter { Geo.angle($0, p) < 0.5 }.min { Geo.angle($0, p) < Geo.angle($1, p) } ?? p
@@ -949,7 +954,8 @@ struct GlobeHero<Overlay: View>: View {
     @ViewBuilder private func card(_ scene: GlobeScene) -> some View {
         if let id = motion.cardTripId, let tour = scene.tour.first(where: { $0.id == id }), size.width > 0 {
             let proj = GlobeCanvas.projection(size, lon: motion.lon, lat: motion.lat, zoom: motion.zoom)
-            let at = scene.places.first { $0.members.contains { $0.id == id } }?.at ?? tour.anchor
+            // The dot of this trip nearest to where it begins, as Android and the web.
+            let at = scene.places.filter { $0.members.contains { $0.id == id } }.min { Geo.angle($0.at, tour.anchor) < Geo.angle($1.at, tour.anchor) }?.at ?? tour.anchor
             let (pt, near) = proj.project(at.lon, at.lat)
             let _ = motion.cardVisible = near
             let _ = {
@@ -994,4 +1000,20 @@ extension GlobeHero where Overlay == EmptyView {
     init(trips: [Trip], tour: Bool = true) {
         self.init(trips: trips, tour: tour, onOpen: nil) { _ in EmptyView() }
     }
+}
+
+/// Every airport you fly out of counts as home, as on the web: a flight or a track from one of them gets no
+/// trip dot (nor the trip's name) there. Your airports from Instellingen, else Schiphol and Eindhoven.
+enum HomeAirports {
+    private static let known: [String: LonLat] = [
+        "AMS": LonLat(4.7683, 52.3105), "EIN": LonLat(5.3745, 51.4501), "RTM": LonLat(4.4379, 51.9569),
+        "GRQ": LonLat(6.5794, 53.1197), "MST": LonLat(5.7701, 50.9117), "BRU": LonLat(4.4844, 50.9014),
+        "CRL": LonLat(4.4538, 50.4592), "DUS": LonLat(6.7668, 51.2895), "NRN": LonLat(6.1542, 51.6024),
+    ]
+    static var points: [LonLat] {
+        let codes = Prefs.airports.isEmpty ? ["AMS", "EIN"] : Prefs.airports
+        let found = codes.compactMap { known[$0] }
+        return found.isEmpty ? [Demo.homeAirport] : found
+    }
+    static func contains(_ p: LonLat, within: Double = 0.4) -> Bool { points.contains { Geo.angle($0, p) < within } }
 }
