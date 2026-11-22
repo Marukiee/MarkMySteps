@@ -151,7 +151,9 @@ private class PlanDayTrip(val key: Int, val id: String?, val name: String, val f
 private class PlanStop(
     val key: Int, val name: String, val flag: String, val at: LonLat, nights: Int, mode: Mode, val id: String? = null,
     flightNumber: String? = null, fromAirport: String? = null, toAirport: String? = null, dayTrips: List<PlanDayTrip> = emptyList(),
+    vias: List<String> = emptyList(),
 ) {
+    var vias by mutableStateOf(vias)
     var nights by mutableStateOf(nights)
     var mode by mutableStateOf(mode)
     var flightNumber by mutableStateOf(flightNumber)
@@ -159,12 +161,20 @@ private class PlanStop(
     var toAirport by mutableStateOf(toAirport)
     val dayTrips = mutableStateListOf<PlanDayTrip>().apply { addAll(dayTrips) }
 
-    fun copy(key: Int) = PlanStop(key, name, flag, at, nights, mode, id, flightNumber, fromAirport, toAirport, dayTrips.toList())
+    fun copy(key: Int) = PlanStop(key, name, flag, at, nights, mode, id, flightNumber, fromAirport, toAirport, dayTrips.toList(), vias)
 }
 
 /** The way there or back, a stop of its own on the server with no nights. */
-private class PlanLeg(val outbound: Boolean, val id: String?, mode: Mode, number: String?, from: String?, to: String?, val km: Int) {
+private class PlanLeg(
+    val outbound: Boolean, val id: String?, mode: Mode, number: String?, from: String?, to: String?, val km: Int,
+    vias: List<String> = emptyList(), placeName: String? = null, place: LonLat? = null,
+) {
     var mode by mutableStateOf(mode)
+    var vias by mutableStateOf(vias)
+    /** Over land: the place you leave from or come back to, so its kilometres count. */
+    var placeName by mutableStateOf(placeName)
+    var place by mutableStateOf(place)
+    fun copy() = PlanLeg(outbound, id, mode, flightNumber, fromAirport, toAirport, km, vias, placeName, place)
     var flightNumber by mutableStateOf(number)
     var fromAirport by mutableStateOf(from)
     var toAirport by mutableStateOf(to)
@@ -173,7 +183,7 @@ private class PlanLeg(val outbound: Boolean, val id: String?, mode: Mode, number
 /** What the flight sheet edits, and where the result goes. */
 private class FlightTarget(
     val title: String, val subtitle: String?, val number: String?, val from: String?, val to: String?,
-    val nearFrom: LonLat?, val nearTo: LonLat?, val onSave: (String?, String?, String?) -> Unit,
+    val nearFrom: LonLat?, val nearTo: LonLat?, val vias: List<String> = emptyList(), val onSave: (String?, String?, String?, List<String>) -> Unit,
 )
 
 /** A removal that waits 7 s for "Ongedaan maken" before it reaches the server. */
@@ -249,7 +259,7 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
         mutableStateListOf<PlanStop>().apply {
             trip.stops.forEachIndexed { i, s ->
                 add(PlanStop(i, s.name, s.flag, s.at, s.nights, s.mode, s.id, s.flightNumber, s.fromAirport, s.toAirport,
-                    s.dayTrips.map { d -> PlanDayTrip(dayTripKey++, d.id, d.name, d.flag, d.at, d.day) }))
+                    s.dayTrips.map { d -> PlanDayTrip(dayTripKey++, d.id, d.name, d.flag, d.at, d.day) }, s.viaAirports))
             }
         }
     }
@@ -257,7 +267,7 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
         // The demo's flights name their airports in from and to; a server leg has them apart.
         val code = { s: String -> s.takeIf { l.id == null && l.mode == Mode.Flight && it.matches(IataCode) } }
         PlanLeg(outbound, l.id ?: trip.remoteId?.let { id -> Remote.legStopIds[id]?.let { if (outbound) it.first else it.second } },
-            l.mode, l.flightNumber, l.fromAirport ?: code(l.from), l.toAirport ?: code(l.to), l.km)
+            l.mode, l.flightNumber, l.fromAirport ?: code(l.from), l.toAirport ?: code(l.to), l.km, l.viaAirports, l.placeName, l.place)
     }
     var outbound by remember(trip.id) { mutableStateOf(legOf(trip.outbound, true)) }
     var back by remember(trip.id) { mutableStateOf(legOf(trip.back, false)) }
@@ -324,36 +334,39 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
             if (leg.outbound) "Heenvlucht" else "Terugvlucht", if (leg.outbound) stops.firstOrNull()?.let { "Naar ${it.name}" } else stops.lastOrNull()?.let { "Vanuit ${it.name}" },
             leg.flightNumber, leg.fromAirport, leg.toAirport,
             nearFrom = if (leg.outbound) HomeAirport else stops.lastOrNull()?.at, nearTo = if (leg.outbound) stops.firstOrNull()?.at else HomeAirport,
-        ) { n, f, t ->
+            vias = leg.vias,
+        ) { n, f, t, v ->
             leg.mode = Mode.Flight
+            leg.vias = v
             // An emptied number is cleared, here and on the server.
             val number = if (n.isNullOrBlank() && leg.flightNumber != null) "" else n
             leg.flightNumber = PlannerRemote.cleanNumber(n) ?: if (number == "") null else leg.flightNumber
             PlannerRemote.cleanCode(f)?.let { leg.fromAirport = it }
             PlannerRemote.cleanCode(t)?.let { leg.toAirport = it }
-            leg.id?.let { id -> save { PlannerRemote.saveFlight(trip, id, number, f, t) } }
+            leg.id?.let { id -> save { PlannerRemote.saveFlight(trip, id, number, f, t, v) } }
         }
     }
     fun stopFlight(stop: PlanStop) {
         val prev = stops.getOrNull(stops.indexOf(stop) - 1)
         flight = FlightTarget(
             "Vlucht naar ${stop.name}", prev?.let { "Vanuit ${it.name}" }, stop.flightNumber, stop.fromAirport, stop.toAirport,
-            nearFrom = prev?.at, nearTo = stop.at,
-        ) { n, f, t ->
+            nearFrom = prev?.at, nearTo = stop.at, vias = stop.vias,
+        ) { n, f, t, v ->
             stop.mode = Mode.Flight
+            stop.vias = v
             // An emptied number is cleared, here and on the server.
             val number = if (n.isNullOrBlank() && stop.flightNumber != null) "" else n
             stop.flightNumber = PlannerRemote.cleanNumber(n) ?: if (number == "") null else stop.flightNumber
             PlannerRemote.cleanCode(f)?.let { stop.fromAirport = it }
             PlannerRemote.cleanCode(t)?.let { stop.toAirport = it }
-            stop.id?.let { id -> save { PlannerRemote.saveFlight(trip, id, number, f, t) } }
+            stop.id?.let { id -> save { PlannerRemote.saveFlight(trip, id, number, f, t, v) } }
         }
     }
     fun pickLegMode(leg: PlanLeg, m: Mode) {
         if (m != leg.mode) {
             leg.mode = m
             // Away from a flight the server forgets the airports; so does the screen.
-            if (m != Mode.Flight) { leg.flightNumber = null; leg.fromAirport = null; leg.toAirport = null }
+            if (m != Mode.Flight) { leg.flightNumber = null; leg.fromAirport = null; leg.toAirport = null; leg.vias = emptyList() }
             leg.id?.let { id -> save { PlannerRemote.setMode(trip, id, m) } }
         }
         if (m == Mode.Flight) legFlight(leg)
@@ -361,7 +374,7 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
     fun pickStopMode(stop: PlanStop, m: Mode) {
         if (m != stop.mode) {
             stop.mode = m
-            if (m != Mode.Flight) { stop.flightNumber = null; stop.fromAirport = null; stop.toAirport = null }
+            if (m != Mode.Flight) { stop.flightNumber = null; stop.fromAirport = null; stop.toAirport = null; stop.vias = emptyList() }
             stop.id?.let { id -> save { PlannerRemote.setMode(trip, id, m) } }
         }
         if (m == Mode.Flight) stopFlight(stop)
@@ -378,10 +391,21 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
         if (leg.outbound) outbound = null else back = null
         syncLegIds()
         offerUndo(if (leg.outbound) "Heen" else "Terug", restore = {
-            if (leg.outbound) outbound = PlanLeg(true, leg.id, leg.mode, leg.flightNumber, leg.fromAirport, leg.toAirport, leg.km)
-            else back = PlanLeg(false, leg.id, leg.mode, leg.flightNumber, leg.fromAirport, leg.toAirport, leg.km)
+            if (leg.outbound) outbound = leg.copy() else back = leg.copy()
             syncLegIds()
         }) { leg.id?.let { Remote.deleteStop(trip, it) } }
+    }
+
+    /** Where the way there starts or the way back ends, over land: its kilometres count toward the trip. */
+    fun pickLegPlace(leg: PlanLeg, place: Remote.Place) {
+        leg.placeName = place.name; leg.place = place.at
+        leg.id?.let { id -> save { SocialRemote.setLegPlace(trip, id, place) } }
+    }
+    /** How far over land from that place to the first stop, or from the last stop back to it. */
+    fun legKm(leg: PlanLeg): Int? {
+        val from = leg.place ?: return null
+        val to = (if (leg.outbound) stops.firstOrNull() else stops.lastOrNull())?.at ?: return null
+        return (angle(from, to) * 111.2 * 1.25).roundToInt()
     }
 
     // Nights planned, out of the trip's: a pill with a dot in the trip's colour that turns teal once all are planned.
@@ -398,7 +422,8 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
     val motion = MaterialTheme.motionScheme
 
     LegSlot(outbound, outboundSide = true, color = color, dark = dark, airports = airports, hasStops = stops.isNotEmpty(),
-        onAdd = { addLeg(true, it) }, onMode = { leg, m -> pickLegMode(leg, m) }, onFlight = { legFlight(it) }, onRemove = { removeLeg(it) })
+        onAdd = { addLeg(true, it) }, onMode = { leg, m -> pickLegMode(leg, m) }, onFlight = { legFlight(it) }, onRemove = { removeLeg(it) },
+        onPlace = { leg, p -> pickLegPlace(leg, p) }, km = { legKm(it) }, trip = trip)
 
     var day = firstDate
     stops.forEachIndexed { index, stop ->
@@ -470,7 +495,7 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
                         val km = prev?.let { (angle(it.at, stop.at) * 111.2 * if (stop.mode == Mode.Flight) 1.0 else 1.25).roundToInt() }
                         Connector(
                             stop.mode, km, color, dark, airports,
-                            flightNumber = stop.flightNumber, fromAirport = stop.fromAirport, toAirport = stop.toAirport,
+                            flightNumber = stop.flightNumber, fromAirport = stop.fromAirport, toAirport = stop.toAirport, vias = stop.vias.size,
                             onMode = { pickStopMode(stop, it) }, onFlight = { stopFlight(stop) },
                         )
                     } else if (outbound != null) Line(color)
@@ -510,7 +535,8 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
     if (back != null && stops.isNotEmpty()) Line(color)
     else if (back == null) Spacer(Modifier.height(12.dp))
     LegSlot(back, outboundSide = false, color = color, dark = dark, airports = airports, hasStops = stops.isNotEmpty(),
-        onAdd = { addLeg(false, it) }, onMode = { leg, m -> pickLegMode(leg, m) }, onFlight = { legFlight(it) }, onRemove = { removeLeg(it) })
+        onAdd = { addLeg(false, it) }, onMode = { leg, m -> pickLegMode(leg, m) }, onFlight = { legFlight(it) }, onRemove = { removeLeg(it) },
+        onPlace = { leg, p -> pickLegPlace(leg, p) }, km = { legKm(it) }, trip = trip)
 
     // The undo pill floats at the bottom of the screen, above everything, the moment something is removed;
     // inside the list it could sit off screen and the stop was gone before anyone saw it.
@@ -523,6 +549,14 @@ fun Planner(trip: Trip, dark: Boolean, media: List<Media>? = null) {
     }) } }
     HapticOn(saveError, Haptic.Reject)
     if (saveError != null) Text(saveError ?: "", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.error), modifier = Modifier.padding(top = 12.dp, start = 4.dp))
+    // The places your own route says you slept, offered back as stops.
+    if (live) StaySuggestions(trip) { stay, name, cc ->
+        val id = java.util.UUID.randomUUID().toString()
+        val after = stops.lastOrNull()?.id ?: outbound?.id
+        flushUndo()
+        SocialRemote.addStay(trip, id, stay, name, cc, after)
+        stops.add(PlanStop(newKey(), name, Remote.flag(cc), stay.lon to stay.lat, stay.nights, Mode.Car, id))
+    }
     AddStop(trip, taken = stops.map { it.name }.toSet(), onAdd = { place ->
         view.haptic(Haptic.Confirm)
         val id = java.util.UUID.randomUUID().toString()
@@ -577,6 +611,7 @@ private fun Line(color: Color) {
 private fun LegSlot(
     leg: PlanLeg?, outboundSide: Boolean, color: Color, dark: Boolean, airports: Boolean, hasStops: Boolean,
     onAdd: (Mode) -> Unit, onMode: (PlanLeg, Mode) -> Unit, onFlight: (PlanLeg) -> Unit, onRemove: (PlanLeg) -> Unit,
+    onPlace: (PlanLeg, Remote.Place) -> Unit, km: (PlanLeg) -> Int?, trip: Trip,
 ) {
     val motion = MaterialTheme.motionScheme
     AnimatedContent(
@@ -591,7 +626,7 @@ private fun LegSlot(
         if (l != null) {
             val swipe = rememberSwipeRemove { onRemove(l) }
             Box(Modifier.swipeCollapse(swipe)) {
-                SwipeSurface(swipe, enabled = { true }) { LegRow(l, color, dark, airports, onMode = { onMode(l, it) }, onFlight = { onFlight(l) }) }
+                SwipeSurface(swipe, enabled = { true }) { LegRow(l, color, dark, airports, onMode = { onMode(l, it) }, onFlight = { onFlight(l) }, onPlace = { onPlace(l, it) }, km = km(l), trip = trip) }
             }
         } else if (hasStops || outboundSide) {
             // The way there's button keeps the same gap to the first stop as the stops keep to each other.
@@ -604,8 +639,9 @@ private fun LegSlot(
 
 /** "Heen" or "Terug": the airports on an accent pill and the flight time, the mode on the right. */
 @Composable
-private fun LegRow(leg: PlanLeg, color: Color, dark: Boolean, airports: Boolean, onMode: (Mode) -> Unit, onFlight: () -> Unit) {
+private fun LegRow(leg: PlanLeg, color: Color, dark: Boolean, airports: Boolean, onMode: (Mode) -> Unit, onFlight: () -> Unit, onPlace: (Remote.Place) -> Unit, km: Int?, trip: Trip) {
     val cs = MaterialTheme.colorScheme
+    var picking by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(cs.surfaceContainerLow).padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -616,20 +652,70 @@ private fun LegRow(leg: PlanLeg, color: Color, dark: Boolean, airports: Boolean,
                 leg.mode == Mode.Flight,
                 enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + scaleIn(MaterialTheme.motionScheme.fastSpatialSpec(), initialScale = 0.8f),
                 exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.8f),
-            ) { AirportPill(leg.flightNumber, leg.fromAirport, leg.toAirport, color, dark, onFlight) }
-            val time = flightTime(leg.mode, leg.fromAirport, leg.toAirport, airports) ?: leg.km.takeIf { it > 0 && leg.mode != Mode.Flight }?.let { km(it) }
+            ) { AirportPill(leg.flightNumber, leg.fromAirport, leg.toAirport, color, dark, onFlight, vias = leg.vias.size) }
+            // Over land: where you leave from or come back to, so its kilometres count.
+            AnimatedVisibility(
+                leg.mode != Mode.Flight && trip.remoteId != null,
+                enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + scaleIn(MaterialTheme.motionScheme.fastSpatialSpec(), initialScale = 0.8f),
+                exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.8f),
+            ) { LegPlacePill(leg.placeName ?: if (leg.place != null) "Ingesteld" else null, leg.outbound, color, dark) { picking = true } }
+            val landKm = km ?: leg.km.takeIf { it > 0 }
+            val time = flightTime(leg.mode, leg.fromAirport, leg.toAirport, airports) ?: landKm?.takeIf { leg.mode != Mode.Flight }?.let { km(it) }
             if (time != null) Text(time, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp))
         }
         ModeChooser(leg.mode, onMode)
     }
+    if (picking) PlaceSheet(
+        if (leg.outbound) "Vertrek vanaf" else "Terug naar", if (leg.outbound) "Vanaf welke plaats?" else "Naar welke plaats?", trip,
+        onPick = { onPlace(it) }, onDismiss = { picking = false },
+    )
+}
+
+/** The pin pill of a way there or back over land: the place, or an invitation to pick one. */
+@Composable
+private fun LegPlacePill(name: String?, outbound: Boolean, color: Color, dark: Boolean, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val set = name != null
+    val fill = if (set) color.copy(alpha = if (dark) 0.18f else 0.10f).compositeOver(cs.surfaceContainerLow) else cs.surfaceContainerHigh
+    val ink = if (set) readable(color, fill, dark) else cs.onSurfaceVariant
+    Row(
+        Modifier.height(32.dp).widthIn(max = 150.dp).clip(CircleShape).background(fill).then(if (set) Modifier.border(1.5.dp, color, CircleShape) else Modifier)
+            .squish(onClick).padding(start = 10.dp, end = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LineIcon(Glyphs.pin, ink, size = 15.dp, stroke = 1.9f)
+        Text(name ?: if (outbound) "Beginpunt" else "Eindpunt", maxLines = 1, overflow = TextOverflow.Ellipsis,
+            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.5.sp, color = ink), modifier = Modifier.padding(start = 6.dp))
+    }
+}
+
+/** A place search in the app's sheet, for where the way there starts or the way back ends. */
+@Composable
+private fun PlaceSheet(title: String, hint: String, trip: Trip, onPick: (Remote.Place) -> Unit, onDismiss: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    var query by remember { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(350); runCatching { focus.requestFocus() } }
+    AppSheet(onDismiss = onDismiss) {
+        val sheet = this
+        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 20.dp)) {
+            Text(title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface), modifier = Modifier.padding(bottom = 14.dp))
+            SearchField(query, { query = it }, hint, Modifier.focusRequester(focus))
+            val matches = placeMatches(trip, query, emptySet())
+            Column(Modifier.animateContentSize(tween(200, easing = SuggestEase))) {
+                PlaceList(matches, trip) { p -> onPick(p); sheet.close() }
+                if (query.trim().length >= 2 && matches.isEmpty()) Text("Niets gevonden.", style = TextStyle(fontFamily = Inter, fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 14.dp, start = 4.dp))
+            }
+        }
+    }
 }
 
 /** "5u 38m" for a flight with both airports known, as the web estimates it from the distance between them. */
-private fun flightTime(mode: Mode, from: String?, to: String?, airports: Boolean): String? {
+private fun flightTime(mode: Mode, from: String?, to: String?, airports: Boolean, vias: List<String> = emptyList()): String? {
     if (mode != Mode.Flight || !airports) return null
-    val a = FlightAirports.byCode(from) ?: return null
-    val b = FlightAirports.byCode(to) ?: return null
-    return estimateDuration(FlightAirports.km(a, b), Mode.Flight)
+    // Through every stopover in turn, as the flight really goes.
+    val hops = (listOf(from) + vias + listOf(to)).map { FlightAirports.byCode(it) ?: return null }
+    return estimateDuration(hops.zipWithNext().sumOf { (a, b) -> FlightAirports.km(a, b) }, Mode.Flight)
 }
 
 /** A quiet row to add the way there or back; the mode is picked from the menu it opens. */
@@ -652,7 +738,7 @@ private fun AddLegRow(label: String, onAdd: (Mode) -> Unit) {
 
 /** The outlined accent pill of a flight: its airports, else its number, else an invitation to fill it in. */
 @Composable
-private fun AirportPill(number: String?, from: String?, to: String?, color: Color, dark: Boolean, onClick: () -> Unit) {
+private fun AirportPill(number: String?, from: String?, to: String?, color: Color, dark: Boolean, onClick: () -> Unit, vias: Int = 0) {
     val cs = MaterialTheme.colorScheme
     val fill = color.copy(alpha = if (dark) 0.18f else 0.10f).compositeOver(cs.surfaceContainerLow)
     val ink = readable(color, fill, dark)
@@ -666,6 +752,8 @@ private fun AirportPill(number: String?, from: String?, to: String?, color: Colo
             Text(from, style = style, modifier = Modifier.padding(start = 6.dp))
             LineIcon(Glyphs.chevronRight, ink, size = 13.dp, stroke = 2.2f, modifier = Modifier.padding(horizontal = 2.dp))
             Text(to, style = style)
+            // Changing planes on the way: how often, after the airports.
+            if (vias > 0) Text("+$vias", style = style.copy(fontSize = 12.sp, color = ink.copy(alpha = 0.75f)), modifier = Modifier.padding(start = 5.dp))
         } else Text(number ?: "Toevoegen", style = style, modifier = Modifier.padding(start = 6.dp))
     }
 }
@@ -734,7 +822,7 @@ private fun ModePill(mode: Mode, onClick: () -> Unit) {
 @Composable
 private fun Connector(
     mode: Mode, km: Int?, color: Color, dark: Boolean, airports: Boolean,
-    flightNumber: String?, fromAirport: String?, toAirport: String?, onMode: (Mode) -> Unit, onFlight: () -> Unit,
+    flightNumber: String?, fromAirport: String?, toAirport: String?, onMode: (Mode) -> Unit, onFlight: () -> Unit, vias: Int = 0,
 ) {
     val cs = MaterialTheme.colorScheme
     val line = color.copy(alpha = 0.35f)
@@ -752,7 +840,7 @@ private fun Connector(
             mode == Mode.Flight,
             enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) + androidx.compose.animation.expandHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()),
             exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) + androidx.compose.animation.shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()),
-        ) { Box(Modifier.padding(start = 8.dp)) { AirportPill(flightNumber, fromAirport, toAirport, color, dark, onFlight) } }
+        ) { Box(Modifier.padding(start = 8.dp)) { AirportPill(flightNumber, fromAirport, toAirport, color, dark, onFlight, vias = vias) } }
         val time = flightTime(mode, fromAirport, toAirport, airports)
         val text = time ?: km?.let { if (it < 5) "in de buurt" else km(it) }
         if (text != null) {
@@ -790,7 +878,11 @@ private fun StopCard(
             }
             Column(Modifier.weight(1f).padding(start = 10.dp, end = 10.dp)) {
                 Text(stop.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, lineHeight = 21.sp, color = cs.onSurface))
-                Text(stay(from, to), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 2.dp))
+                Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stay(from, to), maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                    // The weather there on the first day, as the web shows it beside the dates.
+                    if (trip.remoteId != null) StopWeather(stop.at, from)
+                }
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Stepper(stop.nights, onNights)
@@ -1014,8 +1106,11 @@ private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (Remote.Place) -> Uni
  * the whole sheet. An airport is only ever a chosen code: typing is a search, and the field takes an airport
  * when one of its suggestions is tapped.
  */
-private class FlightForm(number: String, from: String?, to: String?) {
+private class FlightForm(number: String, from: String?, to: String?, vias: List<String>) {
     var number by mutableStateOf(number)
+    /** The stopovers in order; an empty slot is one still being chosen. Each has a key that stays while the list changes. */
+    val vias = mutableStateListOf<Pair<Int, String?>>().apply { vias.forEachIndexed { i, v -> add(i to v) } }
+    var nextVia = vias.size
     var from by mutableStateOf(from)
     var to by mutableStateOf(to)
 }
@@ -1033,6 +1128,7 @@ private fun FlightSheet(target: FlightTarget, color: Color, dark: Boolean, onDis
             target.number.orEmpty(),
             target.from ?: FlightAirports.nearest(target.nearFrom)?.iata,
             target.to ?: FlightAirports.nearest(target.nearTo)?.iata,
+            target.vias,
         )
     }
     AppSheet(onDismiss = onDismiss) {
@@ -1046,13 +1142,88 @@ private fun FlightSheet(target: FlightTarget, color: Color, dark: Boolean, onDis
             AirportField(code = { form.from }, onPick = { form.from = it }, hint = "Stad, vliegveld of code")
             Label("Naar")
             AirportField(code = { form.to }, onPick = { form.to = it }, hint = "Stad, vliegveld of code")
+            Vias(form)
             FlightTime(form, color, dark)
             Button(
-                onClick = { target.onSave(form.number, form.from, form.to); sheet.close() },
+                onClick = { target.onSave(form.number, form.from, form.to, form.vias.mapNotNull { it.second }); sheet.close() },
                 shapes = ButtonDefaults.shapes(),
                 contentPadding = PaddingValues(vertical = 16.dp),
                 modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
             ) { Text("Opslaan", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 16.sp)) }
+        }
+    }
+}
+
+/**
+ * "Overstappen": the airports the flight changes planes at, in order, each removable; "Directe vlucht." when
+ * there are none, and a button to add one, whose search opens at once.
+ */
+@Composable
+private fun Vias(form: FlightForm) {
+    val cs = MaterialTheme.colorScheme
+    val motion = MaterialTheme.motionScheme
+    val haptics = rememberHaptics()
+    Label("Overstappen")
+    Column(Modifier.animateContentSize(motion.defaultSpatialSpec())) {
+        AnimatedVisibility(form.vias.isEmpty(), enter = fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec()), exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.fastSpatialSpec())) {
+            Text("Directe vlucht.", style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+        }
+        form.vias.forEach { (key, code) ->
+            key(key) {
+                val shown = remember { MutableTransitionState(false).apply { targetState = true } }
+                AnimatedVisibility(shown, enter = fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec()), exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.fastSpatialSpec())) {
+                    Row(Modifier.padding(bottom = 8.dp), verticalAlignment = Alignment.Top) {
+                        Box(Modifier.weight(1f)) {
+                            AirportField(
+                                code = { form.vias.firstOrNull { it.first == key }?.second },
+                                onPick = { picked -> val i = form.vias.indexOfFirst { it.first == key }; if (i >= 0) form.vias[i] = key to picked },
+                                hint = "Overstap op", startEditing = code == null,
+                            )
+                        }
+                        Box(
+                            Modifier.padding(start = 6.dp).size(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh)
+                                .clickable { haptics(Haptic.Tap); shown.targetState = false },
+                            contentAlignment = Alignment.Center,
+                        ) { LineIcon(listOf(P("M6 6l12 12"), P("M18 6 6 18")), cs.onSurfaceVariant, size = 16.dp, stroke = 2.2f) }
+                    }
+                }
+                // Gone from the list once it has folded away.
+                if (shown.isIdle && !shown.currentState) LaunchedEffect(Unit) { form.vias.removeAll { it.first == key } }
+            }
+        }
+        Row(
+            Modifier.clip(CircleShape).background(cs.surfaceContainerLow).squish { form.vias.add(form.nextVia++ to null) }.padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LineIcon(Glyphs.plus, cs.primary, size = 16.dp, stroke = 2.4f)
+            Text("Overstap toevoegen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary), modifier = Modifier.padding(start = 6.dp))
+        }
+    }
+}
+
+/** "Jouw vliegvelden": your own airports as chips under an empty airport field, one tap chooses. */
+@Composable
+private fun YourAirports(visible: Boolean, exclude: String?, onPick: (String) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val codes = AirportPref.codes.filter { it != exclude }
+    AnimatedVisibility(
+        visible && codes.isNotEmpty(),
+        enter = fadeIn(tween(180)) + expandVertically(tween(260, easing = SuggestEase), expandFrom = Alignment.Top),
+        exit = fadeOut(tween(120)) + shrinkVertically(tween(200, easing = SuggestEase), shrinkTowards = Alignment.Top),
+    ) {
+        Column(Modifier.padding(top = 10.dp)) {
+            Text("Jouw vliegvelden", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                codes.forEach { c ->
+                    Row(
+                        Modifier.height(38.dp).clip(CircleShape).background(cs.secondaryContainer).squish { onPick(c) }.padding(start = 12.dp, end = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        FlightAirports.byCode(c)?.let { FlagIcon(Remote.flag(it.country), 13.dp, Modifier.padding(end = 8.dp)) }
+                        Text("${AirportPref.cities[c] ?: FlightAirports.byCode(c)?.city ?: c} ($c)", maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSecondaryContainer))
+                    }
+                }
+            }
         }
     }
 }
@@ -1066,7 +1237,7 @@ private fun NumberField(form: FlightForm) {
 @Composable
 private fun FlightTime(form: FlightForm, color: Color, dark: Boolean) {
     val cs = MaterialTheme.colorScheme
-    val time = flightTime(Mode.Flight, form.from, form.to, FlightAirports.ready)
+    val time = flightTime(Mode.Flight, form.from, form.to, FlightAirports.ready, form.vias.mapNotNull { it.second })
     AnimatedVisibility(
         time != null,
         enter = fadeIn(tween(200)) + expandVertically(tween(260, easing = SuggestEase)),
@@ -1110,7 +1281,7 @@ private fun airportLabel(code: String): String = FlightAirports.byCode(code)?.le
  * the field. Leaving without a pick puts the chip that was there back.
  */
 @Composable
-private fun AirportField(code: () -> String?, onPick: (String?) -> Unit, hint: String) {
+private fun AirportField(code: () -> String?, onPick: (String?) -> Unit, hint: String, startEditing: Boolean = false) {
     val cs = MaterialTheme.colorScheme
     val chosen = code()
     var editing by remember { mutableStateOf(chosen == null) }
@@ -1119,6 +1290,8 @@ private fun AirportField(code: () -> String?, onPick: (String?) -> Unit, hint: S
     var wantFocus by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    // A stopover just added opens straight on its search.
+    LaunchedEffect(Unit) { if (startEditing) { editing = true; wantFocus = true } }
     // A short pause after the last key, then the search off the main thread; a newer key cancels the older search.
     val results by produceState(emptyList<FlightAirports.Airport>(), draft) {
         val q = draft.trim()
@@ -1160,6 +1333,8 @@ private fun AirportField(code: () -> String?, onPick: (String?) -> Unit, hint: S
             Text("Wijzigen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.primary), modifier = Modifier.padding(horizontal = 8.dp))
         }
     }
+    // With nothing typed yet, your own airports (Instellingen › Voorkeuren) as quick choices, as on the web.
+    YourAirports(editing && draft.isBlank(), exclude = chosen) { code -> onPick(code); editing = false; draft = ""; focusManager.clearFocus() }
     val shown = editing && results.isNotEmpty()
     AnimatedVisibility(
         shown,

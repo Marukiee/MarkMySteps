@@ -27,6 +27,8 @@ data class Stop(
     val toAirport: String? = null,
     /** Excursions from here and back the same day; never a leg of the route and never a night. */
     val dayTrips: List<DayTrip> = emptyList(),
+    /** The airports a flight to here changed planes at, in order. */
+    val viaAirports: List<String> = emptyList(),
 )
 
 /** A day trip from a stop (Saltsjöbaden to Stockholm and back): where, and on which day. */
@@ -43,6 +45,10 @@ data class Leg(
     val flightNumber: String? = null,
     val fromAirport: String? = null,
     val toAirport: String? = null,
+    /** A flight's stopovers; over land, the place you leave from or come back to, and where it is. */
+    val viaAirports: List<String> = emptyList(),
+    val placeName: String? = null,
+    val place: LonLat? = null,
 )
 
 /** Stand-in for a cover photo in this test: a drawn landscape, see Scenery.kt. */

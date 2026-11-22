@@ -102,6 +102,14 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     }
     // The id of the photo open in the viewer: the tapped photo itself, never a position in a list.
     var viewing by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    // Opened from a tile's speech bubble: the viewer starts on the comments.
+    var viewingComments by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // The day stories, comments and reactions, shared by the timeline; read again once the viewer closes.
+    val talk = remember(base.id) { TripTalk(base) }
+    androidx.compose.runtime.LaunchedEffect(base.id, Data.version) { talk.load() }
+    var viewedOnce by remember { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(viewing) { if (viewing != null) viewedOnce = true else if (viewedOnce) { viewingComments = false; talk.loadTalk() } }
+    val marks = remember(base.id) { TimelineMarks() }
     var people by remember { androidx.compose.runtime.mutableStateOf(Data.peopleFor == base.id) }
     androidx.compose.runtime.LaunchedEffect(Unit) { if (Data.peopleFor == base.id) Data.peopleFor = null }
     // The photo book or the summary over the page (PhotoBook.kt, Summary.kt), from the people sheet.
@@ -197,7 +205,10 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                         label = "tripTab",
                     ) { which ->
                         Column {
-                            if (which == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = m.id }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                            if (which == 0) Timeline(
+                                trip, dark, media, onPhoto = { m -> viewing = m.id }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } },
+                                talk = talk, onComments = { m -> viewingComments = true; viewing = m.id }, marks = marks,
+                            ) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
                         }
                     }
                 }
@@ -259,6 +270,12 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 LineIcon(listOf(P("M12 19V5"), P("m5 12 7-7 7 7")), cs.onPrimaryContainer, size = 22.dp, stroke = 2.2f)
             }
         }
+        // A grip on the right edge to throw the timeline down with, and the day you are passing beside it.
+        FastScroll(
+            scroll, marks, enabled = tab == 0 && collapsed && viewing == null && !bigMap,
+            topInset = with(density) { WindowInsets.statusBars.getTop(this).toDp() } + 72.dp,
+            bottomInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() } + 96.dp,
+        )
         // The map full screen: it grows open and closes with back or the cross.
         androidx.compose.animation.AnimatedVisibility(
             bigMap,
@@ -303,7 +320,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
         // A tapped photo opens full screen over everything, the toolbar included.
         viewing?.let { id ->
             val photos = media.orEmpty()
-            if (photos.any { it.id == id }) PhotoViewer(trip, photos, id, bounds = tiles, onCurrent = { openPhoto = it }, onClose = { viewing = null })
+            if (photos.any { it.id == id }) PhotoViewer(trip, photos, id, bounds = tiles, onCurrent = { openPhoto = it }, startComments = viewingComments, onClose = { viewing = null })
         }
 
         TripExtras(trip, dark, extra, onClose = { extra = null })

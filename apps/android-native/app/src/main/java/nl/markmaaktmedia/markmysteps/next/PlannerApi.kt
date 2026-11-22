@@ -31,13 +31,15 @@ object PlannerRemote {
      * A flight as filled in. Only what is valid goes along (the server takes 3 or 4 letters for an airport and
      * up to 16 characters for a number), so a half typed code never turns the whole save down.
      */
-    suspend fun saveFlight(trip: Trip, stopId: String, number: String?, from: String?, to: String?) {
+    suspend fun saveFlight(trip: Trip, stopId: String, number: String?, from: String?, to: String?, vias: List<String>? = null) {
         Api.send("PATCH", "/api/trips/${trip.remoteId}/stops/$stopId", JSONObject().apply {
             put("travelMode", "FLIGHT")
             // An empty string clears a number that was there; nothing at all leaves it as it is.
             if (number == "") put("flightNumber", "") else cleanNumber(number)?.let { put("flightNumber", it) }
             cleanCode(from)?.let { put("fromAirport", it) }
             cleanCode(to)?.let { put("toAirport", it) }
+            // The stopovers in order; an empty list makes it a direct flight again.
+            vias?.let { v -> put("viaAirports", org.json.JSONArray(v.mapNotNull { cleanCode(it) })) }
         })
     }
 
