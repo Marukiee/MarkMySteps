@@ -542,7 +542,8 @@ private fun ImmichPanel() {
                 1 -> status?.let { st ->
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh).padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(10.dp).clip(CircleShape).background(cs.primary))
+                            // A tick, not a coloured dot: orange on its own reads as a warning.
+                            LineIcon(Glyphs.check, cs.primary, size = 18.dp, stroke = 2.4f)
                             Text(stringResource(R.string.settings_immich_connected), style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
                         }
                         Text(
@@ -807,7 +808,7 @@ private fun PolarstepsPanel() {
                 .dip { pick.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")) }.padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LineIcon(Glyphs.download, cs.primary, size = 22.dp)
+            LineIcon(Glyphs.file, cs.primary, size = 22.dp)
             Text(file?.second ?: stringResource(R.string.settings_polarsteps_pick), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 12.dp))
         }
         MainButton(stringResource(R.string.settings_import), {
@@ -1096,8 +1097,8 @@ private fun AboutBody(onBack: () -> Unit, version: String, open: (String) -> () 
             Hint(stringResource(R.string.settings_about_tagline))
         }
         Group(stringResource(R.string.settings_about_more), listOf(
-            Item(Glyphs.help, stringResource(R.string.whatsnew_title), stringResource(R.string.whatsnew_summary), action = onWhatsNew),
-            Item(Glyphs.logo, stringResource(R.string.settings_about_source), "github.com/Marukiee/MarkMySteps", external = true, action = open("https://github.com/Marukiee/MarkMySteps")),
+            Item(Glyphs.sparkle, stringResource(R.string.whatsnew_title), stringResource(R.string.whatsnew_summary), action = onWhatsNew),
+            Item(Glyphs.code, stringResource(R.string.settings_about_source), "github.com/Marukiee/MarkMySteps", external = true, action = open("https://github.com/Marukiee/MarkMySteps")),
             Item(Glyphs.shield, stringResource(R.string.settings_about_licence), "AGPL-3.0", external = true, action = open("https://www.gnu.org/licenses/agpl-3.0.html")),
             Item(Glyphs.lock, stringResource(R.string.settings_privacy), stringResource(R.string.settings_privacy_summary), action = onPrivacy),
         ))

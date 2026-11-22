@@ -1,5 +1,8 @@
 package nl.markmaaktmedia.markmysteps.next
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -81,11 +84,12 @@ fun StatsListSheet(kind: StatsKind, lists: SocialRemote.Lists, onDismiss: () -> 
             val go: (String) -> Unit = { id -> sheet.close(); onGo(id) }
             LazyColumn(Modifier.padding(top = 14.dp).heightIn(max = maxH), verticalArrangement = Arrangement.spacedBy(3.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
                 when (kind) {
+                    // The same kilometres as the trip's card and page (the stats list counts its own way otherwise).
                     StatsKind.Trips -> itemsIndexed(lists.trips, key = { _, t -> t.id }) { i, t ->
                         Slab(i, lists.trips.size) {
                             Visit(
                                 dot = tripColor(t.color, cs.primary), title = t.title, line = stretch(t.from, t.to),
-                                second = listOfNotNull(plural(t.days, stringResource(R.string.home_day), stringResource(R.string.home_days)), t.km.takeIf { it > 0 }?.let { "${"%,d".format(Lang.locale, it)} km" }, plural(t.photos, stringResource(R.string.trip_fact_photo), stringResource(R.string.summary_fact_photos))).joinToString(" · "),
+                                second = listOfNotNull(plural(t.days, stringResource(R.string.home_day), stringResource(R.string.home_days)), (Data.all.firstOrNull { it.remoteId == t.id || it.id == t.id }?.km ?: t.km).takeIf { it > 0 }?.let { "${"%,d".format(Lang.locale, it)} km" }, plural(t.photos, stringResource(R.string.trip_fact_photo), stringResource(R.string.summary_fact_photos))).joinToString(" · "),
                                 onGo = { go(t.id) },
                             )
                         }
@@ -150,12 +154,14 @@ private fun Visit(dot: Color?, title: String, line: String, second: String?, sma
 private fun GoButton(onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val haptics = rememberHaptics()
-    Row(
-        Modifier.padding(start = 8.dp).clip(CircleShape).background(cs.secondaryContainer).clickable { haptics(Haptic.Tap); onClick() }.padding(start = 12.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    // Only the round arrow, so a long trip title keeps its room; the name is read out for TalkBack.
+    val label = stringResource(R.string.stats_go_trip)
+    Box(
+        Modifier.padding(start = 8.dp).size(36.dp).clip(CircleShape).background(cs.secondaryContainer).clickable { haptics(Haptic.Tap); onClick() }
+            .semantics { contentDescription = label; role = androidx.compose.ui.semantics.Role.Button },
+        contentAlignment = Alignment.Center,
     ) {
-        Text(stringResource(R.string.stats_go_trip), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 13.sp, color = cs.onSecondaryContainer))
-        LineIcon(Glyphs.chevronRight, cs.onSecondaryContainer, size = 15.dp, stroke = 2.2f, modifier = Modifier.padding(start = 2.dp))
+        LineIcon(Glyphs.chevronRight, cs.onSecondaryContainer, size = 18.dp, stroke = 2.2f)
     }
 }
 

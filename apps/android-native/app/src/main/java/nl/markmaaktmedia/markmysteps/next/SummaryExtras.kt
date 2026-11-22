@@ -353,7 +353,7 @@ fun SummaryVersionsSheet(trip: Trip, onDismiss: () -> Unit) {
                                 Box(Modifier.size(44.dp).clip(CircleShape).dip { menu = true }, contentAlignment = Alignment.Center) { LineIcon(Glyphs.dotsCircles, cs.onSurfaceVariant, size = 20.dp) }
                                 AppMenu(menu, { menu = false }, groups = listOf(
                                     listOf(
-                                        MenuEntry(stringResource(R.string.summary_share), Glyphs.send) {
+                                        MenuEntry(stringResource(R.string.summary_share), Glyphs.share) {
                                             scope.launch {
                                                 val uris = withContext(Dispatchers.IO) {
                                                     v.pages.indices.mapNotNull { idx -> Api.bytes(SummaryRemote.pagePath(trip, v.id, idx))?.let { bytes ->

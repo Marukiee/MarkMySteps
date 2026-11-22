@@ -264,7 +264,19 @@ fun PhotoBook(trip: Trip, dark: Boolean, onBack: () -> Unit) {
         // From reading to the book in one fade, nothing jumping.
         androidx.compose.animation.Crossfade(picked, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "book") { ready ->
             if (ready == null) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Reading(reading, androidx.compose.ui.res.stringResource(R.string.book_reading)) }
+                // The same top row as the book itself while it reads, so the way back and the name are there.
+                Column(Modifier.fillMaxSize()) {
+                    Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CircleButton(onBack) { LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
+                        Text(
+                            betaTitle(androidx.compose.ui.res.stringResource(R.string.book_title), cs.onSurfaceVariant, 13.sp),
+                            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface),
+                            modifier = Modifier.padding(horizontal = 14.dp),
+                        )
+                    }
+                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { Reading(reading, androidx.compose.ui.res.stringResource(R.string.book_reading)) }
+                }
             } else {
                 BookPages(
                     sheets, pager,
@@ -317,6 +329,7 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
                 val chosen = ctx.picked.days.sumOf { it.photos.size }
                 Text(
                     androidx.compose.ui.res.stringResource(R.string.book_count, sheets.size, chosen, ctx.picked.photoCount),
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant),
                 )
             }

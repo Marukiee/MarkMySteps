@@ -27,10 +27,10 @@
     <string name="settings_wallpaper_accent">Accentkleur van je achtergrond</string>
     <string name="settings_wallpaper_accent_hint">Neemt de accentkleur over die Android uit je achtergrond haalt. De rest van de app blijft zoals hij is.</string>
     <string name="settings_cards">Reiskaarten op de homepage</string>
-    <string name="settings_cards_auto">Automatisch</string>
+    <string name="settings_cards_auto">Auto</string>
     <string name="settings_cards_large">Groot</string>
     <string name="settings_cards_small">Klein</string>
-    <string name="settings_cards_hint">Automatisch: komende reizen en de laatste groot, de rest klein. Per reis kies je het via het ⋯-menu op de kaart.</string>
+    <string name="settings_cards_hint">Auto: komende reizen en de laatste groot, de rest klein. Per reis kies je het via het menu met de drie puntjes op de kaart.</string>
     <string name="settings_cards_reset">Handmatige keuzes wissen</string>
     <string name="settings_map_style">Kaartstijl</string>
     <string name="settings_map_style_hint">Geldt voor alle kaarten in de app. In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.</string>
@@ -198,7 +198,7 @@
     <string name="settings_created">Account @%1$s aangemaakt. Geef het tijdelijke wachtwoord door: %2$s</string>
     <string name="settings_create_failed">Aanmaken mislukt</string>
     <string name="settings_about_version">Versie %1$s</string>
-    <string name="settings_about_tagline">Self-hosted reistracker op je eigen Immich-server. Open source (AGPL-3.0).</string>
+    <string name="settings_about_tagline">Reistracker op je eigen server, met je foto\'s uit Immich. Open source (AGPL-3.0).</string>
     <string name="settings_about_more">Meer</string>
     <string name="settings_about_whats_new">Wat is er nieuw</string>
     <string name="settings_about_on_github">op GitHub</string>

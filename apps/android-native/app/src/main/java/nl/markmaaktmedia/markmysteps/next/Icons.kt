@@ -63,6 +63,10 @@ object Glyphs {
     val bell = listOf(P("M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"), P("M10 20a2 2 0 0 0 4 0"))
     val sun = listOf(C(12f, 12f, 4f), P("M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"))
     val moon = listOf(P("M20 14.5A8.5 8.5 0 0 1 9.5 4a7.5 7.5 0 1 0 10.5 10.5Z"))
+    val sparkle = listOf(P("M12 3c.6 4.6 2.4 6.4 7 7-4.6.6-6.4 2.4-7 7-.6-4.6-2.4-6.4-7-7 4.6-.6 6.4-2.4 7-7Z"), P("M19 16v4M17 18h4"))
+    val code = listOf(P("m16 18 6-6-6-6"), P("m8 6-6 6 6 6"))
+    val share = listOf(P("M12 15V3"), P("m7 8 5-5 5 5"), P("M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"))
+    val file = listOf(P("M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"), P("M14 3v5h5"))
     val download = listOf(P("M12 3v12"), P("m7 11 5 5 5-5"), P("M4 20h16"))
     val help = listOf(C(12f, 12f, 9f), P("M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"), P("M12 17h.01"))
     // Balanced in its box: the tip bottom left, the end top right, nothing sticking out.

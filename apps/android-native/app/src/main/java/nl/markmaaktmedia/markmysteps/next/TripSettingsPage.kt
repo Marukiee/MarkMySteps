@@ -282,7 +282,7 @@ private fun CoverHeader(trip: Trip, coverId: String?, title: String, start: Stri
             }
         }
         Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
-            Text(title.ifBlank { trip.title }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(600), fontSize = 22.sp, color = Color.White))
+            Text(title.ifBlank { trip.title }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = Color.White))
             Text(rangeText(start, end), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(550), fontSize = 13.5.sp, color = Color.White.copy(alpha = 0.85f)))
         }
     }

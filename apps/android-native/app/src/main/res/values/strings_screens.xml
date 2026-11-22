@@ -27,10 +27,10 @@
     <string name="settings_wallpaper_accent">Accent colour from your wallpaper</string>
     <string name="settings_wallpaper_accent_hint">Uses the accent colour Android takes from your wallpaper. The rest of the app stays as it is.</string>
     <string name="settings_cards">Trip cards on the home page</string>
-    <string name="settings_cards_auto">Automatic</string>
+    <string name="settings_cards_auto">Auto</string>
     <string name="settings_cards_large">Large</string>
     <string name="settings_cards_small">Small</string>
-    <string name="settings_cards_hint">Automatic: upcoming trips and the latest one large, the rest small. You choose it per trip in the ⋯ menu on its card.</string>
+    <string name="settings_cards_hint">Auto: upcoming trips and the latest one large, the rest small. You choose it per trip in the menu with the three dots on its card.</string>
     <string name="settings_cards_reset">Clear manual choices</string>
     <string name="settings_map_style">Map style</string>
     <string name="settings_map_style_hint">Applies to every map in the app. In dark mode the light styles turn into the dark map by themselves.</string>

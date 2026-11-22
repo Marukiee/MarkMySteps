@@ -208,7 +208,8 @@ private fun DayCell(day: LocalDate, start: LocalDate?, end: LocalDate?, today: L
         when {
             endpoint -> cs.onPrimary; inRange -> cs.onPrimaryContainer
             bounds != null -> if (day in bounds) cs.onSurface else cs.onSurface.copy(alpha = 0.3f)
-            day.isBefore(today) -> cs.onSurface.copy(alpha = 0.45f); else -> cs.onSurface
+            // Past days can be picked (a trip that already happened), so they look like any other day.
+            else -> cs.onSurface
         },
         motion.defaultEffectsSpec(), label = "dayText",
     )

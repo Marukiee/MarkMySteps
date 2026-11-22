@@ -32,7 +32,7 @@
     <string name="cache_clear_body">Bewaarde foto\'s worden gewist. Ze worden opnieuw opgehaald zodra je online bent. Er gaat niets van je reizen verloren.</string>
     <string name="cache_clear_confirm">Leegmaken</string>
     <string name="update_title">Updates</string>
-    <string name="update_check">Check op updates</string>
+    <string name="update_check">Zoek naar updates</string>
     <string name="update_checking">Controleren…</string>
     <string name="update_available">Versie %1$s is beschikbaar. De kaart op de pagina Reizen installeert hem.</string>
     <string name="update_latest">Je bent bij. Build %1$s is de nieuwste.</string>

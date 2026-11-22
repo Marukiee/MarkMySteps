@@ -303,7 +303,7 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                         BigButton(stringResource(if (saved != null) R.string.summary_saved else R.string.summary_save), Glyphs.download, tonal = true, Modifier.weight(1f)) {
                             if (capturing == null) capturing = "save"
                         }
-                        BigButton(stringResource(R.string.summary_share), Glyphs.arrowRight, tonal = false, Modifier.weight(1f)) {
+                        BigButton(stringResource(R.string.summary_share), Glyphs.share, tonal = false, Modifier.weight(1f)) {
                             if (capturing == null) capturing = "share"
                         }
                     }
