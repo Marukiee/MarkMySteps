@@ -31,6 +31,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -242,12 +243,17 @@ private fun Modifier.squish(onClick: () -> Unit): Modifier = composed {
     clickable(source, ripple(), onClick = onClick).graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
-/** The photo in the middle of a stay: the first ones are often still the station or the airport. */
-private fun photoFor(media: List<Media>?, from: LocalDate?, nights: Int): String? {
-    if (media == null || from == null) return null
+/**
+ * The photos of a stay, best first: the one in the middle (the first ones are often still the station or the
+ * airport), then outwards from it. The tile shows the first that loads, so one the server cannot give never
+ * leaves the stop on its flag.
+ */
+private fun photoFor(media: List<Media>?, from: LocalDate?, nights: Int): List<String> {
+    if (media == null || from == null) return emptyList()
     val until = from.plusDays(nights.coerceAtLeast(1).toLong())
     val list = media.filter { !it.video && !it.takenAt.isBefore(from) && it.takenAt.isBefore(until) }
-    return list.getOrNull(list.size / 2)?.id
+    val mid = list.size / 2
+    return (0 until list.size).map { k -> if (k % 2 == 0) mid + k / 2 else mid - (k + 1) / 2 }.filter { it in list.indices }.map { list[it].id }.take(12)
 }
 
 @Composable
@@ -818,6 +824,7 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
     var up by remember { mutableStateOf(false) }
     // Whether its place is known: until then it is not drawn, so it never shows a frame on the wrong side.
     var placed by remember { mutableStateOf(false) }
+    var atRight by remember { mutableStateOf(false) }
     // Folds out calmly, no overshoot (the expressive spring bounced it), once it knows where it is.
     LaunchedEffect(placed) { if (placed) { haptics(Haptic.Tap); open.animateTo(1f, tween(260, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f))) } }
     fun close(then: () -> Unit = {}) {
@@ -826,16 +833,15 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
         then()
         scope.launch { open.animateTo(0f, tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing)); onClosed() }
     }
-    // A touch beside it (a scroll starting) closes it at once: the page moves on, and a pill folding shut while
-    // trailing a frame behind its own pill looked empty.
-    fun closeNow() { if (closing) return; closing = true; onClosed() }
     val margin = with(density) { 12.dp.roundToPx() }
     val fullPx = with(density) { fullH.roundToPx() }
     val position = remember(fullPx) {
         object : androidx.compose.ui.window.PopupPositionProvider {
             override fun calculatePosition(anchorBounds: androidx.compose.ui.unit.IntRect, windowSize: androidx.compose.ui.unit.IntSize, layoutDirection: androidx.compose.ui.unit.LayoutDirection, popupContentSize: androidx.compose.ui.unit.IntSize): IntOffset {
                 // On the pill exactly: same left edge (a pill near the right edge keeps its right edge instead).
-                val x = if (anchorBounds.left + popupContentSize.width <= windowSize.width - margin) anchorBounds.left else anchorBounds.right - popupContentSize.width
+                val fits = anchorBounds.left + popupContentSize.width <= windowSize.width - margin
+                if (atRight == fits) atRight = !fits
+                val x = if (fits) anchorBounds.left else anchorBounds.right - popupContentSize.width
                 // Downwards whenever it fits; upwards only near the bottom of the screen.
                 val below = anchorBounds.top + fullPx <= windowSize.height - margin
                 if (up == below) up = !below
@@ -845,15 +851,19 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
             }
         }
     }
-    // Not focusable: a touch beside it still reaches the page, so a scroll scrolls (the opened pill rides along
-    // with its pill) while it folds shut.
-    androidx.compose.ui.window.Popup(popupPositionProvider = position, onDismissRequest = { closeNow() }, properties = androidx.compose.ui.window.PopupProperties(focusable = false, dismissOnClickOutside = true)) {
+    // Not focusable: a touch beside it still reaches the page, so a scroll scrolls while it folds shut, riding
+    // along with its pill.
+    androidx.compose.ui.window.Popup(popupPositionProvider = position, onDismissRequest = { close() }, properties = androidx.compose.ui.window.PopupProperties(focusable = false, dismissOnClickOutside = true)) {
         val k = open.value
         val w = pillW + (fullW - pillW) * k
         val h = pillH + (fullH - pillH) * k
         val shape = RoundedCornerShape(18.dp)
+        // The window is its full size from the start and never moves; only the shape inside grows from the pill's
+        // corner. (Opening upwards, a window that grew moved every frame and trailed a little.)
+        Box(Modifier.size(fullW, fullH)) {
         Box(
-            Modifier.size(w, h).graphicsLayer { alpha = if (placed) 1f else 0f }.clip(shape).background(cs.secondaryContainer)
+            Modifier.align(when { up && atRight -> Alignment.BottomEnd; up -> Alignment.BottomStart; atRight -> Alignment.TopEnd; else -> Alignment.TopStart })
+                .size(w, h).graphicsLayer { alpha = if (placed) 1f else 0f }.clip(shape).background(cs.secondaryContainer)
                 // A fine edge in the pill's own colour, so the opened pill stands off the card under it.
                 .border(1.dp, cs.secondary.copy(alpha = 0.4f * k), shape),
         ) {
@@ -888,6 +898,7 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
             val line = @Composable { Box(Modifier.padding(horizontal = 11.dp).fillMaxWidth().height(1.dp).background(cs.onSecondaryContainer.copy(alpha = 0.12f * k))) }
             if (up) { others.reversed().forEach { Choice(it) }; line(); header() }
             else { header(); line(); others.forEach { Choice(it) } }
+        }
         }
         }
     }
@@ -978,7 +989,7 @@ private fun Connector(
 @Composable
 private fun StopCard(
     trip: Trip, stop: PlanStop, index: Int, from: LocalDate, to: LocalDate, color: Color, dark: Boolean, lifted: Float,
-    photo: String?, media: List<Media>?,
+    photo: List<String>, media: List<Media>?,
     onFly: (() -> Unit)? = null,
     onNights: (Int) -> Unit, onAddDayTrip: (Remote.Place, LocalDate) -> Unit, onRemoveDayTrip: (PlanDayTrip) -> Unit,
 ) {
@@ -1039,17 +1050,23 @@ private fun StopCard(
 
 /** A photo from the stop's days, else its flag on the trip's colour. */
 @Composable
-private fun Thumb(photo: String?, flag: String, color: Color, dark: Boolean, modifier: Modifier, shape: RoundedCornerShape) {
+private fun Thumb(photo: List<String>, flag: String, color: Color, dark: Boolean, modifier: Modifier, shape: RoundedCornerShape) {
     val cs = MaterialTheme.colorScheme
     val tile = color.copy(alpha = if (dark) 0.32f else 0.2f).compositeOver(cs.surfaceContainerLow)
+    // The first of the stay's photos that loads; while none has, the flag on the trip's colour (no pulsing).
+    val shown by produceState<String?>(photo.firstOrNull { Photos.cached("$it/thumbnail") != null }, photo) {
+        if (value == null) for (id in photo) { if (Photos.load(id, "thumbnail") != null) { value = id; break } }
+    }
     Box(modifier.clip(shape).background(tile), contentAlignment = Alignment.Center) {
         FlagIcon(flag, 18.dp)
-        if (photo != null) RemotePhoto(photo, Modifier.matchParentSize())
+        androidx.compose.animation.Crossfade(shown, modifier = Modifier.matchParentSize(), animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "thumb") { id ->
+            if (id != null) RemotePhoto(id, Modifier.fillMaxSize())
+        }
     }
 }
 
 @Composable
-private fun DayTripRow(dt: PlanDayTrip, photo: String?, color: Color, dark: Boolean, onRemove: () -> Unit) {
+private fun DayTripRow(dt: PlanDayTrip, photo: List<String>, color: Color, dark: Boolean, onRemove: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Row(
         Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainer).padding(6.dp),
