@@ -1,0 +1,292 @@
+package nl.markmaaktmedia.markmysteps.next
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.LruCache
+import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
+
+/**
+ * The test app's line to a real MarkMySteps server: sign in, then read the
+ * trips, their stops and their photos. It only ever reads; nothing is
+ * written back. The tokens stay in this app's own storage on the phone.
+ */
+object Api {
+    private const val PREFS = "mms.next"
+    var base: String = ""
+        private set
+    private var access: String? = null
+    private var refresh: String? = null
+    private lateinit var prefs: android.content.SharedPreferences
+
+    fun init(context: Context) {
+        prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        base = prefs.getString("base", "") ?: ""
+        access = prefs.getString("access", null)
+        refresh = prefs.getString("refresh", null)
+    }
+
+    val signedIn: Boolean get() = access != null && base.isNotEmpty()
+
+    fun signOut() {
+        access = null; refresh = null
+        prefs.edit().remove("access").remove("refresh").apply()
+        Photos.clear()
+    }
+
+    private fun save() {
+        prefs.edit().putString("base", base).putString("access", access).putString("refresh", refresh).apply()
+    }
+
+    class Failure(message: String, val status: Int = 0) : Exception(message)
+
+    /** What signing in answered: done, or a second step with an authenticator code. */
+    sealed interface Login {
+        data object Done : Login
+        data class NeedsCode(val mfaToken: String) : Login
+    }
+
+    suspend fun login(server: String, identifier: String, password: String): Login = withContext(Dispatchers.IO) {
+        base = server.trim().trimEnd('/').let { if (it.startsWith("http")) it else "https://$it" }
+        val body = JSONObject().put("identifier", identifier.trim()).put("password", password)
+        val answer = JSONObject(request("POST", "/api/auth/login", body.toString(), auth = false))
+        if (answer.optBoolean("mfaRequired")) return@withContext Login.NeedsCode(answer.getString("mfaToken"))
+        tokens(answer)
+        Login.Done
+    }
+
+    suspend fun loginCode(mfaToken: String, code: String) = withContext(Dispatchers.IO) {
+        val body = JSONObject().put("mfaToken", mfaToken).put("code", code.trim())
+        tokens(JSONObject(request("POST", "/api/auth/login/mfa", body.toString(), auth = false)))
+    }
+
+    private fun tokens(o: JSONObject) {
+        access = o.getString("accessToken")
+        refresh = o.getString("refreshToken")
+        save()
+    }
+
+    private fun renew(): Boolean {
+        val r = refresh ?: return false
+        return try {
+            tokens(JSONObject(request("POST", "/api/auth/refresh", JSONObject().put("refreshToken", r).toString(), auth = false)))
+            true
+        } catch (_: Failure) { false }
+    }
+
+    private fun open(method: String, path: String, auth: Boolean): HttpURLConnection =
+        (URL(base + path).openConnection() as HttpURLConnection).apply {
+            requestMethod = method
+            connectTimeout = 15_000
+            readTimeout = 30_000
+            setRequestProperty("Accept", "application/json")
+            if (auth) access?.let { setRequestProperty("Authorization", "Bearer $it") }
+        }
+
+    private fun request(method: String, path: String, body: String? = null, auth: Boolean = true, retried: Boolean = false): String {
+        val c = open(method, path, auth)
+        try {
+            if (body != null) {
+                c.doOutput = true
+                c.setRequestProperty("Content-Type", "application/json")
+                c.outputStream.use { it.write(body.toByteArray()) }
+            }
+            val code = c.responseCode
+            if (code == 401 && auth && !retried && renew()) return request(method, path, body, auth, retried = true)
+            if (code !in 200..299) {
+                val text = c.errorStream?.bufferedReader()?.readText().orEmpty()
+                val message = runCatching { JSONObject(text).optString("message") }.getOrNull()?.takeIf { it.isNotBlank() }
+                throw Failure(message ?: "De server gaf $code", code)
+            }
+            return c.inputStream.bufferedReader().readText()
+        } catch (e: java.io.IOException) {
+            throw Failure("Kan de server niet bereiken")
+        } finally {
+            c.disconnect()
+        }
+    }
+
+    suspend fun get(path: String): String = withContext(Dispatchers.IO) { request("GET", path) }
+
+    /** An image from the server, with the token, as bytes. */
+    fun bytes(path: String, retried: Boolean = false): ByteArray? {
+        val c = open("GET", path, auth = true)
+        return try {
+            val code = c.responseCode
+            if (code == 401 && !retried && renew()) return bytes(path, true)
+            if (code !in 200..299) null else c.inputStream.use { it.readBytes() }
+        } catch (_: java.io.IOException) { null } finally { c.disconnect() }
+    }
+}
+
+/** Photos from the server, small ones kept in memory while the app runs. */
+object Photos {
+    /** A timeline asks for a hundred photos at once; six at a time is what the server likes. */
+    private val lanes = kotlinx.coroutines.sync.Semaphore(6)
+    private val cache = object : LruCache<String, Bitmap>(64 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
+    }
+
+    fun clear() = cache.evictAll()
+
+    fun cached(key: String): Bitmap? = cache.get(key)
+
+    /**
+     * `size` is the server's rendition: "thumbnail" for grids, "preview" for a
+     * screen, "original" for the file as taken, which is the one that still
+     * carries an HDR gain map.
+     */
+    suspend fun load(id: String, size: String): Bitmap? {
+        val key = "$id/$size"
+        cache.get(key)?.let { return it }
+        return lanes.withPermitCompat {
+            cache.get(key)?.let { return@withPermitCompat it }
+            val data = Api.bytes("/api/media/$id/thumbnail?size=$size") ?: return@withPermitCompat null
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+            // An original can be 50 megapixels: bring it down to about a screen and a half.
+            var sample = 1
+            while (bounds.outWidth / (sample * 2) >= 2400 || bounds.outHeight / (sample * 2) >= 2400) sample *= 2
+            val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
+            bitmap?.also { cache.put(key, it) }
+        }
+    }
+
+    private suspend fun <T> kotlinx.coroutines.sync.Semaphore.withPermitCompat(block: suspend () -> T): T {
+        acquire()
+        try { return withContext(Dispatchers.IO) { block() } } finally { release() }
+    }
+}
+
+/** A photo of a trip, with when it was taken. */
+data class Media(val id: String, val takenAt: LocalDate, val video: Boolean, val ratio: Float)
+
+/** Reads the signed-in account's trips into the same shapes the demo uses. */
+object Remote {
+    data class Me(val id: String, val name: String, val username: String)
+
+    suspend fun me(): Me {
+        val o = JSONObject(Api.get("/api/users/me"))
+        return Me(o.getString("id"), o.optString("displayName"), o.optString("username"))
+    }
+
+    private val Palette = listOf(0xFFE8613C, 0xFF2BB6A8, 0xFFD08A2A, 0xFF7A5BD6, 0xFFE34B8A, 0xFF5B8DEF, 0xFFC9772E, 0xFF7DA7D9)
+
+    private fun points(a: JSONArray?): List<LonLat> =
+        if (a == null) emptyList() else (0 until a.length()).map { i -> a.getJSONArray(i).let { it.getDouble(0) to it.getDouble(1) } }
+
+    fun flag(code: String?): String {
+        if (code == null || code.length != 2) return "📍"
+        val up = code.uppercase()
+        return String(Character.toChars(0x1F1E6 + (up[0] - 'A'))) + String(Character.toChars(0x1F1E6 + (up[1] - 'A')))
+    }
+
+    private val MonthsShort = listOf("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec")
+    private val MonthsLong = listOf("januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december")
+
+    private fun range(a: LocalDate, b: LocalDate, withYear: Boolean): String {
+        val end = "${b.dayOfMonth} ${MonthsShort[b.monthValue - 1]}" + if (withYear) " ${b.year}" else ""
+        return if (a.month == b.month) "${a.dayOfMonth} t/m $end" else "${a.dayOfMonth} ${MonthsShort[a.monthValue - 1]} t/m $end"
+    }
+
+    suspend fun trips(): List<Trip> {
+        val list = JSONArray(Api.get("/api/trips"))
+        val today = LocalDate.now()
+        return (0 until list.length()).map { i ->
+            val o = list.getJSONObject(i)
+            val start = LocalDate.parse(o.getString("startDate").take(10))
+            val end = LocalDate.parse(o.getString("endDate").take(10))
+            val routes = o.optJSONArray("routePath")?.let { r -> (0 until r.length()).flatMap { points(r.getJSONArray(it)) } }.orEmpty()
+            val flights = o.optJSONArray("flightPath")?.let { r ->
+                (0 until r.length()).mapNotNull { k -> points(r.getJSONArray(k)).takeIf { it.size >= 2 }?.let { it.first() to it.last() } }
+            }.orEmpty()
+            val stopPoints = points(o.optJSONArray("stopPoints"))
+            val color = o.optString("color").takeIf { it.startsWith("#") }?.let { Color(android.graphics.Color.parseColor(it)) }
+                ?: Color(Palette[i % Palette.size])
+            val members = o.optJSONArray("members")
+            val people = (0 until (members?.length() ?: 0)).map { k ->
+                val u = members!!.getJSONObject(k).getJSONObject("user")
+                Person(u.optString("displayName").take(1).uppercase(), Color(Palette[(k + 3) % Palette.size]))
+            }
+            Trip(
+                id = o.getString("id"),
+                title = o.getString("title"),
+                month = MonthsLong[start.monthValue - 1],
+                year = start.year.toString(),
+                dates = range(start, end, withYear = true),
+                days = (ChronoUnit.DAYS.between(start, end) + 1).toInt(),
+                km = o.optDouble("distanceKm").takeIf { !it.isNaN() }?.toInt(),
+                color = color,
+                route = routes.ifEmpty { stopPoints },
+                flights = flights,
+                upcoming = !end.isBefore(today),
+                startsInDays = ChronoUnit.DAYS.between(today, start).toInt().takeIf { it > 0 },
+                people = people.take(3),
+                extraPeople = (people.size - 3).coerceAtLeast(0),
+                remoteId = o.getString("id"),
+                coverId = o.optString("resolvedCoverId").takeIf { it.isNotBlank() && it != "null" },
+                start = start,
+            )
+        }.sortedByDescending { it.start }
+    }
+
+    /** The planned stops of a trip, day trips left out, with their dates worked out from the trip's start. */
+    suspend fun stops(trip: Trip): Pair<List<Stop>, Pair<Leg?, Leg?>> {
+        val list = JSONArray(Api.get("/api/trips/${trip.remoteId}/stops"))
+        val start = trip.start ?: LocalDate.now()
+        var day = start
+        val stops = mutableListOf<Stop>()
+        var outbound: Leg? = null
+        var back: Leg? = null
+        val rows = (0 until list.length()).map { list.getJSONObject(it) }
+            .filter { it.isNull("parentStopId") }
+            .sortedBy { it.optInt("orderIndex") }
+        rows.forEachIndexed { index, o ->
+            val mode = when (o.optString("travelMode")) {
+                "FLIGHT" -> Mode.Flight; "TRAIN" -> Mode.Train; "BUS" -> Mode.Bus; "BOAT" -> Mode.Boat; else -> Mode.Car
+            }
+            val nights = o.optInt("nights")
+            val name = o.optString("name")
+            val lat = o.optDouble("latitude"); val lon = o.optDouble("longitude")
+            // The way there and back are stops of their own with no nights, at the ends.
+            if (nights == 0 && (index == 0 || index == rows.lastIndex) && (name.startsWith("Heen") || name.startsWith("Terug"))) {
+                val leg = Leg(mode, o.optString("fromAirport").ifBlank { "Thuis" }, o.optString("toAirport").ifBlank { "" }, 0)
+                if (index == 0) outbound = leg else back = leg
+                return@forEachIndexed
+            }
+            val from = day
+            day = day.plusDays(nights.toLong())
+            stops += Stop(
+                name = name,
+                flag = flag(o.optString("countryCode").takeIf { it.isNotBlank() && it != "null" }),
+                at = if (lat.isNaN() || lon.isNaN()) (trip.route.firstOrNull() ?: (0.0 to 0.0)) else lon to lat,
+                nights = nights,
+                dates = if (nights == 0) "${from.dayOfMonth} ${MonthsShort[from.monthValue - 1]}" else range(from, day, withYear = false),
+                mode = mode,
+                start = from,
+            )
+        }
+        return stops to (outbound to back)
+    }
+
+    suspend fun media(trip: Trip): List<Media> {
+        val list = JSONArray(Api.get("/api/trips/${trip.remoteId}/media"))
+        return (0 until list.length()).map { list.getJSONObject(it) }.map { o ->
+            val w = o.optInt("width", 0); val h = o.optInt("height", 0)
+            Media(
+                id = o.getString("id"),
+                takenAt = LocalDate.parse(o.getString("takenAt").take(10)),
+                video = o.optString("assetType") == "VIDEO",
+                ratio = if (w > 0 && h > 0) w.toFloat() / h else 1f,
+            )
+        }.sortedBy { it.takenAt }
+    }
+}

@@ -13,12 +13,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,7 +67,8 @@ private fun daysOf(trip: Trip): List<Day> {
 }
 
 @Composable
-fun Timeline(trip: Trip, dark: Boolean) {
+fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null) {
+    if (media != null) { LiveTimeline(trip, media); return }
     val cs = MaterialTheme.colorScheme
     val scenes = Scene.entries
 
@@ -188,4 +193,124 @@ private fun DayPhotos(seed: Int, count: Int) {
 @Composable
 private fun Photo(scene: Scene, modifier: Modifier) {
     Box(modifier.clip(RoundedCornerShape(14.dp))) { Scenery(scene, Modifier.fillMaxSize()) }
+}
+
+
+/** For a trip from the server: the real photos, day by day, laid out by their own shape. */
+@Composable
+private fun LiveTimeline(trip: Trip, media: List<Media>) {
+    val cs = MaterialTheme.colorScheme
+    val photos = media.filter { !it.video }
+    fun stopOn(date: LocalDate): Stop? = trip.stops.lastOrNull { s -> s.start != null && !s.start.isAfter(date) } ?: trip.stops.firstOrNull()
+
+    if (trip.stops.isNotEmpty()) {
+        Text(
+            "Plekken",
+            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
+            modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
+        )
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            trip.stops.distinctBy { it.name }.forEach { stop ->
+                val pick = photos.firstOrNull { stopOn(it.takenAt)?.name == stop.name }
+                Box(Modifier.width(138.dp).height(168.dp).clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerHigh)) {
+                    if (pick != null) RemotePhoto(pick.id, Modifier.fillMaxSize(), "preview")
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.62f))))
+                    Text(
+                        stop.name, maxLines = 2,
+                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, lineHeight = 19.sp, color = Color.White),
+                        modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(26.dp))
+    }
+
+    if (photos.isEmpty()) {
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerLow).padding(18.dp)) {
+            Text(
+                if (trip.upcoming) "De foto's komen hier vanzelf zodra de reis begint" else "Nog geen foto's bij deze reis",
+                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant),
+            )
+        }
+        return
+    }
+
+    val line = cs.outlineVariant
+    val days = photos.groupBy { it.takenAt }.toSortedMap().entries.toList()
+    days.forEachIndexed { d, (date, list) ->
+        val last = d == days.lastIndex
+        val stop = stopOn(date)
+        var all by androidx.compose.runtime.saveable.rememberSaveable(date.toString()) { androidx.compose.runtime.mutableStateOf(false) }
+        Column(
+            Modifier.fillMaxWidth().drawBehind {
+                val x = 6.dp.toPx()
+                drawLine(line, Offset(x, 22.dp.toPx()), Offset(x, if (last) 40.dp.toPx() else size.height), strokeWidth = 2.dp.toPx())
+            },
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(13.dp).clip(CircleShape).background(cs.primary))
+                val weekday = date.dayOfWeek.getDisplayName(DateStyle.FULL, Dutch).replaceFirstChar { it.uppercase() }
+                Text(
+                    "$weekday ${date.dayOfMonth} ${date.month.getDisplayName(DateStyle.FULL, Dutch)}",
+                    style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(560), fontSize = 24.sp, letterSpacing = (-0.01).em, color = cs.onBackground),
+                    modifier = Modifier.padding(start = 14.dp),
+                )
+            }
+            if (stop != null) {
+                Row(Modifier.padding(start = 27.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stop.flag, fontSize = 15.sp)
+                    Text(
+                        stop.name,
+                        style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurfaceVariant),
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
+            }
+            Column(
+                Modifier.padding(start = 27.dp, top = 12.dp, bottom = 30.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                val shown = if (all) list else list.take(12)
+                justified(shown).forEach { row ->
+                    val ratio = row.sumOf { it.ratio.toDouble() }.toFloat().coerceAtLeast(0.8f)
+                    Row(Modifier.fillMaxWidth().aspectRatio(ratio), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { m -> RemotePhoto(m.id, Modifier.weight(m.ratio).fillMaxSize().clip(RoundedCornerShape(14.dp))) }
+                    }
+                }
+                if (list.size > 12) {
+                    androidx.compose.material3.FilledTonalButton(
+                        onClick = { all = !all },
+                        shapes = androidx.compose.material3.ButtonDefaults.shapes(),
+                        modifier = Modifier.padding(top = 4.dp),
+                    ) {
+                        Text(
+                            if (all) "Minder tonen" else "Alle ${list.size} foto's van deze dag",
+                            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Rows of photos that fill the width at a pleasant height: two side by side
+ * as a rule, three when they are all tall, a wide one alone.
+ */
+private fun justified(list: List<Media>): List<List<Media>> {
+    val rows = mutableListOf<List<Media>>()
+    var i = 0
+    while (i < list.size) {
+        val a = list[i]
+        val take = when {
+            a.ratio > 1.6f -> 1
+            i + 2 < list.size && list.subList(i, i + 3).all { it.ratio < 0.9f } -> 3
+            else -> 2
+        }.coerceAtMost(list.size - i)
+        rows += list.subList(i, i + take)
+        i += take
+    }
+    return rows
 }

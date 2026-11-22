@@ -80,8 +80,8 @@ private fun dots(n: Int) = "%,d".format(n).replace(',', '.')
 @Composable
 fun TravellersPage() {
     val cs = MaterialTheme.colorScheme
-    val trips = DemoPast
-    val countries = (trips + DemoUpcoming).flatMap { t -> t.stops.map { it.flag } }.distinct()
+    val trips = Data.past
+    val countries = Data.all.flatMap { t -> t.stops.map { it.flag } }.distinct()
     val names = mapOf(
         "🇮🇸" to "IJsland", "🇩🇰" to "Denemarken", "🇸🇪" to "Zweden", "🇮🇹" to "Italië", "🇵🇹" to "Portugal",
         "🇲🇦" to "Marokko", "🇳🇴" to "Noorwegen", "🇬🇪" to "Georgië",

@@ -6,6 +6,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.scaleIn
@@ -153,7 +154,23 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         colorScheme = if (dark) DarkScheme else LightScheme,
         motionScheme = MotionScheme.expressive(),
     ) {
-        var open by remember { mutableStateOf((DemoPast + DemoUpcoming).firstOrNull { it.id == startTrip }) }
+        // First the sign-in, unless signed in already or a test opens a page straight away.
+        var gate by androidx.compose.runtime.saveable.rememberSaveable {
+            mutableStateOf(if (Api.signedIn || startTrip != null || startPage != null) "app" else "login")
+        }
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+        LaunchedEffect(Unit) { Data.load() }
+        val gateMotion = MaterialTheme.motionScheme
+        AnimatedContent(
+            gate,
+            transitionSpec = { (fadeIn(gateMotion.slowEffectsSpec()) + scaleIn(gateMotion.defaultSpatialSpec(), initialScale = 0.96f)) togetherWith fadeOut(gateMotion.fastEffectsSpec()) },
+            label = "gate",
+        ) { which ->
+        if (which == "login") {
+            LoginPage(dark, onDone = { gate = "app"; scope.launch { Data.load() } }, onDemo = { gate = "app" })
+            return@AnimatedContent
+        }
+        var open by remember { mutableStateOf(Data.all.firstOrNull { it.id == startTrip }) }
         var page by remember { mutableIntStateOf(when (startPage) { "settings" -> 2; "travellers" -> 1; else -> 0 }) }
         BackHandler(enabled = open != null || page != 0) { if (open != null) open = null else page = 0 }
         val motion = MaterialTheme.motionScheme
@@ -168,10 +185,10 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
                 },
                 label = "page",
             ) { key ->
-                val trip = (DemoPast + DemoUpcoming).firstOrNull { it.id == key }
+                val trip = Data.all.firstOrNull { it.id == key }
                 when {
                     trip != null -> TripPage(trip, dark, onBack = { open = null })
-                    key == "page2" -> SettingsPage()
+                    key == "page2" -> SettingsPage(onSignIn = { Data.signOut(); page = 0; gate = "login" })
                     key == "page1" -> TravellersPage()
                     else -> HomeNewContent(dark, onLogoTap, onOpenTrip = { open = it })
                 }
@@ -184,6 +201,7 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
             ) {
                 Toolbar(page, onNav = { page = it })
             }
+        }
         }
     }
 }
@@ -200,7 +218,7 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
         Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             Box(Modifier.fillMaxWidth().height(heroH)) {
                 Globe(
-                    trips = DemoPast + DemoUpcoming,
+                    trips = Data.all,
                     style = GlobeStyle(
                         sphere = if (dark) Color(0xFF101418) else Color(0xFFEADFCE),
                         land = if (dark) Color(0xFF29313A) else Color(0xFFD8C9AD),
@@ -233,11 +251,11 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
                     }
                 }
                 SectionTitle("Aankomend & onderweg", Modifier.padding(top = 22.dp, bottom = 12.dp).arrive(1))
-                NextTripCard(DemoUpcoming, onOpen = { onOpenTrip(DemoUpcoming) }, modifier = Modifier.arrive(2))
+                Data.next?.let { next -> NextTripCard(next, onOpen = { onOpenTrip(next) }, modifier = Modifier.arrive(2)) }
                 PastOrShared(tab, onTab = { tab = it }, modifier = Modifier.padding(top = 26.dp, bottom = 4.dp).arrive(3))
                 // A trip can be shown big, as the first one here, or as a row with its photo blurred behind it.
-                BigTripCard(DemoPast.first(), onOpen = { onOpenTrip(DemoPast.first()) }, modifier = Modifier.padding(top = 14.dp).arrive(4))
-                DemoPast.drop(1).groupBy { it.year }.forEach { (year, trips) ->
+                Data.past.firstOrNull()?.let { first -> BigTripCard(first, onOpen = { onOpenTrip(first) }, modifier = Modifier.padding(top = 14.dp).arrive(4)) }
+                Data.past.drop(1).groupBy { it.year }.forEach { (year, trips) ->
                     SectionTitle(year, Modifier.padding(top = 18.dp, bottom = 10.dp), small = true)
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         trips.forEachIndexed { i, trip -> TripRow(trip, slab(i, trips.size), dark, onOpen = { onOpenTrip(trip) }, modifier = Modifier.arrive(5 + i)) }
@@ -392,7 +410,7 @@ private fun FaceStack(people: List<Person>, extra: Int, ring: Color) {
 /** Past or shared: a connected toggle group, the open one filled and fully round. */
 @Composable
 private fun PastOrShared(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
-    val options = listOf("Afgelopen" to DemoPast.size, "Gedeeld" to DemoSharedCount)
+    val options = listOf("Afgelopen" to Data.past.size, "Gedeeld" to Data.shared)
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
         options.forEachIndexed { i, (label, count) ->
             ToggleButton(
@@ -448,7 +466,7 @@ private fun Modifier.arrive(order: Int): Modifier = composed {
 private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(32.dp)
     Box(modifier.fillMaxWidth().aspectRatio(16f / 11f).clip(shape).bouncyClickable(onOpen)) {
-        Scenery(trip.cover ?: Scene.Mountains, Modifier.matchParentSize())
+        Cover(trip, Modifier.matchParentSize(), size = "preview")
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color(0xC010151B))))
         MenuDots(Modifier.align(Alignment.TopEnd).padding(14.dp))
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
@@ -472,14 +490,14 @@ private fun BigTripCard(trip: Trip, onOpen: () -> Unit, modifier: Modifier = Mod
 private fun TripRow(trip: Trip, shape: Shape, dark: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
     Box(modifier.fillMaxWidth().clip(shape).background(cs.surfaceContainerLow).bouncyClickable(onOpen)) {
-        val cover = trip.cover
+        val cover = trip.cover ?: trip.coverId
         if (cover != null) {
-            Scenery(cover, Modifier.matchParentSize().graphicsLayer { scaleX = 1.3f; scaleY = 1.3f }.blur(22.dp))
+            Cover(trip, Modifier.matchParentSize().graphicsLayer { scaleX = 1.3f; scaleY = 1.3f }.blur(22.dp))
             Box(Modifier.matchParentSize().background(if (dark) Color(0xA8101418) else Color(0xBDFFFFFF)))
         }
         Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (cover != null) {
-                Scenery(cover, Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)))
+                Cover(trip, Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)))
             }
             Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                 Text(trip.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 18.sp, color = cs.onSurface))

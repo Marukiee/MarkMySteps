@@ -81,8 +81,17 @@ private fun Modifier.press(onClick: () -> Unit = {}): Modifier = composed {
 }
 
 @Composable
-fun TripPage(trip: Trip, dark: Boolean, onBack: () -> Unit) {
+fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
     val cs = MaterialTheme.colorScheme
+    // A trip from the server brings its stops and photos in only when it is opened.
+    val trip by androidx.compose.runtime.produceState(base, base.id, Data.version) {
+        if (base.remoteId != null) runCatching { Remote.stops(base) }.getOrNull()?.let { (stops, legs) ->
+            value = base.copy(stops = stops, outbound = legs.first, back = legs.second)
+        }
+    }
+    val media by androidx.compose.runtime.produceState<List<Media>?>(null, base.id, Data.version) {
+        if (base.remoteId != null) value = runCatching { Remote.media(base) }.getOrNull() ?: emptyList()
+    }
     val screenH = LocalConfiguration.current.screenHeightDp
     val mapH = (screenH * 0.46f).dp
     var tab by remember { mutableIntStateOf(0) }
@@ -93,7 +102,7 @@ fun TripPage(trip: Trip, dark: Boolean, onBack: () -> Unit) {
     val bar by animateFloatAsState(if (collapsed) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "bar")
 
     // Frame the trip: the middle of its stops, and a zoom that fits their spread.
-    val points = trip.stops.map { it.at }.ifEmpty { trip.route }
+    val points = trip.stops.map { it.at }.ifEmpty { trip.route }.ifEmpty { listOf(HomeAirport) }
     val lon = points.map { it.first }.average()
     val lat = points.map { it.second }.average()
     val spread = points.maxOf { p -> angle(p, lon to lat) }.coerceAtLeast(0.6)
@@ -139,7 +148,7 @@ fun TripPage(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                     People(trip.people, trip.extraPeople)
                 }
 
-                Facts(trip, Modifier.padding(top = 18.dp))
+                Facts(trip, Modifier.padding(top = 18.dp), photos = media?.size)
 
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
                     listOf("Tijdlijn", "Routeplanner").forEachIndexed { i, label ->
@@ -159,7 +168,7 @@ fun TripPage(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                 }
 
                 Column(Modifier.padding(top = 16.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
-                    if (tab == 0) Timeline(trip, dark) else Planner(trip, dark)
+                    if (tab == 0) Timeline(trip, dark, media) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
                 }
                 Spacer(Modifier.height(24.dp))
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -210,7 +219,7 @@ private fun People(people: List<Person>, extra: Int) {
 
 /** Days, distance, stops and photos as one connected slab. */
 @Composable
-private fun Facts(trip: Trip, modifier: Modifier = Modifier) {
+private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null) {
     // Before a trip there is nothing driven or photographed yet: then how long until it starts and who comes.
     val items = if (trip.upcoming) listOf(
         "${trip.startsInDays ?: 0}" to "dagen tot vertrek",
@@ -221,7 +230,7 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier) {
         "${trip.days}" to "dagen",
         (trip.km?.let { "%,d".format(it).replace(',', '.') } ?: "0") to "km",
         "${trip.stops.size}" to "stops",
-        "${trip.photos}" to "foto's",
+        "${photos ?: trip.photos}" to "foto's",
     )
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         items.forEachIndexed { i, (value, label) ->
