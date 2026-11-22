@@ -11,6 +11,11 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,7 +95,6 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, mfaPreview:
     var recovery by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val heroH = (LocalConfiguration.current.screenHeightDp * 0.36f).dp
 
     fun submit() {
         if (busy) return
@@ -122,36 +126,32 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, mfaPreview:
         }
     }
 
+    // The server is set once and rarely changed: shown as one line you can tap to change, a field only then.
+    var editServer by rememberSaveable { mutableStateOf(server.isBlank()) }
     // imePadding shrinks the page above the keyboard, so the focused field is scrolled into view.
     Column(Modifier.fillMaxSize().background(cs.background).imePadding().verticalScroll(rememberScrollState())) {
-        Box(Modifier.fillMaxWidth().height(heroH)) {
-            Globe(
-                trips = DemoPast + DemoUpcoming,
-                style = GlobeStyle(
-                    sphere = if (dark) Color(0xFF101418) else Color(0xFFEADFCE),
-                    land = if (dark) Color(0xFF29313A) else Color(0xFFD8C9AD),
-                    dark = dark,
-                ),
-                modifier = Modifier.fillMaxSize(),
-            )
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to cs.background)))
-        }
-        Column(Modifier.padding(horizontal = 20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // The brand mark as everywhere: the compass on its own, in the accent colour.
-                LineIcon(Glyphs.logo, cs.primary, size = 40.dp, stroke = 2.1f)
-                Text(
-                    "MarkMySteps",
-                    style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 30.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
-                    modifier = Modifier.padding(start = 14.dp),
-                )
+        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+        // No globe: the brand on its own, the compass in a slowly turning expressive shape, the name and one line.
+        Column(Modifier.fillMaxWidth().padding(top = 44.dp, bottom = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            val spin = androidx.compose.animation.core.rememberInfiniteTransition(label = "medal")
+            val turn by spin.animateFloat(0f, 360f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(40_000, easing = androidx.compose.animation.core.LinearEasing)), label = "turn")
+            Box(Modifier.size(120.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.matchParentSize().graphicsLayer { rotationZ = turn }.clip(MaterialShapes.Cookie9Sided.toShape()).background(cs.primaryContainer))
+                LineIcon(Glyphs.logo, cs.onPrimaryContainer, size = 58.dp, stroke = 2f)
             }
             Text(
-                androidx.compose.ui.res.stringResource(R.string.login_tagline),
-                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurfaceVariant),
-                modifier = Modifier.padding(top = 10.dp, bottom = 20.dp),
+                "MarkMySteps",
+                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 34.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
+                modifier = Modifier.padding(top = 22.dp),
             )
-
+            Text(
+                androidx.compose.ui.res.stringResource(R.string.login_tagline),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, lineHeight = 21.sp, color = cs.onSurfaceVariant),
+                modifier = Modifier.padding(top = 6.dp, start = 32.dp, end = 32.dp),
+            )
+        }
+        Column(Modifier.padding(horizontal = 20.dp)) {
             Column(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(cs.surfaceContainerLow).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -165,7 +165,20 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, mfaPreview:
                 ) { second ->
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (!second) {
-                            Field(androidx.compose.ui.res.stringResource(R.string.auth_server), server, { server = it }, androidx.compose.ui.res.stringResource(R.string.auth_server_hint), KeyboardType.Uri)
+                            AnimatedContent(editServer, transitionSpec = { fadeIn() togetherWith fadeOut() using androidx.compose.animation.SizeTransform(clip = false) }, label = "server") { editing ->
+                                if (editing) Field(androidx.compose.ui.res.stringResource(R.string.auth_server), server, { server = it }, androidx.compose.ui.res.stringResource(R.string.auth_server_hint), KeyboardType.Uri)
+                                else Row(
+                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh).clickable { editServer = true }.padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    LineIcon(Glyphs.cloud, cs.primary, size = 20.dp, stroke = 2f)
+                                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                                        Text(androidx.compose.ui.res.stringResource(R.string.auth_server), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 12.5.sp, color = cs.onSurfaceVariant))
+                                        Text(server.removePrefix("https://").removePrefix("http://"), maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 15.sp, color = cs.onSurface))
+                                    }
+                                    LineIcon(Glyphs.pencil, cs.onSurfaceVariant, size = 18.dp, stroke = 2f)
+                                }
+                            }
                             Field(androidx.compose.ui.res.stringResource(R.string.login_identifier), name, { name = it }, "", KeyboardType.Email, autofill = androidx.compose.ui.autofill.ContentType.Username)
                             Field(androidx.compose.ui.res.stringResource(R.string.auth_password), password, { password = it }, "", KeyboardType.Password, secret = true, done = ::submit, autofill = androidx.compose.ui.autofill.ContentType.Password)
                         } else {
@@ -220,11 +233,16 @@ fun LoginPage(dark: Boolean, onDone: () -> Unit, onDemo: () -> Unit, mfaPreview:
                     )
                 }
             }
-            // The other ways in, as on the web: ask for an account, or keep everything on this phone (Auth.kt).
-            AnimatedVisibility(mfaToken == null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut(), modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                Row(Modifier.padding(top = 10.dp)) {
-                    TextButton(onClick = onRegister) { Text(androidx.compose.ui.res.stringResource(R.string.auth_create_account), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
-                    TextButton(onClick = onLocal) { Text(androidx.compose.ui.res.stringResource(R.string.auth_no_server), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
+            // The other ways in, as on the web: ask for an account, or keep everything on this phone (Auth.kt). Two
+            // tonal pills joined as one group, under the card.
+            AnimatedVisibility(mfaToken == null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    listOf(androidx.compose.ui.res.stringResource(R.string.auth_create_account) to onRegister, androidx.compose.ui.res.stringResource(R.string.auth_no_server) to onLocal).forEachIndexed { i, (label, go) ->
+                        val shape = if (i == 0) RoundedCornerShape(topStart = 26.dp, bottomStart = 26.dp, topEnd = 8.dp, bottomEnd = 8.dp) else RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp, topEnd = 26.dp, bottomEnd = 26.dp)
+                        Box(Modifier.weight(1f).height(52.dp).clip(shape).background(cs.secondaryContainer).clickable(onClick = go), contentAlignment = Alignment.Center) {
+                            Text(label, maxLines = 1, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSecondaryContainer))
+                        }
+                    }
                 }
             }
             if (mfaToken == null) TextButton(onClick = onDemo, modifier = Modifier.align(Alignment.CenterHorizontally)) {
