@@ -87,6 +87,8 @@ data class Trip(
     val members: List<Member> = emptyList(),
     /** Under way: which day of the trip today is (1 is the first). */
     val ongoingDay: Int? = null,
+    /** The planned stops as points only, from the trip list (the full stops come when the trip opens). */
+    val stopPoints: List<LonLat> = emptyList(),
 )
 
 /** Someone on a trip: organiser, companion (counts it in their figures) or guest (only looks). */

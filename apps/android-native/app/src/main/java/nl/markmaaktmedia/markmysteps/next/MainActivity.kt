@@ -35,6 +35,11 @@ class MainActivity : ComponentActivity() {
         NewLook.init(applicationContext, force = intent?.getBooleanExtra("newLook", false) == true)
         AirportPref.init(applicationContext)
         TripFactsPref.init(applicationContext)
+        UiPrefs.init(applicationContext)
+        Tracker.init(applicationContext)
+        // The airport list in the background, so Voorkeuren opens complete.
+        Thread { Airports.load(applicationContext) }.start()
+        if (!Api.dryRun) Tracker.autoStart(applicationContext)
         Photos.initRatios(applicationContext)
         // The start screen (the orange compass) stays until there are trips to show: with trips kept from last
         // time that is at once; on a first start it waits for the server, and the compass needle starts turning.

@@ -1,6 +1,7 @@
 package nl.markmaaktmedia.markmysteps.next
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.SeekableTransitionState
@@ -130,6 +131,8 @@ class Item(
     val plain: Boolean = false,
     val danger: Boolean = false,
     val enabled: Boolean = true,
+    /** Cannot work right now: grey, but a tap still runs [action], which says why. */
+    val dimmed: Boolean = false,
 )
 
 @Composable
@@ -161,7 +164,7 @@ fun IconTile(icon: List<Shape24>, seed: Int, big: Boolean = false, danger: Boole
 @Composable
 fun SettingRow(item: Item, i: Int, n: Int, seed: Int) {
     val cs = MaterialTheme.colorScheme
-    val alpha by animateFloatAsState(if (item.enabled) 1f else 0.45f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "enabled")
+    val alpha by animateFloatAsState(if (item.enabled && !item.dimmed) 1f else 0.45f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "enabled")
     Row(
         Modifier.fillMaxWidth().clip(slabShape(i, n)).background(cs.surfaceContainerLow)
             .then(if (item.enabled && (item.action != null || item.toggle != null)) Modifier.dip { item.action?.invoke() } else Modifier)
@@ -198,9 +201,12 @@ fun AppSwitch(checked: Boolean, enabled: Boolean = true, onChange: () -> Unit) {
 
 /** A block of its own for a form or a choice: the slab's tone, round corners, room inside. */
 @Composable
-fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun Panel(modifier: Modifier = Modifier, animate: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    val spec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>()
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(16.dp),
+        // Growing inside its own background, so the tone follows the height instead of leaving a gap.
+        modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .then(if (animate) Modifier.animateContentSize(spec) else Modifier).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content,
     )
@@ -360,7 +366,7 @@ fun <T> Choices(options: List<Pair<T, String>>, selected: T?, onSelect: (T) -> U
                 onCheckedChange = { onSelect(value) },
                 enabled = enabled,
                 // A long word gets more of the row, so no label is ever cut off.
-                modifier = Modifier.weight(maxOf(1f, label.length / 7f)).height(52.dp),
+                modifier = Modifier.weight(maxOf(1f, label.length / 9f)).height(52.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
                 shapes = when (i) {
                     0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
@@ -399,13 +405,23 @@ fun Confirm(title: String, text: String, confirm: String, danger: Boolean = true
                 extra?.invoke()
             }
         },
-        confirmButton = {
-            androidx.compose.material3.TextButton(onClick = { onConfirm(); onDismiss() }, enabled = confirmEnabled) {
-                Text(confirm, color = if (!confirmEnabled) cs.onSurface.copy(alpha = 0.38f) else if (danger) cs.error else cs.primary, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600)))
-            }
-        },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+        // Two pills side by side on the right: cancel tonal, the action filled (red when it removes something).
+        confirmButton = { DialogButtons(confirm, danger, confirmEnabled, onConfirm = { onConfirm(); onDismiss() }, onDismiss = onDismiss) },
     )
+}
+
+/** The buttons of every dialog here: "Annuleren" as a tonal pill, the action as a filled one, both morphing on press. */
+@Composable
+fun DialogButtons(confirm: String, danger: Boolean, enabled: Boolean = true, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val label = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        FilledTonalButton(onClick = onDismiss, shapes = ButtonDefaults.shapes(), modifier = Modifier.height(44.dp)) { Text("Annuleren", style = label) }
+        Button(
+            onClick = onConfirm, enabled = enabled, shapes = ButtonDefaults.shapes(), modifier = Modifier.height(44.dp),
+            colors = if (danger) ButtonDefaults.buttonColors(containerColor = cs.error, contentColor = cs.onError) else ButtonDefaults.buttonColors(),
+        ) { Text(confirm, style = label) }
+    }
 }
 
 /** A settings page: the round back button, the big title, and its content scrolling under the clock. */

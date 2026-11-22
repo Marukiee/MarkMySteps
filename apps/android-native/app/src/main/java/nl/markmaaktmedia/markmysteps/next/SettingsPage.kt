@@ -3,6 +3,7 @@ package nl.markmaaktmedia.markmysteps.next
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -50,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -73,8 +75,9 @@ private class Section(val id: String, val icon: List<Shape24>, val title: String
 
 @Composable
 fun SettingsPage(onSignIn: () -> Unit = {}) {
+    // Straight to a page when asked (Aanvragen bekijken opens Accounts); that page opens even while "admin" is still being read.
     var open by remember { mutableStateOf<String?>(Data.openSettings.also { Data.openSettings = null }) }
-    var admin by remember { mutableStateOf(false) }
+    var admin by remember { mutableStateOf(Data.live && SettingsRemote.cachedAdmin()) }
     LaunchedEffect(Data.live, Data.version) { admin = Data.live && runCatching { SettingsRemote.account().admin }.getOrDefault(false) }
     val sections = listOfNotNull(
         Section("account", Glyphs.person, "Account", "Profielfoto, naam, wachtwoord, 2FA"),
@@ -132,7 +135,6 @@ private fun SettingsMain(sections: List<Section>, onOpen: (String) -> Unit) {
                 Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                     Text(Data.me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
                     Text(if (Data.live) "@${Data.me?.username}" else "voorbeelden, niet ingelogd", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
-                    if (Data.live) Text(Api.base.removePrefix("https://").trimEnd('/'), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant.copy(alpha = 0.8f)))
                 }
                 Box(Modifier.size(44.dp).clip(CircleShape).background(cs.surfaceContainerHigh), contentAlignment = Alignment.Center) {
                     LineIcon(Glyphs.pencil, cs.onSurface, size = 20.dp, stroke = 2f)
@@ -172,6 +174,11 @@ private fun DisplayPage(onBack: () -> Unit) {
             Choices(listOf(0 to "Licht", 1 to "Donker", 2 to "Systeem"), ThemePref.mode, { ThemePref.set(it) })
             Hint("Systeem volgt de licht- of donkerstand van je telefoon.")
         }
+        Spacer(Modifier.height(10.dp))
+        Group(null, listOf(
+            Item(listOf(P("M12 3a9 9 0 0 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4.2-4-7.5-9-7.5Z"), C(7.5f, 11f, 1f), C(10f, 7.5f, 1f), C(14.5f, 7.5f, 1f)), "Accentkleur van je achtergrond", "Neemt de accentkleur over die Android uit je achtergrond haalt. De rest van de app blijft zoals hij is.",
+                toggle = UiPrefs.wallpaperAccent, action = { UiPrefs.changeWallpaperAccent(!UiPrefs.wallpaperAccent) }),
+        ))
         Header("Reiskaarten op de homepage")
         Panel {
             Choices(listOf(CardSizePref.AUTO to "Automatisch", CardSizePref.LARGE to "Groot", CardSizePref.COMPACT to "Klein"), CardSizePref.standard, { CardSizePref.choose(it) })
@@ -222,17 +229,43 @@ fun MapStyleGrid() {
 
 // Voorkeuren.
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PreferencesPage(onBack: () -> Unit) {
+    SettingsScaffold("Voorkeuren", onBack) {
+        AirportsPanel()
+        Header("Globe")
+        Panel {
+            Hint("Tussenstops op de globe van de homepage. De reis die uitgelicht wordt laat ze altijd zien; met Altijd ook alle andere reizen.")
+            Choices(listOf(false to "Bij uitlichten", true to "Altijd"), UiPrefs.globeStopsAlways, { UiPrefs.changeGlobeStopsAlways(it) })
+        }
+        Header("Foto's in je statistieken")
+        Group(null, listOf(
+            Item(Glyphs.camera, "Foto's van reisgenoten meetellen", "Bij Reizigers telt een reis alle foto's van de dagen dat iemand mee was. Uit telt alleen wat iemand zelf toevoegde.",
+                toggle = !UiPrefs.ownPhotosOnly, action = { UiPrefs.changeOwnPhotosOnly(!UiPrefs.ownPhotosOnly); kotlinx.coroutines.MainScope().launch { Data.load() } }),
+        ))
+        Header("Eigen locatie")
+        Group(null, listOf(
+            Item(Glyphs.pin, "Ook op de homepage", "Je positie als stip op de globe, terwijl je een reis trackt. De app vraagt nooit los om je locatie.",
+                toggle = UiPrefs.selfOnHome, action = { UiPrefs.changeSelfOnHome(!UiPrefs.selfOnHome) }),
+        ))
+        NotifyPanel()
+        TrackingPanel()
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AirportsPanel() {
     val cs = MaterialTheme.colorScheme
     val context = LocalContext.current
-    LaunchedEffect(Unit) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Airports.load(context) } }
+    // Normally read in the background at start; if not yet, once here before the first frame (a few ms), so names never pop in.
+    remember { Airports.loadNow(context) }
     var query by remember { mutableStateOf("") }
     val results = remember(query, AirportPref.codes.toList(), Airports.ready) { Airports.search(query).filter { it.iata !in AirportPref.codes } }
-    SettingsScaffold("Voorkeuren", onBack) {
         Header("Standaard vliegvelden", top = true)
-        Panel {
+        val motion = MaterialTheme.motionScheme
+        // The panel grows and shrinks with the chips; the suggestions bring their own height in and out.
+        Panel(animate = true) {
             Hint("Je thuisvliegvelden. Tik er een aan om hem de eerste te maken: die geldt als thuis op de globe.")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AirportPref.codes.forEachIndexed { i, code ->
@@ -246,7 +279,7 @@ private fun PreferencesPage(onBack: () -> Unit) {
                     ) {
                         val ink = if (first) cs.onPrimary else cs.onSecondaryContainer
                         Text(code, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = 15.sp, color = ink))
-                        if (a != null) Text(a.city, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = ink.copy(alpha = 0.8f)), modifier = Modifier.padding(start = 6.dp))
+                        (a?.city ?: AirportPref.cities[code])?.let { city -> Text(city, maxLines = 1, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = ink.copy(alpha = 0.8f)), modifier = Modifier.padding(start = 6.dp)) }
                         Box(Modifier.padding(start = 4.dp).size(40.dp).clip(CircleShape).dip { AirportPref.set(AirportPref.codes.filter { it != code }) }, contentAlignment = Alignment.Center) {
                             LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), ink, size = 16.dp, stroke = 2.4f)
                         }
@@ -254,11 +287,18 @@ private fun PreferencesPage(onBack: () -> Unit) {
                 }
             }
             FormField("Vliegveld toevoegen", query, { query = it }, hint = "bv. Eindhoven", type = KeyboardType.Text)
-            AnimatedVisibility(results.isNotEmpty(), enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            // While they slide away the last suggestions stay drawn, so they leave instead of vanishing.
+            var shownResults by remember { mutableStateOf(results) }
+            if (results.isNotEmpty()) shownResults = results
+            AnimatedVisibility(
+                results.isNotEmpty(),
+                enter = fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec()),
+                exit = fadeOut(motion.defaultEffectsSpec()) + shrinkVertically(motion.defaultSpatialSpec()),
+            ) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    results.forEachIndexed { i, a ->
+                    shownResults.forEachIndexed { i, a ->
                         Row(
-                            Modifier.fillMaxWidth().clip(slabShape(i, results.size)).background(cs.surfaceContainerHigh)
+                            Modifier.fillMaxWidth().clip(slabShape(i, shownResults.size)).background(cs.surfaceContainerHigh)
                                 .dip { AirportPref.set(AirportPref.codes + a.iata); query = "" }.padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -273,7 +313,140 @@ private fun PreferencesPage(onBack: () -> Unit) {
                 }
             }
         }
+}
+
+/** The phone's own notifications: the app looks every quarter of an hour, as the web's app does without a push service. */
+@Composable
+private fun NotifyPanel() {
+    val context = LocalContext.current
+    var explain by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf<String?>(null) }
+    fun turnOn() { UiPrefs.changeNotify(true); NotifyJob.schedule(context); note = "Aan. Je hoort het binnen een kwartier na een nieuw bericht." }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) turnOn() else note = "Je telefoon laat meldingen niet toe voor deze app. Zet ze aan bij Instellingen › Apps › MarkMySteps Dev › Meldingen."
     }
+    Header("Meldingen op je telefoon")
+    Group(null, listOf(
+        Item(Glyphs.bell, "Scan op nieuwe meldingen", "Verzoeken en uitnodigingen komen binnen als melding, ook als de app dicht is. Tot een kwartier later.",
+            toggle = UiPrefs.notify && Data.live, dimmed = !Data.live,
+            action = {
+                when {
+                    !Data.live -> note = "Log eerst in: de meldingen komen van je server."
+                    UiPrefs.notify -> { UiPrefs.changeNotify(false); NotifyJob.cancel(context); note = null }
+                    android.os.Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED -> explain = true
+                    else -> turnOn()
+                }
+            }),
+    ))
+    Spacer(Modifier.height(8.dp))
+    Note(note)
+    if (explain) Confirm(
+        "Meldingen toestaan?", "Dan kan de app je laten weten als iemand wil meekijken of je toevoegt aan een reis. Android vraagt je zo om toestemming.", "Verder", danger = false,
+        onConfirm = { ask.launch(android.Manifest.permission.POST_NOTIFICATIONS) }, onDismiss = { explain = false },
+    )
+}
+
+/** Route tracking: one position every few minutes for a trip under way, also with the screen off. */
+@Composable
+private fun TrackingPanel() {
+    val cs = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    val presets = listOf(1, 5, 10, 15)
+    var custom by remember { mutableStateOf(UiPrefs.trackMinutes !in presets) }
+    var customText by remember { mutableStateOf(UiPrefs.trackMinutes.toString()) }
+    var tripId by remember { mutableStateOf<String?>(null) }
+    var picker by remember { mutableStateOf(false) }
+    var explain by remember { mutableStateOf(false) }
+    var confirmStop by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf<String?>(null) }
+    val me = Data.me?.id
+    // Trips you could still be travelling on, the ones under way first; guests do not record.
+    val trips = Data.all.filter { it.upcoming && it.remoteId != null && it.members.none { m -> m.userId == me && m.role == "GUEST" } }
+        .sortedWith(compareBy<Trip> { if (it.ongoingDay != null) 0 else 1 }.thenBy { it.startsInDays ?: 0 })
+    LaunchedEffect(trips) { if (tripId == null || trips.none { it.id == tripId }) tripId = trips.firstOrNull()?.id }
+    val trip = trips.firstOrNull { it.id == tripId }
+    fun begin() { trip?.let { Tracker.start(context, it.remoteId ?: it.id, it.title); note = null } }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { got ->
+        if (got[android.Manifest.permission.ACCESS_FINE_LOCATION] == true || got[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true) begin()
+        else note = "Zonder locatie kan de app je route niet bijhouden. Geef toegang bij Instellingen › Apps › MarkMySteps Dev › Toegang › Locatie."
+    }
+    // The age of the last position stays current while you look.
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Tracker.tripId) { while (Tracker.tripId != null) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
+
+    Header("Route-tracking")
+    Panel {
+        Hint("Houdt je route bij tijdens een reis, ook met het scherm uit. Elke keer zet de app de GPS heel even aan voor één positie; blijf je op dezelfde plek, dan wordt dat één punt. Zonder netwerk wacht alles op je telefoon.")
+        Text("Locatie opslaan elke", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 6.dp))
+        Choices(presets.map { it to "$it min" } + (0 to "Eigen"), if (custom) 0 else UiPrefs.trackMinutes, { v ->
+            if (v == 0) { custom = true; customText = UiPrefs.trackMinutes.toString() } else { custom = false; UiPrefs.changeTrackMinutes(v); Tracker.restartIfRunning(context) }
+        })
+        AnimatedVisibility(custom, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            FormField("Minuten (1 tot 240)", customText, { t ->
+                customText = t.filter { it.isDigit() }.take(3)
+                customText.toIntOrNull()?.takeIf { it in 1..240 }?.let { UiPrefs.changeTrackMinutes(it); Tracker.restartIfRunning(context) }
+            }, type = KeyboardType.Number)
+        }
+        androidx.compose.animation.AnimatedContent(Tracker.tripId != null, label = "tracking") { running ->
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (running) {
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh).padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(10.dp).clip(CircleShape).background(cs.primary))
+                            Text("Actief: ${Tracker.tripTitle ?: "reis"}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.padding(start = 8.dp))
+                        }
+                        val fix = Tracker.lastFix
+                        Text(
+                            listOfNotNull(
+                                if (fix == null) "Wachten op de eerste positie" else ((now - fix.third) / 1000).let { s -> if (s < 10) "laatste positie zojuist" else if (s < 120) "laatste positie ${s}s geleden" else "laatste positie ${s / 60} min geleden" },
+                                if (Tracker.buffered > 0) "${Tracker.buffered} ${if (Tracker.buffered == 1) "punt wacht" else "punten wachten"} op netwerk" else null,
+                            ).joinToString(" · "),
+                            style = ValueStyle.copy(color = cs.onSurfaceVariant),
+                        )
+                        Tracker.lastError?.let { Text(it, style = ValueStyle.copy(color = cs.error)) }
+                    }
+                    QuietDangerButton("Stop tracking", { confirmStop = true }, Modifier.fillMaxWidth())
+                } else {
+                    Box {
+                        Row(
+                            Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh)
+                                .dip { if (trips.isNotEmpty()) picker = true }.padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            LineIcon(Glyphs.compass, cs.onSurfaceVariant, size = 20.dp)
+                            Text(trip?.title ?: "Geen lopende of komende reizen", maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleStyle.copy(fontSize = 15.sp, color = cs.onSurface), modifier = Modifier.weight(1f).padding(start = 12.dp))
+                            if (trip?.ongoingDay != null) Text("onderweg", style = ValueStyle.copy(color = cs.primary), modifier = Modifier.padding(horizontal = 8.dp))
+                            LineIcon(listOf(P("m6 9 6 6 6-6")), cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
+                        }
+                        AppMenu(picker, { picker = false }, listOf(trips.map { t -> MenuEntry(t.title + if (t.ongoingDay != null) " · onderweg" else "", Glyphs.compass, selected = t.id == tripId) { tripId = t.id } }))
+                    }
+                    MainButton("Start tracking", {
+                        when {
+                            !Data.live -> note = "Log eerst in: de route gaat naar je reis op je server."
+                            Tracker.hasPermission(context) -> begin()
+                            else -> explain = true
+                        }
+                    }, Modifier.fillMaxWidth().graphicsLayer { alpha = if (Data.live) 1f else 0.45f }, icon = Glyphs.pin, enabled = trip != null || !Data.live)
+                }
+            }
+        }
+        Note(note)
+    }
+    if (explain) Confirm(
+        "Locatie voor je route",
+        "Om je route bij te houden heeft de app je locatie nodig, ook met het scherm uit. Je ziet een melding zolang hij loopt. Android vraagt je zo om toestemming.",
+        "Verder", danger = false,
+        onConfirm = {
+            val wanted = listOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION) +
+                if (android.os.Build.VERSION.SDK_INT >= 33) listOf(android.Manifest.permission.POST_NOTIFICATIONS) else emptyList()
+            ask.launch(wanted.toTypedArray())
+        },
+        onDismiss = { explain = false },
+    )
+    if (confirmStop) Confirm(
+        "Stoppen met tracken?", "De route van ${Tracker.tripTitle ?: "deze reis"} wordt niet verder bijgehouden. Wat al opgenomen is blijft staan.", "Stoppen",
+        onConfirm = { Tracker.stop(context) }, onDismiss = { confirmStop = false },
+    )
 }
 
 // Diensten.
@@ -333,10 +506,12 @@ private fun ServerPanel(onSignIn: () -> Unit) {
 private fun ImmichPanel() {
     val cs = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
-    var status by remember { mutableStateOf<SettingsRemote.Immich?>(null) }
-    var loaded by remember { mutableStateOf(!Data.live) }
-    var serverUrl by remember { mutableStateOf("") }
-    var publicUrl by remember { mutableStateOf("") }
+    // The last answer first, so the panel opens complete; the server's answer follows quietly.
+    val cached = remember { SettingsRemote.cachedImmich() }
+    var status by remember { mutableStateOf(cached.first) }
+    var loaded by remember { mutableStateOf(!Data.live || cached.second) }
+    var serverUrl by remember { mutableStateOf(cached.first?.serverUrl ?: "") }
+    var publicUrl by remember { mutableStateOf(cached.first?.publicUrl ?: "") }
     var apiKey by remember { mutableStateOf("") }
     var note by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -415,7 +590,8 @@ private data class TripChoice(val id: String, val title: String, val year: Strin
 
 @Composable
 private fun DataPage(onBack: () -> Unit) {
-    var trips by remember { mutableStateOf<List<TripChoice>?>(null) }
+    // The trips as the app already has them, so the picker is filled from the first frame; the server's list follows.
+    var trips by remember { mutableStateOf<List<TripChoice>?>(if (!Data.live) emptyList() else Data.all.filter { it.remoteId != null }.map { TripChoice(it.remoteId!!, it.title, it.year) }.takeIf { it.isNotEmpty() }) }
     LaunchedEffect(Data.live) {
         trips = if (!Data.live) emptyList() else runCatching {
             val a = SettingsRemote.tripsRaw()
@@ -895,6 +1071,13 @@ private fun AboutPage(onBack: () -> Unit) {
     val context = LocalContext.current
     val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "" }
     fun open(url: String) = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }; Unit }
+    var privacy by remember { mutableStateOf<Boolean?>(null) }
+    SlideHost(privacy, onClose = { privacy = null }, base = { AboutBody(onBack, version, ::open, onPrivacy = { privacy = true }) }) { PrivacyPage(onBack = { privacy = null }) }
+}
+
+@Composable
+private fun AboutBody(onBack: () -> Unit, version: String, open: (String) -> () -> Unit, onPrivacy: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
     SettingsScaffold("Over", onBack) {
         Spacer(Modifier.height(12.dp))
         Panel {
@@ -913,6 +1096,58 @@ private fun AboutPage(onBack: () -> Unit) {
             Item(Glyphs.help, "Wat is er nieuw", "op GitHub", external = true, action = open("https://github.com/Marukiee/MarkMySteps/releases")),
             Item(Glyphs.logo, "Broncode", "github.com/Marukiee/MarkMySteps", external = true, action = open("https://github.com/Marukiee/MarkMySteps")),
             Item(Glyphs.shield, "Licentie", "AGPL-3.0", external = true, action = open("https://www.gnu.org/licenses/agpl-3.0.html")),
+            Item(Glyphs.lock, "Privacy", "Wat de app bewaart en wie het ziet", action = onPrivacy),
         ))
+    }
+}
+
+/** The web's privacy page, the same text, as a page of its own. */
+@Composable
+private fun PrivacyPage(onBack: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    @Composable fun Section(title: String, vararg lines: Pair<String?, String>) {
+        Header(title)
+        Panel {
+            lines.forEach { (bold, text) ->
+                Text(
+                    pathText("", listOfNotNull(bold), if (bold != null) ": $text" else text, cs.onSurface),
+                    style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, lineHeight = 20.sp, color = cs.onSurfaceVariant),
+                )
+            }
+        }
+    }
+    SettingsScaffold("Privacy", onBack) {
+        Spacer(Modifier.height(8.dp))
+        Hint("MarkMySteps is een reis-app van Mark Maakt Media. Je route, je reizen en je foto's zijn van jou. Hier staat wat de app bewaart, waarom, en wie het kan zien. Bijgewerkt op 25 oktober 2026.")
+        Section("Wat de app bewaart",
+            "Je account" to "je naam, gebruikersnaam, e-mailadres en profielfoto. Je wachtwoord wordt alleen versleuteld bewaard.",
+            "Je route" to "de locatiepunten die de app vastlegt terwijl je een reis bijhoudt.",
+            "Je reizen" to "titels, data, stops, dagverhalen en notities.",
+            "Reacties en likes" to "op foto's en dagverhalen.",
+            "Je Immich-koppeling" to "het adres van je Immich-server en de sleutel daarvoor, versleuteld. De foto's zelf blijven in jouw Immich; de app haalt ze daar op om ze te tonen.",
+            "Meldingen" to "een versleuteld kenmerk van je telefoon, zodat die nieuwe meldingen kan ophalen.",
+        )
+        Section("Je locatie", null to "De app legt je locatie alleen vast als je zelf tracking aanzet voor een reis. Zolang dat loopt neemt de app ook met het scherm uit één meting per interval, tot je tracking weer uitzet. Je locatie gaat naar de server van MarkMySteps en nergens anders heen.")
+        Section("Wie het ziet",
+            null to "De reisgenoten die je aan een reis toevoegt.",
+            null to "Iedereen met een deellink die je zelf maakt, eventueel met een wachtwoord. Wie daar reageert, geeft een naam op; likes van bezoekers worden onthouden met een willekeurige code in hun eigen browser.",
+            null to "De beheerder van de server, voor onderhoud en als je om hulp vraagt.",
+        )
+        Section("Diensten van anderen",
+            null to "Een paar dingen haalt de app bij andere diensten op. Die zien dan je IP-adres en:",
+            "Kaarten" to "OpenFreeMap, en Esri voor de satellietkaart: welk stuk kaart je bekijkt.",
+            "Plaatsen zoeken" to "Photon van Komoot: wat je intypt.",
+            "Weer" to "Open-Meteo: de coördinaten van een plaats.",
+            "Foto's van plaatsen" to "Wikipedia: de naam van een plaats.",
+            "Routes tussen stops" to "OSRM voor de auto en signal.eu.org voor de trein: de coördinaten van je stops.",
+            null to "Geen advertenties, geen analytics en geen tracking. Er wordt niets verkocht of gedeeld met adverteerders.",
+        )
+        Section("Waar het staat en hoe lang", null to "Alles staat op de server van MarkMySteps en gaat er versleuteld (https) naartoe. Je gegevens blijven bewaard zolang je account bestaat.")
+        Section("Je rechten", null to "Je mag je gegevens inzien, laten verbeteren of je account met alles erop laten verwijderen. Mail daarvoor; het is binnen een maand geregeld. Ben je het ergens niet mee eens, dan kun je een klacht indienen bij de Autoriteit Persoonsgegevens.")
+        Spacer(Modifier.height(10.dp))
+        Group(null, listOf(Item(Glyphs.send, "Mail Mark Maakt Media", "mark@markmaaktmedia.nl", external = true, action = {
+            runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:mark@markmaaktmedia.nl"))) }; Unit
+        })))
     }
 }

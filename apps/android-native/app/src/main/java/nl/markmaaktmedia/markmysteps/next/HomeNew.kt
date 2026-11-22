@@ -159,7 +159,7 @@ private val Pad = 16.dp
 @Composable
 fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, startPage: String? = null) {
     MaterialExpressiveTheme(
-        colorScheme = animatedScheme(if (dark) DarkScheme else LightScheme),
+        colorScheme = animatedScheme(withWallpaperAccent(if (dark) DarkScheme else LightScheme, dark)),
         motionScheme = MotionScheme.expressive(),
     ) {
         // Once, signed in: the new look note, inside the theme so it has the app's own colours.

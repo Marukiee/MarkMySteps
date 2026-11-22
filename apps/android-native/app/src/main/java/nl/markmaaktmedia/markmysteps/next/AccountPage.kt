@@ -92,7 +92,7 @@ fun AccountPage(onBack: () -> Unit, onSignIn: () -> Unit) {
         TwoFactorPanel()
         Spacer(Modifier.size(24.dp))
         Group(null, listOf(
-            Item(if (live) Glyphs.signOut else Glyphs.arrowRight, if (live) "Uitloggen" else "Inloggen", if (live) "@${Data.me?.username ?: ""}" else "met je eigen server", plain = true, danger = live,
+            Item(if (live) Glyphs.signOut else Glyphs.arrowRight, if (live) "Uitloggen" else "Inloggen", if (live) "Daarna log je opnieuw in" else "met je eigen server", plain = true, danger = live,
                 action = { if (live) confirmSignOut = true else onSignIn() }),
         ))
     }
@@ -157,7 +157,6 @@ private fun PhotoPanel(account: SettingsRemote.Account?) {
             Column(Modifier.weight(1f).padding(start = 16.dp)) {
                 Text(me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp, color = cs.onSurface))
                 Text(if (Data.live) "@${me?.username ?: ""}" else "voorbeelden, niet ingelogd", style = ValueStyle.copy(color = cs.onSurfaceVariant))
-                account?.email?.takeIf { it.isNotBlank() }?.let { Text(it, maxLines = 1, style = ValueStyle.copy(color = cs.onSurfaceVariant)) }
             }
         }
         Hint("Wat reisgenoten van je zien op kaarten en in tijdlijnen. Tik op je foto om hem te wijzigen.")
@@ -374,9 +373,10 @@ private fun TwoFactorPanel() {
     val cs = MaterialTheme.colorScheme
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var status by remember { mutableStateOf<SettingsRemote.TwoFactor?>(null) }
-    var loaded by remember { mutableStateOf(!Data.live) }
-    suspend fun reload() { status = runCatching { SettingsRemote.twoFactor() }.getOrNull(); loaded = true }
+    // The last known state first (only on/off and how many codes are left), so the panel opens complete.
+    var status by remember { mutableStateOf(SettingsRemote.cachedTwoFactor()) }
+    var loaded by remember { mutableStateOf(!Data.live || status != null) }
+    suspend fun reload() { runCatching { SettingsRemote.twoFactor() }.onSuccess { status = it }; loaded = true }
     LaunchedEffect(Data.live) { if (Data.live) reload() }
     // idle, password, scan, codes, disable, renew
     var step by remember { mutableStateOf("idle") }
@@ -399,7 +399,7 @@ private fun TwoFactorPanel() {
     }
 
     Header("Tweestapsverificatie")
-    Panel(Modifier.animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
+    Panel(animate = true) {
         val motion = MaterialTheme.motionScheme
         AnimatedContent(step, transitionSpec = { fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()) }, label = "2fa") { s ->
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
