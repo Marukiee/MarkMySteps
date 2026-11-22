@@ -42,11 +42,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.unit.Velocity
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
+import kotlin.math.roundToInt
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,16 +87,27 @@ import java.util.Locale
  * phone that took it; it goes back to normal when the viewer closes.
  */
 
+/** Where each timeline photo sits on screen, so the viewer can grow from it and go back into it (as Keeper does). */
+class TileBounds {
+    val tiles = HashMap<String, androidx.compose.ui.layout.LayoutCoordinates>()
+    fun rect(id: String): androidx.compose.ui.geometry.Rect? = tiles[id]?.takeIf { it.isAttached }?.boundsInRoot()
+}
+
+/** From where to where the photo flies, both in screen coordinates. */
+private class Hero(val bitmap: Bitmap, val from: androidx.compose.ui.geometry.Rect, val to: androidx.compose.ui.geometry.Rect)
+
+private const val HERO_MS = 300
+private const val DISMISS_RANGE = 0.35f
+private const val CLOSE_AT = 0.15f
+private const val MIN_DRAG_SCALE = 0.6f
+
 @Composable
-fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, onClose: () -> Unit) {
+fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, bounds: TileBounds = TileBounds(), onCurrent: (String?) -> Unit = {}, onClose: () -> Unit) {
     val pager = rememberPagerState(initialPage = start) { photos.size }
     val activity = LocalContext.current as? Activity
     var hdr by remember { mutableStateOf(false) }
     var chrome by remember { mutableStateOf(true) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val back = remember { Animatable(0f) }
-    val appear = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { appear.animateTo(1f, androidx.compose.animation.core.tween(260)) }
 
     // The trip's comments and reactions, read once; your own changes show at once and go to the server behind them.
     var comments by remember { mutableStateOf<List<Remote.Comment>>(emptyList()) }
@@ -106,47 +131,138 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, onClose: () -> Unit
         }
     }
 
-    // Back follows the finger: the photo shrinks and the page behind shows through.
-    PredictiveBackHandler { events ->
-        try {
-            events.collect { back.snapTo(it.progress) }
-            appear.animateTo(0f, androidx.compose.animation.core.tween(180))
+    // As Keeper (and Immich): the photo grows out of its own tile into place, follows the finger when
+    // dragged down while it shrinks, and flies back into its tile when let go far enough.
+    var drag by remember { mutableStateOf(Offset.Zero) }
+    var areaHeight by remember { mutableFloatStateOf(1f) }
+    var pagerRect by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    var hero by remember { mutableStateOf<Hero?>(null) }
+    var heroT by remember { mutableFloatStateOf(0f) }
+    var opening by remember { mutableStateOf(true) }
+    var openT by remember { mutableFloatStateOf(0f) }
+    var closing by remember { mutableStateOf(false) }
+    var closeFade by remember { mutableFloatStateOf(0f) }
+    fun progress() = maxOf((drag.y.coerceAtLeast(0f) / (areaHeight * DISMISS_RANGE)).coerceIn(0f, 1f), closeFade)
+    fun heroBitmap(id: String) = Photos.cached("$id/preview") ?: Photos.cached("$id/thumbnail")
+    fun fitted(b: Bitmap, scale: Float = 1f, shift: Offset = Offset.Zero): androidx.compose.ui.geometry.Rect {
+        val fit = minOf(pagerRect.width / b.width, pagerRect.height / b.height) * scale
+        val c = pagerRect.center + shift
+        return androidx.compose.ui.geometry.Rect(c.x - b.width * fit / 2f, c.y - b.height * fit / 2f, c.x + b.width * fit / 2f, c.y + b.height * fit / 2f)
+    }
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { pagerRect }.first { it.width > 0f && it.height > 0f }
+        val m = photos[start]
+        val bitmap = heroBitmap(m.id)
+        val tile = bounds.rect(m.id)
+        onCurrent(m.id)
+        if (bitmap != null && tile != null) {
+            heroT = 0f
+            hero = Hero(bitmap, tile, fitted(bitmap))
+            coroutineScope {
+                launch { androidx.compose.animation.core.animate(0f, 1f, animationSpec = androidx.compose.animation.core.tween(HERO_MS)) { v, _ -> openT = v } }
+                androidx.compose.animation.core.animate(0f, 1f, animationSpec = androidx.compose.animation.core.tween(HERO_MS, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { v, _ -> heroT = v }
+            }
+            hero = null
+        } else {
+            androidx.compose.animation.core.animate(0f, 1f, animationSpec = androidx.compose.animation.core.tween(180)) { v, _ -> openT = v }
+        }
+        opening = false
+    }
+    // The tile under the photo on show stays empty, so the photo never exists twice.
+    LaunchedEffect(pager.currentPage) { if (!opening && !closing) onCurrent(photos[pager.currentPage].id) }
+
+    fun closeNow(velocity: Velocity = Velocity.Zero) {
+        if (closing || opening) return
+        closing = true
+        val m = photos[pager.currentPage]
+        val bitmap = heroBitmap(m.id)
+        val tile = bounds.rect(m.id)
+        scope.launch {
+            if (bitmap != null && tile != null && pagerRect.width > 0f) {
+                val scale = 1f - (1f - MIN_DRAG_SCALE) * progress()
+                heroT = 0f
+                hero = Hero(bitmap, fitted(bitmap, scale, drag), tile)
+                coroutineScope {
+                    launch { androidx.compose.animation.core.animate(closeFade, 1f, animationSpec = androidx.compose.animation.core.tween(HERO_MS)) { v, _ -> closeFade = v } }
+                    androidx.compose.animation.core.animate(0f, 1f, animationSpec = androidx.compose.animation.core.tween(HERO_MS, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { v, _ -> heroT = v }
+                }
+            } else {
+                // No tile on screen (scrolled away): the photo drops a little further while everything fades.
+                coroutineScope {
+                    launch { androidx.compose.animation.core.animate(closeFade, 1f, animationSpec = androidx.compose.animation.core.tween(240)) { v, _ -> closeFade = v } }
+                    androidx.compose.animation.core.animate(Offset.VectorConverter, drag, drag + Offset(0f, areaHeight * 0.2f), Offset(velocity.x, velocity.y), androidx.compose.animation.core.tween(240)) { v, _ -> drag = v }
+                }
+            }
+            onCurrent(null)
             onClose()
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            scope.launch { back.animateTo(0f) }
-            throw e
         }
     }
+    fun springBack(velocity: Velocity) {
+        scope.launch {
+            androidx.compose.animation.core.animate(Offset.VectorConverter, drag, Offset.Zero, Offset(velocity.x, velocity.y), androidx.compose.animation.core.spring(dampingRatio = 0.72f, stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)) { v, _ -> drag = v }
+        }
+    }
+    val closeLatest by androidx.compose.runtime.rememberUpdatedState<(Velocity) -> Unit> { closeNow(it) }
+    // Back (button or gesture) closes the same way, back into the tile.
+    androidx.activity.compose.BackHandler { closeLatest(Velocity.Zero) }
+    val backdropAlpha = { openT * (1f - (progress() * 1.8f).coerceAtMost(1f)) }
 
     Box(
         Modifier.fillMaxSize()
-            .graphicsLayer { alpha = appear.value }
-            .background(Color.Black.copy(alpha = 1f - back.value * 0.6f)),
+            .onGloballyPositioned { origin = it.positionInRoot() }
+            .drawBehind { drawRect(Color.Black, alpha = backdropAlpha()) },
     ) {
-        // Swipe the photo down to put it away, as in the phone's gallery.
-        val drop = remember { Animatable(0f) }
+        val tracker = remember { androidx.compose.ui.input.pointer.util.VelocityTracker() }
         HorizontalPager(pager, Modifier.fillMaxSize()
+            .onGloballyPositioned { areaHeight = it.size.height.toFloat().coerceAtLeast(1f); pagerRect = it.boundsInRoot() }
             .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragEnd = { scope.launch { if (drop.value > 220f) { appear.animateTo(0f, androidx.compose.animation.core.tween(160)); onClose() } else drop.animateTo(0f) } },
-                    onDragCancel = { scope.launch { drop.animateTo(0f) } },
-                ) { change, amount -> change.consume(); scope.launch { drop.snapTo((drop.value + amount).coerceAtLeast(0f)) } }
+                // A drag that starts downward (more down than sideways) moves the photo; sideways stays the pager's.
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    tracker.resetTracking()
+                    var dragging = false
+                    var travelled = Offset.Zero
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.changes.size > 1) return@awaitEachGesture
+                        val change = event.changes.first()
+                        if (!change.pressed) break
+                        val delta = change.positionChange()
+                        tracker.addPosition(change.uptimeMillis, change.position)
+                        if (!dragging) {
+                            travelled += delta
+                            if (travelled.getDistance() > viewConfiguration.touchSlop) {
+                                if (travelled.y > 0f && kotlin.math.abs(travelled.y) > kotlin.math.abs(travelled.x)) dragging = true else return@awaitEachGesture
+                            }
+                        } else {
+                            change.consume()
+                            drag += delta
+                        }
+                    }
+                    if (!dragging) return@awaitEachGesture
+                    val v = tracker.calculateVelocity()
+                    if (drag.y > areaHeight * CLOSE_AT || (v.y > 1800f && drag.y > 40f)) closeLatest(v) else springBack(v)
+                }
             }
             .graphicsLayer {
-                val k = 1f - back.value * 0.12f - (drop.value / size.height).coerceIn(0f, 1f) * 0.25f
-                scaleX = k * (0.94f + 0.06f * appear.value); scaleY = scaleX
-                translationY = drop.value
+                alpha = if (hero != null) 0f else 1f - closeFade
+                val scale = 1f - (1f - MIN_DRAG_SCALE) * progress()
+                translationX = drag.x; translationY = drag.y; scaleX = scale; scaleY = scale
             }) { page ->
             ViewerPhoto(photos[page], onHdr = { if (page == pager.currentPage) hdr = it }, onTap = { chrome = !chrome })
         }
         // Which day and where, and how far through the trip's photos.
-        val shown by animateFloatAsState(if (chrome) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "chrome")
+        val chromeOn by animateFloatAsState(if (chrome) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "chrome")
+        // The bars come in once the photo is nearly in place and go early while it is dragged away.
+        val shown = chromeOn * ((openT - 0.5f) * 2f).coerceIn(0f, 1f) * (1f - (progress() * 5f).coerceAtMost(1f))
         Column(Modifier.fillMaxWidth().graphicsLayer { alpha = shown }.background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent)))) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.16f))
-                        .pointerInput(Unit) { detectTapGestures { scope.launch { appear.animateTo(0f, androidx.compose.animation.core.tween(180)); onClose() } } },
+                        .pointerInput(Unit) { detectTapGestures { closeLatest(Velocity.Zero) } },
                     contentAlignment = Alignment.Center,
                 ) { LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), Color.White, size = 22.dp, stroke = 2.2f) }
                 val m = photos[pager.currentPage]
@@ -203,6 +319,25 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, start: Int, onClose: () -> Unit
                     comments = comments - c
                     scope.launch { runCatching { Remote.deleteComment(trip, c.id) }.onFailure { comments = before } }
                 },
+            )
+        }
+        hero?.let { h ->
+            // The photo grows or shrinks between its tile and its place, cropping itself to the tile's shape.
+            val image = remember(h) { h.bitmap.asImageBitmap() }
+            Image(
+                image, null, contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+                    .layout { measurable, constraints ->
+                        val r = androidx.compose.ui.geometry.lerp(h.from, h.to, heroT)
+                        val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(r.width.roundToInt().coerceAtLeast(1), r.height.roundToInt().coerceAtLeast(1)))
+                        layout(constraints.maxWidth, constraints.maxHeight) { placeable.place((r.left - origin.x).roundToInt(), (r.top - origin.y).roundToInt()) }
+                    }
+                    .graphicsLayer {
+                        val corner = 14.dp.toPx()
+                        // Round like the tile at the tile's end of the flight, square full screen.
+                        val k = if (closing) heroT else 1f - heroT
+                        shape = RoundedCornerShape(corner * k); clip = true
+                    },
             )
         }
     }

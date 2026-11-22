@@ -94,6 +94,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
     }
     var viewing by remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
     var people by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val tiles = remember(base.id) { TileBounds() }
+    var openPhoto by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var menu by remember { androidx.compose.runtime.mutableStateOf(false) }
     val media by androidx.compose.runtime.produceState<List<Media>?>(null, base.id, Data.version) {
         if (base.remoteId != null) value = runCatching { Remote.media(base) }.getOrNull() ?: emptyList()
@@ -153,7 +155,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
                 }
 
                 Column(Modifier.padding(top = 16.dp).animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec())) {
-                    if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.filter { !it.video }?.indexOf(m)?.takeIf { it >= 0 } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                    if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.filter { !it.video }?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
                 }
                 Spacer(Modifier.height(24.dp))
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -186,7 +188,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
         // A tapped photo opens full screen over everything, the toolbar included.
         viewing?.let { start ->
             val photos = media.orEmpty().filter { !it.video }
-            if (photos.isNotEmpty()) PhotoViewer(trip, photos, start.coerceIn(0, photos.lastIndex), onClose = { viewing = null })
+            if (photos.isNotEmpty()) PhotoViewer(trip, photos, start.coerceIn(0, photos.lastIndex), bounds = tiles, onCurrent = { openPhoto = it }, onClose = { viewing = null })
         }
     }
 }

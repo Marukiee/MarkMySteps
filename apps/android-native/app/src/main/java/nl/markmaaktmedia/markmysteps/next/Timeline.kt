@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,8 +71,8 @@ private fun daysOf(trip: Trip): List<Day> {
 }
 
 @Composable
-fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Media) -> Unit = {}) {
-    if (media != null) { LiveTimeline(trip, media, onPhoto); return }
+fun Timeline(trip: Trip, dark: Boolean, media: List<Media>? = null, onPhoto: (Media) -> Unit = {}, bounds: TileBounds? = null, hidden: String? = null) {
+    if (media != null) { LiveTimeline(trip, media, onPhoto, bounds, hidden); return }
     if (trip.remoteId != null) { TimelinePlaceholder(); return }
     val cs = MaterialTheme.colorScheme
     val scenes = Scene.entries
@@ -202,7 +203,7 @@ private fun Photo(scene: Scene, modifier: Modifier) {
 
 /** For a trip from the server: the real photos, day by day, laid out by their own shape. */
 @Composable
-private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Unit) {
+private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Unit, bounds: TileBounds?, hidden: String?) {
     val cs = MaterialTheme.colorScheme
     val photos = media.filter { !it.video }
     fun stopOn(date: LocalDate): Stop? = trip.stops.lastOrNull { s -> s.start != null && !s.start.isAfter(date) } ?: trip.stops.firstOrNull()
@@ -286,7 +287,13 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                 justified(shown).forEach { row ->
                     val ratio = row.sumOf { it.ratio.toDouble() }.toFloat().coerceAtLeast(0.8f)
                     Row(Modifier.fillMaxWidth().aspectRatio(ratio), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        row.forEach { m -> RemotePhoto(m.id, Modifier.weight(m.ratio).fillMaxSize().clip(RoundedCornerShape(14.dp)).clickable { onPhoto(m) }) }
+                        row.forEach { m ->
+                            // Each photo tells the viewer where it is; the one open in the viewer leaves its place empty.
+                            RemotePhoto(m.id, Modifier.weight(m.ratio).fillMaxSize()
+                                .onGloballyPositioned { bounds?.tiles?.set(m.id, it) }
+                                .graphicsLayer { alpha = if (m.id == hidden) 0f else 1f }
+                                .clip(RoundedCornerShape(14.dp)).clickable { onPhoto(m) })
+                        }
                     }
                 }
                 if (list.size > 12) {
