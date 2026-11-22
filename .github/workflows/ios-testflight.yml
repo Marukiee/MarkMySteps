@@ -8,7 +8,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/web/**'
+      - 'apps/ios-native/**'
       - '.github/workflows/ios-testflight.yml'
   workflow_dispatch:
 
@@ -59,24 +59,6 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      # Version comes from "packageManager" in package.json
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build web app
-        run: pnpm --filter @markmysteps/web build
-
-      - name: Sync Capacitor
-        working-directory: apps/web
-        run: pnpm exec cap sync ios
-
       # The key may be pasted as the .p8 file's text or as base64 of it.
       - name: App Store Connect key
         env:
@@ -94,16 +76,19 @@ jobs:
       # while archiving wants a development profile, and that needs a
       # registered iPhone, which a team without one does not have.
       - name: Archive
-        working-directory: apps/web/ios/App
+        # The native SwiftUI app replaces the old web-wrapper app: same bundle id, version 2.0.
+        working-directory: apps/ios-native
         run: |
           xcodebuild archive \
-            -project App.xcodeproj \
-            -scheme App \
+            -project MarkMySteps.xcodeproj \
+            -scheme MarkMySteps \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             CODE_SIGNING_ALLOWED=NO \
-            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            MARKETING_VERSION=2.0 \
+            PRODUCT_BUNDLE_IDENTIFIER=nl.markmaaktmedia.markmysteps
 
       # Signing is managed by Xcode with the API key (cloud signing): no
       # certificates or profiles to keep in secrets.
