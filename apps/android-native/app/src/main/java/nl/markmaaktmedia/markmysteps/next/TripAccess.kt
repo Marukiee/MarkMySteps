@@ -120,7 +120,6 @@ fun TripAccessPage(tripId: String, onBack: () -> Unit, onOpenTrip: (String) -> U
             .onSuccess { p -> if (p.status == "MEMBER") onOpenTrip(p.tripId) else preview = p }
             .onFailure { gone = true }
     }
-    androidx.activity.compose.BackHandler(onBack = onBack)
     Column(Modifier.fillMaxSize().background(cs.background).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Box(Modifier.padding(top = 8.dp).size(48.dp).clip(CircleShape).background(cs.surfaceContainerHigh).clickable { haptics(Haptic.Tap); onBack() }, contentAlignment = Alignment.Center) {
@@ -237,7 +236,6 @@ fun ShareLinkPage(slug: String, url: String, onBack: () -> Unit, onOpenTrip: (St
         val title = info?.first ?: return@LaunchedEffect
         Data.all.firstOrNull { it.remoteId != null && it.title == title }?.let { onOpenTrip(it.id) }
     }
-    androidx.activity.compose.BackHandler(onBack = onBack)
     Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Box(Modifier.padding(top = 8.dp).size(48.dp).clip(CircleShape).background(cs.surfaceContainerHigh).clickable { haptics(Haptic.Tap); onBack() }, contentAlignment = Alignment.Center) {
@@ -265,11 +263,14 @@ fun ShareLinkPage(slug: String, url: String, onBack: () -> Unit, onOpenTrip: (St
 
 /** Opens a page in a browser, never back in this app (which answers these links itself). */
 fun openOutside(context: android.content.Context, url: String) {
-    val view = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url)).addCategory(android.content.Intent.CATEGORY_BROWSABLE)
-    val pm = context.packageManager
-    val browser = pm.queryIntentActivities(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse("https://example.org")), 0)
-        .firstOrNull { it.activityInfo.packageName != context.packageName }?.activityInfo?.packageName
-    runCatching { context.startActivity(view.apply { if (browser != null) setPackage(browser) }) }
+    // Through the browser app itself (the selector), so a verified link can never come back here.
+    val view = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url)).addCategory(android.content.Intent.CATEGORY_BROWSABLE).apply {
+        selector = android.content.Intent.makeMainSelectorActivity(android.content.Intent.ACTION_MAIN, android.content.Intent.CATEGORY_APP_BROWSER)
+    }
+    runCatching { context.startActivity(view) }.onFailure {
+        // No app marks itself as the browser: the plain link, which this app only answers when it is verified.
+        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url))) }
+    }
 }
 
 /**
