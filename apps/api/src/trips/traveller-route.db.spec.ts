@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { travellerLines } from './trips.service';
+import { travellerDistances, travellerLines } from './traveller-route';
 
 /**
  * The grouped query itself, on a real PostGIS.
@@ -30,12 +30,15 @@ maybe('travellerLines on PostGIS', () => {
   });
   afterAll(() => prisma.$disconnect());
 
+  type Point = { trip: string; user: string; at: string; lng: number; lat: number };
+
   /** Seeds points, asks the query, and throws everything away again. */
-  async function run(
-    points: { trip: string; user: string; at: string; lng: number; lat: number }[],
-    tripIds: string[],
-  ) {
-    let result: Awaited<ReturnType<typeof travellerLines>> | undefined;
+  function run(points: Point[], tripIds: string[]) {
+    return seeded(points, (tx) => travellerLines(tx, tripIds));
+  }
+
+  async function seeded<T>(points: Point[], ask: (tx: PrismaClient) => Promise<T>): Promise<T> {
+    let result: T | undefined;
     await prisma
       .$transaction(async (tx) => {
         await tx.$executeRawUnsafe('CREATE SCHEMA mms_route_test');
@@ -55,7 +58,7 @@ maybe('travellerLines on PostGIS', () => {
             INSERT INTO location_points ("tripId", "userId", "recordedAt", latitude, longitude)
             VALUES (${p.trip}::uuid, ${p.user}::uuid, ${new Date(p.at)}, ${p.lat}, ${p.lng})`;
         }
-        result = await travellerLines(tx, tripIds);
+        result = await ask(tx as unknown as PrismaClient);
         throw new Rollback();
       })
       .catch((e: unknown) => {
@@ -87,6 +90,8 @@ maybe('travellerLines on PostGIS', () => {
     // In the order it was recorded.
     expect(byUser.get(OWNER)!.line[0]).toEqual([-7.99, 31.63]);
     expect(byUser.get(MATE)!.line.at(-1)).toEqual([-3.7, 40.42]);
+    // And how many points each recorded, for picking the busiest recorder.
+    expect(byUser.get(OWNER)!.points).toBe(3);
   });
 
   it('measures each traveller on their own recording', async () => {
@@ -112,5 +117,24 @@ maybe('travellerLines on PostGIS', () => {
       [TRIP],
     );
     expect((byTrip.get(TRIP) ?? []).map((l) => l.userId)).toEqual([OWNER]);
+  });
+
+  it('measures each traveller apart for the stats, within the days asked for', async () => {
+    const all = await seeded(afrikatrip, (tx) => travellerDistances(tx, TRIP));
+    const owner = all.find((t) => t.userId === OWNER)!;
+    expect(all.map((t) => t.userId).sort()).toEqual([OWNER, MATE]);
+    expect(owner.points).toBe(3);
+    expect(owner.meters / 1000).toBeGreaterThan(250);
+    expect(owner.meters / 1000).toBeLessThan(400);
+
+    // Only the morning: the organiser's first two points, the companion's one,
+    // which is no distance at all and is left out.
+    const morning = await seeded(afrikatrip, (tx) =>
+      travellerDistances(tx, TRIP, {
+        from: new Date('2026-03-05T00:00:00Z'),
+        until: new Date('2026-03-05T10:30:00Z'),
+      }),
+    );
+    expect(morning.map((t) => [t.userId, t.points])).toEqual([[OWNER, 2]]);
   });
 });

@@ -11,6 +11,7 @@ import { revokeAllSessions } from '../auth/sessions';
 import { coded } from '../common/i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import { addDays, type FlightEnd, isoDay, LEG_NAMES, PLAN_STOP_SELECT, planTrip } from '../trips/trip-schedule';
+import { pickTraveller, travellerDistances } from '../trips/traveller-route';
 import { USERNAME_PATTERN } from './dto/profile.dto';
 
 export interface PublicUser {
@@ -324,6 +325,7 @@ export class UsersService {
         startDate: true,
         endDate: true,
         color: true,
+        ownerId: true,
         members: { where: { userId: targetId }, select: { fromDate: true, toDate: true } },
         stops: { select: PLAN_STOP_SELECT },
       },
@@ -413,13 +415,16 @@ export class UsersService {
       const tripStart = km;
       km += plan.extras.filter((e) => inside(e.day)).reduce((sum, e) => sum + e.km, 0);
 
-      const [tracked] = await this.prisma.$queryRaw<{ meters: number | null }[]>`
-        SELECT ST_Length(ST_MakeLine(geom ORDER BY "recordedAt")::geography) AS meters
-        FROM location_points
-        WHERE "tripId" = ${trip.id}::uuid
-          AND "recordedAt" >= ${new Date(`${from}T00:00:00Z`)}
-          AND "recordedAt" < ${new Date(`${addDays(to, 1)}T00:00:00Z`)}
-      `;
+      // One recording, not everyone's added up: their own, else the
+      // organiser's, else whoever recorded most (see traveller-route.ts).
+      const tracked = pickTraveller(
+        await travellerDistances(this.prisma, trip.id, {
+          from: new Date(`${from}T00:00:00Z`),
+          until: new Date(`${addDays(to, 1)}T00:00:00Z`),
+        }),
+        trip.ownerId,
+        targetId,
+      );
       km += (tracked?.meters ?? 0) / 1000;
       // Often one person takes the pictures for everyone.
       const photos = await this.prisma.mediaRef.count({
