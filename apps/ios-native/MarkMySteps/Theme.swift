@@ -142,11 +142,13 @@ struct CompassSpinner: View {
 struct Arrive: ViewModifier {
     let order: Int
     @State private var shown = Launch.shot
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
             .opacity(shown ? 1 : 0)
-            .offset(y: shown ? 0 : 14)
+            // Under Reduce Motion only the fade, no travel.
+            .offset(y: shown || reduceMotion ? 0 : 14)
             .onAppear {
                 guard !shown else { return }
                 withAnimation(.smooth(duration: 0.45).delay(Double(order) * 0.04)) { shown = true }

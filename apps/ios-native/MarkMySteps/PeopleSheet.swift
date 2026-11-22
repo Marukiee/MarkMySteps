@@ -178,6 +178,7 @@ struct PeopleSheet: View {
             .scrollContentBackground(.hidden)
             .background(Brand.paper)
             .navigationTitle("Mensen en delen")
+            .animation(.calm, value: error)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() }.tint(.primary) }

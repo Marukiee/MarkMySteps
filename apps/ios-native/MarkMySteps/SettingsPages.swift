@@ -141,6 +141,7 @@ struct ServicesPage: View {
             .listRowBackground(Brand.raised)
         }
         .settingsPage("Diensten")
+        .animation(.calm, value: note?.0)
         .alert("Andere server gebruiken?", isPresented: Binding(get: { confirmServer != nil }, set: { if !$0 { confirmServer = nil } })) {
             Button("Annuleren", role: .cancel) {}
             Button("Wisselen", role: .destructive) { switchServer() }
@@ -331,6 +332,11 @@ struct DataPage: View {
             .listRowBackground(Brand.raised)
         }
         .settingsPage("Gegevens")
+        // Results and the progress bar come and go with the rows instead of popping.
+        .animation(.calm, value: backupNote?.0)
+        .animation(.calm, value: polarNote?.0)
+        .animation(.calm, value: trackNote?.0)
+        .animation(.calm, value: busy)
         .fileExporter(isPresented: $showExport, document: exportFile, contentType: exportType, defaultFilename: exportName) { result in
             if case .success = result { trackNote = trackNote ?? nil }
             exportFile = nil
@@ -725,6 +731,7 @@ struct AdminAccountsPage: View {
             .listRowBackground(Brand.raised)
         }
         .settingsPage("Accounts")
+        .animation(.calm, value: note?.0)
         .refreshable { await load() }
         .task { await load() }
         .alert(askTitle, isPresented: Binding(get: { ask != nil }, set: { if !$0 { ask = nil } })) {

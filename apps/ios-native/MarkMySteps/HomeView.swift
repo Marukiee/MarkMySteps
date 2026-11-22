@@ -343,6 +343,7 @@ struct SectionTitle: View {
 struct OngoingPill: View {
     var text = "onderweg"
     @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 6) {
@@ -360,7 +361,7 @@ struct OngoingPill: View {
         .padding(.vertical, 6)
         .background(.white.opacity(0.94), in: .capsule)
         .onAppear {
-            guard !Launch.shot else { return }
+            guard !Launch.shot, !reduceMotion else { return }
             withAnimation(.easeOut(duration: 1.8).repeatForever(autoreverses: false)) { pulse = true }
         }
     }

@@ -62,6 +62,9 @@ struct AccountPage: View {
         .background(Brand.paper)
         .navigationTitle("Account")
         .navigationBarTitleDisplayMode(.large)
+        // A saved or failed note under a section slides in and out instead of popping.
+        .animation(.calm, value: profileNote?.0)
+        .animation(.calm, value: passwordNote?.0)
         .confirmationDialog("Uitloggen van \(Api.shared.host)?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Uitloggen", role: .destructive, action: onSignIn)
         } message: { Text("Je reizen blijven op de server. Daarna zie je de voorbeelden.") }
@@ -411,6 +414,7 @@ private struct TwoFactorSheet: View {
             .scrollContentBackground(.hidden)
             .background(Brand.paper)
             .navigationTitle(flow == .enable ? "Tweestaps aanzetten" : flow == .disable ? "Tweestaps uitzetten" : "Nieuwe herstelcodes")
+            .animation(.calm, value: error)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
