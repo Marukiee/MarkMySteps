@@ -144,14 +144,19 @@ fun TripExtras(trip: Trip, dark: Boolean, open: String?, onClose: () -> Unit) {
 @OptIn(ExperimentalSharedTransitionApi::class)
 private val LocalPosterShared = compositionLocalOf<Pair<SharedTransitionScope, AnimatedVisibilityScope>?> { null }
 
+/**
+ * Moves with the same key across templates, drawn where it is (not in the overlay above the page, where no
+ * clip holds and a full-bleed photo would cover the words): the poster's rounded corners and a photo's own
+ * (clipped inside, PosterPhoto) stay for the whole move.
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 private fun Modifier.posterShared(key: String): Modifier = composed {
     val pair = LocalPosterShared.current ?: return@composed this
     with(pair.first) {
-        this@composed.sharedBounds(
-            rememberSharedContentState(key), pair.second,
-            boundsTransform = { _, _ -> androidx.compose.animation.core.spring(0.8f, 380f) },
-        )
+        val state = rememberSharedContentState(key)
+        val move: androidx.compose.animation.BoundsTransform = androidx.compose.animation.BoundsTransform { _, _ -> androidx.compose.animation.core.spring(0.8f, 380f) }
+        // Drawn in its place, not above the page: inside the poster's rounded clip, under the words over it.
+        this@composed.sharedBounds(state, pair.second, boundsTransform = move, renderInOverlayDuringTransition = false)
     }
 }
 
@@ -271,8 +276,9 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit, exportAll: Bool
                             AnimatedContent(
                                 Triple(pt, format, pd),
                                 transitionSpec = {
-                                    (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.97f)) togetherWith
-                                        fadeOut(motion.fastEffectsSpec())
+                                    // No clip while the size changes: it would cut the poster's rounded corners straight.
+                                    ((fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.97f)) togetherWith
+                                        fadeOut(motion.fastEffectsSpec())) using androidx.compose.animation.SizeTransform(clip = false)
                                 },
                                 contentKey = { it.first to it.second },
                                 label = "poster",
@@ -492,11 +498,11 @@ fun Poster(template: Template, format: Format, data: PosterData) {
 }
 
 @Composable
-private fun PosterPhoto(r: Rated, modifier: Modifier) {
+private fun PosterPhoto(r: Rated, modifier: Modifier, shape: androidx.compose.ui.graphics.Shape = androidx.compose.ui.graphics.RectangleShape) {
     // A photo swapped by hand shows in its place; a tap swaps it for the next one (SummaryExtras.kt).
     val (over, swap) = LocalPosterSwap.current
     val shown = over[r.photo.id] ?: r
-    PhotoView(shown.photo, modifier.posterShared("s-${r.photo.id}").then(if (swap != null) Modifier.clickable { swap(r) } else Modifier), placeholder = Color(shown.look.average))
+    PhotoView(shown.photo, modifier.posterShared("s-${r.photo.id}").clip(shape).then(if (swap != null) Modifier.clickable { swap(r) } else Modifier), placeholder = Color(shown.look.average))
 }
 
 private fun monthLabel(trip: Trip) = "${DateText.longMonth(trip.month)} ${trip.year}"
@@ -580,7 +586,7 @@ private fun RoutePoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
         BoxWithConstraints(Modifier.padding(top = u * 0.05f).fillMaxWidth().weight(1f).clip(RoundedCornerShape(u * 0.05f))) {
             val card = format != Format.Square
             // The route fills the part of the panel beside the card of stops.
-            TripMap(data.trip, data.dark, Modifier.fillMaxSize(), fill = 0.8f, frameW = if (card) 0.6f else 1f, shiftX = if (card) 0.2f else 0f)
+            TripMap(data.trip, data.dark, Modifier.fillMaxSize(), fill = 0.8f, frameW = if (card) 0.6f else 1f, shiftX = if (card) 0.2f else 0f, borders = true)
             if (card) Column(
                 Modifier.padding(u * 0.03f).clip(RoundedCornerShape(u * 0.035f)).background(ink.bg.copy(alpha = 0.88f)).padding(horizontal = u * 0.035f, vertical = u * 0.025f),
                 verticalArrangement = Arrangement.spacedBy(u * 0.012f),
@@ -601,7 +607,7 @@ private fun RoutePoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
             val weights = photos.map { it.aspect.coerceIn(0.7f, 1.5f) }
             val h = (u - m * 2 - u * 0.02f * (photos.size - 1)) / weights.sum()
             Row(Modifier.padding(top = u * 0.03f).fillMaxWidth().height(h), horizontalArrangement = Arrangement.spacedBy(u * 0.02f)) {
-                photos.forEachIndexed { i, r -> PosterPhoto(r, Modifier.weight(weights[i]).fillMaxHeight().clip(RoundedCornerShape(u * 0.03f))) }
+                photos.forEachIndexed { i, r -> PosterPhoto(r, Modifier.weight(weights[i]).fillMaxHeight(), RoundedCornerShape(u * 0.03f)) }
             }
         }
     }
@@ -679,7 +685,7 @@ private fun RibbonPoster(data: PosterData, format: Format, u: Dp, ink: Ink) {
                     Row(horizontalArrangement = Arrangement.spacedBy(u * 0.025f)) {
                         row.forEach { (i, r) ->
                             Column(Modifier.weight(1f)) {
-                                PosterPhoto(r, Modifier.fillMaxWidth().aspectRatio(if (grid) 1.25f else if (format == Format.Square) 1.15f else 0.8f).clip(RoundedCornerShape(u * 0.03f)))
+                                PosterPhoto(r, Modifier.fillMaxWidth().aspectRatio(if (grid) 1.25f else if (format == Format.Square) 1.15f else 0.8f), RoundedCornerShape(u * 0.03f))
                                 Row(Modifier.padding(top = u * 0.015f), verticalAlignment = Alignment.CenterVertically) {
                                     StopBadge(i, data.accent, u * 0.04f)
                                     Text(data.trip.stops[i].name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = (u * 0.028f).sp(), color = ink.text), modifier = Modifier.padding(start = u * 0.015f))
@@ -699,14 +705,16 @@ private fun StatsPoster(data: PosterData, format: Format, u: Dp) {
     val hero = data.picked.cover ?: data.picked.highlights.firstOrNull()
     // A square has less height: smaller numbers and title, so the flags still fit.
     val k = if (format == Format.Square) 0.78f else 1f
+    // A square starts its words higher: the dark comes in earlier.
+    val g = if (format == Format.Square) 0.72f else 1f
     Box(Modifier.fillMaxSize()) {
         if (hero != null) PosterPhoto(hero, Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x73000000), 0.22f to Color(0x10000000), 0.42f to Color(0x66000000), 0.7f to Color(0xB3000000), 1f to Color(0xEB000000))))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x73000000), 0.22f * g to Color(0x10000000), 0.42f * g to Color(0x66000000), 0.7f * g to Color(0xB3000000), 1f to Color(0xEB000000))))
         Column(Modifier.fillMaxSize().padding(u * 0.065f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (data.logo) {
-                    LineIcon(Glyphs.logo, Color.White, size = u * 0.05f, stroke = 2.2f)
-                    Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.032f).sp(), color = Color.White), modifier = Modifier.padding(start = u * 0.015f))
+                    LineIcon(Glyphs.logo, Color.White, size = u * 0.075f, stroke = 2.2f)
+                    Text("MarkMySteps", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.05f).sp(), color = Color.White), modifier = Modifier.padding(start = u * 0.02f))
                 }
                 Spacer(Modifier.weight(1f))
                 Box(Modifier.size(u * 0.2f).clip(CircleShape)) {
@@ -718,20 +726,33 @@ private fun StatsPoster(data: PosterData, format: Format, u: Dp) {
                 data.trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 style = TextStyle(fontFamily = Fraunces, fontWeight = FontWeight(600), fontSize = (u * 0.1f * k).sp(), lineHeight = (u * 0.105f * k).sp(), color = Color.White),
             )
-            Text(data.trip.dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.034f).sp(), color = Color.White.copy(alpha = 0.85f)), modifier = Modifier.padding(top = u * 0.01f, bottom = u * 0.05f * k))
+            // The flags go with the countries: beside "landen" when there are more, before the dates when there is one.
+            val flags = data.trip.stops.map { it.flag }.distinct()
+            val countriesLabel = Lang.text(R.string.summary_fact_countries)
+            val flagsInFacts = flags.size > 1 && data.facts.any { it.second == countriesLabel }
+            Row(Modifier.padding(top = u * 0.01f, bottom = u * 0.05f * k), verticalAlignment = Alignment.CenterVertically) {
+                if (flags.size == 1) FlagIcon(flags[0], u * 0.034f, Modifier.padding(end = u * 0.015f))
+                Text(data.trip.dates, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = (u * 0.034f).sp(), color = Color.White.copy(alpha = 0.85f)))
+            }
             data.facts.chunked(2).forEach { pair ->
                 Row(Modifier.fillMaxWidth().padding(bottom = u * 0.035f * k)) {
                     pair.forEach { (v, l) ->
                         Column(Modifier.weight(1f)) {
-                            Text(v, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.12f * k).sp(), lineHeight = (u * 0.12f * k).sp(), letterSpacing = (-0.03).em, color = Color.White))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(v, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(700), fontSize = (u * 0.12f * k).sp(), lineHeight = (u * 0.12f * k).sp(), letterSpacing = (-0.03).em, color = Color.White))
+                                if (flagsInFacts && l == countriesLabel) Row(Modifier.padding(start = u * 0.03f), horizontalArrangement = Arrangement.spacedBy(u * 0.015f)) {
+                                    flags.take(4).forEach { FlagIcon(it, u * 0.05f * k) }
+                                }
+                            }
                             Text(l.uppercase(), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(650), fontSize = (u * 0.028f).sp(), letterSpacing = 0.08.em, color = data.accent.copy(alpha = 1f)))
                         }
                     }
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(u * 0.025f)) {
-                data.trip.stops.map { it.flag }.distinct().forEach { FlagIcon(it, u * 0.055f) }
+            // Many countries without a "landen" number: the flags still show, at the foot.
+            if (flags.size > 1 && !flagsInFacts) Row(horizontalArrangement = Arrangement.spacedBy(u * 0.025f)) {
+                flags.forEach { FlagIcon(it, u * 0.055f) }
             }
         }
     }

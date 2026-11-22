@@ -114,36 +114,55 @@ private val landCache = HashMap<String, List<LandRing>>()
 private fun land(context: Context, file: String): List<LandRing> = landCache.getOrPut(file) {
     val text = context.assets.open(file).bufferedReader().use { it.readText() }
     val rings = JSONArray(text)
-    List(rings.length()) { i ->
-        val ring = rings.getJSONArray(i)
-        val flat = DoubleArray(ring.length() * 2)
-        var x = 0.0
-        var y = 0.0
-        var z = 0.0
-        for (j in 0 until ring.length()) {
-            val p = ring.getJSONArray(j)
-            flat[j * 2] = p.getDouble(0)
-            flat[j * 2 + 1] = p.getDouble(1)
-            val la = flat[j * 2 + 1] * RAD
-            val lo = flat[j * 2] * RAD
-            x += cos(la) * cos(lo)
-            y += cos(la) * sin(lo)
-            z += sin(la)
+    List(rings.length()) { i -> landRing(rings.getJSONArray(i)) }
+}
+
+/**
+ * Every country as its own rings (countries110.json), for a map that shows the
+ * borders: filled like the land, outlined with a hairline, coast and borders
+ * from the same set so they meet.
+ */
+private fun countryRings(context: Context): List<LandRing> = landCache.getOrPut("countries110.json") {
+    val all = JSONArray(context.assets.open("countries110.json").bufferedReader().use { it.readText() })
+    buildList {
+        for (c in 0 until all.length()) {
+            val polys = all.getJSONObject(c).getJSONArray("p")
+            for (p in 0 until polys.length()) {
+                val poly = polys.getJSONArray(p)
+                for (r in 0 until poly.length()) add(landRing(poly.getJSONArray(r)))
+            }
         }
-        val len = sqrt(x * x + y * y + z * z).takeIf { it > 0 } ?: 1.0
-        x /= len
-        y /= len
-        z /= len
-        var reach = 0.0
-        for (j in 0 until ring.length()) {
-            val la = flat[j * 2 + 1] * RAD
-            val lo = flat[j * 2] * RAD
-            val d = cos(la) * cos(lo) * x + cos(la) * sin(lo) * y + sin(la) * z
-            reach = max(reach, acos(d.coerceIn(-1.0, 1.0)))
-        }
-        // Visible when some of it is within 90 degrees of the centre, two spare.
-        LandRing(flat, x, y, z, -sin(reach + 0.035))
     }
+}
+
+private fun landRing(ring: JSONArray): LandRing {
+    val flat = DoubleArray(ring.length() * 2)
+    var x = 0.0
+    var y = 0.0
+    var z = 0.0
+    for (j in 0 until ring.length()) {
+        val p = ring.getJSONArray(j)
+        flat[j * 2] = p.getDouble(0)
+        flat[j * 2 + 1] = p.getDouble(1)
+        val la = flat[j * 2 + 1] * RAD
+        val lo = flat[j * 2] * RAD
+        x += cos(la) * cos(lo)
+        y += cos(la) * sin(lo)
+        z += sin(la)
+    }
+    val len = sqrt(x * x + y * y + z * z).takeIf { it > 0 } ?: 1.0
+    x /= len
+    y /= len
+    z /= len
+    var reach = 0.0
+    for (j in 0 until ring.length()) {
+        val la = flat[j * 2 + 1] * RAD
+        val lo = flat[j * 2] * RAD
+        val d = cos(la) * cos(lo) * x + cos(la) * sin(lo) * y + sin(la) * z
+        reach = max(reach, acos(d.coerceIn(-1.0, 1.0)))
+    }
+    // Visible when some of it is within 90 degrees of the centre, two spare.
+    return LandRing(flat, x, y, z, -sin(reach + 0.035))
 }
 
 private const val RAD = PI / 180.0
@@ -298,6 +317,8 @@ data class GlobeStyle(
     val dark: Boolean,
     /** Route width in dp (1.9 on the web). */
     val routeWidth: Float = 1.9f,
+    /** Country borders as hairlines in this colour (a map that says where you are), or none. */
+    val borders: Color? = null,
 )
 
 private data class Place(val at: LonLat, val members: MutableList<Trip>)
@@ -491,7 +512,7 @@ fun Globe(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
-    val rings = remember(zoom) { land(context, if (zoom > 2f) "land50.json" else "land110.json") }
+    val rings = remember(zoom, style.borders != null) { if (style.borders != null) countryRings(context) else land(context, if (zoom > 2f) "land50.json" else "land110.json") }
     val scene = remember(trips, style.dark) { buildScene(trips, style.dark) }
     val pens = remember(density, style.routeWidth) { Pens(density, style.routeWidth) }
     val proj = remember { Ortho() }
@@ -519,6 +540,7 @@ fun Globe(
         clipRect {
             drawCircle(style.sphere, radius, Offset(proj.cx, proj.cy))
             drawLand(rings, proj, style.land, pens)
+            style.borders?.let { drawPath(pens.land, it, style = Stroke(0.8f * density, join = StrokeJoin.Round)) }
             drawScene(scene, proj, style, pens, showStops, null)
         }
     }

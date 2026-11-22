@@ -535,11 +535,14 @@ fun fitFrame(trip: Trip, w: Float, h: Float, side: Float, fill: Float): Triple<D
 fun TripMap(
     trip: Trip, dark: Boolean, modifier: Modifier, fill: Float = 0.8f, routeWidth: Float = 2.4f,
     frameW: Float = 1f, frameH: Float = 1f, shiftX: Float = 0f, shiftY: Float = 0f, stops: Boolean = true,
+    /** Country borders, so you see where you are (the route map); the ribbon keeps the land plain. */
+    borders: Boolean = false,
 ) {
     BoxWithConstraints(modifier) {
         val w = maxWidth.value; val h = maxHeight.value
         val (lon, lat, zoom) = remember(trip, w, h, frameW, frameH, fill) { fitFrame(trip, w * frameW, h * frameH, min(w, h), fill) }
-        Globe(listOf(trip), globeStyle(dark, routeWidth), Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = zoom, showStops = stops, turnable = false, shiftX = shiftX, shiftY = shiftY)
+        val style = globeStyle(dark, routeWidth).let { if (borders) it.copy(borders = if (dark) Color(0xFF4A5461) else Color(0xFFC4B69D)) else it }
+        Globe(listOf(trip), style, Modifier.fillMaxSize(), centerLon = lon, centerLat = lat, zoom = zoom, showStops = stops, turnable = false, shiftX = shiftX, shiftY = shiftY)
     }
 }
 
@@ -580,7 +583,7 @@ private fun RouteSheet(ctx: BookContext, u: Dp) {
             modifier = Modifier.padding(top = u * 0.008f),
         )
         Box(Modifier.padding(top = u * 0.04f).fillMaxWidth().weight(1f).clip(RoundedCornerShape(u * 0.04f)).background(globeStyle(ctx.dark).sphere)) {
-            TripMap(ctx.trip, ctx.dark, Modifier.fillMaxSize(), fill = 0.78f)
+            TripMap(ctx.trip, ctx.dark, Modifier.fillMaxSize(), fill = 0.78f, borders = true)
         }
         val stops = ctx.trip.stops
         val twoCols = stops.size > 3
