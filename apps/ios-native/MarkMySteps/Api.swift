@@ -68,7 +68,11 @@ final class Api {
     private var access: String?
     private var refresh: String?
     /// One refresh at a time, however many requests found their token expired.
-    private var renewing: Task<Bool, Never>?
+    private var renewing: Task<Renewal, Never>?
+
+    /// How a token refresh went. Only a refresh the server turns down ends the session; no network (a train,
+    /// a tunnel, a timeout) keeps the tokens and the last trips, so nobody is ever signed out by a bad connection.
+    private enum Renewal { case renewed, rejected, unreachable }
 
     private init() {
         base = UserDefaults.standard.string(forKey: "server") ?? ""
@@ -147,21 +151,26 @@ final class Api {
         Keychain.set("refresh", r)
     }
 
-    private func renew() async -> Bool {
+    private func renew() async -> Renewal {
         if let renewing { return await renewing.value }
-        let task = Task<Bool, Never> {
-            guard let r = refresh else { return false }
+        let task = Task<Renewal, Never> {
+            guard let r = refresh else { return .rejected }
             do {
                 try tokens(json(await request("POST", "/api/auth/refresh", body: ["refreshToken": r], auth: false)))
-                return true
+                return .renewed
+            } catch let failure as Failure {
+                // 400, 401 or 403: the refresh token itself is no good any more. Anything else (no answer, 5xx)
+                // says nothing about the session.
+                return [400, 401, 403].contains(failure.status) ? .rejected : .unreachable
             } catch {
-                return false
+                return .unreachable
             }
         }
         renewing = task
-        let ok = await task.value
+        let outcome = await task.value
         renewing = nil
-        return ok
+        if outcome == .rejected { Api.log.notice("session refresh rejected") }
+        return outcome
     }
 
     private func json(_ data: Data) throws -> [String: Any] {
@@ -191,8 +200,12 @@ final class Api {
             throw Failure(message: "Kan de server niet bereiken")
         }
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if code == 401 && auth && !retried, await renew() {
-            return try await request(method, path, body: body, auth: auth, accept: accept, retried: true)
+        if code == 401 && auth && !retried {
+            switch await renew() {
+            case .renewed: return try await request(method, path, body: body, auth: auth, accept: accept, retried: true)
+            case .unreachable: throw Failure(message: "Kan de server niet bereiken")
+            case .rejected: break
+            }
         }
         guard (200..<300).contains(code) else {
             let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["message"] as? String

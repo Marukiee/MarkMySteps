@@ -37,6 +37,9 @@ enum Launch {
     static let map = defaults.bool(forKey: "map")
     /// Open a friend's page on Reizigers.
     static let friend = defaults.string(forKey: "friend")
+    /// Screenshots only: the trip menu acts as on your own server trip (Hernoemen, Verwijderen) on a demo trip.
+    /// Nothing can be sent: a demo trip has no server id, and every trip call stops on that.
+    static let menuPreview = defaults.bool(forKey: "menuPreview")
 }
 
 enum AppTab: Hashable {
@@ -64,7 +67,10 @@ struct RootView: View {
                         withAnimation(.smooth(duration: 0.45)) { signedOut = false }
                         Task { await store.load() }
                     },
-                    onDemo: { withAnimation(.smooth(duration: 0.45)) { signedOut = false } }
+                    onDemo: {
+                        store.sessionExpired = false
+                        withAnimation(.smooth(duration: 0.45)) { signedOut = false }
+                    }
                 )
                 .transition(.opacity.combined(with: .scale(scale: 1.04)))
             } else {

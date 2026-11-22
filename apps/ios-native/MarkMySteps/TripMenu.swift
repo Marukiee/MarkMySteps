@@ -53,6 +53,7 @@ struct TripMenu<Label: View>: View {
     private let sizes = CardSizes.shared
 
     private var mine: Bool {
+        if Launch.menuPreview && trip.remoteId == nil { return true }
         guard trip.remoteId != nil else { return false }
         return (trip.ownerId ?? "").isEmpty || trip.ownerId == store.me?.id
     }
@@ -75,7 +76,7 @@ struct TripMenu<Label: View>: View {
             }
             .pickerStyle(.palette)
             .accessibilityLabel("Grootte")
-            if trip.remoteId != nil {
+            if trip.remoteId != nil || Launch.menuPreview {
                 Section {
                     if mine {
                         Button("Hernoemen", systemImage: "pencil", action: onRename)
@@ -88,6 +89,8 @@ struct TripMenu<Label: View>: View {
         } label: {
             label
         }
+        // Menu text and icons in the label colour, not the orange accent; Verwijderen stays red by its role.
+        .tint(Brand.ink)
         .accessibilityLabel("Meer voor \(trip.title)")
     }
 }

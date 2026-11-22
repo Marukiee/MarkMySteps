@@ -250,7 +250,9 @@ private struct SectionPage: View {
     @ViewBuilder private var travel: some View {
         Section("Onderweg") {
             Toggle(isOn: $tracking) { Label("Route-tracking", systemImage: "location.north.line") }
+                .sensoryFeedback(.selection, trigger: tracking)
             Toggle(isOn: $selfLocation) { Label("Eigen locatie", systemImage: "mappin.and.ellipse") }
+                .sensoryFeedback(.selection, trigger: selfLocation)
             LabeledContent { Text("in de web-app") } label: { Label("Standaard vliegvelden", systemImage: "airplane") }
         }
         Section {
@@ -271,6 +273,7 @@ private struct SectionPage: View {
     @ViewBuilder private var notifications: some View {
         Section("Op je telefoon") {
             Toggle(isOn: $notify) { Label("Meldingen", systemImage: "bell") }
+                .sensoryFeedback(.selection, trigger: notify)
             LabeledContent { Text("op je foto's en dagen") } label: { Label("Reacties", systemImage: "bubble.left.and.bubble.right") }
         }
     }
