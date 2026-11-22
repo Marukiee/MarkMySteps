@@ -400,6 +400,8 @@ object Photos {
     private val lanes = kotlinx.coroutines.sync.Semaphore(6)
     /** The photo you just tapped skips that queue: after a fling it would otherwise wait behind hundreds of tiles. */
     private val urgent = kotlinx.coroutines.sync.Semaphore(3)
+    /** Faces have a lane of their own: small and on screen at once, they never wait behind the covers fetched ahead. */
+    private val faces = kotlinx.coroutines.sync.Semaphore(2)
     // Small grid photos and big ones in separate caches, so a few previews never push the grid out
     // (that made a tapped photo open without its thumbnail to grow from).
     private val maxMem = Runtime.getRuntime().maxMemory()
@@ -475,12 +477,27 @@ object Photos {
      */
     suspend fun load(id: String, size: String, now: Boolean = false): Bitmap? = loadPath("$id/$size", "/api/media/$id/thumbnail?size=$size", now)
 
-    /** Someone's profile photo. */
-    suspend fun avatar(userId: String): Bitmap? = loadPath("avatar/$userId", "/api/users/$userId/avatar")
+    /**
+     * Someone's profile photo. A face is small and on screen at once, so it skips the queue the covers and
+     * grid photos wait in (at a cold start fifty covers are fetched ahead, and the faces waited behind them),
+     * in a lane of its own, so it never holds up a photo you just tapped either.
+     */
+    suspend fun avatar(userId: String): Bitmap? = loadPath("avatar/$userId", "/api/users/$userId/avatar", lane = faces)
 
-    suspend fun loadPath(key: String, path: String, now: Boolean = false): Bitmap? {
+    /**
+     * A picture from memory, else straight from the phone's own copy on disk, read right here. Only for a
+     * single small picture that must be there in the first frame (your own face at the top of the homepage),
+     * never for a list: each call reads a file on the calling thread.
+     */
+    fun cachedOrDisk(key: String): Bitmap? {
         cache.get(key)?.let { return it }
-        return (if (now) urgent else lanes).withPermitCompat {
+        val data = PhotoDisk.get(key) ?: return null
+        return runCatching { BitmapFactory.decodeByteArray(data, 0, data.size) }.getOrNull()?.also { cache.put(key, it) }
+    }
+
+    suspend fun loadPath(key: String, path: String, now: Boolean = false, lane: kotlinx.coroutines.sync.Semaphore? = null): Bitmap? {
+        cache.get(key)?.let { return it }
+        return (lane ?: if (now) urgent else lanes).withPermitCompat {
             cache.get(key)?.let { return@withPermitCompat it }
             // From the phone's own copy when there is one, else from the server and then kept (AppCore.kt).
             val data = DeviceMedia.bytes(key) ?: PhotoDisk.get(key) ?: Api.bytes(path)?.also { PhotoDisk.put(key, it) } ?: return@withPermitCompat null

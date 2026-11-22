@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import kotlin.math.max
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
 
@@ -180,7 +181,11 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
         if (!inFront) return@LaunchedEffect
         while (true) {
             runCatching { MapRemote.live(id) }.onSuccess { mapState.live = it }
-            // Test mode only: a companion at the last stop, to see a face on the map without a trip under way.
+            // Test mode only: a companion at the last stop, to see a face on the map without a trip under way. It
+            // waits for the stops (they come in after the page opens), else the loop below ended before there was one.
+            if (Api.dryRun && MapDebug.fakeLive && mapState.live.isEmpty()) {
+                kotlinx.coroutines.withTimeoutOrNull(15_000) { androidx.compose.runtime.snapshotFlow { trip.stops }.first { it.isNotEmpty() } }
+            }
             if (Api.dryRun && MapDebug.fakeLive && mapState.live.isEmpty()) trip.members.firstOrNull { it.userId != me && it.role != "GUEST" }?.let { m ->
                 trip.stops.lastOrNull()?.let { s -> mapState.live = listOf(MapRemote.LiveFix(m.userId, m.name, m.hasAvatar, s.at, java.time.Instant.now().minusSeconds(420), null)) }
             }
@@ -230,13 +235,10 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     androidx.compose.runtime.LaunchedEffect(mapState.day) {
         if (!dayPicked) return@LaunchedEffect
         mapState.reloadRoutes()
-        val camera = if (bigMap) cameraBig else cameraInline
-        val d = mapState.day
-        if (d == null) camera?.reset() else {
-            val coords = mapState.routes.orEmpty().flatMap { it.points } +
-                media.orEmpty().filter { it.takenAt == d && it.lat != null && it.lon != null }.map { it.lon!! to it.lat!! }
-            camera?.focusOn(coords.ifEmpty { trip.stops.filter { s -> s.start != null && !d.isBefore(s.start) && !d.isAfter(s.start.plusDays(s.nights.toLong())) }.map { it.at } })
-        }
+        // Once that day's lines are in, both maps frame it the same way (TripMap.kt dayPoints): the one in the
+        // page and the one full screen, so opening or closing the full map keeps the day in view.
+        cameraInline?.reset()
+        cameraBig?.reset()
     }
     // The photos on the map: whose the map settings say, and of the day on show.
     val mapPhotos = remember(media, mapState.photoUsers, mapState.day) {
@@ -274,7 +276,9 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                 var mapReady by remember { androidx.compose.runtime.mutableStateOf(false) }
                 androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(380); mapReady = true }
                 if (mapReady) TripMap(
-                    trip, dark, Modifier.fillMaxSize(), fadeIn = true, bottomInsetDp = 30, topInsetDp = 112, photos = mapPhotos,
+                    // Clear of the buttons at the top, and at the bottom of the day pill and the expand button
+                    // (their top lies 88 dp up) with half a photo marker to spare.
+                    trip, dark, Modifier.fillMaxSize(), fadeIn = true, bottomInsetDp = 64, topInsetDp = 100, photos = mapPhotos,
                     onPhoto = { m -> openFromMap(m.id) }, state = mapState, onCamera = { cameraInline = it },
                     onLongPress = if (canEdit && tab == 0) ({ at -> lineAt = at }) else null,
                     onSelf = if (canEdit) ({ pointsFor = trip.remoteId }) else null,
@@ -431,7 +435,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
             androidx.activity.compose.PredictiveBackHandler { events ->
                 try { events.collect { backT = it.progress }; bigMap = false } catch (e: kotlin.coroutines.cancellation.CancellationException) { backT = 0f; throw e }
             }
-            Box(Modifier.fillMaxSize().graphicsLayer { val k = 1f - 0.12f * backT; scaleX = k; scaleY = k; shape = RoundedCornerShape((32 * backT).dp.toPx()); clip = true }.background(cs.background)) {
+            // Behind it the map's own empty colour (TripMap.kt), so it fades in from the map, not from the page.
+            Box(Modifier.fillMaxSize().graphicsLayer { val k = 1f - 0.12f * backT; scaleX = k; scaleY = k; shape = RoundedCornerShape((32 * backT).dp.toPx()); clip = true }.background(if (dark) Color(0xFF14181D) else Color(0xFFF3ECE2))) {
                 // Clear of the clock and the cross at the top and of the gesture bar at the bottom.
                 val topDp = with(density) { WindowInsets.statusBars.getTop(this).toDp().value.toInt() } + 72
                 val bottomDp = with(density) { WindowInsets.navigationBars.getBottom(this).toDp().value.toInt() }
@@ -574,18 +579,22 @@ private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<St
     if (!stopsKnown) null to "stops" else trip.stops.size.takeIf { it > 1 }?.let { "$it" to "stops" },
     (trip.people.size + trip.extraPeople).takeIf { it > 1 }?.let { "$it" to Lang.text(R.string.trip_fact_travellers) },
     if (stopsKnown) trip.stops.mapNotNull { it.flag.takeIf { f -> f.isNotBlank() } }.distinct().size.takeIf { it > 0 }?.let { "$it" to (if (it == 1) Lang.text(R.string.trip_fact_country) else Lang.text(R.string.summary_fact_countries)) } else null,
-).take(4) else if (trip.remoteId != null && (!stopsKnown || photos == null)) List(4) { null to " " } else {
+).take(4) else {
     // As the web (lib/tripFacts.ts): the first four that have something to say, in a fixed order: distance,
     // days, stops (only for a route of two or more), photos, travellers (more than you alone), countries.
+    // While the stops and photos are still on their way, their tiles already stand with their label and only
+    // the number waits (null), guessed from what the trip list knows, so the labels never pop in afterwards.
     val travellers = trip.members.count { it.role != "GUEST" }.takeIf { it > 0 } ?: (trip.people.size + trip.extraPeople)
     val countries = trip.stops.mapNotNull { it.flag.takeIf { f -> f.isNotBlank() } }.distinct().size
+    val photosWaiting = trip.remoteId != null && photos == null
     // Each figure that has something to say, by its id; the trip's own choice (Reisinstellingen > Feitjes)
     // comes first, topped up from the fixed order, as the web's resolveFacts.
     val facts = linkedMapOf<String, Pair<String?, String>>()
     trip.km?.takeIf { it > 0 }?.let { facts["km"] = "%,d".format(Lang.locale, it) to Lang.text(R.string.summary_fact_km) }
     trip.days.takeIf { it > 0 }?.let { facts["days"] = "$it" to (if (it == 1) Lang.text(R.string.home_day) else Lang.text(R.string.home_days)) }
-    trip.stops.size.takeIf { it > 1 }?.let { facts["stops"] = "$it" to "stops" }
-    (photos ?: trip.photos).takeIf { it > 0 }?.let { facts["photos"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos)) }
+    if (!stopsKnown) facts["stops"] = null to "stops" else trip.stops.size.takeIf { it > 1 }?.let { facts["stops"] = "$it" to "stops" }
+    if (photosWaiting) facts["photos"] = null to (if (trip.photos == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos))
+    else (photos ?: trip.photos).takeIf { it > 0 }?.let { facts["photos"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos)) }
     travellers.takeIf { it > 1 }?.let { facts["travellers"] = "$it" to Lang.text(R.string.trip_fact_travellers) }
     countries.takeIf { it > 0 }?.let { facts["countries"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_country) else Lang.text(R.string.summary_fact_countries)) }
     val chosen = TripFactsPref.chosen[trip.id] ?: trip.remoteId?.let { TripFactsPref.chosen[it] }.orEmpty()
@@ -639,14 +648,18 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
         (tone ?: trip.color).copy(alpha = if (dark) 0.34f else 0.26f).compositeOver(cs.surfaceContainerLow),
         MaterialTheme.motionScheme.slowEffectsSpec(), label = "factsTone",
     )
-    // Waiting tiles turn into the real ones in one soft fade, even when there are fewer of them.
-    androidx.compose.animation.Crossfade(items, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "facts") { items ->
+    // The row only fades over as a whole when its tiles change (another set of labels); a number that comes in
+    // fades into its own tile below, so the labels stand still while the page loads.
+    val labels = items.map { it.second }
+    androidx.compose.animation.Crossfade(labels, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "facts") { shownLabels ->
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        items.forEachIndexed { i, (value, label) ->
+        shownLabels.forEachIndexed { i, label ->
+            val value = items.getOrNull(i)?.takeIf { it.second == label }?.first
+            val lastIndex = shownLabels.lastIndex
             // Joined to the cover above it: tight on top, round only at the outer bottom corners.
             val shape = RoundedCornerShape(
                 topStart = 6.dp, topEnd = 6.dp,
-                bottomStart = if (i == 0) 24.dp else 6.dp, bottomEnd = if (i == items.lastIndex) 24.dp else 6.dp,
+                bottomStart = if (i == 0) 24.dp else 6.dp, bottomEnd = if (i == lastIndex) 24.dp else 6.dp,
             )
             Column(
                 Modifier.weight(if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(tile).padding(horizontal = 12.dp, vertical = 12.dp),
