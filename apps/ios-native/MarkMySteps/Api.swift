@@ -855,6 +855,28 @@ enum Remote {
         try await Api.shared.send("POST", "/api/access-requests/\(requestId)/\(approve ? "approve" : "deny")", body: approve ? ["role": "GUEST"] : nil)
     }
 
+    /// The days of a trip with something on the map, as Android's MapRemote.days: how many route points and photos.
+    static func mapDays(_ trip: Trip) async throws -> [(day: Date, points: Int, photos: Int)] {
+        guard let rid = trip.remoteId else { return [] }
+        let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/days")) as? [[String: Any]] ?? []
+        return list.compactMap { o in
+            guard let d = day(o["day"]) else { return nil }
+            return (d, (o["points"] as? NSNumber)?.intValue ?? 0, (o["photos"] as? NSNumber)?.intValue ?? 0)
+        }
+        .sorted { $0.day < $1.day }
+    }
+
+    /// The recorded route of one day, every traveller's line as its own piece (GeoJSON from /route?day=).
+    static func dayRoute(_ trip: Trip, _ date: Date) async throws -> [[LonLat]] {
+        guard let rid = trip.remoteId else { return [] }
+        let o = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/route?day=\(PlannerRemote.isoDay(date))")) as? [String: Any]
+        let features = o?["features"] as? [[String: Any]] ?? []
+        return features.compactMap { f in
+            let line = points((f["geometry"] as? [String: Any])?["coordinates"])
+            return line.count >= 2 ? line : nil
+        }
+    }
+
     static func media(_ trip: Trip) async throws -> [Media] {
         guard let rid = trip.remoteId else { return [] }
         let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/media")) as? [[String: Any]] ?? []

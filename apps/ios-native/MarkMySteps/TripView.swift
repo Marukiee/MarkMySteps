@@ -33,6 +33,10 @@ struct TripView: View {
     /// Whether the stops have been read from the server, so the figures can wait in their place until then.
     @State private var stopsKnown: Bool
     @State private var mapPosition: MapCameraPosition
+    /// The day the map shows, nil for the whole trip; its own route once read from the server.
+    @State private var mapDay: Date?
+    @State private var dayRoute: [[LonLat]] = []
+    @State private var serverDays: [(day: Date, points: Int, photos: Int)] = []
     @State private var mapSize: CGSize = .zero
     /// Room kept free on the map: the bar with the buttons on top, the sheet's edge and the expand button below.
     private static let mapInsets = EdgeInsets(top: 130, leading: 40, bottom: 70, trailing: 40)
@@ -244,7 +248,7 @@ struct TripView: View {
             })
         }
         .fullScreenCover(isPresented: $showMap) {
-            FullMapView(trip: trip, photos: mapPhotos) { m in
+            FullMapView(trip: trip, photos: shownPhotos, focus: focus, days: mapDays, day: $mapDay) { m in
                 // Out of the big map into the photo: the map closes, the viewer opens.
                 showMap = false
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { openFromMap(m) }
@@ -256,6 +260,7 @@ struct TripView: View {
                 .navigationTransition(.zoom(sourceID: viewerCurrent, in: ns))
         }
         .task(id: "\(base.id)/\(store.version)") { await loadMore() }
+        .onChange(of: mapDay) { _, day in Task { await showDay(day) } }
         .onAppear {
             // Screenshots only (`-menuPreview YES`): a demo trip shows a day story as yours, to see how it looks.
             if Launch.menuPreview, base.remoteId == nil, notes.isEmpty, let first = trip.demoDays.first?.date {
@@ -349,9 +354,61 @@ struct TripView: View {
         viewer = ViewerItem(trip: trip, photos: all.isEmpty ? [m] : all, start: m)
     }
 
+    /// The days the map can show on their own: those with photos on the map or, from the server, a recorded route.
+    private var mapDays: [(day: Date, photos: Int)] {
+        var counts: [Date: Int] = [:]
+        for m in mapPhotos { counts[m.takenAt, default: 0] += 1 }
+        for d in serverDays where d.points > 0 || d.photos > 0 { counts[d.day] = max(counts[d.day] ?? 0, d.photos) }
+        return counts.keys.sorted().map { ($0, counts[$0] ?? 0) }
+    }
+
+    /// The photos on the map: all of them, or those of the day on show.
+    private var shownPhotos: [Media] {
+        guard let mapDay else { return mapPhotos }
+        return mapPhotos.filter { $0.takenAt == mapDay }
+    }
+
+    private var focus: MapFocus? {
+        mapDay.map { MapFocus(route: dayRoute, stops: Set(TripView.stops(trip, on: $0).map(\.name))) }
+    }
+
+    /// The stops whose stay covers a day (a stop without known dates: where the timeline puts that day).
+    static func stops(_ trip: Trip, on day: Date) -> [Stop] {
+        let cal = Format.calendar
+        let covering = trip.stops.filter { s in
+            guard let start = s.start, let end = cal.date(byAdding: .day, value: s.nights, to: start) else { return false }
+            return start <= day && day <= end
+        }
+        return covering.isEmpty ? [Timeline.stopOn(trip, day)].compactMap { $0 } : covering
+    }
+
+    /// Picking a day frames that day's route and photos (or its stop); the whole trip again frames the whole trip.
+    private func showDay(_ day: Date?) async {
+        guard let day else {
+            dayRoute = []
+            withAnimation(.smooth(duration: 0.5)) { mapPosition = .rect(trip.fittedRect(size: mapSize, insets: TripView.mapInsets)) }
+            return
+        }
+        let route = (try? await Remote.dayRoute(trip, day)) ?? []
+        guard mapDay == day else { return }
+        withAnimation(.calm) { dayRoute = route }
+        let points = TripView.focusPoints(trip, day: day, route: route, photos: shownPhotos)
+        withAnimation(.smooth(duration: 0.5)) { mapPosition = .rect(Trip.fitted(points, size: mapSize, insets: TripView.mapInsets, minMeters: 8000)) }
+    }
+
+    /// What a day on the map should fit: its route and photos, or else the stops of that day.
+    static func focusPoints(_ trip: Trip, day: Date, route: [[LonLat]], photos: [Media]) -> [LonLat] {
+        let shot = photos.compactMap { m -> LonLat? in
+            guard let lat = m.lat, let lon = m.lon else { return nil }
+            return LonLat(lon, lat)
+        }
+        let points = route.flatMap { $0 } + shot
+        return points.isEmpty ? stops(trip, on: day).map(\.at) : points
+    }
+
     private var mapHeader: some View {
         // The map moves under your finger without the page scrolling along, with your photos on it.
-        TripMap(trip: trip, interactive: true, position: $mapPosition, photos: mapPhotos, onPhoto: openFromMap)
+        TripMap(trip: trip, interactive: true, position: $mapPosition, photos: shownPhotos, focus: focus, onPhoto: openFromMap)
             .frame(height: mapHeight)
             // The camera frames the trip in the part of the map left free by the bar above and the sheet below.
             .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
@@ -383,6 +440,14 @@ struct TripView: View {
                 .padding(.bottom, 42)
                 .accessibilityLabel("Kaart vergroten")
             }
+            .overlay(alignment: .bottomLeading) {
+                // The day on the map, level with the expand button, as on Android.
+                if mapDays.count >= 2 {
+                    MapDayPill(days: mapDays, day: $mapDay)
+                        .padding(.leading, 14)
+                        .padding(.bottom, 42)
+                }
+            }
             .matchedTransitionSource(id: "map", in: ns)
     }
 
@@ -400,6 +465,8 @@ struct TripView: View {
         }
         withAnimation(.calm) { stopsKnown = true }
         media = (try? await Remote.media(base)) ?? []
+        // Which days have a route or photos, for the day pill on the map.
+        serverDays = (try? await Remote.mapDays(base)) ?? []
         // The day stories and the comments on them, after the photos.
         async let n = Remote.notes(base)
         async let c = Remote.comments(base)
@@ -554,6 +621,8 @@ struct TripMap: View {
     var satellite = false
     var position: Binding<MapCameraPosition>?
     var photos: [Media] = []
+    /// One day picked on the map: the rest of the trip goes faint under that day's own route and stops.
+    var focus: MapFocus? = nil
     var onPhoto: (Media) -> Void = { _ in }
     @Environment(\.colorScheme) private var scheme
     @AppStorage("mapStyle") private var look = MapLook.positron.rawValue
@@ -580,18 +649,26 @@ struct TripMap: View {
     @MapContentBuilder private var content: some MapContent {
         let color = Geo.legible(trip.color, dark: scheme == .dark || satellite)
         let pieces = trip.pieces
+        // With one day picked the whole trip stays as a faint guide under that day's own line.
+        let faint = focus == nil ? 1.0 : 0.28
         ForEach(Array(pieces.runs.enumerated()), id: \.offset) { _, run in
             MapPolyline(coordinates: run.map(\.coordinate))
-                .stroke(color, style: StrokeStyle(lineWidth: trip.upcoming ? 3 : 4, lineCap: .round, lineJoin: .round, dash: trip.upcoming ? [1, 8] : []))
+                .stroke(color.opacity(faint), style: StrokeStyle(lineWidth: trip.upcoming ? 3 : 4, lineCap: .round, lineJoin: .round, dash: trip.upcoming ? [1, 8] : []))
         }
         ForEach(Array(pieces.gaps.enumerated()), id: \.offset) { _, gap in
             MapPolyline(coordinates: [gap.0.coordinate, gap.1.coordinate])
-                .stroke(color.opacity(0.7), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [2, 7]))
+                .stroke(color.opacity(0.7 * faint), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [2, 7]))
         }
         // A flight is drawn, not recorded, so it never takes the trip's colour: short grey dashes with clear gaps.
         ForEach(Array(pieces.bows.enumerated()), id: \.offset) { _, bow in
             MapPolyline(coordinates: Geo.flightArc(bow.0, bow.1).map(\.coordinate))
-                .stroke(flightGrey, style: StrokeStyle(lineWidth: 2.2, lineCap: .round, dash: [2.4, 7.5]))
+                .stroke(flightGrey.opacity(faint), style: StrokeStyle(lineWidth: 2.2, lineCap: .round, dash: [2.4, 7.5]))
+        }
+        if let focus {
+            ForEach(Array(focus.route.enumerated()), id: \.offset) { _, line in
+                MapPolyline(coordinates: line.map(\.coordinate))
+                    .stroke(color, style: StrokeStyle(lineWidth: 4.5, lineCap: .round, lineJoin: .round))
+            }
         }
         ForEach(Array(pieces.airports.enumerated()), id: \.offset) { _, at in
             Annotation("", coordinate: at.coordinate, anchor: .center) {
@@ -635,7 +712,8 @@ struct TripMap: View {
     /// The numbered stops, without the ones a photo pin would cover: a number half under a round photo (and its
     /// count) reads as a mistake, and the photo already marks the place.
     private func visibleStops(_ groups: [PhotoGroup]) -> [(number: Int, stop: Stop)] {
-        guard !groups.isEmpty else { return trip.mapStops }
+        let all = focus.map { f in trip.mapStops.filter { f.stops.contains($0.stop.name) } } ?? trip.mapStops
+        guard !groups.isEmpty else { return all }
         // Half a pin, half a dot and the count badge, in points at the camera's real zoom (not the rounded
         // level of the grouping, which can make a pin count up to twice as wide).
         let delta = span?.longitudeDelta ?? trip.mapSpanDegrees
@@ -644,7 +722,7 @@ struct TripMap: View {
             guard let lat = g.first.lat, let lon = g.first.lon else { return nil }
             return (lon, TripMap.mercY(lat))
         }
-        return trip.mapStops.filter { item in
+        return all.filter { item in
             let x = item.stop.at.lon, y = TripMap.mercY(item.stop.at.lat)
             return !pins.contains { abs($0.0 - x) < near && abs($0.1 - y) < near }
         }
@@ -685,6 +763,54 @@ struct TripMap: View {
                 span: MKCoordinateSpan(latitudeDelta: max(current.latitudeDelta / k, 0.004), longitudeDelta: max(current.longitudeDelta / k, 0.004))
             ))
         }
+    }
+}
+
+/// One day on the map: its own recorded route, and the names of the stops where it was spent.
+struct MapFocus: Equatable {
+    var route: [[LonLat]]
+    var stops: Set<String>
+}
+
+/// "Hele reis" or the day the map shows, as on Android: a glass pill on the map, lit in the accent while one day
+/// is picked, that unfolds the list of days (a menu shows one line per day, so without the photo counts).
+struct MapDayPill: View {
+    let days: [(day: Date, photos: Int)]
+    @Binding var day: Date?
+
+    private static let weekdays = ["zo", "ma", "di", "wo", "do", "vr", "za"]
+
+    /// "di 7 jul": short enough for the pill, clear in the list.
+    static func label(_ d: Date) -> String {
+        "\(weekdays[(Format.calendar.component(.weekday, from: d) - 1) % 7]) \(Format.shortDay(d))"
+    }
+
+    var body: some View {
+        Menu {
+            Picker("Dag op de kaart", selection: Binding(get: { day }, set: { v in
+                Haptic.select()
+                withAnimation(.calm) { day = v }
+            })) {
+                Text("Hele reis").tag(Date?.none)
+                ForEach(days, id: \.day) { d in
+                    Text(MapDayPill.label(d.day)).tag(Optional(d.day))
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "calendar").font(.system(size: 14, weight: .semibold))
+                Text(day.map(MapDayPill.label) ?? "Hele reis").font(.outfit(15, 600)).lineLimit(1)
+                Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold))
+            }
+            .foregroundStyle(day == nil ? Brand.ink : .white)
+            .padding(.horizontal, 16)
+            .frame(height: 48)
+            .contentShape(.capsule)
+        }
+        .glassEffect(day == nil ? .regular.interactive() : .regular.tint(Brand.accent).interactive(), in: .capsule)
+        .animation(.calm, value: day)
+        .accessibilityLabel("Dag op de kaart")
     }
 }
 
@@ -771,12 +897,19 @@ extension Trip {
     /// The whole view's rect for a map of `size`, so the trip sits exactly inside the part left free by
     /// `insets` (the floating bar on top, the sheet's edge below), with a little air on every side.
     func fittedRect(size: CGSize, insets: EdgeInsets) -> MKMapRect {
-        let points = mapPoints.map { MKMapPoint($0.coordinate) }
-        guard let first = points.first, size.width > 0, size.height > 0 else { return mapRect() }
+        guard !mapPoints.isEmpty, size.width > 0, size.height > 0 else { return mapRect() }
+        return Trip.fitted(mapPoints, size: size, insets: insets)
+    }
+
+    /// Any set of places fitted the same way, e.g. one day's route; `minMeters` keeps a small spread from
+    /// zooming in to the street.
+    static func fitted(_ places: [LonLat], size: CGSize, insets: EdgeInsets, minMeters: Double = 40_000) -> MKMapRect {
+        let points = places.map { MKMapPoint($0.coordinate) }
+        guard let first = points.first, size.width > 0, size.height > 0 else { return .world }
         var rect = MKMapRect(origin: first, size: MKMapSize(width: 0, height: 0))
         for p in points.dropFirst() { rect = rect.union(MKMapRect(origin: p, size: MKMapSize(width: 0, height: 0))) }
         // A city trip still shows its surroundings: at least about 40 km across.
-        let minSide = 40_000 * MKMapPointsPerMeterAtLatitude(first.coordinate.latitude)
+        let minSide = minMeters * MKMapPointsPerMeterAtLatitude(first.coordinate.latitude)
         let rw = max(rect.size.width, minSide), rh = max(rect.size.height, minSide)
         let innerW = max(40, size.width - insets.leading - insets.trailing)
         let innerH = max(40, size.height - insets.top - insets.bottom)
@@ -799,6 +932,9 @@ extension Trip {
 struct FullMapView: View {
     let trip: Trip
     var photos: [Media] = []
+    var focus: MapFocus? = nil
+    var days: [(day: Date, photos: Int)] = []
+    var day: Binding<Date?>? = nil
     var onPhoto: (Media) -> Void = { _ in }
     @State private var satellite = false
     @State private var position: MapCameraPosition
@@ -807,20 +943,38 @@ struct FullMapView: View {
     @Environment(\.dismiss) private var dismiss
     @Namespace private var glass
 
-    init(trip: Trip, photos: [Media] = [], onPhoto: @escaping (Media) -> Void = { _ in }) {
+    init(trip: Trip, photos: [Media] = [], focus: MapFocus? = nil, days: [(day: Date, photos: Int)] = [], day: Binding<Date?>? = nil,
+         onPhoto: @escaping (Media) -> Void = { _ in }) {
         self.trip = trip
         self.photos = photos
+        self.focus = focus
+        self.days = days
+        self.day = day
         self.onPhoto = onPhoto
         _position = State(initialValue: .rect(trip.mapRect()))
     }
 
+    /// The whole trip, or the day on show.
+    private var frame: MKMapRect {
+        guard let d = day?.wrappedValue, let focus else { return trip.fittedRect(size: size, insets: FullMapView.insets) }
+        return Trip.fitted(TripView.focusPoints(trip, day: d, route: focus.route, photos: photos), size: size, insets: FullMapView.insets, minMeters: 8000)
+    }
+
     var body: some View {
-        TripMap(trip: trip, interactive: true, satellite: satellite, position: $position, photos: photos, onPhoto: onPhoto)
+        TripMap(trip: trip, interactive: true, satellite: satellite, position: $position, photos: photos, focus: focus, onPhoto: onPhoto)
             .ignoresSafeArea()
             .onGeometryChange(for: CGSize.self) { $0.size } action: { new in
                 guard new != size else { return }
                 size = new
-                position = .rect(trip.fittedRect(size: new, insets: FullMapView.insets))
+                position = .rect(frame)
+            }
+            .onChange(of: focus) { withAnimation(.smooth(duration: 0.5)) { position = .rect(frame) } }
+            .overlay(alignment: .bottomLeading) {
+                if let day, days.count >= 2 {
+                    MapDayPill(days: days, day: day)
+                        .padding(.leading, 16)
+                        .padding(.bottom, 8)
+                }
             }
             .overlay(alignment: .top) {
                 HStack(alignment: .top) {
@@ -835,7 +989,7 @@ struct FullMapView: View {
 
                             Button {
                                 Haptic.tap()
-                                withAnimation(.smooth) { position = .rect(trip.fittedRect(size: size, insets: FullMapView.insets)) }
+                                withAnimation(.smooth) { position = .rect(frame) }
                             } label: {
                                 Image(systemName: "scope").font(.system(size: 17, weight: .semibold)).frame(width: 44, height: 44)
                             }
