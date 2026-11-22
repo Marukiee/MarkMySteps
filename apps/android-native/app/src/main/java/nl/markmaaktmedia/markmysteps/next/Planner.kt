@@ -69,6 +69,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -192,10 +196,14 @@ fun Planner(trip: Trip, dark: Boolean) {
                 val lift by animateFloatAsState(if (lifted) 1f else 0f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "lift")
                 Column(
                     Modifier
+                        // Neighbours glide to their new place while a stop is moved past them, instead of jumping.
+                        .then(if (lifted) Modifier else Modifier.glideToPlace())
                         .onSizeChanged { heights[stop.key] = it.height }
                         .graphicsLayer {
                             translationY = if (lifted) dragY else 0f
-                            scaleX = 1f + 0.03f * lift; scaleY = 1f + 0.03f * lift
+                            // Lifted: a little bigger and a slight tilt, as on the web.
+                            scaleX = 1f + 0.02f * lift; scaleY = 1f + 0.02f * lift
+                            rotationZ = -0.4f * lift
                         }
                         .pointerInput(stop.key) {
                             detectDragGesturesAfterLongPress(
@@ -507,4 +515,24 @@ private fun AddStop(trip: Trip, taken: Set<String>, onAdd: (Remote.Place) -> Uni
             ) { Text("“${query.trim()}” toevoegen", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
         }
     }
+}
+
+
+/** Animates a change of place in its parent from where it was to where it is now. */
+private fun Modifier.glideToPlace(): Modifier = composed {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var target by remember { mutableStateOf<androidx.compose.ui.unit.IntOffset?>(null) }
+    val anim = remember { mutableStateOf<androidx.compose.animation.core.Animatable<androidx.compose.ui.unit.IntOffset, androidx.compose.animation.core.AnimationVector2D>?>(null) }
+    val spec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
+    this
+        .onPlaced { c ->
+            val p = c.positionInParent()
+            target = androidx.compose.ui.unit.IntOffset(p.x.toInt(), p.y.toInt())
+        }
+        .offset {
+            val t = target ?: return@offset androidx.compose.ui.unit.IntOffset.Zero
+            val a = anim.value ?: androidx.compose.animation.core.Animatable(t, androidx.compose.ui.unit.IntOffset.VectorConverter).also { anim.value = it }
+            if (a.targetValue != t) scope.launch { a.animateTo(t, spec) }
+            a.value - t
+        }
 }
