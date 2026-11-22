@@ -86,6 +86,8 @@ struct TripSettingsPage: View {
     @State private var syncing = false
     @State private var syncNote: String?
     @State private var facts: [String]?
+    @State private var explainTracking = false
+    @State private var confirmStopTracking = false
 
     static let colours = ["#E8613C", "#E0993A", "#4CA05C", "#2A8F85", "#409EC5", "#5A6EE1", "#B054A8", "#DF5C78"]
 
@@ -201,6 +203,7 @@ struct TripSettingsPage: View {
                 }
                 .disabled(!isOwner || ended || (live && info == nil))
                 .sensoryFeedback(.selection, trigger: autoTrack)
+                trackNowRow
             } header: { Text("Tracking") }
 
             Section("Mensen") {
@@ -235,6 +238,16 @@ struct TripSettingsPage: View {
         .tint(accent)
         .animation(.easeInOut(duration: 0.5), value: color)
         .sheet(isPresented: $pickDates) { DatesSheet(start: $start, end: $end) }
+        .alert("Locatie voor je route", isPresented: $explainTracking) {
+            Button("Niet nu", role: .cancel) {}
+            Button("Verder") { startTracking() }
+        } message: {
+            Text("Om je route bij te houden heeft de app je locatie nodig, ook als het scherm uit is. iOS vraagt je zo om toestemming: kies eerst Tijdens gebruik en daarna Altijd. Je locatie gaat alleen naar je eigen server.")
+        }
+        .alert("Stoppen met tracken?", isPresented: $confirmStopTracking) {
+            Button("Annuleren", role: .cancel) {}
+            Button("Stoppen", role: .destructive) { Tracker.shared.stop() }
+        } message: { Text("De route van \(title) wordt niet verder bijgehouden. Wat al opgenomen is blijft staan.") }
         .sheet(isPresented: $pickCover) { CoverPicker(trip: trip, current: info?.coverId ?? trip.coverId) { reload() } }
         .task {
             guard let rid = trip.remoteId, let fresh = try? await TripSettingsRemote.info(rid) else { return }
@@ -262,6 +275,36 @@ struct TripSettingsPage: View {
     private struct PageChrome: ViewModifier {
         let page: TripSettingsPage
         func body(content: Content) -> some View { page.chrome(content) }
+    }
+
+    /// Start or stop following your route for this trip right now, or why that cannot be.
+    @ViewBuilder private var trackNowRow: some View {
+        let mine = trip.members.first { $0.userId == me }
+        let tracker = Tracker.shared
+        if tracker.active && tracker.tripId == trip.remoteId {
+            Button(role: .destructive) { confirmStopTracking = true } label: { Label("Stop met bijhouden", systemImage: "location.slash") }
+        } else if ended {
+            Text("Deze reis is afgelopen; er valt geen route meer bij te houden.").font(.inter(14, 450)).foregroundStyle(Brand.inkSoft)
+        } else if mine?.role == "GUEST" {
+            Text("Als gast kijk je mee; je route bijhouden doen de reisgenoten.").font(.inter(14, 450)).foregroundStyle(Brand.inkSoft)
+        } else if mine?.canTrack == false {
+            Text("De organisator heeft route-tracking voor jou uitgezet.").font(.inter(14, 450)).foregroundStyle(Brand.inkSoft)
+        } else if live {
+            Button { explainTracking = true } label: { Label("Route nu bijhouden", systemImage: "location.fill") }
+        }
+    }
+
+    private func startTracking() {
+        guard let rid = trip.remoteId else { return }
+        Task {
+            let status = await Tracker.shared.requestPermission()
+            guard status == .authorizedAlways || status == .authorizedWhenInUse else {
+                error = "MarkMySteps mag je locatie niet gebruiken. Zet het aan in Instellingen › MarkMySteps › Locatie."
+                return
+            }
+            Tracker.shared.start(tripId: rid, title: title, end: end)
+            Haptic.tap()
+        }
     }
 
     private var rangeText: String {

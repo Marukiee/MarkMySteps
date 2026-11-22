@@ -14,6 +14,11 @@ struct MarkMyStepsApp: App {
         WindowGroup {
             RootView()
         }
+        // The notifications check iOS runs now and then, also with the app closed.
+        .backgroundTask(.appRefresh(Notices.task)) {
+            await Notices.check()
+            await MainActor.run { Notices.schedule() }
+        }
     }
 }
 
@@ -51,6 +56,7 @@ struct RootView: View {
     /// light, dark or system; a `-theme` launch argument overrides it for that run.
     @AppStorage("theme") private var theme = "system"
     @State private var signedOut: Bool
+    @Environment(\.scenePhase) private var phase
 
     init() {
         let page = Launch.page
@@ -84,7 +90,17 @@ struct RootView: View {
         .environment(store)
         .tint(Brand.accent)
         .preferredColorScheme(theme == "light" ? .light : theme == "dark" ? .dark : nil)
-        .task { await store.load() }
+        .task {
+            await store.load()
+            Tracker.shared.autoStart(store.trips, me: store.me?.id)
+            Notices.schedule()
+        }
+        .onChange(of: phase) { _, now in
+            // Back in the app: tracking picks up (or stops after the trip's last day), the notifications look again.
+            guard now == .active, store.live else { return }
+            Tracker.shared.autoStart(store.trips, me: store.me?.id)
+            Task { await Notices.check() }
+        }
         // A session the server no longer accepts goes back to signing in, never on to the demo's trips.
         .onChange(of: store.sessionExpired) { _, expired in
             if expired { withAnimation(.smooth(duration: 0.45)) { signedOut = true } }

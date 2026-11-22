@@ -612,6 +612,15 @@ struct GlobeCanvas {
         drawLand(&ctx, proj)
         drawScene(&ctx, proj, motion)
         drawJourney(&ctx, proj, motion)
+        // Your own position while tracking, when Voorkeuren › Eigen locatie says so.
+        if let me = Tracker.selfDot {
+            let (pt, near) = proj.project(me.lon, me.lat)
+            if near {
+                ctx.fill(Path(ellipseIn: circle(pt, 9)), with: .color(Color(hex: 0x3B82F6).opacity(0.22)))
+                ctx.fill(Path(ellipseIn: circle(pt, 5)), with: .color(.white))
+                ctx.fill(Path(ellipseIn: circle(pt, 3.6)), with: .color(Color(hex: 0x3B82F6)))
+            }
+        }
     }
 
     private func drawLand(_ ctx: inout GraphicsContext, _ proj: Ortho) {
