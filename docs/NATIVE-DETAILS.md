@@ -27,6 +27,13 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Elke wissel van inhoud heeft een passende animatie, zoals Afgelopen reizen en Gedeeld die zijwaarts schuiven. (klaar Android)
 - Een reis zonder foto toont zijn eigen kleur met het kompas, en dat kompas schaalt mee met de kaart. (klaar Android)
 
+- Geen knoppen die niets doen: elk pijltje, elke ⋯ en elke knop doet iets echts, anders is het geen knop. (klaar Android)
+- Uitloggen vraagt eerst om bevestiging. (klaar Android)
+- Geen schakelaars of waarden die niets doen of verzonnen zijn; wat er (nog) niet is, staat er niet. (klaar Android)
+- Cijfers wachten in hun eigen vorm tot de server antwoordt, nooit eerst verkeerde getallen of een 0. (klaar Android)
+- Achter de klok komt een achtergrond zodra een pagina eronder scrolt. (klaar Android)
+- Lange tekst wordt netjes afgekapt met een beletselteken, nooit midden in een regel afgesneden. (klaar Android)
+
 ## Navigatie en gebaren
 
 - Terugveeggebaar precies zoals Tandem en PixelPlayer: één seekbare shared-axis-overgang (350 ms, emphasized), de pagina gaat mee met je vinger en de vorige schuift er al onder in; loslaten speelt verder, terugtrekken springt terug. Vloeiend op elk toestel (release-build, geen debug). (klaar Android)
@@ -54,7 +61,7 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Route in losse stukken, nooit een rechte lijn waar gevlogen is; sprongen boven 400 km knippen zoals de web. Vluchten als gestippelde boog. (klaar Android)
 - Omslagfoto bovenaan met titel en datums, en de cijfers als verbonden blok eronder in de toon van de foto. (klaar Android)
 - Terug- en menuknop dicht, niet halfdoorzichtig, zonder schaduw. (klaar Android)
-- Tabs Tijdlijn en Routeplanner (niet Foto's). (klaar)
+- Tabs Tijdlijn en Routeplanner (niet Foto's), die bij wisselen zijwaarts schuiven. (klaar)
 - Tijdlijn zoals de oude versie: plaatsen bovenaan, dan per dag alle foto's onder elkaar. (klaar)
 - "Plaatsen" bovenaan alleen als een reis meer dan één plaats heeft. (klaar)
 - Nachtenpil rechtsboven in de stopkaart, even ver van boven als van rechts. (klaar)

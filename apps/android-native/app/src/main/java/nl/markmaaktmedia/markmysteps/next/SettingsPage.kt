@@ -96,13 +96,10 @@ private class Section(val icon: List<Shape24>, val title: String, val summary: S
 
 private val Sections = listOf(
     Section(Glyphs.person, "Account", "Profiel, wachtwoord, 2FA"),
-    Section(Glyphs.sun, "Weergave", "Thema, taal, globe"),
-    Section(Glyphs.distance, "Reizen en route", "Tracking en vliegvelden"),
-    Section(Glyphs.photo, "Foto's", "Immich en je statistieken"),
-    Section(Glyphs.bell, "Meldingen", "Reacties en nieuwe foto's"),
-    Section(Glyphs.download, "Opslag en back-up", "Offline kaart, foto-cache"),
-    Section(Glyphs.shield, "Updates", "Automatisch controleren"),
-    Section(Glyphs.help, "Over", "MarkMySteps, AGPL-3.0"),
+    Section(Glyphs.sun, "Weergave", "Thema, taal, kaartstijl"),
+    Section(Glyphs.distance, "Plannen", "Vliegvelden, importeren"),
+    Section(Glyphs.photo, "Foto's", "Immich, foto-cache"),
+    Section(Glyphs.help, "Over", "Versie, wat is er nieuw"),
 )
 
 @Composable
@@ -148,50 +145,55 @@ fun SettingsPage(onSignIn: () -> Unit = {}) {
 @Composable
 private fun SettingsMain(onOpen: (Int) -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-        Text(
-            "Instellingen",
-            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
-            modifier = Modifier.padding(top = 20.dp, bottom = 18.dp),
-        )
-        // Who is signed in, on which server.
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(cs.surfaceContainerLow).dip { onOpen(0) }.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Avatar(Data.me?.id, Data.me?.name ?: "Mark", Data.me?.hasAvatar == true, cs.primary, Modifier.size(64.dp), MaterialShapes.Cookie12Sided.toShape())
-            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                Text(Data.me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
-                // The handle and the server each on a line of their own, never broken halfway.
-                Text(if (Data.live) "@${Data.me?.username}" else "voorbeelden, niet ingelogd", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
-                if (Data.live) Text(Api.base.removePrefix("https://").trimEnd('/'), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant.copy(alpha = 0.8f)))
-            }
-            Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh), contentAlignment = Alignment.Center) {
-                LineIcon(Glyphs.pencil, cs.onSurface, size = 20.dp, stroke = 2f)
-            }
-        }
-        Spacer(Modifier.height(18.dp))
-        // One slab of sections, each opening a page of its own.
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Sections.forEachIndexed { i, sec ->
-                Row(
-                    Modifier.fillMaxWidth().height(80.dp).clip(slabShape(i, Sections.size)).background(cs.surfaceContainerLow)
-                        .dip { onOpen(i) }.padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconTile(sec.icon, i, big = true)
-                    Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                        Text(sec.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = cs.onSurface))
-                        Text(sec.summary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
-                    }
-                    LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
+    val pageScroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(pageScroll).padding(horizontal = 16.dp)) {
+            Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+            Text(
+                "Instellingen",
+                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
+                modifier = Modifier.padding(top = 20.dp, bottom = 18.dp),
+            )
+            // Who is signed in, on which server.
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(cs.surfaceContainerLow).dip { onOpen(0) }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Avatar(Data.me?.id, Data.me?.name ?: "Mark", Data.me?.hasAvatar == true, cs.primary, Modifier.size(64.dp), MaterialShapes.Cookie12Sided.toShape())
+                Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                    Text(Data.me?.name ?: "Mark", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 21.sp, color = cs.onSurface))
+                    // The handle and the server each on a line of their own, never broken halfway.
+                    Text(if (Data.live) "@${Data.me?.username}" else "voorbeelden, niet ingelogd", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant))
+                    if (Data.live) Text(Api.base.removePrefix("https://").trimEnd('/'), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant.copy(alpha = 0.8f)))
+                }
+                Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+                    LineIcon(Glyphs.pencil, cs.onSurface, size = 20.dp, stroke = 2f)
                 }
             }
+            Spacer(Modifier.height(18.dp))
+            // One slab of sections, each opening a page of its own.
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Sections.forEachIndexed { i, sec ->
+                    Row(
+                        Modifier.fillMaxWidth().height(80.dp).clip(slabShape(i, Sections.size)).background(cs.surfaceContainerLow)
+                            .dip { onOpen(i) }.padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconTile(sec.icon, i, big = true)
+                        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                            Text(sec.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = cs.onSurface))
+                            Text(sec.summary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = cs.onSurfaceVariant))
+                        }
+                        LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
+                    }
+                }
+            }
+            Spacer(Modifier.height(120.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
-        Spacer(Modifier.height(120.dp))
-        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        StatusScrim(pageScroll)
     }
+
 }
 
 @Composable
@@ -205,89 +207,96 @@ private fun SectionPage(index: Int, onBack: () -> Unit, onSignIn: () -> Unit) {
     var selfLocation by remember { mutableStateOf(false) }
     var notify by remember { mutableStateOf(true) }
     var offlineMap by remember { mutableStateOf(false) }
+    var confirmSignOut by remember { mutableStateOf(false) }
+    var mapStyle by remember { mutableStateOf(false) }
+    var cacheCleared by remember { mutableStateOf(false) }
     // The real values from the server, read when the page opens.
     val tfa by androidx.compose.runtime.produceState<Pair<Boolean, Int>?>(null, Data.live) { if (Data.live) value = runCatching { Remote.twoFactor() }.getOrNull() }
     val immich by androidx.compose.runtime.produceState<Pair<String, String?>?>(null, Data.live) { if (Data.live) value = Remote.immich() }
     val context = androidx.compose.ui.platform.LocalContext.current
     val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "" }
 
-    Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-        Box(
-            Modifier.padding(top = 8.dp).size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh).dip(onBack),
-            contentAlignment = Alignment.Center,
-        ) { LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
-        Text(
-            sec.title,
-            style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
-            modifier = Modifier.padding(top = 18.dp, bottom = 4.dp),
-        )
-        when (index) {
-            0 -> Group("Jij", listOf(
-                Item(Glyphs.person, "Profiel", "naam, foto"),
-                Item(Glyphs.lock, "Wachtwoord"),
-                // Signed in, its real state is not read yet, so no made-up switch: it opens its page.
-                if (Data.live) Item(Glyphs.shield, "Tweestapsverificatie", tfa?.let { (on, left) -> if (on) "aan, nog $left herstelcodes" else "uit" }) else Item(Glyphs.shield, "Tweestapsverificatie", toggle = twoFactor, action = { twoFactor = !twoFactor }),
-            )).also {
-                Group("Server", listOf(Item(Glyphs.globe, "Server", Api.base.removePrefix("https://").ifBlank { "voorbeelden" }), Item(Glyphs.arrowRight, if (Data.live) "Uitloggen" else "Inloggen", action = onSignIn)))
-            }
-            1 -> {
-                Header("Thema")
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
-                    listOf("Licht", "Donker", "Systeem").forEachIndexed { i, label ->
-                        ToggleButton(
-                            checked = theme == i,
-                            onCheckedChange = { ThemePref.set(i) },
-                            modifier = Modifier.weight(1f).height(52.dp),
-                            shapes = when (i) {
-                                0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                2 -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                            },
-                            colors = ToggleButtonDefaults.toggleButtonColors(
-                                containerColor = cs.surfaceContainerHigh, contentColor = cs.onSurfaceVariant,
-                                checkedContainerColor = cs.primary, checkedContentColor = cs.onPrimary,
-                            ),
-                        ) { Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
-                    }
+    val pageScroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().background(cs.background).verticalScroll(pageScroll).padding(horizontal = 16.dp)) {
+            Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+            Box(
+                Modifier.padding(top = 8.dp).size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHigh).dip(onBack),
+                contentAlignment = Alignment.Center,
+            ) { LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
+            Text(
+                sec.title,
+                style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 32.sp, letterSpacing = (-0.02).em, color = cs.onBackground),
+                modifier = Modifier.padding(top = 18.dp, bottom = 4.dp),
+            )
+            // Only rows that do something real: a page of the web version, an Android setting, or a change here.
+            fun web(path: String) = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Api.base.trimEnd('/') + path))) }; Unit }
+            fun open(url: String) = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }; Unit }
+            when (index) {
+                0 -> Group("Jij", listOf(
+                    Item(Glyphs.person, "Profiel", "naam en foto, in de webversie", action = web("/settings")),
+                    Item(Glyphs.lock, "Wachtwoord", "in de webversie", action = web("/settings")),
+                    Item(Glyphs.shield, "Tweestapsverificatie", tfa?.let { (on, left) -> if (on) "aan, nog $left herstelcodes" else "uit" }, action = web("/settings")),
+                )).also {
+                    Group("Server", listOf(Item(Glyphs.globe, "Server", Api.base.removePrefix("https://").trimEnd('/').ifBlank { "voorbeelden" }), Item(Glyphs.arrowRight, if (Data.live) "Uitloggen" else "Inloggen", action = { if (Data.live) confirmSignOut = true else onSignIn() })))
                 }
-                Group("Taal en kaart", listOf(Item(Glyphs.globe, "Taal", "Nederlands"), Item(Glyphs.compass, "Globe", "draait mee met je vinger")))
+                1 -> {
+                    Header("Thema")
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
+                        listOf("Licht", "Donker", "Systeem").forEachIndexed { i, label ->
+                            ToggleButton(
+                                checked = theme == i,
+                                onCheckedChange = { ThemePref.set(i) },
+                                modifier = Modifier.weight(1f).height(52.dp),
+                                shapes = when (i) {
+                                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                    2 -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                                },
+                                colors = ToggleButtonDefaults.toggleButtonColors(
+                                    containerColor = cs.surfaceContainerHigh, contentColor = cs.onSurfaceVariant,
+                                    checkedContainerColor = cs.primary, checkedContentColor = cs.onPrimary,
+                                ),
+                            ) { Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp)) }
+                        }
+                    }
+                    Group("Taal en kaart", listOf(
+                        Item(Glyphs.globe, "Taal", "via Android", action = {
+                            runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS, android.net.Uri.parse("package:" + context.packageName))) }; Unit
+                        }),
+                        Item(Glyphs.compass, "Kaartstijl", MapStylePref.ids.firstOrNull { it.first == MapStylePref.id }?.second, action = { mapStyle = true }),
+                    ))
+                }
+                2 -> Group("Plannen", listOf(
+                    Item(Glyphs.plane, "Standaard vliegvelden", "in de webversie", action = web("/settings")),
+                    Item(Glyphs.download, "Route-bestanden en Polarsteps", "importeren in de webversie", action = web("/settings")),
+                ))
+                3 -> Group("Bron", listOf(
+                    Item(Glyphs.photo, "Immich", if (!Data.live) "verbonden" else immich?.let { (url, last) ->
+                        url.removePrefix("https://").removePrefix("http://").trimEnd('/') + (last?.let { " · bijgewerkt " + runCatching { java.time.LocalDate.parse(it.take(10)).let { d -> "${d.dayOfMonth} ${d.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL")).trimEnd('.')}" } }.getOrDefault("") } ?: "")
+                    } ?: "niet verbonden", action = web("/settings")),
+                    Item(Glyphs.trash, "Foto-cache leegmaken", if (cacheCleared) "leeg" else "maakt ruimte vrij op dit toestel", action = { Photos.clear(); cacheCleared = true }),
+                ))
+                else -> Group("MarkMySteps", listOf(
+                    Item(Glyphs.download, "Versie", "$version (testversie)"),
+                    Item(Glyphs.help, "Wat is er nieuw", action = open("https://github.com/Marukiee/MarkMySteps/releases")),
+                    Item(Glyphs.logo, "Over MarkMySteps", "AGPL-3.0", action = open("https://github.com/Marukiee/MarkMySteps")),
+                ))
             }
-            2 -> Group("Onderweg", listOf(
-                // Each switch flips itself, not the first one in the group.
-                Item(Glyphs.distance, "Route-tracking", toggle = tracking, action = { tracking = !tracking }),
-                Item(Glyphs.pin, "Eigen locatie", toggle = selfLocation, action = { selfLocation = !selfLocation }),
-                Item(Glyphs.plane, "Standaard vliegvelden", if (Data.live) null else "AMS, EIN"),
-            )).also {
-                Group("Importeren", listOf(Item(Glyphs.download, "Route-bestanden", "GPX, KML"), Item(Glyphs.compass, "Polarsteps importeren")))
-            }
-            3 -> Group("Bron", listOf(
-                Item(Glyphs.photo, "Immich", if (!Data.live) "verbonden" else immich?.let { (url, last) ->
-                    url.removePrefix("https://").removePrefix("http://").trimEnd('/') + (last?.let { " · bijgewerkt " + runCatching { java.time.LocalDate.parse(it.take(10)).let { d -> "${d.dayOfMonth} ${d.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.forLanguageTag("nl-NL")).trimEnd('.')}" } }.getOrDefault("") } ?: "")
-                } ?: "niet verbonden"),
-                Item(Glyphs.camera, "Foto's in je statistieken", "alles van de dagen samen"),
-            ))
-            4 -> Group("Op je telefoon", listOf(
-                Item(Glyphs.bell, "Meldingen", toggle = notify, action = { notify = !notify }),
-                Item(Glyphs.friends, "Reacties", "op je foto's en dagen"),
-            ))
-            5 -> Group("Op dit toestel", listOf(
-                Item(Glyphs.globe, "Kaart offline bewaren", toggle = offlineMap, action = { offlineMap = !offlineMap }),
-                Item(Glyphs.photo, "Foto-cache", if (Data.live) null else "412 MB"),
-                Item(Glyphs.download, "Back-up", if (Data.live) null else "laatst gisteren"),
-            ))
-            6 -> Group("Nieuwe versies", listOf(
-                Item(Glyphs.download, "Automatisch controleren", toggle = autoUpdate, action = { autoUpdate = !autoUpdate }),
-                Item(Glyphs.download, "Nu controleren", "versie $version (testversie)"),
-            ))
-            else -> Group("MarkMySteps", listOf(
-                Item(Glyphs.help, "Wat is er nieuw"),
-                Item(Glyphs.logo, "Over MarkMySteps", "AGPL-3.0"),
-            ))
+            if (mapStyle) MapSheet(onDismiss = { mapStyle = false })
+            if (confirmSignOut) androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmSignOut = false },
+                title = { Text("Uitloggen?", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 20.sp)) },
+                text = { Text("Je reizen blijven op je server. Daarna log je opnieuw in.", style = TextStyle(fontFamily = Inter, fontSize = 15.sp)) },
+                confirmButton = { androidx.compose.material3.TextButton(onClick = { confirmSignOut = false; onSignIn() }) { Text("Uitloggen", color = cs.error, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmSignOut = false }) { Text("Annuleren", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600))) } },
+            )
+            Spacer(Modifier.height(120.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
-        Spacer(Modifier.height(120.dp))
-        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        StatusScrim(pageScroll)
     }
+
 }
 
 @Composable
@@ -320,7 +329,7 @@ private fun Row0(item: Item, i: Int, n: Int, seed: Int, onToggle: () -> Unit = {
     val cs = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth().clip(slabShape(i, n)).background(cs.surfaceContainerLow)
-            .dip { item.action?.invoke() ?: run { if (item.toggle != null) onToggle() } }.padding(horizontal = 14.dp, vertical = 12.dp),
+            .then(if (item.action != null || item.toggle != null) Modifier.dip { item.action?.invoke() ?: run { if (item.toggle != null) onToggle() } } else Modifier).padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconTile(item.icon, seed)
@@ -339,7 +348,7 @@ private fun Row0(item: Item, i: Int, n: Int, seed: Int, onToggle: () -> Unit = {
                 } else null,
                 colors = SwitchDefaults.colors(checkedTrackColor = cs.primary, checkedThumbColor = cs.onPrimary),
             )
-        } else {
+        } else if (item.action != null) {
             LineIcon(Glyphs.chevronRight, cs.onSurfaceVariant, size = 18.dp, stroke = 2.2f)
         }
     }

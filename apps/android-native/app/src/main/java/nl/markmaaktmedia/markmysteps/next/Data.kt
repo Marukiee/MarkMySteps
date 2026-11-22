@@ -45,6 +45,8 @@ object Data {
         private set
 
     val all: List<Trip> get() = trips
+    /** A trip opened from a card's menu with its people sheet straight away. */
+    var peopleFor by mutableStateOf<String?>(null)
     val past: List<Trip> get() = trips.filter { !it.upcoming && !it.shared }
     /** Other people's trips you were added to. */
     val sharedTrips: List<Trip> get() = trips.filter { it.shared }

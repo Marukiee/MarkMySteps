@@ -1,6 +1,7 @@
 package nl.markmaaktmedia.markmysteps.next
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -96,7 +97,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
         }
     }
     var viewing by remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
-    var people by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var people by remember { androidx.compose.runtime.mutableStateOf(Data.peopleFor == base.id) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { if (Data.peopleFor == base.id) Data.peopleFor = null }
     var bigMap by remember { androidx.compose.runtime.mutableStateOf(false) }
     val tiles = remember(base.id) { TileBounds() }
     var openPhoto by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
@@ -126,7 +128,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
             Box(Modifier.fillMaxWidth().height(mapH)) {
                 TripMap(trip, dark, Modifier.fillMaxSize(), bottomInsetDp = 30)
                 // Open the map full screen, from its own corner as on the web.
-                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 44.dp)) {
+                // Fades away as the map scrolls under the top buttons, so it never overlaps them.
+                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 44.dp).graphicsLayer { alpha = (1f - scroll.value / (mapH.toPx() * 0.45f)).coerceIn(0f, 1f) }) {
                     RoundButton(onClick = { bigMap = true }) {
                         LineIcon(listOf(P("M4 9V4h5"), P("M20 9V4h-5"), P("M4 15v5h5"), P("M20 15v5h-5")), cs.onSurface, size = 20.dp, stroke = 2.2f)
                     }
@@ -167,7 +170,22 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit) {
 
                 // No animateContentSize here: it clips, which cut the places row off before the screen edge.
                 Column(Modifier.padding(top = 16.dp)) {
-                    if (tab == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                    // Tijdlijn and Routeplanner slide the way of the tab you picked, like Afgelopen reizen and Gedeeld.
+                    val tabMotion = MaterialTheme.motionScheme
+                    androidx.compose.animation.AnimatedContent(
+                        tab,
+                        transitionSpec = {
+                            val dir = if (targetState > initialState) 1 else -1
+                            (androidx.compose.animation.slideInHorizontally(tabMotion.defaultSpatialSpec()) { w -> dir * w / 5 } + androidx.compose.animation.fadeIn(tabMotion.defaultEffectsSpec())) togetherWith
+                                (androidx.compose.animation.slideOutHorizontally(tabMotion.defaultSpatialSpec()) { w -> -dir * w / 5 } + androidx.compose.animation.fadeOut(tabMotion.fastEffectsSpec())) using
+                                androidx.compose.animation.SizeTransform(clip = false)
+                        },
+                        label = "tripTab",
+                    ) { which ->
+                        Column {
+                            if (which == 0) Timeline(trip, dark, media, onPhoto = { m -> viewing = media?.indexOf(m)?.takeIf { it >= 0 } }, bounds = tiles, hidden = openPhoto, onJump = { y -> scope.launch { scroll.animateScrollBy(y - with(density) { 120.dp.toPx() }) } }) else androidx.compose.runtime.key(trip.stops.size) { Planner(trip, dark) }
+                        }
+                    }
                 }
                 Spacer(Modifier.height(24.dp))
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -281,7 +299,8 @@ private fun factsOf(trip: Trip, photos: Int?): List<Pair<String, String>> = if (
     trip.km?.takeIf { it > 0 }?.let { "%,d".format(it).replace(',', '.') to "kilometer" },
     "${trip.days}" to "dagen",
     "${trip.stops.size}" to (if (trip.stops.size == 1) "stop" else "stops"),
-    "${photos ?: trip.photos}" to "foto's",
+    // While a real trip's photos are read the count waits ("…"), never a 0 that jumps.
+    (photos?.toString() ?: if (trip.remoteId != null) "…" else "${trip.photos}") to "foto's",
 )
 
 /**
