@@ -68,7 +68,11 @@ final class Api {
     private var access: String?
     private var refresh: String?
     /// One refresh at a time, however many requests found their token expired.
-    private var renewing: Task<Bool, Never>?
+    private var renewing: Task<Renewal, Never>?
+
+    /// How a token refresh went. Only a refresh the server turns down ends the session; no network (a train,
+    /// a tunnel, a timeout) keeps the tokens and the last trips, so nobody is ever signed out by a bad connection.
+    private enum Renewal { case renewed, rejected, unreachable }
 
     private init() {
         base = UserDefaults.standard.string(forKey: "server") ?? ""
@@ -119,10 +123,21 @@ final class Api {
 
     func get(_ path: String) async throws -> Data { try await request("GET", path) }
 
+    /// Test mode: started with `-dryRun YES`, every write is answered here and never leaves the phone, so a
+    /// test can tap delete, rename or answer a request on real data without changing anything. Like Android's `Api.dryRun`.
+    static let dryRun: Bool = UserDefaults.standard.bool(forKey: "dryRun")
+
     /// A change on the server, only ever from something the person tapped.
     @discardableResult
     func send(_ method: String, _ path: String, body: [String: Any]? = nil) async throws -> Data {
-        try await request(method, path, body: body)
+        if Api.dryRun && method != "GET" {
+            // Only the names of the fields: a body can hold a password, a code or a key, and the log is no place for them.
+            let bare = path.split(separator: "?").first.map(String.init) ?? path
+            let fields = body.map { "{" + $0.keys.sorted().joined(separator: ",") + "}" } ?? ""
+            Api.log.notice("MmsDryRun \(method, privacy: .public) \(bare, privacy: .public) \(fields, privacy: .public)")
+            return Data("{}".utf8)
+        }
+        return try await request(method, path, body: body)
     }
 
     /// An image from the server, with the token; nil when it cannot be had.
@@ -136,21 +151,26 @@ final class Api {
         Keychain.set("refresh", r)
     }
 
-    private func renew() async -> Bool {
+    private func renew() async -> Renewal {
         if let renewing { return await renewing.value }
-        let task = Task<Bool, Never> {
-            guard let r = refresh else { return false }
+        let task = Task<Renewal, Never> {
+            guard let r = refresh else { return .rejected }
             do {
                 try tokens(json(await request("POST", "/api/auth/refresh", body: ["refreshToken": r], auth: false)))
-                return true
+                return .renewed
+            } catch let failure as Failure {
+                // 400, 401 or 403: the refresh token itself is no good any more. Anything else (no answer, 5xx)
+                // says nothing about the session.
+                return [400, 401, 403].contains(failure.status) ? .rejected : .unreachable
             } catch {
-                return false
+                return .unreachable
             }
         }
         renewing = task
-        let ok = await task.value
+        let outcome = await task.value
         renewing = nil
-        return ok
+        if outcome == .rejected { Api.log.notice("session refresh rejected") }
+        return outcome
     }
 
     private func json(_ data: Data) throws -> [String: Any] {
@@ -180,8 +200,12 @@ final class Api {
             throw Failure(message: "Kan de server niet bereiken")
         }
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if code == 401 && auth && !retried, await renew() {
-            return try await request(method, path, body: body, auth: auth, accept: accept, retried: true)
+        if code == 401 && auth && !retried {
+            switch await renew() {
+            case .renewed: return try await request(method, path, body: body, auth: auth, accept: accept, retried: true)
+            case .unreachable: throw Failure(message: "Kan de server niet bereiken")
+            case .rejected: break
+            }
         }
         guard (200..<300).contains(code) else {
             let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["message"] as? String
@@ -583,6 +607,22 @@ enum Remote {
         try await Api.shared.send("PATCH", "/api/trips/\(rid)", body: ["color": hex ?? NSNull()])
     }
 
+    static func renameTrip(_ trip: Trip, _ title: String) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("PATCH", "/api/trips/\(rid)", body: ["title": title.trimmingCharacters(in: .whitespacesAndNewlines)])
+    }
+
+    static func deleteTrip(_ trip: Trip) async throws {
+        guard let rid = trip.remoteId else { return }
+        try await Api.shared.send("DELETE", "/api/trips/\(rid)")
+    }
+
+    /// Leaving a trip someone else made: you take yourself off its members.
+    static func leaveTrip(_ trip: Trip, me: String) async throws {
+        guard let rid = trip.remoteId, !me.isEmpty else { return }
+        try await Api.shared.send("DELETE", "/api/trips/\(rid)/members/\(me)")
+    }
+
     static func syncPhotos(_ trip: Trip) async throws {
         guard let rid = trip.remoteId else { return }
         try await Api.shared.send("POST", "/api/trips/\(rid)/sync")
@@ -640,6 +680,9 @@ enum Remote {
 
     static func markNoticesRead() async throws { try await Api.shared.send("POST", "/api/notifications/read") }
 
+    /// Takes one line off the list; an unanswered request itself stays open, as on the web.
+    static func dismissNotice(_ id: String) async throws { try await Api.shared.send("DELETE", "/api/notifications/\(id)") }
+
     /// Let someone look along as a guest, or turn them down.
     static func answerAccess(_ requestId: String, approve: Bool) async throws {
         try await Api.shared.send("POST", "/api/access-requests/\(requestId)/\(approve ? "approve" : "deny")", body: approve ? ["role": "GUEST"] : nil)
@@ -651,7 +694,9 @@ enum Remote {
         return list.compactMap { o -> Media? in
             guard let id = o["id"] as? String, let taken = day(o["takenAt"]) else { return nil }
             let w = o["width"] as? Double ?? 0, h = o["height"] as? Double ?? 0
-            return Media(id: id, takenAt: taken, video: (o["assetType"] as? String) == "VIDEO", ratio: w > 0 && h > 0 ? w / h : 1)
+            // Where it was taken, for the photos on the trip map.
+            let lat = (o["latitude"] as? NSNumber)?.doubleValue, lon = (o["longitude"] as? NSNumber)?.doubleValue
+            return Media(id: id, takenAt: taken, video: (o["assetType"] as? String) == "VIDEO", ratio: w > 0 && h > 0 ? w / h : 1, lat: lat, lon: lon)
         }
         .sorted { $0.takenAt < $1.takenAt }
     }
@@ -663,7 +708,7 @@ enum Cache {
     private static var dir: URL { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0] }
     static func save(_ name: String, _ data: Data) { try? data.write(to: dir.appendingPathComponent("mms-\(name).json")) }
     static func load(_ name: String) -> Data? { try? Data(contentsOf: dir.appendingPathComponent("mms-\(name).json")) }
-    static func clear() { for n in ["me", "trips", "stats", "friends"] { try? FileManager.default.removeItem(at: dir.appendingPathComponent("mms-\(n).json")) } }
+    static func clear() { for n in ["me", "trips", "stats", "friends", "planned"] { try? FileManager.default.removeItem(at: dir.appendingPathComponent("mms-\(n).json")) } }
 }
 
 /// Where the pages get their trips: the invented ones, or after signing in the account's own.
@@ -679,6 +724,12 @@ final class Store {
     var friendsLoaded = false
     var live: Bool
     var error: String?
+    /// The server turned the session down (401 after a refresh): the app goes back to signing in, it never
+    /// quietly carries on with the demo's trips and figures.
+    var sessionExpired = false
+    /// Countries of your own trips still to come that you have not been to yet (ISO codes), from the stops of
+    /// those trips on the server; Reizigers shows them with an hourglass.
+    var plannedCountries: [String] = []
     /// Bumped on every reload, so pages that read more per trip read it again.
     var version = 0
 
@@ -691,6 +742,7 @@ final class Store {
             let cachedFriends = Cache.load("friends").map(Remote.parseFriends)
             friends = cachedFriends ?? []
             friendsLoaded = cachedFriends != nil
+            plannedCountries = Cache.load("planned").flatMap { try? JSONDecoder().decode([String].self, from: $0) } ?? []
             live = true
         } else {
             trips = Demo.past + [Demo.upcoming]
@@ -727,16 +779,37 @@ final class Store {
             if let s = try? await Remote.stats(me.id) { stats = s }
             if let f = try? await Remote.friends() { friends = f }
             friendsLoaded = true
+            await loadPlanned()
         } catch let failure as Api.Failure {
-            if failure.status == 401 { signOut() } else { error = failure.message }
+            if failure.status == 401 {
+                signOut()
+                sessionExpired = true
+            } else {
+                error = failure.message
+            }
         } catch {
             self.error = error.localizedDescription
         }
     }
 
+    /// The countries of the real upcoming trips' stops that the server's statistics do not count as visited yet.
+    private func loadPlanned() async {
+        let visited = Set((stats?.countries ?? []).map { $0.uppercased() })
+        var codes: [String] = []
+        for trip in coming {
+            guard let stops = try? await Remote.stops(trip).stops else { continue }
+            for code in stops.compactMap({ Remote.code(fromFlag: $0.flag) }) where !visited.contains(code) && !codes.contains(code) {
+                codes.append(code)
+            }
+        }
+        plannedCountries = codes
+        if let data = try? JSONEncoder().encode(codes) { Cache.save("planned", data) }
+    }
+
     func signOut() {
         Api.shared.signOut()
         Cache.clear()
+        plannedCountries = []
         trips = Demo.past + [Demo.upcoming]
         me = nil
         stats = nil

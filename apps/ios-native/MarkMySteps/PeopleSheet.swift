@@ -126,8 +126,8 @@ struct PeopleSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() }.tint(.primary) }
             }
-            .animation(.snappy, value: suggestions.map(\.id))
-            .animation(.snappy, value: links?.map(\.id))
+            .animation(.calm, value: suggestions.map(\.id))
+            .animation(.calm, value: links?.map(\.id))
             .task { await loadLinks() }
             .task(id: query) {
                 guard canManage else { return }
@@ -209,23 +209,25 @@ struct PeopleSheet: View {
     /// Kopieer button (the full address), and a settings button for its password and revoking.
     @ViewBuilder private func linkRow(_ link: Remote.ShareLink) -> some View {
         let full = link.url
-        let shown = full.replacingOccurrences(of: Api.shared.base, with: "")
         HStack(spacing: 10) {
             if link.hasPassword {
                 Image(systemName: "lock.fill").font(.system(size: 13)).foregroundStyle(Brand.inkSoft).accessibilityLabel("Met wachtwoord")
             }
-            Link(destination: URL(string: full) ?? URL(string: "https://example.invalid")!) {
-                Text(shown).font(.inter(15, 550)).underline().foregroundStyle(Brand.accent).lineLimit(1).truncationMode(.middle)
+            // The whole address in the accent with a soft underline, cut at the end; a tap copies it.
+            Button { copy(link) } label: {
+                Text(full)
+                    .font(.inter(15, 550))
+                    .foregroundStyle(Brand.accent)
+                    .underline(true, color: Brand.accent.opacity(0.35))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
             }
-            Spacer(minLength: 6)
-            Button {
-                UIPasteboard.general.string = full
-                withAnimation(.snappy) { copied = link.id }
-                Task {
-                    try? await Task.sleep(for: .seconds(1.6))
-                    withAnimation(.snappy) { if copied == link.id { copied = nil } }
-                }
-            } label: {
+            .buttonStyle(.plain)
+            .accessibilityLabel("Link kopiëren")
+            .accessibilityValue(full)
+            Button { copy(link) } label: {
                 Text(copied == link.id ? "Gekopieerd" : "Kopieer").font(.inter(14, 600)).contentTransition(.opacity)
             }
             .buttonStyle(.bordered)
@@ -247,6 +249,16 @@ struct PeopleSheet: View {
                 .accessibilityLabel("Instellingen van deze link")
                 .disabled(busy != nil)
             }
+        }
+    }
+
+    private func copy(_ link: Remote.ShareLink) {
+        UIPasteboard.general.string = link.url
+        Haptic.tap()
+        withAnimation(.calm) { copied = link.id }
+        Task {
+            try? await Task.sleep(for: .seconds(1.6))
+            withAnimation(.calm) { if copied == link.id { copied = nil } }
         }
     }
 

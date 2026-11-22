@@ -6,36 +6,59 @@ struct NewTripSheet: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
-    @State private var start = Format.calendar.startOfDay(for: Date())
-    @State private var end = Format.calendar.date(byAdding: .day, value: 7, to: Format.calendar.startOfDay(for: Date())) ?? Date()
+    @State private var start: Date? = nil
+    @State private var end: Date? = nil
     @State private var busy = false
     @State private var error: String?
     @FocusState private var focused: Bool
 
-    private var canCreate: Bool { store.live && !title.trimmingCharacters(in: .whitespaces).isEmpty && end >= start && !busy }
+    private var canCreate: Bool { store.live && !title.trimmingCharacters(in: .whitespaces).isEmpty && start != nil && !busy }
+
+    /// "7 t/m 14 dec · 8 dagen", or what to do next.
+    private var summary: String {
+        guard let start else { return "Druk op de eerste dag en sleep naar de laatste" }
+        guard let last = end, last != start else { return "\(Format.shortDay(start)) · 1 dag" }
+        let days = (Format.calendar.dateComponents([.day], from: start, to: last).day ?? 0) + 1
+        return "\(Format.range(start, last, withYear: false)) · \(days) dagen"
+    }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField("Bijv. Zomer in Zweden", text: $title)
-                        .font(.inter(17))
-                        .focused($focused)
-                        .submitLabel(.done)
-                } header: { Text("Naam") }
-                .listRowBackground(Brand.raised)
-                Section {
-                    DatePicker("Van", selection: $start, displayedComponents: .date)
-                    DatePicker("Tot en met", selection: $end, in: start..., displayedComponents: .date)
-                } header: { Text("Wanneer") } footer: {
-                    if !store.live { Text("In de voorbeelden maak je geen reis; log in op je server.") }
-                    else if let error { Text(error).foregroundStyle(.red) }
+            // No Form or scroll view around the calendar: a drag over the days picks them, it never scrolls.
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Naam").font(.inter(13, 600)).foregroundStyle(Brand.inkSoft).padding(.leading, 4).padding(.bottom, 6)
+                TextField("Bijv. Zomer in Zweden", text: $title)
+                    .font(.inter(17, 500))
+                    .focused($focused)
+                    .submitLabel(.done)
+                    .padding(.horizontal, 16)
+                    .frame(height: 52)
+                    .background(Brand.raised, in: .rect(cornerRadius: 18))
+                Text("Wanneer").font(.inter(13, 600)).foregroundStyle(Brand.inkSoft).padding(.leading, 4).padding(.top, 18).padding(.bottom, 6)
+                VStack(spacing: 8) {
+                    RangeCalendar(start: $start, end: $end)
+                    Text(summary)
+                        .font(.inter(14, 550))
+                        .foregroundStyle(start == nil ? Brand.inkSoft : Brand.ink)
+                        .contentTransition(.numericText())
+                        .animation(.calm, value: summary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.bottom, 4)
                 }
-                .listRowBackground(Brand.raised)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 10)
+                .background(Brand.raised, in: .rect(cornerRadius: 24))
+                if !store.live {
+                    Text("In de voorbeelden maak je geen reis; log in op je server.")
+                        .font(.inter(13, 500)).foregroundStyle(Brand.inkSoft).padding(.top, 10).padding(.leading, 4)
+                } else if let error {
+                    Text(error).font(.inter(13, 500)).foregroundStyle(.red).padding(.top, 10).padding(.leading, 4)
+                }
+                Spacer(minLength: 0)
             }
-            .scrollContentBackground(.hidden)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
             .background(Brand.paper)
-            .environment(\.locale, Format.dutch)
             .navigationTitle("Nieuwe reis")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -51,14 +74,13 @@ struct NewTripSheet: View {
                     .disabled(!canCreate)
                 }
             }
-            .onChange(of: start) { _, s in if end < s { end = s } }
-            .onAppear { focused = true }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.height(700), .large])
     }
 
     private func create() {
-        guard canCreate else { return }
+        guard canCreate, let start else { return }
+        let end = self.end ?? start
         busy = true
         error = nil
         Task {

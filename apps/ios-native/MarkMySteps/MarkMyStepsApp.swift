@@ -37,6 +37,9 @@ enum Launch {
     static let map = defaults.bool(forKey: "map")
     /// Open a friend's page on Reizigers.
     static let friend = defaults.string(forKey: "friend")
+    /// Screenshots only: the trip menu acts as on your own server trip (Hernoemen, Verwijderen) on a demo trip.
+    /// Nothing can be sent: a demo trip has no server id, and every trip call stops on that.
+    static let menuPreview = defaults.bool(forKey: "menuPreview")
 }
 
 enum AppTab: Hashable {
@@ -58,11 +61,16 @@ struct RootView: View {
         ZStack {
             if signedOut {
                 LoginView(
+                    notice: store.sessionExpired ? "Je sessie is verlopen. Log opnieuw in." : nil,
                     onDone: {
+                        store.sessionExpired = false
                         withAnimation(.smooth(duration: 0.45)) { signedOut = false }
                         Task { await store.load() }
                     },
-                    onDemo: { withAnimation(.smooth(duration: 0.45)) { signedOut = false } }
+                    onDemo: {
+                        store.sessionExpired = false
+                        withAnimation(.smooth(duration: 0.45)) { signedOut = false }
+                    }
                 )
                 .transition(.opacity.combined(with: .scale(scale: 1.04)))
             } else {
@@ -77,9 +85,15 @@ struct RootView: View {
         .tint(Brand.accent)
         .preferredColorScheme(theme == "light" ? .light : theme == "dark" ? .dark : nil)
         .task { await store.load() }
+        // A session the server no longer accepts goes back to signing in, never on to the demo's trips.
+        .onChange(of: store.sessionExpired) { _, expired in
+            if expired { withAnimation(.smooth(duration: 0.45)) { signedOut = true } }
+        }
         .task {
             if let host = UserDefaults.standard.string(forKey: "nettest") { await Api.netTest(host) }
             if UserDefaults.standard.bool(forKey: "keychaintest") { Keychain.selfTest() }
+            // Test mode proves itself at launch: one write that only ever reaches the log, never the server.
+            if Api.dryRun { _ = try? await Api.shared.send("POST", "/api/dryrun-probe", body: ["probe": true]) }
         }
     }
 }
@@ -88,10 +102,12 @@ struct MainTabs: View {
     let onSignIn: () -> Void
     @State private var tab: AppTab = MainTabs.startTab
     @State private var homeReset = 0
+    @State private var travellersReset = 0
+    @State private var settingsReset = 0
 
     private static var startTab: AppTab {
         switch Launch.page {
-        case "travellers": .travellers
+        case "travellers", "notices": .travellers
         case "settings": .settings
         default: .trips
         }
@@ -103,14 +119,22 @@ struct MainTabs: View {
                 HomeView(onAvatar: { tab = .settings }, resetToken: homeReset)
             }
             Tab("Reizigers", systemImage: "person.2", value: AppTab.travellers) {
-                TravellersView()
+                TravellersView(resetToken: travellersReset, onOpenRequests: { tab = .settings })
             }
             Tab("Instellingen", systemImage: "gearshape", value: AppTab.settings) {
-                SettingsView(onSignIn: onSignIn)
+                SettingsView(onSignIn: onSignIn, resetToken: settingsReset)
             }
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
-        // Back on Reizen from another tab: the home page starts at the top again.
-        .onChange(of: tab) { old, new in if new == .trips && old != .trips { homeReset += 1 } }
+        // The bar always stays whole, also while scrolling: never shrunk into a circle.
+        .tabBarMinimizeBehavior(.never)
+        .sensoryFeedback(.selection, trigger: tab)
+        .onChange(of: tab) { old, new in
+            // Back on Reizen from another tab: the home page starts at the top again.
+            if new == .trips && old != .trips { homeReset += 1 }
+            // A tab left behind opens at its top next time: Reizigers with the bell in view, Instellingen on its
+            // main list instead of the sub page of before.
+            if old == .travellers && new != .travellers { travellersReset += 1 }
+            if old == .settings && new != .settings { settingsReset += 1 }
+        }
     }
 }

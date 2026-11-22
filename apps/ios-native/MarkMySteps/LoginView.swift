@@ -7,6 +7,8 @@ import SwiftUI
  * the invented trips instead.
  */
 struct LoginView: View {
+    /// Why signing in is asked again, e.g. an expired session.
+    var notice: String? = nil
     let onDone: () -> Void
     let onDemo: () -> Void
 
@@ -195,7 +197,7 @@ struct LoginView: View {
 
             if mfaToken != nil {
                 Button {
-                    withAnimation(.snappy) { mfaToken = nil; code = ""; error = nil }
+                    withAnimation(.calm) { mfaToken = nil; code = ""; error = nil }
                 } label: {
                     Label("Ander account", systemImage: "chevron.left").font(.inter(15, 550))
                 }
@@ -206,8 +208,9 @@ struct LoginView: View {
         }
         .padding(16)
         .background(Brand.raised, in: .rect(cornerRadius: 26))
-        .animation(.snappy, value: mfaToken)
-        .animation(.snappy, value: error)
+        .animation(.calm, value: mfaToken)
+        .animation(.calm, value: error)
+        .onAppear { if error == nil, let notice { error = notice } }
     }
 
     private func field<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
@@ -237,7 +240,7 @@ struct LoginView: View {
                 } else {
                     switch try await Api.shared.login(server: server, identifier: name, password: password) {
                     case .needsCode(let token):
-                        withAnimation(.snappy) { mfaToken = token }
+                        withAnimation(.calm) { mfaToken = token }
                         focus = .code
                     case .done:
                         password = ""

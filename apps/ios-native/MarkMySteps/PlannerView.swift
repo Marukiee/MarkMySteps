@@ -75,7 +75,7 @@ final class PlanSaver {
         deleteTask = Task {
             try? await Task.sleep(for: .seconds(7))
             guard !Task.isCancelled, let pending = plan.wrappedValue.pending else { return }
-            withAnimation(.snappy) { plan.wrappedValue.pending = nil }
+            withAnimation(.calm) { plan.wrappedValue.pending = nil }
             if send, let id = pending.stop.serverId { run(plan) { try await Remote.deleteStop(trip, id) } }
         }
     }
@@ -83,7 +83,7 @@ final class PlanSaver {
     func undo(_ plan: Binding<PlanState>) {
         deleteTask?.cancel()
         guard let p = plan.wrappedValue.pending else { return }
-        withAnimation(.snappy) {
+        withAnimation(.calm) {
             plan.wrappedValue.stops.insert(p.stop, at: min(p.index, plan.wrappedValue.stops.count))
             plan.wrappedValue.pending = nil
         }
@@ -137,7 +137,7 @@ struct PlannerRows: View {
                 .font(.outfit(15, 600))
                 .foregroundStyle(Brand.ink)
                 .contentTransition(.numericText(value: Double(planned)))
-                .animation(.snappy, value: planned)
+                .animation(.calm, value: planned)
             Spacer()
             EditButton()
                 .font(.outfit(15, 600))
@@ -179,14 +179,14 @@ struct PlannerRows: View {
             if let earlier = plan.pending, saves, let sid = earlier.stop.serverId {
                 saver.run($plan) { try await Remote.deleteStop(trip, sid) }
             }
-            withAnimation(.snappy) {
+            withAnimation(.calm) {
                 plan.pending = PendingDelete(stop: row, index: i, at: Date())
                 plan.stops.remove(at: i)
             }
             saver.scheduleDelete(trip, $plan, send: saves)
         }
         .onMove { from, to in
-            withAnimation(.snappy) { plan.stops.move(fromOffsets: from, toOffset: to) }
+            withAnimation(.calm) { plan.stops.move(fromOffsets: from, toOffset: to) }
             guard saves else { return }
             let ids = [plan.outbound?.serverId].compactMap { $0 } + plan.stops.compactMap(\.serverId) + [plan.back?.serverId].compactMap { $0 }
             saver.run($plan) { try await Remote.reorderStops(trip, ids) }
@@ -236,7 +236,7 @@ private struct NightsRing: View {
         }
         .rotationEffect(.degrees(-90))
         .frame(width: 28, height: 28)
-        .animation(.spring(duration: 0.5, bounce: 0.2), value: share)
+        .animation(.calm, value: share)
         .accessibilityHidden(true)
     }
 }
@@ -247,7 +247,7 @@ struct ModeMenu: View {
 
     var body: some View {
         Menu {
-            Picker("Vervoer", selection: $mode.animation(.snappy)) {
+            Picker("Vervoer", selection: $mode.animation(.calm)) {
                 ForEach(Mode.allCases) { m in
                     Label(m.label, systemImage: m.symbol).tag(m)
                 }
@@ -346,7 +346,7 @@ private struct StopRow: View {
                         .contentTransition(.numericText(value: Double(stop.nights)))
                 }
                 Spacer(minLength: 6)
-                Stepper("Nachten in \(stop.name)", value: $stop.nights.animation(.snappy), in: 0...60)
+                Stepper("Nachten in \(stop.name)", value: $stop.nights.animation(.calm), in: 0...60)
                     .labelsHidden()
                     .fixedSize()
             }
@@ -426,7 +426,7 @@ private struct AddStopCard: View {
                     if i < matches.count - 1 { Divider().padding(.leading, 6) }
                 }
             }
-            .animation(.snappy, value: matches.map(\.id))
+            .animation(.calm, value: matches.map(\.id))
 
             if !query.isEmpty && matches.isEmpty && trip.remoteId == nil {
                 Button {
@@ -441,7 +441,7 @@ private struct AddStopCard: View {
         }
         .padding(14)
         .background(Brand.raised, in: .rect(cornerRadius: 24))
-        .animation(.snappy, value: query.isEmpty)
+        .animation(.calm, value: query.isEmpty)
         .task(id: query) {
             guard trip.remoteId != nil else { return }
             try? await Task.sleep(for: .milliseconds(300))
@@ -453,7 +453,7 @@ private struct AddStopCard: View {
     private func add(_ place: Remote.Place) {
         let serverId = saves ? UUID().uuidString.lowercased() : nil
         let after = plan.stops.last?.serverId ?? plan.outbound?.serverId
-        withAnimation(.snappy) {
+        withAnimation(.calm) {
             plan.stops.append(PlanStop(id: plan.nextKey, name: place.name, flag: place.flag, at: place.at, nights: 1, mode: .car, serverId: serverId))
             plan.nextKey += 1
             plan.query = ""

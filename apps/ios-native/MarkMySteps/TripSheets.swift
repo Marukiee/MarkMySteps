@@ -84,7 +84,7 @@ struct MapStyleSheet: View {
                         ForEach(MapLook.allCases) { look in
                             let on = chosen == look.rawValue
                             Button {
-                                withAnimation(.snappy) { chosen = look.rawValue }
+                                withAnimation(.calm) { chosen = look.rawValue }
                             } label: {
                                 VStack(alignment: .leading, spacing: 8) {
                                     MapLookPreview(look: look, dark: scheme == .dark)
@@ -187,7 +187,7 @@ struct TripSettingsSheet: View {
             .navigationTitle("Reisinstellingen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() }.tint(.primary) } }
-            .animation(.snappy, value: note)
+            .animation(.calm, value: note)
         }
         .presentationDetents([.medium])
     }

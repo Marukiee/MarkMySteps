@@ -53,7 +53,7 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 - Instellingen opgedeeld in categorieën die elk een eigen pagina openen, zoals PixelPlayer; kleuren en letters zoals ze waren. (klaar)
 - Instellingen compleet zoals de vorige versie (Voorkeuren, Services, Data, Accounts en de rest), alles in de app zelf, geen doorstuurlinks naar de website. Account (profiel, wachtwoord, tweestaps) ook in de app, veilig. (bezig)
 - De navigatiebalk komt pas terug als de pagina er echt is, niet al bij het begin van het terugveeggebaar. De pil groeit vanuit het midden. (klaar Android)
-- Wissel je van tab, dan opent een pagina weer bovenaan (Reizigers met de meldingen zichtbaar; Instellingen op de hoofdlijst, niet op een subpagina). Terug van een reisgenoot houdt de lijst wel zijn plek. (klaar Android, iOS open)
+- Wissel je van tab, dan opent een pagina weer bovenaan (Reizigers met de meldingen zichtbaar; Instellingen op de hoofdlijst, niet op een subpagina). Terug van een reisgenoot houdt de lijst wel zijn plek. (klaar)
 - De profielfoto rechtsboven opent je account. (bezig)
 
 ## Homepage en wereldbol
@@ -138,12 +138,17 @@ anders staat. Status: **klaar** (Android, iOS of web erbij als het niet overal z
 
 ## iOS
 
-- Minder bouncy: veren rustiger, zoals Apple's eigen apps. (open)
-- ⋯-menu goed leesbaar, geen lichtgrijze letters. (open)
-- De tabbalk blijft altijd volledig staan, ook bij scrollen; nooit krimpen tot een rondje. (open)
-- Geen Apple Kaarten-logo en "Juridische informatie" in beeld; minder lege ruimte tussen de blokken. (open)
-- Na wisselen van tab opent Instellingen weer op de hoofdlijst, niet op de subpagina van daarnet. (open)
-- Alles wat hierboven voor Android klaar is, ook op iOS in Apple's stijl. (open)
+- Minder bouncy: veren rustiger, zoals Apple's eigen apps (`.smooth`, geen overshoot; een klein beetje leven alleen bij de reacties in de fotoviewer). (klaar)
+- ⋯-menu goed leesbaar: menutekst en iconen in de gewone tekstkleur, verwijderen in rood, geen grijze titel boven de grootte-keuze. (klaar)
+- Het ⋯-menu opent vanaf de drie puntjes zelf (eroverheen, zoals een echt iOS-menu aan die knop), nooit hoger op het scherm; de knop staat daarom nooit binnen de link van de kaart. Hoog en laag op het scherm gecontroleerd. (klaar)
+- De tabbalk blijft altijd volledig staan, ook bij scrollen; nooit krimpen tot een rondje. (klaar)
+- Geen Apple Kaarten-logo en "Juridische informatie" in beeld: de rand van de pagina ligt over de onderkant van de kaart, zoals op Android; minder lege ruimte tussen de blokken. (klaar)
+- Na wisselen van tab opent Instellingen weer op de hoofdlijst en Reizigers bovenaan met de bel in beeld; terug van een reisgenoot binnen de tab houdt de plek. (klaar)
+- Ingelogd nooit voorbeelddata: verloopt de sessie (401 na verversen), dan gaat de app terug naar inloggen met "Je sessie is verlopen", niet stil door met de voorbeelden. Cijfers op Reizigers wachten in hun vorm tot de server antwoordt. (klaar)
+- Geplande landen op Reizigers (met zandloper) komen ingelogd alleen uit de stops van je echte aankomende reizen die nog niet in de bezochte landen van de server staan. (klaar)
+- Statistiektegels: getal en label even ver van de onderkant (16 pt) als het icoon van de bovenkant. (klaar)
+- Kaart: de route past precies in het vrije deel (onder de knoppen, boven de paginarand), vluchten grijs gestippeld met vliegveldbolletjes, je foto's als rondjes die nooit op elkaar stapelen. Plaatsnamen volgen de taal van het toestel (MapKit). (klaar)
+- Alles wat hierboven voor Android klaar is, ook op iOS in Apple's stijl. (deels: account, reisinstellingen-pagina en het accounts-overzicht voor "Aanvragen bekijken" nog niet)
 
 ## Werkwijze
 

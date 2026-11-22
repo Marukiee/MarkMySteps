@@ -129,6 +129,9 @@ struct Media: Identifiable, Hashable {
     /// Width over height.
     let ratio: Double
     var scene: Landscape? = nil
+    /// Where it was taken, when the photo knows.
+    var lat: Double? = nil
+    var lon: Double? = nil
 }
 
 // MARK: Geometry, ported from Globe.kt
@@ -228,7 +231,7 @@ extension Trip {
                     if flown {
                         // The plan draws this one.
                     } else if km > Trip.intercontinentalKm {
-                        out.bows.append((a, b)); out.airports += [a, b]
+                        out.bows.append((a, b))
                     } else {
                         out.gaps.append((a, b))
                     }
@@ -239,10 +242,22 @@ extension Trip {
             }
             if run.count >= 2 { out.runs.append(run) }
         }
-        for f in flights {
+        // There and back between the same airports is one bow, not two on top of each other (with their dashes out
+        // of step they read as one thick line); both bow the same way, to the north.
+        for f in flights where !out.bows.contains(where: { b in
+            (Geo.km(b.0, f.from) < 30 && Geo.km(b.1, f.to) < 30) || (Geo.km(b.0, f.to) < 30 && Geo.km(b.1, f.from) < 30)
+        }) {
             out.bows.append((f.from, f.to))
-            out.airports += [f.from, f.to]
         }
+        // A small grey airport dot where a flight starts or ends, unless a stop's own pin is already there (within
+        // 55 km), so the bow never starts out of nowhere.
+        var ends: [LonLat] = []
+        for b in out.bows {
+            for p in [b.0, b.1] where !ends.contains(where: { Geo.km($0, p) < 1 }) && !stops.contains(where: { Geo.km($0.at, p) <= 55 }) {
+                ends.append(p)
+            }
+        }
+        out.airports = ends
         return out
     }
 }

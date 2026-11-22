@@ -12,11 +12,15 @@ struct HomeView: View {
         return [Store.shared.trip(for: Launch.trip ?? fallback, upcoming: page == "planner")?.id].compactMap { $0 }
     }()
     @State private var tab = 0
-    @State private var readOnly = false
+    @State private var newTrip = false
     /// Just the status bar: the globe runs up under it, the logo floats below it.
     @State private var topInset: CGFloat = 62
     @State private var scrolled = false
+    @State private var renaming: Trip?
+    @State private var deleting: Trip?
+    @State private var leaving: Trip?
     @Namespace private var zoom
+    private let sizes = CardSizes.shared
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -59,7 +63,7 @@ struct HomeView: View {
                         .navigationTransition(.zoom(sourceID: id, in: zoom))
                 }
             }
-            .sheet(isPresented: $readOnly) {
+            .sheet(isPresented: $newTrip) {
                 NewTripSheet { id in path.append(id) }
             }
         }
@@ -117,7 +121,7 @@ struct HomeView: View {
         HStack(alignment: .center) {
             Text("Reizen").font(.outfit(32, 650)).tracking(-0.6).foregroundStyle(Brand.ink)
             Spacer()
-            Button { readOnly = true } label: {
+            Button { newTrip = true } label: {
                 Label("Nieuwe reis", systemImage: "plus").font(.outfit(15, 600))
             }
             .buttonStyle(.borderedProminent)
@@ -129,19 +133,29 @@ struct HomeView: View {
         let coming = store.coming
         if !coming.isEmpty {
             SectionTitle(text: "Aankomend & onderweg").padding(.top, 22).padding(.bottom, 12).arrive(1)
-            VStack(spacing: 12) {
+            VStack(spacing: 0) {
                 ForEach(Array(coming.enumerated()), id: \.element.id) { i, trip in
-                    NavigationLink(value: trip.id) {
-                        NextTripCard(trip: trip) { menu(for: trip) }
+                    // Big by default; "Klein" from its menu makes it a row like the trips below.
+                    let big = sizes.big(trip.id, autoBig: true)
+                    Group {
+                        if big {
+                            NavigationLink(value: trip.id) { NextTripCard(trip: trip) }
+                                .buttonStyle(PressStyle())
+                                .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 30)) }
+                                .overlay(alignment: .topTrailing) { cardMenu(trip).padding(12) }
+                                .transition(.sizeSwap)
+                        } else {
+                            TripRow(trip: trip, top: 22, bottom: 22, zoom: zoom) { rowMenu(trip) }
+                                .transition(.sizeSwap)
+                        }
                     }
-                    .buttonStyle(PressStyle())
-                    .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 30)) }
+                    .padding(.top, i == 0 ? 0 : 10)
                     .arrive(2 + i)
                 }
             }
         }
 
-        Picker("Welke reizen", selection: $tab.animation(.snappy)) {
+        Picker("Welke reizen", selection: $tab.animation(.calm)) {
             Text("Afgelopen reizen  \(store.past.count)").tag(0)
             Text("Gedeeld  \(store.shared)").tag(1)
         }
@@ -149,68 +163,116 @@ struct HomeView: View {
         .controlSize(.large)
         .padding(.top, 26)
         .arrive(3)
+        .sensoryFeedback(.selection, trigger: tab)
 
         Group {
-            if tab == 0 { pastTrips } else { sharedTrips }
+            if tab == 0 { tripList(store.past, empty: "Nog geen afgelopen reizen.") }
+            else { tripList(store.sharedTrips, empty: "Nog niets met je gedeeld. Een reis die iemand met je deelt, staat hier vanzelf.") }
         }
         // Slides sideways, in the direction of the tab that was chosen.
         .transition(.push(from: tab == 1 ? .trailing : .leading))
         .padding(.bottom, 24)
+        .sheet(item: $renaming) { RenameTripSheet(trip: $0) }
+        .sheet(item: $deleting) { DeleteTripSheet(trip: $0) }
+        .confirmationDialog("Reis verlaten?", isPresented: Binding(get: { leaving != nil }, set: { if !$0 { leaving = nil } }), titleVisibility: .visible, presenting: leaving) { trip in
+            Button("Verlaten", role: .destructive) {
+                Task {
+                    try? await Remote.leaveTrip(trip, me: store.me?.id ?? "")
+                    CardSizes.shared.set(trip.id, nil)
+                    await store.load()
+                }
+            }
+        } message: { trip in
+            Text("Je verlaat \u{201C}\(trip.title)\u{201D}. Je kunt er altijd opnieuw op gezet worden.")
+        }
     }
 
-    @ViewBuilder private var pastTrips: some View {
+    /// The trips of a tab, each big or as a row: its own choice from the menu, else the default from Weergave
+    /// (Automatisch: the latest one big, the rest rows). Rows next to each other join into one slab, and a size
+    /// change turns the card into a row (or back) in place while the trips around it slide along.
+    @ViewBuilder private func tripList(_ list: [Trip], empty: String) -> some View {
+        let first = list.first
+        let isBig: (Trip) -> Bool = { sizes.big($0.id, autoBig: $0.id == first?.id) }
         VStack(alignment: .leading, spacing: 0) {
-            if let first = store.past.first {
-                NavigationLink(value: first.id) {
-                    BigTripCard(trip: first) { menu(for: first) }
-                }
-                .buttonStyle(PressStyle())
-                .matchedTransitionSource(id: first.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 30)) }
-                .padding(.top, 14)
-                .arrive(4)
+            if list.isEmpty {
+                Text(empty)
+                    .font(.inter(15, 500))
+                    .foregroundStyle(Brand.inkSoft)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(18)
+                    .background(Brand.raised, in: .rect(cornerRadius: 22))
+                    .padding(.top, 14)
             }
-            let rest = Array(store.past.dropFirst())
+            let firstBig = first.map(isBig) ?? false
+            if let first, firstBig {
+                item(first, big: true, prev: nil, next: nil).padding(.top, 14).arrive(4)
+            }
+            let rest = firstBig ? Array(list.dropFirst()) : list
             let years = rest.map(\.year).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
             ForEach(Array(years.enumerated()), id: \.element) { i, year in
+                let trips = rest.filter { $0.year == year }
                 SectionTitle(text: year, small: true).padding(.top, 20).padding(.bottom, 8).padding(.leading, 4)
                     .id(i == 0 ? "years" : year)
-                TripGroup(trips: rest.filter { $0.year == year }, zoom: zoom, menu: menu(for:))
-                    .arrive(5 + i)
+                VStack(spacing: 0) {
+                    ForEach(Array(trips.enumerated()), id: \.element.id) { k, trip in
+                        item(trip, big: isBig(trip), prev: k > 0 ? isBig(trips[k - 1]) : nil, next: k < trips.count - 1 ? isBig(trips[k + 1]) : nil)
+                    }
+                }
+                .arrive(5 + i)
             }
         }
     }
 
-    @ViewBuilder private var sharedTrips: some View {
-        let shared = store.sharedTrips
-        if shared.isEmpty {
-            Text("Nog niets met je gedeeld. Een reis die iemand met je deelt, staat hier vanzelf.")
-                .font(.inter(15, 500))
-                .foregroundStyle(Brand.inkSoft)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(18)
-                .background(Brand.raised, in: .rect(cornerRadius: 22))
-                .padding(.top, 14)
-        } else {
-            TripGroup(trips: shared, zoom: zoom, menu: menu(for:)).padding(.top, 14)
+    /// One trip in a list: a big card, or a row whose corners join the rows beside it.
+    @ViewBuilder private func item(_ trip: Trip, big: Bool, prev: Bool?, next: Bool?) -> some View {
+        Group {
+            if big {
+                NavigationLink(value: trip.id) { BigTripCard(trip: trip) }
+                    .buttonStyle(PressStyle())
+                    .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 30)) }
+                    .overlay(alignment: .topTrailing) { cardMenu(trip).padding(12) }
+                    .transition(.sizeSwap)
+            } else {
+                TripRow(trip: trip, top: prev == false ? 6 : 22, bottom: next == false ? 6 : 22, zoom: zoom) { rowMenu(trip) }
+                    .transition(.sizeSwap)
+            }
         }
+        .padding(.top, prev == nil ? 0 : (big || prev == true ? 10 : 3))
     }
 
-    /// The trip menu: what this read-only test can do, and the rest greyed out with the reason.
-    @ViewBuilder private func menu(for trip: Trip) -> some View {
-        Menu {
-            Button("Openen", systemImage: "arrow.up.forward.circle") { path.append(trip.id) }
-            Section("Deze testapp leest alleen") {
-                Button("Bewerken", systemImage: "pencil") {}.disabled(true)
-                Button("Delen", systemImage: "person.badge.plus") {}.disabled(true)
-                Button("Verwijderen", systemImage: "trash", role: .destructive) {}.disabled(true)
-            }
-        } label: {
+    private func tripMenu<L: View>(_ trip: Trip, @ViewBuilder label: () -> L) -> TripMenu<L> {
+        TripMenu(trip: trip, onRename: { renaming = trip }, onDelete: { deleting = trip }, onLeave: { leaving = trip }, label: label)
+    }
+
+    /// The ⋯ on a card with a photo or colour behind it: a real glass button, the menu unfolding from it.
+    private func cardMenu(_ trip: Trip) -> some View {
+        tripMenu(trip) {
             Image(systemName: "ellipsis")
                 .font(.system(size: 17, weight: .semibold))
-                .frame(width: 30, height: 30)
+                .foregroundStyle(Brand.ink)
+                .frame(width: 26, height: 26)
+        }
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
+        .controlSize(.large)
+    }
+
+    /// The ⋯ at the end of a row, quiet in the row's own tone.
+    private func rowMenu(_ trip: Trip) -> some View {
+        tripMenu(trip) {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Brand.inkSoft)
+                .frame(width: 44, height: 44)
                 .contentShape(.circle)
         }
-        .accessibilityLabel("Meer voor \(trip.title)")
+    }
+}
+
+extension AnyTransition {
+    /// A card turning into a row and back: the new shape fades and settles in, the old one fades out.
+    static var sizeSwap: AnyTransition {
+        .asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .top)), removal: .opacity)
     }
 }
 
@@ -302,21 +364,9 @@ struct FaceStack: View {
     }
 }
 
-/// The ellipsis menu on a card with colour or a photo behind it: real glass, floating on the picture.
-struct CardMenu<M: View>: View {
-    @ViewBuilder let menu: M
-    var body: some View {
-        menu
-            .foregroundStyle(.white)
-            .frame(width: 44, height: 44)
-            .glassEffect(.regular.interactive(), in: .circle)
-    }
-}
-
 /// The next trip: its colour edge to edge, the days left as a big number.
-struct NextTripCard<M: View>: View {
+struct NextTripCard: View {
     let trip: Trip
-    @ViewBuilder let menu: M
 
     var body: some View {
         let deep = trip.color.mix(with: Color(hex: 0x1B2440), by: 0.55)
@@ -363,9 +413,6 @@ struct NextTripCard<M: View>: View {
                 .padding(.top, 10)
             }
             .padding(20)
-            CardMenu { menu }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .topTrailing)
         }
         .clipShape(.rect(cornerRadius: 30))
         .contentShape(.rect(cornerRadius: 30))
@@ -373,9 +420,8 @@ struct NextTripCard<M: View>: View {
 }
 
 /// A trip shown big: its photo edge to edge, the name and facts on it.
-struct BigTripCard<M: View>: View {
+struct BigTripCard: View {
     let trip: Trip
-    @ViewBuilder let menu: M
 
     var body: some View {
         Color.clear
@@ -397,60 +443,68 @@ struct BigTripCard<M: View>: View {
                 }
                 .padding(20)
             }
-            .overlay(alignment: .topTrailing) { CardMenu { menu }.padding(12) }
             .clipShape(.rect(cornerRadius: 30))
             .contentShape(.rect(cornerRadius: 30))
     }
 }
 
-/// A year's trips as one grouped card of rows, as iOS lists them.
+/// A trip as a row: its cover small, the name and facts, its ⋯ beside it (never inside the link, so the menu
+/// opens from the dots). The corners join the rows above and below into one slab.
+struct TripRow<M: View>: View {
+    let trip: Trip
+    var top: CGFloat = 22
+    var bottom: CGFloat = 22
+    let zoom: Namespace.ID
+    @ViewBuilder let menu: M
+
+    var body: some View {
+        CoverTone(trip: trip) { tone in
+            HStack(spacing: 0) {
+                NavigationLink(value: trip.id) {
+                    HStack(spacing: 14) {
+                        CoverView(trip: trip)
+                            .frame(width: 60, height: 60)
+                            .clipShape(.rect(cornerRadius: 14))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(trip.title).font(.outfit(17, 600)).foregroundStyle(Brand.ink).lineLimit(1)
+                            Text(subtitle).font(.inter(13, 500)).foregroundStyle(Brand.inkSoft).lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, 10)
+                    .padding(.leading, 10)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(PressStyle(scale: 0.98))
+                .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 14)) }
+                menu.padding(.trailing, 6)
+            }
+            .background { ZStack { Brand.raised; tone.opacity(0.16) } }
+            .clipShape(UnevenRoundedRectangle(topLeadingRadius: top, bottomLeadingRadius: bottom, bottomTrailingRadius: bottom, topTrailingRadius: top))
+        }
+    }
+
+    private var subtitle: String {
+        // Short month, so the line fits beside the menu without being cut off.
+        var parts = ["\(Format.shortMonth(trip.month)) \(trip.year)", "\(trip.days) dagen"]
+        if let km = trip.km { parts.append(Format.km(km)) }
+        return parts.joined(separator: " · ")
+    }
+}
+
+/// A run of trips as one grouped slab of rows, as iOS lists them.
 struct TripGroup<M: View>: View {
     let trips: [Trip]
     let zoom: Namespace.ID
     let menu: (Trip) -> M
 
     var body: some View {
-        // One slab of rows: outer corners round, inner ones tight, each row in its cover's tone.
         VStack(spacing: 3) {
             ForEach(Array(trips.enumerated()), id: \.element.id) { i, trip in
-                CoverTone(trip: trip) { tone in
-                    HStack(spacing: 0) {
-                        NavigationLink(value: trip.id) {
-                            HStack(spacing: 14) {
-                                CoverView(trip: trip)
-                                    .frame(width: 60, height: 60)
-                                    .clipShape(.rect(cornerRadius: 14))
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(trip.title).font(.outfit(17, 600)).foregroundStyle(Brand.ink).lineLimit(1)
-                                    Text(subtitle(trip)).font(.inter(13, 500)).foregroundStyle(Brand.inkSoft).lineLimit(1)
-                                }
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.vertical, 10)
-                            .padding(.leading, 10)
-                            .contentShape(.rect)
-                        }
-                        .buttonStyle(PressStyle(scale: 0.98))
-                        .matchedTransitionSource(id: trip.id, in: zoom) { $0.clipShape(.rect(cornerRadius: 14)) }
-                        menu(trip)
-                            .foregroundStyle(Brand.inkSoft)
-                            .frame(width: 44, height: 44)
-                            .padding(.trailing, 6)
-                    }
-                    .background { ZStack { Brand.raised; tone.opacity(0.16) } }
-                    .clipShape(UnevenRoundedRectangle(
-                        topLeadingRadius: i == 0 ? 22 : 6, bottomLeadingRadius: i == trips.count - 1 ? 22 : 6,
-                        bottomTrailingRadius: i == trips.count - 1 ? 22 : 6, topTrailingRadius: i == 0 ? 22 : 6
-                    ))
+                TripRow(trip: trip, top: i == 0 ? 22 : 6, bottom: i == trips.count - 1 ? 22 : 6, zoom: zoom) {
+                    menu(trip).frame(width: 44, height: 44)
                 }
             }
         }
-    }
-
-    private func subtitle(_ trip: Trip) -> String {
-        // Short month, so the line fits beside the menu without being cut off.
-        var parts = ["\(Format.shortMonth(trip.month)) \(trip.year)", "\(trip.days) dagen"]
-        if let km = trip.km { parts.append(Format.km(km)) }
-        return parts.joined(separator: " · ")
     }
 }
