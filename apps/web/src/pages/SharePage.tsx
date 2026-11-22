@@ -76,6 +76,21 @@ type GateState = 'loading' | 'password' | 'gone' | 'failed';
 /** A refusal that means the link itself is over, not that something hiccupped. */
 class LinkGone extends Error {}
 
+/**
+ * A request that gives up after a while.
+ *
+ * The page waits for all of its parts before it shows, so one answer that
+ * never comes (a server that hangs, a train going into a tunnel) would keep a
+ * guest looking at "Laden" for ever. Given up on, it is an ordinary failure:
+ * that part stays empty, or the screen offers to try again. Aborting a request
+ * that has already finished does nothing, so the timer is simply left to run.
+ */
+function fetchWithin(url: string, init: RequestInit = {}, ms = 12_000): Promise<Response> {
+  const controller = new AbortController();
+  globalThis.setTimeout(() => controller.abort(), ms);
+  return fetch(url, { ...init, signal: controller.signal });
+}
+
 /** Session storage can be switched off; a link then simply asks again. */
 function readSession(key: string): string | null {
   try {
@@ -110,7 +125,7 @@ export function SharePage() {
   /** Swaps the slug (and the password, when it has one) for a session token. */
   const unlock = useCallback(
     async (withPassword?: string): Promise<void> => {
-      const res = await fetch(`/api/share/${slug}/session`, {
+      const res = await fetchWithin(`/api/share/${slug}/session`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(withPassword ? { password: withPassword } : {}),
@@ -128,7 +143,7 @@ export function SharePage() {
     if (!slug || token) return;
     let cancelled = false;
     setGate('loading');
-    fetch(`/api/share/${slug}/info`)
+    fetchWithin(`/api/share/${slug}/info`)
       .then(async (res) => {
         // Only a link the server does not know is "gone". A server that is
         // down, or a phone that lost its signal, is not a dead link.
@@ -154,7 +169,7 @@ export function SharePage() {
     setBusy(true);
     setPasswordError(null);
     try {
-      const res = await fetch(`/api/share/${slug}/session`, {
+      const res = await fetchWithin(`/api/share/${slug}/session`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ password }),
@@ -307,7 +322,7 @@ function SharedTripView({
   const [media, setMedia] = useState<SharedMedia[]>([]);
   const [notes, setNotes] = useState<TripNote[]>([]);
   const [routes, setRoutes] = useState<RouteCollection | null>(null);
-  /** How many of the five parts the page is built from have answered. */
+  /** How many of the six parts the page is built from have answered. */
   const [settled, setSettled] = useState(0);
   const [failed, setFailed] = useState(false);
   const [atTop, setAtTop] = useState(true);
@@ -326,7 +341,7 @@ function SharedTripView({
    * one by one as they land made the page jump three times on a phone. The
    * screen that checked the link stays up meanwhile, and fades off it.
    */
-  const ready = trip !== null && settled >= 5;
+  const ready = trip !== null && settled >= 6;
   const [coverShown, coverClosing] = useExit(!ready, 240);
 
   // Thumbnails go through plain <img> tags: the token rides along as a query
@@ -425,7 +440,7 @@ function SharedTripView({
   useEffect(() => {
     let cancelled = false;
     const get = <T,>(path: string): Promise<T> =>
-      fetch(`/api/share/${slug}/${path}`, { headers: { 'x-share-token': token } }).then((res) => {
+      fetchWithin(`/api/share/${slug}/${path}`, { headers: { 'x-share-token': token } }).then((res) => {
         if (res.status === 401 || res.status === 404) throw new LinkGone();
         return res.ok ? (res.json() as Promise<T>) : Promise.reject(new Error(String(res.status)));
       });
@@ -457,10 +472,9 @@ function SharedTripView({
     void part<SharedMedia[]>('media', setMedia);
     void part<TripNote[]>('notes', setNotes);
     void part<RouteCollection>('route', setRoutes);
-    // Not waited for: these only add a count to a photo or a line under a day.
-    get<PhotoComment[]>('comments')
-      .then((value) => !cancelled && setComments(value))
-      .catch(() => undefined);
+    // Waited for too: a comment on a day's story adds a line under it, and a
+    // line arriving after the page is up pushes everything below it down.
+    void part<PhotoComment[]>('comments', setComments);
     return () => {
       cancelled = true;
     };
