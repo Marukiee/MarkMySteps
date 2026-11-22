@@ -303,7 +303,7 @@ fun MainButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier
     Button(
         onClick = onClick, enabled = enabled && !busy, shapes = ButtonDefaults.shapes(), modifier = modifier.height(50.dp),
         colors = if (danger) ButtonDefaults.buttonColors(containerColor = cs.error, contentColor = cs.onError) else ButtonDefaults.buttonColors(),
-    ) { ButtonInside(label, icon, busy, if (danger) cs.onError else cs.onPrimary) }
+    ) { ButtonInside(label, icon, busy) }
 }
 
 @Composable
@@ -312,11 +312,13 @@ fun SoftButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier
     FilledTonalButton(
         onClick = onClick, enabled = enabled && !busy, shapes = ButtonDefaults.shapes(), modifier = modifier.height(50.dp),
         colors = if (danger) ButtonDefaults.filledTonalButtonColors(containerColor = cs.errorContainer, contentColor = cs.onErrorContainer) else ButtonDefaults.filledTonalButtonColors(),
-    ) { ButtonInside(label, icon, busy, if (danger) cs.onErrorContainer else cs.onSecondaryContainer) }
+    ) { ButtonInside(label, icon, busy) }
 }
 
 @Composable
-private fun ButtonInside(label: String, icon: List<Shape24>?, busy: Boolean, tint: Color) {
+private fun ButtonInside(label: String, icon: List<Shape24>?, busy: Boolean) {
+    // The button's own content colour, so a disabled button greys its icon too.
+    val tint = androidx.compose.material3.LocalContentColor.current
     if (icon != null || busy) {
         Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
             if (busy) LoadingIndicator(Modifier.size(20.dp), color = tint)
@@ -343,7 +345,9 @@ fun <T> Choices(options: List<Pair<T, String>>, selected: T?, onSelect: (T) -> U
                 checked = selected == value,
                 onCheckedChange = { onSelect(value) },
                 enabled = enabled,
-                modifier = Modifier.weight(1f).height(52.dp),
+                // A long word gets more of the row, so no label is ever cut off.
+                modifier = Modifier.weight(maxOf(1f, label.length / 7f)).height(52.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
                 shapes = when (i) {
                     0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
                     options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()

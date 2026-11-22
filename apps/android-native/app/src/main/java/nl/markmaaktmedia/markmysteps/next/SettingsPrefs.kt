@@ -17,6 +17,9 @@ object Airports {
     private var city: List<String> = emptyList()
     private var name: List<String> = emptyList()
     private var all: List<String> = emptyList()
+    /** Set once the list is read, so names on screen fill in when it arrives. */
+    var ready by mutableStateOf(false)
+        private set
 
     fun load(context: android.content.Context) {
         if (list.isNotEmpty()) return
@@ -29,15 +32,16 @@ object Airports {
         city = list.map { fold(it.city) }
         name = list.map { fold(it.name) }
         all = parsed.map { (a, words) -> fold("${a.iata} ${a.city} ${a.name} $words") }
+        android.os.Handler(android.os.Looper.getMainLooper()).post { ready = true }
     }
 
     private fun fold(text: String) = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").lowercase()
 
-    fun byCode(code: String): Airport? = list.firstOrNull { it.iata.equals(code, ignoreCase = true) }
+    fun byCode(code: String): Airport? = if (!ready) null else list.firstOrNull { it.iata.equals(code, ignoreCase = true) }
 
     fun search(query: String, limit: Int = 6): List<Airport> {
         val q = fold(query.trim())
-        if (q.isEmpty()) return emptyList()
+        if (q.isEmpty() || !ready) return emptyList()
         return list.indices.mapNotNull { i ->
             val a = list[i]
             val score = when {

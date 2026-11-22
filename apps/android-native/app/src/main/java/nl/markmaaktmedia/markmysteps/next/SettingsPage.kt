@@ -229,7 +229,7 @@ private fun PreferencesPage(onBack: () -> Unit) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Airports.load(context) } }
     var query by remember { mutableStateOf("") }
-    val results = remember(query, AirportPref.codes.toList()) { Airports.search(query).filter { it.iata !in AirportPref.codes } }
+    val results = remember(query, AirportPref.codes.toList(), Airports.ready) { Airports.search(query).filter { it.iata !in AirportPref.codes } }
     SettingsScaffold("Voorkeuren", onBack) {
         Header("Standaard vliegvelden", top = true)
         Panel {
