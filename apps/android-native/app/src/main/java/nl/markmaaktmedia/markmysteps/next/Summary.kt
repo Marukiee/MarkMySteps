@@ -350,7 +350,8 @@ fun SummaryScreen(trip: Trip, dark: Boolean, onBack: () -> Unit) {
                         }
                     }
                     if (optionsOpen) SummaryOptionsSheet(trip, options, { options = it; saved = null }, onDismiss = { optionsOpen = false })
-                    if (overrides.isNotEmpty()) LaunchedEffect(cut) { overrides.clear() }
+                    // Another part of the trip: the hand-picked photos start over.
+                    LaunchedEffect(cut) { overrides.clear() }
                 }
             }
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))

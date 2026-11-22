@@ -203,7 +203,8 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                         }
                     }
                 }
-                Spacer(Modifier.height(24.dp))
+                // With the navigation bar on "Altijd" it stays over this page: the end scrolls clear of it (AppCore.kt).
+                Spacer(Modifier.height(if (AppPrefs.navBarAlways) 104.dp else 24.dp))
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                 // Room for the keyboard, so a field near the end can scroll above it.
                 Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.ime))

@@ -200,6 +200,21 @@ private class PdfWriter(private val out: OutputStream, private val dpi: Int) {
 }
 
 /**
+ * An original for Print, brought down to about 2400 pixels on its long side (enough for a photo on an A4 at
+ * 300 dpi) and kept out of the shared caches, so a book of fifty-megapixel originals never fills the memory.
+ */
+private suspend fun printPhoto(id: String): Bitmap? = withContext(Dispatchers.IO) {
+    runCatching {
+        val data = DeviceMedia.bytes("$id/original") ?: Api.bytes("/api/media/$id/thumbnail?size=original") ?: return@runCatching null
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 2400) sample *= 2
+        android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+    }.getOrNull()
+}
+
+/**
  * Where the book's pages are laid out and recorded while a PDF is made: at the root of the app, so leaving
  * the book or the trip does not stop it. Nothing of it is ever drawn on screen.
  */
@@ -237,7 +252,7 @@ fun BookJobHost() {
             }
             val map = HashMap<String, Bitmap>()
             for (r in photos) {
-                val b = runCatching { Photos.load(r.photo.id, if (work.print) "original" else "preview") }.getOrNull()
+                val b = (if (work.print) printPhoto(r.photo.id) else null)
                     ?: runCatching { Photos.load(r.photo.id, "preview") }.getOrNull()
                 // PhotoView looks for "<id>/Preview": the page shows exactly this one.
                 if (b != null) map["${r.photo.id}/${PhotoSize.Preview.name}"] = b

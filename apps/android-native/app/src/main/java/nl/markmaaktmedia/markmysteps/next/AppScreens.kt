@@ -199,15 +199,14 @@ fun VersionTaps(version: String, content: @Composable (Modifier) -> Unit) {
     var taps by remember { mutableIntStateOf(0) }
     var note by remember { mutableStateOf<String?>(null) }
     var stamp by remember { mutableIntStateOf(0) }
-    val left = 5 - taps
-    val leftText = pluralStringResource(R.plurals.dev_taps, left.coerceAtLeast(1), left.coerceAtLeast(1))
     val unlocked = stringResource(R.string.dev_unlocked)
+    val res = LocalContext.current.resources
     Column {
         content(Modifier.dip {
             if (AppPrefs.developer) { note = unlocked; stamp++; return@dip }
             taps++
             if (taps >= 5) { AppPrefs.changeDeveloper(true); haptics(Haptic.Confirm); note = unlocked; taps = 0 }
-            else { haptics(Haptic.Tick); if (taps >= 2) note = leftText.replace(left.toString(), (5 - taps).toString()) }
+            else { haptics(Haptic.Tick); if (taps >= 2) note = res.getQuantityString(R.plurals.dev_taps, 5 - taps, 5 - taps) }
             stamp++
         })
         LaunchedEffect(stamp) { if (note != null) { delay(2200); note = null; if (!AppPrefs.developer) taps = 0 } }

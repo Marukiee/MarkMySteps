@@ -63,6 +63,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -405,7 +406,15 @@ fun OnboardingPage(preview: Boolean, local: Boolean, onDone: () -> Unit) {
         add(Slide("theme", Glyphs.sun, R.string.onb_theme_title, R.string.onb_theme_body) {
             Choices(listOf(0 to stringResource(R.string.settings_theme_light), 1 to stringResource(R.string.settings_theme_dark), 2 to stringResource(R.string.common_system)), theme, { theme = it; if (!preview) ThemePref.set(it) })
         })
-        add(Slide("airports", Glyphs.plane, R.string.onb_airports_title, R.string.onb_airports_body) { AirportsPanel() })
+        add(Slide("airports", Glyphs.plane, R.string.onb_airports_title, R.string.onb_airports_body) {
+            // The real panel; in a preview it only shows, so nothing is kept.
+            Box {
+                AirportsPanel()
+                if (preview) Box(Modifier.matchParentSize().pointerInput(Unit) {
+                    awaitPointerEventScope { while (true) awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial).changes.forEach { it.consume() } }
+                })
+            }
+        })
         add(Slide("location", Glyphs.pin, R.string.onb_location_title, R.string.onb_location_body) {
             Ask(location, stringResource(R.string.onb_location_ask)) { askLocation.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) }
         })
