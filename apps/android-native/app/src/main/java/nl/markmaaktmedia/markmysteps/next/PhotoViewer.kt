@@ -385,9 +385,11 @@ fun PhotoViewer(trip: Trip, photos: List<Media>, startId: String, bounds: TileBo
             if (m.video) {
                 val handle = remember(m.id) { VideoHandle() }
                 DisposableEffect(m.id) { videos[m.id] = handle; onDispose { videos.remove(m.id) } }
+                // A film is never HDR here: the mark and the window's mode go off when it comes up.
+                LaunchedEffect(active) { if (active) hdr = false }
                 ViewerVideo(m, handle, active = active && !opening, seed = tileSeed, onTap = { if (picking) picking = false else chrome = !chrome }, cornerPx = corner, onShown = onShown)
             } else {
-                ViewerPhoto(m, seed = tileSeed, onHdr = { if (active) hdr = it }, onTap = { if (picking) picking = false else chrome = !chrome },
+                ViewerPhoto(m, seed = tileSeed, active = active, onHdr = { if (active) hdr = it }, onTap = { if (picking) picking = false else chrome = !chrome },
                     onZoomed = { if (active) zoomed = it }, cornerPx = corner, onShown = onShown)
             }
         }
@@ -540,7 +542,7 @@ private fun RoundButton(onClick: () -> Unit, size: androidx.compose.ui.unit.Dp =
 
 /**
  * Where the photo was taken, under the date, as the web does it: the place its spot lies in, else the stop
- * it belongs to. The line keeps its height and its last name while the next one is looked up, and only
+ * near that spot. The line keeps its height and its last name while the next one is looked up, and only
  * crossfades when the name really changes, so twenty photos in one town never flash it twenty times.
  */
 @Composable
@@ -550,7 +552,9 @@ private fun PlaceLine(current: Media, list: List<Media>, page: Int, stops: List<
     LaunchedEffect(current.id, stops != null) {
         val fallback = stops?.let { ViewerApi.stopFor(current, it)?.name }
         val lat = current.lat; val lon = current.lon
-        place = if (lat == null || lon == null) fallback ?: place
+        // As the web: a photo that does not know where it was taken has no place (a stop guessed from the day
+        // put "Heenvlucht" under a photo in Central Park); the stop only stands in when the spot has no name.
+        place = if (lat == null || lon == null) null
         else runCatching { ViewerApi.placeName(lat, lon) }.fold({ it ?: fallback }, { e -> android.util.Log.w(TAG, "place lookup failed: $e"); fallback ?: place })
         // The neighbours' names ahead of time, so paging shows them straight away.
         for (n in listOf(page + 1, page - 1)) list.getOrNull(n)?.let { m -> if (m.lat != null && m.lon != null) runCatching { ViewerApi.placeName(m.lat, m.lon) } }
@@ -617,7 +621,7 @@ private fun ViewerMenu(trip: Trip, media: Media, stops: List<ViewerApi.StopRow>?
 
 @Composable
 private fun ViewerPhoto(
-    media: Media, seed: Bitmap?, onHdr: (Boolean) -> Unit, onTap: () -> Unit, onZoomed: (Boolean) -> Unit = {},
+    media: Media, seed: Bitmap?, active: Boolean, onHdr: (Boolean) -> Unit, onTap: () -> Unit, onZoomed: (Boolean) -> Unit = {},
     cornerPx: Density.() -> Float = { 0f }, onShown: (Bitmap, LayoutCoordinates) -> Unit = { _, _ -> },
 ) {
     // Opens on what is already here (the tile's own picture), so there is never an empty frame or a spinner;
@@ -629,8 +633,9 @@ private fun ViewerPhoto(
         Photos.load(media.id, "preview", now = true)?.let { preview.value = it }
         if (original.value == null) original.value = Photos.load(media.id, "original", now = true)
     }
-    LaunchedEffect(original.value) {
-        onHdr(Build.VERSION.SDK_INT >= 34 && original.value?.hasGainmap() == true)
+    // Told again when the page becomes the one on show, so a neighbour that loaded early sets the mark right.
+    LaunchedEffect(original.value, active) {
+        if (active) onHdr(Build.VERSION.SDK_INT >= 34 && original.value?.hasGainmap() == true)
     }
     var zoom by remember { mutableFloatStateOf(1f) }
     var pan by remember { mutableStateOf(Offset.Zero) }

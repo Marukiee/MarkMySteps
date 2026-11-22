@@ -204,9 +204,22 @@ object Photos {
         val id = key.substringBefore('/')
         if (key.startsWith("avatar/") || ratios.containsKey(id) || b.height == 0) return
         val r = b.width.toFloat() / b.height
-        android.os.Handler(android.os.Looper.getMainLooper()).post { ratios[id] = r }
+        // Gathered and handed over a few at a time: each new size reflows the whole timeline, and one reflow
+        // per thumbnail (hundreds on a trip whose photos came without sizes) kept the main thread busy.
+        synchronized(learnt) {
+            learnt[id] = r
+            if (!flushing) {
+                flushing = true
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    val batch = synchronized(learnt) { flushing = false; HashMap(learnt).also { learnt.clear() } }
+                    ratios.putAll(batch)
+                }, 400)
+            }
+        }
         ratioPrefs?.edit()?.putFloat(id, r)?.apply()
     }
+    private val learnt = HashMap<String, Float>()
+    private var flushing = false
 
     fun clear() = cache.evictAll()
 

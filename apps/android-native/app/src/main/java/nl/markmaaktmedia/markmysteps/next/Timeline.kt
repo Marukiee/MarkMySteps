@@ -350,7 +350,7 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                 justified(shown, perRow).forEach { row ->
                     androidx.compose.runtime.key(row.first().id) {
                         val ratio = row.sumOf { Photos.ratioOf(it).toDouble() }.toFloat().coerceAtLeast(0.8f)
-                        // Only the rows near the screen are real photos (a screen and a half above, two and a half below,
+                        // Only the rows near the screen are real photos (a screen and a half above, two and a half screens past the bottom edge,
                         // so they are fetched before you get there); the rest are their quiet shapes at the same size, so
                         // opening a trip with six hundred photos composes one screen and not all of them.
                         // A row that reflowed (a size learnt, a pinch) stays real if its photos were: no flash of shapes.
@@ -360,8 +360,8 @@ private fun LiveTimeline(trip: Trip, media: List<Media>, onPhoto: (Media) -> Uni
                             if (!c.isAttached) return@onGloballyPositioned
                             val top = c.positionInWindow().y
                             val bottom = top + c.size.height
-                            if (!near && bottom > -windowH * 1.5f && top < windowH * 2.5f) near = true
-                            else if (near && (bottom < -windowH * 4f || top > windowH * 5f)) near = false
+                            if (!near && bottom > -windowH * 1.5f && top < windowH * 3.5f) near = true
+                            else if (near && (bottom < -windowH * 4f || top > windowH * 6f)) near = false
                             // A shape stands in for its photos in TileBounds, so the page can still scroll to one of them.
                             if (!near) row.forEach { m -> bounds?.tiles?.set(m.id, c) }
                         }

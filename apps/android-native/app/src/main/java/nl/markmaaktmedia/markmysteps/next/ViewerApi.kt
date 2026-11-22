@@ -86,12 +86,13 @@ object ViewerApi {
     private var immich: String? = null
     private var immichAsked = false
 
-    /** Where your own Immich opens in a browser: its public address, else the one the server talks to. */
+    /** Where your own Immich opens in a browser: its public address; null hides "Openen in Immich". */
     suspend fun immichUrl(): String? {
         if (immichAsked) return immich
         val o = runCatching { JSONObject(Api.get("/api/immich/connection")) }.getOrNull() ?: return null
         immichAsked = true
-        immich = (o.optString("publicUrl").takeIf { !o.isNull("publicUrl") && it.isNotBlank() } ?: o.optString("serverUrl").takeIf { it.isNotBlank() })?.trimEnd('/')
+        // Only the public address: the one the server talks to can be a home-network name a phone cannot open.
+        immich = o.optString("publicUrl").takeIf { !o.isNull("publicUrl") && it.isNotBlank() }?.trimEnd('/')
         return immich
     }
 
