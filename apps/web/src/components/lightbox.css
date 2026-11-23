@@ -416,3 +416,34 @@
     padding-bottom: calc(5rem + var(--safe-bottom));
   }
 }
+
+/* On a wide window the buttons and the strip keep to a frame around the photo (at most 1100 px wide) instead of the
+   window's corners, where they stood far from what they act on. A phone keeps the app's layout. */
+@media (min-width: 900px) and (pointer: fine) {
+  .lightbox {
+    --lb-edge: max(1rem, calc((100vw - 1100px) / 2));
+  }
+
+  .lightbox-menu {
+    left: var(--lb-edge);
+  }
+
+  .lightbox-close {
+    right: var(--lb-edge);
+  }
+
+  .lightbox .lightbox-comments-btn {
+    right: var(--lb-edge);
+  }
+
+  .lightbox .reaction-bar {
+    left: var(--lb-edge);
+  }
+
+  .lightbox .vstrip {
+    left: var(--lb-edge);
+    right: var(--lb-edge);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent);
+  }
+}
