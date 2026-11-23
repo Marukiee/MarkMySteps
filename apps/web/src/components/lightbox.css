@@ -13,7 +13,15 @@
 }
 
 .lightbox.closing {
-  animation: lightboxOut 0.2s ease forwards;
+  animation: lightboxOut 0.3s cubic-bezier(0.2, 0, 0, 1) forwards;
+  pointer-events: none;
+}
+
+/* Closing glides calmly: the photo settles back a little as the dark fades,
+   one movement, no bounce. */
+.lightbox.closing .lightbox-stage {
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+  transform: scale(0.96);
 }
 
 @keyframes lightboxIn {
@@ -44,7 +52,6 @@
   max-height: var(--maxh);
   object-fit: contain;
   border-radius: var(--radius-m);
-  box-shadow: 0 24px 70px rgb(0 0 0 / 0.55);
   background: #000;
   /* No minimum: a portrait shot was being padded out to a landscape box, which
      is where the odd empty margins came from. */
@@ -143,32 +150,34 @@
   top: calc(100% + 0.4rem);
   left: 0;
   min-width: 208px;
-  padding: 0.3rem;
+  /* Concentric: 20 outside, 4 in, 16 on the rows. */
+  padding: 4px;
   display: grid;
   gap: 2px;
-  border-radius: var(--radius-m);
-  background: rgb(22 26 32 / 0.96);
-  box-shadow: 0 12px 34px rgb(0 0 0 / 0.5);
-  animation: lightboxMenuIn 0.16s var(--ease);
+  /* Dark tones in the dark viewer, no bright white and no shadow. */
+  border-radius: 20px;
+  background: #22272e;
+  transform-origin: 20px 0;
+  animation: lightboxMenuIn 0.24s cubic-bezier(0.2, 0, 0, 1);
 }
 
 @keyframes lightboxMenuIn {
   from {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: scale(0.9);
   }
 }
 
 /* Leaves the way it arrived. */
 .lightbox-menu-list.closing {
-  animation: lightboxMenuOut 0.15s var(--ease) forwards;
+  animation: lightboxMenuOut 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   pointer-events: none;
 }
 
 @keyframes lightboxMenuOut {
   to {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: scale(0.9);
   }
 }
 
@@ -178,7 +187,7 @@
   gap: 0.6rem;
   width: 100%;
   padding: 0.6rem 0.65rem;
-  border-radius: var(--radius-s);
+  border-radius: 16px;
   color: rgb(255 255 255 / 0.9);
   font-size: 0.9rem;
   font-weight: 500;
@@ -351,4 +360,59 @@
   font-weight: 500;
   opacity: 0.8;
   animation: fadeIn 0.3s var(--ease);
+}
+
+/* ---- The buttons over the photo ----
+   A tap on the photo hides or shows them at once; they fade, and stop
+   answering while hidden. */
+.lightbox-date,
+.lightbox-menu,
+.lightbox-close,
+.lightbox-bar,
+.lightbox-nav,
+.lightbox .lightbox-comments-btn,
+.lightbox .reaction-bar,
+.lightbox .vstrip {
+  transition-property: opacity, transform, color;
+  transition-duration: 0.22s;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.lightbox.chrome-off .lightbox-date,
+.lightbox.chrome-off .lightbox-menu,
+.lightbox.chrome-off .lightbox-close,
+.lightbox.chrome-off .lightbox-bar,
+.lightbox.chrome-off .lightbox-nav,
+.lightbox.chrome-off .lightbox-comments-btn,
+.lightbox.chrome-off .reaction-bar,
+.lightbox.chrome-off .vstrip {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The photo follows a sideways drag exactly, and eases back if let go. */
+.lightbox-imgwrap {
+  will-change: transform;
+}
+
+.lightbox-imgwrap:not(.following) {
+  transition:
+    width 0.3s var(--ease),
+    height 0.3s var(--ease),
+    transform 0.26s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* With the strip under it, the photo leaves room for it. */
+.lightbox.has-strip .lightbox-img {
+  --maxh: min(70vh, calc(100dvh - 17rem));
+}
+
+@media (max-width: 720px) {
+  .lightbox.has-strip .lightbox-img {
+    --maxh: min(64vh, calc(100dvh - 18rem));
+  }
+
+  .lightbox.has-strip .lightbox-stage {
+    padding-bottom: calc(5rem + var(--safe-bottom));
+  }
 }

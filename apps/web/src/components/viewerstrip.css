@@ -1,0 +1,61 @@
+/* The gallery strip under the photo viewer (ViewerStrip). Full width, tiles of
+   36 with 8 between, the middle one 1.26 times as big. No shadows. */
+.vstrip {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(1rem + 40px + 12px + var(--safe-bottom, 0px));
+  height: 64px;
+  z-index: 201;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  transition:
+    transform 0.26s cubic-bezier(0.2, 0, 0, 1),
+    opacity 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.vstrip:active {
+  cursor: grabbing;
+}
+
+.vstrip-track {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  will-change: transform;
+}
+
+.vstrip-tile {
+  position: absolute;
+  top: 8px;
+  width: 36px;
+  height: 48px;
+  border-radius: 7px;
+  overflow: hidden;
+  /* White at alpha, not grey: the same colour as the photo's backdrop. */
+  background: rgb(255 255 255 / 0.12);
+  transform-origin: 50% 50%;
+}
+
+.vstrip-img {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Following a finger it is exact; anything else (a tap, paging with the
+   arrows, the glide after letting go) eases to the tile. */
+.vstrip.easing .vstrip-track,
+.vstrip.easing .vstrip-tile {
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vstrip.easing .vstrip-track,
+  .vstrip.easing .vstrip-tile {
+    transition: none;
+  }
+}
