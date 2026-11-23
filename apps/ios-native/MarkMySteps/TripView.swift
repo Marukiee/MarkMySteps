@@ -554,7 +554,9 @@ struct TripView: View {
             if mapDay == nil { withAnimation(.smooth(duration: 0.6)) { mapPosition = .rect(t.fittedRect(size: mapSize, insets: TripView.mapInsets)) } }
         }
         withAnimation(.calm) { stopsKnown = true }
-        media = (try? await Remote.media(base)) ?? []
+        let loaded = (try? await Remote.media(base)) ?? []
+        // The days fade in where the waiting block was, instead of popping in at once.
+        withAnimation(.smooth(duration: 0.35)) { media = loaded }
         // Which days have a route or photos, for the day pill on the map.
         serverDays = (try? await Remote.mapDays(base)) ?? []
         // The day stories and the comments on them, after the photos.
@@ -698,13 +700,14 @@ struct FactsRow: View {
 
     @State private var openedAt = Date()
     /// The figures on screen: a change once the page is open waits until it has settled, then rolls over.
-    @State private var held: [String?]? = nil
+    @State private var held: [(String?, String)]? = nil
 
     var body: some View {
         let _ = factsData
         let fresh = FactsRow.facts(trip, photos: photos, stopsKnown: stopsKnown)
         let items: [(String?, String)] = fresh.enumerated().map { i, f in
-            guard let held, held.count == fresh.count, let old = held[i], f.0 != nil else { return f }
+            // Only the same figure (same label, same place) holds its old number; anything else shows as it is.
+            guard let held, held.count == fresh.count, held[i].1 == f.1, let old = held[i].0, f.0 != nil else { return f }
             return (old, f.1)
         }
         let tile = (tone ?? trip.color).opacity(scheme == .dark ? 0.34 : 0.24)
@@ -739,8 +742,8 @@ struct FactsRow: View {
             // Keep what this page counted for the next time it opens.
             if stopsKnown, trip.remoteId != nil { FactsMemory.keep(trip.id, stops: trip.stops.count) }
             if let photos { FactsMemory.keep(trip.id, photos: photos) }
-            let values = fresh.map(\.0)
-            if held == nil { held = values; return }
+            let values = fresh
+            if held == nil || held?.map(\.1) != fresh.map(\.1) { held = values; return }
             let wait = 0.9 - Date().timeIntervalSince(openedAt)
             if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
             withAnimation(.smooth(duration: 0.42)) { held = values }
