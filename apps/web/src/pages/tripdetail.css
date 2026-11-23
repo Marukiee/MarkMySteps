@@ -859,9 +859,14 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
   animation: sheetUp 0.28s var(--ease);
 }
 
+/* On a desktop it is a floating dialog: round all round and no room kept for a phone's keyboard under it (the
+   older .people-sheet.card rule kept the bottom square and 6rem of empty space, so it looked cut off). */
 @media (min-width: 860px) and (pointer: fine) {
+  .people-sheet.card,
   .people-sheet {
     border-radius: var(--radius-l);
+    padding-bottom: 1.4rem;
+    max-height: calc(100dvh - 3rem);
   }
 }
 
