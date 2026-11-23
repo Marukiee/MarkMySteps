@@ -29,9 +29,13 @@
   --radius-m: 16px;
   --radius-l: 24px;
 
-  --shadow-s: 0 1px 3px rgb(30 42 53 / 0.07), 0 1px 2px rgb(30 42 53 / 0.05);
-  --shadow-m: 0 6px 24px rgb(30 42 53 / 0.09), 0 2px 6px rgb(30 42 53 / 0.05);
-  --shadow-l: 0 18px 48px rgb(30 42 53 / 0.16);
+  /* No shadows (docs/STIJLGIDS.md): surfaces stand apart by tone and a fine
+     edge. The tokens stay, as a shadow of nothing, so every rule that still
+     names one (also beside an inset accent line) stays valid. The floating
+     tab bar has its own. */
+  --shadow-s: 0 0 0 rgb(0 0 0 / 0);
+  --shadow-m: 0 0 0 rgb(0 0 0 / 0);
+  --shadow-l: 0 0 0 rgb(0 0 0 / 0);
 
   --font-body: 'Inter Variable', system-ui, sans-serif;
   --font-display: 'Fraunces Variable', Georgia, serif;
@@ -220,10 +224,6 @@ input[type='checkbox']:checked::after {
   --accent-soft: #3a231a;
   --accent-ink: #f6926f;
   --teal: #38a89c;
-
-  --shadow-s: 0 1px 3px rgb(0 0 0 / 0.4), 0 1px 2px rgb(0 0 0 / 0.3);
-  --shadow-m: 0 6px 24px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.35);
-  --shadow-l: 0 18px 48px rgb(0 0 0 / 0.6);
 
   --glass: rgb(24 30 37);
   --glass-border: #2b333d;

@@ -6,30 +6,18 @@
   z-index: 120;
   display: grid;
   place-items: end center;
-  animation: lmIn 0.24s var(--ease);
 }
 
-.lm-layer.closing {
-  animation: lmOut 0.22s var(--ease) forwards;
-}
-
-@keyframes lmIn {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes lmOut {
-  to {
-    opacity: 0;
-  }
-}
-
+/* Only the dim fades; the sheet itself slides as one solid panel. */
 .lm-scrim {
   position: absolute;
   inset: 0;
   background: rgb(10 14 18 / 0.5);
-  backdrop-filter: blur(3px);
+  animation: appScrimIn var(--dur-sheet-in) var(--ease-emph-decel);
+}
+
+.lm-layer.closing .lm-scrim {
+  animation: appScrimOut var(--dur-sheet-out) var(--ease-std) forwards;
 }
 
 .lm-sheet {
@@ -38,29 +26,16 @@
   max-height: min(88dvh, 780px);
   display: grid;
   grid-template-rows: auto 1fr auto;
-  border-radius: var(--radius-l) var(--radius-l) 0 0;
+  border-radius: 28px 28px 0 0;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  background: var(--paper);
-  box-shadow: var(--shadow-l);
+  background: var(--surface-low);
   padding-bottom: calc(var(--safe-bottom) + var(--kb-inset, 0px));
-  animation: lmRise 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: appSheetUp var(--dur-sheet-in) var(--ease-emph-decel);
 }
 
 .lm-layer.closing .lm-sheet {
-  animation: lmDrop 0.22s var(--ease) forwards;
-}
-
-@keyframes lmRise {
-  from {
-    transform: translateY(26px);
-  }
-}
-
-@keyframes lmDrop {
-  to {
-    transform: translateY(26px);
-  }
+  animation: appSheetDown var(--dur-sheet-out) var(--ease-std) forwards;
 }
 
 /* Same as the other sheets: a floating card only where there is a window

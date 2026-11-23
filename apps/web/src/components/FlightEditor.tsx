@@ -147,7 +147,7 @@ function FlightSheet({
 
   const close = () => {
     setClosing(true);
-    window.setTimeout(onClose, 200);
+    window.setTimeout(onClose, 380);
   };
 
   // A back gesture should close this sheet, not walk out of the planner.
