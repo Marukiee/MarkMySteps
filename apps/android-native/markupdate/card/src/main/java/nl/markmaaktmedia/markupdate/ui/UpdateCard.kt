@@ -54,7 +54,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -62,7 +61,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
@@ -71,6 +69,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -284,8 +289,7 @@ private fun UpdateContent(
                             Phase.Busy -> downloaded(release, progress)
                             Phase.Installing -> if (state is UpdateState.AwaitingConfirmation) stringResource(R.string.markupdate_confirm_hint) else style.installingSubtitle ?: stringResource(R.string.markupdate_installing_sub)
                         },
-                        // Gelijke cijferbreedte alleen bij de teller, zodat die niet heen en weer springt; in een versienummer maakt het de punten te wijd.
-                        style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = if (p == Phase.Busy) "tnum" else null),
+                        style = MaterialTheme.typography.bodySmall,
                         color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -404,19 +408,34 @@ private fun Actions(
                     Phase.Busy -> "${(progress * 100).toInt()}%"
                     Phase.Installing -> stringResource(R.string.markupdate_installing)
                 }
-                val textStyle = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(label, style = textStyle, color = ink, maxLines = 1)
-                    // Het percentage staat half op de vulling en half op het spoor: het stuk boven de vulling is wit op primair, de rest donker op de tint.
-                    if (p == Phase.Busy) {
-                        Box(
-                            Modifier.fillMaxSize().drawWithContent { clipRect(right = size.width * shownProgress.coerceIn(0f, 1f)) { this@drawWithContent.drawContent() } },
-                            contentAlignment = Alignment.Center,
-                        ) { Text(label, style = textStyle, color = colors.onPrimary, maxLines = 1) }
-                    }
+                val textStyle = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                if (p == Phase.Busy) {
+                    ProgressLabel(label, textStyle, shownProgress.coerceIn(0f, 1f), colors.onPrimary, colors.onPrimaryContainer)
+                } else {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(label, style = textStyle, color = ink, maxLines = 1) }
                 }
             }
         }
+    }
+}
+
+/**
+ * Het percentage rijdt mee op de rand van de vulling en staat nooit half op de vulling en half op het spoor: is er plek, dan staat het in de vulling
+ * (wit op primair) tegen de rand aan, anders vlak achter de rand op het spoor (donker op de tint). Het springt bij die overgang met een veer over.
+ */
+@Composable
+private fun ProgressLabel(label: String, style: androidx.compose.ui.text.TextStyle, progress: Float, onFill: Color, onTrack: Color) {
+    val pad = with(LocalDensity.current) { 14.dp.toPx() }
+    var textWidth by remember { mutableIntStateOf(0) }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val fillEnd = constraints.maxWidth * progress
+        val inside = fillEnd >= textWidth + pad * 2
+        val shift by animateFloatAsState(if (inside) -(textWidth + pad) else pad, spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow), label = "labelShift")
+        val ink by animateColorAsState(if (inside) onFill else onTrack, tween(200), label = "labelInk")
+        Text(
+            label, style = style, color = ink, maxLines = 1, softWrap = false,
+            modifier = Modifier.align(Alignment.CenterStart).onSizeChanged { textWidth = it.width }.offset { IntOffset((fillEnd + shift).roundToInt(), 0) },
+        )
     }
 }
 
