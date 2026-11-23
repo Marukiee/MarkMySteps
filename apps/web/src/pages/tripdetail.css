@@ -526,17 +526,29 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
  * line up with everything above them.
  */
 @media (min-width: 901px) {
-  /* Through the middle of the 13 px dot that hangs in the gutter too (dot from -pad to -pad + 13). */
+  /* The dot hangs 14 whole pixels into the gutter (the gutter itself is 13.6 px, which left dot and line on
+     different half pixels); the line runs through its middle, 7 px in. */
   .trip-side .timeline::before {
-    left: calc(var(--page-pad) * -1 + 5.5px);
+    left: -8px;
   }
 
   .trip-side .timeline-dot {
-    margin-left: calc(var(--page-pad) * -1);
+    margin-left: -14px;
   }
 
   .trip-side .timeline-grid {
     margin-left: 0;
+  }
+
+  /* The column reaches the window's right edge (its content keeps its place), so the row of places runs to the
+     edge of the screen as in the apps instead of stopping at the page's margin. */
+  .trip-detail .trip-side {
+    margin-right: -1.25rem;
+    padding-right: calc(var(--page-pad) + 1.25rem);
+  }
+
+  .trip-detail .trip-side .stop-jump {
+    margin-right: calc((var(--page-pad) + 1.25rem) * -1);
   }
 }
 
@@ -1100,7 +1112,12 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
    so hovering another one only warms its label. */
 @media (hover: hover) {
   .side-tabs button:not(.active):hover {
+    background: color-mix(in srgb, var(--surface-high) 90%, var(--hover-ink));
     color: var(--ink);
+  }
+
+  .side-tabs button.active:hover {
+    background: color-mix(in srgb, var(--accent) 92%, #000);
   }
 }
 
@@ -1287,7 +1304,7 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
   /* The buttons on the map in the app's light tone (surfaceContainerHigh), as the native apps; the darker mix
      looked as if they were all being hovered. Hover darkens them a touch. */
   --td-btn: var(--surface-high);
-  --td-btn-hover: color-mix(in srgb, var(--surface-high) 88%, var(--ink));
+  --td-btn-hover: color-mix(in srgb, var(--surface-high) 90%, var(--hover-ink));
   /* A light button on a light map needs a visible edge and a soft lift to read as a button (it floats over the map). */
   --td-btn-edge: rgb(27 37 48 / 0.16);
   --td-btn-lift: 0 1px 6px rgb(0 0 0 / 0.12);
@@ -1295,7 +1312,7 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 
 :root[data-theme='dark'] {
   --td-btn: var(--surface-high);
-  --td-btn-hover: color-mix(in srgb, var(--surface-high) 84%, #fff);
+  --td-btn-hover: color-mix(in srgb, var(--surface-high) 88%, var(--hover-ink));
   --td-btn-edge: rgb(255 255 255 / 0.14);
   --td-btn-lift: 0 1px 6px rgb(0 0 0 / 0.35);
 }

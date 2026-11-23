@@ -19,8 +19,9 @@
 .timeline::before {
   content: '';
   position: absolute;
-  /* Through the middle of the 13 px day dot, as the apps: the dot spans 0 to 13, the 2 px line 5.5 to 7.5. */
-  left: 5.5px;
+  /* Through the middle of the 14 px day dot, in whole pixels so dot and line are rounded alike on every screen:
+     the dot spans 0 to 14, the 2 px line 6 to 8 (a 13 px dot put both on half pixels, 1 px apart on some screens). */
+  left: 6px;
   top: 12px;
   bottom: 12px;
   width: 2px;
@@ -119,8 +120,8 @@
    page behind it, so the rail reads as broken around every day rather than
    running straight through a bordered bead. */
 .timeline-dot {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--accent);
@@ -184,20 +185,14 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
+  transition: filter 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (hover: hover) {
   .timeline-photo:hover .timeline-img {
-    transform: scale(1.07);
+    filter: brightness(0.9);
   }
 
-  /* Except on a panorama, which is shown whole: seven per cent of a sweep this
-     wide is a good deal of scenery to take off both ends. */
-  .photo-grid-row.pano .timeline-photo:hover .timeline-img {
-    transform: none;
-  }
 }
 
 /* Tap feedback on touch, where there is no hover state to speak of. */

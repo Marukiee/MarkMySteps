@@ -164,7 +164,7 @@
 }
 
 .ts-color:hover {
-  transform: scale(1.1);
+  filter: brightness(0.9);
 }
 
 .ts-color.active {

@@ -11,8 +11,10 @@
   /* 100% and not 100vw: the viewport unit includes the scrollbar, which pushed
      the centred nav a scrollbar's width to the left of the page under it. */
   padding: 0.5rem max(1.5rem, calc((100% - 1080px) / 2));
-  background: var(--glass);
-  border-bottom: 1px solid var(--line);
+  /* The page's own paper, as the apps: no white band with a grey rule under it. */
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   /*
    * One height for everything on this row.
    *
@@ -75,8 +77,9 @@
   min-height: var(--topbar-pill);
   padding: 0 1rem;
   border-radius: 999px;
+  font-family: var(--font-brand);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   white-space: nowrap;
   color: var(--on-surface-variant);
   transition: color var(--dur-nav) var(--ease-emph), transform 0.18s var(--ease-emph);
@@ -86,22 +89,16 @@
   opacity: 0.75;
 }
 
-/* Only the ink changes. A tinted pill under the pointer competed with the
-   thumb that marks the tab you are actually on, and the text inside it was
-   the harder of the two to read. */
+/* The same hover as every button: a deeper tone under the pointer, the ink a touch darker; nothing moves. */
 @media (hover: hover) {
   .topbar-nav a:not(.active):hover {
-    color: var(--accent-ink);
+    background: color-mix(in srgb, var(--surface-high) 88%, var(--hover-ink));
+    color: var(--ink);
   }
 
   .topbar-nav a:not(.active):hover svg {
     opacity: 1;
-    color: var(--accent);
   }
-}
-
-.topbar-nav a:not(.active):active {
-  transform: scale(0.97);
 }
 
 .topbar-nav a.active {
@@ -148,13 +145,12 @@
 
 @media (hover: hover) {
   .topbar-theme button:not(.active):hover {
-    color: var(--accent-ink);
+    background: color-mix(in srgb, var(--surface-high) 88%, var(--hover-ink));
+    color: var(--ink);
   }
 }
 
-.topbar-theme button:not(.active):active {
-  transform: scale(0.94);
-}
+
 
 .topbar-theme button.active {
   color: var(--accent-ink);
@@ -180,7 +176,7 @@
 }
 
 .topbar-avatar-btn:hover {
-  transform: scale(1.06);
+  filter: brightness(0.92);
 }
 
 /* On phones the bottom tab bar is the only navigation: drop the top bar

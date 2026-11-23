@@ -14,6 +14,9 @@
   --safe-top: max(env(safe-area-inset-top, 0px), var(--mms-inset-top, 0px));
   --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--mms-inset-bottom, 0px));
   --paper: #faf6ef;
+  /* What every hover mixes in: a warm brown, so a hovered surface turns a deeper beige or a deeper tone of its
+     own colour, never grey (slate ink made everything look dusty). */
+  --hover-ink: #5a4330;
   --paper-raised: #ffffff;
   --paper-sunken: #f1ebe1;
   --ink: #1e2a35;
@@ -214,6 +217,7 @@ input[type='checkbox']:checked::after {
 /* Dark theme, set by JS (applyTheme) via <html data-theme="dark">. */
 :root[data-theme='dark'] {
   --paper: #14181d;
+  --hover-ink: #ffffff;
   --paper-raised: #1d242c;
   --paper-sunken: #0f141a;
   --ink: #eef1f4;

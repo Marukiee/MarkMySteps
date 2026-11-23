@@ -116,7 +116,7 @@
 
 .reaction-picker button:hover,
 .reaction-picker button:focus-visible {
-  transform: scale(1.18);
+  background: color-mix(in srgb, var(--surface-high) 88%, var(--hover-ink));
 }
 
 .reaction-picker button.on {

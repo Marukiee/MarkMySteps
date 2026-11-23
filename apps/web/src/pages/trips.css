@@ -449,12 +449,21 @@
 }
 
 @media (hover: hover) {
+  /* A deeper tone of its own colour, as every hover: no grey. */
   .trip-card-compact:hover {
-    background: color-mix(in srgb, var(--tone, var(--accent)) 26%, color-mix(in srgb, var(--surface-low) 90%, var(--ink)));
+    background: color-mix(in srgb, var(--tone, var(--accent)) 36%, color-mix(in srgb, var(--surface-low) 94%, var(--hover-ink)));
   }
 
   :root[data-theme='dark'] .trip-card-compact:hover {
-    background: color-mix(in srgb, var(--tone, var(--accent)) 34%, color-mix(in srgb, var(--surface-low) 88%, #fff));
+    background: color-mix(in srgb, var(--tone, var(--accent)) 44%, color-mix(in srgb, var(--surface-low) 92%, var(--hover-ink)));
+  }
+
+  .trips-tabs button:not(.active):hover {
+    background: color-mix(in srgb, var(--surface-high) 90%, var(--hover-ink));
+  }
+
+  .trips-tabs button.active:hover {
+    background: color-mix(in srgb, var(--accent) 92%, #000);
   }
 }
 

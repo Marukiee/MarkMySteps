@@ -327,6 +327,6 @@
 
 @media (hover: hover) {
   .stat-tile-open:hover {
-    background: color-mix(in srgb, var(--paper-sunken) 88%, var(--ink) 12%);
+    background: color-mix(in srgb, var(--paper-sunken) 90%, var(--hover-ink));
   }
 }

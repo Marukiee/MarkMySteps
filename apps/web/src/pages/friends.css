@@ -85,7 +85,7 @@
 }
 
 .friend-card:hover .friend-card-caret {
-  transform: translateX(3px);
+  transform: none;
 }
 
 /* ---------------------------------------------------------------------------

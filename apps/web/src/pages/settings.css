@@ -417,7 +417,7 @@
 }
 
 .avatar-edit:hover .avatar-edit-badge {
-  transform: scale(1.1);
+  filter: brightness(0.92);
 }
 
 /* Kill the inline-SVG baseline gap so the camera glyph sits dead-centre, and
@@ -542,7 +542,7 @@
 /* The chevron leans out as you go for it. */
 @media (hover: hover) {
   .ext-link:hover svg {
-    transform: translateX(2px);
+    transform: none;
   }
 }
 

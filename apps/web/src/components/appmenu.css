@@ -148,7 +148,7 @@
 
 @media (hover: hover) {
   .app-menu-item:not(:disabled):hover {
-    background: color-mix(in srgb, var(--menu-item) 88%, var(--menu-ink));
+    background: color-mix(in srgb, var(--menu-item) 90%, var(--hover-ink));
   }
 
   .app-menu-item.on:not(:disabled):hover {
@@ -214,7 +214,7 @@
 /* The same hover as the lines under them: a touch darker. */
 @media (hover: hover) {
   .app-menu-choice:not(.on):hover {
-    background: color-mix(in srgb, var(--menu-item) 88%, var(--menu-ink));
+    background: color-mix(in srgb, var(--menu-item) 90%, var(--hover-ink));
   }
 
   .app-menu-choice.on:hover {
