@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import { Icon } from '../components/Icon';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getServerBase, setServerBase } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -11,6 +12,21 @@ import { PasswordInput } from '../components/PasswordInput';
 import { PasswordStrength } from '../components/PasswordStrength';
 import { LANGUAGES, getLang, setLangSetting, t } from '../i18n';
 import './login.css';
+
+/**
+ * A soft nine-sided cookie (Material's Cookie9Sided), drawn once: the shape
+ * the compass sits in, turning slowly.
+ */
+const COOKIE_PATH = (() => {
+  const n = 9;
+  const pts: string[] = [];
+  for (let i = 0; i <= 360; i++) {
+    const a = (i / 360) * Math.PI * 2;
+    const r = 46 + 4 * Math.cos(n * a);
+    pts.push(`${(50 + r * Math.cos(a)).toFixed(2)} ${(50 + r * Math.sin(a)).toFixed(2)}`);
+  }
+  return `M${pts.join('L')}Z`;
+})();
 
 export function LoginPage() {
   const { login, loginMfa, register, startLocalMode } = useAuth();
@@ -35,6 +51,9 @@ export function LoginPage() {
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [recovery, setRecovery] = useState(false);
+  // The server is set once and rarely changed: one line you can tap, a field
+  // only then.
+  const [editServer, setEditServer] = useState(() => !getServerBase().trim());
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -90,9 +109,14 @@ export function LoginPage() {
   return (
     <div className="login-shell">
       <div className="login-hero">
-        {/* The mark the rest of the app carries, at the one screen where the
-            app still has to say what it is. */}
-        <LogoMark size={58} />
+        {/* No globe: the brand on its own, the compass in a soft cookie shape
+            that turns slowly, the name and one line. */}
+        <div className="login-medal" aria-hidden="true">
+          <svg className="login-cookie" viewBox="0 0 100 100">
+            <path d={COOKIE_PATH} />
+          </svg>
+          <LogoMark size={58} />
+        </div>
         <h1>MarkMySteps</h1>
         <p>{t('auth.login.tagline')}</p>
       </div>
@@ -149,43 +173,35 @@ export function LoginPage() {
         </form>
       ) : (
       <form className="card login-card fade-in" onSubmit={submit}>
-        <div className="login-tabs" role="tablist" data-tab={mode}>
-          {/* One pill that slides between the two, the way the trip's tabs do. */}
-          <span className="login-tabs-thumb" aria-hidden="true" />
-          <button
-            type="button"
-            className={mode === 'login' ? 'active' : ''}
-            onClick={() => setMode('login')}
-          >
-            {t('auth.login.signIn')}
-          </button>
-          <button
-            type="button"
-            className={mode === 'register' ? 'active' : ''}
-            onClick={() => setMode('register')}
-          >
-            {t('auth.login.createAccount')}
-          </button>
-        </div>
-
-        {isNative() && (
-          <div className="field">
-            <label htmlFor="server">{t('auth.login.server')}</label>
-            <input
-              id="server"
-              type="url"
-              placeholder={DEFAULT_SERVER_URL}
-              value={server}
-              onChange={(e) => setServer(e.target.value)}
-            />
-            <span className="muted">{t('auth.login.serverHint')}</span>
-          </div>
-        )}
+        {isNative() &&
+          (editServer ? (
+            <div className="field login-server-field">
+              <label htmlFor="server">{t('auth.login.server')}</label>
+              <input
+                id="server"
+                type="url"
+                autoFocus={!!getServerBase().trim()}
+                placeholder={DEFAULT_SERVER_URL}
+                value={server}
+                onChange={(e) => setServer(e.target.value)}
+              />
+              <span className="muted">{t('auth.login.serverHint')}</span>
+            </div>
+          ) : (
+            <button type="button" className="login-server-line" onClick={() => setEditServer(true)}>
+              <Icon name="globe" size={20} className="login-server-icon" />
+              <span className="login-server-text">
+                <small>{t('auth.login.server')}</small>
+                <span>{server.replace(/^https?:\/\//, '')}</span>
+              </span>
+              <Icon name="pencil" size={18} />
+            </button>
+          ))}
 
         <div className="field">
           {/* Logging in takes either; making an account takes the address and
               asks for the name separately. The label changed in one frame,
-              which read as a glitch — the two swap over instead. */}
+              which read as a glitch: the two swap over instead. */}
           <label htmlFor="email" className="login-label-swap">
             <span key={mode}>{mode === 'login' ? t('auth.login.identifier') : t('auth.login.email')}</span>
           </label>
@@ -266,13 +282,34 @@ export function LoginPage() {
         </button>
 
         {note && <p className="muted login-note">{note}</p>}
-
-        {/* The app is usable with nothing but the phone; saying so here is the
-            only place anyone would look for it. */}
-        <button type="button" className="login-nolink" onClick={() => setLocalInfo(true)}>
-          {t('auth.login.noServer')}
-        </button>
       </form>
+      )}
+
+      {/* The other ways in: make an account (or back to signing in), or keep
+          everything on this device. Two tonal pills joined as one group. */}
+      {!mfaToken && (
+        <div className="login-ways" role="group">
+          <button
+            type="button"
+            className="login-way"
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login');
+              setError(null);
+            }}
+          >
+            <span key={mode}>
+              {mode === 'login' ? t('auth.login.createAccount') : t('auth.login.signIn')}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="login-way"
+            onClick={() => setLocalInfo(true)}
+            aria-label={t('auth.login.noServer')}
+          >
+            {t('auth.login.noServerShort')}
+          </button>
+        </div>
       )}
 
       {/* Someone the phone's language guessed wrong for has to be able to put
