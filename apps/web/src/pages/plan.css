@@ -123,10 +123,28 @@
   height: 52px;
   flex-shrink: 0;
   border-radius: 14px;
-  background: var(--paper-sunken) center / cover no-repeat;
+  background: var(--surface-highest);
   display: grid;
   place-content: center;
-  box-shadow: var(--shadow-s);
+}
+
+/* The photo eases in over the flag, unless it was there within 250 ms. */
+.city-thumb-photo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: center / cover no-repeat;
+  animation: cityThumbIn 0.3s var(--ease-std);
+}
+
+.city-thumb-photo.instant {
+  animation: none;
+}
+
+@keyframes cityThumbIn {
+  from {
+    opacity: 0;
+  }
 }
 
 .city-thumb-flag {
