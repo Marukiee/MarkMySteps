@@ -61,3 +61,58 @@
 .photo-book-note {
   font-size: 0.82rem;
 }
+
+/* How many photographs share a page: the same sliding pill as the settings'
+   two-way choices, one segment per number. */
+.photo-book-per {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.7rem;
+}
+
+.photo-book-per-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.photo-book-seg {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--count), 1fr);
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+}
+
+.photo-book-seg-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / var(--count));
+  border-radius: 999px;
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-s);
+  transform: translateX(calc(100% * var(--at)));
+  transition: transform 0.3s var(--ease);
+}
+
+.photo-book-seg button {
+  position: relative;
+  z-index: 1;
+  padding: 0.45rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+  transition: color 0.25s var(--ease);
+}
+
+.photo-book-seg button.active {
+  color: var(--ink);
+}
+
+.photo-book-seg button:disabled {
+  cursor: default;
+}

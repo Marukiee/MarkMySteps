@@ -1,9 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { api } from '../api/client';
 import type { MediaItem, RouteCollection, Trip } from '../api/types';
 import type { PlannedStop } from '../lib/arc';
 import { bookJob, cancelBook, onBookJob, startBook } from '../lib/bookJob';
-import { countBookPages, type BookNote } from '../lib/photobook';
+import {
+  clampPerPage,
+  countBookPages,
+  DEFAULT_PER_PAGE,
+  MAX_PER_PAGE,
+  type BookNote,
+} from '../lib/photobook';
 import { Icon } from './Icon';
 import { t } from '../i18n';
 import './photobook.css';
@@ -42,13 +48,24 @@ export function PhotoBook({
       .catch(() => undefined);
   }, [trip.id]);
 
-  function make(dpi: number) {
-    void startBook({ trip, stops, media, routes, notes }, dpi);
+  // How many photographs share a page, kept for every book on this device.
+  const [perPage, setPerPage] = useState(readPerPage);
+  function choose(n: number) {
+    setPerPage(n);
+    try {
+      localStorage.setItem(PER_PAGE_KEY, String(n));
+    } catch {
+      // Private window: the choice holds for this visit only.
+    }
   }
 
-  // The real page count: a day with more than six photographs runs onto a
-  // second and third page, and every move to the next stop gets its own map.
-  const pages = countBookPages({ trip, stops, media, routes, notes });
+  function make(dpi: number) {
+    void startBook({ trip, stops, media, routes, notes, perPage }, dpi);
+  }
+
+  // The real page count: a day runs onto as many pages as its photographs
+  // need at the chosen number, and every move to the next stop gets its own map.
+  const pages = countBookPages({ trip, stops, media, routes, notes, perPage });
   const running = job.status === 'running' && job.tripId === trip.id;
   const percent = job.total > 0 ? (job.done / job.total) * 100 : 0;
   const busy = job.status === 'running';
@@ -63,6 +80,30 @@ export function PhotoBook({
           ? t('book.hint', { count: pages })
           : t('book.hintEmpty')}
       </p>
+
+      <div className="photo-book-per">
+        <span className="photo-book-per-label">{t('book.perPage')}</span>
+        <div
+          className="photo-book-seg"
+          role="radiogroup"
+          aria-label={t('book.perPage')}
+          style={{ '--count': MAX_PER_PAGE, '--at': perPage - 1 } as CSSProperties}
+        >
+          <span className="photo-book-seg-thumb" aria-hidden="true" />
+          {Array.from({ length: MAX_PER_PAGE }, (_, i) => i + 1).map((n) => (
+            <button
+              key={n}
+              role="radio"
+              aria-checked={n === perPage}
+              className={n === perPage ? 'active' : undefined}
+              disabled={running}
+              onClick={() => choose(n)}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {running ? (
         <div className="photo-book-running">
@@ -104,4 +145,15 @@ export function PhotoBook({
       )}
     </section>
   );
+}
+
+const PER_PAGE_KEY = 'mms.book.perPage';
+
+function readPerPage(): number {
+  try {
+    const raw = localStorage.getItem(PER_PAGE_KEY);
+    return raw ? clampPerPage(Number(raw)) : DEFAULT_PER_PAGE;
+  } catch {
+    return DEFAULT_PER_PAGE;
+  }
 }

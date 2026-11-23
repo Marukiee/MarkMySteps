@@ -41,13 +41,21 @@ export interface BookSource {
   media: MediaItem[];
   routes: RouteCollection | null;
   notes: BookNote[];
+  /** How many photographs a page holds, as chosen next to the book's buttons. */
+  perPage?: number;
 }
 
 /** A4, in inches. The pixel size follows from the resolution asked for. */
 const A4_W_IN = 8.27;
 const A4_H_IN = 11.69;
-/** Photographs per page. Rows are justified, so this is a target, not a grid. */
-const PER_PAGE = 6;
+/**
+ * Photographs per page unless the reader picks another number, the same
+ * default and range as the app's own book. Six is about what a page held when
+ * pages were simply filled. The rows on a page are still justified to the
+ * photographs' own shapes; this only says how many share a page.
+ */
+export const DEFAULT_PER_PAGE = 6;
+export const MAX_PER_PAGE = 8;
 /**
  * A jump longer than this can only have been flown.
  *
@@ -107,8 +115,8 @@ export async function renderPhotoBook(
     getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e8613c';
 
   const page = { w: width, h: height, margin: Math.round(width * 0.072) };
-  // The plan needs to know what shape every photograph is: how many fit on a
-  // page is a question about proportions, not a number decided in advance.
+  // How many share a page is the reader's choice; where they sit on it is
+  // worked out from their shapes when the page is drawn.
   const pages = await planPages(source, page, signal);
   const total = pages.length + 2;
 
@@ -175,8 +183,7 @@ async function planPages(source: BookSource, page: PageBox, signal?: AbortSignal
       !s.parentStopId && s.latitude !== null && s.longitude !== null,
   );
 
-  const gap = Math.round(page.w * 0.018);
-  const width = page.w - page.margin * 2;
+  const perPage = clampPerPage(source.perPage);
 
   const pages: BookPage[] = [];
   let placed = 0; // how far through the stop list the days have got
@@ -199,15 +206,13 @@ async function planPages(source: BookSource, page: PageBox, signal?: AbortSignal
     const first = page.h - page.margin - Math.round(page.h * (hasNote ? 0.3 : 0.17));
     const rest = page.h - page.margin - Math.round(page.h * 0.08);
 
-    // Measuring every photograph of a long trip takes minutes; a book called
-    // off in the meantime stops here rather than when the measuring is done.
-    const shapes = await measure(photos, signal);
-    const split = paginate(shapes, width, gap, first, rest);
+    signal?.throwIfAborted();
+    const split = splitDay(photos, perPage, first / rest);
     for (const [part, group] of split.entries()) {
       pages.push({
         kind: 'day',
         day,
-        photos: group.map((shape) => shape.item),
+        photos: group,
         part,
         parts: split.length,
         title,
@@ -218,68 +223,42 @@ async function planPages(source: BookSource, page: PageBox, signal?: AbortSignal
   return pages;
 }
 
+export function clampPerPage(n: number | undefined): number {
+  return Math.min(MAX_PER_PAGE, Math.max(1, Math.round(n ?? DEFAULT_PER_PAGE)));
+}
+
 /**
- * How many photographs a page holds: as many as fill it.
+ * A day's photographs in pages of the chosen number.
  *
- * A fixed six per page is what left half of a page white - six portraits are
- * two rows, six panoramas are three, and neither happens to be the height of
- * an A4. Rows are built to a width budget and added until the next one would
- * not fit, so every page but the last of a day comes out full.
+ * The first page carries the date, the place and any note above its pictures,
+ * so it holds as many fewer as that writing takes of the page. The rest are
+ * shared out evenly: ten at four a page is four, three and three, never a
+ * lonely pair at the end.
  */
-function paginate(
-  shapes: Shape[],
-  width: number,
-  gap: number,
-  availFirst: number,
-  availRest: number,
-): Shape[][] {
-  const groups: Shape[][] = [];
-  let index = 0;
-
-  while (index < shapes.length) {
-    const available = groups.length === 0 ? availFirst : availRest;
-    // Three rows to a page is the size photographs want to be in a book: big
-    // enough to look at, small enough that a day is not thirty pages.
-    const budget = Math.min(5, Math.max(1.4, width / (available / 3)));
-    const group: Shape[] = [];
-    let used = 0;
-
-    while (index < shapes.length) {
-      const row: Shape[] = [];
-      let sum = 0;
-      let next = index;
-      while (next < shapes.length) {
-        row.push(shapes[next]!);
-        sum += shapes[next]!.ratio;
-        next++;
-        if (sum >= budget) break;
-      }
-      const height = (width - gap * (row.length - 1)) / sum;
-      const needed = used === 0 ? height : used + gap + height;
-      // A page always takes at least one row, or a single panorama taller than
-      // the space left would never be placed anywhere.
-      if (group.length > 0 && needed > available) break;
-      used = needed;
-      group.push(...row);
-      index = next;
-      if (used > available - gap * 2) break;
-    }
-
-    groups.push(group);
+function splitDay<T>(photos: T[], perPage: number, firstShare: number): T[][] {
+  const firstCap = Math.max(1, Math.round(perPage * Math.min(1, firstShare)));
+  if (photos.length <= firstCap) return [photos];
+  const groups = [photos.slice(0, firstCap)];
+  const rest = photos.slice(firstCap);
+  const count = Math.ceil(rest.length / perPage);
+  let start = 0;
+  for (let i = 0; i < count; i++) {
+    const size = Math.ceil((rest.length - start) / (count - i));
+    groups.push(rest.slice(start, start + size));
+    start += size;
   }
-
-  return groups.length > 0 ? groups : [[]];
+  return groups;
 }
 
 /** How many pages a book comes to, near enough for a line of text. */
 export function countBookPages(source: BookSource): number {
   if (source.media.length === 0) return 0;
   const byDay = groupByDay(source.media);
-  // Eight is what a page of mixed proportions tends to hold; the real number
-  // is known only once every photograph has been measured, which is work this
-  // estimate exists to avoid.
+  // The same split the book itself makes; the first page of a day is taken as
+  // a note-less one, which is near enough for a line of text.
+  const perPage = clampPerPage(source.perPage);
   let pages = 2;
-  for (const photos of byDay.values()) pages += Math.max(1, Math.ceil(photos.length / 8));
+  for (const photos of byDay.values()) pages += splitDay(photos, perPage, 0.85).length;
   const stops = source.stops.filter(
     (s) => !s.parentStopId && s.latitude !== null && s.longitude !== null,
   );

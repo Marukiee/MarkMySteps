@@ -308,6 +308,8 @@
     <string name="book_reading">Looking at the photos</string>
     <string name="book_wait">One moment</string>
     <string name="book_of">%1$d of %2$d</string>
+    <string name="book_per_page">Photos per page</string>
+    <string name="book_per_page_hint">The PDF follows the same pages.</string>
     <string name="cache_custom_short">Custom</string>
     <string name="auth_use_app_code">Use a code from the app after all</string>
     <string name="auth_use_recovery">I do not have my phone: use a recovery code</string>
