@@ -35,7 +35,7 @@ export function MapLayersSheet({
   onToggleRoute,
   onTogglePhoto,
   onAllPhotos,
-  onNoPhotos,
+  canUndoAll = false,
   onClose,
   closing,
 }: {
@@ -47,8 +47,13 @@ export function MapLayersSheet({
   ownUserId?: string;
   onToggleRoute: (userId: string) => void;
   onTogglePhoto: (userId: string) => void;
-  onAllPhotos: () => void;
-  onNoPhotos: () => void;
+  /**
+   * All on (`on`) or all off. `lit` is a tap on the one that is already lit,
+   * which puts back the choice before it.
+   */
+  onAllPhotos: (on: boolean, lit: boolean) => void;
+  /** Whether there is a choice to go back to. */
+  canUndoAll?: boolean;
   onClose: () => void;
   closing: boolean;
 }) {
@@ -108,13 +113,26 @@ export function MapLayersSheet({
           <h3 className="trip-side-heading">{t('trip.layers.photos')}</h3>
           <p className="muted layer-hint">{t('trip.layers.photosHint')}</p>
           {members.map((member) => row(member, photoUsers.has(member.userId), onTogglePhoto))}
-          <div className="layer-actions">
-            <button type="button" className="btn btn-ghost" onClick={onAllPhotos}>
-              {t('trip.layers.allOn')}
-            </button>
-            <button type="button" className="btn btn-ghost" onClick={onNoPhotos}>
-              {t('trip.layers.allOff')}
-            </button>
+          {/* Connected toggles: the lit one says what is on, and tapping it
+              again goes back to the selection before it. */}
+          <div className="layer-actions" role="group">
+            {([true, false] as const).map((on) => {
+              const lit = on
+                ? members.length > 0 && members.every((m) => photoUsers.has(m.userId))
+                : members.every((m) => !photoUsers.has(m.userId));
+              return (
+                <button
+                  key={String(on)}
+                  type="button"
+                  className={`layer-toggle ${lit ? 'lit' : ''}`}
+                  aria-pressed={lit}
+                  disabled={lit && !canUndoAll}
+                  onClick={() => onAllPhotos(on, lit)}
+                >
+                  {on ? t('trip.layers.allOn') : t('trip.layers.allOff')}
+                </button>
+              );
+            })}
           </div>
         </section>
 

@@ -41,6 +41,9 @@ import { t } from '../i18n';
 import { legTitle } from '../lib/legs';
 import './tripdetail.css';
 
+/** The legs to and from home: not places the trip was at. */
+const LEG_STOP_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
+
 interface TripStats {
   distanceKm: number;
   countries: string[];
@@ -826,6 +829,27 @@ export function TripDetailPage() {
     };
   }, [peopleOpen, peopleClosing, closePeople]);
 
+  /** Where the trip was on a day: the last real stop it was at, for the day list. */
+  const placeOfDay = useCallback(
+    (d: string) => {
+      const at = stops.filter(
+        (s) =>
+          !s.parentStopId &&
+          !LEG_STOP_NAMES.has(s.name) &&
+          s.arrivalDate.slice(0, 10) <= d &&
+          (d < s.departureDate.slice(0, 10) || s.arrivalDate.slice(0, 10) === d),
+      );
+      return at.length > 0 ? at[at.length - 1]!.name : null;
+    },
+    [stops],
+  );
+
+  /**
+   * The choice before "all on" or "all off", so a second tap on the lit one
+   * puts it back, as on the native apps.
+   */
+  const photosBeforeAll = useRef<string[] | null>(null);
+
   const setAllPhotoUsers = useCallback(
     (ids: string[]) => {
       setPhotoUsers(new Set(ids));
@@ -1254,7 +1278,13 @@ export function TripDetailPage() {
         {/* Bottom left: which day the map is showing, and a word when the
             photos have been switched off. */}
         <div className="map-bottom-left">
-          <DayFilter days={days} value={day} onChange={setDay} />
+          <DayFilter
+            days={days}
+            value={day}
+            onChange={setDay}
+            placeOf={placeOfDay}
+            tripStart={trip?.startDate}
+          />
 
         {/* Nothing else is pinned to the map any more: whose route and whose
             photos are on it is a choice you make once, and it lives in the map
@@ -1460,12 +1490,19 @@ export function TripDetailPage() {
           ownUserId={user?.id}
           onToggleRoute={toggleUser}
           onTogglePhoto={togglePhotoUser}
-          onAllPhotos={() =>
+          onAllPhotos={(on, lit) => {
+            if (lit) {
+              // Second tap on the lit one: back to the choice before it.
+              if (photosBeforeAll.current) setAllPhotoUsers(photosBeforeAll.current);
+              photosBeforeAll.current = null;
+              return;
+            }
+            photosBeforeAll.current = [...photoUsers];
             setAllPhotoUsers(
-              (shownMembers.length > 0 ? shownMembers : trip.members).map((m) => m.userId),
-            )
-          }
-          onNoPhotos={() => setAllPhotoUsers([])}
+              on ? (shownMembers.length > 0 ? shownMembers : trip.members).map((m) => m.userId) : [],
+            );
+          }}
+          canUndoAll={photosBeforeAll.current !== null}
           onClose={() => setLayersOpen(false)}
           closing={layersClosing}
         />

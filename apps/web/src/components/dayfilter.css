@@ -65,17 +65,20 @@
   position: fixed;
   z-index: 80;
   width: max-content;
-  min-width: 14rem;
-  max-width: min(86vw, 20rem);
+  min-width: 16rem;
+  max-width: min(90vw, 21rem);
   /* The height comes from the room the pill has; this is only a ceiling. */
   max-height: min(44vh, 20rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   /* Published so the rows can round themselves to match the box they sit in. */
-  --day-menu-pad: 0.3rem;
+  /* Concentric: 24 outside, 4 in, rows of 20. */
+  --day-menu-pad: 4px;
   padding: var(--day-menu-pad);
+  border-radius: 24px;
+  box-shadow: none;
   display: grid;
-  gap: 1px;
+  gap: 2px;
   transform-origin: bottom left;
   animation: dayMenuIn 0.16s var(--ease);
 }
@@ -253,4 +256,115 @@
    not position itself as well. */
 .map-bottom-left .person-select {
   position: static;
+}
+
+/* ---- Rows as the native day sheet (MapTools.kt, DaySheet) ---- */
+.day-filter-menu .day-filter-item {
+  gap: 12px;
+  padding: 7px 14px 7px 7px;
+  border-radius: 20px;
+  transition:
+    background-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    color 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.day-tile {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--paper-sunken);
+  color: var(--ink);
+  transition:
+    background-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    color 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.day-filter-item.active .day-tile {
+  background: var(--accent);
+  color: #fff;
+}
+
+.day-tile-date {
+  display: grid;
+  justify-items: center;
+  line-height: 1;
+}
+
+.day-tile-date strong {
+  font-family: var(--font-brand);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.day-tile-date small {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 12px;
+  opacity: 0.8;
+  text-transform: lowercase;
+}
+
+.day-filter-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+}
+
+.day-filter-text .day-filter-item-name {
+  margin-right: 0;
+  font-family: var(--font-brand);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.day-filter-sub {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-filter-item.active .day-filter-sub {
+  color: var(--accent-ink);
+}
+
+.day-filter-end {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.day-filter-check {
+  display: flex;
+  color: var(--accent);
+  animation: dayCheckIn 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.day-filter-end .day-filter-count {
+  animation: dayCountIn 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes dayCheckIn {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes dayCountIn {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Tonal, no shadow, whatever .card says elsewhere. */
+.day-filter-menu.card {
+  box-shadow: none;
 }

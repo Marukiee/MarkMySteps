@@ -15,6 +15,7 @@
   "trip.tracking.error.noGps": "Geen GPS beschikbaar in deze browser",
   "trip.weather.current": "Huidig weer",
   "trip.dayFilter.wholeTrip": "Hele reis",
+  "trip.dayFilter.dayN": "Dag {n}",
   "trip.trackEdit.titleToday": "Punten van vandaag",
   "trip.trackEdit.titleDay": "Punten van {day}",
   "trip.trackEdit.points_one": "{count} punt",
