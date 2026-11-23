@@ -96,7 +96,7 @@ export function AppMenu({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Placed on its button (top on the button's top, right edge on the button's
+  // Placed on its button (top on the button's top, or upwards with its bottom on the button's bottom; right edge on the button's
   // right edge), moved only as far as needed to stay on screen. The start
   // shape is the button's box within the menu, fully round.
   useLayoutEffect(() => {
@@ -106,7 +106,13 @@ export function AppMenu({
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const left = Math.min(Math.max(MARGIN, b.right - m.width), Math.max(MARGIN, vw - m.width - MARGIN));
-    const top = Math.min(Math.max(MARGIN, b.top), Math.max(MARGIN, vh - m.height - MARGIN));
+    // Room below: its top on the button's top. No room (a card low on the page): it opens upwards with its
+    // bottom on the button's bottom, so it still comes out of the button rather than from below it.
+    const fits = b.top + m.height <= vh - MARGIN;
+    const top = Math.min(
+      Math.max(MARGIN, fits ? b.top : b.bottom - m.height),
+      Math.max(MARGIN, vh - m.height - MARGIN),
+    );
     setPlace({ left, top });
     const t = Math.max(0, b.top - top);
     const l = Math.max(0, b.left - left);

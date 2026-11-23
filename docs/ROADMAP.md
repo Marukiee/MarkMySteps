@@ -66,7 +66,9 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       afgekapt wordt als je de bovenste versleept.
 
 - [ ] Volgende release (gebundeld, Mark 23 nov): vervoerspil klapt in met
-      hetzelfde stevige tikje als uitklappen, Weergave noemt Taal
+      hetzelfde stevige tikje als uitklappen, Weergave noemt Taal, web: het
+      menu dat naar boven uitklapt komt uit zijn knop, de fotokolom op de
+      reispagina is standaard bijna de helft van het scherm
       (branch claude/mode-close-haptic), samen met de fotoboekpunten van de
       fotoboeksessie: meer foto's per pagina en zelf te kiezen, dagbalk springt
       in een keer, terug vanuit fotoboek of samenvatting naar Mensen en delen.

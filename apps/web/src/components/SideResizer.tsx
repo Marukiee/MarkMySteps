@@ -9,7 +9,10 @@ import {
 import { getTripSideWidth, setTripSideWidth } from '../lib/prefs';
 import { t } from '../i18n';
 
-const DEFAULT_WIDTH = 400;
+/** The photos' share of the page when nobody has dragged the grip: nearly half, so on a wide screen the
+ *  timeline is not a narrow strip beside a huge map (Mark). Never narrower than 400 px. */
+const DEFAULT_SHARE = 0.46;
+const DEFAULT_MIN = 400;
 const MIN_SIDE = 320;
 /** The map never gets narrower than this: below it a map is a strip, not a map. */
 const MIN_MAP = 360;
@@ -28,24 +31,29 @@ const desktop = () => window.matchMedia('(min-width: 901px)').matches;
  */
 export function SideResizer({ host }: { host: RefObject<HTMLElement | null> }) {
   /** What is on screen now, after clamping to this window. */
-  const widthRef = useRef(DEFAULT_WIDTH);
-  /** What was chosen: comes back when the window is wide enough again. */
-  const wantedRef = useRef(DEFAULT_WIDTH);
+  const widthRef = useRef(DEFAULT_MIN);
+  /** What was chosen (null: nothing, the default share of the page): comes back when the window is wide enough again. */
+  const wantedRef = useRef<number | null>(null);
+
+  /** The room the map and the timeline share. */
+  const innerWidth = useCallback(() => {
+    const el = host.current;
+    if (!el) return 0;
+    const style = getComputedStyle(el);
+    return el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - parseFloat(style.columnGap || '0');
+  }, [host]);
 
   const clamp = useCallback(
     (px: number) => {
-      const el = host.current;
-      if (!el) return px;
-      const style = getComputedStyle(el);
-      const inner =
-        el.clientWidth -
-        parseFloat(style.paddingLeft) -
-        parseFloat(style.paddingRight) -
-        parseFloat(style.columnGap || '0');
+      const inner = innerWidth();
+      if (inner <= 0) return px;
       return Math.round(Math.max(MIN_SIDE, Math.min(px, inner - MIN_MAP)));
     },
-    [host],
+    [innerWidth],
   );
+
+  /** The width without a choice of its own: the default share of this window. */
+  const defaultWidth = useCallback(() => Math.max(DEFAULT_MIN, innerWidth() * DEFAULT_SHARE), [innerWidth]);
 
   const apply = useCallback(
     (px: number) => {
@@ -59,20 +67,20 @@ export function SideResizer({ host }: { host: RefObject<HTMLElement | null> }) {
   // fitted a wide monitor must not squeeze the map off a smaller one.
   useEffect(() => {
     try {
-      wantedRef.current = getTripSideWidth() ?? DEFAULT_WIDTH;
+      wantedRef.current = getTripSideWidth();
     } catch {
       // Storage blocked: the default width it is.
     }
     const fit = () => {
-      if (desktop()) apply(wantedRef.current);
+      if (desktop()) apply(wantedRef.current ?? defaultWidth());
     };
     fit();
     window.addEventListener('resize', fit);
     return () => window.removeEventListener('resize', fit);
-  }, [apply]);
+  }, [apply, defaultWidth]);
 
   const save = (px: number | null) => {
-    wantedRef.current = px ?? DEFAULT_WIDTH;
+    wantedRef.current = px;
     try {
       setTripSideWidth(px);
     } catch {
@@ -132,7 +140,7 @@ export function SideResizer({ host }: { host: RefObject<HTMLElement | null> }) {
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
       onDoubleClick={() => {
-        apply(DEFAULT_WIDTH);
+        apply(defaultWidth());
         save(null);
       }}
     />
