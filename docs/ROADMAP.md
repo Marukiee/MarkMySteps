@@ -17,8 +17,10 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       reiziger.
 - [ ] iPhone: alle animaties nalopen, gelijk aan Android en mooi (in het
       werk, twee delen: reispagina/kaart/viewer en de rest).
-- [ ] Webversie van de app: bijwerken naar het nieuwe ontwerp en
-      optimaliseren, met dezelfde punten, en goed controleren.
+- [ ] Webversie van de app: nieuw ontwerp gebouwd en samengevoegd (menu's,
+      panelen, homepage, navigatiebalk, planner, inloggen, reizigers,
+      reisinstellingen, reispagina, fotokaart, viewer met strip). Bouwt;
+      nog visueel nalopen in de browser (kon niet: het venster was dicht).
 - [ ] Stijlgids voor andere Android-apps in deze stijl (PixelPlayer en
       MarkMySteps): docs/STIJLGIDS.md, bijhouden bij elke nieuwe opmerking.
 - [ ] Kwaliteitsronde: een kwaliteitsagent loopt de iPhone- en Android-app
