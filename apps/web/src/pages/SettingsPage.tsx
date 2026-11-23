@@ -20,6 +20,7 @@ import { TwoFactorSection } from '../components/TwoFactorSection';
 import { HelpTip } from '../components/HelpTip';
 import { previewInvitePopup } from '../components/InvitePopup';
 import { Icon } from '../components/Icon';
+import { AppMenu } from '../components/AppMenu';
 import { ServerSteps } from '../components/LocalModeSheet';
 import { LogoMark } from '../components/Logo';
 import { PasswordStrength } from '../components/PasswordStrength';
@@ -2090,26 +2091,11 @@ function ProfileSection() {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [photoMenu, setPhotoMenu] = useState(false);
-  const [photoMenuClosing, setPhotoMenuClosing] = useState(false);
-
-  // Animate the popover away instead of unmounting it mid-frame.
-  const closePhotoMenu = () => {
-    setPhotoMenuClosing(true);
-    window.setTimeout(() => {
-      setPhotoMenu(false);
-      setPhotoMenuClosing(false);
-    }, 150);
-  };
+  const photoBtnRef = useRef<HTMLButtonElement>(null);
+  const closePhotoMenu = () => setPhotoMenu(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [viewSrc, setViewSrc] = useState<string | null>(null);
 
-  // Close the photo menu on any outside click.
-  useEffect(() => {
-    if (!photoMenu) return;
-    document.addEventListener('click', closePhotoMenu);
-    return () => document.removeEventListener('click', closePhotoMenu);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photoMenu]);
 
   async function uploadBlob(blob: Blob) {
     setError(null);
@@ -2149,8 +2135,11 @@ function ProfileSection() {
         <p className="muted">{t('settings.profile.photo.hint')}</p>
         <div className="avatar-row">
           <button
+            ref={photoBtnRef}
             type="button"
             className="avatar-edit"
+            aria-haspopup="menu"
+            aria-expanded={photoMenu}
             title={t('settings.profile.photo.title')}
             onClick={(e) => {
               e.stopPropagation();
@@ -2169,58 +2158,48 @@ function ProfileSection() {
             <span className="avatar-edit-badge">
               <Icon name="camera" size={15} />
             </span>
-            {photoMenu && (
-              <div
-                className={`avatar-menu card ${photoMenuClosing ? 'closing' : ''}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {user?.hasAvatar && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      closePhotoMenu();
-                      setViewSrc(await currentAvatarUrl());
-                    }}
-                  >
-                    {t('settings.profile.photo.view')}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    closePhotoMenu();
-                    fileRef.current?.click();
-                  }}
-                >
-                  {t('settings.profile.photo.choose')}
-                </button>
-                {user?.hasAvatar && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      closePhotoMenu();
-                      const url = await currentAvatarUrl();
-                      if (url) setCropSrc(url);
-                    }}
-                  >
-                    {t('settings.profile.photo.crop')}
-                  </button>
-                )}
-                {user?.hasAvatar && (
-                  <button
-                    type="button"
-                    className="avatar-menu-danger"
-                    onClick={() => {
-                      closePhotoMenu();
-                      void removeAvatar();
-                    }}
-                  >
-                    {t('settings.profile.photo.remove')}
-                  </button>
-                )}
-              </div>
-            )}
           </button>
+          <AppMenu
+            anchor={photoBtnRef.current}
+            open={photoMenu}
+            onClose={closePhotoMenu}
+            groups={[
+              [
+                ...(user?.hasAvatar
+                  ? [
+                      {
+                        label: t('settings.profile.photo.view'),
+                        icon: 'eye' as const,
+                        onClick: async () => setViewSrc(await currentAvatarUrl()),
+                      },
+                    ]
+                  : []),
+                {
+                  label: t('settings.profile.photo.choose'),
+                  icon: 'camera' as const,
+                  onClick: () => fileRef.current?.click(),
+                },
+                ...(user?.hasAvatar
+                  ? [
+                      {
+                        label: t('settings.profile.photo.crop'),
+                        icon: 'frame' as const,
+                        onClick: async () => {
+                          const url = await currentAvatarUrl();
+                          if (url) setCropSrc(url);
+                        },
+                      },
+                      {
+                        label: t('settings.profile.photo.remove'),
+                        icon: 'trash' as const,
+                        danger: true,
+                        onClick: () => void removeAvatar(),
+                      },
+                    ]
+                  : []),
+              ],
+            ]}
+          />
           <input
             ref={fileRef}
             type="file"

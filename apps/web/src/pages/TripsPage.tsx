@@ -1,5 +1,4 @@
 import {
-  CSSProperties,
   FormEvent,
   MouseEvent,
   useEffect,
@@ -7,7 +6,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Trip } from '../api/types';
@@ -19,6 +17,7 @@ import { DateRangeField } from '../components/DatePicker';
 import { GlobeBackdrop } from '../components/GlobeBackdrop';
 import { LogoMark } from '../components/Logo';
 import { Icon } from '../components/Icon';
+import { AppMenu, MENU_CLOSE_MS, MENU_PICK_HOLD_MS, type MenuEntry } from '../components/AppMenu';
 import { coverGradient, formatDate, tripCoverBg } from '../lib/colors';
 import {
   getShowSelfOnHome,
@@ -517,45 +516,16 @@ function TripCard({
   const { user } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuClosing, setMenuClosing] = useState(false);
-  const [menuUp, setMenuUp] = useState(false);
-  /** Where the menu sits against the viewport (it is portalled out of the card,
-   *  which clips its own contents when it has a cover photo). */
-  const [menuAt, setMenuAt] = useState<{ top: number; right: number } | null>(null);
+  /** The size just picked in the menu: the pill moves over at once, the card
+   *  takes its new shape once the menu has folded away. */
+  const [pickedSize, setPickedSize] = useState<'auto' | 'large' | 'compact' | null>(null);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
   const [renaming, setRenaming] = useState(false);
   const [newTitle, setNewTitle] = useState(trip.title);
   const renameRef = useRef<HTMLFormElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const isOwner = trip.ownerId === user?.id;
 
-  // Animate the menu out before unmounting.
-  const closeMenu = () => {
-    setMenuClosing(true);
-    window.setTimeout(() => {
-      setMenuOpen(false);
-      setMenuClosing(false);
-    }, 150);
-  };
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (e: Event) => {
-      if (!menuRef.current?.contains(e.target as Node)) closeMenu();
-    };
-    // Close on outside click, on scroll, and when another card's menu opens.
-    const onOther = (e: Event) => {
-      if ((e as CustomEvent<string>).detail !== trip.id) closeMenu();
-    };
-    document.addEventListener('click', close);
-    window.addEventListener('scroll', closeMenu, true);
-    window.addEventListener('mms-menu-open', onOther as EventListener);
-    return () => {
-      document.removeEventListener('click', close);
-      window.removeEventListener('scroll', closeMenu, true);
-      window.removeEventListener('mms-menu-open', onOther as EventListener);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuOpen]);
+  const closeMenu = () => setMenuOpen(false);
 
   // Tapping anywhere else abandons a rename, the same way the ⋯ menu closes.
   useEffect(() => {
@@ -611,23 +581,19 @@ function TripCard({
     onChanged();
   }
 
-  function setSize(v: 'large' | 'compact' | null) {
+  function setSize(opt: 'auto' | 'large' | 'compact') {
     /*
-     * The menu fades out first, and the card changes shape once it has gone.
-     *
-     * It hangs against the viewport rather than inside the card, so a card
-     * that resizes underneath it leaves the ⋯ floating over its neighbour.
-     * Resizing straight away fixed that but took the menu with it in one
-     * frame: the card re-renders into a different shape, which throws away the
-     * element the closing animation was running on. So the animation goes
-     * first, and the resize rides on its tail.
+     * The pill moves over first, the menu folds back into its button (it
+     * closes itself a moment after a choice), and the card changes shape once
+     * the menu has gone: resizing under an open menu re-renders the card into
+     * a different shape, which would take the button the menu folds into
+     * with it.
      */
-    setMenuClosing(true);
-    window.setTimeout(() => {
-      setMenuOpen(false);
-      setMenuClosing(false);
-      onResize(trip.id, v);
-    }, 150);
+    setPickedSize(opt);
+    window.setTimeout(
+      () => onResize(trip.id, opt === 'auto' ? null : opt),
+      MENU_PICK_HOLD_MS + MENU_CLOSE_MS + 40,
+    );
   }
 
   /**
@@ -646,19 +612,8 @@ function TripCard({
           ? t('trips.card.size.row')
           : t('trips.card.size.small');
 
-  function openWebMenu(button: HTMLElement) {
-    // A card with a cover clips its own contents, so the menu is
-    // rendered against the viewport instead, anchored to the button.
-    const r = button.getBoundingClientRect();
-    // Anchored to the button's own corner, so the menu opens ON TOP of
-    // the ⋯ rather than hanging below it.
-    const up = r.bottom + 260 > window.innerHeight;
-    setMenuUp(up);
-    setMenuAt({
-      top: up ? r.bottom : r.top,
-      right: Math.max(8, window.innerWidth - r.right),
-    });
-    window.dispatchEvent(new CustomEvent('mms-menu-open', { detail: trip.id }));
+  function openWebMenu() {
+    setPickedSize(null);
     setMenuOpen(true);
   }
 
@@ -741,110 +696,57 @@ function TripCard({
     )
   );
 
+  const currentSize = pickedSize ?? getTripCardOverride(trip.id) ?? 'auto';
+  // As on the native apps: the card's size, then rename and delete (or leave a
+  // trip someone else made). Settings live on the trip page.
+  const menuGroups: MenuEntry[][] = [
+    [
+      ...(['auto', 'large', 'compact'] as const).map((opt) => ({
+        label: sizeLabel(opt),
+        inline: true,
+        selected: currentSize === opt,
+        onClick: () => setSize(opt),
+      })),
+      ...(isOwner
+        ? [
+            { label: t('trips.card.menu.rename'), icon: 'pencil' as const, onClick: () => setRenaming(true) },
+            { label: t('common.delete'), icon: 'trash' as const, danger: true, onClick: () => void remove() },
+          ]
+        : [{ label: t('trips.card.menu.leave'), danger: true, onClick: () => void leave() }]),
+    ],
+  ];
+
   const menuEl = (
-    <div className="trip-card-menu" ref={menuRef} onClick={stop}>
+    <div className="trip-card-menu" onClick={stop}>
       <button
+        ref={menuBtnRef}
         className="trip-menu-btn"
         aria-label={t('trips.card.menu.label')}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
         onClick={(e) => {
           stop(e);
           const button = e.currentTarget as HTMLElement;
           if (menuOpen) closeMenu();
           else if (nativeMenusAvailable()) {
             // This iOS cannot open a menu itself: the page's one opens instead.
-            openNativeMenu(button).catch(() => openWebMenu(button));
+            openNativeMenu(button).catch(() => openWebMenu());
           } else {
-            openWebMenu(button);
+            openWebMenu();
           }
         }}
       >
         <Icon name="dots" size={22} />
       </button>
-      {menuOpen &&
-        menuAt &&
-        createPortal(
-        <div
-          className={`trip-menu card ${menuUp ? 'up' : ''} ${menuClosing ? 'closing' : ''}`}
-          style={
-            menuUp
-              ? { bottom: window.innerHeight - menuAt.top, right: menuAt.right }
-              : { top: menuAt.top, right: menuAt.right }
-          }
-          onClick={stop}
-        >
-          <div
-            className="trip-menu-seg pill-switch"
-            onClick={stop}
-            style={
-              {
-                '--n': 3,
-                '--i': ['auto', 'large', 'compact'].indexOf(getTripCardOverride(trip.id) ?? 'auto'),
-              } as CSSProperties
-            }
-          >
-            {(['auto', 'large', 'compact'] as const).map((opt) => {
-              const cur = getTripCardOverride(trip.id) ?? 'auto';
-              return (
-                <button
-                  key={opt}
-                  className={cur === opt ? 'active' : ''}
-                  onClick={(e) => {
-                    stop(e);
-                    setSize(opt === 'auto' ? null : opt);
-                  }}
-                >
-                  {sizeLabel(opt)}
-                </button>
-              );
-            })}
-          </div>
-          {isOwner && (
-            <>
-              <button
-                onClick={(e) => {
-                  stop(e);
-                  closeMenu();
-                  navigate(`/trips/${trip.id}/settings`);
-                }}
-              >
-                {t('common.settings')}
-              </button>
-              <button
-                onClick={(e) => {
-                  stop(e);
-                  closeMenu();
-                  setRenaming(true);
-                }}
-              >
-                {t('trips.card.menu.rename')}
-              </button>
-              <button
-                className="trip-menu-danger"
-                onClick={(e) => {
-                  stop(e);
-                  closeMenu();
-                  void remove();
-                }}
-              >
-                {t('common.delete')}
-              </button>
-            </>
-          )}
-          {!isOwner && (
-            <button
-              className="trip-menu-danger"
-              onClick={(e) => {
-                stop(e);
-                closeMenu();
-                void leave();
-              }}
-            >
-              {t('trips.card.menu.leave')}
-            </button>
-          )}
-        </div>,
-        document.body,
-      )}
+      <AppMenu
+        anchor={menuBtnRef.current}
+        open={menuOpen}
+        onClose={closeMenu}
+        groups={menuGroups}
+        // The large card's ⋯ is a round glass button; the small card's is a
+        // bare icon, so no round fill ever shows there.
+        buttonColor={compact ? undefined : 'rgb(255 255 255 / 0.5)'}
+      />
     </div>
   );
 
@@ -855,7 +757,6 @@ function TripCard({
         className={`trip-card-compact ${trip.resolvedCoverId ? 'has-cover' : ''}`}
         style={{
           animationDelay: `${index * 45}ms`,
-          zIndex: menuOpen || menuClosing ? 30 : undefined,
         }}
         role="link"
         tabIndex={0}
@@ -929,7 +830,6 @@ function TripCard({
       style={{
         animationDelay: `${index * 60}ms`,
         background: noImg ? tripCoverBg(trip) : coverGradient(trip.id),
-        zIndex: menuOpen || menuClosing ? 30 : undefined,
       }}
       role="link"
       tabIndex={0}

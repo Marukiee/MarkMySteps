@@ -1,0 +1,246 @@
+/* The one ⋯ menu (AppMenu.tsx): Material 3 Expressive's segmented menu as
+   the native apps draw it. Groups are rounded blocks 28px at the outside and
+   10px where they meet; items sit 4px inside them with concentric corners
+   (24px at the menu's edge, 6px between), and the space between an item and
+   its group's edge is the same all round. No shadow: tone and a fine edge. */
+
+.app-menu {
+  --menu-group: var(--surface-high);
+  --menu-item: var(--surface-low);
+  --menu-ink: var(--on-surface);
+  --menu-edge: var(--outline-variant);
+  --menu-on: var(--primary-container);
+  --menu-on-ink: var(--on-primary-container);
+  --menu-danger: var(--danger);
+  position: fixed;
+  z-index: 200;
+  max-width: min(300px, calc(100vw - 24px));
+  border-radius: 28px;
+  opacity: 0;
+  /* Closing: folds back in 220 ms, the menu fading out over its last 30%. */
+  transition:
+    clip-path var(--dur-menu-out) var(--ease-std),
+    opacity 66ms linear 154ms;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.app-menu.measuring {
+  visibility: hidden;
+  transition: none;
+}
+
+/* Opening: grows out of the button in 240 ms, taking over from the button in
+   the first 30%. */
+.app-menu.expanded {
+  opacity: 1;
+  transition:
+    clip-path var(--dur-menu-in) var(--ease-emph),
+    opacity 72ms linear;
+}
+
+/* It starts in the button's own colour and passes into the menu's, so it
+   plainly comes out of it. Only a button with a fill has a tint: a bare icon
+   never shows a round fill that was never there. */
+.app-menu.tinted::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--menu-tint);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 120ms linear 100ms;
+}
+
+.app-menu.tinted.expanded::after {
+  opacity: 0;
+  transition: opacity 132ms linear;
+}
+
+/* The content comes up after 10% of the motion and is there at 70%; closing
+   it goes in the first part, before the shape folds into the button. */
+.app-menu-content {
+  display: grid;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 120ms linear;
+}
+
+.app-menu.expanded .app-menu-content {
+  opacity: 1;
+  transition: opacity 144ms linear 24ms;
+}
+
+.app-menu-group {
+  display: grid;
+  gap: 4px;
+  padding: 4px;
+  min-width: 248px;
+  background: var(--menu-group);
+  border: 1px solid var(--menu-edge);
+  border-radius: 10px;
+}
+
+.app-menu-group.first {
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+}
+
+.app-menu-group.last {
+  border-bottom-left-radius: 28px;
+  border-bottom-right-radius: 28px;
+}
+
+/* The group's own edge is 1px, so the inner corner that runs alongside the
+   menu's 28px is 28 - 1 - 4 = 23, drawn as 24 the way the native menu does. */
+.app-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 16px 0 14px;
+  border-radius: 6px;
+  background: var(--menu-item);
+  color: var(--menu-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  transition: background-color 0.15s var(--ease-std), color 0.15s var(--ease-std);
+}
+
+.app-menu-item.edge-top {
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+}
+
+.app-menu-item.edge-bottom {
+  border-bottom-left-radius: 24px;
+  border-bottom-right-radius: 24px;
+}
+
+.app-menu-item svg {
+  flex-shrink: 0;
+}
+
+.app-menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-menu-item.on {
+  background: var(--menu-on);
+  color: var(--menu-on-ink);
+}
+
+.app-menu-item.danger {
+  color: var(--menu-danger);
+}
+
+.app-menu-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .app-menu-item:not(:disabled):hover {
+    background: color-mix(in srgb, var(--menu-item) 88%, var(--menu-ink));
+  }
+
+  .app-menu-item.on:not(:disabled):hover {
+    background: color-mix(in srgb, var(--menu-on) 90%, var(--menu-on-ink));
+  }
+}
+
+/* Choices of one kind: connected buttons side by side, the chosen one an
+   accent pill. Round at the outside, tight where they meet, and the same 4px
+   above and beside them as the lines under them. */
+.app-menu-choices {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 0;
+}
+
+.app-menu-choice {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--menu-item);
+  color: var(--menu-ink);
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    border-radius var(--dur-nav) var(--ease-emph),
+    background-color var(--dur-nav) var(--ease-emph),
+    color var(--dur-nav) var(--ease-emph);
+}
+
+.app-menu-choice span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-menu-choice:first-child {
+  border-top-left-radius: 24px;
+  border-bottom-left-radius: 24px;
+}
+
+.app-menu-choice:last-child {
+  border-top-right-radius: 24px;
+  border-bottom-right-radius: 24px;
+}
+
+.app-menu-choice.on {
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.app-menu-choice:not(.on):active {
+  border-radius: 20px;
+}
+
+/* A dark screen (the photo viewer): dark tones, never bright white. */
+.app-menu-dark {
+  --menu-group: #242c35;
+  --menu-item: #1a2027;
+  --menu-ink: #eef1f4;
+  --menu-edge: rgb(255 255 255 / 0.08);
+  --menu-on: #5a2717;
+  --menu-on-ink: #ffdbce;
+  --menu-danger: #f2826b;
+}
+
+/* The bare button the menu grows from: no fill in any state, so the menu's
+   start shape never reveals a circle that is not there. */
+.app-menu-anchor-bare {
+  background: none !important;
+}
+
+.app-menu-head {
+  padding: 12px 18px;
+  gap: 0;
+  color: var(--menu-ink);
+}
+
+.app-menu-head strong {
+  font-family: var(--font-brand);
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.app-menu-head span {
+  font-size: 13px;
+  color: var(--on-surface-variant);
+}

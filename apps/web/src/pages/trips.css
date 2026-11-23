@@ -473,12 +473,6 @@
   filter: none;
 }
 
-/* Near the bottom of the screen there's no room below — grow upward instead of
-   off-screen. */
-.trip-menu.up {
-  transform-origin: bottom right;
-}
-
 /* Single dashed "add trip" slot. */
 .trip-ghost {
   aspect-ratio: 16 / 10;
@@ -517,161 +511,37 @@
 
 .trip-card-menu {
   position: absolute;
-  top: 0.7rem;
-  right: 0.8rem;
+  top: 14px;
+  right: 14px;
   z-index: 2;
 }
 
-/* Pointer devices have no thumb to clear — give the ⋯ a little more air. */
-@media (hover: hover) {
-  .trip-card-menu {
-    top: 0.85rem;
-    right: 1rem;
-  }
-
-  .trip-card-compact .trip-card-menu {
-    right: 0.85rem;
-  }
-}
-
 .trip-menu-btn {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-content: center;
+  border-radius: 50%;
   color: #fff;
-  filter: drop-shadow(0 1px 4px rgb(0 0 0 / 0.5));
-  transition: transform 0.15s var(--ease);
+  transition: transform 0.15s var(--ease-emph);
+}
+
+/* On a photo: white glass with a light blur, so the dots read on a bright sky
+   too. No shadow. */
+.trip-card .trip-menu-btn {
+  background: rgb(255 255 255 / 0.18);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+/* Android draws no blur (global.css), so the glass gets a darker veil of its
+   own instead of a see-through disc. */
+.android .trip-card .trip-menu-btn {
+  background: rgb(0 0 0 / 0.26);
 }
 
 .trip-menu-btn:active {
-  transform: scale(0.9);
-}
-
-.trip-menu {
-  /* Against the viewport, not the card: a card with a cover clips its own
-     contents, which cut the menu in half. */
-  position: fixed;
-  z-index: 120;
-  min-width: 210px;
-  padding: 0.35rem;
-  display: grid;
-  gap: 0.1rem;
-  border-radius: var(--radius-s);
-  box-shadow: var(--shadow-m);
-  /* Emerge from the ⋯ button (top-right corner). */
-  transform-origin: top right;
-  animation: menuIn 0.16s var(--ease);
-}
-
-@keyframes menuIn {
-  from {
-    opacity: 0;
-    transform: scale(0.72);
-  }
-}
-
-/* Segmented size control at the top of the menu. */
-.trip-menu-seg {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
-  padding: 3px;
-  margin-bottom: 0.2rem;
-  border-radius: 10px;
-  background: var(--paper-sunken);
-  --pill-gap: 2px;
-  --pill-pad: 3px;
-}
-
-/* Square-ish corners here, not the switch's default round ones. */
-.trip-menu-seg.pill-switch::before {
-  border-radius: 7px;
-}
-
-.trip-menu-seg button {
-  /* The menu's own items are left-aligned; the segment's are not. */
-  text-align: center;
-  min-width: 0;
-  padding: 0.35rem 0.2rem;
-  border-radius: 7px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--ink-faint);
-  text-align: center;
-  text-shadow: none;
-}
-
-.trip-menu-seg button.active {
-  color: var(--ink);
-}
-
-/* The segmented control is centred; only the menu ITEMS below it are ranged
-   left. Written this way round because both selectors are equally specific and
-   this one has to win. */
-.trip-menu .trip-menu-seg button {
-  text-align: center;
-  min-width: 0;
-  padding-inline: 0.2rem;
-}
-
-.trip-menu button {
-  text-align: left;
-  padding: 0.5rem 0.7rem;
-  /* Reads as a smaller version of the menu's own corner, not as a rectangle
-     with the edges shaved off. */
-  border-radius: 10px;
-  font-weight: 550;
-  font-size: 0.9rem;
-  color: var(--ink); /* overlay sets #fff; force readable text on the white menu */
-  text-shadow: none;
-  transition: background 0.15s var(--ease), color 0.15s var(--ease),
-    transform 0.15s var(--ease);
-}
-
-/* The highlight is the item's own box and nothing else: nudging it sideways
-   left it hanging over one edge and short of the other. Pointer only — on a
-   phone there is no hover, only a finger that leaves one behind. */
-@media (hover: hover) {
-  .trip-menu button:hover {
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-  }
-
-  /* The segment sits on its own sunken strip, where a tinted box barely shows
-     and only muddles the thumb. There, only the label changes colour. */
-  .trip-menu .trip-menu-seg button:hover {
-    background: none;
-    color: var(--accent-ink);
-  }
-
-  .trip-menu button.trip-menu-danger:hover {
-    background: rgb(179 64 42 / 0.1);
-    color: #b3402a;
-  }
-}
-
-.trip-menu button:active {
-  transform: scale(0.98);
-}
-
-.trip-menu button.trip-menu-danger {
-  color: #b3402a;
-}
-
-.trip-menu.closing {
-  animation: menuOut 0.15s var(--ease) forwards;
-}
-
-@keyframes menuOut {
-  from {
-    opacity: 1;
-    transform: none;
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.72);
-  }
+  transform: scale(0.92);
 }
 
 .trip-rename {
