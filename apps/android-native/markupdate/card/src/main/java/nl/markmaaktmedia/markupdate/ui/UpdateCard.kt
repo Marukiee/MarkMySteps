@@ -69,6 +69,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -277,10 +284,12 @@ private fun Actions(phase: Phase, progress: Float, style: UpdateCardStyle, restL
     // Doorzichtigheid is een tween, geen veer: een veer laat het knopje flikkeren.
     val laterAlpha by animateFloatAsState(if (phase == Phase.Rest) 1f else 0f, tween(260), label = "laterAlpha")
     val barFill by animateColorAsState(
-        when (phase) { Phase.Rest -> colors.primary; Phase.Busy -> colors.surfaceContainerHighest; Phase.Installing -> colors.primaryContainer },
+        // Het spoor van de download is de lichte tint, de vulling het volle primair: dat leest als een balk. Is hij vol (installeren), dan is de hele
+        // balk de vulling, zodat er geen kleursprong is.
+        when (phase) { Phase.Rest -> colors.primary; Phase.Busy -> colors.primaryContainer; Phase.Installing -> colors.primary },
         motion.colour(), label = "barFill",
     )
-    val ink by animateColorAsState(if (phase == Phase.Rest) colors.onPrimary else colors.onPrimaryContainer, motion.colour(), label = "barInk")
+    val ink by animateColorAsState(if (phase == Phase.Busy) colors.onPrimaryContainer else colors.onPrimary, motion.colour(), label = "barInk")
     val shownProgress by animateFloatAsState(progress, motion.spatial(), label = "updateProgress")
     val fillAlpha by animateFloatAsState(if (phase == Phase.Busy) 1f else 0f, tween(400), label = "fillAlpha")
     val pill = RoundedCornerShape(percent = 50)
@@ -305,24 +314,45 @@ private fun Actions(phase: Phase, progress: Float, style: UpdateCardStyle, restL
         ) {
             Box(
                 Modifier.fillMaxHeight().fillMaxWidth(shownProgress.coerceIn(0f, 1f)).graphicsLayer { alpha = fillAlpha }
-                    .clip(pill).background(colors.primaryContainer),
+                    .clip(pill).background(colors.primary),
             )
             if (phase == Phase.Installing) Sheen(Modifier.matchParentSize())
             AnimatedContent(
                 targetState = phase, transitionSpec = slideUp(3, style), modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center, label = "updateLabel",
             ) { p ->
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        when (p) {
-                            Phase.Rest -> restLabel
-                            Phase.Busy -> "${(progress * 100).toInt()}%"
-                            Phase.Installing -> stringResource(R.string.markupdate_installing)
-                        },
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"), color = ink, maxLines = 1,
-                    )
+                val label = when (p) {
+                    Phase.Rest -> restLabel
+                    Phase.Busy -> "${(progress * 100).toInt()}%"
+                    Phase.Installing -> stringResource(R.string.markupdate_installing)
+                }
+                val textStyle = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
+                if (p == Phase.Busy) {
+                    ProgressLabel(label, textStyle, shownProgress.coerceIn(0f, 1f), colors.onPrimary, colors.onPrimaryContainer)
+                } else {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(label, style = textStyle, color = ink, maxLines = 1) }
                 }
             }
         }
+    }
+}
+
+/**
+ * Het percentage rijdt mee op de rand van de vulling en staat nooit half op de vulling en half op het spoor: is er plek, dan staat het in de vulling
+ * (wit op primair) tegen de rand aan, anders vlak achter de rand op het spoor (donker op de tint). Het springt bij die overgang met een veer over.
+ */
+@Composable
+private fun ProgressLabel(label: String, style: androidx.compose.ui.text.TextStyle, progress: Float, onFill: Color, onTrack: Color) {
+    val pad = with(LocalDensity.current) { 14.dp.toPx() }
+    var textWidth by remember { mutableIntStateOf(0) }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val fillEnd = constraints.maxWidth * progress
+        val inside = fillEnd >= textWidth + pad * 2
+        val shift by animateFloatAsState(if (inside) -(textWidth + pad) else pad, spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow), label = "labelShift")
+        val ink by animateColorAsState(if (inside) onFill else onTrack, tween(200), label = "labelInk")
+        Text(
+            label, style = style, color = ink, maxLines = 1, softWrap = false,
+            modifier = Modifier.align(Alignment.CenterStart).onSizeChanged { textWidth = it.width }.offset { IntOffset((fillEnd + shift).roundToInt(), 0) },
+        )
     }
 }
 
