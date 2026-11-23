@@ -184,3 +184,26 @@
     animation: none;
   }
 }
+
+/* On a share link the page is wide and the places are its way in: on a wide window the tiles grow, so they fill
+   the row in proportion to the photos under them instead of standing small at its start. */
+@media (min-width: 900px) {
+  .share-section .stop-jump-tile {
+    width: 156px;
+    height: 196px;
+    border-radius: 24px;
+  }
+
+  .share-section .stop-jump-label {
+    padding: 11px 13px;
+    font-size: 17px;
+    line-height: 19px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .share-section .stop-jump-tile {
+    width: 184px;
+    height: 230px;
+  }
+}

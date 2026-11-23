@@ -979,7 +979,7 @@ function TripCard({
             {days} {t('trips.card.daysUnit', { count: days })}
           </span>
           {trip.distanceKm != null && trip.distanceKm > 0 && (
-            <span className="tcm">
+            <span className="tcm tcm-km">
               {trip.distanceKm.toLocaleString(intlLocale())} {t('common.km')}
             </span>
           )}
