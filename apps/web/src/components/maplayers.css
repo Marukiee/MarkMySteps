@@ -155,3 +155,21 @@
   flex: 0 0 auto;
   color: var(--ink-faint);
 }
+
+.map-photos-off {
+  background: var(--td-btn, var(--glass));
+  border-color: var(--td-btn, var(--line));
+  box-shadow: none;
+}
+
+.map-photos-off.leaving {
+  animation: photosOffOut 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes photosOffOut {
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}

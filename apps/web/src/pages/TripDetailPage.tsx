@@ -117,6 +117,8 @@ export function TripDetailPage() {
    * trip, not something about the trip itself.
    */
   const [photoUsers, setPhotoUsers] = useState<Set<string>>(new Set());
+  // The word on the map when the photos are off comes and goes with a fade.
+  const [photosOffShown, photosOffLeaving] = useExit(photoUsers.size === 0, 200);
   /** Where the pinned map currently ends, for anything that has to clear it. */
   const mapBottomRef = useRef(0);
   const mapTopOffset = useCallback(() => mapBottomRef.current, []);
@@ -1291,10 +1293,10 @@ export function TripDetailPage() {
             settings rather than permanently over the map. What does belong
             here is a word when the photos are switched off, because an empty
             map is otherwise indistinguishable from a broken one. */}
-        {photoUsers.size === 0 && (
+        {photosOffShown && (
           <button
             type="button"
-            className="map-photos-off"
+            className={`map-photos-off ${photosOffLeaving ? 'leaving' : ''}`}
             onClick={() => setLayersOpen(true)}
           >
             <Icon name="camera" size={13} />

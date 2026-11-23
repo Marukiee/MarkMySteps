@@ -498,3 +498,13 @@
 .maplibregl-marker.live-marker {
   z-index: 30;
 }
+
+/* No shadows on the map's own markers either: rings and solid tones carry
+   them, as on the native apps. */
+.waypoint-dot,
+.me-marker-dot,
+.live-marker-av,
+.live-marker-age,
+.stop-popup-body {
+  box-shadow: none;
+}

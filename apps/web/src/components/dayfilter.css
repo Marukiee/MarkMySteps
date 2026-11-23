@@ -368,3 +368,14 @@
 .day-filter-menu.card {
   box-shadow: none;
 }
+
+/* The day pill on the map: a solid tone, no shadow. */
+.day-filter-btn {
+  background: var(--td-btn, var(--glass));
+  border-color: var(--td-btn, var(--line));
+  box-shadow: none;
+}
+
+.day-filter-btn.on {
+  border-color: var(--accent);
+}
