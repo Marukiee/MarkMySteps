@@ -28,6 +28,37 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       voorgestelde oplossing per punt.
 - [ ] Release op 23 november (Mark gaf toestemming): alles als nieuwe
       release en update, met fotoboek en samenvatting erbij.
+- [ ] Kwaliteitsrapport, Marks keuzes (23 nov):
+      - [x] 4 overal "Cover" (Android, iPhone, web)
+      - [x] 6 rond potlood naast de dagkop voor verhaal schrijven (iPhone nu ook)
+      - [x] 11 rijen beter laden: een ophaalactie per foto, zichtbare tegels eerst
+      - [x] 12 gezichten: reisgenoten inclusief jij, eigenaar eerst, geen gasten;
+            zelfde kleur per persoon op Android, iPhone en web
+      - [x] 13 iPhone-menu: grootte als gewone menuregels met vinkje
+      - [x] 14 maand voluit in de rij, titel hooguit 2 regels met beletselteken
+      - [ ] 3 iPhone: "Foto's van dit toestel" hoeft nog niet; offline kaart en
+            tracking in reisinstellingen nog bekijken
+      - [ ] 15 kleurovergangen nalopen dat niets er raar uitziet
+      - [ ] 16 kaartstijlnamen: Nederlands in de Nederlandse app, Engels in de
+            Engelse (Android-versie als basis, iPhone gelijk trekken)
+      - [ ] 17 "Geldt voor alle kaarten op dit apparaat." weg
+      - [ ] 19 "Organisator" overal (iPhone zei Eigenaar)
+      - [ ] 21 gekleurde cijfertegels bij Reizigers op de iPhone (en Mac)
+      - [ ] 22 landen-chips: andere opties als screenshot voorleggen, Mark kiest
+      - [ ] 23 iPhone-startscherm beige (donker #14181D) met oranje kompas
+      - Blijven zo: 2 (regel "Deze reis is afgelopen"), 7, 9, 10, 18, 20
+- [ ] Reispagina: de foto's-tegel rolt bij openen; moet er meteen staan
+      (bewaard), net als de andere cijfers.
+- [ ] Plaatsen (stop-tegels): plaatsen waar je foto's maakte op locatie, niet
+      op datum. Gränna (tussenstop) heeft geen foto, Stockholm ontbreekt
+      helemaal terwijl je er was en fotografeerde.
+- [ ] Fotostrip in de viewer: bij scrollen kom je nog tussen twee foto's uit;
+      moet altijd op een foto stoppen.
+- [ ] ⋯-menu dat naar boven uitklapt (onderste reis) is nog niet goed.
+- [ ] Routeplanner slepen: kleine glitch bij de bovenste twee wisselen; de
+      lijn tussen de stops is soms doorzichtig en soms vol: tijdens slepen
+      doorzichtig, en een doorlopende lijn van heenreis tot terugreis die niet
+      afgekapt wordt als je de bovenste versleept.
 
 ### Gebouwd, wacht op Marks akkoord
 
@@ -70,7 +101,7 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 - [x] Reispagina: cijfers met lege plek tijdens laden, kaart zoomt verder in
       op de reis, plaatsen springen naar de juiste stad, plaatsen-tegels
       kleiner zonder vervaging, scrollpositie blijft bij terug. iPhone: ja (gebouwd, nog niet door Mark gezien)
-- [x] Madrid knipperde: valt nu terug op de volgende foto die wel laadt. iPhone: nee
+- [x] Madrid knipperde: valt nu terug op de volgende foto die wel laadt. Mark: knippert niet meer (akkoord). iPhone: nee
 - [x] Foto's een keer laden: bewaarde foto's eerst van de telefoon. iPhone: ja (gebouwd, nog niet door Mark gezien)
 - [x] View requests opent de instellingen; updatekaart in de
       ontwikkelaarsinstellingen werkt en staat hoger. iPhone: ja (gebouwd, nog niet door Mark gezien)

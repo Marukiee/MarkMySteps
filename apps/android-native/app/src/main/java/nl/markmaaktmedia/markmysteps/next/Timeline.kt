@@ -237,8 +237,21 @@ private fun LiveTimeline(
     val photos = media
     fun stopOn(date: LocalDate): Stop? = trip.stops.lastOrNull { s -> s.start != null && !s.start.isAfter(date) } ?: trip.stops.firstOrNull()
 
+    // The places by where the photos were taken (Places.kt): the stops, each wearing a photo taken there, and the
+    // spots you photographed away from them (a city near your stay) as places of their own.
+    val stopTiles = androidx.compose.runtime.remember(trip, photos) { TripPlaces.stops(trip, photos, ::stopOn) }
+    val extras = androidx.compose.runtime.remember(trip, photos) { TripPlaces.extras(trip, photos) }
+    val names = androidx.compose.runtime.remember(trip.id) { androidx.compose.runtime.mutableStateMapOf<Int, String>() }
+    androidx.compose.runtime.remember(extras) { extras.forEach { e -> TripPlaces.knownName(e.at)?.let { names[e.order] = it } }; 0 }
+    androidx.compose.runtime.LaunchedEffect(extras) {
+        extras.forEach { e -> if (!names.containsKey(e.order)) TripPlaces.name(e.at)?.let { names[e.order] = it } }
+    }
+    val tiles = (stopTiles + extras.mapNotNull { e ->
+        val n = names[e.order]?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        if (stopTiles.any { it.name.equals(n, ignoreCase = true) }) null else TripPlaces.Tile(n, null, e.photos.take(8), e.photos.first().takenAt, e.order)
+    }).distinctBy { it.name }.sortedBy { it.order }
     // A row of places only when there is more than one: a single place says nothing a row would add.
-    if (trip.stops.distinctBy { it.name }.size > 1) {
+    if (tiles.size > 1) {
         Text(
             stringResource(R.string.timeline_places),
             style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 18.sp, color = cs.onBackground),
@@ -246,36 +259,36 @@ private fun LiveTimeline(
         )
         // Four in view, as on the web.
         Row(
-            Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp)
+                .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            trip.stops.distinctBy { it.name }.forEach { stop ->
-                val pick = photos.firstOrNull { stopOn(it.takenAt)?.name == stop.name }
+            tiles.forEach { place -> androidx.compose.runtime.key(place.name) {
+                val pick = place.photos.firstOrNull()
+                val day = place.day
                 Box(Modifier.width(92.dp).height(116.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh)
-                    .clickable(enabled = pick != null) {
-                        // A tap goes to that place's first day, as on the web.
-                        // Where that day is, asked again as the page scrolls: rows further down only take their real
-                        // height once they come near, so one measured jump landed well short of the place.
-                        // The day's real position, not its visible bounds: those are cut off at the screen edge, so a day
-                        // further down measured 0 and the page scrolled up instead of down to it.
-                        pick?.let { p -> val where = { dayAt[p.takenAt]?.takeIf { it.isAttached }?.positionInRoot()?.y }; if (where() != null) onJump(where) }
+                    .clickable(enabled = day != null) {
+                        // A tap goes to the first day there, as on the web. Where that day is, asked again as the
+                        // page scrolls: rows further down only take their real height once they come near. The day's
+                        // real position, not its visible bounds (cut off at the screen edge they measured 0).
+                        day?.let { d -> val where = { dayAt[d]?.takeIf { it.isAttached }?.positionInRoot()?.y }; if (where() != null) onJump(where) }
                     }) {
                     if (pick != null) {
                         // The small picture the timeline uses too, fetched as soon as the photos are known: they are few.
                         RemotePhoto(pick.id, Modifier.fillMaxSize(), eager = true)
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.62f))))
                     } else {
-                        // No photo yet: the place in the trip's colour, with its flag, instead of an empty frame.
+                        // No photo of this place: the trip's colour with its flag, instead of an empty frame.
                         Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(trip.color.copy(alpha = 0.35f), trip.color.copy(alpha = 0.12f)))))
-                        FlagIcon(stop.flag, 20.dp, Modifier.padding(10.dp))
+                        place.flag?.let { FlagIcon(it, 20.dp, Modifier.padding(10.dp)) }
                     }
                     Text(
-                        stop.name, maxLines = 2,
+                        place.name, maxLines = 2,
                         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp, lineHeight = 16.sp, color = if (pick != null) Color.White else cs.onSurface),
                         modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 9.dp, vertical = 8.dp),
                     )
                 }
-            }
+            } }
         }
         Spacer(Modifier.height(26.dp))
     }

@@ -249,7 +249,7 @@ struct PeopleSheet: View {
 
     private func roleName(_ role: String) -> String {
         switch role {
-        case "OWNER": "Eigenaar"
+        case "OWNER": "Organisator"
         case "GUEST": "Gast"
         default: "Reisgenoot"
         }

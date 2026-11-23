@@ -1,8 +1,8 @@
 {
   "book.title": "Fotoboek",
   "book.beta": "(bèta)",
-  "book.hint_one": "Een PDF van {count} pagina: omslag, de route, per dag je notitie met de foto's van die dag, en een kaartje bij elke verplaatsing.",
-  "book.hint_other": "Een PDF van {count} pagina's: omslag, de route, per dag je notitie met de foto's van die dag, en een kaartje bij elke verplaatsing.",
+  "book.hint_one": "Een PDF van {count} pagina: cover, de route, per dag je notitie met de foto's van die dag, en een kaartje bij elke verplaatsing.",
+  "book.hint_other": "Een PDF van {count} pagina's: cover, de route, per dag je notitie met de foto's van die dag, en een kaartje bij elke verplaatsing.",
   "book.hintEmpty": "Zodra deze reis foto’s heeft, kun je er een boek van maken.",
   "book.progress": "Pagina {done} van {total}",
   "book.quick": "Snel",

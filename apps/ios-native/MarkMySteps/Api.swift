@@ -473,18 +473,19 @@ enum Remote {
                 return p.count >= 2 ? Trip.Flight(from: p[0], to: p[p.count - 1]) : nil
             }
             let rows = o["members"] as? [[String: Any]] ?? []
-            let everyone = rows.enumerated().map { k, m in
+            let everyone = rows.map { m in
                 let user = m["user"] as? [String: Any]
                 let name = user?["displayName"] as? String ?? "?"
                 return Person(
-                    initial: String(name.prefix(1)).uppercased(), color: Color(hex: palette[(k + 3) % palette.count]),
+                    initial: String(name.prefix(1)).uppercased(), color: Person.color(for: m["userId"] as? String),
                     name: name, username: user?["username"] as? String ?? "", userId: m["userId"] as? String,
                     hasAvatar: user?["hasAvatar"] as? Bool ?? false, role: m["role"] as? String ?? "MEMBER",
                     canTrack: m["canTrack"] as? Bool ?? true, fromDate: day(m["fromDate"]), toDate: day(m["toDate"])
                 )
             }
-            // The faces are the travellers: owner and companions, not guests; yourself left out.
-            let members = everyone.filter { $0.role != "GUEST" && $0.userId != me }
+            // The faces are the travellers: owner first, then the companions, yourself included; not guests.
+            let travellers = everyone.filter { $0.role != "GUEST" }
+            let members = travellers.filter { $0.role == "OWNER" } + travellers.filter { $0.role != "OWNER" }
             // Shared with you only when you are a guest on it; as a companion it is your own trip.
             let mine = rows.first { ($0["userId"] as? String ?? ($0["user"] as? [String: Any])?["id"] as? String) == me }
             let guest = (mine?["role"] as? String) == "GUEST"

@@ -236,7 +236,7 @@
     <string name="summary_subtitle_custom">Of typ zelf wat</string>
     <string name="summary_subtitle_hint">Automatisch zegt bij een hele reis in welke landen je was, en bij een dag of een periode waar je toen zat.</string>
     <string name="summary_series">Eén pagina per stop</string>
-    <string name="summary_series_body">In plaats van één poster: een omslag met de hele route, dan een pagina per plaats waar je sliep met de foto\'s van die plaats, en de cijfers aan het eind.</string>
+    <string name="summary_series_body">In plaats van één poster: een cover met de hele route, dan een pagina per plaats waar je sliep met de foto\'s van die plaats, en de cijfers aan het eind.</string>
     <string name="summary_logo">Logo tonen</string>
     <string name="summary_logo_body">Het kompas en de naam, klein linksboven.</string>
     <string name="summary_weather">Weer tonen</string>
@@ -522,8 +522,8 @@
     <string name="viewer_fetching">%1$s ophalen…</string>
     <string name="viewer_fetch_failed">Ophalen lukte niet</string>
     <string name="viewer_no_app">Geen app gevonden</string>
-    <string name="viewer_cover_trip">Omslag van de reis</string>
-    <string name="viewer_cover_stop">Omslag van %1$s</string>
+    <string name="viewer_cover_trip">Cover van de reis</string>
+    <string name="viewer_cover_stop">Cover van %1$s</string>
     <string name="viewer_download">%1$s downloaden</string>
     <string name="viewer_downloading">Downloaden…</string>
     <string name="viewer_saved">Opgeslagen in je galerij</string>
@@ -680,6 +680,9 @@
     <string name="mode_bus">Bus</string>
     <string name="mode_boat">Boot</string>
     <string name="mode_flight">Vlucht</string>
+    <string name="mapstyle_positron">Licht &amp; minimaal</string>
+    <string name="mapstyle_bright">Helder &amp; kleurrijk</string>
+    <string name="mapstyle_liberty">Klassiek</string>
     <string name="mapstyle_satellite">Satelliet</string>
     <string name="leg_home">Thuis</string>
     <string name="fact_distance">Afstand</string>

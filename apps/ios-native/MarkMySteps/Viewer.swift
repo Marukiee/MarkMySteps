@@ -182,12 +182,12 @@ struct PhotoViewer: View {
         return Menu {
             if owner {
                 Section {
-                    Button("Omslag van de reis", systemImage: "photo") {
-                        cover("Omslag van de reis") { try await ViewerApi.setTripCover(item.trip, mediaId: media.id) }
+                    Button("Cover van de reis", systemImage: "photo") {
+                        cover("Cover van de reis") { try await ViewerApi.setTripCover(item.trip, mediaId: media.id) }
                     }
                     if let stop {
-                        Button("Omslag van \(stop.name)", systemImage: "mappin.and.ellipse") {
-                            cover("Omslag van \(stop.name)") { try await ViewerApi.setStopCover(item.trip, stopId: stop.id, mediaId: media.id) }
+                        Button("Cover van \(stop.name)", systemImage: "mappin.and.ellipse") {
+                            cover("Cover van \(stop.name)") { try await ViewerApi.setStopCover(item.trip, stopId: stop.id, mediaId: media.id) }
                         }
                     }
                 }

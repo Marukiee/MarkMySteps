@@ -1,7 +1,11 @@
 import { intlLocale, t } from '../i18n';
 
 /** Stable per-traveller route colors — warm, distinct, readable on light maps. */
-const PALETTE = ['#e8613c', '#2a8f85', '#5b6ee1', '#c98a2d', '#b04a98', '#4a8f3c', '#8a5be1'];
+// The same twelve hues and the same hash as the apps (personColor), so a person has one colour everywhere.
+const PALETTE = [
+  '#e8613c', '#5b8def', '#2bb6a8', '#d9a441', '#7a5bd6', '#e34b8a',
+  '#4caf50', '#3fa7d6', '#b5651d', '#9c27b0', '#00897b', '#c0392b',
+];
 
 export function colorForUser(userId: string): string {
   let hash = 0;

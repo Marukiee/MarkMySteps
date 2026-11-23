@@ -671,6 +671,9 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
         if (photos != null) FactsMemory.keep(trip.id, photos = photos)
     }
     val opened = remember { android.os.SystemClock.uptimeMillis() }
+    // Whatever the page finds out while it opens (its own count of photos and stops coming in, the phone's own
+    // photos joining) simply takes its place, no roll: Mark wants the figures to stand there. Only a change that
+    // comes once the page has been open a while rolls, so you see it change.
     // The tone of the cover above, so the figures belong to it and stand off the page.
     val cs = MaterialTheme.colorScheme
     val dark = cs.background.luminance() < 0.5f
@@ -701,9 +704,13 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
                 // A figure that changes once the page is open waits until the page has settled, then rolls to its
                 // new value; the first one to arrive simply stands there.
                 var shown by remember(label) { androidx.compose.runtime.mutableStateOf<String?>(value) }
+                var roll by remember(label) { androidx.compose.runtime.mutableStateOf(false) }
                 androidx.compose.runtime.LaunchedEffect(value) {
-                    if (value == null || shown == null) { if (value != null) shown = value; return@LaunchedEffect }
-                    if (value != shown) {
+                    if (value == null || shown == null) { if (value != null) { roll = false; shown = value }; return@LaunchedEffect }
+                    if (value != shown && android.os.SystemClock.uptimeMillis() - opened < 4000) {
+                        roll = false; shown = value
+                    } else if (value != shown) {
+                        roll = true
                         val wait = 900L - (android.os.SystemClock.uptimeMillis() - opened)
                         if (wait > 0) kotlinx.coroutines.delay(wait)
                         shown = value
@@ -712,7 +719,7 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
                 androidx.compose.animation.AnimatedContent(
                     shown,
                     transitionSpec = {
-                        if (initialState == null) androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
+                        if (initialState == null || !roll) androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
                         else {
                             val up = (targetState?.replace(".", "")?.replace(",", "")?.toIntOrNull() ?: 0) > (initialState?.replace(".", "")?.replace(",", "")?.toIntOrNull() ?: 0)
                             val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(420, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))

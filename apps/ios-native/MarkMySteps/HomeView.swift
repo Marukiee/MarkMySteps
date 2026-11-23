@@ -536,7 +536,7 @@ struct TripRow<M: View>: View {
                             .frame(width: 60, height: 60)
                             .clipShape(.rect(cornerRadius: 14))
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(trip.title).font(.outfit(17, 600)).foregroundStyle(Brand.ink).lineLimit(1)
+                            Text(trip.title).font(.outfit(17, 600)).foregroundStyle(Brand.ink).lineLimit(2)
                             Text(subtitle).font(.inter(13, 500)).foregroundStyle(Brand.inkSoft).lineLimit(1)
                         }
                         Spacer(minLength: 0)
@@ -555,8 +555,8 @@ struct TripRow<M: View>: View {
     }
 
     private var subtitle: String {
-        // Short month, so the line fits beside the menu without being cut off.
-        var parts = ["\(Format.shortMonth(trip.month)) \(trip.year)", "\(trip.days) dagen"]
+        // The month in full, as on Android; a line too long for the row ends in an ellipsis.
+        var parts = ["\(trip.month) \(trip.year)", "\(trip.days) dagen"]
         if let km = trip.km { parts.append(Format.km(km)) }
         return parts.joined(separator: " · ")
     }

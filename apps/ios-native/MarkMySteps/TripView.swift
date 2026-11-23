@@ -99,11 +99,12 @@ struct TripView: View {
                     TimelineRows(trip: trip, media: media, days: days, ns: ns, hidden: nil, onPhoto: { item in
                         viewerCurrent = item.start.id
                         viewer = item
-                    }, onPlace: { name in
-                        // A place tile goes to the first day spent there, its heading just under the solid bar. Rows
-                        // further down only take their real height once they come near, so a second pass lands it
-                        // exactly once the first one has brought them in.
-                        guard let i = days.firstIndex(where: { $0.day.stop?.name == name }) else { return }
+                    }, onPlace: { date in
+                        // A place tile goes to the day its first photo was taken, its heading just under the solid
+                        // bar. Rows further down only take their real height once they come near, so a second pass
+                        // lands it exactly once the first one has brought them in.
+                        let target = Calendar.current.startOfDay(for: date)
+                        guard let i = days.firstIndex(where: { Calendar.current.startOfDay(for: $0.day.date) >= target }) else { return }
                         Haptic.tap()
                         jump(to: i == 0 ? "days" : "day\(i)", proxy: proxy)
                     }, stories: stories)
@@ -740,15 +741,21 @@ struct FactsRow: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
-        .animation(.calm, value: items.map { ($0.0 ?? "") + $0.1 })
+        .animation(Date().timeIntervalSince(openedAt) < 4 ? nil : .calm, value: items.map { ($0.0 ?? "") + $0.1 })
         .task(id: fresh.map { ($0.0 ?? "-") + $0.1 }.joined(separator: "|")) {
             // Keep what this page counted for the next time it opens.
             if stopsKnown, trip.remoteId != nil { FactsMemory.keep(trip.id, stops: trip.stops.count) }
             if let photos { FactsMemory.keep(trip.id, photos: photos) }
             let values = fresh
             if held == nil || held?.map(\.1) != fresh.map(\.1) { held = values; return }
-            let wait = 0.9 - Date().timeIntervalSince(openedAt)
-            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            // While the page opens, what it finds out simply takes its place (no roll: the figures stand there);
+            // only a change once the page has been open a while rolls over, so you see it change.
+            if Date().timeIntervalSince(openedAt) < 4 {
+                var quiet = Transaction(animation: nil)
+                quiet.disablesAnimations = true
+                withTransaction(quiet) { held = values }
+                return
+            }
             withAnimation(.smooth(duration: 0.42)) { held = values }
         }
     }

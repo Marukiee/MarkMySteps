@@ -68,12 +68,12 @@ struct TimelineRows: View {
     /// The photo the viewer is on: its tile stays empty while it is open.
     var hidden: String?
     let onPhoto: (ViewerItem) -> Void
-    let onPlace: (String) -> Void
+    let onPlace: (Date) -> Void
     var stories = DayStories()
 
     var body: some View {
         // The places row only earns its place when there are several.
-        if trip.mapStops.count > 1 {
+        if trip.mapStops.count > 1 || media.map({ !TripPlaces.extras(trip, $0).isEmpty }) == true {
             Text("Plaatsen")
                 .font(.outfit(18, 650))
                 .foregroundStyle(Brand.ink)
@@ -109,9 +109,15 @@ struct TimelineRows: View {
             // (a List lines up the same point of the row and of the screen, which a tall row would shift).
             Color.clear.frame(height: 0).plainRow()
                 .id(i == 0 ? "days" : "day\(i)")
-            DayHeader(day: day, live: trip.remoteId != nil, line: !(lastDay && rows.isEmpty && !trip.upcoming && notes.isEmpty))
+            let storied = trip.remoteId != nil || Launch.menuPreview
+            let mine = notes.contains { $0.authorId != nil && $0.authorId == stories.me }
+            // A day without your story yet: the round pencil beside the date starts one, as on Android and the web.
+            DayHeader(
+                day: day, live: trip.remoteId != nil, line: !(lastDay && rows.isEmpty && !trip.upcoming && notes.isEmpty),
+                onWrite: storied && stories.canWrite && !mine ? { stories.onWrite(day.day.date, nil) } : nil
+            )
                 .plainRow()
-            if (trip.remoteId != nil || Launch.menuPreview) && (!notes.isEmpty || stories.canWrite) {
+            if storied && (!notes.isEmpty || (stories.canComment && (stories.comments[iso] ?? 0) > 0)) {
                 DayStoryRow(
                     day: day.day.date, notes: notes, comments: stories.comments[iso] ?? 0, me: stories.me,
                     canWrite: stories.canWrite, canComment: stories.canComment,
@@ -157,13 +163,15 @@ struct TimelineRows: View {
 private struct PlacesRow: View {
     let trip: Trip
     let media: [Media]?
-    let onPlace: (String) -> Void
+    let onPlace: (Date) -> Void
     @State private var position: ScrollPosition
+    /// The names of the extra places, by their order in the trip.
+    @State private var names: [Int: String] = [:]
 
     /// How far each trip's row was scrolled, while the app runs.
     @MainActor private static var offsets: [String: CGFloat] = [:]
 
-    init(trip: Trip, media: [Media]?, onPlace: @escaping (String) -> Void) {
+    init(trip: Trip, media: [Media]?, onPlace: @escaping (Date) -> Void) {
         self.trip = trip
         self.media = media
         self.onPlace = onPlace
@@ -171,21 +179,23 @@ private struct PlacesRow: View {
     }
 
     var body: some View {
-        let unique = trip.mapStops.map(\.stop)
+        let extras = media.map { TripPlaces.extras(trip, $0) } ?? []
+        let tiles = tiles(extras)
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
-                ForEach(Array(unique.enumerated()), id: \.element.name) { i, stop in
-                    let picks = candidates(stop)
-                    Button { onPlace(stop.name) } label: {
-                        tile(stop, index: i, picks: picks)
+                ForEach(Array(tiles.enumerated()), id: \.element.id) { i, place in
+                    Button { if let d = place.day { onPlace(d) } } label: {
+                        tile(place, index: i)
                             .frame(width: 92, height: 116)
                             .clipShape(.rect(cornerRadius: 18))
                             .contentShape(.rect(cornerRadius: 18))
                     }
                     .buttonStyle(PressStyle(scale: 0.95))
-                    .accessibilityLabel("Naar \(stop.name)")
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    .accessibilityLabel("Naar \(place.name)")
                 }
             }
+            .animation(.smooth(duration: 0.35), value: tiles.map(\.name))
         }
         .contentMargins(.horizontal, 16, for: .scrollContent)
         .scrollIndicators(.hidden)
@@ -193,28 +203,43 @@ private struct PlacesRow: View {
         .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x + $0.contentInsets.leading } action: { _, x in
             PlacesRow.offsets[trip.id] = max(0, x)
         }
+        .task(id: extras.map(\.order)) {
+            for e in extras where names[e.order] == nil {
+                if let n = TripPlaces.knownName(e.at) { names[e.order] = n; continue }
+                if let n = await TripPlaces.name(e.at) { names[e.order] = n }
+            }
+        }
     }
 
-    /// The photos of the stay at that place, in order: the first that loads is shown.
-    private func candidates(_ stop: Stop) -> [String] {
-        guard let media else { return [] }
-        return media.filter { !$0.video && Timeline.stopOn(trip, $0.takenAt)?.name == stop.name }.prefix(8).map(\.id)
+    /// The stops by where their photos were taken, then the places photographed away from them, in trip order.
+    private func tiles(_ extras: [TripPlaces.Extra]) -> [TripPlaces.Tile] {
+        guard let media else {
+            return trip.mapStops.enumerated().map { i, s in TripPlaces.Tile(name: s.stop.name, flag: s.stop.flag, photos: [], day: s.stop.start, order: i) }
+        }
+        let stops = TripPlaces.stops(trip, media)
+        let more = extras.compactMap { e -> TripPlaces.Tile? in
+            guard let n = names[e.order] ?? TripPlaces.knownName(e.at), !n.isEmpty,
+                  !stops.contains(where: { $0.name.caseInsensitiveCompare(n) == .orderedSame }) else { return nil }
+            return TripPlaces.Tile(name: n, flag: nil, photos: e.photos.prefix(8).map(\.id), day: e.photos.first?.takenAt, order: e.order)
+        }
+        var seen = Set<String>()
+        return (stops + more).filter { seen.insert($0.name).inserted }.sorted { $0.order < $1.order }
     }
 
-    @ViewBuilder private func tile(_ stop: Stop, index: Int, picks: [String]) -> some View {
-        let photo = media == nil ? trip.remoteId == nil : !picks.isEmpty
+    @ViewBuilder private func tile(_ place: TripPlaces.Tile, index: Int) -> some View {
+        let photo = media == nil ? trip.remoteId == nil : !place.photos.isEmpty
         ZStack(alignment: .bottomLeading) {
             if trip.remoteId != nil && media == nil {
                 // The photos are on their way: the tile's own quiet tone, the name already on it.
                 Rectangle().fill(Brand.raised)
             } else if media != nil {
-                if !picks.isEmpty {
-                    RemotePhoto(ids: picks, size: "thumbnail")
+                if !place.photos.isEmpty {
+                    RemotePhoto(ids: place.photos, size: "thumbnail")
                 } else {
                     // No photo of this place: the trip's colour with its flag, instead of an empty frame.
                     LinearGradient(colors: [trip.color.opacity(0.35), trip.color.opacity(0.12)], startPoint: .topLeading, endPoint: .bottomTrailing)
                         .background(Brand.raised)
-                        .overlay(alignment: .topLeading) { FlagView(flag: stop.flag, height: 15).padding(10) }
+                        .overlay(alignment: .topLeading) { if let f = place.flag { FlagView(flag: f, height: 15).padding(10) } }
                 }
             } else {
                 LandscapeView(scene: Landscape.allCases[(index * 2 + 1) % Landscape.allCases.count])
@@ -222,7 +247,7 @@ private struct PlacesRow: View {
             if photo {
                 LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: .black.opacity(0.62), location: 1)], startPoint: .top, endPoint: .bottom)
             }
-            Text(stop.name)
+            Text(place.name)
                 .font(.outfit(14, 650))
                 .foregroundStyle(photo ? Color.white : Brand.ink)
                 .lineLimit(2)
@@ -261,10 +286,11 @@ private struct DayHeader: View {
     let day: TimelineDay
     var live = false
     let line: Bool
+    var onWrite: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 14) {
+            HStack(spacing: 0) {
                 Circle().fill(Brand.accent).frame(width: 13, height: 13)
                 Text(Format.dayHeading(day.day.date))
                     .font(.fraunces(24, 560))
@@ -272,7 +298,27 @@ private struct DayHeader: View {
                     .foregroundStyle(Brand.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .padding(.leading, 14)
+                if let onWrite {
+                    Button {
+                        Haptic.tap()
+                        onWrite()
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Brand.inkSoft)
+                            .frame(width: 34, height: 34)
+                            .background(Brand.raised, in: .circle)
+                            .contentShape(.circle)
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.leading, 8)
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+                    .accessibilityLabel("Verhaal schrijven")
+                }
             }
+            .frame(minHeight: 34)
+            .animation(.smooth(duration: 0.3), value: onWrite == nil)
             if let stop = day.day.stop {
                 HStack(spacing: 6) {
                     FlagView(flag: stop.flag, height: 13)

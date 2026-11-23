@@ -500,13 +500,37 @@ object Photos {
         // A photo already kept on the phone is read straight away: it never waits in the queue behind the photos
         // that still come from the server (on a cold start that queue made every kept cover look like it loaded).
         withContext(Dispatchers.IO) { (DeviceMedia.bytes(key) ?: PhotoDisk.get(key))?.let { decode(key, it) } }?.let { return it }
-        return (lane ?: if (now) urgent else lanes).withPermitCompat {
-            cache.get(key)?.let { return@withPermitCompat it }
-            // From the server, and then kept on the phone (AppCore.kt).
-            val data = Api.bytes(path)?.also { PhotoDisk.put(key, it) } ?: return@withPermitCompat null
-            decode(key, data)
+        while (true) {
+            // One fetch per photo: a tile on screen whose cover is already being fetched ahead waits for that
+            // fetch instead of queueing behind fifty others for a second copy (it stayed empty until its turn).
+            val mine = kotlinx.coroutines.CompletableDeferred<Bitmap?>()
+            val running = inflight.putIfAbsent(key, mine)
+            if (running != null) {
+                // The fetch it waited for was stopped (its tile left the screen): fetch it itself.
+                try { return running.await() } catch (e: java.util.concurrent.CancellationException) {
+                    if (kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]?.isActive == false) throw e
+                    cache.get(key)?.let { return it }
+                    continue
+                }
+            }
+            try {
+                val bitmap = (lane ?: if (now) urgent else lanes).withPermitCompat {
+                    cache.get(key)?.let { return@withPermitCompat it }
+                    // From the server, and then kept on the phone (AppCore.kt).
+                    val data = Api.bytes(path)?.also { PhotoDisk.put(key, it) } ?: return@withPermitCompat null
+                    decode(key, data)
+                }
+                mine.complete(bitmap)
+                return bitmap
+            } catch (e: Throwable) {
+                mine.completeExceptionally(if (e is java.util.concurrent.CancellationException) e else java.util.concurrent.CancellationException(e.message))
+                throw e
+            } finally {
+                inflight.remove(key, mine)
+            }
         }
     }
+    private val inflight = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.CompletableDeferred<Bitmap?>>()
 
     private fun decode(key: String, data: ByteArray): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -869,7 +893,8 @@ object Remote {
                 )
             }
             // Faces are the people who travelled; guests only look along and are not counted.
-            val people = memberList.filter { it.role != "GUEST" }.mapIndexed { k, m ->
+            // The owner first, as on the web and the iPhone; you are counted like any traveller.
+            val people = memberList.filter { it.role != "GUEST" }.sortedBy { if (it.role == "OWNER") 0 else 1 }.mapIndexed { k, m ->
                 Person(m.name.take(1).uppercase(), personColor(m.userId), m.userId, m.hasAvatar, m.name)
             }
             val ongoing = !start.isAfter(today) && !end.isBefore(today)

@@ -217,7 +217,7 @@ object ThemePref {
 
 /** The map style, as on the web: three OpenFreeMap styles or Esri satellite. Kept on the phone. */
 object MapStylePref {
-    val ids get() = listOf("positron" to "Positron", "bright" to "Bright", "liberty" to "Liberty", "satellite" to Lang.text(R.string.mapstyle_satellite))
+    val ids get() = listOf("positron" to Lang.text(R.string.mapstyle_positron), "bright" to Lang.text(R.string.mapstyle_bright), "liberty" to Lang.text(R.string.mapstyle_liberty), "satellite" to Lang.text(R.string.mapstyle_satellite))
     private var prefs: android.content.SharedPreferences? = null
     var id by mutableStateOf("positron")
         private set
@@ -270,4 +270,5 @@ private val PersonPalette = listOf(
 ).map { androidx.compose.ui.graphics.Color(it) }
 
 /** One colour per person, the same on every screen (behind their initial when they have no photo). */
-fun personColor(key: String?): androidx.compose.ui.graphics.Color = PersonPalette[((key ?: "").hashCode() and 0x7fffffff) % PersonPalette.size]
+// The hash is the web's (h * 31 + c, unsigned), so the iPhone, Android and the web give a person the same colour.
+fun personColor(key: String?): androidx.compose.ui.graphics.Color = PersonPalette[((key ?: "").hashCode().toLong() and 0xffffffffL).rem(PersonPalette.size).toInt()]

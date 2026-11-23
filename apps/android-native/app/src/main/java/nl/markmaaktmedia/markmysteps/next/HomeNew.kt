@@ -534,6 +534,8 @@ private fun HomeNewContent(dark: Boolean, onLogoTap: () -> Unit, onOpenTrip: (Tr
         // scrolling down never meets empty tiles that only fill in after you have passed them.
         androidx.compose.runtime.LaunchedEffect(Data.version, Data.loading) {
             if (Data.loading) return@LaunchedEffect
+            // The tiles on screen ask first; the rest of the list queues behind them.
+            kotlinx.coroutines.delay(400)
             val all = Data.all
             Photos.prefetch(all.mapNotNull { t -> t.coverId.takeIf { !CardSizePref.big(t.id, autoBig = false) || true } }, "thumbnail")
             Photos.prefetch(all.filter { CardSizePref.big(it.id, autoBig = it == Data.past.firstOrNull() || it in Data.upcoming) }.mapNotNull { it.coverId }, "preview")
@@ -657,8 +659,9 @@ private fun NextTripContent(trip: Trip, onOpen: () -> Unit, onPeopleTrip: (Trip)
                 }
             }
             Row(Modifier.padding(top = 26.dp), verticalAlignment = Alignment.CenterVertically) {
+                // At most two lines, then an ellipsis, on every card and row (as on the iPhone).
                 Text(
-                    trip.title,
+                    trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                     style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 25.sp, letterSpacing = (-0.015).em, color = Color.White),
                 )
                 // Under way: a green dot that pulses every 1.8 s, as on the web.
@@ -946,7 +949,7 @@ private fun BigTripContent(trip: Trip, onOpen: () -> Unit, onPeopleTrip: (Trip) 
         }
         MenuDots(trip, Modifier.align(Alignment.TopEnd).padding(14.dp), onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, autoBig = autoBig, lightCover = lightCorner(trip, 16f / 11f))
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp)) {
-            Text(trip.title, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 26.sp, letterSpacing = (-0.015).em, color = Color.White))
+            Text(trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 26.sp, letterSpacing = (-0.015).em, color = Color.White))
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip("${shortMonthName(trip.month)} ${trip.year}")
                 Chip(androidx.compose.ui.res.pluralStringResource(R.plurals.home_days_chip, trip.days, trip.days))

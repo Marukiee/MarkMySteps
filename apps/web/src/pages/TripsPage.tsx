@@ -1048,9 +1048,10 @@ function TripCardMembers({
   tripId: string;
 }) {
   const navigate = useNavigate();
-  const sorted = [...members].sort((a, b) =>
-    a.userId === ownerId ? -1 : b.userId === ownerId ? 1 : 0,
-  );
+  // The faces are the travellers, yourself included; guests only look along (as in the apps).
+  const sorted = members
+    .filter((m) => m.role !== 'GUEST')
+    .sort((a, b) => (a.userId === ownerId ? -1 : b.userId === ownerId ? 1 : 0));
   const visible = sorted.slice(0, 2);
   const extra = sorted.length - visible.length;
 

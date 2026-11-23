@@ -681,6 +681,9 @@
     <string name="mode_bus">Bus</string>
     <string name="mode_boat">Boat</string>
     <string name="mode_flight">Flight</string>
+    <string name="mapstyle_positron">Light &amp; minimal</string>
+    <string name="mapstyle_bright">Bright &amp; colourful</string>
+    <string name="mapstyle_liberty">Classic</string>
     <string name="mapstyle_satellite">Satellite</string>
     <string name="leg_home">Home</string>
     <string name="fact_distance">Distance</string>

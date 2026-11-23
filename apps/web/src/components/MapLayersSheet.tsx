@@ -141,7 +141,6 @@ export function MapLayersSheet({
             of painted previews, one size down. */}
         <section className="layer-group">
           <h3 className="trip-side-heading">{t('trip.layers.style')}</h3>
-          <p className="muted layer-hint">{t('trip.layers.styleHint')}</p>
           <MapStylePicker compact />
         </section>
       </div>

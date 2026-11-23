@@ -157,9 +157,6 @@ struct DayStoryRow: View {
                 .background(Brand.raised, in: .rect(cornerRadius: 20))
             }
             HStack(spacing: 8) {
-                if canWrite && own == nil {
-                    pill(Label("Verhaal schrijven", systemImage: "pencil")) { onWrite(nil) }
-                }
                 if canComment && (!notes.isEmpty || comments > 0) {
                     pill(Label(comments == 0 ? "Reageer" : "\(comments) \(comments == 1 ? "reactie" : "reacties")", systemImage: "bubble.left")) { onComments() }
                 }

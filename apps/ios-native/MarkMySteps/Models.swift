@@ -24,6 +24,20 @@ struct Person: Hashable {
     /// The days they were along, when not the whole trip.
     var fromDate: Date? = nil
     var toDate: Date? = nil
+
+    /// Twelve clearly different hues, the same as Android and the web.
+    private static let palette: [UInt32] = [
+        0xE8613C, 0x5B8DEF, 0x2BB6A8, 0xD9A441, 0x7A5BD6, 0xE34B8A,
+        0x4CAF50, 0x3FA7D6, 0xB5651D, 0x9C27B0, 0x00897B, 0xC0392B,
+    ]
+
+    /// One colour per person, the same on every screen and every device: the web's hash (h * 31 + c over the
+    /// UTF-16 units, unsigned 32 bit), never Swift's hashValue, which differs per launch.
+    static func color(for userId: String?) -> Color {
+        var h: UInt32 = 0
+        for unit in (userId ?? "").utf16 { h = h &* 31 &+ UInt32(unit) }
+        return Color(hex: palette[Int(h % UInt32(palette.count))])
+    }
 }
 
 /// How a leg is travelled.
