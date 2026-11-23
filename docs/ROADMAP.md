@@ -77,6 +77,18 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] Kaartstijl: nog twee stijlen, Licht & minimaal (standaard) en Satelliet;
+      Bright en Classic weg (oude keuze wordt Licht & minimaal). Kaartstijl
+      bovenaan in de kaartinstellingen. Android, iPhone en web.
+- [x] Routelijn: dunner als je uitzoomt, even dik als eerst vanaf stadsniveau;
+      op satelliet geen witte rand meer. Android, iPhone en web.
+- [x] Kaartknoppen lichter met een zweem perzik in plaats van donker beige.
+      Android en web; iPhone houdt echt glas (neemt de kaart over).
+- [x] Reisplanner web in app-stijl: tripkleur, lijn tussen de stops, ronde
+      kaarten, nummer linksboven, × bij Heen/Terug schuift de rij op in plaats
+      van over de pil, Spoor tekenen direct na de vervoerspil (telefoon: alleen
+      icoon), + Terugreis als app-knop, dagtrips zonder takken.
+      Nog open: formulier Nieuwe stop en vlucht-/plaatsvenster in app-stijl.
 - [x] iPhone: ⋯ op de reiskaart 40 pt (was veel te groot), 14 pt van de rand.
 - [x] iPhone: cijfers van een reis onthouden en meteen goed bij openen.
 - [x] Navigatiebalk: een vaste animatie (geen veer meer die snelheid meenam

@@ -61,22 +61,22 @@ fun MapSheet(onDismiss: () -> Unit, layers: MapLayers? = null) {
     AppSheet(onDismiss = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
             Text(if (layers != null) stringResource(R.string.mapsheet_settings) else stringResource(R.string.mapsheet_map), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface))
-            // Whose routes and photos are on this map, then its style, as the web's map settings.
+            // The style first (Mark: the first thing you look for), then whose routes and photos are on this map.
             if (layers != null) {
                 Spacer(Modifier.height(14.dp))
-                MapLayersSections(layers)
-                Spacer(Modifier.height(24.dp))
                 Text(stringResource(R.string.mapsheet_style), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 17.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp))
-            }
-            // Under the heading in the map settings no extra line (Mark: not useful); the plain style sheet says what it is.
-            if (layers != null) Spacer(Modifier.height(12.dp))
-            else Text(stringResource(R.string.mapsheet_style_of), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
+                Spacer(Modifier.height(12.dp))
+            } else Text(stringResource(R.string.mapsheet_style_of), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.5.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
             MapStyleGrid()
             Text(
                 stringResource(R.string.tripsheets_map_style_hint),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 12.5.sp, color = cs.onSurfaceVariant),
                 modifier = Modifier.padding(top = 12.dp, start = 4.dp),
             )
+            if (layers != null) {
+                Spacer(Modifier.height(24.dp))
+                MapLayersSections(layers)
+            }
         }
     }
 }

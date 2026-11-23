@@ -22,6 +22,9 @@ import { legTitle } from '../lib/legs';
 
 /** How long a line takes to come up, or to go. */
 const FADE_MS = 260;
+/** A route's width that follows the zoom, as the apps: thin over a whole
+ *  country, where a thick line hides where you went; full width from city level. */
+const ROUTE_WIDTH = ['interpolate', ['linear'], ['zoom'], 4, 1.6, 10, 2.5] as unknown as number;
 
 /**
  * Brings a line layer up from nothing.
@@ -464,7 +467,7 @@ export function TripMap({
           source: id,
           paint: {
             'line-color': colorForUser(userId),
-            'line-width': 2.5,
+            'line-width': ROUTE_WIDTH,
             'line-opacity': arriving ? 0 : 1,
             'line-opacity-transition': { duration: FADE_MS, delay: 0 },
           },
@@ -492,7 +495,7 @@ export function TripMap({
             // flight, and a train in a tunnel is not one.
             paint: {
               'line-color': colorForUser(userId),
-              'line-width': 2.5,
+              'line-width': ROUTE_WIDTH,
               'line-opacity': arriving ? 0 : 1,
               'line-opacity-transition': { duration: FADE_MS, delay: 0 },
             },

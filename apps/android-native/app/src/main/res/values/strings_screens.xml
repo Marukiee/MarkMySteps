@@ -33,7 +33,7 @@
     <string name="settings_cards_hint">Auto: upcoming trips and the latest one large, the rest small. You choose it per trip in the menu with the three dots on its card.</string>
     <string name="settings_cards_reset">Clear manual choices</string>
     <string name="settings_map_style">Map style</string>
-    <string name="settings_map_style_hint">Applies to every map in the app. In dark mode the light styles turn into the dark map by themselves.</string>
+    <string name="settings_map_style_hint">Applies to every map in the app. In dark mode Light &amp; minimal turns into the dark map by itself.</string>
     <string name="settings_globe">Globe</string>
     <string name="settings_globe_hint">Stops along the way on the home page globe. The highlighted trip always shows them; with Always, every other trip does too.</string>
     <string name="settings_globe_highlight">On highlight</string>
@@ -545,7 +545,7 @@
     <!-- TripSheets.kt -->
     <string name="tripsheets_map">Map</string>
     <string name="tripsheets_map_style">Map style</string>
-    <string name="tripsheets_map_style_hint">In dark mode the light styles turn into the dark map by themselves.</string>
+    <string name="tripsheets_map_style_hint">In dark mode Light &amp; minimal turns into the dark map by itself.</string>
 
     <!-- NewLook.kt -->
     <string name="newlook_title">MarkMySteps has a new look</string>

@@ -811,7 +811,7 @@ struct TripMap: View {
                 Map(initialPosition: .rect(trip.mapRect()), interactionModes: interactive ? [.pan, .zoom] : []) { content }
             }
         }
-        .mapStyle(satellite ? MapLook.satellite.style : (MapLook(rawValue: look) ?? .positron).style)
+        .mapStyle(satellite ? MapLook.satellite.style : MapLook.chosen(look).style)
         .mapControlVisibility(.hidden)
         .onMapCameraChange(frequency: .onEnd) { ctx in span = ctx.region.span }
         .onMapCameraChange(frequency: .continuous) { ctx in
@@ -828,6 +828,13 @@ struct TripMap: View {
     private func zoom(_ span: MKCoordinateSpan?) -> Double {
         let delta = span?.longitudeDelta ?? trip.mapSpanDegrees
         return log2(360 * Double(max(width, 1)) / (512 * max(delta, 1e-6)))
+    }
+
+    /// A line's width that follows the zoom, as Android's: thin over a whole country, where a thick line hides where
+    /// you went, its full width from city level in. Goes by the half step, so it changes as seldom as the photos regroup.
+    private func wide(_ far: CGFloat, _ near: CGFloat) -> CGFloat {
+        let t = min(max(((step ?? zoom(span)) - 4) / 6, 0), 1)
+        return far + (near - far) * CGFloat(t)
     }
 
     /// Points on screen between two photos at the camera's zoom, for a pin gliding from one spot to another.
@@ -883,11 +890,11 @@ struct TripMap: View {
         let faint = focus == nil ? 1.0 : 0.28
         ForEach(Array(pieces.runs.enumerated()), id: \.offset) { _, run in
             MapPolyline(coordinates: run.map(\.coordinate))
-                .stroke(color.opacity(faint), style: StrokeStyle(lineWidth: trip.upcoming ? 3 : 4, lineCap: .round, lineJoin: .round, dash: trip.upcoming ? [1, 8] : []))
+                .stroke(color.opacity(faint), style: StrokeStyle(lineWidth: trip.upcoming ? wide(2.2, 3) : wide(2.2, 4), lineCap: .round, lineJoin: .round, dash: trip.upcoming ? [1, 8] : []))
         }
         ForEach(Array(pieces.gaps.enumerated()), id: \.offset) { _, gap in
             MapPolyline(coordinates: [gap.0.coordinate, gap.1.coordinate])
-                .stroke(color.opacity(0.7 * faint), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [2, 7]))
+                .stroke(color.opacity(0.7 * faint), style: StrokeStyle(lineWidth: wide(1.8, 2.5), lineCap: .round, dash: [2, 7]))
         }
         // A flight is drawn, not recorded, so it never takes the trip's colour: short grey dashes with clear gaps.
         ForEach(Array(pieces.bows.enumerated()), id: \.offset) { _, bow in
@@ -897,7 +904,7 @@ struct TripMap: View {
         if let focus {
             ForEach(Array(focus.route.enumerated()), id: \.offset) { _, line in
                 MapPolyline(coordinates: line.map(\.coordinate))
-                    .stroke(color, style: StrokeStyle(lineWidth: 4.5, lineCap: .round, lineJoin: .round))
+                    .stroke(color, style: StrokeStyle(lineWidth: wide(2.6, 4.5), lineCap: .round, lineJoin: .round))
             }
         }
         ForEach(Array(pieces.airports.enumerated()), id: \.offset) { _, at in

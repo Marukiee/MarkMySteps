@@ -1963,3 +1963,368 @@
      top of the pin for the city they belong to. */
   z-index: 1;
 }
+
+/* ---------------------------------------------------------------------------
+   App style, as the Android planner (Planner.kt). Last in the file on purpose:
+   it overrides the older web look above rule for rule. --trip is the trip's own
+   colour, set on .trip-planner.
+   --------------------------------------------------------------------------- */
+.trip-planner {
+  --trip-soft: color-mix(in srgb, var(--trip, var(--accent)) 10%, var(--surface-low));
+}
+
+:root[data-theme='dark'] .trip-planner {
+  --trip-soft: color-mix(in srgb, var(--trip, var(--accent)) 18%, var(--surface-low));
+}
+
+/* How far the plan is: a ring that fills, teal when every night has a place. */
+.nights-planned {
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 6px 14px 6px 8px;
+  background: var(--surface-high);
+  color: var(--on-surface);
+  font: 600 14px/1.2 var(--font-brand);
+}
+
+.nights-ring {
+  --ring: var(--trip, var(--accent));
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: conic-gradient(var(--ring) calc(var(--p, 0) * 1turn), color-mix(in srgb, var(--ring) 18%, transparent) 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
+}
+
+.nights-ring[data-full='true'] {
+  --ring: var(--teal);
+}
+
+/* Cards: round, no outline, the low tone. */
+.trip-planner .stop-item,
+.trip-planner .flight-leg {
+  border: 0;
+  border-radius: 26px;
+  background: var(--surface-low);
+}
+
+.trip-planner .swipe-reveal {
+  border-radius: 26px;
+}
+
+.swipe-row .stop-item {
+  padding: 12px;
+}
+
+.swipe-row .flight-leg {
+  padding: 10px 10px 10px 16px;
+}
+
+.stop-main {
+  gap: 10px;
+}
+
+.stop-info {
+  padding-right: 10px;
+}
+
+.stop-info strong {
+  font: 600 17px/21px var(--font-brand);
+  color: var(--on-surface);
+}
+
+.stop-info .muted {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+}
+
+/* The stop's photo, and its number in the trip's colour at the top left. */
+.trip-planner .city-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--trip, var(--accent)) 20%, var(--surface-low));
+}
+
+:root[data-theme='dark'] .trip-planner .city-thumb {
+  background: color-mix(in srgb, var(--trip, var(--accent)) 32%, var(--surface-low));
+}
+
+.trip-planner .city-thumb-flag .flag {
+  width: 18px;
+  height: 18px;
+}
+
+.trip-planner .city-thumb-badge {
+  top: -6px;
+  left: -6px;
+  bottom: auto;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  background: var(--trip, var(--accent));
+  color: #fff;
+  border: 2px solid var(--surface-low);
+  font: 700 11.5px/1 var(--font-brand);
+}
+
+.stop-row.lifted .city-thumb-badge {
+  border-color: var(--secondary-container);
+}
+
+/* Heen / Terug: a heading, the metric right after the pill, the mode at the end. */
+.flight-leg-name {
+  min-width: 52px;
+  font: 650 17px/1.2 var(--font-brand);
+  color: var(--on-surface);
+}
+
+/* flex-basis 0 stays: the metric measures whether "km · duur" fits and
+   alternates when it does not, so on a phone it never runs off the card. */
+.flight-leg-head > .leg-alt-metric,
+.leg-connector-row > .leg-alt-metric {
+  flex: 1 1 0;
+  min-width: 0;
+  margin-left: 2px;
+  text-align: left;
+}
+
+.leg-alt-metric {
+  font-size: 13px;
+  color: var(--on-surface-variant);
+}
+
+.leg-connector-row .leg-alt-metric {
+  font-size: 12.5px;
+}
+
+/* The leg between two stops hangs on a line in the trip's colour, through the
+   middle of the photos above and below it. */
+.stop-row-inner {
+  gap: 0;
+}
+
+.leg-connector {
+  position: relative;
+  margin: 0;
+  padding: 10px 0 10px 64px;
+}
+
+.leg-connector::before {
+  content: '';
+  position: absolute;
+  left: 39px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--trip, var(--accent)) 35%, transparent);
+}
+
+/* Draw the rails: a quiet pill right after the mode, like an unset place pill. */
+.leg-rail-btn {
+  gap: 6px;
+  background: var(--surface-high);
+  color: var(--on-surface-variant);
+  font-size: 13.5px;
+  transition: background 0.15s var(--ease);
+}
+
+.leg-rail-btn:hover {
+  background: color-mix(in srgb, var(--surface-high) 90%, var(--hover-ink));
+  color: var(--on-surface-variant);
+}
+
+.leg-rail-btn svg {
+  color: currentColor;
+}
+
+/* The mode pill a size up, as the app's 36 high pill. */
+.mode-menu-compact .mode-menu-pill {
+  height: 36px;
+  border-radius: 18px;
+}
+
+.mode-drop {
+  border-radius: 18px;
+}
+
+.mode-drop-head {
+  height: 36px;
+}
+
+/* The place pill on Heen / Terug: plain when empty, the trip's colour when set. */
+.leg-loc-pill {
+  max-width: 150px;
+  gap: 6px;
+  font-size: 13.5px;
+  background: var(--surface-high);
+  border: 1.5px solid transparent;
+  color: var(--on-surface-variant);
+}
+
+.leg-loc-pill.set {
+  background: var(--trip-soft);
+  border-color: var(--trip, var(--accent));
+  color: var(--on-surface);
+}
+
+/* Day trips: full width under the stop, no branch lines, no outlines. */
+.daytrips {
+  padding-left: 0;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+.daytrip-row {
+  padding-left: 0;
+}
+
+.daytrips::before,
+.daytrips::after,
+.daytrip-row::before,
+.daytrip-row::after {
+  content: none;
+  display: none;
+}
+
+.daytrip-card {
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface);
+  padding: 6px;
+  gap: 12px;
+}
+
+.daytrip-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+.daytrip-info strong {
+  font: 600 15px/1.25 var(--font-brand);
+}
+
+.daytrip-meta {
+  font-size: 12.5px;
+  color: var(--on-surface-variant);
+}
+
+/* The nights stepper with "Dagtrip" centred under it, always in the accent. */
+.swipe-row .stop-nights {
+  align-items: center;
+  gap: 4px;
+}
+
+.daytrip-btn {
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: var(--accent);
+  font: 600 13.5px/1.2 var(--font-brand);
+}
+
+.daytrip-btn:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* Crosses: round, on the highest tone, red only on hover and in both themes. */
+.daytrip-delete,
+.swipe-x {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--surface-highest);
+  color: var(--on-surface-variant);
+}
+
+.daytrip-delete {
+  width: 36px;
+  height: 36px;
+}
+
+.daytrip-delete:hover,
+.swipe-x:hover,
+.stop-delete:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface-highest));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* On Heen / Terug the row makes room for the cross instead of the cross
+     landing on the mode pill: the content moves in, the cross sits at the end. */
+  .swipe-row:has(.flight-leg) .swipe-x {
+    right: 10px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .swipe-row:has(.flight-leg):hover .flight-leg-head .mode-menu {
+    transform: none;
+  }
+
+  .swipe-row:has(.flight-leg) .flight-leg {
+    transition: padding-right 0.18s var(--ease-emph, var(--ease));
+  }
+
+  .swipe-row:has(.flight-leg):hover .flight-leg {
+    padding-right: 44px;
+  }
+
+  /* On a stop the cross sits on the left edge, halfway down, clear of the name. */
+  .swipe-row:has(.stop-item) .swipe-x {
+    top: 50%;
+    left: -12px;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* A picked-up card: the app's tone, a smaller tilt. */
+.stop-row.lifted .card {
+  background: var(--secondary-container);
+}
+
+.stop-row.lifted .stop-lift > * {
+  transform: scale(1.02) rotate(-0.4deg);
+}
+
+/* "+ Heenreis / + Terugreis": a solid pill in the low tone, as the app's add row. */
+.trip-planner > ol .mode-menu:not(.mode-menu-compact),
+.trip-planner .mode-menu:not(.mode-menu-compact) {
+  margin: 0 0 12px;
+}
+
+.mode-menu:not(.mode-menu-compact) .mode-menu-pill {
+  border: 0;
+  background: var(--surface-low);
+  padding: 10px 18px 10px 14px;
+  gap: 8px;
+  font: 600 14.5px/1.2 var(--font-brand);
+  color: var(--accent);
+}
+
+.mode-menu:not(.mode-menu-compact) .mode-menu-pill:hover {
+  background: color-mix(in srgb, var(--surface-low) 90%, var(--hover-ink));
+}
+
+/* On a phone the leg's row is short: the rails button keeps only its icon, so
+   the distance next to it stays readable instead of running off the card. */
+@media (max-width: 480px) {
+  .leg-rail-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .leg-rail-label {
+    display: none;
+  }
+}

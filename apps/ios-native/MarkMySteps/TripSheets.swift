@@ -12,6 +12,12 @@ enum MapLook: String, CaseIterable, Identifiable {
     case positron, bright, liberty, satellite
     var id: String { rawValue }
 
+    /// The two styles offered, as Mark chose: light and minimal, or satellite. A stored bright or classic is
+    /// light and minimal again (`chosen(_:)`).
+    static var allCases: [MapLook] { [.positron, .satellite] }
+
+    static func chosen(_ raw: String) -> MapLook { raw == MapLook.satellite.rawValue ? .satellite : .positron }
+
     var label: String {
         switch self {
         case .positron: "Licht & minimaal"
@@ -101,16 +107,15 @@ struct MapStyleSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    // As Android: whose photos are on this map first, then the style of every map.
+                    // As Android and the web: the style of every map first, then whose photos are on this map.
                     if let layers, !layers.members.isEmpty {
-                        photoSection(layers).padding(.bottom, 14)
                         Text("Kaartstijl").font(.outfit(17, 650)).foregroundStyle(Brand.ink)
                     } else {
                         Text("Stijl van de kaart").font(.inter(14, 500)).foregroundStyle(Brand.inkSoft)
                     }
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         ForEach(MapLook.allCases) { look in
-                            let on = chosen == look.rawValue
+                            let on = MapLook.chosen(chosen) == look
                             Button {
                                 withAnimation(.calm) { chosen = look.rawValue }
                             } label: {
@@ -133,8 +138,11 @@ struct MapStyleSheet: View {
                             .accessibilityAddTraits(on ? .isSelected : [])
                         }
                     }
-                    Text("In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.")
+                    Text("In de donkere stand wordt Licht & minimaal vanzelf de donkere kaart.")
                         .font(.inter(13, 450)).foregroundStyle(Brand.inkSoft)
+                    if let layers, !layers.members.isEmpty {
+                        photoSection(layers).padding(.top, 14)
+                    }
                 }
                 .padding(16)
             }

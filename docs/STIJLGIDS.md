@@ -64,6 +64,13 @@ Gedrag en detailniveau zijn op beide gelijk.
 - Vlaggen zijn vlakke vlaggen met licht afgeronde hoeken, nooit emoji.
 - Een knop zonder vlak (alleen een icoon op een kaart) heeft ook in animaties
   geen vlak: laat geen rondje verschijnen dat er normaal niet is.
+- Knoppen op een kaart: licht met een zweem van de accentkleur (MarkMySteps:
+  wit gemengd met primaryContainer, licht #FFE9E1), niet het donkere beige van
+  kaarten. Nooit fel oranje; actief mag wel primary zijn.
+- Een routelijn op een kaart volgt de zoom: dun over een heel land, volle dikte
+  vanaf stadsniveau. Op een satellietfoto geen witte rand eronder.
+- Een kruisje dat bij hover verschijnt krijgt ruimte (de rij schuift in), het
+  valt nooit over een andere knop.
 
 ## 3. Beweging
 

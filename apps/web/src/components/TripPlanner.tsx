@@ -640,12 +640,19 @@ export function TripPlanner({
   }
 
   return (
-    <div className={`trip-planner ${readOnly ? 'trip-planner-read' : ''}`}>
+    <div
+      className={`trip-planner ${readOnly ? 'trip-planner-read' : ''}`}
+      // The trip's own colour for the badges, pills, line and ring, as the app's planner.
+      style={{ '--trip': trip?.color ?? 'var(--accent)' } as CSSProperties}
+    >
       {trip && (
         <div className="nights-planned">
-          <span className="nights-ring" data-full={plannedNights >= tripNights}>
-            ●
-          </span>
+          <span
+            className="nights-ring"
+            data-full={plannedNights >= tripNights}
+            style={{ '--p': tripNights > 0 ? Math.min(1, plannedNights / tripNights) : 0 } as CSSProperties}
+            aria-hidden
+          />
           {t('planner.nightsPlanned', { planned: plannedNights, total: tripNights })}
         </div>
       )}
@@ -824,7 +831,6 @@ export function TripPlanner({
                         readOnly={readOnly}
                       />
                     )}
-                    {legKm !== null && <AltMetric km={legKm} mode={stop.travelMode} />}
                     {/* A train leg the tracker slept through: offer to draw the
                         rails. The point handed over is the middle of the leg,
                         which is the stretch of straight line the drawing looks
@@ -840,6 +846,8 @@ export function TripPlanner({
                         <button
                           type="button"
                           className="leg-rail-btn"
+                          aria-label={t('planner.drawRails')}
+                          title={t('planner.drawRails')}
                           onClick={() =>
                             onDrawTrain({
                               from: prev.name,
@@ -851,10 +859,11 @@ export function TripPlanner({
                             })
                           }
                         >
-                          <Icon name="route" size={13} />
-                          {t('planner.drawRails')}
+                          <Icon name="route" size={15} />
+                          <span className="leg-rail-label">{t('planner.drawRails')}</span>
                         </button>
                       )}
+                    {legKm !== null && <AltMetric km={legKm} mode={stop.travelMode} />}
                   </div>
                 </div>
               )}
@@ -1829,11 +1838,12 @@ function ModeMenu({
         {/* Keyed on the mode so picking another one cross-fades icon + label
             instead of swapping them instantly. */}
         <span className="mode-menu-face" key={current ?? 'new'}>
-          <Icon name={icon} size={compact ? 16 : 16} />
+          <Icon name={icon} size={18} />
           <span>{text}</span>
         </span>
         {/* No caret when there is no menu behind it: the pill is a label. */}
-        {!readOnly && <Icon name="chevron-down" size={14} className="mode-menu-caret" />}
+        {/* "+ Heenreis" is an add button, as in the app: no caret either. */}
+        {!readOnly && current && <Icon name="chevron-down" size={14} className="mode-menu-caret" />}
       </button>
       <ModeDrop
         anchor={pillRef.current}

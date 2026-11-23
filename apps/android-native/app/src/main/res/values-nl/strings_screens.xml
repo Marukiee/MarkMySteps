@@ -33,7 +33,7 @@
     <string name="settings_cards_hint">Auto: komende reizen en de laatste groot, de rest klein. Per reis kies je het via het menu met de drie puntjes op de kaart.</string>
     <string name="settings_cards_reset">Handmatige keuzes wissen</string>
     <string name="settings_map_style">Kaartstijl</string>
-    <string name="settings_map_style_hint">Geldt voor alle kaarten in de app. In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.</string>
+    <string name="settings_map_style_hint">Geldt voor alle kaarten in de app. In de donkere stand wordt Licht &amp; minimaal vanzelf de donkere kaart.</string>
     <string name="settings_globe">Globe</string>
     <string name="settings_globe_hint">Tussenstops op de globe van de homepage. De reis die uitgelicht wordt laat ze altijd zien; met Altijd ook alle andere reizen.</string>
     <string name="settings_globe_highlight">Bij uitlichten</string>
@@ -545,7 +545,7 @@
     <!-- TripSheets.kt -->
     <string name="tripsheets_map">Kaart</string>
     <string name="tripsheets_map_style">Stijl van de kaart</string>
-    <string name="tripsheets_map_style_hint">In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.</string>
+    <string name="tripsheets_map_style_hint">In de donkere stand wordt Licht &amp; minimaal vanzelf de donkere kaart.</string>
 
     <!-- NewLook.kt -->
     <string name="newlook_title">MarkMySteps heeft een nieuwe look</string>

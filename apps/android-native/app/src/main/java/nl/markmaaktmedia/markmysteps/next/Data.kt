@@ -215,15 +215,16 @@ object ThemePref {
     fun show(value: Int) { mode = value }
 }
 
-/** The map style, as on the web: three OpenFreeMap styles or Esri satellite. Kept on the phone. */
+/** The map style, as on the web: light and minimal (OpenFreeMap) or Esri satellite, Mark's two. Kept on the phone. */
 object MapStylePref {
-    val ids get() = listOf("positron" to Lang.text(R.string.mapstyle_positron), "bright" to Lang.text(R.string.mapstyle_bright), "liberty" to Lang.text(R.string.mapstyle_liberty), "satellite" to Lang.text(R.string.mapstyle_satellite))
+    val ids get() = listOf("positron" to Lang.text(R.string.mapstyle_positron), "satellite" to Lang.text(R.string.mapstyle_satellite))
     private var prefs: android.content.SharedPreferences? = null
     var id by mutableStateOf("positron")
         private set
     fun init(context: android.content.Context) {
         prefs = context.getSharedPreferences("mms.next.ui", android.content.Context.MODE_PRIVATE)
-        id = prefs?.getString("mapStyle", "positron") ?: "positron"
+        // A style that is no longer offered (bright, liberty) is light and minimal again.
+        id = if (prefs?.getString("mapStyle", "positron") == "satellite") "satellite" else "positron"
     }
     fun set(value: String) { id = value; prefs?.edit()?.putString("mapStyle", value)?.apply() }
 }

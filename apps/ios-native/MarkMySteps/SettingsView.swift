@@ -274,7 +274,7 @@ private struct AppearancePage: View {
                 Section {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         ForEach(MapLook.allCases) { look in
-                            let on = mapStyle == look.rawValue
+                            let on = MapLook.chosen(mapStyle) == look
                             Button { withAnimation(.calm) { mapStyle = look.rawValue } } label: {
                                 VStack(alignment: .leading, spacing: 8) {
                                     MapLookPreview(look: look, dark: scheme == .dark).frame(height: 70).clipShape(.rect(cornerRadius: 12))

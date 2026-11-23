@@ -313,6 +313,14 @@ private fun lineOf(points: List<LonLat>) = LineString.fromLngLats(points.map { P
 
 private fun hex(c: Int) = String.format("#%06X", 0xFFFFFF and c)
 
+/**
+ * A line's width that follows the zoom: thin over a whole country, where a thick line hides where you went
+ * (Mark: "dan lijkt die gewoon minder precies"), and its full width from city level in.
+ */
+private fun byZoom(far: Float, near: Float) = Expression.interpolate(
+    Expression.linear(), Expression.zoom(), Expression.stop(4, far), Expression.stop(10, near),
+)
+
 /** The sources and layers that are there from the start; every traveller's line is added as it comes. */
 private fun addLayers(style: Style, color: Int, dark: Boolean) {
     val empty = { FeatureCollection.fromFeatures(emptyList<Feature>()) }
@@ -320,10 +328,10 @@ private fun addLayers(style: Style, color: Int, dark: Boolean) {
     val ground = if (dark) AColor.BLACK else AColor.WHITE
     // The plan where nothing was recorded: a solid line for a leg that was travelled, dots for one to come.
     style.addLayer(LineLayer("planned-line", "planned").withProperties(
-        lineColor(color), lineWidth(3f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+        lineColor(color), lineWidth(byZoom(1.8f, 3f)), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
     ).withFilter(Expression.eq(Expression.get("future"), Expression.literal(false))))
     style.addLayer(LineLayer("planned-future", "planned").withProperties(
-        lineColor(color), lineWidth(3.5f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND), lineDasharray(arrayOf(0.1f, 2.2f)),
+        lineColor(color), lineWidth(byZoom(2.4f, 3.5f)), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND), lineDasharray(arrayOf(0.1f, 2.2f)),
     ).withFilter(Expression.eq(Expression.get("future"), Expression.literal(true))))
     // A flight is a grey dashed bow, as on the web: the arc is drawn, not recorded, so it never takes the
     // trip's colour. Short dashes with clear gaps (a round cap adds half the width to each end), so it reads
@@ -531,11 +539,11 @@ private fun userLine(style: Style, user: String, color: Int, dark: Boolean, grou
     if (source == null) {
         style.addSource(GeoJsonSource(id, data))
         val halo = LineLayer("$id-halo", id).withProperties(
-            lineColor(if (dark) AColor.BLACK else AColor.WHITE), lineWidth(7f), lineOpacity(0f),
+            lineColor(if (dark) AColor.BLACK else AColor.WHITE), lineWidth(byZoom(4.5f, 7f)), lineOpacity(0f),
             lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         )
         val line = LineLayer("$id-line", id).withProperties(
-            lineColor(color), lineWidth(3.5f), lineOpacity(0f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+            lineColor(color), lineWidth(byZoom(2f, 3.5f)), lineOpacity(0f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
         )
         halo.lineOpacityTransition = fade; line.lineOpacityTransition = fade
         // Under the flights and the dots, over the plan.
@@ -543,7 +551,9 @@ private fun userLine(style: Style, user: String, color: Int, dark: Boolean, grou
         style.addLayerBelow(line, "flight-line")
     } else source.setGeoJson(data)
     (style.getLayer("$id-line") as? LineLayer)?.let { it.lineOpacityTransition = fade; it.setProperties(lineColor(color), lineOpacity(if (on) 1f else 0f)) }
-    (style.getLayer("$id-halo") as? LineLayer)?.let { it.lineOpacityTransition = fade; it.setProperties(lineOpacity(if (on) 0.7f else 0f)) }
+    // No white band on the satellite photo: there it read as a second, thicker line round the route (Mark).
+    val band = MapStylePref.id != "satellite"
+    (style.getLayer("$id-halo") as? LineLayer)?.let { it.lineOpacityTransition = fade; it.setProperties(lineOpacity(if (on && band) 0.7f else 0f)) }
 }
 
 /** Your own position, as a phone's map draws it: a blue dot with a white rim and a soft pulse around it. */
@@ -617,7 +627,7 @@ private fun LiveFaces(map: org.maplibre.android.maps.MapLibreMap?, tick: Int, fi
                 modifier = Modifier.zIndex(2f).offset { androidx.compose.ui.unit.IntOffset((p.x - with(density) { 18.dp.toPx() }).toInt(), (p.y + half - with(density) { 4.dp.toPx() }).toInt()) }
                     .graphicsLayer { alpha = appear.value.coerceIn(0f, 1f) }
                     .width(36.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHighest).padding(vertical = 1.dp),
+                    .clip(androidx.compose.foundation.shape.CircleShape).background(cs.overMap).padding(vertical = 1.dp),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
         }
@@ -651,7 +661,7 @@ private fun StopLabelCard(map: org.maplibre.android.maps.MapLibreMap?, tick: Int
             .onSizeChanged { w = it.width; h = it.height }
             .graphicsLayer { scaleX = 0.7f + 0.3f * k; scaleY = 0.7f + 0.3f * k; alpha = k; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f) }
             .widthIn(max = 240.dp)
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp)).background(cs.overMap)
             .border(1.dp, cs.outlineVariant, androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
             .padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,

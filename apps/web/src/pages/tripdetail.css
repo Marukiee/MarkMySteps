@@ -1308,16 +1308,18 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 :root {
   /* The buttons on the map in the app's light tone (surfaceContainerHigh), as the native apps; the darker mix
      looked as if they were all being hovered. Hover darkens them a touch. */
-  --td-btn: var(--surface-high);
-  --td-btn-hover: color-mix(in srgb, var(--surface-high) 90%, var(--hover-ink));
+  /* Mark: the beige looked heavy on the map ("te donker, wat meer kleur, niet fel oranje"): light with a
+     breath of the accent's peach, the same tone as the apps' overMap. */
+  --td-btn: color-mix(in srgb, #fff 38%, var(--primary-container));
+  --td-btn-hover: color-mix(in srgb, var(--td-btn) 90%, var(--hover-ink));
   /* A light button on a light map needs a visible edge and a soft lift to read as a button (it floats over the map). */
   --td-btn-edge: rgb(27 37 48 / 0.16);
   --td-btn-lift: 0 1px 6px rgb(0 0 0 / 0.12);
 }
 
 :root[data-theme='dark'] {
-  --td-btn: var(--surface-high);
-  --td-btn-hover: color-mix(in srgb, var(--surface-high) 88%, var(--hover-ink));
+  --td-btn: color-mix(in srgb, var(--surface-high) 50%, var(--primary-container));
+  --td-btn-hover: color-mix(in srgb, var(--td-btn) 88%, var(--hover-ink));
   --td-btn-edge: rgb(255 255 255 / 0.14);
   --td-btn-lift: 0 1px 6px rgb(0 0 0 / 0.35);
 }

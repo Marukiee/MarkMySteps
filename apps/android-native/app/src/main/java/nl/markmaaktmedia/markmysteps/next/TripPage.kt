@@ -404,7 +404,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
                         val tl by androidx.compose.animation.core.animateDpAsState(if (b.open || i == 0) outer else inner, spatial, label = "tl")
                         val tr by androidx.compose.animation.core.animateDpAsState(if (b.open || i == buttons.lastIndex) outer else inner, spatial, label = "tr")
                         val w by androidx.compose.animation.core.animateDpAsState(if (b.open) 64.dp else 54.dp, spatial, label = "w")
-                        val bg by androidx.compose.animation.animateColorAsState(if (b.open) cs.primary else cs.surfaceContainerHighest, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "bg")
+                        val bg by androidx.compose.animation.animateColorAsState(if (b.open) cs.primary else cs.overMap, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "bg")
                         val fg by androidx.compose.animation.animateColorAsState(if (b.open) cs.onPrimary else cs.onSurface, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "fg")
                         val shape = RoundedCornerShape(topStart = tl, bottomStart = tl, topEnd = tr, bottomEnd = tr)
                         Box(Modifier.size(width = w, height = 48.dp).clip(shape).background(bg).press(b.go).a11y(b.label), contentAlignment = Alignment.Center) {
@@ -564,7 +564,7 @@ private fun RoundButton(onClick: () -> Unit = {}, label: String? = null, content
     val cs = MaterialTheme.colorScheme
     // Solid tone, no shadow (Expressive separates by colour), so it reads on any part of the map.
     Box(
-        Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest).press(onClick).then(if (label != null) Modifier.a11y(label) else Modifier),
+        Modifier.size(48.dp).clip(CircleShape).background(cs.overMap).press(onClick).then(if (label != null) Modifier.a11y(label) else Modifier),
         contentAlignment = Alignment.Center,
     ) { content() }
 }

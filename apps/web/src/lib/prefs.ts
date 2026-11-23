@@ -8,10 +8,9 @@ export type MapStyleId = 'positron' | 'bright' | 'liberty' | 'satellite';
 
 const MAP_STYLE_KEY = 'mms.mapstyle';
 
+/** Two styles, as Mark chose: light and minimal, or satellite. Bright and Classic looked nearly alike and went. */
 export const MAP_STYLES: { id: MapStyleId; label: string }[] = [
   { id: 'positron', label: t('app.mapStyle.positron') },
-  { id: 'bright', label: t('app.mapStyle.bright') },
-  { id: 'liberty', label: t('app.mapStyle.liberty') },
   { id: 'satellite', label: t('app.mapStyle.satellite') },
 ];
 
@@ -33,7 +32,8 @@ const SATELLITE_STYLE: StyleSpecification = {
 };
 
 export function getMapStyleId(): MapStyleId {
-  return (localStorage.getItem(MAP_STYLE_KEY) as MapStyleId | null) ?? 'positron';
+  // A style that is no longer offered (bright, liberty) is light and minimal again.
+  return localStorage.getItem(MAP_STYLE_KEY) === 'satellite' ? 'satellite' : 'positron';
 }
 
 export function setMapStyleId(id: MapStyleId): void {

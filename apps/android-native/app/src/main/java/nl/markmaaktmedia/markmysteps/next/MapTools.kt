@@ -52,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,6 +79,14 @@ private val EraseGlyph = listOf(P("m7 21-4.3-4.3a1 1 0 0 1 0-1.4l9.6-9.6a1 1 0 0
 private val EyeOff = listOf(P("M3 3l18 18"), P("M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 3.9M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"))
 private val EyeOn = listOf(P("M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"), C(12f, 12f, 3f))
 
+/**
+ * The tone of everything that floats on a map. The darker beige (surfaceContainerHighest) looked heavy on the
+ * map (Mark: "te donker... wat meer kleur, niet echt fel oranje"): light, with a breath of the accent's peach.
+ */
+val androidx.compose.material3.ColorScheme.overMap: Color
+    get() = if (background.luminance() < 0.5f) androidx.compose.ui.graphics.lerp(surfaceContainerHigh, primaryContainer, 0.5f)
+    else androidx.compose.ui.graphics.lerp(surfaceContainerLowest, primaryContainer, 0.62f)
+
 private val PillText = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)
 
 /** A solid pill over the map (never see-through, so it reads on any map), with an icon and a word. */
@@ -85,7 +94,7 @@ private val PillText = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(60
 fun MapPill(text: String, icon: List<Shape24>, modifier: Modifier = Modifier, active: Boolean = false, trailing: List<Shape24>? = null, maxText: androidx.compose.ui.unit.Dp = 150.dp, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val haptics = rememberHaptics()
-    val bg by animateColorAsState(if (active) cs.primary else cs.surfaceContainerHighest, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "pill")
+    val bg by animateColorAsState(if (active) cs.primary else cs.overMap, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "pill")
     val fg by animateColorAsState(if (active) cs.onPrimary else cs.onSurface, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "pillFg")
     Row(
         modifier.height(40.dp).clip(CircleShape).background(bg).dip { haptics(Haptic.Tap); onClick() }.padding(start = 12.dp, end = if (trailing != null) 10.dp else 14.dp),
@@ -198,7 +207,7 @@ fun LocateButton(hasFix: Boolean, busy: Boolean, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val haptics = rememberHaptics()
     val tint by animateColorAsState(if (hasFix) cs.primary else cs.onSurfaceVariant, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "locate")
-    Box(Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest).dip { haptics(Haptic.Tap); onClick() }, contentAlignment = Alignment.Center) {
+    Box(Modifier.size(48.dp).clip(CircleShape).background(cs.overMap).dip { haptics(Haptic.Tap); onClick() }, contentAlignment = Alignment.Center) {
         androidx.compose.animation.Crossfade(busy, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "locating") { b ->
             if (b) LoadingIndicator(Modifier.size(26.dp), color = cs.primary) else LineIcon(LocateGlyph, tint, size = 21.dp, stroke = 2f)
         }
@@ -573,12 +582,12 @@ fun MapPickDialog(trip: Trip, dark: Boolean, onPicked: (Remote.Place) -> Unit, o
             )
             Column(Modifier.statusBarsPadding().padding(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest).dip { close() }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(48.dp).clip(CircleShape).background(cs.overMap).dip { close() }, contentAlignment = Alignment.Center) {
                         LineIcon(listOf(P("M18 6 6 18"), P("m6 6 12 12")), cs.onSurface, size = 22.dp, stroke = 2.2f)
                     }
                     Text(stringResource(R.string.map_tap_stop), maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurface),
-                        modifier = Modifier.padding(start = 10.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp, vertical = 12.dp))
+                        modifier = Modifier.padding(start = 10.dp).clip(CircleShape).background(cs.overMap).padding(horizontal = 16.dp, vertical = 12.dp))
                 }
             }
             AnimatedVisibility(
@@ -587,7 +596,7 @@ fun MapPickDialog(trip: Trip, dark: Boolean, onPicked: (Remote.Place) -> Unit, o
                 exit = fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
             ) {
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(cs.surfaceContainerHighest).padding(start = 18.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(cs.overMap).padding(start = 18.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {

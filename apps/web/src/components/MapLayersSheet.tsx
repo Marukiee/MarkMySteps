@@ -99,6 +99,13 @@ export function MapLayersSheet({
           </button>
         </div>
 
+        {/* First, as Mark asked: the style is what you come here for most.
+            Also offered in Instellingen; the same painted previews, one size down. */}
+        <section className="layer-group">
+          <h3 className="trip-side-heading">{t('trip.layers.style')}</h3>
+          <MapStylePicker compact />
+        </section>
+
         <section className="layer-group">
           <h3 className="trip-side-heading">{t('trip.layers.routes')}</h3>
           <p className="muted layer-hint">{t('trip.layers.routesHint')}</p>
@@ -136,13 +143,6 @@ export function MapLayersSheet({
           </div>
         </section>
 
-        {/* Also offered in Instellingen, and also here: which map you are
-            looking at is a thing you decide while looking at it. The same grid
-            of painted previews, one size down. */}
-        <section className="layer-group">
-          <h3 className="trip-side-heading">{t('trip.layers.style')}</h3>
-          <MapStylePicker compact />
-        </section>
       </div>
     </div>
   );
