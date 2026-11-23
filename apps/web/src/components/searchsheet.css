@@ -5,28 +5,13 @@
   inset: 0;
   z-index: 70;
   background: rgb(16 21 27 / 0.5);
-  backdrop-filter: blur(3px);
   display: grid;
   place-items: end center;
-  animation: searchBackdropIn 0.26s var(--ease);
-}
-
-@keyframes searchBackdropIn {
-  from {
-    opacity: 0;
-    backdrop-filter: blur(0);
-  }
+  animation: appScrimIn var(--dur-sheet-in) var(--ease-emph-decel);
 }
 
 .search-sheet-backdrop.closing {
-  animation: searchBackdropOut 0.24s var(--ease) forwards;
-}
-
-@keyframes searchBackdropOut {
-  to {
-    opacity: 0;
-    backdrop-filter: blur(0);
-  }
+  animation: appScrimOut var(--dur-sheet-out) var(--ease-std) forwards;
 }
 
 .search-sheet {
@@ -38,33 +23,19 @@
   height: min(88dvh, 46rem);
   max-height: 92dvh;
   padding: 0.5rem 0.9rem calc(0.9rem + var(--safe-bottom) + var(--kb-inset, 0px));
-  border-radius: var(--radius-l) var(--radius-l) 0 0;
+  border-radius: 28px 28px 0 0;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  animation: searchSheetUp 0.28s var(--ease);
+  animation: appSheetUp var(--dur-sheet-in) var(--ease-emph-decel);
 }
 
 .search-sheet-backdrop.closing .search-sheet {
-  animation: searchSheetDown 0.24s var(--ease) forwards;
-}
-
-@keyframes searchSheetUp {
-  from {
-    transform: translateY(40px);
-    opacity: 0;
-  }
-}
-
-@keyframes searchSheetDown {
-  to {
-    transform: translateY(28px);
-    opacity: 0;
-  }
+  animation: appSheetDown var(--dur-sheet-out) var(--ease-std) forwards;
 }
 
 /* A floating dialog, not a sheet, once there is a real window around it.
    601px is not that: a large phone reports more than 600 CSS pixels, and its
-   sheets were being centred with all four corners rounded — a card hanging in
+   sheets were being centred with all four corners rounded: a card hanging in
    the middle of a phone screen with the keyboard under it. */
 @media (min-width: 860px) and (pointer: fine) {
   .search-sheet-backdrop {
@@ -72,7 +43,7 @@
   }
 
   .search-sheet {
-    border-radius: var(--radius-l);
+    border-radius: 28px;
   }
 }
 

@@ -123,10 +123,28 @@
   height: 52px;
   flex-shrink: 0;
   border-radius: 14px;
-  background: var(--paper-sunken) center / cover no-repeat;
+  background: var(--surface-highest);
   display: grid;
   place-content: center;
-  box-shadow: var(--shadow-s);
+}
+
+/* The photo eases in over the flag, unless it was there within 250 ms. */
+.city-thumb-photo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: center / cover no-repeat;
+  animation: cityThumbIn 0.3s var(--ease-std);
+}
+
+.city-thumb-photo.instant {
+  animation: none;
+}
+
+@keyframes cityThumbIn {
+  from {
+    opacity: 0;
+  }
 }
 
 .city-thumb-flag {
@@ -332,31 +350,94 @@
   align-items: center;
 }
 
-.nights-buttons {
+.nights-group {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 3px;
-  border-radius: 999px;
-  background: var(--paper-sunken);
+  gap: 2px;
 }
 
-.nights-count {
+.nights-side,
+.nights-value {
+  height: 40px;
+  background: var(--surface-highest);
+  color: var(--on-surface);
+}
+
+.nights-side {
+  width: 40px;
+  display: inline-grid;
+  place-content: center;
+  padding: 0;
+  transition: border-radius 0.2s var(--ease-emph), background-color 0.15s var(--ease-std);
+}
+
+.nights-minus {
+  border-radius: 20px 6px 6px 20px;
+}
+
+.nights-plus {
+  border-radius: 6px 20px 20px 6px;
+}
+
+/* The pressed side rounds further, and back when let go. */
+.nights-side:active {
+  border-radius: 20px;
+}
+
+@media (hover: hover) {
+  .nights-side:hover {
+    background: color-mix(in srgb, var(--surface-highest) 90%, var(--on-surface));
+  }
+}
+
+.nights-value {
+  width: 54px;
+  border-radius: 6px;
+  display: grid;
+  overflow: hidden;
+}
+
+.nights-roll {
+  grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 40px;
   line-height: 1.05;
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--ink);
 }
 
-.nights-count small {
+.nights-roll strong {
+  font-family: var(--font-brand);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.nights-roll small {
+  font-size: 10px;
   font-weight: 500;
-  font-size: 0.62rem;
-  color: var(--ink-faint);
+  color: var(--on-surface-variant);
+}
+
+.nights-roll.up {
+  animation: nightsUp 0.3s var(--ease-emph);
+}
+
+.nights-roll.down {
+  animation: nightsDown 0.3s var(--ease-emph);
+}
+
+@keyframes nightsUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+@keyframes nightsDown {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
 }
 
 /* The same fact without the stepper around it: one line, pill-shaped, the size
@@ -367,7 +448,7 @@
   gap: 0.3rem;
   padding: 0.32rem 0.72rem;
   border-radius: 999px;
-  background: var(--paper-sunken);
+  background: var(--surface-highest);
   color: var(--ink);
   font-weight: 700;
   font-size: 0.86rem;
@@ -488,29 +569,6 @@
 
 .stop-info .muted {
   font-size: 0.8rem;
-}
-
-.nights-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--paper-raised);
-  color: var(--ink-soft);
-  transition: all 0.15s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  box-shadow: var(--shadow-s);
-}
-
-.nights-btn:hover {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-}
-
-.nights-btn:active {
-  transform: scale(0.92);
 }
 
 .stop-delete {
@@ -801,65 +859,124 @@
   border-color: var(--line);
 }
 
+/* The mode pill: its own warm tone, as wide as its name, fully round and as
+   tall as the pills beside it on the row (32px), the shape the opened list
+   grows out of. */
 .mode-menu-compact .mode-menu-pill {
-  padding: 0.28rem 0.6rem;
-  border: 1px solid var(--line);
-  border-style: solid;
-  background: var(--paper-sunken);
-  color: var(--ink-soft);
-  font-size: 0.78rem;
+  height: 32px;
+  padding: 0 9px 0 11px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  font-family: var(--font-brand);
+  font-size: 13.5px;
+  font-weight: 600;
 }
 
-.mode-menu-drop {
-  position: absolute;
-  top: 100%;
-  z-index: 40;
-  margin-top: 5px;
-  min-width: 168px;
-  max-width: min(88vw, 240px);
-  padding: 0.3rem;
+.mode-menu-compact .mode-menu-pill:hover {
+  background: color-mix(in srgb, var(--secondary-container) 90%, var(--on-secondary-container));
+  border: 0;
+}
+
+.mode-menu-compact .mode-menu-caret {
+  color: inherit;
+}
+
+/* While it is unfolded, the pill is the opened shape: it hands over to it. */
+.mode-menu-open .mode-menu-pill {
+  visibility: hidden;
+}
+
+/* The opened mode pill (ModeDrop in TripPlanner): the pill itself grown
+   longer, one shape in its own colour with a fine edge in that colour, over
+   the content. Opens 260 ms decelerate, folds back 200 ms. */
+.mode-drop {
+  position: fixed;
+  z-index: 150;
   display: grid;
-  gap: 1px;
-  border-radius: var(--radius-s);
-  box-shadow: var(--shadow-m);
-  animation: menuIn 0.15s var(--ease);
+  min-width: 168px;
+  padding-bottom: 4px;
+  border-radius: 16px;
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-secondary-container) 16%, transparent);
+  transition: clip-path 200ms var(--ease-std);
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-.mode-menu-drop.mode-menu-left {
-  left: 0;
-  right: auto;
-  transform-origin: top left;
+.mode-drop.up {
+  padding: 4px 0 0;
 }
 
-.mode-menu-drop.mode-menu-right {
-  right: 0;
-  left: auto;
-  transform-origin: top right;
+.mode-drop.expanded {
+  transition: clip-path 260ms var(--ease-emph-decel);
 }
 
-.mode-menu-drop.closing {
-  /* The same length as the way in, so leaving is arriving backwards. */
-  animation: menuOut 0.15s var(--ease) forwards;
+.mode-drop.measuring {
+  visibility: hidden;
+  transition: none;
 }
 
-.mode-menu-drop button {
+.mode-drop-head,
+.mode-drop-choice {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.5rem 0.6rem;
-  border-radius: 7px;
-  font-size: 0.88rem;
-  font-weight: 550;
-  color: var(--ink);
+  gap: 6px;
+  padding: 0 9px 0 11px;
+  font-family: var(--font-brand);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: inherit;
+  white-space: nowrap;
   text-align: left;
 }
 
-.mode-menu-drop button:hover {
-  background: var(--paper-sunken);
+.mode-drop-head {
+  height: 32px;
 }
 
-.mode-menu-drop button.active {
-  color: var(--accent-ink);
+.mode-drop-head > span {
+  flex: 1;
+}
+
+.mode-drop-caret {
+  margin-left: 5px;
+  transition: transform 260ms var(--ease-emph-decel);
+}
+
+.mode-drop.expanded .mode-drop-caret {
+  transform: rotate(180deg);
+}
+
+.mode-drop.up.expanded .mode-drop-caret {
+  transform: rotate(-180deg);
+}
+
+/* Visible as soon as there is room for them and until the edge folds over
+   them, so the opened pill is never an empty box on the way in or out. */
+.mode-drop-choice {
+  height: 40px;
+  opacity: 0;
+  transition: opacity 90ms linear 110ms;
+}
+
+.mode-drop.expanded .mode-drop-choice {
+  opacity: 1;
+  transition: opacity 90ms linear;
+}
+
+@media (hover: hover) {
+  .mode-drop-choice:hover {
+    background: color-mix(in srgb, var(--secondary-container) 88%, var(--on-secondary-container));
+  }
+}
+
+.mode-drop-line {
+  height: 1px;
+  margin: 0 11px;
+  background: color-mix(in srgb, var(--on-secondary-container) 12%, transparent);
 }
 
 /* One single row: [Heen] [plaats/vliegveld-pill] [km · duur] [vervoer].
@@ -977,12 +1094,14 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.28rem 0.6rem;
-  border: 1px solid var(--line);
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border: 0;
   border-radius: 999px;
-  background: var(--paper-sunken);
-  color: var(--ink-soft);
-  font-size: 0.74rem;
+  background: var(--surface-highest);
+  color: var(--on-surface-variant);
+  font-family: var(--font-brand);
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -1004,18 +1123,20 @@
   align-items: center;
   gap: 0.3rem;
   max-width: 40%;
-  padding: 0.28rem 0.7rem;
+  height: 32px;
+  padding: 0 12px 0 10px;
   border-radius: 999px;
-  background: var(--paper-sunken);
-  border: 1px dashed var(--line);
-  color: var(--ink-soft);
-  font-size: 0.78rem;
+  background: var(--surface-highest);
+  border: 1.5px dashed var(--outline-variant);
+  color: var(--on-surface-variant);
+  font-family: var(--font-brand);
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .leg-loc-pill.set {
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-low));
   border-style: solid;
   border-color: var(--accent);
   color: var(--accent-ink);
@@ -1622,20 +1743,60 @@
 
 .stop-row {
   transition: grid-template-rows 0.26s var(--ease), opacity 0.2s var(--ease),
-    margin-bottom 0.26s var(--ease), transform 0.2s var(--ease);
+    margin-bottom 0.26s var(--ease), transform 0.26s var(--ease-emph);
 }
 
-/* The row under your finger must not lag behind it. */
-.stop-row.lifted {
-  transition: none;
+/* The lifted row itself stays put and creates no layer of its own: only its
+   stop rises above everything, while the neighbours gliding into its place
+   pass over the faded line and mode pill it leaves behind. */
+
+/* The line and mode pill above the lifted stop stay where they are and fade. */
+.stop-row .leg-connector {
+  transition: opacity 0.2s var(--ease-std);
+}
+
+.stop-row.lifted .leg-connector {
+  opacity: 0.3;
+}
+
+/* The stop under your finger must not lag behind it. */
+.stop-row.lifted .stop-lift {
   position: relative;
   z-index: 6;
+  transition: none;
+}
+
+/* Let go, it glides into its place. */
+.stop-row.lifted.settling .stop-lift {
+  transition: transform 0.24s var(--ease-emph);
+}
+
+/* Lifted: a little larger and slightly tilted, a step lighter in tone. No
+   shadow. */
+.stop-lift > * {
+  transition: transform 0.2s var(--ease-emph);
+}
+
+.stop-row.lifted .stop-lift > * {
+  transform: scale(1.03) rotate(-0.8deg);
+}
+
+.stop-row.lifted.settling .stop-lift > * {
+  transform: none;
 }
 
 .stop-row.lifted .card {
-  box-shadow: var(--shadow-l);
-  transform: scale(1.02);
-  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease);
+  background: var(--surface-high);
+}
+
+/* The frame in which the new order lands: nothing glides back from the
+   offsets the drag left behind. */
+.stop-list.drop-frame .stop-row,
+.stop-list.drop-frame .stop-lift,
+.stop-list.drop-frame .stop-lift > *,
+.stop-list.drop-frame .leg-connector {
+  transition: none !important;
+  animation: none !important;
 }
 
 .swipe-row[data-dragging='true'] {
@@ -1740,13 +1901,6 @@
     opacity: 0;
     transform: translateY(-8px);
   }
-}
-
-/* Each swipe row is its own stacking context, so a dropdown opened in one row
-   was painted under the row below it. Lift whichever row has one open. */
-.stop-row:has(.mode-menu-drop) {
-  position: relative;
-  z-index: 20;
 }
 
 /* The stop cards arrive the way the timeline's days do: a short rise with a

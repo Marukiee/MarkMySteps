@@ -62,7 +62,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
   function close() {
     if (closing) return;
     setClosing(true);
-    window.setTimeout(onClose, 240);
+    window.setTimeout(onClose, 380);
   }
 
   // What there is to filter by: the people Immich knows faces for and the

@@ -1,8 +1,9 @@
 {
   "tripSettings.title": "Trip settings",
   "tripSettings.backToTrip": "Back to the trip",
-  "tripSettings.cover.pick": "Pick a cover photo: tap a photo <arrow></arrow> “Set as cover”",
-  "tripSettings.cover.none": "No photos yet. Later, tap one <arrow></arrow> “Set as cover”",
+  "tripSettings.cover.choose": "Choose cover",
+  "tripSettings.cover.title": "Cover photo",
+  "tripSettings.cover.empty": "No photos in this trip yet.",
   "tripSettings.name": "Name",
   "tripSettings.startDate": "Start date",
   "tripSettings.dates": "Dates",

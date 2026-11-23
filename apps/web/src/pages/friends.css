@@ -50,12 +50,11 @@
   padding: 1rem 1.15rem;
   color: var(--ink);
   animation: rise 0.4s var(--ease) both;
-  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease);
+  transition: transform 0.16s var(--ease-emph), background-color 0.16s var(--ease-std);
 }
 
 .friend-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-l);
+  background: var(--surface);
 }
 
 .friend-card:active {
@@ -199,7 +198,7 @@
 }
 
 .traveller-back:hover {
-  background: var(--paper-sunken);
+  background: var(--surface-high);
   color: var(--ink);
 }
 
@@ -216,7 +215,7 @@
   width: 76px;
   height: 76px;
   border-radius: 50%;
-  background: var(--paper-sunken);
+  background: var(--surface-high);
   animation: avatarIn 0.45s var(--ease) both;
 }
 

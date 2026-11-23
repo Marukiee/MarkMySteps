@@ -5,16 +5,33 @@
   right: 0;
   z-index: 50;
   display: none;
-  grid-template-columns: repeat(3, 1fr);
-  background: var(--glass);
-  border-top: 1px solid var(--glass-border);
-  padding: 0.35rem 0;
-  transition: transform 0.2s ease;
+  justify-items: center;
+  padding: 0 0 12px;
+  /* Only the bar itself takes taps; the page beside it stays reachable. */
+  pointer-events: none;
+  transition: transform 0.3s var(--ease-emph);
+}
+
+/* The floating toolbar: its own light tone and, as the one exception in the
+   app, a soft shadow, so it stands off whatever scrolls under it. */
+.bottomnav-bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 999px;
+  background: var(--surface-highest);
+  box-shadow: 0 6px 18px rgb(30 42 53 / 0.16), 0 1px 4px rgb(30 42 53 / 0.08);
+}
+
+:root[data-theme='dark'] .bottomnav-bar {
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45), 0 1px 4px rgb(0 0 0 / 0.3);
 }
 
 /* When a field is focused the on-screen keyboard slides up; a fixed bottom bar
    would otherwise float on top of the keyboard. Tuck it away while typing. */
-/* Only text entry raises the keyboard — a focused checkbox (e.g. a settings
+/* Only text entry raises the keyboard: a focused checkbox (e.g. a settings
    toggle) used to make the whole tab bar slide away. */
 body:has(
     input:focus:not([type='checkbox']):not([type='radio']):not([type='range']),
@@ -25,24 +42,68 @@ body:has(
   transform: translateY(130%);
 }
 
+/* The orange fades to itself at alpha 0, never towards transparent black,
+   so it never passes through brown on its way in or out. */
 .bottomnav a {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: 0.3rem 0;
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--ink-faint);
-  transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background-color: var(--accent-0);
+  color: var(--on-surface-variant);
+  transition:
+    background-color var(--dur-nav) var(--ease-emph),
+    color var(--dur-nav) var(--ease-emph);
 }
 
 .bottomnav a svg {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 
 .bottomnav a.active {
-  color: var(--accent-ink);
+  background-color: var(--accent);
+  color: #fff;
+}
+
+.bottomnav a.active svg {
+  stroke-width: 2.1;
+}
+
+/* The name grows out of the pill's middle as it widens: a grid track from
+   0fr to 1fr, the same 260 ms, the text fading in after 60 ms. */
+.bottomnav-label {
+  display: grid;
+  grid-template-columns: 0fr;
+  transition: grid-template-columns var(--dur-nav) var(--ease-emph);
+}
+
+.bottomnav-label > span {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.bottomnav-label > span > span {
+  display: block;
+  padding-left: 8px;
+  font-family: var(--font-brand);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 120ms linear;
+}
+
+.bottomnav a.active .bottomnav-label {
+  grid-template-columns: 1fr;
+}
+
+.bottomnav a.active .bottomnav-label > span > span {
+  opacity: 1;
+  transition: opacity 200ms linear 60ms;
 }
 
 /* Show the tab bar on phones; the native app forces it via .native-app. */
@@ -61,7 +122,7 @@ body:has(
    and put the bottom of every page out of reach. */
 .native-app .bottomnav {
   display: grid;
-  padding-bottom: calc(0.35rem + var(--safe-bottom));
+  padding-bottom: calc(12px + var(--safe-bottom));
 }
 
 .native-app body,
@@ -69,12 +130,12 @@ body.native-app {
   padding-bottom: 68px;
 }
 
-/* In the APK there is no top navbar at all — app feel, tab bar only. */
+/* In the APK there is no top navbar at all: app feel, tab bar only. */
 .native-app .topbar {
   display: none;
 }
 
-/* Status bar overlays the WebView natively — push content below it, and clear
+/* Status bar overlays the WebView natively: push content below it, and clear
    the fixed tab bar at the bottom so the last row is never hidden. */
 .native-app .page {
   padding-top: calc(1.5rem + var(--safe-top));
@@ -137,4 +198,6 @@ body.nav-tucked {
   padding: 0;
   overflow: hidden;
   backdrop-filter: none;
+  /* nativeTabBar.ts asks what is on top in the middle of the bar. */
+  pointer-events: auto;
 }

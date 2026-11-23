@@ -190,13 +190,17 @@ function Tile({
       style={{ '--tone': tone, animationDelay: `${delay}ms` } as CSSProperties}
     >
       <strong>
+        {/* Still on its way: empty room of the number's own height, no grey
+            block and no 0; then it counts up. */}
         {value === undefined ? (
-          <span className="stat-skeleton" />
+          <span className="stat-pending" aria-hidden="true">
+            {'\u00a0'}
+          </span>
         ) : (
           <CountUp value={value} format={format} />
         )}
       </strong>
-      {/* The wide tile carries a bigger icon, and stroke width scales with it —
+      {/* The wide tile carries a bigger icon, and stroke width scales with it,
           which made the ruler on "kilometer afgelegd" visibly heavier than the
           icons in the row below. Thinning the stroke in proportion lands it on
           the same rendered weight as its neighbours. */}

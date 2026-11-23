@@ -3,7 +3,7 @@
   top: 0;
   z-index: 40;
   display: grid;
-  /* Brand left, nav dead-centre, controls right — the nav stays centred even as
+  /* Brand left, nav dead-centre, controls right: the nav stays centred even as
      the brand and the controls change width. */
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -54,9 +54,17 @@
   gap: 3px;
   --pill-gap: 3px;
   --pill-pad: 3px;
-  background: var(--paper-sunken);
+  background: var(--surface-high);
   padding: 3px;
   border-radius: 999px;
+}
+
+/* The open tab is an accent pill, as on the native tab bar: one fixed 260 ms
+   emphasized slide, so a single click and quick clicks back and forth look
+   the same. */
+.topbar-nav.pill-switch::before {
+  background: var(--accent);
+  transition: transform var(--dur-nav) var(--ease-emph), opacity var(--dur-nav) var(--ease-emph);
 }
 
 .topbar-nav a {
@@ -70,9 +78,8 @@
   font-weight: 600;
   font-size: 0.9rem;
   white-space: nowrap;
-  color: var(--ink-faint);
-  transition: color 0.18s var(--ease), background 0.18s var(--ease),
-    transform 0.18s var(--ease);
+  color: var(--on-surface-variant);
+  transition: color var(--dur-nav) var(--ease-emph), transform 0.18s var(--ease-emph);
 }
 
 .topbar-nav a svg {
@@ -98,12 +105,11 @@
 }
 
 .topbar-nav a.active {
-  color: var(--ink);
+  color: #fff;
 }
 
 .topbar-nav a.active svg {
   opacity: 1;
-  color: var(--accent);
 }
 
 .topbar-right {
@@ -122,7 +128,12 @@
   --pill-pad: 3px;
   padding: 3px;
   border-radius: 999px;
-  background: var(--paper-sunken);
+  background: var(--surface-high);
+}
+
+.topbar-theme.pill-switch::before {
+  background: var(--surface-lowest);
+  transition: transform var(--dur-nav) var(--ease-emph);
 }
 
 .topbar-theme button {
@@ -170,88 +181,9 @@
 
 .topbar-avatar-btn:hover {
   transform: scale(1.06);
-  box-shadow: var(--shadow-m);
 }
 
-.topbar-menu {
-  position: absolute;
-  right: 0;
-  top: 44px;
-  min-width: 190px;
-  padding: 0.4rem;
-  display: grid;
-  border-radius: var(--radius-m);
-  box-shadow: var(--shadow-m);
-  /* Grows out of the avatar it belongs to, and shrinks back into it. It used
-     to arrive with a fade and then simply cease to exist. */
-  transform-origin: top right;
-  animation: topbarMenuIn 0.16s var(--ease);
-}
-
-.topbar-menu.closing {
-  animation: topbarMenuOut 0.14s var(--ease) forwards;
-}
-
-@keyframes topbarMenuIn {
-  from {
-    opacity: 0;
-    transform: scale(0.82) translateY(-4px);
-  }
-}
-
-@keyframes topbarMenuOut {
-  to {
-    opacity: 0;
-    transform: scale(0.82) translateY(-4px);
-  }
-}
-
-.topbar-menu-head {
-  display: grid;
-  padding: 0.5rem 0.7rem 0.6rem;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 0.3rem;
-}
-
-.topbar-menu-head .muted {
-  font-size: 0.8rem;
-}
-
-.topbar-menu button {
-  text-align: left;
-  padding: 0.55rem 0.7rem;
-  /* Reads as a smaller version of the menu's own corner, not as a rectangle
-     with the edges shaved off. */
-  border-radius: 11px;
-  font-weight: 550;
-  font-size: 0.92rem;
-  transition: background 0.15s var(--ease), color 0.15s var(--ease),
-    transform 0.15s var(--ease);
-}
-
-/* The highlight is the item's own box and nothing else: nudging it sideways
-   left it hanging over one edge and short of the other. */
-@media (hover: hover) {
-  .topbar-menu button:hover {
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-  }
-
-  .topbar-menu button.topbar-menu-danger:hover {
-    background: rgb(179 64 42 / 0.1);
-    color: #b3402a;
-  }
-}
-
-.topbar-menu button:active {
-  transform: scale(0.98);
-}
-
-.topbar-menu-danger {
-  color: #b3402a;
-}
-
-/* On phones the bottom tab bar is the only navigation — drop the top bar
+/* On phones the bottom tab bar is the only navigation: drop the top bar
    entirely (matches the app), incl. brand + avatar menu. */
 @media (max-width: 720px) {
   .topbar {

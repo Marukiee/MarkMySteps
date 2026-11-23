@@ -31,7 +31,7 @@
   min-height: 96px;
   padding: 0.9rem 1rem 0.95rem;
   border-radius: var(--radius-m);
-  background: var(--paper-sunken);
+  background: var(--surface-high);
   animation: statTileIn 0.5s var(--ease) both;
 }
 
@@ -58,7 +58,7 @@
 }
 
 .stat-tile strong {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 2.4rem;
   font-weight: 620;
   line-height: 1;
@@ -87,25 +87,8 @@
 
 /* Placeholder with the same footprint as a number, so nothing jumps when the
    request lands. */
-.stat-skeleton {
+.stat-pending {
   display: inline-block;
-  width: 2.2ch;
-  height: 1.3rem;
-  border-radius: 6px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--ink) 8%, transparent),
-    color-mix(in srgb, var(--ink) 14%, transparent),
-    color-mix(in srgb, var(--ink) 8%, transparent)
-  );
-  background-size: 200% 100%;
-  animation: statShimmer 1.2s linear infinite;
-}
-
-@keyframes statShimmer {
-  to {
-    background-position: -200% 0;
-  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -121,7 +104,7 @@
   gap: 0.9rem;
   padding: 1rem;
   border-radius: var(--radius-m);
-  background: var(--paper-sunken);
+  background: var(--surface-high);
 }
 
 /* Holds the globe's place from the first frame, sea and all, so nothing below
@@ -242,8 +225,8 @@
   animation: rise 0.4s var(--ease) 0.54s both;
 }
 
-/* Out on the page now, so a row is a card of its own — the same one a traveller
-   in the people list is, at the size a list of links wants. */
+/* Out on the page now, so a row is a card of its own: the same one a traveller
+   in the people list is, at the size a list of links wants. Tonal, no shadow. */
 .recent-trips a {
   display: flex;
   align-items: center;
@@ -251,15 +234,13 @@
   padding: 0.8rem 0.95rem;
   border-radius: var(--radius-m);
   color: var(--ink);
-  background: var(--paper-raised);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-s);
-  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease);
+  background: var(--surface-low);
+  border: 1px solid var(--outline-variant);
+  transition: transform 0.16s var(--ease-emph), background-color 0.16s var(--ease-std);
 }
 
 .recent-trips a:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-l);
+  background: var(--surface);
 }
 
 .recent-trips a:active {

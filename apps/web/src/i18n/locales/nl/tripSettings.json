@@ -1,8 +1,9 @@
 {
   "tripSettings.title": "Reisinstellingen",
   "tripSettings.backToTrip": "Terug naar de reis",
-  "tripSettings.cover.pick": "Kies een coverfoto: tik een foto <arrow></arrow> “Als cover”",
-  "tripSettings.cover.none": "Nog geen foto's. Tik er straks één aan <arrow></arrow> “Als cover”",
+  "tripSettings.cover.choose": "Cover kiezen",
+  "tripSettings.cover.title": "Omslagfoto",
+  "tripSettings.cover.empty": "Nog geen foto's in deze reis.",
   "tripSettings.name": "Naam",
   "tripSettings.startDate": "Startdatum",
   "tripSettings.dates": "Datums",

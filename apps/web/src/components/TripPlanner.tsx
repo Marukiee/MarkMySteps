@@ -4,6 +4,7 @@ import {
   FormEvent,
   ReactNode,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -14,7 +15,7 @@ import type { Trip } from '../api/types';
 import { CityThumb } from './CityThumb';
 import { DateField } from './DatePicker';
 import { FlightEditor } from './FlightEditor';
-import { Icon, MODE_ICON } from './Icon';
+import { Icon, MODE_ICON, type IconName } from './Icon';
 import { WeatherBadge } from './WeatherBadge';
 import {
   estimateDuration,
@@ -43,6 +44,7 @@ import {
 } from '../lib/plannerLocal';
 import '../pages/plan.css';
 import { Flag } from './Flag';
+import { NightsStepper } from './NightsStepper';
 import { t, intlLocale } from '../i18n';
 import { tr } from '../i18n/rich';
 import { legTitle } from '../lib/legs';
@@ -270,7 +272,13 @@ export function TripPlanner({
   }
 
   async function changeNights(stop: PlannedStop, delta: number) {
-    const nights = Math.max(0, stop.nights + delta);
+    // Each step clicks like a dial; past the end it says no, and nothing moves.
+    if (stop.nights + delta < 0) {
+      haptic('end');
+      return;
+    }
+    haptic('light');
+    const nights = stop.nights + delta;
     refresh(
       await mutate(`${stopsPath}/${stop.id}`, 'PATCH', { nights }, (current) =>
         localUpdate(current, tripStart, stop.id, { nights }),
@@ -468,8 +476,12 @@ export function TripPlanner({
 
   /* ---- Touch reordering -------------------------------------------------
      HTML5 drag and drop does not exist on a phone, so a long press picks the
-     row up and the rows around it slide out of the way live, showing exactly
-     where it will land. */
+     stop up. Only the stop itself lifts (a little larger, slightly tilted);
+     the line and mode pill above it stay where they are and fade. It follows
+     the finger, swaps when it is half over its neighbour (with some slack so
+     it never flips back), the neighbours glide aside, and on letting go it
+     glides into its place before the new order is saved. Positions are
+     measured on the cards themselves. */
   const rowRefs = useRef(new Map<string, HTMLLIElement>());
   const [touchDrag, setTouchDrag] = useState<{
     id: string;
@@ -477,63 +489,99 @@ export function TripPlanner({
     to: number;
     dy: number;
     height: number;
+    settling?: boolean;
   } | null>(null);
-  /** Row boxes as they were when the drag began; the maths stays stable even
-   *  while everything is being translated around. */
-  const dragRects = useRef<{ top: number; height: number }[]>([]);
+  /** Row and card boxes as they were when the drag began; the maths stays
+   *  stable even while everything is being translated around. */
+  const dragRects = useRef<{ top: number; bottom: number; height: number }[]>([]);
+  const dragCards = useRef<{ top: number; height: number }[]>([]);
   const dragScrollY = useRef(0);
+  /** Set for the one frame in which the new order lands, so nothing glides
+   *  back from the offsets the drag left behind. */
+  const [dropFrame, setDropFrame] = useState(false);
   /** Vertical spacing between rows (the .stop-row margin). */
   const ROW_GAP = 8;
+  /** How far back past the half-way line a swap has to go to undo itself. */
+  const SWAP_SLACK = 14;
 
   function beginTouchDrag(stop: PlannedStop, index: number) {
-    const rects = route.map((s) => {
-      const el = rowRefs.current.get(s.id);
+    const rows = route.map((s) => rowRefs.current.get(s.id));
+    dragRects.current = rows.map((el) => {
       const box = el?.getBoundingClientRect();
+      return { top: box?.top ?? 0, bottom: box?.bottom ?? 0, height: box?.height ?? 0 };
+    });
+    dragCards.current = rows.map((el) => {
+      const box = el?.querySelector('.stop-item, .flight-leg')?.getBoundingClientRect();
       return { top: box?.top ?? 0, height: box?.height ?? 0 };
     });
-    dragRects.current = rects;
     dragScrollY.current = window.scrollY;
     setTouchDrag({
       id: stop.id,
       from: index,
       to: index,
       dy: 0,
-      height: rects[index]?.height ?? 0,
+      height: dragRects.current[index]?.height ?? 0,
     });
   }
 
   function moveTouchDrag(dy: number) {
     setTouchDrag((current) => {
-      if (!current) return current;
-      const rects = dragRects.current;
-      const own = rects[current.from];
+      if (!current || current.settling) return current;
+      const cards = dragCards.current;
+      const own = cards[current.from];
       if (!own) return current;
-      // The row follows the finger on screen; the page may have scrolled under
-      // it in the meantime, and the row moves with the page.
+      // The stop follows the finger on screen; the page may have scrolled
+      // under it in the meantime, and the stop moves with the page.
       const shift = dy + (window.scrollY - dragScrollY.current);
-      const centre = own.top + own.height / 2 + shift;
+      const top = own.top + shift;
+      const bottom = top + own.height;
       let to = current.from;
-      for (let i = 0; i < rects.length; i++) {
-        const r = rects[i]!;
-        if (centre >= r.top && centre <= r.top + r.height) {
-          to = i;
-          break;
-        }
-        if (i === 0 && centre < r.top) to = 0;
-        if (i === rects.length - 1 && centre > r.top + r.height) to = i;
+      // Downwards: past the middle of the card below, which then makes way.
+      for (let j = current.from + 1; j < cards.length; j++) {
+        const mid = cards[j]!.top + cards[j]!.height / 2;
+        const swapped = current.to >= j;
+        if (bottom > mid - (swapped ? SWAP_SLACK : 0)) to = j;
+        else break;
       }
+      // Upwards, the same the other way round.
+      if (to === current.from) {
+        for (let j = current.from - 1; j >= 0; j--) {
+          const mid = cards[j]!.top + cards[j]!.height / 2;
+          const swapped = current.to <= j;
+          if (top < mid + (swapped ? SWAP_SLACK : 0)) to = j;
+          else break;
+        }
+      }
+      if (to !== current.to) haptic('light');
       return { ...current, dy: shift, to };
     });
   }
 
-  async function endTouchDrag() {
+  function endTouchDrag() {
     const current = touchDrag;
-    setTouchDrag(null);
-    if (!current || current.to === current.from) return;
+    if (!current || current.settling) return;
+    if (current.to === current.from) {
+      // Glides back into its own place.
+      setTouchDrag({ ...current, dy: 0, settling: true });
+      window.setTimeout(() => setTouchDrag(null), 240);
+      return;
+    }
+    const rects = dragRects.current;
+    const from = rects[current.from]!;
+    const target = rects[current.to]!;
+    const offset = current.to > current.from ? target.bottom - from.bottom : target.top - from.top;
+    setTouchDrag({ ...current, dy: offset, settling: true });
+    window.setTimeout(() => void commitTouchDrag(current.from, current.to), 240);
+  }
+
+  async function commitTouchDrag(fromIndex: number, toIndex: number) {
     const next = [...route];
-    const [moved] = next.splice(current.from, 1);
-    next.splice(current.to, 0, moved!);
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved!);
+    setDropFrame(true);
+    setTouchDrag(null);
     onStopsChange([...next, ...stops.filter((s) => s.parentStopId)]); // optimistic
+    requestAnimationFrame(() => requestAnimationFrame(() => setDropFrame(false)));
     const order = next.map((s) => s.id);
     refresh(
       await mutate(`${stopsPath}/order`, 'PUT', { stopIds: order }, (current) =>
@@ -542,11 +590,19 @@ export function TripPlanner({
     );
   }
 
-  /** Transform for one row while a reorder is in progress. */
+  /** Transform for one row while a reorder is in progress: the rows around
+   *  the lifted stop step aside; the lifted row itself stays (its stop moves,
+   *  see liftStyle). */
   function rowStyle(index: number, id: string): CSSProperties | undefined {
-    if (!touchDrag) return undefined;
-    const offset = touchDrag.id === id ? touchDrag.dy : dragOffset(index);
+    if (!touchDrag || touchDrag.id === id) return undefined;
+    const offset = dragOffset(index);
     return offset === 0 ? undefined : { transform: `translateY(${offset}px)` };
+  }
+
+  /** The lifted stop under the finger. */
+  function liftStyle(id: string): CSSProperties | undefined {
+    if (!touchDrag || touchDrag.id !== id) return undefined;
+    return { transform: `translateY(${touchDrag.dy}px)` };
   }
 
   /** How far row `index` has to step aside to open the gap. */
@@ -618,7 +674,9 @@ export function TripPlanner({
         <ModeMenu label={t('planner.outboundTrip')} onPick={(m) => void addOutboundLeg(m)} />
       )}
 
-      <ol className="stop-list">
+      <ol
+        className={`stop-list ${touchDrag ? 'reordering' : ''} ${dropFrame ? 'drop-frame' : ''}`}
+      >
         {route.map((stop, index) => {
           if (isStandaloneLeg(stop)) {
             const outbound = index === 0;
@@ -650,10 +708,11 @@ export function TripPlanner({
                 }}
                 className={`stop-row ${removingId === stop.id ? 'leaving' : ''} ${
                   touchDrag?.id === stop.id ? 'lifted' : ''
-                }`}
+                } ${touchDrag?.id === stop.id && touchDrag.settling ? 'settling' : ''}`}
                 style={rowStyle(index, stop.id)}
               >
                 <div className="stop-row-inner">
+                <div className="stop-lift" style={liftStyle(stop.id)}>
                 <SwipeToDelete
                   disabled={readOnly}
                   onDelete={() => removeStop(stop)}
@@ -662,7 +721,7 @@ export function TripPlanner({
                   dragging={touchDrag?.id === stop.id}
                   onDragStart={() => beginTouchDrag(stop, index)}
                   onDragMove={moveTouchDrag}
-                  onDragEnd={() => void endTouchDrag()}
+                  onDragEnd={endTouchDrag}
                 >
                 {/* Keyed on the travel mode so switching flight ↔ car/bus
                     remounts the bar and replays its entry animation. */}
@@ -709,6 +768,7 @@ export function TripPlanner({
                 </div>
                 </SwipeToDelete>
                 </div>
+                </div>
               </li>
             );
           }
@@ -732,7 +792,7 @@ export function TripPlanner({
               }}
               className={`stop-row ${removingId === stop.id ? 'leaving' : ''} ${
                 touchDrag?.id === stop.id ? 'lifted' : ''
-              }`}
+              } ${touchDrag?.id === stop.id && touchDrag.settling ? 'settling' : ''}`}
               style={rowStyle(index, stop.id)}
             >
               <div className="stop-row-inner">
@@ -798,6 +858,7 @@ export function TripPlanner({
                   </div>
                 </div>
               )}
+              <div className="stop-lift" style={liftStyle(stop.id)}>
               <SwipeToDelete
                 disabled={readOnly}
                 onDelete={() => removeStop(stop)}
@@ -806,7 +867,7 @@ export function TripPlanner({
                 dragging={touchDrag?.id === stop.id}
                 onDragStart={() => beginTouchDrag(stop, index)}
                 onDragMove={moveTouchDrag}
-                onDragEnd={() => void endTouchDrag()}
+                onDragEnd={endTouchDrag}
               >
               <div
                 className={`card stop-item ${dragIndex === index ? 'dragging' : ''} ${
@@ -862,26 +923,10 @@ export function TripPlanner({
                         <small>{t('planner.nightsUnit', { count: stop.nights })}</small>
                       </span>
                     ) : (
-                      <div className="nights-buttons">
-                        <button
-                          className="nights-btn"
-                          onClick={() => changeNights(stop, -1)}
-                          aria-label={t('planner.fewerNights')}
-                        >
-                          <Icon name="minus" size={16} />
-                        </button>
-                        <span className="nights-count">
-                          {stop.nights}
-                          <small>{t('planner.nightsUnit', { count: stop.nights })}</small>
-                        </span>
-                        <button
-                          className="nights-btn"
-                          onClick={() => changeNights(stop, 1)}
-                          aria-label={t('planner.moreNights')}
-                        >
-                          <Icon name="plus" size={16} />
-                        </button>
-                      </div>
+                      <NightsStepper
+                        nights={stop.nights}
+                        onStep={(by) => void changeNights(stop, by)}
+                      />
                     )}
                     {!readOnly && (
                       <button
@@ -909,6 +954,7 @@ export function TripPlanner({
                 />
               </div>
               </SwipeToDelete>
+              </div>
               </div>
             </li>
           );
@@ -1741,25 +1787,7 @@ function ModeMenu({
   readOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const close = () => {
-    setClosing(true);
-    window.setTimeout(() => {
-      setOpen(false);
-      setClosing(false);
-    }, 140);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) close();
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
+  const pillRef = useRef<HTMLButtonElement>(null);
 
   const icon = current ? MODE_ICON[current] ?? 'car' : 'plus';
   const text = label ?? MODE_LABEL[current!];
@@ -1768,16 +1796,18 @@ function ModeMenu({
     <div
       className={`mode-menu ${compact ? 'mode-menu-compact' : ''} ${
         readOnly ? 'mode-menu-static' : ''
-      }`}
-      ref={ref}
+      } ${open ? 'mode-menu-open' : ''}`}
     >
       <button
+        ref={pillRef}
         type="button"
         className="mode-menu-pill"
         disabled={readOnly}
+        aria-haspopup="menu"
+        aria-expanded={open}
         onClick={(e) => {
           if (open) {
-            close();
+            setOpen(false);
             return;
           }
           if (!nativeMenusAvailable()) {
@@ -1799,33 +1829,211 @@ function ModeMenu({
         {/* Keyed on the mode so picking another one cross-fades icon + label
             instead of swapping them instantly. */}
         <span className="mode-menu-face" key={current ?? 'new'}>
-          <Icon name={icon} size={compact ? 14 : 16} />
+          <Icon name={icon} size={compact ? 16 : 16} />
           <span>{text}</span>
         </span>
         {/* No caret when there is no menu behind it: the pill is a label. */}
-        {!readOnly && <Icon name="chevron-down" size={13} className="mode-menu-caret" />}
+        {!readOnly && <Icon name="chevron-down" size={14} className="mode-menu-caret" />}
       </button>
-      {open && (
-        <div className={`mode-menu-drop card mode-menu-${align} ${closing ? 'closing' : ''}`}>
-          {TRAVEL_MODES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={current === m ? 'active' : ''}
-              // close(), not setOpen(false): picking one is the same gesture
-              // as tapping away, and it used to skip the exit and simply
-              // vanish while the other way out played its animation.
-              onClick={() => {
-                onPick(m);
-                close();
-              }}
-            >
-              <Icon name={MODE_ICON[m] ?? 'car'} size={16} />
-              {MODE_LABEL[m]}
-            </button>
-          ))}
-        </div>
-      )}
+      <ModeDrop
+        anchor={pillRef.current}
+        open={open}
+        align={align}
+        icon={icon}
+        text={text}
+        current={current}
+        onClose={() => setOpen(false)}
+        onPick={onPick}
+      />
     </div>
+  );
+}
+
+/** How long the unfolded mode pill takes to fold back (Planner.kt ModeDrop);
+ *  it opens in 260 ms (plan.css). */
+const DROP_CLOSE_MS = 200;
+
+/**
+ * The mode pill opened: the pill itself grows longer and on into a list, one
+ * shape in its own colour the whole way, the chosen mode exactly where the
+ * pill was and the others under it. It lies over what is below (nothing
+ * shifts). With too little room below it opens upwards, the chosen mode then
+ * at the bottom. A pick, a tap anywhere else or a scroll folds it back into
+ * the pill; unfolding and folding each give a light tick.
+ */
+function ModeDrop({
+  anchor,
+  open,
+  align,
+  icon,
+  text,
+  current,
+  onClose,
+  onPick,
+}: {
+  anchor: HTMLElement | null;
+  open: boolean;
+  align: 'left' | 'right';
+  icon: IconName;
+  text: string;
+  current?: TravelMode;
+  onClose: () => void;
+  onPick: (mode: TravelMode) => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [layout, setLayout] = useState<{
+    left: number;
+    top: number;
+    up: boolean;
+    clip: string;
+    pillH: number;
+  } | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const timer = useRef<number | undefined>(undefined);
+  const wasOpen = useRef(false);
+
+  useEffect(() => {
+    window.clearTimeout(timer.current);
+    if (open) {
+      wasOpen.current = true;
+      setMounted(true);
+      haptic('light');
+    } else if (wasOpen.current) {
+      wasOpen.current = false;
+      haptic('light');
+      setExpanded(false);
+      timer.current = window.setTimeout(() => {
+        setMounted(false);
+        setLayout(null);
+      }, DROP_CLOSE_MS + 40);
+    }
+    return () => window.clearTimeout(timer.current);
+  }, [open]);
+
+  // On the pill exactly: same left edge (a pill near the right edge keeps its
+  // right edge instead), downwards whenever it fits, upwards only near the
+  // bottom of the screen. Placed before it is drawn, so it never shows a
+  // frame on the wrong side.
+  useLayoutEffect(() => {
+    if (!mounted || !open || !anchor || !ref.current) return;
+    const p = anchor.getBoundingClientRect();
+    const m = ref.current.getBoundingClientRect();
+    const margin = 12;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const fitsLeft = align === 'left' ? p.left + m.width <= vw - margin : p.right - m.width < margin;
+    const left = fitsLeft ? p.left : p.right - m.width;
+    const up = p.top + m.height > vh - margin && p.bottom - m.height >= margin;
+    const top = up ? p.bottom - m.height : p.top;
+    const t = up ? m.height - p.height : 0;
+    const b = up ? 0 : m.height - p.height;
+    const l = fitsLeft ? 0 : m.width - p.width;
+    const r = fitsLeft ? m.width - p.width : 0;
+    setLayout({
+      left,
+      top,
+      up,
+      pillH: p.height,
+      clip: `inset(${t}px ${r}px ${b}px ${l}px round ${p.height / 2}px)`,
+    });
+  }, [mounted, open, anchor, align]);
+
+  useEffect(() => {
+    if (!open || !layout) return;
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setExpanded(true)));
+    return () => cancelAnimationFrame(id);
+  }, [open, layout]);
+
+  // A tap beside it still reaches the page (a scroll scrolls) while the pill
+  // folds shut.
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || anchor?.contains(target)) return;
+      closeRef.current();
+    };
+    const away = (e: Event) => {
+      if (ref.current?.contains(e.target as Node)) return;
+      closeRef.current();
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeRef.current();
+    };
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('keydown', key);
+    window.addEventListener('scroll', away, true);
+    window.addEventListener('resize', away);
+    return () => {
+      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('keydown', key);
+      window.removeEventListener('scroll', away, true);
+      window.removeEventListener('resize', away);
+    };
+  }, [open, anchor]);
+
+  if (!mounted) return null;
+
+  const others = TRAVEL_MODES.filter((m) => m !== current);
+  const head = (
+    <button
+      type="button"
+      className="mode-drop-head"
+      style={layout ? { height: layout.pillH } : undefined}
+      onClick={() => closeRef.current()}
+    >
+      <Icon name={icon} size={16} />
+      <span>{text}</span>
+      <Icon name="chevron-down" size={14} className="mode-drop-caret" />
+    </button>
+  );
+  const choices = (layout?.up ? [...others].reverse() : others).map((m) => (
+    <button
+      key={m}
+      type="button"
+      role="menuitem"
+      className="mode-drop-choice"
+      onClick={() => {
+        onPick(m);
+        closeRef.current();
+      }}
+    >
+      <Icon name={MODE_ICON[m] ?? 'car'} size={16} />
+      <span>{MODE_LABEL[m]}</span>
+    </button>
+  ));
+  const line = <span className="mode-drop-line" aria-hidden="true" />;
+
+  return createPortal(
+    <div
+      ref={ref}
+      role="menu"
+      className={`mode-drop ${expanded ? 'expanded' : ''} ${layout?.up ? 'up' : ''} ${
+        layout ? '' : 'measuring'
+      }`}
+      style={{
+        left: layout?.left ?? -9999,
+        top: layout?.top ?? 0,
+        clipPath: expanded ? 'inset(0px round 16px)' : layout?.clip,
+      }}
+    >
+      {layout?.up ? (
+        <>
+          {choices}
+          {line}
+          {head}
+        </>
+      ) : (
+        <>
+          {head}
+          {line}
+          {choices}
+        </>
+      )}
+    </div>,
+    document.body,
   );
 }

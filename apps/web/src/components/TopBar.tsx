@@ -1,10 +1,12 @@
-import { CSSProperties, useEffect, useRef, useState } from 'react';
+import { CSSProperties, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { Icon, IconName } from './Icon';
 import { LogoMark } from './Logo';
 import { ThemeId, getThemeId, setThemeId } from '../lib/prefs';
 import { Avatar } from './Avatar';
+import { AppMenu } from './AppMenu';
+import { confirmModal } from './confirm';
 import './topbar.css';
 import { travellersTabLabel } from '../lib/localMode';
 import { t } from '../i18n';
@@ -20,9 +22,8 @@ export function TopBar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuClosing, setMenuClosing] = useState(false);
   const [theme, setTheme] = useState<ThemeId>(getThemeId());
-  const menuRef = useRef<HTMLDivElement>(null);
+  const avatarRef = useRef<HTMLButtonElement>(null);
   const { pathname } = useLocation();
 
   // Which tab the sliding thumb sits under. A trip, its planner and its
@@ -38,23 +39,16 @@ export function TopBar() {
         : -1;
   const themeIndex = THEMES.findIndex((t) => t.id === theme);
 
-  /** Shrinks back into the avatar before it goes, rather than blinking out. */
-  const closeMenu = () => {
-    setMenuClosing(true);
-    window.setTimeout(() => {
-      setMenuOpen(false);
-      setMenuClosing(false);
-    }, 140);
-  };
-
-  useEffect(() => {
-    if (!menuOpen || menuClosing) return;
-    const close = (e: Event) => {
-      if (!menuRef.current?.contains(e.target as Node)) closeMenu();
-    };
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
-  }, [menuOpen, menuClosing]);
+  /** Logging out asks first, as on the native apps. */
+  async function askLogout() {
+    const ok = await confirmModal({
+      title: t('ui.topBar.logout'),
+      body: t('ui.topBar.logoutBody'),
+      confirmLabel: t('ui.topBar.logout'),
+      danger: true,
+    });
+    if (ok) logout();
+  }
 
   return (
     <header className="topbar">
@@ -107,11 +101,14 @@ export function TopBar() {
           ))}
         </div>
 
-        <div className="topbar-user" ref={menuRef}>
+        <div className="topbar-user">
           <button
+            ref={avatarRef}
             className="topbar-avatar-btn"
-            onClick={() => (menuOpen && !menuClosing ? closeMenu() : setMenuOpen(true))}
+            onClick={() => setMenuOpen((o) => !o)}
             aria-label={t('ui.topBar.accountMenu')}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
           >
             {user && (
               <Avatar
@@ -122,26 +119,24 @@ export function TopBar() {
               />
             )}
           </button>
-
-          {menuOpen && (
-            <div className={`topbar-menu card ${menuClosing ? 'closing' : ''}`}>
-              <div className="topbar-menu-head">
+          <AppMenu
+            anchor={avatarRef.current}
+            open={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            buttonColor="var(--surface-high)"
+            header={
+              <>
                 <strong>{user?.displayName}</strong>
-                <span className="muted">@{user?.username}</span>
-              </div>
-              <button
-                onClick={() => {
-                  closeMenu();
-                  navigate('/settings');
-                }}
-              >
-                {t('common.settings')}
-              </button>
-              <button className="topbar-menu-danger" onClick={logout}>
-                {t('ui.topBar.logout')}
-              </button>
-            </div>
-          )}
+                <span>@{user?.username}</span>
+              </>
+            }
+            groups={[
+              [
+                { label: t('common.settings'), icon: 'settings', onClick: () => navigate('/settings') },
+                { label: t('ui.topBar.logout'), danger: true, onClick: () => void askLogout() },
+              ],
+            ]}
+          />
         </div>
       </div>
     </header>

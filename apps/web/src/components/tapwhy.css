@@ -1,0 +1,40 @@
+/* TapWhy: grey while it cannot be changed; the reason only on a tap. */
+.tap-why {
+  display: grid;
+}
+
+.tap-why-body {
+  transition: opacity 0.2s var(--ease-std);
+}
+
+.tap-why.locked {
+  cursor: not-allowed;
+}
+
+.tap-why.locked .tap-why-body {
+  opacity: 0.45;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Grows open under it rather than pushing the page in one frame. */
+.tap-why-note {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.26s var(--ease-emph), opacity 0.2s var(--ease-std);
+}
+
+.tap-why-note[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.tap-why-note > span {
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 0.45rem;
+  font-size: 0.86rem;
+  color: var(--on-surface-variant);
+}

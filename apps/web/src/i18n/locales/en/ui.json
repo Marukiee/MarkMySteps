@@ -3,6 +3,7 @@
   "ui.theme.dark": "Dark",
   "ui.topBar.theme": "Theme",
   "ui.topBar.accountMenu": "Account menu",
+  "ui.topBar.logoutBody": "You will be signed out on this device.",
   "ui.topBar.logout": "Sign out",
   "ui.boot.slow": "This is taking longer than expected...",
   "ui.crash.body": "This screen got stuck. Everything you saved is safe; only this view gave up.",

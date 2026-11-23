@@ -4,12 +4,16 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.28rem 0.75rem;
+  /* The size and shape of the pills beside it on the row (32px, fully round,
+     Outfit), as the native airport pill. */
+  height: 32px;
+  padding: 0 12px 0 10px;
   border-radius: 999px;
-  background: var(--paper-sunken);
-  border: 1px dashed var(--line);
-  color: var(--ink-soft);
-  font-size: 0.78rem;
+  background: var(--surface-highest);
+  border: 1.5px dashed var(--outline-variant);
+  color: var(--on-surface-variant);
+  font-family: var(--font-brand);
+  font-size: 13px;
   font-weight: 600;
   transition: background 0.15s var(--ease), border-color 0.15s var(--ease),
     transform 0.12s var(--ease);
@@ -25,7 +29,7 @@
 }
 
 .flight-summary.set {
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-low));
   border-style: solid;
   border-color: var(--accent);
   color: var(--accent-ink);
@@ -61,9 +65,7 @@
   position: absolute;
   inset: 0;
   background: rgb(12 16 22 / 0.42);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  animation: feScrimIn 0.2s var(--ease);
+  animation: appScrimIn var(--dur-sheet-in) var(--ease-emph-decel);
 }
 
 .fe-sheet {
@@ -73,44 +75,20 @@
   flex-direction: column;
   width: min(520px, 100%);
   max-height: min(88vh, 720px);
-  background: var(--paper-raised);
-  border-radius: var(--radius-l) var(--radius-l) 0 0;
-  box-shadow: 0 -10px 40px rgb(10 14 20 / 0.3);
+  background: var(--surface-low);
+  border-radius: 28px 28px 0 0;
   padding-bottom: var(--safe-bottom);
   overflow: hidden;
-  animation: feSheetIn 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation: appSheetUp var(--dur-sheet-in) var(--ease-emph-decel);
 }
 
+/* Up and down as one solid panel, the app's one sheet motion. */
 .fe-layer.closing .fe-sheet {
-  animation: feSheetOut 0.2s ease forwards;
+  animation: appSheetDown var(--dur-sheet-out) var(--ease-std) forwards;
 }
 
 .fe-layer.closing .fe-scrim {
-  animation: feScrimOut 0.2s ease forwards;
-}
-
-@keyframes feScrimIn {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes feScrimOut {
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes feSheetIn {
-  from {
-    transform: translateY(100%);
-  }
-}
-
-@keyframes feSheetOut {
-  to {
-    transform: translateY(100%);
-  }
+  animation: appScrimOut var(--dur-sheet-out) var(--ease-std) forwards;
 }
 
 /* Desktop: a centred dialog rather than a bottom sheet. A wide phone is not a
@@ -121,7 +99,7 @@
   }
 
   .fe-sheet {
-    border-radius: var(--radius-l);
+    border-radius: 28px;
     animation-name: feDialogIn;
   }
 

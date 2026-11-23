@@ -3,6 +3,7 @@
   "ui.theme.dark": "Donker",
   "ui.topBar.theme": "Thema",
   "ui.topBar.accountMenu": "Accountmenu",
+  "ui.topBar.logoutBody": "Je logt uit op dit apparaat.",
   "ui.topBar.logout": "Uitloggen",
   "ui.boot.slow": "Dit duurt langer dan verwacht...",
   "ui.crash.body": "Dit scherm liep vast. Wat je had opgeslagen is veilig; alleen deze weergave gaf het op.",

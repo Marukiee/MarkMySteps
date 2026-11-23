@@ -4,6 +4,7 @@ import './bottomnav.css';
 import { travellersTabLabel } from '../lib/localMode';
 import { getNavBarMode, type NavBarMode } from '../lib/prefs';
 import { t } from '../i18n';
+import { haptic } from '../lib/haptics';
 
 const ICONS = {
   // The same compass the site's nav and the wordmark use: a pin said "a place",
@@ -58,26 +59,45 @@ export function BottomNav() {
 
   // The bar slides away rather than unmounting, so it comes back with the same
   // movement. The class on <body> hands the space it was reserving back to the
-  // page — without it every trip page ended in 88px of nothing.
+  // page; without it every trip page ended in 88px of nothing.
   useEffect(() => {
     document.body.classList.toggle('nav-tucked', tucked);
     return () => document.body.classList.remove('nav-tucked');
   }, [tucked]);
 
+  const items = [
+    { to: '/', icon: ICONS.trips, label: t('common.trips'), on: tripsActive },
+    { to: '/friends', icon: ICONS.friends, label: travellersTabLabel(), on: friendsActive },
+    { to: '/settings', icon: ICONS.settings, label: t('common.settings'), on: settingsActive },
+  ];
+
+  // The floating tab bar of the native apps: the open tab widens into an
+  // accent pill with its name. One fixed 260 ms emphasized motion for width
+  // and colour (no spring), so a single tap and quick taps back and forth
+  // look the same. No grey ripple: the pill moving over is the answer.
   return (
     <nav className={`bottomnav ${tucked ? 'tucked' : ''}`} aria-hidden={tucked}>
-      <Link to="/" className={tripsActive ? 'active' : ''}>
-        {ICONS.trips}
-        <span>{t('common.trips')}</span>
-      </Link>
-      <Link to="/friends" className={friendsActive ? 'active' : ''}>
-        {ICONS.friends}
-        <span>{travellersTabLabel()}</span>
-      </Link>
-      <Link to="/settings" className={settingsActive ? 'active' : ''}>
-        {ICONS.settings}
-        <span>{t('common.settings')}</span>
-      </Link>
+      <div className="bottomnav-bar">
+        {items.map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            className={item.on ? 'active' : ''}
+            aria-label={item.label}
+            aria-current={item.on ? 'page' : undefined}
+            onClick={() => {
+              if (!item.on) haptic('light');
+            }}
+          >
+            {item.icon}
+            <span className="bottomnav-label" aria-hidden="true">
+              <span>
+                <span>{item.label}</span>
+              </span>
+            </span>
+          </Link>
+        ))}
+      </div>
     </nav>
   );
 }

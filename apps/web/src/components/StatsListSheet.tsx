@@ -72,7 +72,7 @@ export function StatsListSheet({
   function close() {
     if (closing) return;
     setClosing(true);
-    window.setTimeout(onClose, 240);
+    window.setTimeout(onClose, 380);
   }
 
   // The back gesture closes the list rather than leaving the page under it.

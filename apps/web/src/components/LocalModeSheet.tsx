@@ -130,7 +130,7 @@ export function LocalModeSheet({
 
   const close = () => {
     setClosing(true);
-    window.setTimeout(onClose, 220);
+    window.setTimeout(onClose, 380);
   };
   closeRef.current = close;
 
