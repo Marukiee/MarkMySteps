@@ -691,10 +691,10 @@ fun chosenFacts(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<String
         when (f) {
             "km" -> (trip.km?.let { "%,d".format(Lang.locale, it) } ?: "0") to Lang.text(R.string.tripsettings_fact_km)
             "days" -> "${trip.days}" to (if (trip.days == 1) Lang.text(R.string.tripsettings_fact_day) else Lang.text(R.string.tripsettings_fact_days))
-            "stops" -> (if (stopsKnown) "${trip.stops.size}" else null) to (if (trip.stops.size == 1) Lang.text(R.string.tripsettings_fact_stop) else Lang.text(R.string.tripsettings_fact_stops))
+            "stops" -> TripFigures.stopPlaceCount(trip.stops).let { n -> (if (stopsKnown) "$n" else null) to (if (n == 1) Lang.text(R.string.tripsettings_fact_stop) else Lang.text(R.string.tripsettings_fact_stops)) }
             "photos" -> (photos?.toString() ?: if (trip.remoteId != null) null else "${trip.photos}") to Lang.text(R.string.tripsettings_fact_photos)
             "travellers" -> "${trip.people.size + trip.extraPeople}" to Lang.text(R.string.tripsettings_fact_travellers)
-            else -> (if (stopsKnown) "${trip.stops.map { it.flag }.distinct().size}" else null) to Lang.text(R.string.tripsettings_fact_countries)
+            else -> (if (stopsKnown) "${TripFigures.countryCount(trip.stops)}" else null) to Lang.text(R.string.tripsettings_fact_countries)
         }
     }
 }

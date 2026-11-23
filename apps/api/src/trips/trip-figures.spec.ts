@@ -83,6 +83,12 @@ describe('tripDistanceKm', () => {
     expect(km).toBeLessThanOrEqual(119);
   });
 
+  it('stays empty without a recorded route, whatever the plan adds', () => {
+    const granada = stop('Granada');
+    const monachil = stop('Monachil', { parentStopId: granada.id, latitude: 37.133, longitude: -3.537 });
+    expect(tripDistanceKm(0, [granada, monachil], start)).toBe(0);
+  });
+
   it('adds nothing for a flight home', () => {
     const plan = [
       stop('Granada'),

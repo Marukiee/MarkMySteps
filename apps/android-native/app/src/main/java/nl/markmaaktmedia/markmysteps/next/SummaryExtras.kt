@@ -192,7 +192,8 @@ suspend fun weatherFor(trip: Trip): Weather? = withContext(Dispatchers.IO) {
 
 /** The facts of a scoped trip, as the book's tripFacts but in the app's language. */
 fun scopedFacts(trip: Trip, picked: Picked): List<Pair<String, String>> {
-    val countries = trip.stops.map { it.flag }.distinct().size
+    // Only known countries: a stop without one (its 📍) is not a second country.
+    val countries = TripFigures.namedCountries(trip.stops)
     return buildList {
         add("${trip.days}" to Lang.text(R.string.summary_fact_days))
         trip.km?.takeIf { it > 0 }?.let { add("%,d".format(Lang.locale, it) to Lang.text(R.string.summary_fact_km)) }

@@ -149,8 +149,13 @@ type RawStop = {
  * A trip's distance as every screen shows it: what was tracked, plus what
  * tracking never sees, added from the plan (day trips there and back, and a
  * ground leg from or to home typed in by hand, see trip-schedule.ts).
+ *
+ * The extras only top up a recorded route. On their own they are not the
+ * trip's distance: a trip nobody tracked, or one that has not started, would
+ * read "17 km" for a single day trip.
  */
 export function tripDistanceKm(trackedKm: number, stops: PlanStop[], tripStart: Date): number {
+  if (trackedKm <= 0) return 0;
   const extraKm = planTrip(stops, tripStart).extras.reduce((sum, e) => sum + e.km, 0);
   return Math.round(trackedKm + extraKm);
 }

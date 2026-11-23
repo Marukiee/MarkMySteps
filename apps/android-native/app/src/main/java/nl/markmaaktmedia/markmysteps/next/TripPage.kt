@@ -591,39 +591,40 @@ private fun People(people: List<Person>, extra: Int, ring: Color = MaterialTheme
     }
 }
 
-/** The figures of a trip, as (value, label): before it starts, how long until it does and who comes. */
-private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<String?, String>> = if (trip.upcoming) listOfNotNull(
-    trip.startsInDays?.let { "$it" to (if (it == 1) Lang.text(R.string.trip_day_to_go) else Lang.text(R.string.trip_days_to_go)) },
-    "${trip.days}" to Lang.text(R.string.home_days),
-    // As for a past trip: stops only for a route of two or more, travellers only when you are not alone.
-    if (!stopsKnown) null to "stops" else trip.stops.size.takeIf { it > 1 }?.let { "$it" to "stops" },
-    (trip.people.size + trip.extraPeople).takeIf { it > 1 }?.let { "$it" to Lang.text(R.string.trip_fact_travellers) },
-    if (stopsKnown) trip.stops.mapNotNull { it.flag.takeIf { f -> f.isNotBlank() } }.distinct().size.takeIf { it > 0 }?.let { "$it" to (if (it == 1) Lang.text(R.string.trip_fact_country) else Lang.text(R.string.summary_fact_countries)) } else null,
-).take(4) else {
-    // As the web (lib/tripFacts.ts): the first four that have something to say, in a fixed order: distance,
-    // days, stops (only for a route of two or more), photos, travellers (more than you alone), countries.
+/**
+ * The figures of a trip, as (value, label). As the web (lib/tripFacts.ts): the first four that have something to
+ * say, the trip's own choice (Reisinstellingen > Feitjes) first, topped up from a fixed order: distance, days,
+ * stops (only for a route of two or more), photos, travellers (more than you alone), countries. Before it starts,
+ * how long until it does comes first, and distance and photos wait for the trip itself. A trip under way counts
+ * as one that has started: its kilometres and photos are what is new on it.
+ */
+private fun factsOf(trip: Trip, photos: Int?, stopsKnown: Boolean): List<Pair<String?, String>> {
+    val beforeStart = trip.startsInDays != null
     // While the stops and photos are still on their way, their tiles already stand with their label and only
     // the number waits (null), guessed from what the trip list knows, so the labels never pop in afterwards.
     val travellers = trip.members.count { it.role != "GUEST" }.takeIf { it > 0 } ?: (trip.people.size + trip.extraPeople)
-    val countries = trip.stops.mapNotNull { it.flag.takeIf { f -> f.isNotBlank() } }.distinct().size
+    val stops = TripFigures.stopPlaceCount(trip.stops)
+    val countries = TripFigures.countryCount(trip.stops)
     val photosWaiting = trip.remoteId != null && photos == null
-    // Each figure that has something to say, by its id; the trip's own choice (Reisinstellingen > Feitjes)
-    // comes first, topped up from the fixed order, as the web's resolveFacts.
+    // Each figure that has something to say, by its id.
     val facts = linkedMapOf<String, Pair<String?, String>>()
-    trip.km?.takeIf { it > 0 }?.let { facts["km"] = "%,d".format(Lang.locale, it) to Lang.text(R.string.summary_fact_km) }
+    if (!beforeStart) trip.km?.takeIf { it > 0 }?.let { facts["km"] = "%,d".format(Lang.locale, it) to Lang.text(R.string.summary_fact_km) }
     trip.days.takeIf { it > 0 }?.let { facts["days"] = "$it" to (if (it == 1) Lang.text(R.string.home_day) else Lang.text(R.string.home_days)) }
     // While the page's own stops and photos are on their way, the numbers the trip list already has stand in, so
     // the tiles are filled from the first frame (only a number the list does not know waits).
-    // Best of all the figures this page itself counted last time (the list's own count of stops includes the day
-    // trips, so 8 turned into 5 a moment after opening).
-    if (!stopsKnown) facts["stops"] = (FactsMemory.stops(trip.id) ?: trip.stopPoints.size).takeIf { it > 1 }?.let { "$it" } to "stops" else trip.stops.size.takeIf { it > 1 }?.let { facts["stops"] = "$it" to "stops" }
-    val photoGuess = FactsMemory.photos(trip.id) ?: trip.photos
-    if (photosWaiting) facts["photos"] = photoGuess.takeIf { it > 0 }?.let { "$it" } to (if (photoGuess == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos))
-    else (photos ?: trip.photos).takeIf { it > 0 }?.let { facts["photos"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos)) }
+    // Best of all the figures this page itself counted last time.
+    if (!stopsKnown) facts["stops"] = (FactsMemory.stops(trip.id) ?: trip.stopPoints.size).takeIf { it > 1 }?.let { "$it" } to "stops" else stops.takeIf { it > 1 }?.let { facts["stops"] = "$it" to "stops" }
+    if (!beforeStart) {
+        val photoGuess = FactsMemory.photos(trip.id) ?: trip.photos
+        if (photosWaiting) facts["photos"] = photoGuess.takeIf { it > 0 }?.let { "$it" } to (if (photoGuess == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos))
+        else (photos ?: trip.photos).takeIf { it > 0 }?.let { facts["photos"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_photo) else Lang.text(R.string.summary_fact_photos)) }
+    }
     travellers.takeIf { it > 1 }?.let { facts["travellers"] = "$it" to Lang.text(R.string.trip_fact_travellers) }
-    countries.takeIf { it > 0 }?.let { facts["countries"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_country) else Lang.text(R.string.summary_fact_countries)) }
-    val chosen = TripFactsPref.chosen[trip.id] ?: trip.remoteId?.let { TripFactsPref.chosen[it] }.orEmpty()
-    (chosen + TripFactsPref.Ids).distinct().mapNotNull { facts[it] }.take(4)
+    if (stopsKnown) countries.takeIf { it > 0 }?.let { facts["countries"] = "$it" to (if (it == 1) Lang.text(R.string.trip_fact_country) else Lang.text(R.string.summary_fact_countries)) }
+    val chosen = TripFactsPref.chosen[trip.id] ?: trip.remoteId?.let { TripFactsPref.chosen[it] }
+    if (!beforeStart) return TripFigures.pickFacts(facts, chosen)
+    val toGo = "${trip.startsInDays}" to (if (trip.startsInDays == 1) Lang.text(R.string.trip_day_to_go) else Lang.text(R.string.trip_days_to_go))
+    return listOf(toGo) + TripFigures.pickFacts(facts, chosen, TripFigures.MaxFacts - 1)
 }
 
 /**
@@ -666,8 +667,8 @@ private fun CoverCard(trip: Trip, photos: Int?, modifier: Modifier = Modifier, o
 private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null, stopsKnown: Boolean = true) {
     val items = chosenFacts(trip, photos, stopsKnown) ?: factsOf(trip, photos, stopsKnown)
     // What this page counted, kept for the next time it opens, so its figures stand right from the first frame.
-    androidx.compose.runtime.LaunchedEffect(trip.id, stopsKnown, trip.stops.size, photos) {
-        if (stopsKnown && trip.remoteId != null) FactsMemory.keep(trip.id, stops = trip.stops.size)
+    androidx.compose.runtime.LaunchedEffect(trip.id, stopsKnown, trip.stops, photos) {
+        if (stopsKnown && trip.remoteId != null) FactsMemory.keep(trip.id, stops = TripFigures.stopPlaceCount(trip.stops))
         if (photos != null) FactsMemory.keep(trip.id, photos = photos)
     }
     val opened = remember { android.os.SystemClock.uptimeMillis() }
@@ -696,7 +697,7 @@ private fun Facts(trip: Trip, modifier: Modifier = Modifier, photos: Int? = null
                 bottomStart = if (i == 0) 24.dp else 6.dp, bottomEnd = if (i == lastIndex) 24.dp else 6.dp,
             )
             Column(
-                Modifier.weight(if (i == 0 && trip.upcoming) 1.5f else 1f).clip(shape).background(tile).padding(horizontal = 12.dp, vertical = 12.dp),
+                Modifier.weight(if (i == 0 && trip.startsInDays != null) 1.5f else 1f).clip(shape).background(tile).padding(horizontal = 12.dp, vertical = 12.dp),
             ) {
                 // A value not known yet is simply empty space of the number's exact height (no grey block for a
                 // split second), so the tile keeps its size; the number is there the moment it is known.
