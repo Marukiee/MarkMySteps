@@ -64,6 +64,12 @@ export function TripDetailPage() {
   const [noAccess, setNoAccess] = useState(false);
   const [addPointMode, setAddPointMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  /**
+   * Opened from a group on the map: the viewer pages through only that
+   * group, the photo in front first, as on the native apps. Null for the
+   * whole timeline.
+   */
+  const [lightboxGroup, setLightboxGroup] = useState<MediaItem[] | null>(null);
   /** Read by the scroll handler, which is set up once per trip. */
   const lightboxOpenRef = useRef(false);
   lightboxOpenRef.current = lightboxIndex !== null;
@@ -987,6 +993,7 @@ export function TripDetailPage() {
     (mediaId: string) => {
       const idx = visibleMedia.findIndex((m) => m.id === mediaId);
       if (idx >= 0) {
+        setLightboxGroup(null);
         setLightboxIndex(idx);
         return;
       }
@@ -1069,12 +1076,13 @@ export function TripDetailPage() {
     return () => window.clearTimeout(timer);
   }, [searchParams, setSearchParams, stops, media, visibleMedia, tab, day]);
 
+  const lightboxItems = lightboxGroup ?? visibleMedia;
   useEffect(() => {
     if (lightboxIndex === null) return;
-    const item = visibleMedia[lightboxIndex];
+    const item = lightboxItems[lightboxIndex];
     if (!item) return;
     scrollTimelineTo(item.id);
-  }, [lightboxIndex, visibleMedia, scrollTimelineTo]);
+  }, [lightboxIndex, lightboxItems, scrollTimelineTo]);
 
   if (noAccess && tripId) return <TripAccessPage tripId={tripId} />;
 
@@ -1169,6 +1177,16 @@ export function TripDetailPage() {
           onSelfClick={canEdit ? () => setPointsOpen(true) : undefined}
           onPhotoOpen={openPhoto}
           onPhotoFocus={scrollTimelineTo}
+          onPhotoGroup={(ids, frontId) => {
+            const byId = new Map(media.map((m) => [m.id, m]));
+            const group = [frontId, ...ids.filter((id) => id !== frontId)]
+              .map((id) => byId.get(id))
+              .filter((m): m is MediaItem => Boolean(m));
+            if (group.length === 0) return;
+            setLightboxComments(false);
+            setLightboxGroup(group);
+            setLightboxIndex(0);
+          }}
           clickMode={addPointMode}
           styleUrl={getMapStyle()}
           // Shown whenever this trip is the one being tracked, so you can see
@@ -1379,6 +1397,7 @@ export function TripDetailPage() {
             visibleUsers={visibleUsers}
             showOwner={(trip?.members.length ?? 0) > 1}
             onPhotoClick={(item) => {
+              setLightboxGroup(null);
               setLightboxComments(false);
               setLightboxIndex(visibleMedia.indexOf(item));
             }}
@@ -1386,6 +1405,7 @@ export function TripDetailPage() {
             dayComments={commentsAdapter}
             reactionSummary={reactions.summary}
             onCommentsClick={(item) => {
+              setLightboxGroup(null);
               setLightboxComments(true);
               setLightboxIndex(visibleMedia.indexOf(item));
             }}
@@ -1529,9 +1549,12 @@ export function TripDetailPage() {
 
       {lightboxIndex !== null && (
         <Lightbox
-          items={visibleMedia}
+          items={lightboxItems}
           index={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
+          onClose={() => {
+            setLightboxIndex(null);
+            setLightboxGroup(null);
+          }}
           onNavigate={setLightboxIndex}
           comments={commentsAdapter}
           startWithComments={lightboxComments}

@@ -1,6 +1,5 @@
 import maplibregl, { LngLatBounds, Map as MapLibreMap, StyleSpecification } from '../lib/mapgl';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchBlobUrl } from '../api/client';
 import type { LiveFix } from '../api/types';
 import { getMapStyle, getMapStyleId } from '../lib/prefs';
 import { setDarkBackdrop } from '../lib/native';
@@ -15,6 +14,7 @@ import {
 import { colorForUser, formatDate, formatDateRange } from '../lib/colors';
 import { haptic } from '../lib/haptics';
 import { useNow } from '../lib/lastSeen';
+import { PhotoLayer } from '../lib/photoGroups';
 import './tripmap.css';
 import { paintMarker } from './Flag';
 import { t } from '../i18n';
@@ -56,6 +56,8 @@ interface TripMapProps {
   onLongPress?: (lngLat: { lng: number; lat: number }, at: { x: number; y: number }) => void;
   onPhotoOpen?: (mediaId: string) => void;
   onPhotoFocus?: (mediaId: string) => void;
+  /** A tap on a group of photos: the viewer with only those, the front one first. */
+  onPhotoGroup?: (mediaIds: string[], frontId: string) => void;
   clickMode?: boolean;
   styleUrl: string | StyleSpecification;
   /** Live device location, shown as a Google-Maps-style dot. */
@@ -108,6 +110,7 @@ export function TripMap({
   onLongPress,
   onPhotoOpen,
   onPhotoFocus,
+  onPhotoGroup,
   clickMode,
   styleUrl,
   currentLocation,
@@ -131,9 +134,6 @@ export function TripMap({
   const arcsRef = useRef<ArcOverlay | null>(null);
   /** Whose route is currently drawn, so a redraw knows who is new. */
   const drawnRoutesRef = useRef<Set<string>>(new Set());
-  /** Photo markers by cluster cell, so a redraw can keep what has not moved. */
-  const photoMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
-  const photoTimersRef = useRef<number[]>([]);
   const stopMarkersRef = useRef<maplibregl.Marker[]>([]);
   /** The one open stop label, and the timer that is taking it away again. */
   const stopPopupRef = useRef<maplibregl.Popup | null>(null);
@@ -148,9 +148,6 @@ export function TripMap({
   const autoFitRef = useRef(true);
   autoFitRef.current = autoFit;
   const liveMarkersRef = useRef<maplibregl.Marker[]>([]);
-  // Cache thumbnail object-URLs by media id so re-clustering on zoom reuses the
-  // loaded image instead of flashing the empty placeholder white.
-  const thumbCacheRef = useRef<Map<string, string>>(new Map());
   // Ages on the live markers are relative, so they need their own clock.
   const liveTick = useNow(5_000);
   const waypointDeleteRef = useRef(onWaypointDelete);
@@ -246,6 +243,8 @@ export function TripMap({
   photoOpenRef.current = onPhotoOpen;
   const photoFocusRef = useRef(onPhotoFocus);
   photoFocusRef.current = onPhotoFocus;
+  const photoGroupRef = useRef(onPhotoGroup);
+  photoGroupRef.current = onPhotoGroup;
 
   // Init once.
   useEffect(() => {
@@ -613,145 +612,47 @@ export function TripMap({
     };
   }, []);
 
-  // Photo markers — clustered per zoom level so hundreds of photos never
-  // become hundreds of DOM nodes (each with its own thumbnail fetch).
+  // Photo markers: nested groups per half zoom step, keyed by the photo in
+  // front, gliding apart and together as the zoom passes a step (see
+  // lib/photoGroups). Made once per map; the photos are handed over below.
+  const photoLayerRef = useRef<PhotoLayer | null>(null);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
-    /**
-     * Rebuilds only what changed.
-     *
-     * Every marker used to be torn down and built again on each pass, so the
-     * whole layer blinked: thumbnails were re-attached, entry animations
-     * replayed, and clusters appeared to merge and split even where nothing
-     * about them had moved. Markers are keyed by their cluster cell now, so a
-     * pass keeps the ones that still exist, adds the new ones and fades out
-     * only the ones that really went.
-     */
-    /**
-     * @param animate Whether markers that were not there a moment ago should
-     *   come up rather than appear. True when the set of photos itself changed
-     *   — somebody's photos switched on, a day filter lifted — and false when
-     *   the same photos are merely regrouping under a new zoom level, where a
-     *   fade reads as a blink.
-     */
-    const draw = (animate: boolean) => {
-      const live = photoMarkersRef.current;
-      if (hidePhotos) {
-        // Switched off: they leave the way a cluster does, rather than being
-        // there one frame and gone the next.
-        for (const [key, marker] of live) {
-          live.delete(key);
-          marker.getElement().classList.add('leaving');
-          const timer = window.setTimeout(() => {
-            marker.remove();
-            photoTimersRef.current = photoTimersRef.current.filter((t) => t !== timer);
-          }, 200);
-          photoTimersRef.current.push(timer);
+    const layer = new PhotoLayer(map, {
+      onOpen: (group) => {
+        const front = group.front;
+        if (group.members.length > 1 && photoGroupRef.current) {
+          // The viewer with only this group, the photo in front first.
+          photoGroupRef.current(group.members.map((m) => m.id), front.id);
+          photoFocusRef.current?.(front.id);
+          return;
         }
-        return;
-      }
-
-      // Whose photos these are is the caller's decision, not this one's: the
-      // trip page hands over exactly the set it wants on the map, which is no
-      // longer the same set as the routes it is drawing.
-      const withGps = media.filter((m) => m.latitude !== null && m.longitude !== null);
-
-      // Grid-cluster: cell size shrinks as you zoom in. The LEVEL is rounded,
-      // so the grid only changes on a real step of zoom — a two-finger pan
-      // wobbles the zoom by a hundredth, and that used to regroup every photo
-      // on the map halfway through the gesture.
-      const level = Math.round(map.getZoom());
-      const cell = 40 / 2 ** level;
-      const clusters = new Map<string, MediaItem[]>();
-      for (const item of withGps) {
-        const key = `${Math.round(item.latitude! / cell)}:${Math.round(item.longitude! / cell)}`;
-        const list = clusters.get(key) ?? [];
-        list.push(item);
-        clusters.set(key, list);
-      }
-
-      // Gone: fade out where it stood, then take it off the map.
-      for (const [key, marker] of live) {
-        if (clusters.has(key)) continue;
-        live.delete(key);
-        marker.getElement().classList.add('leaving');
-        const timer = window.setTimeout(() => {
-          marker.remove();
-          photoTimersRef.current = photoTimersRef.current.filter((t) => t !== timer);
-        }, 200);
-        photoTimersRef.current.push(timer);
-      }
-
-      for (const [key, items] of clusters) {
-        if (live.has(key)) continue;
-        const representative = items[0]!;
-        const el = document.createElement('div');
-        el.className = 'photo-marker';
-        el.style.borderColor = colorForUser(representative.userId);
-        if (items.length > 1) {
-          const badge = document.createElement('span');
-          badge.className = 'photo-marker-count';
-          badge.textContent = items.length > 99 ? '99+' : String(items.length);
-          el.appendChild(badge);
+        if (group.members.length > 1) {
+          map.easeTo({
+            center: [front.longitude, front.latitude],
+            zoom: Math.min(map.getZoom() + 2.5, 16),
+          });
+          photoFocusRef.current?.(front.id);
+          return;
         }
-        const cached = thumbCacheRef.current.get(representative.id);
-        if (cached) {
-          // Instant — no white placeholder. And on a re-cluster the fade-in is
-          // skipped as well, or every marker on the map blinks each time the
-          // zoom crosses a level.
-          el.style.backgroundImage = `url(${cached})`;
-          if (!animate) el.style.animation = 'none';
-        } else {
-          void fetchBlobUrl(`/media/${representative.id}/thumbnail?size=thumbnail`)
-            .then((url) => {
-              thumbCacheRef.current.set(representative.id, url);
-              el.style.backgroundImage = `url(${url})`;
-            })
-            .catch(() => el.classList.add('photo-marker-error'));
-        }
-
-        // Single photo → open it; a cluster → zoom in to split it.
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (items.length > 1) {
-            map.easeTo({
-              center: [representative.longitude!, representative.latitude!],
-              zoom: Math.min(map.getZoom() + 2.5, 16),
-            });
-            photoFocusRef.current?.(representative.id);
-          } else {
-            photoOpenRef.current?.(representative.id);
-          }
-        });
-
-        // Anchor on the representative photo's own location (a real point on
-        // the route) — averaging pulls markers off the travelled line.
-        live.set(
-          key,
-          new maplibregl.Marker({ element: el })
-            .setLngLat([representative.longitude!, representative.latitude!])
-            .addTo(map),
-        );
-      }
-    };
-
-    draw(true);
-    // Only when the rounded zoom actually changes: zoomend fires for the
-    // hundredth of a level a pinch-pan leaves behind, and regrouping there is
-    // both pointless and visible.
-    let lastLevel = Math.round(map.getZoom());
-    const onZoom = () => {
-      const level = Math.round(map.getZoom());
-      if (level === lastLevel) return;
-      lastLevel = level;
-      draw(false);
-    };
+        photoOpenRef.current?.(front.id);
+      },
+    });
+    photoLayerRef.current = layer;
+    // Groups change only when the zoom has settled on another half step, so
+    // a pan (which wobbles the zoom by a hundredth) never regroups.
+    const onZoom = () => layer.regroup();
     map.on('zoomend', onZoom);
     return () => {
       map.off('zoomend', onZoom);
+      layer.destroy();
+      photoLayerRef.current = null;
     };
+  }, []);
+
+  useEffect(() => {
+    photoLayerRef.current?.setPhotos(media, Boolean(hidePhotos));
   }, [media, hidePhotos]);
 
   // Planned stops: numbered/flag markers + connecting legs (flights as arcs).
