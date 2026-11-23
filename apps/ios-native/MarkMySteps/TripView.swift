@@ -508,12 +508,34 @@ struct TripView: View {
                 .accessibilityLabel("Kaart vergroten")
             }
             .overlay(alignment: .bottomLeading) {
-                // The day on the map, level with the expand button, as on Android.
-                if mapDays.count >= 2 {
-                    MapDayPill(trip: trip, days: mapDays, day: $mapDay)
-                        .padding(.leading, 14)
-                        .padding(.bottom, 42)
+                // The day on the map, level with the expand button, as on Android; above it, while every
+                // traveller's photos are switched off, a pill that says so and opens the map settings.
+                VStack(alignment: .leading, spacing: 8) {
+                    if photoUsers?.isEmpty == true {
+                        Button {
+                            Haptic.tap()
+                            showMapStyle = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "camera").font(.system(size: 13, weight: .semibold))
+                                Text("Foto's staan uit op de kaart").font(.outfit(14, 600)).lineLimit(1)
+                            }
+                            .foregroundStyle(Brand.ink)
+                            .padding(.horizontal, 14)
+                            .frame(height: 40)
+                            .contentShape(.capsule)
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                        .transition(.scale(scale: 0.8, anchor: .bottomLeading).combined(with: .opacity))
+                    }
+                    if mapDays.count >= 2 {
+                        MapDayPill(trip: trip, days: mapDays, day: $mapDay)
+                    }
                 }
+                .animation(.calm, value: photoUsers?.isEmpty == true)
+                .padding(.leading, 14)
+                .padding(.bottom, 42)
             }
             .matchedTransitionSource(id: "map", in: ns)
     }

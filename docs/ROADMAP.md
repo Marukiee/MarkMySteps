@@ -13,7 +13,7 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 
 - [ ] iPhone: overgezet en gebouwd (twee delen samengevoegd); nog zelf
       nalopen op de simulator. Nog open op iPhone: lijn in het gat bij slepen,
-      melding als alle foto's uit staan, tijdlijnrijen die bij foto's
+tijdlijnrijen die bij foto's
       inpoppen, dagpil die een pin kan bedekken (Mark beslist), routes per
       reiziger.
 - [ ] iPhone: alle animaties nalopen, gelijk aan Android en mooi (in het
