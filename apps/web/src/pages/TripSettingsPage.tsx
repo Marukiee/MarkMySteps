@@ -16,7 +16,9 @@ import {
   importDeviceMedia,
   listDeviceMedia,
 } from '../lib/deviceMedia';
-import { tripCoverBg } from '../lib/colors';
+import { formatDateRange, tripCoverBg } from '../lib/colors';
+import { CoverSheet } from '../components/CoverSheet';
+import { TapWhy } from '../components/TapWhy';
 import { isLocalMode } from '../lib/localMode';
 import { canEditTrip, canTrackTrip } from '../lib/perm';
 import { tripGlyph, tripGlyphSize, tripGlyphStroke } from '../lib/tripGlyph';
@@ -74,8 +76,9 @@ export function TripSettingsPage() {
   const [deviceCount, setDeviceCount] = useState<number | null>(null);
   const [deviceBusy, setDeviceBusy] = useState(false);
   const [deviceMsg, setDeviceMsg] = useState<string | null>(null);
-  /** Whether the tracker is on THIS trip right now — see the tracking section. */
+  /** Whether the tracker is on THIS trip right now: see the tracking section. */
   const [trackingHere, setTrackingHere] = useState(false);
+  const [coverOpen, setCoverOpen] = useState(false);
 
   useEffect(() => onTrackerChange((s) => setTrackingHere(!!tripId && s.tripId === tripId)), [tripId]);
 
@@ -361,58 +364,70 @@ export function TripSettingsPage() {
         </span>
       </div>
 
-      {/* Always the same frame, whether or not there is a photo in it. It used
-          to appear only once a cover existed, so a trip that has not happened
-          yet showed the loading sweep for an instant and then dropped the
-          whole block — which read as the page glitching. No photo now means
-          the trip's own colour and its glyph, exactly like its card. */}
-      {/* And the frame is up before the trip is. It used to wait for the trip
-          to load, so the whole page under it dropped a picture's height the
-          moment it arrived. Nothing is known about the cover yet, so the frame
-          holds its own space and sweeps until it is. */}
-      {!trip && (
-        <div className="ts-cover">
-          <span className="ts-cover-skeleton" aria-hidden="true" />
-        </div>
-      )}
-
-      {trip && (
-        <div
-          className={`ts-cover ${trip.resolvedCoverId ? '' : 'no-photo'}`}
-          style={trip.resolvedCoverId ? undefined : { background: tripCoverBg(trip) }}
-        >
-          {trip.resolvedCoverId ? (
-            <>
-              {/* Holds the frame's space until the photo has decoded. */}
-              <span className="ts-cover-skeleton" aria-hidden="true" />
-              <AuthImage
-                path={`/media/${trip.resolvedCoverId}/thumbnail`}
-                alt=""
-                className="ts-cover-img"
-              />
-            </>
-          ) : (
-            <span className="ts-cover-glyph" data-glyph={tripGlyph(trip.title)} aria-hidden="true">
-              <Icon
-                name={tripGlyph(trip.title)}
-                size={tripGlyphSize(trip.title, 92)}
-                strokeWidth={tripGlyphStroke(trip.title)}
-              />
-            </span>
-          )}
-          <span className="ts-cover-hint">
-            {tr(trip.resolvedCoverId ? 'tripSettings.cover.pick' : 'tripSettings.cover.none', {
-              arrow: () => <Icon name="chevron-right" size={12} />,
-            })}
+      {/* The same front as the trip page's cover: the photo edge to edge with a
+          soft dark fade, or the trip's own colour; the name in Outfit and the
+          dates over it; choosing another cover top right. No faces. The frame
+          holds its 236px from the first frame, before the trip is known. */}
+      <div
+        className={`ts-hero ${trip?.resolvedCoverId ? 'has-photo' : ''}`}
+        style={trip && !trip.resolvedCoverId ? { background: tripCoverBg(trip) } : undefined}
+      >
+        {!trip && <span className="ts-cover-skeleton" aria-hidden="true" />}
+        {trip?.resolvedCoverId && (
+          <>
+            <span className="ts-cover-skeleton" aria-hidden="true" />
+            <AuthImage
+              path={`/media/${trip.resolvedCoverId}/thumbnail`}
+              alt=""
+              className="ts-cover-img"
+            />
+          </>
+        )}
+        {trip && !trip.resolvedCoverId && (
+          <span className="ts-cover-glyph" data-glyph={tripGlyph(trip.title)} aria-hidden="true">
+            <Icon
+              name={tripGlyph(trip.title)}
+              size={tripGlyphSize(trip.title, 92)}
+              strokeWidth={tripGlyphStroke(trip.title)}
+            />
           </span>
-        </div>
+        )}
+        <span className="ts-hero-shade" aria-hidden="true" />
+        {trip && isOwner && (
+          <button type="button" className="ts-hero-cover" onClick={() => setCoverOpen(true)}>
+            <Icon name="camera" size={16} />
+            {t('tripSettings.cover.choose')}
+          </button>
+        )}
+        {trip && (
+          <div className="ts-hero-text">
+            <h2>{title.trim() || trip.title}</h2>
+            {startDate && endDate && <span>{formatDateRange(startDate, endDate)}</span>}
+          </div>
+        )}
+      </div>
+      {coverOpen && trip && tripId && (
+        <CoverSheet
+          tripId={tripId}
+          current={trip.coverMediaId ?? null}
+          onClose={() => setCoverOpen(false)}
+          onPicked={load}
+        />
       )}
 
-      {isOwner ? (
+      {/* Everyone sees the same settings; what only the organiser can change
+          is grey for the others and says why only when tapped. */}
+      <TapWhy locked={!!trip && !isOwner} why={canEdit ? t('tripSettings.notOwner') : t('tripSettings.guest')}>
         <form onSubmit={save} className="ts-form">
           <div className="field">
             <label htmlFor="ts-title">{t('tripSettings.name')}</label>
-            <input id="ts-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input
+              id="ts-title"
+              required
+              value={title}
+              disabled={!isOwner}
+              onChange={(e) => setTitle(e.target.value)}
+            />
           </div>
           <DateRangeField
             id="ts-dates"
@@ -451,13 +466,7 @@ export function TripSettingsPage() {
 
           {error && <p className="error-text">{error}</p>}
         </form>
-      ) : (
-        <p className="muted">
-          {canEdit
-            ? t('tripSettings.notOwner')
-            : t('tripSettings.guest')}
-        </p>
-      )}
+      </TapWhy>
 
       {isOwner && tripId && <FactPicker tripId={tripId} trip={trip} />}
 
@@ -560,51 +569,64 @@ export function TripSettingsPage() {
       <section className="ts-tracking">
         <h2 className="ts-section-title">{t('tripSettings.tracking.title')}</h2>
 
-        {/* Still running counts as reason enough to show the button: a trip that
-            has ended cannot be started, but it can certainly still be stopped,
-            and hiding the control left it recording with no way to say no. */}
-        {isNative() && tripId && (canTrack || trackingHere) && (
+        {/* A trip that is over has nothing to start, so no panel for it (the
+            grey switch below says so when tapped). Still running counts as
+            reason enough to show it: a trip that has ended cannot be started,
+            but it can certainly still be stopped. Somebody who may not track
+            sees the button grey, and why only when tapping it. */}
+        {isNative() && tripId && (!ended || trackingHere) && (
           <div className="ts-track-box">
             <div>
               <strong>{t('tripSettings.tracking.now')}</strong>
               <span className="muted">
-                {canTrack
+                {canTrack || !trackingHere
                   ? t('tripSettings.tracking.nowBody')
                   : t('tripSettings.tracking.nowEnded')}
               </span>
             </div>
-            <TrackButton tripId={tripId} />
+            <TapWhy
+              locked={!canTrack && !trackingHere}
+              why={
+                me?.role === 'GUEST'
+                  ? t('tripSettings.tracking.guest')
+                  : t('tripSettings.tracking.notAllowed')
+              }
+            >
+              <TrackButton tripId={tripId} />
+            </TapWhy>
           </div>
-        )}
-        {isNative() && tripId && !canTrack && !trackingHere && (
-          <p className="muted">
-            {ended
-              ? t('tripSettings.tracking.ended')
-              : me?.role === 'GUEST'
-                ? t('tripSettings.tracking.guest')
-                : t('tripSettings.tracking.notAllowed')}
-          </p>
         )}
 
         {/* The pointer to the app-wide settings lives inside this box rather
             than under it: it is about the same thing the toggle is, and on its
             own it read as a stray line between two framed blocks. */}
-        <div className={`ts-auto-box ${ended ? 'ts-disabled' : ''}`}>
-          <label className="ts-toggle">
-            <div>
-              <strong>{t('tripSettings.tracking.auto')}</strong>
-              <span className="muted">{t('tripSettings.tracking.autoBody')}</span>
-            </div>
-            <input
-              type="checkbox"
-              checked={autoTrack}
-              disabled={!isOwner || ended}
-              onChange={(e) => {
-                setAutoTrack(e.target.checked);
-                if (isOwner) void save();
-              }}
-            />
-          </label>
+        <div className="ts-auto-box">
+          <TapWhy
+            locked={!!trip && (!isOwner || ended)}
+            why={
+              ended
+                ? t('tripSettings.tracking.ended')
+                : canEdit
+                  ? t('tripSettings.notOwner')
+                  : t('tripSettings.guest')
+            }
+          >
+            <label className="ts-toggle">
+              <div>
+                <strong>{t('tripSettings.tracking.auto')}</strong>
+                <span className="muted">{t('tripSettings.tracking.autoBody')}</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={autoTrack}
+                disabled={!isOwner || ended}
+                onChange={(e) => {
+                  setAutoTrack(e.target.checked);
+                  if (isOwner) void save();
+                }}
+              />
+            </label>
+          </TapWhy>
           <p className="muted ts-track-hint">
             {tr('tripSettings.tracking.more', {
               link: (s) => (
