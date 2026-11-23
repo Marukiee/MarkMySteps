@@ -82,8 +82,10 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       bovenaan in de kaartinstellingen. Android, iPhone en web.
 - [x] Routelijn: dunner als je uitzoomt, even dik als eerst vanaf stadsniveau;
       op satelliet geen witte rand meer. Android, iPhone en web.
-- [x] Kaartknoppen lichter met een zweem perzik in plaats van donker beige.
-      Android en web; iPhone houdt echt glas (neemt de kaart over).
+- [x] Kaartknoppen in de achtergrondkleur van de reispagina (eerst perzik,
+      Mark vond dat niet goed). Android en web; iPhone houdt echt glas.
+- [x] Planner web: lijn tussen de stops loopt nu tot de kaart erboven; Spoor
+      tekenen heeft een spooricoon (rails met dwarsliggers).
 - [x] Reisplanner web in app-stijl: tripkleur, lijn tussen de stops, ronde
       kaarten, nummer linksboven, × bij Heen/Terug schuift de rij op in plaats
       van over de pil, Spoor tekenen direct na de vervoerspil (telefoon: alleen

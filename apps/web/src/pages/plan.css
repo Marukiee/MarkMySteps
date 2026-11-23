@@ -2116,7 +2116,9 @@
   content: '';
   position: absolute;
   left: 39px;
-  top: 0;
+  /* Up through the 8px between the rows, so it runs from card to card
+     (Mark: it stopped short of the stop above). */
+  top: -8px;
   bottom: 0;
   width: 2px;
   border-radius: 1px;

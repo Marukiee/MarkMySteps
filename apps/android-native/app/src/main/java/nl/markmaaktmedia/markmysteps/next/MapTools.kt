@@ -80,12 +80,11 @@ private val EyeOff = listOf(P("M3 3l18 18"), P("M10.6 5.1A10 10 0 0 1 12 5c6.5 0
 private val EyeOn = listOf(P("M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"), C(12f, 12f, 3f))
 
 /**
- * The tone of everything that floats on a map. The darker beige (surfaceContainerHighest) looked heavy on the
- * map (Mark: "te donker... wat meer kleur, niet echt fel oranje"): light, with a breath of the accent's peach.
+ * The tone of everything that floats on a map: the trip page's own background (Mark: "dezelfde kleur als de
+ * achtergrond van de reispagina"). The darker beige was too heavy, the peach after it not right either.
  */
 val androidx.compose.material3.ColorScheme.overMap: Color
-    get() = if (background.luminance() < 0.5f) androidx.compose.ui.graphics.lerp(surfaceContainerHigh, primaryContainer, 0.5f)
-    else androidx.compose.ui.graphics.lerp(surfaceContainerLowest, primaryContainer, 0.62f)
+    get() = background
 
 private val PillText = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp)
 

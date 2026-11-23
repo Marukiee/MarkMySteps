@@ -859,7 +859,7 @@ export function TripPlanner({
                             })
                           }
                         >
-                          <Icon name="route" size={15} />
+                          <Icon name="rails" size={16} />
                           <span className="leg-rail-label">{t('planner.drawRails')}</span>
                         </button>
                       )}

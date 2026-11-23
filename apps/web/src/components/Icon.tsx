@@ -18,6 +18,7 @@ export type IconName =
   | 'locate'
   | 'frame'
   | 'route'
+  | 'rails'
   | 'reload'
   | 'sparkle'
   | 'gear'
@@ -365,6 +366,14 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M15 4h3.4A1.6 1.6 0 0 1 20 5.6V9" />
       <path d="M20 15v3.4a1.6 1.6 0 0 1-1.6 1.6H15" />
       <path d="M9 20H5.6A1.6 1.6 0 0 1 4 18.4V15" />
+    </>
+  ),
+  /* A railway track running into the distance: two rails and three sleepers,
+     for "Spoor tekenen". The route arc it used before said nothing about rails. */
+  rails: (
+    <>
+      <path d="M7 21 10.5 3M17 21 13.5 3" />
+      <path d="M5.4 17.5h13.2M7.6 11.5h8.8M9.2 6.3h5.6" />
     </>
   ),
   /* An arc between two dots: the whole route, from one end to the other. Four
