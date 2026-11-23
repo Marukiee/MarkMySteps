@@ -858,12 +858,15 @@ private fun ModeDrop(mode: Mode, onPick: (Mode) -> Unit, onClosed: () -> Unit) {
     var placed by remember { mutableStateOf(false) }
     var atRight by remember { mutableStateOf(false) }
     // Folds out calmly, no overshoot (the expressive spring bounced it), once it knows where it is.
-    LaunchedEffect(placed) { if (placed) { haptics(Haptic.Tap); open.animateTo(1f, tween(260, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f))) } }
+    // One firm tick as it unfolds, exactly once (it used to fire twice by accident, which is the feel Mark liked:
+    // Haptics.unfold plays that on purpose now, for unfolding and folding in alike).
+    var ticked by remember { mutableStateOf(false) }
+    LaunchedEffect(placed) { if (placed) { if (!ticked) { ticked = true; haptics.unfold() }; open.animateTo(1f, tween(260, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f))) } }
     fun close(then: (() -> Unit)? = null) {
         if (closing) return
         closing = true
         // Folding in gets the same light tick as unfolding; a choice already ticked for itself.
-        if (then == null) haptics(Haptic.Tap) else then()
+        if (then == null) haptics.unfold() else then()
         scope.launch { open.animateTo(0f, tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing)); onClosed() }
     }
     val margin = with(density) { 12.dp.roundToPx() }

@@ -7,7 +7,7 @@
     <string name="settings_account">Account</string>
     <string name="settings_account_summary">Profielfoto, naam, wachtwoord, 2FA</string>
     <string name="settings_display">Weergave</string>
-    <string name="settings_display_summary">Thema, reiskaarten, kaartstijl</string>
+    <string name="settings_display_summary">Taal, thema, reiskaarten, kaartstijl</string>
     <string name="settings_preferences">Voorkeuren</string>
     <string name="settings_default_airports">Standaard vliegvelden</string>
     <string name="settings_services">Diensten</string>

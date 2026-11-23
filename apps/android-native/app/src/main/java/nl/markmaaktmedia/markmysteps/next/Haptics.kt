@@ -50,6 +50,14 @@ fun View.haptic(moment: Haptic) {
 class Haptics(private val view: View) {
     operator fun invoke(moment: Haptic) = view.haptic(moment)
     fun toggle(on: Boolean) = view.haptic(if (on) Haptic.ToggleOn else Haptic.ToggleOff)
+    /**
+     * Something folding out or back in (the mode pill): a firm tick, two light ones 14 ms apart that the hand feels
+     * as one. Measured on the pill that Mark liked when it unfolds; folding in now feels the same.
+     */
+    fun unfold() {
+        view.haptic(Haptic.Tap)
+        view.postDelayed({ view.haptic(Haptic.Tap) }, 14)
+    }
 }
 
 @Composable

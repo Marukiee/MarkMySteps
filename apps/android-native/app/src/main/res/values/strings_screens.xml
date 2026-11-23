@@ -7,7 +7,7 @@
     <string name="settings_account">Account</string>
     <string name="settings_account_summary">Profile photo, name, password, 2FA</string>
     <string name="settings_display">Display</string>
-    <string name="settings_display_summary">Theme, trip cards, map style</string>
+    <string name="settings_display_summary">Language, theme, trip cards, map style</string>
     <string name="settings_preferences">Preferences</string>
     <string name="settings_default_airports">Default airports</string>
     <string name="settings_services">Services</string>
