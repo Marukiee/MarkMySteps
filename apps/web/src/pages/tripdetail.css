@@ -1313,9 +1313,9 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 :root {
   /* The buttons on the map in the app's light tone (surfaceContainerHigh), as the native apps; the darker mix
      looked as if they were all being hovered. Hover darkens them a touch. */
-  /* The trip page's own background (Mark: "dezelfde kleur als de achtergrond van de reispagina"), as the
-     apps' overMap. The beige was too heavy, the peach after it not right either. */
-  --td-btn: var(--paper);
+  /* Plain beige, as the apps' overMap (Mark, after trying peach, the page colour, white and rings): a colour
+     was too much, anything lighter vanished on the white map. */
+  --td-btn: var(--surface-high);
   --td-btn-hover: color-mix(in srgb, var(--td-btn) 90%, var(--hover-ink));
   /* A light button on a light map needs a visible edge and a soft lift to read as a button (it floats over the map). */
   --td-btn-edge: rgb(27 37 48 / 0.16);
@@ -1323,7 +1323,7 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 }
 
 :root[data-theme='dark'] {
-  --td-btn: var(--paper);
+  --td-btn: var(--surface-high);
   --td-btn-hover: color-mix(in srgb, var(--td-btn) 88%, var(--hover-ink));
   --td-btn-edge: rgb(255 255 255 / 0.14);
   --td-btn-lift: 0 1px 6px rgb(0 0 0 / 0.35);

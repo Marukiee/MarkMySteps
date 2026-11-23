@@ -64,9 +64,9 @@ Gedrag en detailniveau zijn op beide gelijk.
 - Vlaggen zijn vlakke vlaggen met licht afgeronde hoeken, nooit emoji.
 - Een knop zonder vlak (alleen een icoon op een kaart) heeft ook in animaties
   geen vlak: laat geen rondje verschijnen dat er normaal niet is.
-- Knoppen op een kaart hebben de achtergrondkleur van de pagina zelf
-  (MarkMySteps: #FBF7F2 / web --paper), niet het donkere beige van kaarten en
-  geen gekleurde tint. Actief mag primary zijn.
+- Knoppen op een kaart: effen beige (Android surfaceContainerHighest, web
+  --surface-high), geen kleur, geen rand. Lichter (wit, paginakleur) valt weg
+  op een witte kaart; perzik en mint waren te veel kleur. Actief mag primary.
 - Een routelijn op een kaart volgt de zoom: dun over een heel land, volle dikte
   vanaf stadsniveau. Op een satellietfoto geen witte rand eronder.
 - Een kruisje dat bij hover verschijnt krijgt ruimte (de rij schuift in), het

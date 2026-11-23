@@ -82,8 +82,12 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       bovenaan in de kaartinstellingen. Android, iPhone en web.
 - [x] Routelijn: dunner als je uitzoomt, even dik als eerst vanaf stadsniveau;
       op satelliet geen witte rand meer. Android, iPhone en web.
-- [x] Kaartknoppen in de achtergrondkleur van de reispagina (eerst perzik,
-      Mark vond dat niet goed). Android en web; iPhone houdt echt glas.
+- [x] Kaartknoppen: na perzik, paginakleur, wit, mint en beige met rand voor
+      nu effen beige zonder rand (Android en web; iPhone houdt echt glas).
+- [ ] Cijfertegels onder de omslag en het potlood: Mark vindt ze grauw. Keuze
+      nog open (reiskleur, omslagkleur fris, wit); hij wil geen felle kleur.
+- [x] Updatekaart: controleert bij elke keer openen (ook terug uit de
+      achtergrond), hooguit eens per 2 minuten.
 - [x] Planner web: lijn tussen de stops loopt nu tot de kaart erboven; Spoor
       tekenen heeft een spooricoon (rails met dwarsliggers).
 - [x] Reisplanner web in app-stijl: tripkleur, lijn tussen de stops, ronde
