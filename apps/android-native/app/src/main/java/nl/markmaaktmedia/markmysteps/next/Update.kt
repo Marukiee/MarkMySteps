@@ -44,6 +44,10 @@ object Updates {
                 notificationIcon = R.drawable.ic_stat_compass,
                 // This repo has no changelog.json: the card takes its lines from the release text.
                 changelogPath = null,
+                // Two minutes, not the module's six hours: releases come several times a day, and opening the app
+                // after one has to show the card (Mark). Ten minutes still missed one opened just after a quick look.
+                // GitHub allows 60 unsigned calls an hour; this is at most 30.
+                checkIntervalMs = 2 * 60 * 1000L,
             ),
         )
     }
@@ -58,7 +62,7 @@ object Updates {
         if (s is UpdateState.Available && !allowed(s.release)) u.reset()
     }
 
-    /** At start: at most every six hours, as the card wants. */
+    /** When the app comes to the front: at most every two minutes (see init). */
     suspend fun checkIfDue() {
         val u = updater ?: return
         runCatching { u.checkIfDue() }

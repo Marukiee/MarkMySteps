@@ -526,8 +526,13 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
  * line up with everything above them.
  */
 @media (min-width: 901px) {
-  /* The dot hangs 14 whole pixels into the gutter (the gutter itself is 13.6 px, which left dot and line on
-     different half pixels); the line runs through its middle, 7 px in. */
+  /* A gutter of whole pixels (16), so the dot that hangs 14 px into it stays 2 px inside the column: with
+     13.6 px it stuck 0.4 px out and the column's edge cut it off (Mark), and dot and line fell on different
+     half pixels. The line runs through the dot's middle, 7 px in. */
+  .trip-side {
+    --page-pad: 16px;
+  }
+
   .trip-side .timeline::before {
     left: -8px;
   }

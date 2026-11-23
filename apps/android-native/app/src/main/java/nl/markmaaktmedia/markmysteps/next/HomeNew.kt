@@ -192,8 +192,9 @@ fun HomeNew(dark: Boolean, onLogoTap: () -> Unit, startTrip: String? = null, sta
         LaunchedEffect(Unit) { Data.load() }
         // The old app's sign-in came along (OldApp.kt): straight into the app, no sign-in page, no tour.
         LaunchedEffect(OldApp.adopted) { if (OldApp.adopted && gate == "login") { Onboarding.finish(); gate = "app"; Data.begin() } }
-        // At most every six hours, as the shared updater wants; it only ever offers this app's own apk (Update.kt).
-        LaunchedEffect(Unit) { Updates.checkIfDue() }
+        // Every time the app comes to the front (also back from the background, not only a cold start), at most
+        // every two minutes (Update.kt). Once per cold start every six hours missed a release Mark had just made.
+        androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) { scope.launch { Updates.checkIfDue() } }
         val gateMotion = MaterialTheme.motionScheme
         AnimatedContent(
             gate,
