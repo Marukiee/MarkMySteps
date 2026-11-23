@@ -384,6 +384,22 @@ export function GlobeBackdrop({
       .map((a) => [a.lon, a.lat] as [number, number]);
     const isHomeAirport = (p: [number, number]) =>
       homeAirports.some((h) => distance(h, p) < 0.4);
+    /** Where a trip begins: the first point of its route that is not one of
+     *  your home airports (every default airport counts as home), so a track
+     *  that started with the phone already on at Schiphol puts the trip's dot
+     *  and name where the trip itself starts. */
+    const beginPoint = (trip: GlobeTrip): [number, number] => {
+      for (const seg of trip.path ?? []) for (const p of seg) if (!isHomeAirport(p)) return p;
+      return trip.path?.[0]?.[0] ?? trip.anchor;
+    };
+    const endPoint = (trip: GlobeTrip): [number, number] | null => {
+      const segs = trip.path ?? [];
+      for (let i = segs.length - 1; i >= 0; i--) {
+        const seg = segs[i]!;
+        for (let j = seg.length - 1; j >= 0; j--) if (!isHomeAirport(seg[j]!)) return seg[j]!;
+      }
+      return null;
+    };
 
     const projection = geoOrthographic().clipAngle(90);
     const path = geoPath(projection, ctx);
@@ -929,12 +945,20 @@ export function GlobeBackdrop({
           continue;
         }
         // Collect every ground and flight segment endpoint (start, intermediate flight stops, destination).
+        // Never a home airport, also not for the route's own first point: the
+        // dot goes where the trip begins and ends.
         const tripPoints: [number, number][] = [];
         for (const seg of trip.path ?? []) {
           const firstPt = seg[0];
           const lastPt = seg[seg.length - 1];
-          if (firstPt) tripPoints.push(firstPt);
-          if (lastPt) tripPoints.push(lastPt);
+          if (firstPt && !isHomeAirport(firstPt)) tripPoints.push(firstPt);
+          if (lastPt && !isHomeAirport(lastPt)) tripPoints.push(lastPt);
+        }
+        if ((trip.path ?? []).length > 0) {
+          const b = beginPoint(trip);
+          const e = endPoint(trip);
+          if (!isHomeAirport(b)) tripPoints.push(b);
+          if (e) tripPoints.push(e);
         }
         for (const seg of trip.flights ?? []) {
           const firstPt = seg[0];
@@ -1490,7 +1514,7 @@ export function GlobeBackdrop({
           // and a bare halo read as nothing at all.
           glowRunsNeeded = 2;
           if (now - phaseStart > 5400) glowRuns = glowRunsNeeded;
-          const spot = act.path?.[0]?.[0] ?? act.anchor;
+          const spot = beginPoint(act);
           if (!center || distance(center, spot) <= 90) {
             const pr = projection(spot);
             if (pr) {
@@ -1640,7 +1664,7 @@ export function GlobeBackdrop({
         // placed by hand in the trip settings — then it goes there. Either way
         // it snaps to a dot that is actually drawn, so the card never floats in
         // empty sea beside the route.
-        const want = trip.markerFixed ? trip.anchor : trip.path?.[0]?.[0] ?? trip.anchor;
+        const want = trip.markerFixed ? trip.anchor : beginPoint(trip);
         let base = want;
         let bestD = Infinity;
         for (const pl of places) {
