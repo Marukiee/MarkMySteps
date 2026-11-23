@@ -526,8 +526,9 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
  * line up with everything above them.
  */
 @media (min-width: 901px) {
+  /* Through the middle of the 13 px dot that hangs in the gutter too (dot from -pad to -pad + 13). */
   .trip-side .timeline::before {
-    left: calc(var(--page-pad) * -1 + 2px);
+    left: calc(var(--page-pad) * -1 + 5.5px);
   }
 
   .trip-side .timeline-dot {
@@ -1283,11 +1284,20 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
    buttons at the top are one connected group: round outside, tight where they
    meet. */
 :root {
-  --td-btn: color-mix(in srgb, var(--ink) 9%, var(--paper-sunken));
+  /* The buttons on the map in the app's light tone (surfaceContainerHigh), as the native apps; the darker mix
+     looked as if they were all being hovered. Hover darkens them a touch. */
+  --td-btn: var(--surface-high);
+  --td-btn-hover: color-mix(in srgb, var(--surface-high) 88%, var(--ink));
+  /* A light button on a light map needs a visible edge and a soft lift to read as a button (it floats over the map). */
+  --td-btn-edge: rgb(27 37 48 / 0.16);
+  --td-btn-lift: 0 1px 6px rgb(0 0 0 / 0.12);
 }
 
 :root[data-theme='dark'] {
-  --td-btn: color-mix(in srgb, var(--ink) 13%, var(--paper-raised));
+  --td-btn: var(--surface-high);
+  --td-btn-hover: color-mix(in srgb, var(--surface-high) 84%, #fff);
+  --td-btn-edge: rgb(255 255 255 / 0.14);
+  --td-btn-lift: 0 1px 6px rgb(0 0 0 / 0.35);
 }
 
 .trip-fab,
@@ -1299,14 +1309,25 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 .map-edge-grab span {
   background: var(--td-btn);
   border-color: var(--td-btn);
-  box-shadow: none;
+  /* A fine edge and a soft lift so the light button stands off the light map. */
+  box-shadow: 0 0 0 1px var(--td-btn-edge), var(--td-btn-lift);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
 .trip-fab:hover,
-.map-locate:hover {
-  box-shadow: none;
+.map-locate:hover,
+.map-foldable:not(.map-full) .map-expand:hover,
+.trip-backtop:hover,
+.person-select-btn:hover {
+  background: var(--td-btn-hover);
+  box-shadow: 0 0 0 1px var(--td-btn-edge), var(--td-btn-lift);
+}
+
+/* Nothing grows or shrinks: only the colour answers the pointer. */
+.trip-fab:hover svg,
+.trip-fab:active svg {
+  transform: none;
 }
 
 .trip-detail .trip-map-panel,

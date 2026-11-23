@@ -19,7 +19,8 @@
 .timeline::before {
   content: '';
   position: absolute;
-  left: 0;
+  /* Through the middle of the 13 px day dot, as the apps: the dot spans 0 to 13, the 2 px line 5.5 to 7.5. */
+  left: 5.5px;
   top: 12px;
   bottom: 12px;
   width: 2px;
@@ -118,20 +119,17 @@
    page behind it, so the rail reads as broken around every day rather than
    running straight through a bordered bead. */
 .timeline-dot {
-  width: 10px;
-  height: 10px;
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 0 3px var(--paper);
   z-index: 1;
-  /* Sat centred on the rail, which put half of it out in the page gutter and
-     nearly against the edge of the screen. Nudged right: the rail runs a
-     little off-centre through it, and the dot has room to breathe on both
-     sides. */
-  margin-left: -2px;
-  /* Line up the dot's centre with the date text, not its top. */
-  margin-top: 0.42rem;
+  /* The line runs exactly through its middle (see .timeline::before), as in the apps. */
+  margin-left: 0;
+  /* Its centre on the middle of the date's line. */
+  margin-top: 0.46rem;
 }
 
 .timeline-grid {
@@ -140,7 +138,7 @@
    * start: past the 2px rail at the container's edge, plus the same gutter the
    * page keeps against the screen. See the note on .timeline::before.
    */
-  margin-left: calc(var(--page-pad, 0px) + 2px);
+  margin-left: calc(var(--page-pad, 0px) + 12px);
 }
 
 /*

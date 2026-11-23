@@ -54,6 +54,11 @@ Gedrag en detailniveau zijn op beide gelijk.
 - Iconen zijn getekend (lijniconen), staan echt in het midden van hun vak en
   zijn nooit een letterteken uit een font (geen "→").
 - Iconen bij cijfers staan los op de tegel, niet in een rondje.
+- Hover op het web: alleen de kleur wordt iets donkerder. Niets beweegt omhoog
+  en iconen worden niet groter of kleiner. De gewone kleur is de lichte; een
+  knop mag er nooit uitzien alsof hij al gehoverd wordt.
+- Een lijn met stippen (tijdlijn) loopt precies door het midden van elke stip;
+  meet het na in pixels, op telefoon en desktop.
 - Merkletter (in MarkMySteps Outfit) voor koppen en grote getallen, Inter voor
   tekst.
 - Vlaggen zijn vlakke vlaggen met licht afgeronde hoeken, nooit emoji.

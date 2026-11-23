@@ -344,7 +344,7 @@
 
 /* On the same left edge as the story above it and the photos below. */
 .day-comments {
-  margin: -0.2rem 0 0.9rem calc(var(--page-pad, 0px) + 2px);
+  margin: -0.2rem 0 0.9rem calc(var(--page-pad, 0px) + 12px);
 }
 
 .day-comments .day-comment-preview {

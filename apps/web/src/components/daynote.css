@@ -1,6 +1,6 @@
 .day-note {
   /* On the same left edge as the photos under it (see .timeline-grid). */
-  margin: 0.15rem 0 0.6rem calc(var(--page-pad, 0px) + 2px);
+  margin: 0.15rem 0 0.6rem calc(var(--page-pad, 0px) + 12px);
   display: grid;
   gap: 0.5rem;
 }
