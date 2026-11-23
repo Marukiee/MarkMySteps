@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, ReactNode, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { haversineKm, STOP_NEAR_KM } from '../lib/arc';
 import { t } from '../i18n';
 import './stopjump.css';
@@ -25,6 +25,9 @@ export interface JumpPhoto {
 }
 
 /** Route legs are not places you were; they are the line in between. */
+/** Where each row of places was scrolled to, for as long as the app is open. */
+const railMemory = new Map<string, number>();
+
 const LEG_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
 
 interface Target {
@@ -123,7 +126,6 @@ export function StopJump({
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
   const railRef = useRef<HTMLDivElement>(null);
   /** Which ends of the rail are hiding a tile; drives the fade mask in CSS. */
-  const [edge, setEdge] = useState<'none' | 'start' | 'end' | 'both'>('none');
   const markGone = useCallback((id: string) => {
     setGone((before) => (before.has(id) ? before : new Set(before).add(id)));
   }, []);
@@ -162,33 +164,21 @@ export function StopJump({
   }, [stops, days, media, gone]);
 
   /*
-   * Which ends of the rail have more behind them.
-   *
-   * A tile sliced in half at the edge of the column reads as a bug rather than
-   * as "there is more this way". The mask in CSS softens whichever end is
-   * actually hiding something, and neither when the whole row fits — a first
-   * tile faded away at rest would be the same mistake in the other direction.
+   * The row keeps where you had scrolled it to. Back from a photo, the
+   * settings or another page, the places you were looking at are still in
+   * view instead of the row starting over at the first one. No fade at the
+   * ends: the row runs to the edge of the screen and a cut tile says "more".
    */
-  useEffect(() => {
+  const memoryKey = targets.map((x) => `${x.day}:${x.name}`).join('|');
+  useLayoutEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
-    const measure = () => {
-      const room = rail.scrollWidth - rail.clientWidth;
-      if (room <= 1) return setEdge('none');
-      const atStart = rail.scrollLeft <= 1;
-      const atEnd = rail.scrollLeft >= room - 1;
-      setEdge(atStart ? 'end' : atEnd ? 'start' : 'both');
-    };
-    measure();
-    rail.addEventListener('scroll', measure, { passive: true });
-    const observer = new ResizeObserver(measure);
-    observer.observe(rail);
-    return () => {
-      rail.removeEventListener('scroll', measure);
-      observer.disconnect();
-    };
-    // Re-measured when the row itself changes length.
-  }, [targets.length]);
+    const saved = railMemory.get(memoryKey);
+    if (saved) rail.scrollLeft = saved;
+    const onScroll = () => railMemory.set(memoryKey, rail.scrollLeft);
+    rail.addEventListener('scroll', onScroll, { passive: true });
+    return () => rail.removeEventListener('scroll', onScroll);
+  }, [memoryKey, targets.length >= 2]);
 
   // One tile is not a shortcut, it is a label for the thing you are looking at.
   if (targets.length < 2) return null;
@@ -198,14 +188,22 @@ export function StopJump({
       {/* A row of photographs with no word over it reads as the top of the
           timeline rather than as a way into it. */}
       <h3 className="stop-jump-title">{t('trip.stopJump.title')}</h3>
-      <div className="stop-jump-rail" ref={railRef} data-edge={edge}>
+      <div className="stop-jump-rail" ref={railRef}>
         {targets.map((target, i) => (
           <button
             key={`${target.day}-${target.name}`}
             type="button"
             className={`stop-jump-tile ${target.photoId ? 'has-photo' : ''}`}
             style={{ '--i': i } as CSSProperties}
-            onClick={() => jumpToDay(target.day, target.anchorId)}
+            // The first place of a day lands on the day itself, its heading
+            // just under the map; a second place on the same day (a day trip)
+            // lands on its own photo further down that day.
+            onClick={() =>
+              jumpToDay(
+                target.day,
+                targets.findIndex((x) => x.day === target.day) === i ? null : target.anchorId,
+              )
+            }
           >
             {target.photoId && renderThumb && (
               <span className="stop-jump-photo">
@@ -282,6 +280,7 @@ export function jumpToDay(day: string, photoId?: string | null) {
   if (scroller) {
     const top = box.top - scroller.getBoundingClientRect().top + scroller.scrollTop - margin;
     scroller.scrollTo({ top, behavior: 'smooth' });
+    settle(scroller, el, 3);
     return;
   }
   /*
@@ -294,6 +293,41 @@ export function jumpToDay(day: string, photoId?: string | null) {
   const top = box.top + document.body.scrollTop + (document.scrollingElement?.scrollTop ?? 0) - margin;
   document.body.scrollTo({ top, behavior: 'smooth' });
   document.scrollingElement?.scrollTo({ top, behavior: 'smooth' });
+}
+
+/**
+ * Where a day should come to rest: just under the map pinned over the top of
+ * the list (on a phone), or the top of the scroller beside it (desktop).
+ */
+function landingLine(scroller: HTMLElement, el: HTMLElement): number {
+  const top = scroller.getBoundingClientRect().top;
+  const map = document.querySelector<HTMLElement>('.trip-map-panel');
+  if (!map) return top;
+  const m = map.getBoundingClientRect();
+  const e = el.getBoundingClientRect();
+  const over = m.left < e.right && m.right > e.left && m.top <= top + 1 && m.bottom > top;
+  return over ? m.bottom + 12 : top;
+}
+
+/**
+ * Checks where the jump really ended and finishes it. The map over the list
+ * folds while the page scrolls, so the first aim was taken against a map of
+ * another height; a pass or two more puts the day exactly under it.
+ */
+function settle(scroller: HTMLElement, el: HTMLElement, passes: number): void {
+  if (passes <= 0 || !document.querySelector('.trip-map-panel')) return;
+  let timer = 0;
+  const check = () => {
+    scroller.removeEventListener('scrollend', check);
+    window.clearTimeout(timer);
+    const off = el.getBoundingClientRect().top - landingLine(scroller, el);
+    if (Math.abs(off) < 3) return;
+    scroller.scrollTo({ top: scroller.scrollTop + off, behavior: 'smooth' });
+    settle(scroller, el, passes - 1);
+  };
+  scroller.addEventListener('scrollend', check, { once: true });
+  // Not every browser sends scrollend; a smooth scroll is done well within this.
+  timer = window.setTimeout(check, 900);
 }
 
 /** The nearest ancestor that is actually scrolling, or nothing for the page. */

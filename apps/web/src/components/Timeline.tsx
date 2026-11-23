@@ -3,6 +3,7 @@ import type { MediaItem } from '../api/types';
 import { colorForUser, formatDay } from '../lib/colors';
 import { GRID_ZOOM_PREVIEW, useGridZoom } from '../lib/gridZoom';
 import { AuthImage } from './AuthImage';
+import { SmartImage } from './SmartImage';
 import { DayNote, TripNote } from './DayNote';
 import { Icon } from './Icon';
 import { CommentFlag, DayComments, PhotoCommentsAdapter } from './PhotoComments';
@@ -160,10 +161,10 @@ export function Timeline({
         days={days.map(([day]) => day)}
         media={media}
         renderThumb={(id, onMissing) => (
-          <AuthImage
-            path={`/media/${id}/thumbnail?size=thumbnail`}
-            alt=""
-            className=""
+          <SmartImage
+            candidates={[`/media/${id}/thumbnail?size=thumbnail`, `/media/${id}/thumbnail`]}
+            className="stop-jump-smart"
+            eager
             onMissing={onMissing}
           />
         )}

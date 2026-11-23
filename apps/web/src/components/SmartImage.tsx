@@ -33,6 +33,7 @@ export function SmartImage({
   eager = false,
   draggable,
   onLoad,
+  onMissing,
 }: {
   candidates: string[];
   className?: string;
@@ -41,7 +42,11 @@ export function SmartImage({
   eager?: boolean;
   draggable?: boolean;
   onLoad?: () => void;
+  /** Every candidate failed: the caller may have something else to show. */
+  onMissing?: () => void;
 }) {
+  const missingRef = useRef(onMissing);
+  missingRef.current = onMissing;
   const list = candidates.filter(Boolean);
   const listKey = list.join('|');
   const listKeyRef = useRef(listKey);
@@ -86,6 +91,10 @@ export function SmartImage({
     return () => releases.forEach((r) => r());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listKey]);
+
+  useEffect(() => {
+    if (failedAll) missingRef.current?.();
+  }, [failedAll]);
 
   useEffect(() => {
     if (near || !holderRef.current) return;
