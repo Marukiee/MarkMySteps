@@ -39,7 +39,10 @@ enum ViewerApi {
     /// day trip within 8 km; of two equally near, the one of its own day), else of the stops that cover its day the
     /// nearest within 30 km, else the nearest of all within 30 km, else the first stop (no day trip) that covers the
     /// day. Without the first step a photo taken in Monachil offered "Cover van Granada", 8 km away.
-    static func stopFor(_ media: Media, _ stops: [StopRow]) -> StopRow? {
+    static func stopFor(_ media: Media, _ all: [StopRow]) -> StopRow? {
+        // The way there and back is never the place a photo was taken (a photo near home landed on "Heenreis").
+        let legs: Set<String> = ["Heenreis", "Terugreis", "Heenvlucht", "Terugvlucht"]
+        let stops = all.filter { !legs.contains($0.name) }
         let day = media.takenAt
         let covering = stops.filter { s in
             guard let a = s.arrival, let d = s.departure else { return false }

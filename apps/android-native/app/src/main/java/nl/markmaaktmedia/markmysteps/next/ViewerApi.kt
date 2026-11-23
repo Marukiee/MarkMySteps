@@ -56,7 +56,9 @@ object ViewerApi {
      * that covers the day. Without the first step a photo taken in Monachil offered "Cover van Granada", the
      * stop of that day 8 km away.
      */
-    fun stopFor(media: Media, stops: List<StopRow>): StopRow? {
+    fun stopFor(media: Media, all: List<StopRow>): StopRow? {
+        // The way there and back is never the place a photo was taken (a photo near home landed on "Heenreis").
+        val stops = all.filterNot { it.name in LegNames }
         val day = media.takenAt
         val covering = stops.filter { s -> s.arrival != null && s.departure != null && !day.isBefore(s.arrival) && !day.isAfter(s.departure) }
         if (media.lat != null && media.lon != null) {
@@ -74,6 +76,8 @@ object ViewerApi {
     }
 
     private const val NEAR_KM = 30.0
+    /** The way there and back, by the exact names the server and the web use. */
+    private val LegNames = setOf("Heenreis", "Terugreis", "Heenvlucht", "Terugvlucht")
     /** Taken at a place (as the places row, Places.kt). */
     private const val AT_KM = 8.0
 

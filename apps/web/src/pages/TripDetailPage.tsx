@@ -978,6 +978,10 @@ export function TripDetailPage() {
    */
   const stopForPhoto = useCallback(
     (item: { takenAt: string; latitude?: number | null; longitude?: number | null }) => {
+      // The way there and back is never the place a photo was taken (a photo near home landed on "Heenreis").
+      const places = stops.filter(
+        (s) => !['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht'].includes(s.name),
+      );
       const day = item.takenAt.slice(0, 10);
       const covers = (s: PlannedStop) =>
         s.arrivalDate.slice(0, 10) <= day && day <= s.departureDate.slice(0, 10);
@@ -991,7 +995,7 @@ export function TripDetailPage() {
             .sort((a, b) => a.km - b.km)[0];
         // Taken at a place (8 km): the nearest one, of two as near (a stop visited twice) the one of its
         // own day. Without this a photo taken in Monachil offered "Cover van Granada", 8 km away.
-        const at = stops
+        const at = places
           .filter((s) => s.latitude != null && s.longitude != null)
           .map((s) => ({ stop: s, km: haversineKm([s.longitude!, s.latitude!], here) }))
           .filter((x) => x.km <= 8)
@@ -1000,13 +1004,13 @@ export function TripDetailPage() {
           const pick = at.find((x) => x.km <= at[0]!.km + 1 && covers(x.stop)) ?? at[0]!;
           return { id: pick.stop.id, name: pick.stop.name };
         }
-        const onTheDay = byDistance(stops.filter(covers));
+        const onTheDay = byDistance(places.filter(covers));
         const best =
-          onTheDay && onTheDay.km <= STOP_NEAR_KM ? onTheDay : byDistance(stops);
+          onTheDay && onTheDay.km <= STOP_NEAR_KM ? onTheDay : byDistance(places);
         if (best && best.km <= STOP_NEAR_KM) return { id: best.stop.id, name: best.stop.name };
       }
 
-      const stop = stops.find((s) => !s.parentStopId && covers(s));
+      const stop = places.find((s) => !s.parentStopId && covers(s));
       return stop ? { id: stop.id, name: stop.name } : null;
     },
     [stops],
