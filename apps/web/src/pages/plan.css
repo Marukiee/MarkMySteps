@@ -327,8 +327,7 @@
 }
 
 .leg-toggle:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-s);
+  background: color-mix(in srgb, var(--paper-raised) 90%, var(--ink));
 }
 
 .leg-toggle:active {
@@ -619,6 +618,30 @@
   align-items: center;
   gap: 0.7rem;
   padding: 0.55rem 2.4rem 0.55rem 0.85rem;
+  /* Its line fits the card at any width: see the container rules below. */
+  container-type: inline-size;
+}
+
+/* A narrow side panel: the way there or back keeps its airports and figures on one line inside the card. The
+   vehicle shows as its icon only, the gaps tighten, and the airports pill gives way before anything spills out
+   of the card (that made the whole panel scroll sideways). */
+@container (max-width: 420px) {
+  .flight-leg-head {
+    gap: 0.35rem;
+  }
+
+  .flight-leg-head .mode-menu-face > span {
+    display: none;
+  }
+
+  .flight-leg-head .mode-menu-pill {
+    gap: 0.2rem;
+    padding-inline: 0.55rem;
+  }
+
+  .flight-leg-head > .flight-summary {
+    flex-shrink: 1;
+  }
 }
 
 /* That right-hand inset is room for the delete cross. Read-only there is no

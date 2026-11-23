@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import type { MediaItem, PhotoComment, RouteCollection } from '../api/types';
 import type { PlannedStop } from '../lib/arc';
 import { ArcOverlay, createArcOverlay, drawPlannedStops, groundRuns } from '../lib/mapRoute';
+import { PhotoLayer } from '../lib/photoGroups';
 import { colorForUser, formatDay } from '../lib/colors';
 import { getMapStyle } from '../lib/prefs';
 import { FastScroll } from '../components/FastScroll';
@@ -182,8 +183,6 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const arcsRef = useRef<ArcOverlay | null>(null);
-  // Keyed by cluster cell so a redraw can keep the markers that did not move.
-  const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
 
   // Thumbnails go through plain <img> tags: the token rides along as a query
   // parameter so the browser can lazy-load and cache them itself.
@@ -523,111 +522,48 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     setFreshOpen(true);
   }, [orderedMedia, slug]);
 
-  // Photo markers, clustered per zoom level exactly like the app's map. Placing
-  // one marker per photo piles hundreds of DOM nodes (and their shadows) on top
-  // of each other, which is both unreadable and slow on a phone.
-  //
-  // Markers are kept between redraws and keyed by their cluster cell. Rebuilding
-  // the whole set on every zoom meant every visible thumbnail was requested
-  // again, mid-gesture, which is what made panning and zooming stutter.
+  // Photo markers as in the app: nested groups per half zoom step that glide apart and together as the zoom
+  // passes a step (lib/photoGroups, the same layer as the trip page's map). A group zooms in until it splits; a
+  // single photo opens the viewer.
+  const photoLayerRef = useRef<PhotoLayer | null>(null);
+  const openPhotoRef = useRef<(id: string) => void>(() => undefined);
+  openPhotoRef.current = (id: string) => {
+    setLightboxComments(false);
+    setLightboxIndex(indexOf.get(id) ?? 0);
+  };
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const live = markersRef.current;
-    // A fresh set of photos invalidates every cell: drop what is there rather
-    // than leaving a marker showing a picture that is no longer its cluster's.
-    for (const marker of live.values()) marker.remove();
-    live.clear();
-
-    const draw = () => {
-      const withGps = orderedMedia.filter((m) => m.latitude !== null && m.longitude !== null);
-      // The LEVEL is rounded, so the grid only changes on a real step of zoom.
-      const level = Math.round(map.getZoom());
-      const cell = 40 / 2 ** level;
-
-      // Only what is on screen, plus a screen's worth of margin so a pan does
-      // not arrive at empty map. Zoomed into one city, this is the difference
-      // between forty markers and two thousand.
-      const view = map.getBounds();
-      const padLng = (view.getEast() - view.getWest()) / 2;
-      const padLat = (view.getNorth() - view.getSouth()) / 2;
-      const inView = (lat: number, lon: number) =>
-        lon >= view.getWest() - padLng &&
-        lon <= view.getEast() + padLng &&
-        lat >= view.getSouth() - padLat &&
-        lat <= view.getNorth() + padLat;
-
-      const clusters = new Map<string, SharedMedia[]>();
-      for (const item of withGps) {
-        if (!inView(item.latitude!, item.longitude!)) continue;
-        const key = `${Math.round(item.latitude! / cell)}:${Math.round(item.longitude! / cell)}`;
-        const list = clusters.get(key) ?? [];
-        list.push(item);
-        clusters.set(key, list);
-      }
-
-      for (const [key, marker] of live) {
-        if (clusters.has(key)) continue;
-        marker.remove();
-        live.delete(key);
-      }
-
-      for (const [key, items] of clusters) {
-        if (live.has(key)) continue;
-        const rep = items[0]!;
-        const el = document.createElement('div');
-        el.className = 'photo-marker';
-        el.style.borderColor = colorForUser(rep.userId);
-        el.style.backgroundImage = `url(${thumb(rep.id)})`;
-        if (items.length > 1) {
-          const badge = document.createElement('span');
-          badge.className = 'photo-marker-count';
-          badge.textContent = items.length > 99 ? '99+' : String(items.length);
-          el.appendChild(badge);
+    const layer = new PhotoLayer(map, {
+      thumbUrl: thumb,
+      onOpen: (group) => {
+        const front = group.front;
+        if (group.members.length > 1) {
+          map.easeTo({ center: [front.longitude, front.latitude], zoom: Math.min(map.getZoom() + 2.5, 16) });
+          return;
         }
-        // A single photo opens; a cluster zooms in until it splits.
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (items.length > 1) {
-            map.easeTo({
-              center: [rep.longitude!, rep.latitude!],
-              zoom: Math.min(map.getZoom() + 2.5, 16),
-            });
-          } else {
-            setLightboxComments(false);
-            setLightboxIndex(indexOf.get(rep.id) ?? 0);
-          }
-        });
-        live.set(
-          key,
-          new maplibregl.Marker({ element: el }).setLngLat([rep.longitude!, rep.latitude!]).addTo(map),
-        );
-      }
-    };
-
-    // Redraws land on a frame of their own, and never more than one per frame:
-    // moveend after a fling fires alongside zoomend, and doing the work twice
-    // in the same tick is a visible hitch.
-    let frame = 0;
-    const schedule = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        draw();
-      });
-    };
-
-    if (map.isStyleLoaded()) draw();
-    else map.once('load', draw);
-    map.on('moveend', schedule);
-    map.on('zoomend', schedule);
+        openPhotoRef.current(front.id);
+      },
+    });
+    photoLayerRef.current = layer;
+    const onZoom = (e: { originalEvent?: unknown }) => layer.regroup(Boolean(e.originalEvent));
+    map.on('zoomend', onZoom);
     return () => {
-      map.off('moveend', schedule);
-      map.off('zoomend', schedule);
-      cancelAnimationFrame(frame);
+      map.off('zoomend', onZoom);
+      layer.destroy();
+      photoLayerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderedMedia, indexOf, thumb]);
+  }, [mapReady, thumb]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const layer = photoLayerRef.current;
+    if (!map || !layer) return;
+    const apply = () => layer.setPhotos(orderedMedia as MediaItem[], false);
+    if (map.isStyleLoaded()) apply();
+    else map.once('load', apply);
+  }, [orderedMedia, mapReady, thumb]);
 
   // One section per day, exactly like the app's timeline: the date, the places
   // that day touched (day trips included), the weather, then the photos. The

@@ -141,6 +141,8 @@ const same = (a: LngLat, b: LngLat) => a[0] === b[0] && a[1] === b[1];
 export interface PhotoLayerHandlers {
   /** A tap on a group (or a single photo): its photos, the one in front first. */
   onOpen: (group: PhotoGroup) => void;
+  /** Where a thumbnail is, when it needs no sign-in (a share link); otherwise it is fetched with the session. */
+  thumbUrl?: (id: string) => string;
 }
 
 /**
@@ -237,7 +239,7 @@ export class PhotoLayer {
     face.className = 'pm-face';
     face.style.borderColor = colorForUser(g.front.userId);
     root.appendChild(face);
-    const thumb = this.thumbs.get(g.front.id);
+    const thumb = this.thumbs.get(g.front.id) ?? this.handlers.thumbUrl?.(g.front.id);
     if (thumb) face.style.backgroundImage = `url("${thumb}")`;
     else {
       const id = g.front.id;

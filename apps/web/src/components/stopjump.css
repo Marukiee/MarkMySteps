@@ -102,7 +102,7 @@
 
 @media (hover: hover) {
   .stop-jump-tile:hover .stop-jump-photo img {
-    transform: scale(1.06);
+    filter: brightness(0.9);
   }
 }
 
@@ -122,7 +122,7 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1), opacity 0.28s cubic-bezier(0.2, 0, 0, 1);
+  transition: filter 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* The name sits on the photo, so it needs its own ground to stand on. */
@@ -198,6 +198,24 @@
     padding: 11px 13px;
     font-size: 17px;
     line-height: 19px;
+  }
+}
+
+/* The row ends in a soft fade at a side where more places are hidden, so it does not stop on a cut tile. */
+@media (min-width: 900px) {
+  .share-section .stop-jump-rail {
+    --fade-l: 0px;
+    --fade-r: 0px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent);
+  }
+
+  .share-section .stop-jump-rail[data-start='hidden'] {
+    --fade-l: 72px;
+  }
+
+  .share-section .stop-jump-rail[data-end='hidden'] {
+    --fade-r: 96px;
   }
 }
 

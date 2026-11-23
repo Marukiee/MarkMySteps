@@ -136,9 +136,11 @@
   }
 }
 
+/* Big cards, two in a row on a desktop window (three made them so narrow that the pills and the faces no longer
+   fitted side by side). */
 .trips-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 1.25rem;
 }
 
@@ -152,7 +154,7 @@
   /* Its text scales with its own width, so a narrow card in a row of three still fits its pills and faces. */
   container-type: inline-size;
   cursor: pointer;
-  transition: transform 0.25s var(--ease-emph);
+  transition: filter 0.15s var(--ease-std);
   animation: tripCardIn 0.5s var(--ease) backwards;
 }
 
@@ -174,8 +176,9 @@
 }
 
 @media (hover: hover) {
+  /* Hover darkens it a touch, as the apps' state layer; nothing moves. */
   .trip-card:hover {
-    transform: translateY(-4px);
+    filter: brightness(0.93);
   }
 }
 
@@ -328,12 +331,6 @@
   font-size: clamp(1.3rem, 7.6cqi, 1.75rem);
 }
 
-/* A very narrow card keeps month and days; the kilometres make way for the faces. */
-@container (max-width: 340px) {
-  .tcm-km {
-    display: none;
-  }
-}
 
 .trip-card-meta .trip-card-members {
   flex-shrink: 0;
@@ -417,7 +414,7 @@
   border-radius: 6px;
   cursor: pointer;
   animation: fadeIn 0.35s var(--ease) backwards;
-  transition: transform 0.18s var(--ease-emph);
+  transition: background-color 0.15s var(--ease-std);
 }
 
 :root[data-theme='dark'] .trip-card-compact {
@@ -450,7 +447,11 @@
 
 @media (hover: hover) {
   .trip-card-compact:hover {
-    transform: translateY(-2px);
+    background: color-mix(in srgb, var(--tone, var(--accent)) 26%, color-mix(in srgb, var(--surface-low) 90%, var(--ink)));
+  }
+
+  :root[data-theme='dark'] .trip-card-compact:hover {
+    background: color-mix(in srgb, var(--tone, var(--accent)) 34%, color-mix(in srgb, var(--surface-low) 88%, #fff));
   }
 }
 

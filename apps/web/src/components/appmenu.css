@@ -211,6 +211,17 @@
   border-radius: 20px;
 }
 
+/* The same hover as the lines under them: a touch darker. */
+@media (hover: hover) {
+  .app-menu-choice:not(.on):hover {
+    background: color-mix(in srgb, var(--menu-item) 88%, var(--menu-ink));
+  }
+
+  .app-menu-choice.on:hover {
+    background: color-mix(in srgb, var(--accent) 90%, #000);
+  }
+}
+
 /* A dark screen (the photo viewer): dark tones, never bright white. */
 .app-menu-dark {
   --menu-group: #242c35;

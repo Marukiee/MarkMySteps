@@ -79,7 +79,7 @@ function rememberedShape(): TripShape {
  * a wide window the top of every list is photographs, and the tail folds into
  * rows.
  */
-const LEAD_LARGE = 3;
+const LEAD_LARGE = 2;
 
 /**
  * Whether the window is wide enough for the grid to lay trips side by side.

@@ -175,9 +175,23 @@ export function StopJump({
     if (!rail) return;
     const saved = railMemory.get(memoryKey);
     if (saved) rail.scrollLeft = saved;
-    const onScroll = () => railMemory.set(memoryKey, rail.scrollLeft);
+    // Which ends still hide a tile, for the soft fade at the sides (share link on a wide window).
+    const ends = () => {
+      rail.dataset.start = rail.scrollLeft > 4 ? 'hidden' : 'shown';
+      rail.dataset.end = rail.scrollLeft + rail.clientWidth < rail.scrollWidth - 4 ? 'hidden' : 'shown';
+    };
+    ends();
+    const onScroll = () => {
+      railMemory.set(memoryKey, rail.scrollLeft);
+      ends();
+    };
     rail.addEventListener('scroll', onScroll, { passive: true });
-    return () => rail.removeEventListener('scroll', onScroll);
+    const ro = new ResizeObserver(ends);
+    ro.observe(rail);
+    return () => {
+      rail.removeEventListener('scroll', onScroll);
+      ro.disconnect();
+    };
   }, [memoryKey, targets.length >= 2]);
 
   // One tile is not a shortcut, it is a label for the thing you are looking at.
