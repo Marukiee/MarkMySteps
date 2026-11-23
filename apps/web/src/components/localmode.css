@@ -116,7 +116,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.05rem;
   font-weight: 560;
   letter-spacing: -0.01em;
@@ -190,7 +190,7 @@
   gap: 0.5rem;
   width: 100%;
   padding: 0.9rem 1.1rem;
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.05rem;
   font-weight: 560;
   color: var(--ink);

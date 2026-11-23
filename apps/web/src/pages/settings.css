@@ -3,7 +3,9 @@
 }
 
 .settings-page h1 {
-  font-size: 2rem;
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   margin-bottom: 1.25rem;
 }
 
@@ -27,10 +29,11 @@
 
 .settings-nav button {
   text-align: left;
-  padding: 0.6rem 0.9rem;
-  border-radius: var(--radius-s);
-  font-weight: 550;
-  font-size: 0.95rem;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  font-family: var(--font-brand);
+  font-weight: 600;
+  font-size: 1rem;
   color: var(--ink-soft);
   transition: all 0.15s var(--ease);
 }
@@ -39,9 +42,10 @@
   background: var(--paper-sunken);
 }
 
+/* The open section as the apps' chosen pill: filled in the accent. */
 .settings-nav button.active {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--accent);
+  color: #fff;
 }
 
 .settings-content {
@@ -82,8 +86,8 @@
   }
 
   .settings-nav button.active {
-    background: var(--ink);
-    color: var(--paper);
+    background: var(--accent);
+    color: #fff;
   }
 }
 
@@ -427,7 +431,7 @@
 .settings-version {
   align-self: flex-start;
   margin-top: 0.4rem;
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-weight: 650;
   font-size: 0.9rem;
   color: var(--ink-faint);
@@ -481,7 +485,7 @@
 }
 
 .avatar-meta strong {
-  font-family: var(--font-display, inherit);
+  font-family: var(--font-brand);
   font-size: 1.55rem;
   line-height: 1.15;
   letter-spacing: -0.01em;
@@ -1685,7 +1689,7 @@
 }
 
 .changelog-head strong {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.05rem;
 }
 

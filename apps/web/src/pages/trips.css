@@ -736,6 +736,19 @@
   color: #fff;
 }
 
+/* Never on two lines: a little smaller on a narrow phone instead. */
+.trips-tabs button {
+  white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+  .trips-tabs button {
+    font-size: 1rem;
+    gap: 0.4rem;
+    height: 52px;
+  }
+}
+
 .trips-tabs button:disabled {
   cursor: default;
 }

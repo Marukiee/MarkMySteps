@@ -150,7 +150,7 @@
 }
 
 .stats-list-top strong {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.15rem;
   font-weight: 600;
 }
@@ -168,7 +168,7 @@
 }
 
 .flight-trip .stats-list-what > strong {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.08rem;
   font-weight: 600;
 }
@@ -251,7 +251,7 @@
 }
 
 .flight-stub strong {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.4rem;
   font-weight: 600;
   line-height: 1;
@@ -303,7 +303,7 @@
 }
 
 .flight-code {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.45rem;
   font-weight: 600;
   line-height: 1.05;

@@ -55,6 +55,19 @@
 .stat-grid > .stat-tile:nth-child(3n + 2) { background: var(--tile-2); color: var(--tile-2-ink); --tone: var(--tile-2-ink); }
 .stat-grid > .stat-tile:nth-child(3n) { background: var(--tile-3); color: var(--tile-3-ink); --tone: var(--tile-3-ink); }
 .stat-grid > .stat-tile small { color: inherit; opacity: 0.8; }
+/* One connected block, as the apps: tight between tiles, round at the block's outer corners. */
+.stat-grid {
+  gap: 3px;
+  border-radius: 28px;
+  overflow: hidden;
+}
+.stat-grid > .stat-tile {
+  border-radius: 8px;
+}
+.stat-grid > .stat-tile .stat-tile-icon {
+  color: currentColor;
+  opacity: 0.85;
+}
 
 @keyframes statTileIn {
   from {

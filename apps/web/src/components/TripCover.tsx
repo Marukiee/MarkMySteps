@@ -28,7 +28,9 @@ export function TripCover({
   onPeople?: () => void;
 }) {
   const coverId = trip.resolvedCoverId;
-  const tone = useCoverTone(coverId) ?? trip.color ?? null;
+  // As the apps: the cover's tone, else the trip's own colour, else a calm tone of its own, so the figures
+  // always lean to the trip instead of plain beige.
+  const tone = useCoverTone(coverId) ?? trip.color ?? fallbackTone(trip.id);
   const people = trip.members.filter((m) => m.role !== 'GUEST');
   return (
     <div className="td-cover-block">
@@ -128,6 +130,8 @@ const GUESS: Shown[] = [
 
 /** The page settles for this long before a number that changes rolls over. */
 const SETTLE_MS = 900;
+/** How long after opening a change of a figure still just takes its place, as the apps. */
+const OPENING_MS = 4000;
 
 function FactTiles({ tripId, facts, tone }: { tripId: string; facts: Fact[] | null; tone: string | null }) {
   // What this page counted last time stands from the first frame.
@@ -175,6 +179,12 @@ function RollingNumber({ value, opened }: { value: string | null; opened: number
       if (value !== null) setShown(value);
       return;
     }
+    // While the page opens, what it finds out simply takes its place, no roll (Mark: the figures stand there);
+    // only a change once the page has been open a while rolls, so you see it change.
+    if (performance.now() - opened < OPENING_MS) {
+      setShown(value);
+      return;
+    }
     const wait = Math.max(0, SETTLE_MS - (performance.now() - opened));
     const timer = window.setTimeout(() => {
       const before = shownRef.current;
@@ -213,4 +223,10 @@ function RollingNumber({ value, opened }: { value: string | null; opened: number
 
 function numeric(value: string): number {
   return Number(value.replace(/[^\d]/g, '')) || 0;
+}
+
+function fallbackTone(id: string): string {
+  let hash = 0;
+  for (const char of id) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
+  return `hsl(${hash % 360} 45% 62%)`;
 }

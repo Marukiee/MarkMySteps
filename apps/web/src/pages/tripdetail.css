@@ -936,20 +936,20 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
   margin-top: 1rem;
 }
 
+/* As the apps: two pills side by side, the open one filled in the accent. */
 .side-tabs {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: var(--paper-sunken);
-  border-radius: 999px;
-  padding: 4px;
-  margin-top: 0.75rem;
+  gap: 4px;
+  margin-top: 1rem;
   /* The timeline's first date sat right against the tabs. */
   margin-bottom: 0.6rem;
 }
 
 /* The white pill behind the active tab: one element that moves. */
 .side-tabs-thumb {
+  display: none;
   position: absolute;
   top: 4px;
   bottom: 4px;
@@ -972,16 +972,20 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
 .side-tabs button {
   position: relative;
   z-index: 1;
-  padding: 0.45rem;
+  height: 52px;
+  padding: 0 0.6rem;
   border-radius: 999px;
+  background: var(--surface-high);
+  font-family: var(--font-brand);
   font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--ink-faint);
-  transition: color 0.25s var(--ease);
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+  transition: background 0.26s var(--ease-emph), color 0.26s var(--ease-emph);
 }
 
 .side-tabs button.active {
-  color: var(--ink);
+  background: var(--accent);
+  color: #fff;
 }
 
 /* Inline route planner inside the trip side sheet. */
@@ -1093,7 +1097,7 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
    so hovering another one only warms its label. */
 @media (hover: hover) {
   .side-tabs button:not(.active):hover {
-    color: var(--accent-ink);
+    color: var(--ink);
   }
 }
 
