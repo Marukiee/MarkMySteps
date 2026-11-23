@@ -705,3 +705,33 @@ textarea {
   background: rgb(255 255 255 / 0.2);
 }
 
+
+/* ---------- Sheets ---------- */
+
+/* Every sheet goes up and down the same calm way, as one solid panel from the
+   bottom edge (the native PanelMotion): up with an emphasized decelerate, down
+   in 380 ms FastOutSlowIn, no fade or second movement on the panel itself.
+   Only the dim behind it fades. Top corners 28px. */
+@keyframes appSheetUp {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes appSheetDown {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes appScrimIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes appScrimOut {
+  to {
+    opacity: 0;
+  }
+}

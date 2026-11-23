@@ -9,23 +9,11 @@
   /* Flat, no blur: a blur is redrawn for every frame the list scrolls over
      it, and that was what made the list stutter on the iPhone. */
   background: rgb(16 21 27 / 0.42);
-  animation: statsListBackdropIn 0.28s var(--ease);
+  animation: appScrimIn var(--dur-sheet-in) var(--ease-emph-decel);
 }
 
 .stats-list-backdrop.closing {
-  animation: statsListBackdropOut 0.24s var(--ease) forwards;
-}
-
-@keyframes statsListBackdropIn {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes statsListBackdropOut {
-  to {
-    opacity: 0;
-  }
+  animation: appScrimOut var(--dur-sheet-out) var(--ease-std) forwards;
 }
 
 .stats-list.card,
@@ -37,26 +25,14 @@
   overflow: hidden;
   padding: 0;
   border-bottom: 0;
-  border-radius: var(--radius-l) var(--radius-l) 0 0;
-  animation: statsListUp 0.28s var(--ease);
+  border-radius: 28px 28px 0 0;
+  animation: appSheetUp var(--dur-sheet-in) var(--ease-emph-decel);
   will-change: transform;
 }
 
-.stats-list-backdrop.closing .stats-list:not(.sheet-swiping) {
-  animation: statsListDown 0.24s var(--ease) forwards;
-}
-
 /* Up from the bottom edge and back down to it, as one solid sheet. */
-@keyframes statsListUp {
-  from {
-    transform: translateY(100%);
-  }
-}
-
-@keyframes statsListDown {
-  to {
-    transform: translateY(100%);
-  }
+.stats-list-backdrop.closing .stats-list:not(.sheet-swiping) {
+  animation: appSheetDown var(--dur-sheet-out) var(--ease-std) forwards;
 }
 
 @media (min-width: 860px) and (pointer: fine) {
@@ -66,8 +42,8 @@
 
   .stats-list.card,
   .stats-list {
-    border-radius: var(--radius-l);
-    border-bottom: 1px solid var(--line);
+    border-radius: 28px;
+    border-bottom: 1px solid var(--outline-variant);
   }
 }
 

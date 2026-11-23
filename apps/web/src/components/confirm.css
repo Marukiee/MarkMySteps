@@ -37,11 +37,14 @@
   /* A field keeps a width of its own; this holds it to the card. */
   grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
-  animation: confirmPop 0.22s var(--ease);
+  /* Material's dialog: 28px corners, its own tone, no shadow. */
+  border-radius: 28px;
+  background: var(--surface-high);
+  animation: confirmPop 0.26s var(--ease-emph-decel);
 }
 
 .confirm-backdrop.closing .confirm-card {
-  animation: confirmPopOut 0.18s var(--ease) forwards;
+  animation: confirmPopOut 0.2s var(--ease-std) forwards;
 }
 
 @keyframes confirmPop {
@@ -73,6 +76,29 @@
   justify-content: flex-end;
   gap: 0.6rem;
   margin-top: 0.7rem;
+}
+
+/* Confirming is a filled pill (red to delete or leave), cancelling a tonal
+   pill, never loose text buttons. */
+.confirm-actions .btn {
+  min-height: 40px;
+  padding-inline: 1.3rem;
+}
+
+.confirm-actions .btn-ghost {
+  background: var(--surface-highest);
+  border-color: var(--surface-highest);
+}
+
+.confirm-actions .btn-danger {
+  background: #c8432b;
+  border-color: #c8432b;
+  color: #fff;
+}
+
+.confirm-actions .btn-danger:hover:not(:disabled) {
+  background: #b3402a;
+  border-color: #b3402a;
 }
 
 /* Name-to-confirm, for a deletion that cannot be undone. */
