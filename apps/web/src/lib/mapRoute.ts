@@ -206,7 +206,8 @@ export function drawPlannedStops(
       source: id,
       paint: {
         'line-color': gapColour,
-        'line-width': width,
+        // Thinner over a whole country, full width from city level, as the travelled line.
+        'line-width': ['interpolate', ['linear'], ['zoom'], 4, width * 0.65, 10, width] as unknown as number,
         ...(dash ? { 'line-dasharray': dash } : {}),
       },
       layout: { 'line-cap': 'round' },
