@@ -1,0 +1,24 @@
+/* A photo loaded the way the native apps load it (see SmartImage). */
+.smart-img {
+  display: block;
+  position: relative;
+  overflow: hidden;
+}
+
+.smart-img > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.28s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.smart-img > img.loaded {
+  opacity: 1;
+}
+
+/* Cached, or there within 250 ms: no fade at all. */
+.smart-img > img.instant {
+  transition: none;
+}

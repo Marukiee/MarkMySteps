@@ -4,7 +4,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client';
 import type { LiveFix, MediaItem, PhotoComment, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { AuthImage } from '../components/AuthImage';
 import { ChoiceOption, chooseModal, confirmModal } from '../components/confirm';
 import { DayFilter, type TripDay } from '../components/DayFilter';
 import { Icon } from '../components/Icon';
@@ -22,18 +21,16 @@ import { SummaryPanel } from '../components/SummaryPanel';
 import { Timeline } from '../components/Timeline';
 import { TrackPointsEditor } from '../components/TrackPointsEditor';
 import { TripMap, TripMapApi, Waypoint } from '../components/TripMap';
-import { TripFacts } from '../components/TripFacts';
+import { TripCover } from '../components/TripCover';
 import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
 import { countStopPlaces, haversineKm, STOP_NEAR_KM, type PlannedStop } from '../lib/arc';
 import { popWasOurs, useBackToClose } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
 import { useSheetDismiss } from '../lib/useSheetDismiss';
-import { formatDate, tripCoverBg } from '../lib/colors';
 import { listDeviceMedia } from '../lib/deviceMedia';
 import { useNow } from '../lib/lastSeen';
 import { canEditTrip } from '../lib/perm';
-import { tripGlyph, tripGlyphSize, tripGlyphStroke } from '../lib/tripGlyph';
 import { stableViewportHeight } from '../lib/native';
 import { getMapStyle, getTripFacts } from '../lib/prefs';
 import { countTravellers, FactId, resolveFacts } from '../lib/tripFacts';
@@ -126,6 +123,7 @@ export function TripDetailPage() {
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
+  const [stopsLoaded, setStopsLoaded] = useState(false);
   const [tab, setTab] = useState<'timeline' | 'plan'>('timeline');
   /**
    * Phone only: the map over the whole screen. Folded, it is a strip above the
@@ -489,7 +487,12 @@ export function TripDetailPage() {
         ),
       )
       .catch(() => undefined);
-    api<PlannedStop[]>(`/trips/${tripId}/stops`).then(setStops).catch(() => undefined);
+    api<PlannedStop[]>(`/trips/${tripId}/stops`)
+      .then(setStops)
+      .catch(() => undefined)
+      // Counted only once they are in: on an empty list the stops tile would be
+      // missing first and pop in a moment later.
+      .finally(() => setStopsLoaded(true));
     api<TripStats>(`/trips/${tripId}/stats`).then(setStats).catch(() => undefined);
     api<TripNote[]>(`/trips/${tripId}/notes`).then(setNotes).catch(() => undefined);
     api<PhotoComment[]>(`/trips/${tripId}/comments`).then(setComments).catch(() => undefined);
@@ -1323,57 +1326,29 @@ export function TripDetailPage() {
           </button>,
           document.body,
         )}
-        {/* One header block: cover photo, title, dates and the trip's numbers —
-            rather than a photo followed by a row of separate stat boxes. */}
-        {/* A trip without a photo gets what its card on the home page gets: its
-            own colour and the compass. A blank panel with the numbers floating
-            on it looked like a cover that had failed to load. */}
-        <div
-          className={`trip-headcard ${trip ? 'has-cover' : ''} ${
-            trip && !trip.resolvedCoverId ? 'no-photo' : ''
-          }`}
-          style={trip && !trip.resolvedCoverId ? { background: tripCoverBg(trip) } : undefined}
-        >
-          {trip?.resolvedCoverId && (
-            <AuthImage
-              path={`/media/${trip.resolvedCoverId}/thumbnail`}
-              alt=""
-              className="trip-hero-img"
-            />
-          )}
-          {trip && !trip.resolvedCoverId && (
-            <span className="trip-headcard-glyph" data-glyph={tripGlyph(trip.title)} aria-hidden="true">
-              <Icon
-                name={tripGlyph(trip.title)}
-                size={tripGlyphSize(trip.title, 130)}
-                strokeWidth={tripGlyphStroke(trip.title)}
-              />
-            </span>
-          )}
-          <div className="trip-headcard-body">
-            <h1>{trip?.title ?? '…'}</h1>
-            {trip && (
-              <p className="trip-headcard-dates">
-                {t('common.dateRange', { from: formatDate(trip.startDate), to: formatDate(trip.endDate) })}
-              </p>
-            )}
-            {(
-              <TripFacts
-                facts={!stats ? [] : resolveFacts(
-                  {
-                    distanceKm: stats.distanceKm,
-                    days: stats.days,
-                    stops: countStopPlaces(stops),
-                    photoCount: stats.photoCount,
-                    travellers: countTravellers(trip?.members ?? []),
-                    countries: stats.countries.length,
-                  },
-                  (getTripFacts(tripId ?? '') as FactId[] | null) ?? null,
-                )}
-              />
-            )}
-          </div>
-        </div>
+        {/* The cover as a card with the name, dates and faces, and the figures
+            joined under it in its tone, as on the native apps. */}
+        {trip && (
+          <TripCover
+            trip={trip}
+            facts={
+              !stats || !stopsLoaded
+                ? null
+                : resolveFacts(
+                    {
+                      distanceKm: stats.distanceKm,
+                      days: stats.days,
+                      stops: countStopPlaces(stops),
+                      photoCount: stats.photoCount,
+                      travellers: countTravellers(trip.members),
+                      countries: stats.countries.length,
+                    },
+                    (getTripFacts(tripId ?? '') as FactId[] | null) ?? null,
+                  )
+            }
+            onPeople={() => setPeopleOpen(true)}
+          />
+        )}
         {trip?.description && <p>{trip.description}</p>}
 
         <div className="side-tabs" role="tablist" data-tab={tab}>
