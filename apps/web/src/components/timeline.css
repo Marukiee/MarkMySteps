@@ -51,11 +51,15 @@
 .timeline-day:nth-child(4) { animation-delay: 120ms; }
 .timeline-day:nth-child(5) { animation-delay: 160ms; }
 
+/* The day heading as the apps: Fraunces, large, the dot beside it. */
 .timeline-day h3 {
   display: flex;
   align-items: flex-start;
   gap: 0.7rem;
-  font-size: 1.18rem;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 560;
+  letter-spacing: -0.01em;
   text-transform: capitalize;
 }
 
@@ -74,11 +78,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin-left: 0.15rem;
-  border-radius: 8px;
-  color: var(--ink-faint);
+  /* A round button with the pencil, as the apps. */
+  width: 34px;
+  height: 34px;
+  margin-left: 0.4rem;
+  border-radius: 50%;
+  background: var(--surface-high);
+  color: var(--ink-soft);
   vertical-align: middle;
   transition: color 0.15s var(--ease);
 }

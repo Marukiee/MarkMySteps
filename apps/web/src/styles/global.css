@@ -298,12 +298,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Headings in the brand letter, as the apps (Outfit); Fraunces stays for the day headings of a timeline and the
+   quote of a story. */
 h1,
 h2,
 h3 {
-  font-family: var(--font-display);
-  font-weight: 560;
-  letter-spacing: -0.015em;
+  font-family: var(--font-brand);
+  font-weight: 650;
+  letter-spacing: -0.02em;
   line-height: 1.15;
 }
 

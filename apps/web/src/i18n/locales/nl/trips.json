@@ -25,6 +25,7 @@
   "trips.card.startsIn_other": "over {count} dagen",
   "trips.card.ongoing": "onderweg",
   "trips.card.ongoingWho": "{name} is onderweg",
+  "trips.card.countTail": "tot vertrek",
   "trips.card.daysUnit_one": "dag",
   "trips.card.daysUnit_other": "dagen",
   "trips.card.people": "Mensen en delen",

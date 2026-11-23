@@ -25,6 +25,7 @@
   "trips.card.startsIn_other": "in {count} days",
   "trips.card.ongoing": "travelling",
   "trips.card.ongoingWho": "{name} is travelling",
+  "trips.card.countTail": "to go",
   "trips.card.daysUnit_one": "day",
   "trips.card.daysUnit_other": "days",
   "trips.card.people": "People and sharing",

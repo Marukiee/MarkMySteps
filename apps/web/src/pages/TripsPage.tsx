@@ -1,5 +1,6 @@
 import {
   FormEvent,
+  Fragment,
   MouseEvent,
   useEffect,
   useLayoutEffect,
@@ -19,6 +20,7 @@ import { LogoMark } from '../components/Logo';
 import { Icon } from '../components/Icon';
 import { AppMenu, MENU_CLOSE_MS, MENU_PICK_HOLD_MS, type MenuEntry } from '../components/AppMenu';
 import { coverGradient, formatDate, tripCoverBg } from '../lib/colors';
+import { useCoverTone } from '../lib/coverTone';
 import {
   getShowSelfOnHome,
   getTripCardOverride,
@@ -77,7 +79,7 @@ function rememberedShape(): TripShape {
  * a wide window the top of every list is photographs, and the tail folds into
  * rows.
  */
-const LEAD_LARGE = 6;
+const LEAD_LARGE = 3;
 
 /**
  * Whether the window is wide enough for the grid to lay trips side by side.
@@ -400,17 +402,27 @@ export function TripsPage() {
     }
     return (
       <div className="trips-grid">
-        {list.map((trip, i) => (
-          <TripCard
-            key={trip.id}
-            trip={trip}
-            index={i}
-            onChanged={load}
-            onResize={applySize}
-            wide={wide}
-            compact={isTripCompact(trip.id, wide ? i >= LEAD_LARGE : true)}
-          />
-        ))}
+        {list.map((trip, i) => {
+          // As the apps: the latest trips large (one on a phone, a row of them on a wide window), the rest as
+          // rows under a heading per year.
+          const compactAt = (k: number) => isTripCompact(list[k]!.id, wide ? k >= LEAD_LARGE : k >= 1);
+          const compact = compactAt(i);
+          const year = trip.startDate.slice(0, 4);
+          const newYear = compact && (i === 0 || !compactAt(i - 1) || list[i - 1]!.startDate.slice(0, 4) !== year);
+          return (
+            <Fragment key={trip.id}>
+              {newYear && <h3 className="trips-year">{year}</h3>}
+              <TripCard
+                trip={trip}
+                index={i}
+                onChanged={load}
+                onResize={applySize}
+                wide={wide}
+                compact={compact}
+              />
+            </Fragment>
+          );
+        })}
         {which === 'past' && upcoming.length === 0 && roomForGhost && (
           <button className="trip-ghost" onClick={() => setShowNew(true)} aria-label={t('trips.newTrip')}>
             <span>{t('trips.newTripButton')}</span>
@@ -477,7 +489,7 @@ export function TripsPage() {
           {loading ? (
             <SkeletonGrid count={Math.min(6, shape.upcoming)} offset={0} />
           ) : (
-          <div className="trips-grid">
+          <div className="trips-grid trips-upcoming">
             {upcoming.map((trip, i) => {
               const c = isTripCompact(trip.id, false);
               return (
@@ -594,6 +606,9 @@ function TripCard({
   const [newTitle, setNewTitle] = useState(trip.title);
   const renameRef = useRef<HTMLFormElement>(null);
   const isOwner = trip.ownerId === user?.id;
+  // The colour the row leans to, as the apps: its cover's tone, else the trip's own colour.
+  const coverTone = useCoverTone(trip.resolvedCoverId);
+  const tone = coverTone ?? trip.color ?? toneFromId(trip.id);
 
   const closeMenu = () => setMenuOpen(false);
 
@@ -825,29 +840,23 @@ function TripCard({
     return (
       <div
         data-trip-card={trip.id}
-        className={`trip-card-compact ${trip.resolvedCoverId ? 'has-cover' : ''}`}
+        className="trip-card-compact"
         style={{
           animationDelay: `${index * 45}ms`,
+          ['--tone' as string]: tone,
         }}
         role="link"
         tabIndex={0}
         onClick={() => !renaming && navigate(`/trips/${trip.id}`)}
         onKeyDown={(e) => e.key === 'Enter' && !renaming && navigate(`/trips/${trip.id}`)}
       >
-        {trip.resolvedCoverId && (
-          <div className="tcc-bg" aria-hidden="true">
-            <AuthImage
-              path={`/media/${trip.resolvedCoverId}/thumbnail`}
-              alt=""
-              className="tcc-bg-img"
-            />
-            <span className="tcc-bg-scrim" />
-          </div>
-        )}
-        {/* No cover yet (an upcoming trip) → no thumbnail slot at all. A block of
-            gradient standing in for a photo reads as a broken image. */}
-        {trip.resolvedCoverId && (
+        {/* Its cover small on the left, or the trip's colour with the compass, as the apps' rows. */}
+        {trip.resolvedCoverId ? (
           <AuthImage path={`/media/${trip.resolvedCoverId}/thumbnail`} alt="" className="tcc-photo" />
+        ) : (
+          <span className="tcc-photo tcc-glyph" style={{ background: tripCoverBg(trip) }} aria-hidden="true">
+            <Icon name="compass" size={30} strokeWidth={1.7} />
+          </span>
         )}
         <div className="tcc-body">
           {renaming ? (
@@ -928,7 +937,19 @@ function TripCard({
               />
         </span>
       )}
-      {statusEl}
+      {/* As the apps: a trip still to come wears its countdown large, "23 dagen tot vertrek", instead of a
+          small pill; an ongoing one keeps its live chip. */}
+      {!ongoing && startsInDays !== null && startsInDays > 0 ? (
+        <div className="trip-card-count">
+          <strong>{startsInDays}</strong>
+          <span>
+            <b>{t('trips.card.daysUnit', { count: startsInDays })}</b>
+            <small>{t('trips.card.countTail')}</small>
+          </span>
+        </div>
+      ) : (
+        statusEl
+      )}
       <div className="trip-card-overlay">
         {renaming ? (
           <form onSubmit={rename} onClick={stop} className="trip-rename">
@@ -949,23 +970,18 @@ function TripCard({
         ) : (
           <h2>{trip.title}</h2>
         )}
+        {/* The facts as soft pills on the photo, as the apps: "dec 2026", "8 dagen", "6.616 km". */}
         <div className="trip-card-meta">
-          <div className="tcm">
-            <strong>
-              {month} <small>{year}</small>
-            </strong>
-          </div>
-          <div className="tcm">
-            <strong>
-              {days} <small>{t('trips.card.daysUnit', { count: days })}</small>
-            </strong>
-          </div>
+          <span className="tcm">
+            {new Date(trip.startDate).toLocaleDateString(intlLocale(), { month: 'short' }).replace('.', '')} {year}
+          </span>
+          <span className="tcm">
+            {days} {t('trips.card.daysUnit', { count: days })}
+          </span>
           {trip.distanceKm != null && trip.distanceKm > 0 && (
-            <div className="tcm">
-              <strong>
-                {trip.distanceKm.toLocaleString(intlLocale())} <small>{t('common.km')}</small>
-              </strong>
-            </div>
+            <span className="tcm">
+              {trip.distanceKm.toLocaleString(intlLocale())} {t('common.km')}
+            </span>
           )}
           <TripCardMembers members={trip.members} ownerId={trip.ownerId} tripId={trip.id} />
         </div>
@@ -1083,3 +1099,9 @@ function TripCardMembers({
   );
 }
 
+/** A calm tone for a trip without a colour or cover, steady per trip. */
+function toneFromId(id: string): string {
+  let hash = 0;
+  for (const char of id) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
+  return `hsl(${hash % 360} 45% 62%)`;
+}

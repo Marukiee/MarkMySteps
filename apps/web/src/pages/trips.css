@@ -11,7 +11,10 @@
 }
 
 .trips-head h1 {
-  font-size: 2rem;
+  font-family: var(--font-brand);
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
 /* Search and "new trip" share the right-hand end of the row; the search box
@@ -139,6 +142,22 @@
   gap: 1.25rem;
 }
 
+/* The next trip leads, as the apps' big card: two columns wide on a wide window. */
+@media (min-width: 900px) {
+  .trips-upcoming > .trip-card:first-child {
+    grid-column: span 2;
+    aspect-ratio: 2.15 / 1;
+  }
+
+  .trips-upcoming > .trip-card:first-child .trip-card-count strong {
+    font-size: 5.6rem;
+  }
+
+  .trips-upcoming > .trip-card:first-child .trip-card-overlay h2 {
+    font-size: 2.1rem;
+  }
+}
+
 /* Full-bleed photo card, Polarsteps style. */
 .trip-card {
   position: relative;
@@ -237,40 +256,77 @@
 }
 
 .trip-card-overlay h2 {
-  font-size: 1.6rem;
+  font-family: var(--font-brand);
+  font-size: 1.75rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
   color: #fff;
-  text-shadow: 0 1px 12px rgb(0 0 0 / 0.4);
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* A trip still to come: its countdown large in the top left, as the apps. */
+.trip-card-count {
+  position: absolute;
+  top: 1.1rem;
+  left: 1.3rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: #fff;
+  pointer-events: none;
+}
+
+.trip-card-count strong {
+  font-family: var(--font-brand);
+  font-size: 4.6rem;
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+}
+
+.trip-card-count span {
+  display: grid;
+  line-height: 1.05;
+}
+
+.trip-card-count b {
+  font-family: var(--font-brand);
+  font-size: 1.35rem;
+  font-weight: 650;
+}
+
+.trip-card-count small {
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: 0.88;
 }
 
 .trip-card-meta {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: clamp(0.75rem, 3vw, 1.25rem);
-  margin-top: 0.55rem;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
   min-width: 0;
 }
 
+/* The facts as soft pills on the photo, as the apps' chips. */
 .tcm {
-  position: relative;
-  top: 1.5px;
   flex-shrink: 0;
   white-space: nowrap;
-}
-
-.tcm strong {
-  font-family: var(--font-display);
-  font-size: clamp(0.95rem, 2.8vw, 1.15rem);
+  padding: 0.32rem 0.8rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.2);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  font-size: 0.95rem;
   font-weight: 600;
-}
-
-.tcm small {
-  font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 0.72rem;
-  opacity: 0.85;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  line-height: 1.2;
 }
 
 .trip-card-meta .trip-card-members {
@@ -338,8 +394,8 @@
   }
 }
 
-/* Compact row: photo on the left, name + meta beside it. Spans a full row so
-   it can coexist with large photo tiles in the same grid. */
+/* A trip as a row, as the apps: its cover small on the left, name and facts, the ⋯ beside it, on a tone of
+   its cover. Rows in a run join into one slab: round at its outer corners, tight between rows. */
 .trip-card-compact {
   grid-column: 1 / -1;
   position: relative;
@@ -348,77 +404,41 @@
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 0.95rem;
-  padding: 0.65rem 3rem 0.65rem 0.65rem;
-  background: var(--surface-low);
-  border: 1px solid var(--outline-variant);
-  border-radius: var(--radius-m);
+  gap: 0.9rem;
+  padding: 0.6rem 3.2rem 0.6rem 0.6rem;
+  background: color-mix(in srgb, var(--tone, var(--accent)) 26%, var(--surface-low));
+  border-radius: 6px;
   cursor: pointer;
   animation: fadeIn 0.35s var(--ease) backwards;
   transition: transform 0.18s var(--ease-emph);
 }
 
-/* Without a cover there's no thumbnail to sit behind, so the title would start
-   flush against the edge. Indent it to the same margin the large cards use. */
-.trip-card-compact:not(.has-cover) {
-  padding-left: 1.25rem;
+:root[data-theme='dark'] .trip-card-compact {
+  background: color-mix(in srgb, var(--tone, var(--accent)) 34%, var(--surface-low));
 }
 
-/* With a cover photo the whole row uses that photo as a blurred backdrop under a
-   theme-aware scrim, so the text stays readable (light veil in light mode, dark
-   veil in dark mode). */
-.trip-card-compact.has-cover {
-  background: var(--paper-sunken);
+.trip-card-compact + .trip-card-compact {
+  margin-top: calc(3px - 1.25rem);
 }
 
-.tcc-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  border-radius: inherit;
+.trip-card-compact:not(.trip-card-compact + .trip-card-compact) {
+  border-top-left-radius: 26px;
+  border-top-right-radius: 26px;
 }
 
-.tcc-bg-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: blur(20px) saturate(1.25);
-  transform: scale(1.25);
+.trip-card-compact:not(:has(+ .trip-card-compact)) {
+  border-bottom-left-radius: 26px;
+  border-bottom-right-radius: 26px;
 }
 
-.tcc-bg-scrim {
-  position: absolute;
-  inset: 0;
-  background: rgba(255, 255, 255, 0.74);
-}
-
-:root[data-theme='dark'] .tcc-bg-scrim {
-  background: rgba(16, 20, 26, 0.66);
-}
-
-/* Keep the real content above the backdrop. */
-.trip-card-compact.has-cover .tcc-photo,
-.trip-card-compact.has-cover .tcc-body {
-  position: relative;
-  z-index: 2;
-}
-
-/* The ⋯ stays absolutely positioned (see below) — only lift it above the
-   blurred cover. Making it `relative` dropped it back into the flex row. */
-.trip-card-compact.has-cover .trip-card-menu {
-  z-index: 3;
-}
-
-/* Over a blurred cover the muted greys wash out — lift the meta text and the
-   ⋯ button to the primary ink so they stay legible in both themes. */
-.trip-card-compact.has-cover .tcc-meta {
-  color: var(--ink);
-  opacity: 0.82;
-}
-
-.trip-card-compact.has-cover .trip-menu-btn {
-  color: var(--ink);
+/* A year over its rows, as the apps. */
+.trips-year {
+  grid-column: 1 / -1;
+  margin: 0.6rem 0 -0.55rem 0.2rem;
+  font-family: var(--font-brand);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 
 @media (hover: hover) {
@@ -431,28 +451,40 @@
   flex: 1;
   min-width: 0;
   display: grid;
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 
 .tcc-body h3 {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tcc-meta {
+  font-size: 0.83rem;
+  color: var(--ink-soft);
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.tcc-meta {
-  font-size: 0.83rem;
-  color: var(--ink-faint);
-  font-weight: 500;
+.tcc-photo {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  object-fit: cover;
 }
 
-.tcc-photo {
-  width: 68px;
-  height: 68px;
-  flex-shrink: 0;
-  border-radius: var(--radius-s);
-  object-fit: cover;
+.tcc-glyph {
+  display: grid;
+  place-items: center;
+  color: rgb(255 255 255 / 0.85);
 }
 
 .trip-card-compact .trip-card-menu {
@@ -462,7 +494,7 @@
 }
 
 .trip-card-compact .trip-menu-btn {
-  color: var(--ink-faint);
+  color: var(--ink-soft);
   filter: none;
 }
 
@@ -487,9 +519,12 @@
 }
 
 .trips-section-title {
-  font-size: 1.15rem;
-  margin: 1.5rem 0 0.9rem;
-  color: var(--ink-soft);
+  font-family: var(--font-brand);
+  font-size: 1.45rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 1.6rem 0 0.9rem;
 }
 
 .trips-section-title:first-of-type {
@@ -669,27 +704,13 @@
   animation: tripsTabsIn 0.42s var(--ease) both;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2px;
-  padding: 4px;
-  margin: 1.6rem 0 1rem;
-  border-radius: 999px;
-  background: var(--paper-sunken);
+  gap: 4px;
+  margin: 1.8rem 0 1.1rem;
 }
 
+/* As the apps: two pills side by side, the open one filled in the accent. */
 .trips-tabs-thumb {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 4px;
-  width: calc(50% - 4px);
-  border-radius: 999px;
-  background: var(--paper-raised);
-  box-shadow: var(--shadow-s);
-  transition: transform 0.32s var(--ease);
-}
-
-.trips-tabs[data-tab='friends'] .trips-tabs-thumb {
-  transform: translateX(100%);
+  display: none;
 }
 
 .trips-tabs button {
@@ -698,53 +719,37 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.4rem;
+  gap: 0.55rem;
+  height: 56px;
+  padding: 0 0.8rem;
   border-radius: 999px;
+  background: var(--surface-high);
+  font-family: var(--font-brand);
   font-weight: 600;
-  font-size: 0.92rem;
-  color: var(--ink-faint);
-  transition: color 0.25s var(--ease);
+  font-size: 1.12rem;
+  color: var(--ink-soft);
+  transition: background 0.26s var(--ease-emph), color 0.26s var(--ease-emph);
 }
 
 .trips-tabs button.active {
-  color: var(--ink);
+  background: var(--accent);
+  color: #fff;
 }
 
-/* While the trips are still on their way the pill is the real one, with its
-   buttons switched off. Nothing about it is rebuilt when they land: only the
-   count appears. */
 .trips-tabs button:disabled {
   cursor: default;
 }
 
-/*
- * The count rides along, and only carries weight on the open tab.
- *
- * Its room is held from the first paint (see the empty span in TripsPage):
- * the number lands a moment after the words, and without a space kept for it
- * the label slid sideways to make one.
- */
+/* The count beside the words, in the same type; its room is held from the first paint. */
 .trips-tabs button small {
-  min-width: 1.35em;
-  padding: 0.05rem 0.34rem;
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--ink-faint);
-  font-size: 0.72rem;
-  font-weight: 700;
-  transition: background 0.25s var(--ease), color 0.25s var(--ease);
+  min-width: 1.2em;
+  font-size: inherit;
+  font-weight: 600;
+  opacity: 0.8;
 }
 
-.trips-tabs button.active small {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-}
-
-/* The placeholder: the same box, with nothing in it and nothing behind it. */
 .trips-tabs button small:empty {
-  background: none;
-  min-height: 1.1em;
+  min-height: 1em;
 }
 
 /* One track carrying both lists. Nothing unmounts when you switch: the track
