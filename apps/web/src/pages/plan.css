@@ -859,13 +859,14 @@
   border-color: var(--line);
 }
 
-/* The mode pill: its own warm tone, as wide as its name, 36px tall with 18px
-   corners, the shape the opened list grows out of. */
+/* The mode pill: its own warm tone, as wide as its name, fully round and as
+   tall as the pills beside it on the row (32px), the shape the opened list
+   grows out of. */
 .mode-menu-compact .mode-menu-pill {
-  height: 36px;
+  height: 32px;
   padding: 0 9px 0 11px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 16px;
   background: var(--secondary-container);
   color: var(--on-secondary-container);
   font-family: var(--font-brand);
@@ -896,7 +897,7 @@
   display: grid;
   min-width: 168px;
   padding-bottom: 4px;
-  border-radius: 18px;
+  border-radius: 16px;
   background: var(--secondary-container);
   color: var(--on-secondary-container);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-secondary-container) 16%, transparent);
@@ -933,7 +934,7 @@
 }
 
 .mode-drop-head {
-  height: 36px;
+  height: 32px;
 }
 
 .mode-drop-head > span {
@@ -1093,12 +1094,14 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.28rem 0.6rem;
-  border: 1px solid var(--line);
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border: 0;
   border-radius: 999px;
-  background: var(--paper-sunken);
-  color: var(--ink-soft);
-  font-size: 0.74rem;
+  background: var(--surface-highest);
+  color: var(--on-surface-variant);
+  font-family: var(--font-brand);
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -1120,18 +1123,20 @@
   align-items: center;
   gap: 0.3rem;
   max-width: 40%;
-  padding: 0.28rem 0.7rem;
+  height: 32px;
+  padding: 0 12px 0 10px;
   border-radius: 999px;
-  background: var(--paper-sunken);
-  border: 1px dashed var(--line);
-  color: var(--ink-soft);
-  font-size: 0.78rem;
+  background: var(--surface-highest);
+  border: 1.5px dashed var(--outline-variant);
+  color: var(--on-surface-variant);
+  font-family: var(--font-brand);
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .leg-loc-pill.set {
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-low));
   border-style: solid;
   border-color: var(--accent);
   color: var(--accent-ink);
@@ -1741,11 +1746,9 @@
     margin-bottom 0.26s var(--ease), transform 0.26s var(--ease-emph);
 }
 
-/* The lifted row stays in place above everything; only its stop moves. */
-.stop-row.lifted {
-  position: relative;
-  z-index: 6;
-}
+/* The lifted row itself stays put and creates no layer of its own: only its
+   stop rises above everything, while the neighbours gliding into its place
+   pass over the faded line and mode pill it leaves behind. */
 
 /* The line and mode pill above the lifted stop stay where they are and fade. */
 .stop-row .leg-connector {
@@ -1759,7 +1762,7 @@
 /* The stop under your finger must not lag behind it. */
 .stop-row.lifted .stop-lift {
   position: relative;
-  z-index: 1;
+  z-index: 6;
   transition: none;
 }
 

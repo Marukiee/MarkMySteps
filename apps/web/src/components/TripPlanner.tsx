@@ -2017,7 +2017,7 @@ function ModeDrop({
       style={{
         left: layout?.left ?? -9999,
         top: layout?.top ?? 0,
-        clipPath: expanded ? 'inset(0px round 18px)' : layout?.clip,
+        clipPath: expanded ? 'inset(0px round 16px)' : layout?.clip,
       }}
     >
       {layout?.up ? (

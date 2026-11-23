@@ -146,6 +146,14 @@ export function AppMenu({
       const target = e.target as Node;
       if (ref.current?.contains(target) || anchor?.contains(target)) return;
       closeRef.current();
+      // A tap beside the menu only puts it away, as on the native apps: the
+      // click that follows must not open the trip card under the finger too.
+      const swallow = (c: MouseEvent) => {
+        c.preventDefault();
+        c.stopPropagation();
+      };
+      document.addEventListener('click', swallow, { capture: true, once: true });
+      window.setTimeout(() => document.removeEventListener('click', swallow, true), 400);
     };
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeRef.current();
