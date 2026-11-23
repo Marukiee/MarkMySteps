@@ -332,31 +332,94 @@
   align-items: center;
 }
 
-.nights-buttons {
+.nights-group {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 3px;
-  border-radius: 999px;
-  background: var(--paper-sunken);
+  gap: 2px;
 }
 
-.nights-count {
+.nights-side,
+.nights-value {
+  height: 40px;
+  background: var(--surface-highest);
+  color: var(--on-surface);
+}
+
+.nights-side {
+  width: 40px;
+  display: inline-grid;
+  place-content: center;
+  padding: 0;
+  transition: border-radius 0.2s var(--ease-emph), background-color 0.15s var(--ease-std);
+}
+
+.nights-minus {
+  border-radius: 20px 6px 6px 20px;
+}
+
+.nights-plus {
+  border-radius: 6px 20px 20px 6px;
+}
+
+/* The pressed side rounds further, and back when let go. */
+.nights-side:active {
+  border-radius: 20px;
+}
+
+@media (hover: hover) {
+  .nights-side:hover {
+    background: color-mix(in srgb, var(--surface-highest) 90%, var(--on-surface));
+  }
+}
+
+.nights-value {
+  width: 54px;
+  border-radius: 6px;
+  display: grid;
+  overflow: hidden;
+}
+
+.nights-roll {
+  grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 40px;
   line-height: 1.05;
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--ink);
 }
 
-.nights-count small {
+.nights-roll strong {
+  font-family: var(--font-brand);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.nights-roll small {
+  font-size: 10px;
   font-weight: 500;
-  font-size: 0.62rem;
-  color: var(--ink-faint);
+  color: var(--on-surface-variant);
+}
+
+.nights-roll.up {
+  animation: nightsUp 0.3s var(--ease-emph);
+}
+
+.nights-roll.down {
+  animation: nightsDown 0.3s var(--ease-emph);
+}
+
+@keyframes nightsUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+@keyframes nightsDown {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
 }
 
 /* The same fact without the stepper around it: one line, pill-shaped, the size
@@ -367,7 +430,7 @@
   gap: 0.3rem;
   padding: 0.32rem 0.72rem;
   border-radius: 999px;
-  background: var(--paper-sunken);
+  background: var(--surface-highest);
   color: var(--ink);
   font-weight: 700;
   font-size: 0.86rem;
@@ -488,29 +551,6 @@
 
 .stop-info .muted {
   font-size: 0.8rem;
-}
-
-.nights-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--paper-raised);
-  color: var(--ink-soft);
-  transition: all 0.15s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  box-shadow: var(--shadow-s);
-}
-
-.nights-btn:hover {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-}
-
-.nights-btn:active {
-  transform: scale(0.92);
 }
 
 .stop-delete {

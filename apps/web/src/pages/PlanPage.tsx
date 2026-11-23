@@ -9,6 +9,7 @@ import { CityThumb } from '../components/CityThumb';
 import { FlightEditor } from '../components/FlightEditor';
 import { Icon, MODE_ICON } from '../components/Icon';
 import { WeatherBadge } from '../components/WeatherBadge';
+import { NightsStepper } from '../components/NightsStepper';
 import {
   buildLegs,
   estimateDuration,
@@ -495,26 +496,10 @@ export function PlanPage() {
                   </span>
                 </div>
                 <div className="stop-nights">
-                  <div className="nights-buttons">
-                    <button
-                      className="nights-btn"
-                      onClick={() => changeNights(stop, -1)}
-                      aria-label={t('planner.fewerNights')}
-                    >
-                      <Icon name="minus" size={16} />
-                    </button>
-                    <span className="nights-count">
-                      {stop.nights}
-                      <small>{t('planner.nightsUnit', { count: stop.nights })}</small>
-                    </span>
-                    <button
-                      className="nights-btn"
-                      onClick={() => changeNights(stop, 1)}
-                      aria-label={t('planner.moreNights')}
-                    >
-                      <Icon name="plus" size={16} />
-                    </button>
-                  </div>
+                  <NightsStepper
+                    nights={stop.nights}
+                    onStep={(by) => void changeNights(stop, by)}
+                  />
                 </div>
                 <button
                   className="stop-delete"

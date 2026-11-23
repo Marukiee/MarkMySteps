@@ -43,6 +43,7 @@ import {
 } from '../lib/plannerLocal';
 import '../pages/plan.css';
 import { Flag } from './Flag';
+import { NightsStepper } from './NightsStepper';
 import { t, intlLocale } from '../i18n';
 import { tr } from '../i18n/rich';
 import { legTitle } from '../lib/legs';
@@ -270,7 +271,13 @@ export function TripPlanner({
   }
 
   async function changeNights(stop: PlannedStop, delta: number) {
-    const nights = Math.max(0, stop.nights + delta);
+    // Each step clicks like a dial; past the end it says no, and nothing moves.
+    if (stop.nights + delta < 0) {
+      haptic('end');
+      return;
+    }
+    haptic('light');
+    const nights = stop.nights + delta;
     refresh(
       await mutate(`${stopsPath}/${stop.id}`, 'PATCH', { nights }, (current) =>
         localUpdate(current, tripStart, stop.id, { nights }),
@@ -862,26 +869,10 @@ export function TripPlanner({
                         <small>{t('planner.nightsUnit', { count: stop.nights })}</small>
                       </span>
                     ) : (
-                      <div className="nights-buttons">
-                        <button
-                          className="nights-btn"
-                          onClick={() => changeNights(stop, -1)}
-                          aria-label={t('planner.fewerNights')}
-                        >
-                          <Icon name="minus" size={16} />
-                        </button>
-                        <span className="nights-count">
-                          {stop.nights}
-                          <small>{t('planner.nightsUnit', { count: stop.nights })}</small>
-                        </span>
-                        <button
-                          className="nights-btn"
-                          onClick={() => changeNights(stop, 1)}
-                          aria-label={t('planner.moreNights')}
-                        >
-                          <Icon name="plus" size={16} />
-                        </button>
-                      </div>
+                      <NightsStepper
+                        nights={stop.nights}
+                        onStep={(by) => void changeNights(stop, by)}
+                      />
                     )}
                     {!readOnly && (
                       <button
