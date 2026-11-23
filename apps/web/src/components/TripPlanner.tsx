@@ -476,8 +476,12 @@ export function TripPlanner({
 
   /* ---- Touch reordering -------------------------------------------------
      HTML5 drag and drop does not exist on a phone, so a long press picks the
-     row up and the rows around it slide out of the way live, showing exactly
-     where it will land. */
+     stop up. Only the stop itself lifts (a little larger, slightly tilted);
+     the line and mode pill above it stay where they are and fade. It follows
+     the finger, swaps when it is half over its neighbour (with some slack so
+     it never flips back), the neighbours glide aside, and on letting go it
+     glides into its place before the new order is saved. Positions are
+     measured on the cards themselves. */
   const rowRefs = useRef(new Map<string, HTMLLIElement>());
   const [touchDrag, setTouchDrag] = useState<{
     id: string;
@@ -485,63 +489,99 @@ export function TripPlanner({
     to: number;
     dy: number;
     height: number;
+    settling?: boolean;
   } | null>(null);
-  /** Row boxes as they were when the drag began; the maths stays stable even
-   *  while everything is being translated around. */
-  const dragRects = useRef<{ top: number; height: number }[]>([]);
+  /** Row and card boxes as they were when the drag began; the maths stays
+   *  stable even while everything is being translated around. */
+  const dragRects = useRef<{ top: number; bottom: number; height: number }[]>([]);
+  const dragCards = useRef<{ top: number; height: number }[]>([]);
   const dragScrollY = useRef(0);
+  /** Set for the one frame in which the new order lands, so nothing glides
+   *  back from the offsets the drag left behind. */
+  const [dropFrame, setDropFrame] = useState(false);
   /** Vertical spacing between rows (the .stop-row margin). */
   const ROW_GAP = 8;
+  /** How far back past the half-way line a swap has to go to undo itself. */
+  const SWAP_SLACK = 14;
 
   function beginTouchDrag(stop: PlannedStop, index: number) {
-    const rects = route.map((s) => {
-      const el = rowRefs.current.get(s.id);
+    const rows = route.map((s) => rowRefs.current.get(s.id));
+    dragRects.current = rows.map((el) => {
       const box = el?.getBoundingClientRect();
+      return { top: box?.top ?? 0, bottom: box?.bottom ?? 0, height: box?.height ?? 0 };
+    });
+    dragCards.current = rows.map((el) => {
+      const box = el?.querySelector('.stop-item, .flight-leg')?.getBoundingClientRect();
       return { top: box?.top ?? 0, height: box?.height ?? 0 };
     });
-    dragRects.current = rects;
     dragScrollY.current = window.scrollY;
     setTouchDrag({
       id: stop.id,
       from: index,
       to: index,
       dy: 0,
-      height: rects[index]?.height ?? 0,
+      height: dragRects.current[index]?.height ?? 0,
     });
   }
 
   function moveTouchDrag(dy: number) {
     setTouchDrag((current) => {
-      if (!current) return current;
-      const rects = dragRects.current;
-      const own = rects[current.from];
+      if (!current || current.settling) return current;
+      const cards = dragCards.current;
+      const own = cards[current.from];
       if (!own) return current;
-      // The row follows the finger on screen; the page may have scrolled under
-      // it in the meantime, and the row moves with the page.
+      // The stop follows the finger on screen; the page may have scrolled
+      // under it in the meantime, and the stop moves with the page.
       const shift = dy + (window.scrollY - dragScrollY.current);
-      const centre = own.top + own.height / 2 + shift;
+      const top = own.top + shift;
+      const bottom = top + own.height;
       let to = current.from;
-      for (let i = 0; i < rects.length; i++) {
-        const r = rects[i]!;
-        if (centre >= r.top && centre <= r.top + r.height) {
-          to = i;
-          break;
-        }
-        if (i === 0 && centre < r.top) to = 0;
-        if (i === rects.length - 1 && centre > r.top + r.height) to = i;
+      // Downwards: past the middle of the card below, which then makes way.
+      for (let j = current.from + 1; j < cards.length; j++) {
+        const mid = cards[j]!.top + cards[j]!.height / 2;
+        const swapped = current.to >= j;
+        if (bottom > mid - (swapped ? SWAP_SLACK : 0)) to = j;
+        else break;
       }
+      // Upwards, the same the other way round.
+      if (to === current.from) {
+        for (let j = current.from - 1; j >= 0; j--) {
+          const mid = cards[j]!.top + cards[j]!.height / 2;
+          const swapped = current.to <= j;
+          if (top < mid + (swapped ? SWAP_SLACK : 0)) to = j;
+          else break;
+        }
+      }
+      if (to !== current.to) haptic('light');
       return { ...current, dy: shift, to };
     });
   }
 
-  async function endTouchDrag() {
+  function endTouchDrag() {
     const current = touchDrag;
-    setTouchDrag(null);
-    if (!current || current.to === current.from) return;
+    if (!current || current.settling) return;
+    if (current.to === current.from) {
+      // Glides back into its own place.
+      setTouchDrag({ ...current, dy: 0, settling: true });
+      window.setTimeout(() => setTouchDrag(null), 240);
+      return;
+    }
+    const rects = dragRects.current;
+    const from = rects[current.from]!;
+    const target = rects[current.to]!;
+    const offset = current.to > current.from ? target.bottom - from.bottom : target.top - from.top;
+    setTouchDrag({ ...current, dy: offset, settling: true });
+    window.setTimeout(() => void commitTouchDrag(current.from, current.to), 240);
+  }
+
+  async function commitTouchDrag(fromIndex: number, toIndex: number) {
     const next = [...route];
-    const [moved] = next.splice(current.from, 1);
-    next.splice(current.to, 0, moved!);
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved!);
+    setDropFrame(true);
+    setTouchDrag(null);
     onStopsChange([...next, ...stops.filter((s) => s.parentStopId)]); // optimistic
+    requestAnimationFrame(() => requestAnimationFrame(() => setDropFrame(false)));
     const order = next.map((s) => s.id);
     refresh(
       await mutate(`${stopsPath}/order`, 'PUT', { stopIds: order }, (current) =>
@@ -550,11 +590,19 @@ export function TripPlanner({
     );
   }
 
-  /** Transform for one row while a reorder is in progress. */
+  /** Transform for one row while a reorder is in progress: the rows around
+   *  the lifted stop step aside; the lifted row itself stays (its stop moves,
+   *  see liftStyle). */
   function rowStyle(index: number, id: string): CSSProperties | undefined {
-    if (!touchDrag) return undefined;
-    const offset = touchDrag.id === id ? touchDrag.dy : dragOffset(index);
+    if (!touchDrag || touchDrag.id === id) return undefined;
+    const offset = dragOffset(index);
     return offset === 0 ? undefined : { transform: `translateY(${offset}px)` };
+  }
+
+  /** The lifted stop under the finger. */
+  function liftStyle(id: string): CSSProperties | undefined {
+    if (!touchDrag || touchDrag.id !== id) return undefined;
+    return { transform: `translateY(${touchDrag.dy}px)` };
   }
 
   /** How far row `index` has to step aside to open the gap. */
@@ -626,7 +674,9 @@ export function TripPlanner({
         <ModeMenu label={t('planner.outboundTrip')} onPick={(m) => void addOutboundLeg(m)} />
       )}
 
-      <ol className="stop-list">
+      <ol
+        className={`stop-list ${touchDrag ? 'reordering' : ''} ${dropFrame ? 'drop-frame' : ''}`}
+      >
         {route.map((stop, index) => {
           if (isStandaloneLeg(stop)) {
             const outbound = index === 0;
@@ -658,10 +708,11 @@ export function TripPlanner({
                 }}
                 className={`stop-row ${removingId === stop.id ? 'leaving' : ''} ${
                   touchDrag?.id === stop.id ? 'lifted' : ''
-                }`}
+                } ${touchDrag?.id === stop.id && touchDrag.settling ? 'settling' : ''}`}
                 style={rowStyle(index, stop.id)}
               >
                 <div className="stop-row-inner">
+                <div className="stop-lift" style={liftStyle(stop.id)}>
                 <SwipeToDelete
                   disabled={readOnly}
                   onDelete={() => removeStop(stop)}
@@ -670,7 +721,7 @@ export function TripPlanner({
                   dragging={touchDrag?.id === stop.id}
                   onDragStart={() => beginTouchDrag(stop, index)}
                   onDragMove={moveTouchDrag}
-                  onDragEnd={() => void endTouchDrag()}
+                  onDragEnd={endTouchDrag}
                 >
                 {/* Keyed on the travel mode so switching flight ↔ car/bus
                     remounts the bar and replays its entry animation. */}
@@ -717,6 +768,7 @@ export function TripPlanner({
                 </div>
                 </SwipeToDelete>
                 </div>
+                </div>
               </li>
             );
           }
@@ -740,7 +792,7 @@ export function TripPlanner({
               }}
               className={`stop-row ${removingId === stop.id ? 'leaving' : ''} ${
                 touchDrag?.id === stop.id ? 'lifted' : ''
-              }`}
+              } ${touchDrag?.id === stop.id && touchDrag.settling ? 'settling' : ''}`}
               style={rowStyle(index, stop.id)}
             >
               <div className="stop-row-inner">
@@ -806,6 +858,7 @@ export function TripPlanner({
                   </div>
                 </div>
               )}
+              <div className="stop-lift" style={liftStyle(stop.id)}>
               <SwipeToDelete
                 disabled={readOnly}
                 onDelete={() => removeStop(stop)}
@@ -814,7 +867,7 @@ export function TripPlanner({
                 dragging={touchDrag?.id === stop.id}
                 onDragStart={() => beginTouchDrag(stop, index)}
                 onDragMove={moveTouchDrag}
-                onDragEnd={() => void endTouchDrag()}
+                onDragEnd={endTouchDrag}
               >
               <div
                 className={`card stop-item ${dragIndex === index ? 'dragging' : ''} ${
@@ -901,6 +954,7 @@ export function TripPlanner({
                 />
               </div>
               </SwipeToDelete>
+              </div>
               </div>
             </li>
           );

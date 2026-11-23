@@ -1720,20 +1720,62 @@
 
 .stop-row {
   transition: grid-template-rows 0.26s var(--ease), opacity 0.2s var(--ease),
-    margin-bottom 0.26s var(--ease), transform 0.2s var(--ease);
+    margin-bottom 0.26s var(--ease), transform 0.26s var(--ease-emph);
 }
 
-/* The row under your finger must not lag behind it. */
+/* The lifted row stays in place above everything; only its stop moves. */
 .stop-row.lifted {
-  transition: none;
   position: relative;
   z-index: 6;
 }
 
+/* The line and mode pill above the lifted stop stay where they are and fade. */
+.stop-row .leg-connector {
+  transition: opacity 0.2s var(--ease-std);
+}
+
+.stop-row.lifted .leg-connector {
+  opacity: 0.3;
+}
+
+/* The stop under your finger must not lag behind it. */
+.stop-row.lifted .stop-lift {
+  position: relative;
+  z-index: 1;
+  transition: none;
+}
+
+/* Let go, it glides into its place. */
+.stop-row.lifted.settling .stop-lift {
+  transition: transform 0.24s var(--ease-emph);
+}
+
+/* Lifted: a little larger and slightly tilted, a step lighter in tone. No
+   shadow. */
+.stop-lift > * {
+  transition: transform 0.2s var(--ease-emph);
+}
+
+.stop-row.lifted .stop-lift > * {
+  transform: scale(1.03) rotate(-0.8deg);
+}
+
+.stop-row.lifted.settling .stop-lift > * {
+  transform: none;
+}
+
 .stop-row.lifted .card {
-  box-shadow: var(--shadow-l);
-  transform: scale(1.02);
-  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease);
+  background: var(--surface-high);
+}
+
+/* The frame in which the new order lands: nothing glides back from the
+   offsets the drag left behind. */
+.stop-list.drop-frame .stop-row,
+.stop-list.drop-frame .stop-lift,
+.stop-list.drop-frame .stop-lift > *,
+.stop-list.drop-frame .leg-connector {
+  transition: none !important;
+  animation: none !important;
 }
 
 .swipe-row[data-dragging='true'] {
