@@ -57,6 +57,41 @@ interface Target {
  * of the photos taken during the stop, the earliest one taken near it. Only
  * when nothing has coordinates does the clock get the last word.
  */
+/** A photo this close to a place was taken at it (as the apps' Places). */
+const AT_KM = 8;
+
+/**
+ * The photo a place's tile wears, chosen by where the photos were taken, as
+ * the apps do: every located photo belongs to the NEAREST place (stop or day
+ * trip), so two places close together (Granada and Monachil, 8 km apart) each
+ * show their own photo instead of both the first one within reach. Of a
+ * place's own photos the one closest to its heart wins, taken at it (8 km)
+ * before its surroundings.
+ */
+function bestFace(stop: JumpStop, stops: JumpStop[], media: JumpPhoto[]): string | null {
+  if (stop.latitude == null || stop.longitude == null) return null;
+  const places = stops.filter((s) => s.latitude != null && s.longitude != null && !LEG_NAMES.has(s.name));
+  const mine: { id: string; km: number }[] = [];
+  for (const m of media) {
+    if (m.latitude == null || m.longitude == null) continue;
+    const at: [number, number] = [m.longitude, m.latitude];
+    let nearest: JumpStop | null = null;
+    let best = Infinity;
+    for (const s of places) {
+      const d = haversineKm(at, [s.longitude!, s.latitude!]);
+      if (d < best) {
+        best = d;
+        nearest = s;
+      }
+    }
+    if (nearest && nearest.name === stop.name && best <= STOP_NEAR_KM) mine.push({ id: m.id, km: best });
+  }
+  const taken = mine.filter((m) => m.km <= AT_KM);
+  const pool = taken.length > 0 ? taken : mine;
+  if (pool.length === 0) return null;
+  return pool.reduce((a, b) => (b.km < a.km ? b : a)).id;
+}
+
 function faceOf(
   stop: JumpStop,
   media: JumpPhoto[],
@@ -146,6 +181,8 @@ export function StopJump({
       // choice that no longer loads counts as no choice.
       const cover = stop.coverMediaId && !gone.has(stop.coverMediaId) ? stop.coverMediaId : null;
       const face = faceOf(stop, media, from, to, day);
+      // The tile's picture by location (bestFace); the date-based face stays the place to land on.
+      const best = bestFace(stop, stops, media);
       // A day trip is not a stop on the route, and putting every one of them
       // on the rail doubled its length on a trip that made a lot of them. It
       // earns its tile by having something to show: a photo actually taken
@@ -154,7 +191,7 @@ export function StopJump({
       out.push({
         name: stop.name,
         day,
-        photoId: cover ?? face?.id ?? null,
+        photoId: cover ?? best ?? face?.id ?? null,
         // Taken there beats chosen for it: `faceOf` hands back the earliest
         // photo within reach of the stop, which is the moment you arrived.
         anchorId: face?.near ? face.id : cover,

@@ -27,14 +27,18 @@ enum ViewerApi {
             return StopRow(
                 id: id, name: o["name"] as? String ?? "",
                 lat: (o["latitude"] as? NSNumber)?.doubleValue, lon: (o["longitude"] as? NSNumber)?.doubleValue,
-                arrival: Remote.day(o["arrivalDate"]), departure: Remote.day(o["departureDate"]),
+                // A day trip is one day: its dayTripDate when the row has no dates of its own.
+                arrival: Remote.day(o["arrivalDate"]) ?? Remote.day(o["dayTripDate"]),
+                departure: Remote.day(o["departureDate"]) ?? Remote.day(o["dayTripDate"]),
                 dayTrip: !(o["parentStopId"] == nil || o["parentStopId"] is NSNull)
             )
         }
     }
 
-    /// The stop a photo belongs to, as the web decides it (stopForPhoto): of the stops that cover its day the nearest
-    /// within 30 km, else the nearest of all within 30 km, else the first stop (no day trip) that covers the day.
+    /// The stop a photo belongs to, as Android's and the web's: the place it was actually taken at (the nearest stop or
+    /// day trip within 8 km; of two equally near, the one of its own day), else of the stops that cover its day the
+    /// nearest within 30 km, else the nearest of all within 30 km, else the first stop (no day trip) that covers the
+    /// day. Without the first step a photo taken in Monachil offered "Cover van Granada", 8 km away.
     static func stopFor(_ media: Media, _ stops: [StopRow]) -> StopRow? {
         let day = media.takenAt
         let covering = stops.filter { s in
@@ -47,6 +51,13 @@ enum ViewerApi {
                     guard let slat = s.lat, let slon = s.lon else { return nil }
                     return (s, Geo.km(LonLat(lon, lat), LonLat(slon, slat)))
                 }.min { $0.1 < $1.1 }
+            }
+            let at = stops.compactMap { s -> (StopRow, Double)? in
+                guard let slat = s.lat, let slon = s.lon else { return nil }
+                return (s, Geo.km(LonLat(lon, lat), LonLat(slon, slat)))
+            }.filter { $0.1 <= 8 }.sorted { $0.1 < $1.1 }
+            if let best = at.first {
+                return (at.first { $0.1 <= best.1 + 1 && covering.contains($0.0) } ?? best).0
             }
             if let hit = nearest(covering), hit.1 <= 30 { return hit.0 }
             if let hit = nearest(stops), hit.1 <= 30 { return hit.0 }

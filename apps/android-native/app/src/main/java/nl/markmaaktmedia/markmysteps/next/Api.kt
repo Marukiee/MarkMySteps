@@ -954,6 +954,7 @@ object Remote {
                     o.optString("id"), o.optString("name"), flag(text(o, "countryCode")),
                     if (la.isNaN() || lo.isNaN()) null else lo to la,
                     (text(o, "dayTripDate") ?: text(o, "arrivalDate"))?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() },
+                    cover = text(o, "coverMediaId"),
                 )
             }
         }
@@ -991,6 +992,7 @@ object Remote {
                 dayTrips = dayTrips[o.optString("id")].orEmpty(),
                 viaAirports = vias(o),
                 hideLeg = o.optBoolean("hideLeg"),
+                cover = text(o, "coverMediaId"),
             )
         }
         trip.remoteId?.let { legStopIds[it] = outboundId to backId }

@@ -45,28 +45,51 @@ enum TripPlaces {
         return LonLat(lon, lat)
     }
 
-    /// The stops (and day trips you photographed) with the photos that show each, in trip order.
+    /// A place that can wear a tile: a stop, or a day trip from one.
+    private struct Spot {
+        let name: String, flag: String?, at: LonLat, cover: String?, start: Date?, dayTrip: Bool, fallbackOrder: Int
+    }
+
+    /// The stops (and day trips you photographed) with the photos that show each, in trip order, as Android's.
+    ///
+    /// Each photo that knows where it was taken belongs to the NEAREST place, so two places close together (Granada
+    /// and Monachil, 8 km apart) each get their own photos instead of both wearing the first photo within 8 km. Of a
+    /// place's own photos the one taken closest to its heart shows it; a cover the owner picked for the place in the
+    /// viewer always wins.
     static func stops(_ trip: Trip, _ media: [Media]) -> [Tile] {
         let stills = media.enumerated().filter { !$0.element.video }
         let located = stills.compactMap { e in at(e.element).map { (e.offset, e.element, $0) } }
-        var out: [Tile] = []
-        for (i, stop) in trip.mapStops.map(\.stop).enumerated() {
-            var picks = located.filter { km($0.2, stop.at) <= atKm }.map { ($0.0, $0.1) }
-            if picks.isEmpty {
-                picks = located.map { ($0, km($0.2, stop.at)) }.filter { $0.1 <= aroundKm }.sorted { $0.1 < $1.1 }.map { ($0.0.0, $0.0.1) }
+        let known = Set(media.map(\.id))
+        var spots: [Spot] = []
+        for (i, stop) in trip.mapStops.map(\.stop).enumerated() where !spots.contains(where: { $0.name == stop.name }) {
+            spots.append(Spot(name: stop.name, flag: stop.flag, at: stop.at, cover: stop.cover, start: stop.start, dayTrip: false, fallbackOrder: i * 100_000))
+            for d in stop.dayTrips where !spots.contains(where: { $0.name == d.name }) {
+                spots.append(Spot(name: d.name, flag: d.flag, at: d.at, cover: d.cover, start: d.day, dayTrip: true, fallbackOrder: i * 100_000 + 1))
             }
+        }
+        // Every located photo to the nearest place within reach.
+        var own: [[(Int, Media, Double)]] = Array(repeating: [], count: spots.count)
+        for p in located {
+            guard let best = spots.indices.map({ ($0, km(p.2, spots[$0].at)) }).min(by: { $0.1 < $1.1 }), best.1 <= aroundKm else { continue }
+            own[best.0].append((p.0, p.1, best.1))
+        }
+        var out: [Tile] = []
+        for (i, spot) in spots.enumerated() {
+            let mine = own[i]
+            let taken = mine.filter { $0.2 <= atKm }
+            let chosen = spot.cover.flatMap { known.contains($0) ? $0 : nil }
+            // A day trip earns a tile only by a photo actually taken there.
+            if spot.dayTrip && taken.isEmpty && chosen == nil { continue }
+            // Taken at it first, closest to its heart first; then its surroundings.
+            var picks = (taken.isEmpty ? mine : taken).sorted { $0.2 < $1.2 }.map { ($0.0, $0.1) }
             if picks.isEmpty {
                 // Only photos that do not know where they were taken still go by the day.
-                picks = stills.filter { at($0.element) == nil && Timeline.stopOn(trip, $0.element.takenAt)?.name == stop.name }.map { ($0.offset, $0.element) }
+                picks = stills.filter { at($0.element) == nil && Timeline.stopOn(trip, $0.element.takenAt)?.name == spot.name }.map { ($0.offset, $0.element) }
             }
-            out.append(Tile(name: stop.name, flag: stop.flag, photos: picks.prefix(8).map(\.1.id), day: picks.first?.1.takenAt ?? stop.start, order: picks.first?.0 ?? i * 100_000))
-            // A day trip earns a tile by a photo actually taken there.
-            for d in stop.dayTrips where !out.contains(where: { $0.name == d.name }) {
-                let near = located.filter { km($0.2, d.at) <= atKm }
-                if let first = near.first {
-                    out.append(Tile(name: d.name, flag: d.flag, photos: near.prefix(8).map(\.1.id), day: first.1.takenAt, order: first.0))
-                }
-            }
+            let ids = Array(([chosen].compactMap { $0 } + picks.map(\.1.id).filter { $0 != chosen }).prefix(8))
+            let firstThere = mine.min { $0.0 < $1.0 }.map { ($0.0, $0.1) } ?? picks.min { $0.0 < $1.0 }
+            let chosenDay = chosen.flatMap { c in media.first { $0.id == c }?.takenAt }
+            out.append(Tile(name: spot.name, flag: spot.flag, photos: ids, day: firstThere?.1.takenAt ?? chosenDay ?? spot.start, order: firstThere?.0 ?? spot.fallbackOrder))
         }
         return out
     }

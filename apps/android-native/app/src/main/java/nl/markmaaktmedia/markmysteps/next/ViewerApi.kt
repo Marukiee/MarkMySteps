@@ -42,16 +42,19 @@ object ViewerApi {
                 id = o.getString("id"), name = o.optString("name"),
                 lat = o.optDouble("latitude").takeIf { !o.isNull("latitude") && !it.isNaN() },
                 lon = o.optDouble("longitude").takeIf { !o.isNull("longitude") && !it.isNaN() },
-                arrival = day(o, "arrivalDate"), departure = day(o, "departureDate"),
+                // A day trip is one day: its dayTripDate when the row has no dates of its own.
+                arrival = day(o, "arrivalDate") ?: day(o, "dayTripDate"), departure = day(o, "departureDate") ?: day(o, "dayTripDate"),
                 dayTrip = !o.isNull("parentStopId"),
             )
         }
     }
 
     /**
-     * The stop a photo belongs to, as the web decides it (stopForPhoto): of the stops that cover its day the
-     * nearest one within 30 km, else the nearest of all within 30 km, else the first stop (no day trip) that
-     * covers the day.
+     * The stop a photo belongs to, as the web decides it (stopForPhoto): the place it was actually taken at
+     * (the nearest stop or day trip within 8 km; of two equally near, the one of its own day), else of the stops that cover its
+     * day the nearest one within 30 km, else the nearest of all within 30 km, else the first stop (no day trip)
+     * that covers the day. Without the first step a photo taken in Monachil offered "Cover van Granada", the
+     * stop of that day 8 km away.
      */
     fun stopFor(media: Media, stops: List<StopRow>): StopRow? {
         val day = media.takenAt
@@ -59,6 +62,11 @@ object ViewerApi {
         if (media.lat != null && media.lon != null) {
             fun nearest(list: List<StopRow>) = list.filter { it.lat != null && it.lon != null }
                 .map { it to km(media.lat, media.lon, it.lat!!, it.lon!!) }.minByOrNull { it.second }
+            // Where it was taken: the nearest place within 8 km; of places as near as that (within a kilometre,
+            // a stop visited twice) the one of its own day.
+            val at = stops.filter { it.lat != null && it.lon != null }.map { it to km(media.lat, media.lon, it.lat!!, it.lon!!) }
+                .filter { it.second <= AT_KM }.sortedBy { it.second }
+            at.firstOrNull()?.let { best -> return (at.firstOrNull { it.second <= best.second + 1.0 && it.first in covering } ?: best).first }
             nearest(covering)?.takeIf { it.second <= NEAR_KM }?.let { return it.first }
             nearest(stops)?.takeIf { it.second <= NEAR_KM }?.let { return it.first }
         }
@@ -66,6 +74,8 @@ object ViewerApi {
     }
 
     private const val NEAR_KM = 30.0
+    /** Taken at a place (as the places row, Places.kt). */
+    private const val AT_KM = 8.0
 
     private fun km(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val r = Math.toRadians(1.0)

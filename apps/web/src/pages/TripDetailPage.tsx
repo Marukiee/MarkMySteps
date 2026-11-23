@@ -989,6 +989,17 @@ export function TripDetailPage() {
             .filter((s) => s.latitude != null && s.longitude != null)
             .map((s) => ({ stop: s, km: haversineKm([s.longitude!, s.latitude!], here) }))
             .sort((a, b) => a.km - b.km)[0];
+        // Taken at a place (8 km): the nearest one, of two as near (a stop visited twice) the one of its
+        // own day. Without this a photo taken in Monachil offered "Cover van Granada", 8 km away.
+        const at = stops
+          .filter((s) => s.latitude != null && s.longitude != null)
+          .map((s) => ({ stop: s, km: haversineKm([s.longitude!, s.latitude!], here) }))
+          .filter((x) => x.km <= 8)
+          .sort((a, b) => a.km - b.km);
+        if (at.length > 0) {
+          const pick = at.find((x) => x.km <= at[0]!.km + 1 && covers(x.stop)) ?? at[0]!;
+          return { id: pick.stop.id, name: pick.stop.name };
+        }
         const onTheDay = byDistance(stops.filter(covers));
         const best =
           onTheDay && onTheDay.km <= STOP_NEAR_KM ? onTheDay : byDistance(stops);

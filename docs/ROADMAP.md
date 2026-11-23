@@ -77,6 +77,11 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] Plaatsfoto's op locatie: elke foto hoort bij de dichtstbijzijnde plaats
+      (Granada en Monachil hadden dezelfde foto), de foto het dichtst bij het
+      hart van de plaats wint, een zelfgekozen cover (viewer › Cover van ...)
+      blijft altijd staan. Viewer biedt de plek aan waar de foto echt genomen
+      is. Android, iPhone en web.
 - [x] Kaartstijl: nog twee stijlen, Licht & minimaal (standaard) en Satelliet;
       Bright en Classic weg (oude keuze wordt Licht & minimaal). Kaartstijl
       bovenaan in de kaartinstellingen. Android, iPhone en web.

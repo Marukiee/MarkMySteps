@@ -570,14 +570,15 @@ enum Remote {
             let outings = (children[o["id"] as? String ?? ""] ?? []).compactMap { c -> DayTrip? in
                 guard let p = point(c) else { return nil }
                 return DayTrip(name: c["name"] as? String ?? "", flag: flag(c["countryCode"] as? String), at: p,
-                               day: Remote.day(c["dayTripDate"]) ?? Remote.day(c["arrivalDate"]), serverId: c["id"] as? String)
+                               day: Remote.day(c["dayTripDate"]) ?? Remote.day(c["arrivalDate"]), serverId: c["id"] as? String,
+                               cover: text(c, "coverMediaId"))
             }.sorted { ($0.day ?? .distantPast) < ($1.day ?? .distantPast) }
             stops.append(Stop(
                 name: name, flag: flag(o["countryCode"] as? String), at: at, nights: nights,
                 dates: nights == 0 ? Format.shortDay(from) : Format.range(from, day, withYear: false),
                 mode: mode, start: from, serverId: o["id"] as? String,
                 flightNumber: text(o, "flightNumber"), fromAirport: text(o, "fromAirport"), toAirport: text(o, "toAirport"), via: via,
-                dayTrips: outings
+                dayTrips: outings, cover: text(o, "coverMediaId")
             ))
         }
         return (stops, outbound, back)

@@ -31,10 +31,12 @@ data class Stop(
     val viaAirports: List<String> = emptyList(),
     /** The straight line from the stop before to here is hidden on the map (the stop itself stays). */
     val hideLeg: Boolean = false,
+    /** The photo the owner picked for this place ("Cover van ..." in the viewer); wins over the automatic one. */
+    val cover: String? = null,
 )
 
 /** A day trip from a stop (Saltsjöbaden to Stockholm and back): where, and on which day. */
-data class DayTrip(val id: String, val name: String, val flag: String, val at: LonLat?, val day: LocalDate?)
+data class DayTrip(val id: String, val name: String, val flag: String, val at: LonLat?, val day: LocalDate?, val cover: String? = null)
 
 /** How a leg is travelled, in the order the mode menu lists them. */
 enum class Mode(private val res: Int) {

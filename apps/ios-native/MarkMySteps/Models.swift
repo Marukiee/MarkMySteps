@@ -92,6 +92,8 @@ struct DayTrip: Hashable {
     let at: LonLat
     var day: Date?
     var serverId: String? = nil
+    /// The photo the owner picked for it ("Cover van ..." in the viewer); wins over the automatic one.
+    var cover: String? = nil
 }
 
 /// Drawn stand-ins for photos in the demo, see Landscape.swift.
@@ -118,6 +120,8 @@ struct Stop: Hashable {
     var toAirport: String? = nil
     var via: [String] = []
     var dayTrips: [DayTrip] = []
+    /// The photo the owner picked for this place ("Cover van ..." in the viewer); wins over the automatic one.
+    var cover: String? = nil
 }
 
 /// One trip, in the shape the API hands the app.

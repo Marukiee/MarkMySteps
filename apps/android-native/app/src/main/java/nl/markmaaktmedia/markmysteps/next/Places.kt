@@ -64,32 +64,52 @@ object TripPlaces {
 
     private fun Media.at(): LonLat? = if (lat != null && lon != null) lon to lat else null
 
-    /** The stops (and day trips you photographed) with the photo that shows each, in trip order. */
+    /** A place that can wear a tile: a stop, or a day trip from one. */
+    private class Spot(val name: String, val flag: String?, val at: LonLat?, val cover: String?, val start: LocalDate?, val dayTrip: Boolean, val fallbackOrder: Int)
+
+    /**
+     * The stops (and day trips you photographed) with the photo that shows each, in trip order.
+     *
+     * Each photo that knows where it was taken belongs to the NEAREST place, so two places close together
+     * (Granada and Monachil, 8 km apart) each get their own photos instead of both wearing the first photo
+     * within 8 km. Of a place's own photos the one taken closest to its heart shows it; a cover the owner picked
+     * for the place in the viewer always wins.
+     */
     fun stops(trip: Trip, media: List<Media>, stopOn: (LocalDate) -> Stop?): List<Tile> {
         val stills = media.withIndex().filter { !it.value.video }
         val located = stills.filter { it.value.at() != null }
-        fun faces(at: LonLat?, name: String, dates: (LocalDate) -> Boolean): List<IndexedValue<Media>> {
-            if (at != null) {
-                // Taken at it: the first ones, so the tile shows the place as you found it.
-                val near = located.filter { km(it.value.at()!!, at) <= AT_KM }
-                if (near.isNotEmpty()) return near
-                val around = located.map { it to km(it.value.at()!!, at) }.filter { it.second <= AROUND_KM }.sortedBy { it.second }.map { it.first }
-                if (around.isNotEmpty()) return around
+        val byId = media.associateBy { it.id }
+        val spots = mutableListOf<Spot>()
+        trip.stops.distinctBy { it.name }.forEachIndexed { i, stop ->
+            spots += Spot(stop.name, stop.flag, stop.at, stop.cover, stop.start, dayTrip = false, fallbackOrder = i * 100_000)
+            stop.dayTrips.forEach { d ->
+                if (d.at != null && spots.none { it.name == d.name }) spots += Spot(d.name, d.flag, d.at, d.cover, d.day, dayTrip = true, fallbackOrder = i * 100_000 + 1)
             }
-            // Only photos that do not know where they were taken still go by the day.
-            return stills.filter { it.value.at() == null && dates(it.value.takenAt) && stopOn(it.value.takenAt)?.name == name }
+        }
+        // Every located photo to the nearest place within reach.
+        val own = spots.indices.associateWith { mutableListOf<Pair<IndexedValue<Media>, Double>>() }
+        located.forEach { p ->
+            val at = p.value.at()!!
+            spots.withIndex().filter { it.value.at != null }
+                .map { it.index to km(at, it.value.at!!) }
+                .minByOrNull { it.second }
+                ?.takeIf { it.second <= AROUND_KM }
+                ?.let { (i, d) -> own.getValue(i) += p to d }
         }
         val out = mutableListOf<Tile>()
-        trip.stops.distinctBy { it.name }.forEachIndexed { i, stop ->
-            val picks = faces(stop.at, stop.name) { true }
-            out += Tile(stop.name, stop.flag, picks.take(8).map { it.value }, picks.firstOrNull()?.value?.takenAt ?: stop.start, picks.firstOrNull()?.index ?: (i * 100_000))
-            // A day trip earns a tile by a photo actually taken there.
-            stop.dayTrips.forEach { d ->
-                val at = d.at ?: return@forEach
-                if (out.any { it.name == d.name }) return@forEach
-                val near = located.filter { km(it.value.at()!!, at) <= AT_KM }
-                if (near.isNotEmpty()) out += Tile(d.name, d.flag, near.take(8).map { it.value }, near.first().value.takenAt, near.first().index)
-            }
+        spots.forEachIndexed { i, spot ->
+            val mine = own.getValue(i)
+            val taken = mine.filter { it.second <= AT_KM }
+            // A day trip earns a tile only by a photo actually taken there.
+            if (spot.dayTrip && taken.isEmpty() && spot.cover?.let(byId::get) == null) return@forEachIndexed
+            // Taken at it first, closest to its heart first; then its surroundings.
+            val ranked = (taken.ifEmpty { mine }).sortedBy { it.second }.map { it.first }
+            // Only photos that do not know where they were taken still go by the day.
+            val picks = ranked.ifEmpty { stills.filter { it.value.at() == null && stopOn(it.value.takenAt)?.name == spot.name } }
+            val chosen = spot.cover?.let(byId::get)
+            val photos = (listOfNotNull(chosen) + picks.map { it.value }.filter { it.id != chosen?.id }).take(8)
+            val firstThere = mine.minByOrNull { it.first.index }?.first ?: picks.minByOrNull { it.index }
+            out += Tile(spot.name, spot.flag, photos, firstThere?.value?.takenAt ?: chosen?.takenAt ?: spot.start, firstThere?.index ?: spot.fallbackOrder)
         }
         return out
     }
