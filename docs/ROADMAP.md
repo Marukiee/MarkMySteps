@@ -65,6 +65,12 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       doorzichtig, en een doorlopende lijn van heenreis tot terugreis die niet
       afgekapt wordt als je de bovenste versleept.
 
+- [ ] Volgende release (gebundeld, Mark 23 nov): vervoerspil klapt in met
+      hetzelfde stevige tikje als uitklappen, Weergave noemt Taal
+      (branch claude/mode-close-haptic), samen met de fotoboekpunten van de
+      fotoboeksessie: meer foto's per pagina en zelf te kiezen, dagbalk springt
+      in een keer, terug vanuit fotoboek of samenvatting naar Mensen en delen.
+
 ### Gebouwd, wacht op Marks akkoord
 
 - [x] iPhone: ⋯ op de reiskaart 40 pt (was veel te groot), 14 pt van de rand.
