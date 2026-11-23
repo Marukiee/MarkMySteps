@@ -779,10 +779,12 @@ struct FactsRow: View {
 /// opens with them at once instead of a guess from the trip list that changes a moment later.
 enum FactsMemory {
     private static let d = UserDefaults.standard
-    static func stops(_ id: String) -> Int? { d.object(forKey: "facts.\(id).stops") as? Int }
+    // "places", not "stops": the stops figure now counts day trips too (TripFigures.stopPlaceCount), so a count
+    // kept before that is not shown for a moment and then corrected.
+    static func stops(_ id: String) -> Int? { d.object(forKey: "facts.\(id).places") as? Int }
     static func photos(_ id: String) -> Int? { d.object(forKey: "facts.\(id).photos") as? Int }
     static func keep(_ id: String, stops: Int? = nil, photos: Int? = nil) {
-        if let stops, self.stops(id) != stops { d.set(stops, forKey: "facts.\(id).stops") }
+        if let stops, self.stops(id) != stops { d.set(stops, forKey: "facts.\(id).places") }
         if let photos, self.photos(id) != photos { d.set(photos, forKey: "facts.\(id).photos") }
     }
 }

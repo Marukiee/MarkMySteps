@@ -769,11 +769,13 @@ object FactsMemory {
     private val cache = HashMap<String, Int>()
     fun init(context: android.content.Context) { prefs = context.getSharedPreferences("mms.next.facts", android.content.Context.MODE_PRIVATE) }
     private fun get(key: String): Int? = cache[key] ?: prefs?.getInt(key, -1)?.takeIf { it >= 0 }?.also { cache[key] = it }
-    fun stops(id: String): Int? = get("$id.stops")
+    // "places", not "stops": the stops figure now counts day trips too (TripFigures.stopPlaceCount), so a count
+    // kept before that is not shown for a moment and then corrected.
+    fun stops(id: String): Int? = get("$id.places")
     fun photos(id: String): Int? = get("$id.photos")
     fun keep(id: String, stops: Int? = null, photos: Int? = null) {
         val e = prefs?.edit() ?: return
-        stops?.let { if (cache["$id.stops"] != it) { cache["$id.stops"] = it; e.putInt("$id.stops", it) } }
+        stops?.let { if (cache["$id.places"] != it) { cache["$id.places"] = it; e.putInt("$id.places", it) } }
         photos?.let { if (cache["$id.photos"] != it) { cache["$id.photos"] = it; e.putInt("$id.photos", it) } }
         e.apply()
     }

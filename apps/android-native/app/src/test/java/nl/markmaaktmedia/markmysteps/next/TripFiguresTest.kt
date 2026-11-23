@@ -14,7 +14,7 @@ class TripFiguresTest {
         Stop(name = name, flag = flag, at = lon to lat, nights = 2, dates = "", dayTrips = dayTrips)
 
     private fun dayTrip(name: String, flag: String, lat: Double?, lon: Double?) =
-        DayTrip(name, name, flag, if (lat == null || lon == null) null else lon to lat, null)
+        DayTrip(id = name, name = name, flag = flag, at = if (lat == null || lon == null) null else lon to lat, day = null)
 
     @Test
     fun flagsReadAsCodes() {
@@ -101,7 +101,7 @@ class TripFiguresTest {
 }
 
 class TakenOrderTest {
-    private fun media(id: String, day: String, at: Long) = Media(id, java.time.LocalDate.parse(day), false, 1f, at = at)
+    private fun media(id: String, day: String, at: Long) = Media(id = id, takenAt = java.time.LocalDate.parse(day), video = false, ratio = 1f, at = at)
 
     @Test
     fun aPhoneShotStandsAmongTheServersPhotosOfItsDayByTime() {
