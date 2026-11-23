@@ -639,8 +639,9 @@ struct CoverCard: View {
 
 /// The figures of a trip, joined to the cover above in the trip's tone. As the web (lib/tripFacts.ts) and Android:
 /// the first four that have something to say, in a fixed order: distance, days, stops (only for a route of two
-/// or more), photos, travellers (more than you alone), countries. Before a trip: days to go, days, then the same
-/// rules. While the server has not answered, the tiles wait in their place.
+/// or more), photos, travellers (more than you alone), countries. Before a trip starts: days to go first, and
+/// distance and photos wait for the trip itself; a trip under way counts as started. While the server has not
+/// answered, the tiles wait in their place.
 struct FactsRow: View {
     let trip: Trip
     var photos: Int?
@@ -650,8 +651,21 @@ struct FactsRow: View {
     /// The figures picked in trip settings; read here so a new pick shows at once.
     @AppStorage("tripFacts") private var factsData: Data?
 
+    /// Stops as the server counts them for this figure: every route stop, a day trip once per place.
+    static func stopCount(_ trip: Trip) -> Int {
+        TripFigures.stopPlaceCount(
+            route: trip.stops.map { (lat: $0.at.lat, lon: $0.at.lon) },
+            dayTrips: trip.stops.flatMap(\.dayTrips).map { (lat: $0.at.lat, lon: $0.at.lon) }
+        )
+    }
+
+    /// Countries as the server counts them: stops and day trips, not an unknown one, not home.
+    static func countryCount(_ trip: Trip) -> Int {
+        TripFigures.countryCount(codes: trip.stops.flatMap { [TripFigures.code(ofFlag: $0.flag)] + $0.dayTrips.map { TripFigures.code(ofFlag: $0.flag) } })
+    }
+
     static func facts(_ trip: Trip, photos: Int?, stopsKnown: Bool) -> [(String?, String)] {
-        let stops = trip.stops.count
+        let stops = stopCount(trip)
         // The figures picked in the trip's settings, in their order; one still unknown waits as a quiet shape.
         if let chosen = Prefs.facts(trip.id) {
             let nonGuests = trip.members.filter { $0.role != "GUEST" }.count
@@ -664,18 +678,18 @@ struct FactsRow: View {
                 case "photos": return (photos.map { Format.number($0) } ?? FactsMemory.photos(trip.id).map { Format.number($0) } ?? (trip.remoteId == nil ? "\(trip.photos)" : nil), "foto's")
                 case "travellers": return ("\(nonGuests > 0 ? nonGuests : trip.people.count + trip.extraPeople)", "reizigers")
                 default:
-                    let n = Set(trip.stops.map(\.flag).filter { !$0.isEmpty && $0 != "📍" }).count
+                    let n = countryCount(trip)
                     return (stopsKnown ? "\(n)" : nil, n == 1 ? "land" : "landen")
                 }
             }
         }
         let nonGuests = trip.members.filter { $0.role != "GUEST" }.count
         let travellers = nonGuests > 0 ? nonGuests : trip.people.count + trip.extraPeople
-        let countries = Set(trip.stops.map(\.flag).filter { !$0.isEmpty && $0 != "📍" }).count
+        let countries = countryCount(trip)
         let countryFact: (String?, String)? = countries > 0 ? ("\(countries)", countries == 1 ? "land" : "landen") : nil
-        if trip.upcoming {
+        if let toGo = trip.startsInDays {
             let list: [(String?, String)?] = [
-                trip.startsInDays.map { ("\($0)", $0 == 1 ? "dag tot vertrek" : "dagen tot vertrek") },
+                ("\(toGo)", toGo == 1 ? "dag tot vertrek" : "dagen tot vertrek"),
                 ("\(trip.days)", trip.days == 1 ? "dag" : "dagen"),
                 !stopsKnown ? (nil, "stops") : (stops > 1 ? ("\(stops)", "stops") : nil),
                 travellers > 1 ? ("\(travellers)", "reizigers") : nil,
@@ -744,7 +758,7 @@ struct FactsRow: View {
         .animation(Date().timeIntervalSince(openedAt) < 4 ? nil : .calm, value: items.map { ($0.0 ?? "") + $0.1 })
         .task(id: fresh.map { ($0.0 ?? "-") + $0.1 }.joined(separator: "|")) {
             // Keep what this page counted for the next time it opens.
-            if stopsKnown, trip.remoteId != nil { FactsMemory.keep(trip.id, stops: trip.stops.count) }
+            if stopsKnown, trip.remoteId != nil { FactsMemory.keep(trip.id, stops: FactsRow.stopCount(trip)) }
             if let photos { FactsMemory.keep(trip.id, photos: photos) }
             let values = fresh
             if held == nil || held?.map(\.1) != fresh.map(\.1) { held = values; return }
