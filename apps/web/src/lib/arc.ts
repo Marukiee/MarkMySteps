@@ -328,20 +328,32 @@ export interface PlannedStop extends StopPoint {
   notes: string | null;
 }
 
+/** The way there and back from home: legs of the route, not places visited. */
+const LEG_STOP_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
+
 /**
  * How many places a plan covers, for the "aantal stops" chip.
  *
  * Route stops always count, even a city you sleep in twice. Day trips only
  * count the first time: going into Stockholm three times from Saltsjöbaden is
- * one place you visited, not three stops. Mirrors countStopPlaces on the API.
+ * one place you visited, not three stops. The way there and back (Heenreis,
+ * Terugvlucht, ...) is a leg, not a place: it carries a coordinate for its
+ * distance, which used to count it as one or two stops more. Mirrors
+ * countStopPlaces on the API.
  */
 export function countStopPlaces(
-  stops: { latitude: number | null; longitude: number | null; parentStopId?: string | null }[],
+  stops: {
+    name?: string;
+    latitude: number | null;
+    longitude: number | null;
+    parentStopId?: string | null;
+  }[],
 ): number {
   const seen = new Set<string>();
   let count = 0;
   for (const stop of stops) {
-    if (stop.latitude === null || stop.longitude === null) continue;
+    if (stop.latitude == null || stop.longitude == null) continue;
+    if (stop.name !== undefined && LEG_STOP_NAMES.has(stop.name)) continue;
     const key = `${stop.latitude.toFixed(3)},${stop.longitude.toFixed(3)}`;
     if (stop.parentStopId && seen.has(key)) continue;
     seen.add(key);

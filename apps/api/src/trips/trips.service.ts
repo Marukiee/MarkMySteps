@@ -8,7 +8,7 @@ import { Trip, TripRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { airportCoord } from '../common/airports';
-import { isoDay, kmLngLat, PLAN_STOP_SELECT, planTrip } from './trip-schedule';
+import { isoDay, kmLngLat, LEG_NAMES, PLAN_STOP_SELECT, type PlanStop, planTrip } from './trip-schedule';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { coded } from '../common/i18n';
@@ -79,10 +79,13 @@ const HOME_COUNTRY = 'NL';
  *
  * Route stops always count, even a city you sleep in twice. Day trips only
  * count the first time: going into Stockholm three times from Saltsjöbaden is
- * still one place you visited, not three stops.
+ * still one place you visited, not three stops. The way there and back
+ * (Heenreis, Terugvlucht, ...) is a leg, not a place: it carries a coordinate
+ * for its distance, which used to count it as one or two stops more.
  */
 export function countStopPlaces(
   stops: {
+    name?: string;
     latitude: number | null;
     longitude: number | null;
     parentStopId?: string | null;
@@ -92,6 +95,7 @@ export function countStopPlaces(
   let count = 0;
   for (const stop of stops) {
     if (stop.latitude == null || stop.longitude == null) continue;
+    if (stop.name !== undefined && LEG_NAMES.has(stop.name)) continue;
     // ~100 m grid: the same city searched twice never lands on the exact
     // same coordinate.
     const key = `${stop.latitude.toFixed(3)},${stop.longitude.toFixed(3)}`;
@@ -140,6 +144,16 @@ type RawStop = {
   longitude: number | null;
   parentStopId: string | null;
 };
+
+/**
+ * A trip's distance as every screen shows it: what was tracked, plus what
+ * tracking never sees, added from the plan (day trips there and back, and a
+ * ground leg from or to home typed in by hand, see trip-schedule.ts).
+ */
+export function tripDistanceKm(trackedKm: number, stops: PlanStop[], tripStart: Date): number {
+  const extraKm = planTrip(stops, tripStart).extras.reduce((sum, e) => sum + e.km, 0);
+  return Math.round(trackedKm + extraKm);
+}
 
 /** Departure/arrival legs: real places, but at home, not on the trip. */
 const ANCHOR_SKIP = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
@@ -372,9 +386,9 @@ export class TripsService {
       WHERE "tripId" = ANY(${trips.map((t) => t.id)}::uuid[])
       GROUP BY "tripId"
     `;
-    const kmByTrip = new Map(
-      distances.map((d) => [d.tripId, Math.round((d.meters ?? 0) / 1000)]),
-    );
+    // Tracked kilometres only; the plan's own extras are added once the stops
+    // are read below, so the card says what the trip's page says (getStats).
+    const trackedKm = new Map(distances.map((d) => [d.tripId, (d.meters ?? 0) / 1000]));
 
     // Simplified tracked route per trip, as GeoJSON, for the globe overview.
     // The tolerance is in degrees: 0.05 is roughly 5 km, between the 0.08 this
@@ -413,14 +427,8 @@ export class TripsService {
       where: { tripId: { in: tripIds } },
       orderBy: [{ tripId: 'asc' }, { orderIndex: 'asc' }],
       select: {
-        id: true,
+        ...PLAN_STOP_SELECT,
         tripId: true,
-        parentStopId: true,
-        latitude: true,
-        longitude: true,
-        travelMode: true,
-        fromAirport: true,
-        toAirport: true,
         viaAirports: true,
         hideLeg: true,
       },
@@ -528,6 +536,15 @@ export class TripsService {
     for (const [tripId, line] of photosByTrip) {
       photosByTrip.set(tripId, trimOutlierEnds(stripHomeCountry(line)));
     }
+
+    // What tracking never sees, from the plan, exactly as getStats adds it: a
+    // trip's card and its page used to show two different distances.
+    const kmByTrip = new Map(
+      trips.map((t) => [
+        t.id,
+        tripDistanceKm(trackedKm.get(t.id) ?? 0, rawByTrip.get(t.id) ?? [], t.startDate),
+      ]),
+    );
 
     const live = await this.liveCovers(trips);
     return trips.map((t) => {
@@ -665,9 +682,6 @@ export class TripsService {
       this.prisma.stop.findMany({ where: { tripId }, select: PLAN_STOP_SELECT }),
     ]);
 
-    // What tracking never sees, added from the plan: day trips there and back,
-    // and a ground leg from or to home typed in by hand (see trip-schedule.ts).
-    const extraKm = planTrip(orderedStops, trip.startDate).extras.reduce((sum, e) => sum + e.km, 0);
 
     const days =
       Math.round(
@@ -675,7 +689,7 @@ export class TripsService {
       ) + 1;
 
     return {
-      distanceKm: Math.round((distanceRow?.meters ?? 0) / 1000 + extraKm),
+      distanceKm: tripDistanceKm((distanceRow?.meters ?? 0) / 1000, orderedStops, trip.startDate),
       // Home country doesn't count as a "country visited" — a trip that starts
       // and ends in NL isn't a trip to the Netherlands.
       countries: stopCountries

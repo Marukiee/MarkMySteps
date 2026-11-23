@@ -179,7 +179,7 @@ export class SharePublicController {
       this.trips.getStatsUnchecked(session.tripId),
       this.prisma.stop.findMany({
         where: { tripId: session.tripId, latitude: { not: null } },
-        select: { latitude: true, longitude: true, parentStopId: true },
+        select: { name: true, latitude: true, longitude: true, parentStopId: true },
       }),
     ]);
     // A cover is a plain media id, not a relation: a photo deleted in Immich
