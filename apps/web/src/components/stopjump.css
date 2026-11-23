@@ -137,6 +137,10 @@
   font-weight: 650;
   line-height: 16px;
   text-align: left;
+  /* A long name breaks with a hyphen ("Saltsjö-baden"), never a loose end. */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: anywhere;
   color: var(--ink);
 }
 

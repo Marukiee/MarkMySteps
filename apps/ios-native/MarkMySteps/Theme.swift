@@ -196,6 +196,27 @@ enum Format {
 
     static func km(_ n: Int) -> String { "\(number(n)) km" }
 
+    /// The word with soft hyphens where Dutch may break it, so a narrow tile breaks a long name with a hyphen
+    /// ("Saltsjö-baden") instead of leaving "en" on a line of its own.
+    static func hyphenated(_ text: String) -> String {
+        let ns = text as NSString
+        let locale = Locale(identifier: "nl") as CFLocale
+        var out = ""
+        var cut = Set<Int>()
+        var i = ns.length
+        while i > 0 {
+            let at = CFStringGetHyphenationLocationBeforeIndex(ns as CFString, i, CFRange(location: 0, length: ns.length), 0, locale, nil)
+            if at == kCFNotFound || at <= 0 { break }
+            cut.insert(at)
+            i = at
+        }
+        for k in 0..<ns.length {
+            if cut.contains(k) { out += "\u{00AD}" }
+            out += ns.substring(with: NSRange(location: k, length: 1))
+        }
+        return out
+    }
+
     static func shortMonth(_ month: String) -> String {
         if let i = monthsLong.firstIndex(of: month) { return monthsShort[i] }
         return String(month.prefix(3))

@@ -52,7 +52,8 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       eerste 4 seconden te weten komt staat er gewoon (Android en iPhone).
 - [x] Plaatsen (stop-tegels): op locatie, niet op datum (Android en iPhone);
       plekken met minstens 4 foto's ver van elke stop worden een eigen plaats,
-      met de naam van Photon. Gränna (tussenstop) heeft geen foto, Stockholm ontbreekt
+      met de naam van Photon. Laadt de eerste foto niet, dan de volgende. Lange
+      namen breken af met een streepje (Saltsjöba-den), ook op iPhone en web. Gränna (tussenstop) heeft geen foto, Stockholm ontbreekt
       helemaal terwijl je er was en fotografeerde.
 - [x] Fotostrip in de viewer stopt altijd op een foto (het terugglijden
       annuleerde zichzelf).

@@ -247,7 +247,8 @@ private struct PlacesRow: View {
             if photo {
                 LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: .black.opacity(0.62), location: 1)], startPoint: .top, endPoint: .bottom)
             }
-            Text(place.name)
+            // A long name breaks with a hyphen ("Saltsjö-baden"), never a loose end on its own line.
+            Text(Format.hyphenated(place.name))
                 .font(.outfit(14, 650))
                 .foregroundStyle(photo ? Color.white : Brand.ink)
                 .lineLimit(2)

@@ -264,7 +264,13 @@ private fun LiveTimeline(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             tiles.forEach { place -> androidx.compose.runtime.key(place.name) {
-                val pick = place.photos.firstOrNull()
+                // The first of its photos that really loads: a photo that cannot be fetched hands over to the next
+                // instead of leaving an empty tile (Stockholm's first one never came).
+                val loaded by androidx.compose.runtime.produceState(place.photos.firstOrNull { Photos.cached("${it.id}/thumbnail") != null } ?: place.photos.firstOrNull(), place.photos) {
+                    if (value?.let { Photos.cached("${it.id}/thumbnail") } != null) return@produceState
+                    for (m in place.photos) { if (Photos.load(m.id, "thumbnail") != null) { value = m; return@produceState } }
+                }
+                val pick = loaded
                 val day = place.day
                 Box(Modifier.width(92.dp).height(116.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHigh)
                     .clickable(enabled = day != null) {
@@ -283,8 +289,10 @@ private fun LiveTimeline(
                         place.flag?.let { FlagIcon(it, 20.dp, Modifier.padding(10.dp)) }
                     }
                     Text(
-                        place.name, maxLines = 2,
-                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp, lineHeight = 16.sp, color = if (pick != null) Color.White else cs.onSurface),
+                        // A long name breaks with a hyphen ("Saltsjö-baden"), never a loose end on its own line.
+                        place.name, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 14.sp, lineHeight = 16.sp, color = if (pick != null) Color.White else cs.onSurface,
+                            hyphens = androidx.compose.ui.text.style.Hyphens.Auto, lineBreak = androidx.compose.ui.text.style.LineBreak.Paragraph),
                         modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 9.dp, vertical = 8.dp),
                     )
                 }
