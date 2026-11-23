@@ -189,6 +189,8 @@ struct TripSettingsPage: View {
                             if syncing { ProgressView().controlSize(.small) }
                         }
                     }
+                    // Readable on the beige: the trip colour as text measured 1.97:1.
+                    .tint(Brand.ink)
                     .disabled(syncing || !live)
                 } header: { Text("Foto's") } footer: {
                     Text(syncNote ?? "Kijkt in Immich welke foto's op de dagen van deze reis genomen zijn en zet ze in de tijdlijn; met een locatie ook op de kaart.")
@@ -481,9 +483,11 @@ struct TripSettingsPage: View {
                         .transition(.asymmetric(insertion: .push(from: .bottom), removal: .opacity))
                 } else if placing {
                     Button("Annuleren") { withAnimation(.calm) { placing = false } }
+                        .tint(Brand.ink)
                         .transition(.opacity)
                 } else {
                     Button("Bolletje zelf plaatsen", systemImage: "mappin.and.ellipse") { withAnimation(.calm) { placing = true } }
+                        .tint(Brand.ink)
                         .disabled(live && info == nil)
                         .transition(.opacity)
                 }

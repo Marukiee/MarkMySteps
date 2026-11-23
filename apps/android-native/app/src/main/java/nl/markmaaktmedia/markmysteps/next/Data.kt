@@ -116,6 +116,7 @@ fun Cover(trip: Trip, modifier: Modifier, size: String = "thumbnail", placeholde
 @Composable
 fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail", eager: Boolean = false, onShown: ((Bitmap) -> Unit)? = null, placeholder: String? = null) {
     // Otherwise only fetched once it comes on screen, so a day with three hundred photos does not ask for all of them at once.
+    // Any part on screen counts: a row half behind the navigation bar kept an empty tile while it waited to be fully seen.
     var seen by androidx.compose.runtime.remember(id) { mutableStateOf(Photos.cached("$id/$size") != null) }
     // Kept per photo: produceState remembers its value without keys, so a tile that was handed another
     // photo (the rows reflowing) went on showing the previous one while a tap opened the new one.
@@ -143,7 +144,7 @@ fun RemotePhoto(id: String, modifier: Modifier, size: String = "thumbnail", eage
         0.55f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(1100), androidx.compose.animation.core.RepeatMode.Reverse), label = "a",
     ) else null
     val tone = MaterialTheme.colorScheme.surfaceContainerHigh
-    Box(modifier.drawBehind { if (under == null) drawRect(tone, alpha = breathe?.value ?: 1f) }.onFirstVisible { seen = true }) {
+    Box(modifier.drawBehind { if (under == null) drawRect(tone, alpha = breathe?.value ?: 1f) }.onFirstVisible(minFractionVisible = 0.01f) { seen = true }) {
         under?.let { Image(it.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
         bitmap?.let {
             Image(

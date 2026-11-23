@@ -472,7 +472,7 @@ fun MapLayersSections(layers: MapLayers) {
 internal fun LayerRow(m: Member, me: Boolean, color: Color, on: Boolean, seen: Pair<String, Boolean>?, i: Int, n: Int, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val haptics = rememberHaptics()
-    val fill by animateColorAsState(if (on) cs.primary else Color.Transparent, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "check")
+    val fill by animateColorAsState(if (on) cs.primary else cs.primary.copy(alpha = 0f), MaterialTheme.motionScheme.defaultEffectsSpec(), label = "check")
     val tick by animateFloatAsState(if (on) 1f else 0f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "tick")
     Row(
         Modifier.fillMaxWidth().clip(slabShape(i, n)).background(cs.surfaceContainerHigh).dip { haptics.toggle(!on); onClick() }.padding(horizontal = 14.dp, vertical = 10.dp),

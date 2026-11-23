@@ -190,7 +190,7 @@ private fun DayCell(day: LocalDate, start: LocalDate?, end: LocalDate?, today: L
     val inRange = start != null && last != null && !day.isBefore(start) && !day.isAfter(last)
     val endpoint = isStart || isEnd
     // The band between the ends, joined across the week, rounded where a week or the range starts or stops.
-    val band by animateColorAsState(if (inRange && start != last) cs.primaryContainer else Color.Transparent, motion.defaultEffectsSpec(), label = "band")
+    val band by animateColorAsState(if (inRange && start != last) cs.primaryContainer else cs.primaryContainer.copy(alpha = 0f), motion.defaultEffectsSpec(), label = "band")
     val firstOfMonth = day.dayOfMonth == 1
     val lastOfMonth = day.dayOfMonth == day.lengthOfMonth()
     val roundL = isStart || column == 0 || firstOfMonth

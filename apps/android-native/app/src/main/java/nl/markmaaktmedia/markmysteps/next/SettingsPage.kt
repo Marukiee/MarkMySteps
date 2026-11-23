@@ -217,7 +217,7 @@ fun MapStyleGrid() {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 pair.forEach { (id, label) ->
                     val on = MapStylePref.id == id
-                    val edge by androidx.compose.animation.animateColorAsState(if (on) cs.primary else Color.Transparent, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "edge")
+                    val edge by androidx.compose.animation.animateColorAsState(if (on) cs.primary else cs.primary.copy(alpha = 0f), MaterialTheme.motionScheme.defaultEffectsSpec(), label = "edge")
                     val fill by androidx.compose.animation.animateColorAsState(if (on) cs.secondaryContainer else cs.surfaceContainerHigh, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "fill")
                     Column(
                         Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(fill)

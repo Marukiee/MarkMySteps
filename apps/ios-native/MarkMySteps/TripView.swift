@@ -265,6 +265,9 @@ struct TripView: View {
         }
         .fullScreenCover(item: $viewer) { item in
             PhotoViewer(item: item, current: $viewerCurrent)
+                // The whole presentation dark, so its glass and the system's own menus are dark too (in light mode
+                // the menu turned brown glass and the place name grey on dark glass).
+                .preferredColorScheme(.dark)
                 .navigationTransition(.zoom(sourceID: item.source ?? viewerCurrent, in: ns))
         }
         .task(id: "\(base.id)/\(store.version)") { await loadMore() }
@@ -1354,6 +1357,7 @@ struct FullMapView: View {
             .ignoresSafeArea()
             .fullScreenCover(item: $viewer) { item in
                 PhotoViewer(item: item, current: $viewerCurrent)
+                    .preferredColorScheme(.dark)
                     .navigationTransition(.zoom(sourceID: item.source ?? viewerCurrent, in: pins))
             }
             .onGeometryChange(for: CGSize.self) { $0.size } action: { new in

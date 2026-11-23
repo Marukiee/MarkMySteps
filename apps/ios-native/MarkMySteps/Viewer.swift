@@ -495,7 +495,8 @@ private struct PlaceLine: View {
             }
         }
         .font(.inter(12.5, 500))
-        .foregroundStyle(.secondary)
+        // A soft white like the counter: the system's secondary grey measured 3.15:1 on the dark glass.
+        .foregroundStyle(.white.opacity(0.78))
         .lineLimit(1)
         .frame(height: 16, alignment: .leading)
         .animation(.easeInOut(duration: 0.25), value: place)

@@ -36,7 +36,8 @@ extension Color {
 enum Brand {
     /// The logo is always the brand orange, also in dark mode.
     static let logo = Color(hex: 0xE8613C)
-    static let accent = Color.accentColor
+    /// The asset itself, not Color.accentColor: iOS dims that one behind an open sheet (the lit button turned grey).
+    static let accent = Color("AccentColor")
     /// Warm paper in light (Android's background), the web's dark paper in dark (a normal dark mode, not black).
     static let paper = Color(light: 0xFBF7F2, dark: 0x14181D)
     /// Cards and grouped rows. Never white on the light beige: a deeper warm tone, as Android's surface
