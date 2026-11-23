@@ -99,3 +99,20 @@ class TripFiguresTest {
         assertEquals(listOf(6, 1, 2), TripFigures.pickFacts(available, listOf("countries"), max = 3))
     }
 }
+
+class TakenOrderTest {
+    private fun media(id: String, day: String, at: Long) = Media(id, java.time.LocalDate.parse(day), false, 1f, at = at)
+
+    @Test
+    fun aPhoneShotStandsAmongTheServersPhotosOfItsDayByTime() {
+        val server = listOf(media("morning", "2026-04-02", 1_000), media("evening", "2026-04-02", 9_000))
+        val phone = media("noon", "2026-04-02", 5_000)
+        assertEquals(listOf("morning", "noon", "evening"), (server + phone).inTakenOrder().map { it.id })
+    }
+
+    @Test
+    fun daysComeFirst() {
+        val list = listOf(media("b", "2026-04-03", 0), media("a", "2026-04-02", 9_999))
+        assertEquals(listOf("a", "b"), list.inTakenOrder().map { it.id })
+    }
+}

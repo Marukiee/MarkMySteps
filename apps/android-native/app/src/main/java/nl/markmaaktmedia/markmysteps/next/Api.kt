@@ -557,7 +557,12 @@ data class Media(
     val userId: String = "", val immichAssetId: String? = null,
     /** Where it was taken, when the photo knows: the viewer turns it into a place name. */
     val lat: Double? = null, val lon: Double? = null,
+    /** The moment it was taken (epoch ms, 0 when not known), so photos of one day stand in the order they were taken. */
+    val at: Long = 0,
 )
+
+/** The order photos stand in: by day, then by the moment they were taken (the server's and the phone's mixed). */
+fun List<Media>.inTakenOrder(): List<Media> = sortedWith(compareBy<Media>({ it.takenAt }, { it.at }))
 
 /** Reads the signed-in account's trips into the same shapes the demo uses. */
 object Remote {
@@ -1011,7 +1016,8 @@ object Remote {
                 immichAssetId = o.optString("immichAssetId").takeIf { it.isNotBlank() && it != "null" },
                 lat = o.optDouble("latitude").takeIf { !o.isNull("latitude") && !it.isNaN() },
                 lon = o.optDouble("longitude").takeIf { !o.isNull("longitude") && !it.isNaN() },
+                at = runCatching { java.time.Instant.parse(o.getString("takenAt")).toEpochMilli() }.getOrDefault(0L),
             )
-        }.plus(DeviceMedia.list(trip)).distinctBy { it.id }.sortedBy { it.takenAt }
+        }.plus(DeviceMedia.list(trip)).distinctBy { it.id }.inTakenOrder()
     }
 }
