@@ -689,7 +689,8 @@ private fun RouteSheet(ctx: BookContext, u: Dp) {
 
 /** The trip's numbers: at most four, the ones that say something. */
 fun tripFacts(trip: Trip, picked: Picked?): List<Pair<String, String>> {
-    val countries = trip.stops.map { it.flag }.distinct().size
+    // Only known countries: a stop without one (its 📍) is not a second country.
+    val countries = TripFigures.namedCountries(trip.stops)
     return buildList {
         add("${trip.days}" to Lang.text(R.string.home_days))
         trip.km?.takeIf { it > 0 }?.let { add("%,d".format(Lang.locale, it) to Lang.text(R.string.summary_fact_km)) }

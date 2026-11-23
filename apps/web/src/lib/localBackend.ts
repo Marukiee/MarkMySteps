@@ -274,7 +274,8 @@ async function tripView(trip: StoredTrip, withRoute: boolean): Promise<Trip> {
   const planned = plannedSegments(stops);
   return {
     ...base,
-    distanceKm: Math.round(await routeKm(trip.id)),
+    // The plan's extras too, as /stats adds them: card and page say the same.
+    distanceKm: tripKm(await routeKm(trip.id), stops),
     routePath:
       tracked.length >= 2 ? [tracked] : planned.ground.length > 0 ? planned.ground : undefined,
     flightPath: planned.flights.length > 0 ? planned.flights : undefined,
@@ -490,11 +491,17 @@ route('DELETE', '/trips/:id', async (_req, [id]) => {
   return undefined;
 });
 
-route('GET', '/trips/:id/stats', async (_req, [id]) => {
-  const trip = await requireTrip(id!);
-  const stops = await stopsOf(trip.id);
-  const media = await dbByTrip<StoredMedia>('media', trip.id);
+/**
+ * Kilometres the plan adds to what was tracked: day trips there and back and a
+ * ground leg from or to home placed by hand. The trip list and /stats both add
+ * them, so a trip's card and its page show the same distance.
+ */
+/** What was tracked plus the plan's extras, which only top up a recorded route (as the API's tripDistanceKm). */
+function tripKm(trackedKm: number, stops: PlannedStop[]): number {
+  return trackedKm > 0 ? Math.round(trackedKm + planExtraKm(stops)) : 0;
+}
 
+function planExtraKm(stops: PlannedStop[]): number {
   const hasCoord = (s: PlannedStop) => s.latitude !== null && s.longitude !== null;
   const cities = stops.filter((s) => hasCoord(s) && !LEG_NAMES.has(s.name) && !s.parentStopId);
   let extraKm = 0;
@@ -518,6 +525,13 @@ route('GET', '/trips/:id/stats', async (_req, [id]) => {
       );
     }
   });
+  return extraKm;
+}
+
+route('GET', '/trips/:id/stats', async (_req, [id]) => {
+  const trip = await requireTrip(id!);
+  const stops = await stopsOf(trip.id);
+  const media = await dbByTrip<StoredMedia>('media', trip.id);
 
   const days =
     Math.round(
@@ -525,7 +539,7 @@ route('GET', '/trips/:id/stats', async (_req, [id]) => {
     ) + 1;
 
   return {
-    distanceKm: Math.round((await routeKm(trip.id)) + extraKm),
+    distanceKm: tripKm(await routeKm(trip.id), stops),
     countries: [
       ...new Set(
         stops

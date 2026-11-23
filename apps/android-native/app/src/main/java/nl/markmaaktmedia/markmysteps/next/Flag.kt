@@ -40,13 +40,7 @@ private val cache = object : LruCache<String, Bitmap>(4 * 1024 * 1024) {
 }
 
 /** "🇲🇦" to "ma"; a two-letter code stays as it is. */
-fun flagCode(flag: String?): String? {
-    if (flag == null) return null
-    if (flag.length == 2 && flag.all { it.isLetter() }) return flag.lowercase()
-    val cps = flag.codePoints().toArray().filter { it in 0x1F1E6..0x1F1FF }
-    if (cps.size != 2) return null
-    return cps.joinToString("") { ('a' + (it - 0x1F1E6)).toString() }
-}
+fun flagCode(flag: String?): String? = TripFigures.codeOfFlag(flag)
 
 @Composable
 fun FlagIcon(flag: String?, height: Dp, modifier: Modifier = Modifier) {
