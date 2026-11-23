@@ -57,6 +57,14 @@ UpdateCard(Modifier.padding(top = 8.dp))                    // of UpdateCard(sty
 
 Een instellingenrij "Nu controleren" gebruikt `MarkUpdate.get().check()`, `state` en `autoCheck` / `setAutoCheck(on)`.
 
+Daaronder, in de instellingen, staat `UpdateBar()`: de balk van de kaart zonder Later. Hij staat er alleen als er een nieuwere versie is
+("Bijwerken naar versie X") en doet bij een tik precies wat Bijwerken op de kaart doet (voortgangsbalk, dan meteen installeren). Zo kan
+iemand vanuit de instellingen bijwerken, zonder losse melding eronder. Kaart en balk lezen dezelfde updater en lopen samen op.
+
+```kotlin
+UpdateBar(Modifier.padding(top = 8.dp))                     // onder de rij "Controleren op updates"
+```
+
 De module brengt zelf mee (via de manifest-merge): `REQUEST_INSTALL_PACKAGES`, `UPDATE_PACKAGES_WITHOUT_USER_ACTION`, `INTERNET`,
 `POST_NOTIFICATIONS` en de ontvanger `InstallResultReceiver`. Een app declareert die niet zelf en heeft er geen eigen ontvanger voor.
 

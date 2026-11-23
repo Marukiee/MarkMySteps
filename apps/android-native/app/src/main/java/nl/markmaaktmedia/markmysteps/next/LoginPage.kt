@@ -277,7 +277,7 @@ private fun Field(
                     keyboardOptions = KeyboardOptions(keyboardType = type, imeAction = if (done != null) ImeAction.Done else ImeAction.Next, autoCorrectEnabled = false),
                     keyboardActions = KeyboardActions(onDone = { done?.invoke() }),
                     // Tells password managers what this field is, so they offer to fill it.
-                    modifier = Modifier.fillMaxWidth().focusRequester(focus)
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus).clearOfKeyboard(room = 40.dp)
                         .then(if (autofill != null) Modifier.semantics { contentType = autofill } else Modifier),
                 )
             }

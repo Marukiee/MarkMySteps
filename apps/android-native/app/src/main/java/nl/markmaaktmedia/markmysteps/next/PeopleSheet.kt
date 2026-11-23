@@ -243,7 +243,7 @@ private fun AddPeople(trip: Trip, existing: Set<String>, onAdded: () -> Unit) {
         found = runCatching { Remote.findPeople(query) }.getOrNull()?.filter { it.username !in existing }
     }
     Text(stringResource(R.string.people_add_someone), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 15.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
-    Row(Modifier.fillMaxWidth().height(52.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.clearOfKeyboard(room = 150.dp).fillMaxWidth().height(52.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         LineIcon(Glyphs.search, cs.onSurfaceVariant, size = 20.dp)
         Box(Modifier.weight(1f).padding(start = 12.dp)) {
             if (query.isEmpty()) Text(stringResource(R.string.people_search), style = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurfaceVariant))
@@ -380,7 +380,7 @@ private fun ShareLinks(trip: Trip, owner: Boolean) {
                 Row(Modifier.weight(1f).height(48.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) {
                         if (newPassword.isEmpty()) Text(stringResource(R.string.people_password_optional), style = TextStyle(fontFamily = Inter, fontSize = 14.5.sp, color = cs.onSurfaceVariant))
-                        BasicTextField(newPassword, { newPassword = it.take(128) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 14.5.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
+                        BasicTextField(newPassword, { newPassword = it.take(128) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 14.5.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth().clearOfKeyboard(room = 90.dp))
                     }
                 }
                 Spacer(Modifier.size(8.dp))
@@ -429,7 +429,7 @@ private fun LinkSettings(trip: Trip, link: Remote.ShareLink, onDismiss: () -> Un
             if (confirmRevoke) Text(stringResource(R.string.people_revoke_body), style = TextStyle(fontFamily = Inter, fontSize = 15.sp))
             else Column {
                 Text(if (link.hasPassword) stringResource(R.string.people_new_password) else stringResource(R.string.auth_password), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(bottom = 6.dp))
-                Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().clearOfKeyboard(room = 90.dp).height(48.dp).clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     BasicTextField(password, { password = it.take(128) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
                 }
                 error?.let { Text(it, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 13.sp, color = cs.error), modifier = Modifier.padding(top = 6.dp)) }

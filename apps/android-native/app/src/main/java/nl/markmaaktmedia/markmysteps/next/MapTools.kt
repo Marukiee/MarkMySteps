@@ -383,7 +383,7 @@ private fun StationField(label: String, city: String?, value: MapRemote.Station?
                 } else {
                     Box(Modifier.weight(1f).padding(start = 10.dp)) {
                         if (query.isEmpty()) Text(stringResource(R.string.map_search_station), style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
-                        BasicTextField(query, { query = it; onType(it) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
+                        BasicTextField(query, { query = it; onType(it) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth().clearOfKeyboard(room = 150.dp))
                     }
                     Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { if (busy) LoadingIndicator(Modifier.size(22.dp)) }
                 }

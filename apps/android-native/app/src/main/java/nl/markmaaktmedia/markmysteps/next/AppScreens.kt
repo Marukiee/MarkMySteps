@@ -160,7 +160,6 @@ fun UpdatePanel() {
     var result by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     val build = rememberBuild()
     val auto = u?.autoCheck?.collectAsState()
-    val newText = stringResource(R.string.update_available, "%s")
     val latestText = stringResource(R.string.update_latest, build.second)
     val failText = stringResource(R.string.update_failed)
     val offText = stringResource(R.string.update_off)
@@ -169,9 +168,9 @@ fun UpdatePanel() {
             busy = true; result = null
             scope.launch {
                 val found = Updates.checkNow()
-                val state = u?.state?.value
                 result = when (found) {
-                    Updates.Found.New -> newText.format((state as? nl.markmaaktmedia.markupdate.UpdateState.Available)?.release?.versionName ?: "") to false
+                    // A newer version: no line of text, the bar below appears and updates right here.
+                    Updates.Found.New -> null
                     Updates.Found.Latest -> latestText to false
                     Updates.Found.Failed -> failText to true
                     Updates.Found.Off -> offText to false
@@ -181,6 +180,9 @@ fun UpdatePanel() {
         }),
         if (u != null && auto != null) Item(Glyphs.bell, stringResource(R.string.update_auto), stringResource(R.string.update_auto_hint), toggle = auto.value, action = { u.setAutoCheck(!auto.value) }) else null,
     ))
+    // The update card's own bar (markupdate): "Bijwerken naar versie X", then the same progress and install as the card on the
+    // homepage, so updating works from here as well. It is only there while a newer version is out.
+    if (u != null) nl.markmaaktmedia.markupdate.ui.UpdateBar(Modifier.fillMaxWidth().padding(top = 10.dp), updater = u)
     Note(result?.first, error = result?.second == true, feel = null)
 }
 

@@ -229,7 +229,7 @@ private fun StoryEditor(day: String, start: String, onCancel: () -> Unit, onSave
             BasicTextField(
                 draft, { draft = it.take(8000) }, textStyle = text, cursorBrush = SolidColor(cs.primary),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus).clearOfKeyboard(room = 80.dp),
             )
         }
         AnimatedVisibility(error != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
@@ -376,7 +376,7 @@ private fun CommentBox(onSend: suspend (String) -> Unit) {
             val text = TextStyle(fontFamily = Inter, fontSize = 15.sp, lineHeight = 21.sp, color = cs.onSurface)
             if (body.isEmpty()) Text(stringResource(R.string.daystory_write_comment), style = text.copy(color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
             BasicTextField(body, { body = it.take(2000) }, textStyle = text, cursorBrush = SolidColor(cs.primary), maxLines = 5,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences), modifier = Modifier.fillMaxWidth())
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences), modifier = Modifier.fillMaxWidth().clearOfKeyboard(room = 60.dp))
         }
         Button(
             onClick = {

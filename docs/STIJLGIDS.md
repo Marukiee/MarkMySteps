@@ -31,6 +31,14 @@ Gedrag en detailniveau zijn op beide gelijk.
 - Alles moet duidelijk loskomen van wat eronder ligt, in licht en donker: geen
   wit op lichtbeige, geen half doorzichtige knop op een kaart of foto zonder
   genoeg contrast. Controleer contrast (3:1 voor iconen, 4,5:1 voor tekst).
+- Een knop moet altijd duidelijk zichtbaar zijn als knop. Zijn vlak verschilt
+  duidelijk van wat eronder ligt (minstens 3:1 tussen knop en achtergrond), en
+  zijn tekst is goed leesbaar op dat vlak (4,5:1). Dus nooit een lichtrode of
+  lichte tonale knop op een lichtblauwe, lichtgrijze of beige dialoog: twee
+  pasteltinten naast elkaar lezen als een vlek, niet als een knop. De
+  hoofdactie (ook verwijderen) is een gevulde pil in de volle kleur met witte
+  tekst; annuleren is een tonale pil die zelf ook duidelijk afsteekt. Meet het
+  na met een kleurmeter of contrastberekening, niet op het oog.
 - Donker is gewoon donker (bijvoorbeeld #14181D), geen OLED-zwart.
 - Concentrische hoeken: een vorm binnen een vorm heeft als straal de buitenste
   straal min de ruimte ertussen. Voorbeeld: menu 28 dp, regels 4 dp ingesprongen,
@@ -143,6 +151,12 @@ Vaste maten die Mark goedkeurde:
 - Een knop met alleen een icoon heeft een voorleestekst.
 - Lange tekst eindigt met een beletselteken, nooit midden in een regel
   afgesneden.
+- Een invulveld staat altijd helemaal boven het toetsenbord, met lucht eronder
+  (en bij een zoekveld ruimte voor de eerste suggesties); nooit met zijn rand
+  tegen het toetsenbord.
+- Bijwerken kan op twee plekken: de updatekaart bovenin en de balk in
+  Instellingen › Updates (UpdateBar uit markupdate). Geen losse melding "versie
+  X is beschikbaar" eronder.
 - Scrollrijen lopen tot de rand van het scherm, het eerste item staat op de lijn
   van de rest.
 - Galerijstrip onder een fotoviewer: gelijke vakken (36 dp tegel, 8 dp tussen),

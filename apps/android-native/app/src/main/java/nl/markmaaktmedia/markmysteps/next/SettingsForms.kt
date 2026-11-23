@@ -277,7 +277,7 @@ fun FormField(
     Column {
         Text(label, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
         Row(
-            Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).padding(start = 16.dp, end = 6.dp),
+            Modifier.fillMaxWidth().clearOfKeyboard().height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).padding(start = 16.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (prefix != null) Text(prefix, style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurfaceVariant), modifier = Modifier.padding(end = 2.dp))

@@ -970,7 +970,7 @@ private fun CommentsSheet(comments: List<Remote.Comment>, onDismiss: () -> Unit,
                         text, { text = it.take(1000) },
                         textStyle = TextStyle(fontFamily = Inter, fontSize = 15.sp, color = cs.onSurface),
                         cursorBrush = androidx.compose.ui.graphics.SolidColor(cs.primary),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().clearOfKeyboard(room = 16.dp),
                     )
                 }
                 val ready = text.isNotBlank()

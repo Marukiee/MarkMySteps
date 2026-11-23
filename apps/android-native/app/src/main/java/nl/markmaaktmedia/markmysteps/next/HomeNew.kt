@@ -908,7 +908,7 @@ private fun TripField(value: String, onChange: (String) -> Unit, placeholder: St
     Box(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
         if (value.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
         androidx.compose.foundation.text.BasicTextField(value, onChange, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurface),
-            cursorBrush = androidx.compose.ui.graphics.SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(cs.primary), modifier = Modifier.fillMaxWidth().clearOfKeyboard(room = 40.dp))
     }
 }
 

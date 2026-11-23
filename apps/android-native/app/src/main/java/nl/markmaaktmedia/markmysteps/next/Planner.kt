@@ -1218,7 +1218,7 @@ private fun placeMatches(trip: Trip, query: String, taken: Set<String>): List<Re
 private fun SearchField(query: String, onQuery: (String) -> Unit, hint: String, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().height(52.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp),
+        Modifier.fillMaxWidth().clearOfKeyboard(room = 150.dp).height(52.dp).clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LineIcon(Glyphs.search, cs.onSurfaceVariant, size = 20.dp)
@@ -1452,7 +1452,7 @@ private fun Label(text: String) {
 @Composable
 private fun SheetField(value: String, onValue: (String) -> Unit, hint: String, modifier: Modifier = Modifier, capitals: Boolean = true) {
     val cs = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clearOfKeyboard(room = 150.dp).height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) {
             if (value.isEmpty()) Text(hint, style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
             BasicTextField(

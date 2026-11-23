@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
             // Test only: plays the old app's sign-in into the WebView storage and reads it back the way an update
             // does, without any network; logs only whether it was found, never the values.
             if (intent.getBooleanExtra("oldAppProbe", false)) OldApp.probe(this)
+            // Test only: the update card's own preview (nothing is downloaded), so the card and the bar in Over can be seen.
+            if (intent.getBooleanExtra("updatePreview", false)) kotlinx.coroutines.MainScope().launch { kotlinx.coroutines.delay(1500); Updates.preview("preview") }
         }
         ThemePref.init(applicationContext)
         MapStylePref.init(applicationContext)

@@ -79,7 +79,7 @@ private fun NewTripSheetBody(onDismiss: () -> Unit, onCreated: (String) -> Unit)
                 Row(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) {
                         if (title.isEmpty()) Text(stringResource(R.string.newtrip_name_hint), style = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurfaceVariant.copy(alpha = 0.7f)))
-                        BasicTextField(title, { title = it.take(120) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth())
+                        BasicTextField(title, { title = it.take(120) }, singleLine = true, textStyle = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = cs.onSurface), cursorBrush = SolidColor(cs.primary), modifier = Modifier.fillMaxWidth().clearOfKeyboard(room = 40.dp))
                     }
                 }
                 // The label on the line of "Naam", the chosen days under it in a soft cross-fade.

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="markupdate_title">Nieuwe versie %1$s</string>
+    <string name="markupdate_update_to">Bijwerken naar versie %1$s</string>
     <string name="markupdate_update">Bijwerken</string>
     <string name="markupdate_later">Later</string>
     <string name="markupdate_on_version">Je hebt %1$s</string>
