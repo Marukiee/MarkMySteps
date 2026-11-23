@@ -208,8 +208,7 @@ private fun UpdateContent(
                             Phase.Busy -> downloaded(release, progress)
                             Phase.Installing -> if (state is UpdateState.AwaitingConfirmation) stringResource(R.string.markupdate_confirm_hint) else style.installingSubtitle ?: stringResource(R.string.markupdate_installing_sub)
                         },
-                        // Gelijke cijferbreedte alleen bij de teller, zodat die niet heen en weer springt; in een versienummer maakt het de punten te wijd.
-                        style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = if (p == Phase.Busy) "tnum" else null),
+                        style = MaterialTheme.typography.bodySmall,
                         color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -325,7 +324,7 @@ private fun Actions(phase: Phase, progress: Float, style: UpdateCardStyle, restL
                     Phase.Busy -> "${(progress * 100).toInt()}%"
                     Phase.Installing -> stringResource(R.string.markupdate_installing)
                 }
-                val textStyle = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
+                val textStyle = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                 if (p == Phase.Busy) {
                     ProgressLabel(label, textStyle, shownProgress.coerceIn(0f, 1f), colors.onPrimary, colors.onPrimaryContainer)
                 } else {
