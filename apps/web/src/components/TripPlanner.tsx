@@ -4,6 +4,7 @@ import {
   FormEvent,
   ReactNode,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -14,7 +15,7 @@ import type { Trip } from '../api/types';
 import { CityThumb } from './CityThumb';
 import { DateField } from './DatePicker';
 import { FlightEditor } from './FlightEditor';
-import { Icon, MODE_ICON } from './Icon';
+import { Icon, MODE_ICON, type IconName } from './Icon';
 import { WeatherBadge } from './WeatherBadge';
 import {
   estimateDuration,
@@ -1732,25 +1733,7 @@ function ModeMenu({
   readOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const close = () => {
-    setClosing(true);
-    window.setTimeout(() => {
-      setOpen(false);
-      setClosing(false);
-    }, 140);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) close();
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
+  const pillRef = useRef<HTMLButtonElement>(null);
 
   const icon = current ? MODE_ICON[current] ?? 'car' : 'plus';
   const text = label ?? MODE_LABEL[current!];
@@ -1759,16 +1742,18 @@ function ModeMenu({
     <div
       className={`mode-menu ${compact ? 'mode-menu-compact' : ''} ${
         readOnly ? 'mode-menu-static' : ''
-      }`}
-      ref={ref}
+      } ${open ? 'mode-menu-open' : ''}`}
     >
       <button
+        ref={pillRef}
         type="button"
         className="mode-menu-pill"
         disabled={readOnly}
+        aria-haspopup="menu"
+        aria-expanded={open}
         onClick={(e) => {
           if (open) {
-            close();
+            setOpen(false);
             return;
           }
           if (!nativeMenusAvailable()) {
@@ -1790,33 +1775,211 @@ function ModeMenu({
         {/* Keyed on the mode so picking another one cross-fades icon + label
             instead of swapping them instantly. */}
         <span className="mode-menu-face" key={current ?? 'new'}>
-          <Icon name={icon} size={compact ? 14 : 16} />
+          <Icon name={icon} size={compact ? 16 : 16} />
           <span>{text}</span>
         </span>
         {/* No caret when there is no menu behind it: the pill is a label. */}
-        {!readOnly && <Icon name="chevron-down" size={13} className="mode-menu-caret" />}
+        {!readOnly && <Icon name="chevron-down" size={14} className="mode-menu-caret" />}
       </button>
-      {open && (
-        <div className={`mode-menu-drop card mode-menu-${align} ${closing ? 'closing' : ''}`}>
-          {TRAVEL_MODES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={current === m ? 'active' : ''}
-              // close(), not setOpen(false): picking one is the same gesture
-              // as tapping away, and it used to skip the exit and simply
-              // vanish while the other way out played its animation.
-              onClick={() => {
-                onPick(m);
-                close();
-              }}
-            >
-              <Icon name={MODE_ICON[m] ?? 'car'} size={16} />
-              {MODE_LABEL[m]}
-            </button>
-          ))}
-        </div>
-      )}
+      <ModeDrop
+        anchor={pillRef.current}
+        open={open}
+        align={align}
+        icon={icon}
+        text={text}
+        current={current}
+        onClose={() => setOpen(false)}
+        onPick={onPick}
+      />
     </div>
+  );
+}
+
+/** How long the unfolded mode pill takes to fold back (Planner.kt ModeDrop);
+ *  it opens in 260 ms (plan.css). */
+const DROP_CLOSE_MS = 200;
+
+/**
+ * The mode pill opened: the pill itself grows longer and on into a list, one
+ * shape in its own colour the whole way, the chosen mode exactly where the
+ * pill was and the others under it. It lies over what is below (nothing
+ * shifts). With too little room below it opens upwards, the chosen mode then
+ * at the bottom. A pick, a tap anywhere else or a scroll folds it back into
+ * the pill; unfolding and folding each give a light tick.
+ */
+function ModeDrop({
+  anchor,
+  open,
+  align,
+  icon,
+  text,
+  current,
+  onClose,
+  onPick,
+}: {
+  anchor: HTMLElement | null;
+  open: boolean;
+  align: 'left' | 'right';
+  icon: IconName;
+  text: string;
+  current?: TravelMode;
+  onClose: () => void;
+  onPick: (mode: TravelMode) => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [layout, setLayout] = useState<{
+    left: number;
+    top: number;
+    up: boolean;
+    clip: string;
+    pillH: number;
+  } | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const timer = useRef<number | undefined>(undefined);
+  const wasOpen = useRef(false);
+
+  useEffect(() => {
+    window.clearTimeout(timer.current);
+    if (open) {
+      wasOpen.current = true;
+      setMounted(true);
+      haptic('light');
+    } else if (wasOpen.current) {
+      wasOpen.current = false;
+      haptic('light');
+      setExpanded(false);
+      timer.current = window.setTimeout(() => {
+        setMounted(false);
+        setLayout(null);
+      }, DROP_CLOSE_MS + 40);
+    }
+    return () => window.clearTimeout(timer.current);
+  }, [open]);
+
+  // On the pill exactly: same left edge (a pill near the right edge keeps its
+  // right edge instead), downwards whenever it fits, upwards only near the
+  // bottom of the screen. Placed before it is drawn, so it never shows a
+  // frame on the wrong side.
+  useLayoutEffect(() => {
+    if (!mounted || !open || !anchor || !ref.current) return;
+    const p = anchor.getBoundingClientRect();
+    const m = ref.current.getBoundingClientRect();
+    const margin = 12;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const fitsLeft = align === 'left' ? p.left + m.width <= vw - margin : p.right - m.width < margin;
+    const left = fitsLeft ? p.left : p.right - m.width;
+    const up = p.top + m.height > vh - margin && p.bottom - m.height >= margin;
+    const top = up ? p.bottom - m.height : p.top;
+    const t = up ? m.height - p.height : 0;
+    const b = up ? 0 : m.height - p.height;
+    const l = fitsLeft ? 0 : m.width - p.width;
+    const r = fitsLeft ? m.width - p.width : 0;
+    setLayout({
+      left,
+      top,
+      up,
+      pillH: p.height,
+      clip: `inset(${t}px ${r}px ${b}px ${l}px round ${p.height / 2}px)`,
+    });
+  }, [mounted, open, anchor, align]);
+
+  useEffect(() => {
+    if (!open || !layout) return;
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setExpanded(true)));
+    return () => cancelAnimationFrame(id);
+  }, [open, layout]);
+
+  // A tap beside it still reaches the page (a scroll scrolls) while the pill
+  // folds shut.
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || anchor?.contains(target)) return;
+      closeRef.current();
+    };
+    const away = (e: Event) => {
+      if (ref.current?.contains(e.target as Node)) return;
+      closeRef.current();
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeRef.current();
+    };
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('keydown', key);
+    window.addEventListener('scroll', away, true);
+    window.addEventListener('resize', away);
+    return () => {
+      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('keydown', key);
+      window.removeEventListener('scroll', away, true);
+      window.removeEventListener('resize', away);
+    };
+  }, [open, anchor]);
+
+  if (!mounted) return null;
+
+  const others = TRAVEL_MODES.filter((m) => m !== current);
+  const head = (
+    <button
+      type="button"
+      className="mode-drop-head"
+      style={layout ? { height: layout.pillH } : undefined}
+      onClick={() => closeRef.current()}
+    >
+      <Icon name={icon} size={16} />
+      <span>{text}</span>
+      <Icon name="chevron-down" size={14} className="mode-drop-caret" />
+    </button>
+  );
+  const choices = (layout?.up ? [...others].reverse() : others).map((m) => (
+    <button
+      key={m}
+      type="button"
+      role="menuitem"
+      className="mode-drop-choice"
+      onClick={() => {
+        onPick(m);
+        closeRef.current();
+      }}
+    >
+      <Icon name={MODE_ICON[m] ?? 'car'} size={16} />
+      <span>{MODE_LABEL[m]}</span>
+    </button>
+  ));
+  const line = <span className="mode-drop-line" aria-hidden="true" />;
+
+  return createPortal(
+    <div
+      ref={ref}
+      role="menu"
+      className={`mode-drop ${expanded ? 'expanded' : ''} ${layout?.up ? 'up' : ''} ${
+        layout ? '' : 'measuring'
+      }`}
+      style={{
+        left: layout?.left ?? -9999,
+        top: layout?.top ?? 0,
+        clipPath: expanded ? 'inset(0px round 18px)' : layout?.clip,
+      }}
+    >
+      {layout?.up ? (
+        <>
+          {choices}
+          {line}
+          {head}
+        </>
+      ) : (
+        <>
+          {head}
+          {line}
+          {choices}
+        </>
+      )}
+    </div>,
+    document.body,
   );
 }

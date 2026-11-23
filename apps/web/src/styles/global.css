@@ -71,6 +71,8 @@
   --primary-container: #ffdbcf;
   --on-primary-container: #7a2610;
   --danger: #b3402a;
+  --secondary-container: #f6e1d6;
+  --on-secondary-container: #5c2e1c;
   /* The accent at alpha 0: what an orange fill fades to, so it never passes
      through brown or grey on its way out. */
   --accent-0: rgb(232 97 60 / 0);
@@ -237,6 +239,8 @@ input[type='checkbox']:checked::after {
   --primary-container: #5a2717;
   --on-primary-container: #ffdbce;
   --danger: #f2826b;
+  --secondary-container: #3b2a22;
+  --on-secondary-container: #ffdccb;
   --accent-0: rgb(240 113 77 / 0);
   color-scheme: dark;
 }
