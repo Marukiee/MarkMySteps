@@ -30,6 +30,7 @@ export function ViewerStrip({
   onNavigate,
   srcFor,
   lift = 0,
+  hidden = false,
 }: {
   items: MediaItem[];
   /** Where the viewer is: the index plus how far a swipe has taken it. */
@@ -40,6 +41,8 @@ export function ViewerStrip({
   srcFor?: (item: MediaItem, size: 'thumbnail' | 'preview' | 'original') => string;
   /** How far to stand higher, for the reaction choices opening under it. */
   lift?: number;
+  /** Out of sight (the comments are open), but kept, so it fades back. */
+  hidden?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(() => (typeof window === 'undefined' ? 390 : window.innerWidth));
@@ -142,6 +145,7 @@ export function ViewerStrip({
               : [`/media/${item.id}/thumbnail?size=thumbnail`, `/media/${item.id}/thumbnail`]
           }
           className="vstrip-img"
+          direct={Boolean(srcFor)}
           eager
           draggable={false}
         />
@@ -151,7 +155,7 @@ export function ViewerStrip({
 
   return (
     <div
-      className={`vstrip ${easing ? 'easing' : ''}`}
+      className={`vstrip ${easing ? 'easing' : ''} ${hidden ? 'hidden' : ''}`}
       ref={ref}
       style={{ transform: lift ? `translateY(${-lift}px)` : undefined }}
       onPointerDown={onPointerDown}

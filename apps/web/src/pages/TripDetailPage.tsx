@@ -1380,6 +1380,7 @@ export function TripDetailPage() {
             joined under it in its tone, as on the native apps. */}
         {trip && (
           <TripCover
+            key={trip.id}
             trip={trip}
             facts={
               !stats || !stopsLoaded

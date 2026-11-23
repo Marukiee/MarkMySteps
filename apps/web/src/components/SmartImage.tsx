@@ -7,11 +7,7 @@ import './smartimage.css';
 const QUICK_MS = 250;
 
 /** A path through the app's image proxy, or an address an <img> can load as it is. */
-const isDirect = (src: string) => /^(https?:|blob:|data:)/.test(src);
-
-function cachedFor(src: string): string | undefined {
-  return isDirect(src) ? undefined : cachedImage(src);
-}
+const looksDirect = (src: string) => /^(https?:|blob:|data:)/.test(src);
 
 /**
  * A photo as the native apps load it.
@@ -35,6 +31,7 @@ export function SmartImage({
   onLoad,
   onMissing,
   progressive = false,
+  direct = false,
 }: {
   candidates: string[];
   className?: string;
@@ -50,7 +47,14 @@ export function SmartImage({
    * shown at once and the first one replaces it when it arrives.
    */
   progressive?: boolean;
+  /**
+   * The candidates are addresses to load as they are (the share page's own
+   * links), never paths for the app's authorized image proxy.
+   */
+  direct?: boolean;
 }) {
+  const isDirect = (src: string) => direct || looksDirect(src);
+  const cachedFor = (src: string) => (isDirect(src) ? undefined : cachedImage(src));
   const missingRef = useRef(onMissing);
   missingRef.current = onMissing;
   const list = candidates.filter(Boolean);

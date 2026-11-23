@@ -153,8 +153,6 @@ export class PhotoLayer {
   private groups: PhotoGroup[] | null = null;
   private frame = 0;
   private thumbs = new Map<string, string>();
-  /** When the photos were last handed over. */
-  private setAt = 0;
 
   constructor(
     private map: MapLibreMap,
@@ -163,20 +161,21 @@ export class PhotoLayer {
 
   setPhotos(photos: MediaItem[], hidden: boolean): void {
     this.levels = hidden ? null : new PhotoLevels(photos);
-    this.setAt = performance.now();
+
     // A new set of photos is not a regrouping: what is gone fades where it
     // stood, what is new comes up where it stands.
     this.apply(this.levels?.at(this.map.getZoom()) ?? [], 'set');
   }
 
-  regroup(): void {
+  /** `byYou`: a zoom you made (a pinch, the wheel), not the camera framing something. */
+  regroup(byYou: boolean): void {
     if (!this.levels) return;
     const next = this.levels.at(this.map.getZoom());
     if (next === this.groups) return;
-    // The camera framing the trip right after the photos arrived is not you
-    // zooming: they simply come up where they belong, rather than all
-    // gliding out of one spot at once.
-    this.apply(next, performance.now() - this.setAt < 900 ? 'set' : 'zoom');
+    // The camera framing the trip as the page opens is not you zooming: the
+    // photos simply come up where they belong, rather than all gliding out
+    // of one spot at once.
+    this.apply(next, byYou ? 'zoom' : 'set');
   }
 
   destroy(): void {

@@ -641,8 +641,10 @@ export function TripMap({
     });
     photoLayerRef.current = layer;
     // Groups change only when the zoom has settled on another half step, so
-    // a pan (which wobbles the zoom by a hundredth) never regroups.
-    const onZoom = () => layer.regroup();
+    // a pan (which wobbles the zoom by a hundredth) never regroups. Your own
+    // zoom glides them apart or together; the camera framing the trip or a
+    // day by itself lets them come up where they belong.
+    const onZoom = (e: { originalEvent?: unknown }) => layer.regroup(Boolean(e.originalEvent));
     map.on('zoomend', onZoom);
     return () => {
       map.off('zoomend', onZoom);

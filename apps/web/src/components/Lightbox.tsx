@@ -838,8 +838,9 @@ function WebLightbox({
       </figure>
 
       {/* Every photo in this viewer as a strip of tiles, full width. */}
-      {!commentsShown && (
+      {(
         <ViewerStrip
+          hidden={commentsShown}
           items={items}
           position={index - swipeDx / Math.max(1, window.innerWidth)}
           following={swipeDx !== 0}

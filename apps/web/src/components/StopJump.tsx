@@ -280,7 +280,7 @@ export function jumpToDay(day: string, photoId?: string | null) {
   if (scroller) {
     const top = box.top - scroller.getBoundingClientRect().top + scroller.scrollTop - margin;
     scroller.scrollTo({ top, behavior: 'smooth' });
-    settle(scroller, el, 3);
+    settle(scroller, el, margin, 3);
     return;
   }
   /*
@@ -299,31 +299,34 @@ export function jumpToDay(day: string, photoId?: string | null) {
  * Where a day should come to rest: just under the map pinned over the top of
  * the list (on a phone), or the top of the scroller beside it (desktop).
  */
-function landingLine(scroller: HTMLElement, el: HTMLElement): number {
+function landingLine(scroller: HTMLElement, el: HTMLElement, margin: number): number {
   const top = scroller.getBoundingClientRect().top;
   const map = document.querySelector<HTMLElement>('.trip-map-panel');
-  if (!map) return top;
+  if (!map) return top + margin;
   const m = map.getBoundingClientRect();
   const e = el.getBoundingClientRect();
   const over = m.left < e.right && m.right > e.left && m.top <= top + 1 && m.bottom > top;
-  return over ? m.bottom + 12 : top;
+  return over ? m.bottom + 12 : top + margin;
 }
 
 /**
- * Checks where the jump really ended and finishes it. The map over the list
+ * Checks where the jump really ended and finishes it.
+ * Beside the map (desktop) the photos above can still take their height
+ * while the page scrolls, so there too it is checked against the CSS scroll
+ * margin and finished. The map over the list
  * folds while the page scrolls, so the first aim was taken against a map of
  * another height; a pass or two more puts the day exactly under it.
  */
-function settle(scroller: HTMLElement, el: HTMLElement, passes: number): void {
-  if (passes <= 0 || !document.querySelector('.trip-map-panel')) return;
+function settle(scroller: HTMLElement, el: HTMLElement, margin: number, passes: number): void {
+  if (passes <= 0) return;
   let timer = 0;
   const check = () => {
     scroller.removeEventListener('scrollend', check);
     window.clearTimeout(timer);
-    const off = el.getBoundingClientRect().top - landingLine(scroller, el);
+    const off = el.getBoundingClientRect().top - landingLine(scroller, el, margin);
     if (Math.abs(off) < 3) return;
     scroller.scrollTo({ top: scroller.scrollTop + off, behavior: 'smooth' });
-    settle(scroller, el, passes - 1);
+    settle(scroller, el, margin, passes - 1);
   };
   scroller.addEventListener('scrollend', check, { once: true });
   // Not every browser sends scrollend; a smooth scroll is done well within this.
