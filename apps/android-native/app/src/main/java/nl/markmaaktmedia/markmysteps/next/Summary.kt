@@ -141,6 +141,89 @@ fun TripExtras(trip: Trip, dark: Boolean, open: String?, onClose: () -> Unit) {
     }
 }
 
+/**
+ * The photo book or the summary opened from people and sharing: a full-screen layer in a window of its
+ * own, above the people sheet, which stays open underneath at its own scroll position. Back closes only
+ * this layer, and the predictive gesture slides it away the way a page over a page goes (SlideHost), so
+ * the people sheet already shows while you swipe.
+ */
+@Composable
+fun ExtraOverSheet(trip: Trip, dark: Boolean, which: String, onClose: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val scope = rememberCoroutineScope()
+    val emphasized = remember { androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f) }
+    val enter = remember { androidx.compose.animation.core.Animatable(0f) }
+    var back by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    var leaving by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { enter.animateTo(1f, androidx.compose.animation.core.tween(350, easing = emphasized)) }
+    val close: () -> Unit = {
+        if (!leaving) {
+            leaving = true
+            scope.launch {
+                androidx.compose.animation.core.animate(back, 1f, animationSpec = androidx.compose.animation.core.tween(((1f - back) * 350).toInt().coerceAtLeast(120), easing = androidx.compose.animation.core.LinearEasing)) { v, _ -> back = v }
+                onClose()
+            }
+        }
+    }
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = close,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false),
+    ) {
+        // The window itself: no dim, no window animation of its own, bars in the page's colours.
+        val view = androidx.compose.ui.platform.LocalView.current
+        androidx.compose.runtime.SideEffect {
+            (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.let { w ->
+                w.setDimAmount(0f)
+                w.setWindowAnimations(0)
+                w.setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                // Edge to edge like the app itself: the page runs under the status bar and the gesture bar.
+                androidx.core.view.WindowCompat.setDecorFitsSystemWindows(w, false)
+                // Without this the window's decor paints black strips behind the bars.
+                w.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+                @Suppress("DEPRECATION") run { w.statusBarColor = android.graphics.Color.TRANSPARENT; w.navigationBarColor = android.graphics.Color.TRANSPARENT }
+                if (android.os.Build.VERSION.SDK_INT >= 28) w.attributes = w.attributes.apply { layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES }
+                // A dialog window keeps clear of the system bars by itself; this one may not.
+                if (android.os.Build.VERSION.SDK_INT >= 30) w.attributes = w.attributes.apply { fitInsetsTypes = 0 }
+                if (android.os.Build.VERSION.SDK_INT >= 29) w.isNavigationBarContrastEnforced = false
+                androidx.core.view.WindowCompat.getInsetsController(w, view).apply {
+                    isAppearanceLightStatusBars = !dark
+                    isAppearanceLightNavigationBars = !dark
+                }
+            }
+        }
+        Box(
+            Modifier.fillMaxSize().graphicsLayer {
+                if (back == 0f) {
+                    translationX = size.width / 3f * (1f - enter.value)
+                    alpha = enter.value
+                } else {
+                    // Going back the layer leaves all the way, speeding up, and shrinks a little, as a page does.
+                    val t = back
+                    translationX = size.width * t * t * t
+                    val k = 1f - 0.15f * emphasized.transform(t); scaleX = k; scaleY = k
+                }
+            }.background(cs.background),
+        ) {
+            when (which) {
+                "book" -> PhotoBook(trip, dark, onBack = close)
+                else -> SummaryScreen(trip, dark, onBack = close)
+            }
+        }
+        // After the content, so it comes before the book's and the summary's own back (a photo open in the viewer still closes first).
+        androidx.activity.compose.PredictiveBackHandler(enabled = !leaving) { events ->
+            try {
+                events.collect { back = it.progress }
+                close()
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    androidx.compose.animation.core.animate(back, 0f, animationSpec = androidx.compose.animation.core.tween(200)) { v, _ -> back = v }
+                }
+                throw e
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 private val LocalPosterShared = compositionLocalOf<Pair<SharedTransitionScope, AnimatedVisibilityScope>?> { null }
 
