@@ -178,9 +178,10 @@ struct TravellersView: View {
             (flights, "vluchten", "airplane", Color(hex: 0x3F7FE0)),
         ]
         let items = store.live ? liveItems : demoItems
-        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+        // One connected block of tonal tiles, as Android: round outer corners, tight ones where they meet.
+        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 3), GridItem(.flexible(), spacing: 3)], spacing: 3) {
             ForEach(Array(items.enumerated()), id: \.offset) { i, item in
-                StatTile(value: item.0, label: item.1, symbol: item.2, tint: item.3, order: i)
+                StatTile(value: item.0, label: item.1, symbol: item.2, tint: item.3, order: i, count: items.count)
                     .arrive(1 + i)
             }
         }
@@ -323,11 +324,13 @@ private struct StatTile: View {
     let symbol: String
     let tint: Color
     let order: Int
+    var count = 6
     @State private var shown: Double
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var scheme
 
-    init(value: Int?, label: String, symbol: String, tint: Color, order: Int) {
-        self.value = value; self.label = label; self.symbol = symbol; self.tint = tint; self.order = order
+    init(value: Int?, label: String, symbol: String, tint: Color, order: Int, count: Int = 6) {
+        self.value = value; self.label = label; self.symbol = symbol; self.tint = tint; self.order = order; self.count = count
         _shown = State(initialValue: Launch.shot ? Double(value ?? 0) : 0)
     }
 
@@ -347,13 +350,13 @@ private struct StatTile: View {
                     CountingNumber(value: shown)
                         .font(.outfit(34, 700))
                         .tracking(-1)
-                        .foregroundStyle(Brand.ink)
+                        .foregroundStyle(tone.fg)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                         .transition(.opacity)
                 }
             }
-            Text(label).font(.inter(13, 600)).foregroundStyle(Brand.inkSoft)
+            Text(label).font(.inter(13, 600)).foregroundStyle(tone.fg.opacity(0.8))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
@@ -363,17 +366,42 @@ private struct StatTile: View {
             // The symbol on its own, in the text's colour: no disc or shape behind it.
             Image(systemName: symbol)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Brand.inkSoft)
+                .foregroundStyle(tone.fg.opacity(0.85))
                 .frame(width: 24, height: 24)
                 .padding(16)
         }
-        .background(Brand.raised, in: .rect(cornerRadius: 22))
+        .background(tone.bg, in: shape)
         .animation(.calm, value: value == nil)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(value.map { "\(Format.number($0)) \(label)" } ?? "\(label), laden")
         .onAppear { if let value { countUp(to: value) } }
         // A figure that arrives later counts up the same way as on arriving, never jumps.
         .onChange(of: value) { _, v in countUp(to: v ?? 0) }
+    }
+}
+
+extension StatTile {
+    /// Android's three tonal containers in turn (primary, secondary, tertiary), light and dark.
+    var tone: (bg: Color, fg: Color) {
+        let dark = scheme == .dark
+        switch order % 3 {
+        case 0: return dark ? (Color(hex: 0x5A2717), Color(hex: 0xFFDBCE)) : (Color(hex: 0xFFDBCF), Color(hex: 0x7A2610))
+        case 1: return dark ? (Color(hex: 0x3B2A22), Color(hex: 0xFFDCCB)) : (Color(hex: 0xF6E1D6), Color(hex: 0x5C2E1C))
+        default: return dark ? (Color(hex: 0x1C3B37), Color(hex: 0xB4ECE3)) : (Color(hex: 0xD9ECE8), Color(hex: 0x14524B))
+        }
+    }
+
+    /// Round at the block's outer corners, tight where tiles meet.
+    var shape: UnevenRoundedRectangle {
+        let outer: CGFloat = 28, inner: CGFloat = 8
+        let last = count - 1
+        let lastRowStart = last - (last % 2 == 0 ? 0 : 1)
+        return UnevenRoundedRectangle(
+            topLeadingRadius: order == 0 ? outer : inner,
+            bottomLeadingRadius: order == lastRowStart ? outer : inner,
+            bottomTrailingRadius: order == last ? outer : inner,
+            topTrailingRadius: order == 1 ? outer : inner
+        )
     }
 }
 

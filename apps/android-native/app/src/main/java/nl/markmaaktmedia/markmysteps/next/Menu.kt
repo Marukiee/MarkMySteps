@@ -80,13 +80,22 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
     if (!showing) return
     // The button it came from, as the popup is placed on it.
     var anchor by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    // The button's place in the menu: x from the menu's right edge, y from its top (0, 0 when it opens downwards).
+    var anchorAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(androidx.compose.ui.unit.IntOffset.Zero) }
     val margin = with(androidx.compose.ui.platform.LocalDensity.current) { 12.dp.roundToPx() }
     val position = androidx.compose.runtime.remember(margin) {
         object : androidx.compose.ui.window.PopupPositionProvider {
             override fun calculatePosition(anchorBounds: androidx.compose.ui.unit.IntRect, windowSize: androidx.compose.ui.unit.IntSize, layoutDirection: androidx.compose.ui.unit.LayoutDirection, popupContentSize: androidx.compose.ui.unit.IntSize): androidx.compose.ui.unit.IntOffset {
                 if (anchor != anchorBounds.size) anchor = anchorBounds.size
                 val x = (anchorBounds.right - popupContentSize.width).coerceIn(margin, maxOf(margin, windowSize.width - popupContentSize.width - margin))
-                val y = anchorBounds.top.coerceIn(margin, maxOf(margin, windowSize.height - popupContentSize.height - margin))
+                // Room below: its top on the button's top. No room (a trip low on the screen): it opens upwards, its
+                // bottom on the button's bottom, so it still grows out of the button instead of from above it.
+                val fits = anchorBounds.top + popupContentSize.height <= windowSize.height - margin
+                val y = (if (fits) anchorBounds.top else anchorBounds.bottom - popupContentSize.height)
+                    .coerceIn(margin, maxOf(margin, windowSize.height - popupContentSize.height - margin))
+                // Where the button sits inside the menu, for the shape to start from.
+                val at = androidx.compose.ui.unit.IntOffset((x + popupContentSize.width) - anchorBounds.right, anchorBounds.top - y)
+                if (anchorAt != at) anchorAt = at
                 return androidx.compose.ui.unit.IntOffset(x, y)
             }
         }
@@ -102,13 +111,17 @@ fun AppMenu(expanded: Boolean, onDismiss: () -> Unit, groups: List<List<MenuEntr
             val k = open.value
             val aw = anchor.width.toFloat().coerceAtLeast(1f); val ah = anchor.height.toFloat().coerceAtLeast(1f)
             val full = this.size
-            val w = aw + (full.width - aw) * k
-            val h = ah + (full.height - ah) * k
             val r = ah / 2f + (cornerFull - ah / 2f) * k
-            // A rounded box from the button's top right corner, growing to the whole menu.
+            // A rounded box that starts as the button, wherever it sits in the menu (top right when it opens
+            // downwards, bottom right when it opens upwards), and grows from there to the whole menu.
+            val bRight = full.width - anchorAt.x; val bTop = anchorAt.y.toFloat()
+            val left = (bRight - aw) * (1f - k)
+            val top = bTop * (1f - k)
+            val right = bRight + (full.width - bRight) * k
+            val bottom = (bTop + ah) + (full.height - bTop - ah) * k
             shape = object : androidx.compose.ui.graphics.Shape {
                 override fun createOutline(size: androidx.compose.ui.geometry.Size, layoutDirection: androidx.compose.ui.unit.LayoutDirection, density: androidx.compose.ui.unit.Density) =
-                    androidx.compose.ui.graphics.Outline.Rounded(androidx.compose.ui.geometry.RoundRect(size.width - w, 0f, size.width, h, androidx.compose.ui.geometry.CornerRadius(r)))
+                    androidx.compose.ui.graphics.Outline.Rounded(androidx.compose.ui.geometry.RoundRect(left, top, right, bottom, androidx.compose.ui.geometry.CornerRadius(r)))
             }
             clip = true
             alpha = handover

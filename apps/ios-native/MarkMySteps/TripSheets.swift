@@ -101,7 +101,13 @@ struct MapStyleSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Stijl van de kaart").font(.inter(14, 500)).foregroundStyle(Brand.inkSoft)
+                    // As Android: whose photos are on this map first, then the style of every map.
+                    if let layers, !layers.members.isEmpty {
+                        photoSection(layers).padding(.bottom, 14)
+                        Text("Kaartstijl").font(.outfit(17, 650)).foregroundStyle(Brand.ink)
+                    } else {
+                        Text("Stijl van de kaart").font(.inter(14, 500)).foregroundStyle(Brand.inkSoft)
+                    }
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         ForEach(MapLook.allCases) { look in
                             let on = chosen == look.rawValue
@@ -129,14 +135,11 @@ struct MapStyleSheet: View {
                     }
                     Text("In de donkere stand worden de lichte stijlen vanzelf de donkere kaart.")
                         .font(.inter(13, 450)).foregroundStyle(Brand.inkSoft)
-                    if let layers, !layers.members.isEmpty {
-                        photoSection(layers).padding(.top, 14)
-                    }
                 }
                 .padding(16)
             }
             .background(Brand.paper)
-            .navigationTitle("Kaart")
+            .navigationTitle(layers?.members.isEmpty == false ? "Kaartinstellingen" : "Kaart")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(role: .close) { dismiss() }.tint(.primary) } }
         }

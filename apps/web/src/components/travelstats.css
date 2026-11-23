@@ -39,6 +39,23 @@
   min-height: 112px;
 }
 
+/* Tonal tiles in turn, as the apps: salmon, warm sand and teal, with their own
+   ink, so the block reads as one coloured slab instead of six beige boxes. */
+.stat-grid {
+  --tile-1: #ffdbcf; --tile-1-ink: #7a2610;
+  --tile-2: #f6e1d6; --tile-2-ink: #5c2e1c;
+  --tile-3: #d9ece8; --tile-3-ink: #14524b;
+}
+:root[data-theme='dark'] .stat-grid {
+  --tile-1: #5a2717; --tile-1-ink: #ffdbce;
+  --tile-2: #3b2a22; --tile-2-ink: #ffdccb;
+  --tile-3: #1c3b37; --tile-3-ink: #b4ece3;
+}
+.stat-grid > .stat-tile:nth-child(3n + 1) { background: var(--tile-1); color: var(--tile-1-ink); --tone: var(--tile-1-ink); }
+.stat-grid > .stat-tile:nth-child(3n + 2) { background: var(--tile-2); color: var(--tile-2-ink); --tone: var(--tile-2-ink); }
+.stat-grid > .stat-tile:nth-child(3n) { background: var(--tile-3); color: var(--tile-3-ink); --tone: var(--tile-3-ink); }
+.stat-grid > .stat-tile small { color: inherit; opacity: 0.8; }
+
 @keyframes statTileIn {
   from {
     opacity: 0;

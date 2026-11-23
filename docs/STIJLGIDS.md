@@ -150,12 +150,24 @@ Vaste maten die Mark goedkeurde:
   breedte, volgt het vegen precies, scrubben bladert de viewer met een tikje per
   foto, stopt altijd op een foto. Tikken op de foto toont of verbergt de knoppen
   meteen (niet wachten op een dubbeltik; dubbeltik zoomt nog steeds).
+- Een menu dat geen ruimte heeft onder de knop klapt naar boven uit met zijn
+  onderkant op de knop, en groeit ook dan vanuit de knop zelf.
+- Plaatsen bij een reis kies je op locatie (waar de foto's genomen zijn), nooit
+  alleen op datum: een doorreisstop en een stad die geen stop was horen erbij.
+- Cijfers op een pagina die opent staan er meteen; wat de pagina in de eerste
+  seconden te weten komt neemt stil de plek in, zonder rollen.
+- Cijfertegels zijn gekleurd: de tonale containers om de beurt (zalm, zand,
+  turquoise) als een verbonden blok.
+- Een strip of rij die op een item moet stoppen stopt altijd op een item; een
+  terugglij-animatie mag zichzelf niet afbreken.
 - Slepen om te herordenen: alleen het item zelf gaat omhoog (iets groter, licht
   gekanteld), niet wat erboven hangt (een lijntje of verbinding blijft staan en
   vervaagt). Het item volgt de vinger op het scherm, wisselt als het half over
   zijn buur is (met wat speling zodat het nooit terugflipt), de buren glijden
   opzij, en na loslaten glijdt het op zijn plek. Meet posities op de kaarten
-  zelf, niet op iets waarvan de hoogte verandert als het verplaatst.
+  zelf, niet op iets waarvan de hoogte verandert als het verplaatst, en op waar
+  de buren naartoe glijden (niet halverwege). Tijdens slepen loopt er een
+  gelijkmatige lijn achter de hele lijst; de losse lijnstukjes wijken zolang.
 
 ## 7. Navigatie
 

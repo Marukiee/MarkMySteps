@@ -1073,12 +1073,23 @@ private fun Filmstrip(list: List<Media>, pager: androidx.compose.foundation.page
     // Let go: the strip glides to the nearest tile, and that is the photo.
     // Keyed on the finger too: a slow drag that just stops ends the drag after the scroll, and then it still
     // has to come to rest on a photo instead of staying between two.
+    // The glide runs on its own: it is a scroll itself, and inside this effect it cancelled itself the moment it
+    // started (the effect restarts when a scroll begins), which left the strip between two photos.
+    var settling by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    val draggedNow by androidx.compose.runtime.rememberUpdatedState(dragged)
     LaunchedEffect(scrubbing, state.isScrollInProgress, dragged) {
-        if (scrubbing && !dragged && !state.isScrollInProgress) {
-            val target = kotlin.math.round(stripPos()).coerceIn(0f, list.lastIndex.toFloat())
-            state.animateScrollBy(target * slotPx - scrolled(), androidx.compose.animation.core.tween(180, easing = androidx.compose.animation.core.FastOutSlowInEasing))
-            pager.scrollToPage(target.toInt())
-            scrubbing = false
+        if (scrubbing && !dragged && !state.isScrollInProgress && settling == null) {
+            settling = scope.launch {
+                try {
+                    val target = kotlin.math.round(stripPos()).coerceIn(0f, list.lastIndex.toFloat())
+                    state.animateScrollBy(target * slotPx - scrolled(), androidx.compose.animation.core.tween(180, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+                    pager.scrollToPage(target.toInt())
+                } finally {
+                    settling = null
+                    // A finger that took the strip again keeps it leading; otherwise the photo leads again.
+                    scrubbing = draggedNow
+                }
+            }
         }
     }
     // The photo leads: the strip stands exactly where the pager is, every frame.

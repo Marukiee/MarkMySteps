@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
@@ -239,16 +240,28 @@ private fun TravellersList(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     (list.map { it to (countryFlags == null && it.first !in visited) } + plannedList.map { it to true }).forEach { (country, planned) ->
                         val (flag, countryName) = country
+                        // The looks offered to Mark (test only, MapDebug.chipStyle): 1 a deeper tone, 2 a fine outline,
+                        // 3 the warm accent container, 4 the teal one.
+                        val style = MapDebug.chipStyle
+                        val (chipBg, chipInk) = when {
+                            planned -> (if (style == 2) Color.Transparent else cs.surfaceContainerHigh) to cs.onSurfaceVariant
+                            style == 1 -> cs.surfaceContainerHighest to cs.onSurface
+                            style == 2 -> Color.Transparent to cs.onSurface
+                            style == 3 -> cs.primaryContainer to cs.onPrimaryContainer
+                            style == 4 -> cs.tertiaryContainer to cs.onTertiaryContainer
+                            else -> cs.surface to cs.onSurface
+                        }
                         Row(
                             Modifier.height(40.dp).clip(CircleShape)
-                                .background(if (planned) cs.surfaceContainerHigh else cs.surface)
+                                .background(chipBg)
+                                .then(if (style == 2) Modifier.border(1.dp, cs.outlineVariant.copy(alpha = if (planned) 0.5f else 1f), CircleShape) else Modifier)
                                 .padding(start = 10.dp, end = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             FlagIcon(flag, 15.dp)
                             Text(
                                 countryName,
-                                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.5.sp, color = if (planned) cs.onSurfaceVariant else cs.onSurface),
+                                style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(600), fontSize = 14.5.sp, color = chipInk),
                                 modifier = Modifier.padding(start = 8.dp),
                             )
                             if (planned) LineIcon(Glyphs.hourglass, cs.onSurfaceVariant, size = 14.dp, stroke = 2f, modifier = Modifier.padding(start = 6.dp))

@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
             MapDebug.ongoing = intent.getBooleanExtra("mapOngoing", false)
             MapDebug.openPoints = intent.getBooleanExtra("mapPoints", false)
             MapDebug.fakeLive = intent.getBooleanExtra("mapLive", false)
+            MapDebug.chipStyle = intent.getIntExtra("chipStyle", 0)
         }
         ThemePref.init(applicationContext)
         MapStylePref.init(applicationContext)

@@ -437,6 +437,9 @@ fun Planner(
     // the cards alone, as the leg above a stop changes height when it moves (the stop flipped back and forth).
     val cardTop = remember { mutableStateMapOf<Int, Float>() }
     val cardH = remember { mutableMapOf<Int, Int>() }
+    // How far each neighbour still is from its new place while it glides there: a swap is judged by where the
+    // cards are going, not where they are halfway (measured mid-glide, the top two flipped straight back).
+    val glideOff = remember { HashMap<Int, Int>() }
     var heldFrom by remember { mutableFloatStateOf(0f) }
     var finger by remember { mutableFloatStateOf(0f) }
     var swapAt by remember { mutableStateOf<Float?>(null) }
@@ -451,15 +454,19 @@ fun Planner(
         onPlace = { leg, p -> pickLegPlace(leg, p) }, km = { legKm(it) }, trip = trip)
 
     var day = firstDate
-    // While a stop is held and moved, the line runs on behind the whole list: the spot it left and the gaps
-    // around it keep their line instead of showing bare background.
+    // While a stop is held and moved, one line runs behind the whole list, from the way there to the way back: the
+    // spot it left and the gaps around it keep their line. The lines of the legs step aside meanwhile, so it is one
+    // even line, never a double one where they overlap.
     val spine = color.copy(alpha = 0.35f)
     val density = LocalDensity.current
+    val moving = dragKey != null || settleKey != null
     Column(Modifier.fillMaxWidth().drawBehind {
-        if (dragKey == null && settleKey == null) return@drawBehind
+        if (!moving) return@drawBehind
         val x = with(density) { 45.dp.toPx() }
         val inset = with(density) { 40.dp.toPx() }
-        if (size.height > inset * 2) drawRect(spine, topLeft = Offset(x, inset), size = Size(with(density) { 2.dp.toPx() }, size.height - inset * 2))
+        val top = if (outbound != null) 0f else inset
+        val bottom = if (back != null) size.height else size.height - inset
+        if (bottom > top) drawRect(spine, topLeft = Offset(x, top), size = Size(with(density) { 2.dp.toPx() }, bottom - top))
     }) {
     stops.forEachIndexed { index, stop ->
         val from = day
@@ -479,7 +486,7 @@ fun Planner(
                 exit = shrinkVertically(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec()),
                 // Neighbours glide to their new place while a stop is moved past them, instead of jumping. Measured
                 // here, on the item in the list: inside it the position never changes, so nothing glided.
-                modifier = Modifier.zIndex(if (dragKey == stop.key) 1f else 0f).glideToPlace(active = { dragKey != null && dragKey != stop.key }),
+                modifier = Modifier.zIndex(if (dragKey == stop.key) 1f else 0f).glideToPlace(active = { dragKey != null && dragKey != stop.key }, report = { glideOff[stop.key] = it }),
             ) {
                 val lifted = dragKey == stop.key
                 val lift by animateFloatAsState(if (lifted) 1f else 0f, motion.fastSpatialSpec(), label = "lift")
@@ -513,7 +520,7 @@ fun Planner(
                                     // going down, its top edge going up, with a little slack so it never flips back.
                                     val bottom = top + (cardH[stop.key] ?: 0)
                                     val slack = 12.dp.toPx()
-                                    fun midOf(k: Int) = (cardTop[k] ?: 0f) + (cardH[k] ?: 0) / 2f
+                                    fun midOf(k: Int) = (cardTop[k] ?: 0f) - (glideOff[k] ?: 0) + (cardH[k] ?: 0) / 2f
                                     val below = stops.getOrNull(i + 1)
                                     val above = stops.getOrNull(i - 1)
                                     if (below != null && bottom > midOf(below.key) + slack) {
@@ -535,11 +542,11 @@ fun Planner(
                     if (index > 0) Box(Modifier.graphicsLayer { alpha = 1f - lift }) {
                         val km = prev?.let { (angle(it.at, stop.at) * 111.2 * if (stop.mode == Mode.Flight) 1.0 else 1.25).roundToInt() }
                         Connector(
-                            stop.mode, km, color, dark, airports,
+                            stop.mode, km, color, dark, airports, line = !moving,
                             flightNumber = stop.flightNumber, fromAirport = stop.fromAirport, toAirport = stop.toAirport, vias = stop.vias,
                             onMode = { pickStopMode(stop, it) }, onFlight = { stopFlight(stop) },
                         )
-                    } else if (outbound != null) Box(Modifier.graphicsLayer { alpha = 1f - lift }) { Line(color) }
+                    } else if (outbound != null) Box(Modifier.graphicsLayer { alpha = 1f - lift }) { Line(color, visible = !moving) }
                     Box(Modifier.zIndex(1f).onGloballyPositioned { c ->
                         cardTop[stop.key] = c.positionInRoot().y; cardH[stop.key] = c.size.height
                     }.graphicsLayer {
@@ -654,8 +661,8 @@ private fun NightsPill(planned: Int, total: Int, color: Color) {
 
 /** The short line in the trip's colour between a leg and the stop beside it. */
 @Composable
-private fun Line(color: Color) {
-    Box(Modifier.padding(start = 45.dp).width(2.dp).height(16.dp).background(color.copy(alpha = 0.35f)))
+private fun Line(color: Color, visible: Boolean = true) {
+    Box(Modifier.padding(start = 45.dp).width(2.dp).height(16.dp).background(color.copy(alpha = if (visible) 0.35f else 0f)))
 }
 
 /** The way there or back as a row, or a button to add it; a row is swiped away like a stop. */
@@ -983,17 +990,18 @@ private fun ModePill(mode: Mode, onClick: () -> Unit) {
 /** Between two stops: the line in the trip's colour, the mode, a flight's airports, and how far. */
 @Composable
 private fun Connector(
-    mode: Mode, km: Int?, color: Color, dark: Boolean, airports: Boolean,
+    mode: Mode, km: Int?, color: Color, dark: Boolean, airports: Boolean, line: Boolean = true,
     flightNumber: String?, fromAirport: String?, toAirport: String?, onMode: (Mode) -> Unit, onFlight: () -> Unit, vias: List<String> = emptyList(),
 ) {
     val cs = MaterialTheme.colorScheme
-    val line = color.copy(alpha = 0.35f)
+    val stroke = color.copy(alpha = 0.35f)
     val density = LocalDensity.current
     // The line is drawn behind the row, so it runs the full height when the row wraps on a narrow phone.
     Row(
         Modifier.fillMaxWidth().drawBehind {
+            if (!line) return@drawBehind
             val x = with(density) { 45.dp.toPx() }
-            drawRect(line, topLeft = Offset(x, 0f), size = Size(with(density) { 2.dp.toPx() }, size.height))
+            drawRect(stroke, topLeft = Offset(x, 0f), size = Size(with(density) { 2.dp.toPx() }, size.height))
         }.padding(start = 64.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1553,7 +1561,7 @@ private fun AirportField(code: () -> String?, onPick: (String?) -> Unit, hint: S
 }
 
 /** Animates a change of place in its parent from where it was to where it is now, while [active]; else it just goes there. */
-private fun Modifier.glideToPlace(active: () -> Boolean): Modifier = composed {
+private fun Modifier.glideToPlace(active: () -> Boolean, report: (Int) -> Unit = {}): Modifier = composed {
     val scope = rememberCoroutineScope()
     var target by remember { mutableStateOf<IntOffset?>(null) }
     val anim = remember { mutableStateOf<Animatable<IntOffset, androidx.compose.animation.core.AnimationVector2D>?>(null) }
@@ -1568,7 +1576,7 @@ private fun Modifier.glideToPlace(active: () -> Boolean): Modifier = composed {
             val a = anim.value ?: Animatable(t, IntOffset.VectorConverter).also { anim.value = it }
             // Only a reorder glides; a stop folding away above already moves the rest smoothly by itself.
             if (a.targetValue != t) scope.launch { if (active() || a.isRunning) a.animateTo(t, spec) else a.snapTo(t) }
-            a.value - t
+            (a.value - t).also { report(it.y) }
         }
 }
 

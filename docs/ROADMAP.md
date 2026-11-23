@@ -38,24 +38,28 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       - [x] 14 maand voluit in de rij, titel hooguit 2 regels met beletselteken
       - [ ] 3 iPhone: "Foto's van dit toestel" hoeft nog niet; offline kaart en
             tracking in reisinstellingen nog bekijken
-      - [ ] 15 kleurovergangen nalopen dat niets er raar uitziet
-      - [ ] 16 kaartstijlnamen: Nederlands in de Nederlandse app, Engels in de
-            Engelse (Android-versie als basis, iPhone gelijk trekken)
-      - [ ] 17 "Geldt voor alle kaarten op dit apparaat." weg
-      - [ ] 19 "Organisator" overal (iPhone zei Eigenaar)
-      - [ ] 21 gekleurde cijfertegels bij Reizigers op de iPhone (en Mac)
-      - [ ] 22 landen-chips: andere opties als screenshot voorleggen, Mark kiest
-      - [ ] 23 iPhone-startscherm beige (donker #14181D) met oranje kompas
+      - [x] 15 kleurovergangen naar dezelfde kleur met alpha 0 (Android)
+      - [x] 16 kaartstijlnamen per taal (Licht & minimaal / Light & minimal);
+            iPhone-paneel als Android: Kaartinstellingen, foto's, dan Kaartstijl.
+            Routes op de kaart op de iPhone hangt aan routes per reiziger (open)
+      - [x] 17 "Geldt voor alle kaarten op dit apparaat." weg (Android, web)
+      - [x] 19 "Organisator" overal (iPhone zei Eigenaar)
+      - [x] 21 gekleurde cijfertegels bij Reizigers: iPhone en web, Androids tonen
+      - [ ] 22 landen-chips: vijf opties als screenshot voorgelegd (A tot E), Mark kiest
+      - [x] 23 iPhone-startscherm beige (donker #14181D) met oranje kompas
       - Blijven zo: 2 (regel "Deze reis is afgelopen"), 7, 9, 10, 18, 20
-- [ ] Reispagina: de foto's-tegel rolt bij openen; moet er meteen staan
-      (bewaard), net als de andere cijfers.
-- [ ] Plaatsen (stop-tegels): plaatsen waar je foto's maakte op locatie, niet
-      op datum. Gränna (tussenstop) heeft geen foto, Stockholm ontbreekt
+- [x] Reispagina: cijfers rollen niet meer bij openen; wat de pagina in de
+      eerste 4 seconden te weten komt staat er gewoon (Android en iPhone).
+- [x] Plaatsen (stop-tegels): op locatie, niet op datum (Android en iPhone);
+      plekken met minstens 4 foto's ver van elke stop worden een eigen plaats,
+      met de naam van Photon. Gränna (tussenstop) heeft geen foto, Stockholm ontbreekt
       helemaal terwijl je er was en fotografeerde.
-- [ ] Fotostrip in de viewer: bij scrollen kom je nog tussen twee foto's uit;
-      moet altijd op een foto stoppen.
-- [ ] ⋯-menu dat naar boven uitklapt (onderste reis) is nog niet goed.
-- [ ] Routeplanner slepen: kleine glitch bij de bovenste twee wisselen; de
+- [x] Fotostrip in de viewer stopt altijd op een foto (het terugglijden
+      annuleerde zichzelf).
+- [x] ⋯-menu dat naar boven uitklapt: onderkant op de knop, groeit vanuit de
+      knop (begon in de bovenhoek van het menu).
+- [x] Routeplanner slepen (op emulator gemeten en opgenomen): bovenste twee
+      wisselen zonder terugflip, een gelijkmatige lijn van heen tot terug. Was: de
       lijn tussen de stops is soms doorzichtig en soms vol: tijdens slepen
       doorzichtig, en een doorlopende lijn van heenreis tot terugreis die niet
       afgekapt wordt als je de bovenste versleept.
