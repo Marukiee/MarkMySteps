@@ -184,11 +184,81 @@ export function TripsPage() {
     });
   }, []);
 
+  /** Where every card stood before a size switch, to glide from there. */
+  const flipFrom = useRef<{ id: string; rects: Map<string, DOMRect> } | null>(null);
+
   /** Switch one card between large and compact. */
   function applySize(id: string, value: 'large' | 'compact' | null) {
+    const rects = new Map<string, DOMRect>();
+    document.querySelectorAll<HTMLElement>('[data-trip-card]').forEach((el) => {
+      rects.set(el.dataset.tripCard!, el.getBoundingClientRect());
+    });
+    flipFrom.current = { id, rects };
     setTripCardOverride(id, value);
     setSizeTick((n) => n + 1);
   }
+
+  /*
+   * The switch is one card changing size, not a card going and another one
+   * coming: the card grows or shrinks from where it stood to its new box and
+   * the trips under it move along in one direction. Emphasized easing, the
+   * web's equivalent of the native critically damped spring: nothing passes
+   * its place and comes back, the bottom never goes up and then down. The
+   * entry animation does not play again for a card that only changed shape.
+   */
+  useLayoutEffect(() => {
+    const from = flipFrom.current;
+    if (!from) return;
+    flipFrom.current = null;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const easing = 'cubic-bezier(0.2, 0, 0, 1)';
+    const duration = 420;
+    document.querySelectorAll<HTMLElement>('[data-trip-card]').forEach((el) => {
+      const id = el.dataset.tripCard!;
+      const old = from.rects.get(id);
+      if (!old) return;
+      el.style.animation = 'none';
+      if (reduce) return;
+      const now = el.getBoundingClientRect();
+      const dx = old.left - now.left;
+      const dy = old.top - now.top;
+      if (id === from.id) {
+        const overflow = el.style.overflow;
+        el.style.overflow = 'hidden';
+        const anim = el.animate(
+          [
+            {
+              width: `${old.width}px`,
+              height: `${old.height}px`,
+              transform: `translate(${dx}px, ${dy}px)`,
+            },
+            { width: `${now.width}px`, height: `${now.height}px`, transform: 'none' },
+          ],
+          { duration, easing },
+        );
+        const done = () => {
+          el.style.overflow = overflow;
+        };
+        anim.onfinish = done;
+        anim.oncancel = done;
+        // The contents of the new shape come up as the box takes it.
+        Array.from(el.children).forEach((child) => {
+          if (child.classList.contains('trip-card-menu')) return;
+          (child as HTMLElement).animate([{ opacity: 0 }, { opacity: 1 }], {
+            duration: 260,
+            delay: 60,
+            easing: 'linear',
+            fill: 'backwards',
+          });
+        });
+      } else if (dx !== 0 || dy !== 0) {
+        el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], {
+          duration,
+          easing,
+        });
+      }
+    });
+  }, [sizeTick]);
 
   function load() {
     api<Trip[]>('/trips')
@@ -754,6 +824,7 @@ function TripCard({
   if (compact) {
     return (
       <div
+        data-trip-card={trip.id}
         className={`trip-card-compact ${trip.resolvedCoverId ? 'has-cover' : ''}`}
         style={{
           animationDelay: `${index * 45}ms`,
@@ -826,6 +897,7 @@ function TripCard({
   const noImg = !trip.resolvedCoverId;
   return (
     <div
+      data-trip-card={trip.id}
       className={`trip-card ${noImg ? 'trip-card-noimg' : ''}`}
       style={{
         animationDelay: `${index * 60}ms`,

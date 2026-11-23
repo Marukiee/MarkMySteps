@@ -147,10 +147,7 @@
   /* A touch shorter than 3/2 — the cards were reading as too tall. */
   aspect-ratio: 16 / 10;
   cursor: pointer;
-  box-shadow: var(--shadow-s);
-  transition:
-    transform 0.25s var(--ease),
-    box-shadow 0.25s var(--ease);
+  transition: transform 0.25s var(--ease-emph);
   animation: tripCardIn 0.5s var(--ease) backwards;
 }
 
@@ -174,7 +171,6 @@
 @media (hover: hover) {
   .trip-card:hover {
     transform: translateY(-4px);
-    box-shadow: var(--shadow-l);
   }
 }
 
@@ -354,13 +350,12 @@
   align-items: center;
   gap: 0.95rem;
   padding: 0.65rem 3rem 0.65rem 0.65rem;
-  background: var(--paper-raised);
-  border: 1px solid var(--line);
+  background: var(--surface-low);
+  border: 1px solid var(--outline-variant);
   border-radius: var(--radius-m);
-  box-shadow: var(--shadow-s);
   cursor: pointer;
   animation: fadeIn 0.35s var(--ease) backwards;
-  transition: transform 0.18s var(--ease), box-shadow 0.2s var(--ease);
+  transition: transform 0.18s var(--ease-emph);
 }
 
 /* Without a cover there's no thumbnail to sit behind, so the title would start
@@ -429,7 +424,6 @@
 @media (hover: hover) {
   .trip-card-compact:hover {
     transform: translateY(-2px);
-    box-shadow: var(--shadow-m);
   }
 }
 
@@ -459,7 +453,6 @@
   flex-shrink: 0;
   border-radius: var(--radius-s);
   object-fit: cover;
-  box-shadow: var(--shadow-s);
 }
 
 .trip-card-compact .trip-card-menu {
