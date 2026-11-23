@@ -39,6 +39,7 @@ export function TripCover({
           <SmartImage
             candidates={[`/media/${coverId}/thumbnail`, `/media/${coverId}/thumbnail?size=thumbnail`]}
             className="td-cover-img"
+            progressive
             eager
           />
         ) : (

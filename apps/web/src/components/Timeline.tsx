@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import type { MediaItem } from '../api/types';
 import { colorForUser, formatDay } from '../lib/colors';
 import { GRID_ZOOM_PREVIEW, useGridZoom } from '../lib/gridZoom';
-import { AuthImage } from './AuthImage';
 import { SmartImage } from './SmartImage';
 import { DayNote, TripNote } from './DayNote';
 import { Icon } from './Icon';
@@ -241,22 +240,17 @@ export function Timeline({
                 onClick={() => onPhotoClick?.(item)}
                 role={onPhotoClick ? 'button' : undefined}
               >
-                <AuthImage
-                  // A panorama runs the full width of the screen on a row of
-                  // its own, and the small grid rendition is a few hundred
-                  // pixels stretched across all of it. It gets the preview,
-                  // with the small one held up in front until that arrives.
-                  path={
+                {/* A panorama runs the full width of the screen, so it gets
+                    the preview, with the small one held up in front until that
+                    arrives. Cached or quick: there at once; slow: fades in. A
+                    size that fails falls back to the other one. */}
+                <SmartImage
+                  candidates={
                     sharp || isPanorama(item)
-                      ? `/media/${item.id}/thumbnail`
-                      : `/media/${item.id}/thumbnail?size=thumbnail`
+                      ? [`/media/${item.id}/thumbnail`, `/media/${item.id}/thumbnail?size=thumbnail`]
+                      : [`/media/${item.id}/thumbnail?size=thumbnail`, `/media/${item.id}/thumbnail`]
                   }
-                  lowResPath={
-                    sharp || isPanorama(item)
-                      ? `/media/${item.id}/thumbnail?size=thumbnail`
-                      : undefined
-                  }
-                  alt=""
+                  progressive={sharp || isPanorama(item)}
                   className="timeline-img"
                 />
                 {/* Top right, side by side: liked, and talked about. The owner's

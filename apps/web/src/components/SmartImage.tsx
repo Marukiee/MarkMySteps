@@ -34,6 +34,7 @@ export function SmartImage({
   draggable,
   onLoad,
   onMissing,
+  progressive = false,
 }: {
   candidates: string[];
   className?: string;
@@ -44,6 +45,11 @@ export function SmartImage({
   onLoad?: () => void;
   /** Every candidate failed: the caller may have something else to show. */
   onMissing?: () => void;
+  /**
+   * The candidates run from large to small: a smaller one already cached is
+   * shown at once and the first one replaces it when it arrives.
+   */
+  progressive?: boolean;
 }) {
   const missingRef = useRef(onMissing);
   missingRef.current = onMissing;
@@ -51,12 +57,10 @@ export function SmartImage({
   const listKey = list.join('|');
   const listKeyRef = useRef(listKey);
   listKeyRef.current = listKey;
+  const cachedIndex = () => list.findIndex((c) => cachedFor(c) !== undefined);
   const firstCached = () => {
-    for (const c of list) {
-      const hit = cachedFor(c);
-      if (hit) return hit;
-    }
-    return undefined;
+    const i = cachedIndex();
+    return i === -1 ? undefined : cachedFor(list[i]!);
   };
   const [src, setSrc] = useState<string | undefined>(firstCached);
   // Instant: cached, or quick enough that a fade would only be a blink.
@@ -66,6 +70,8 @@ export function SmartImage({
   const [failedAll, setFailedAll] = useState(false);
   const holderRef = useRef<HTMLSpanElement>(null);
   const indexRef = useRef(0);
+  /** A smaller version in hand: shown at once, and the wanted one replaces it. */
+  const shownIndexRef = useRef(cachedIndex());
   /** Set once the candidates have started loading, so a failure never starts over. */
   const startedRef = useRef(false);
   const startRef = useRef(performance.now());
@@ -73,6 +79,7 @@ export function SmartImage({
   // A new photo (paging, another trip): start over with what is cached for it.
   useEffect(() => {
     const hit = firstCached();
+    shownIndexRef.current = cachedIndex();
     indexRef.current = 0;
     startedRef.current = false;
     startRef.current = performance.now();
@@ -105,7 +112,9 @@ export function SmartImage({
           observer.disconnect();
         }
       },
-      { rootMargin: '150% 50%' },
+      // Measured from what actually scrolls: the trip page scrolls inside an
+      // element, and a margin on the window is cut off at its edge.
+      { root: scrollParent(holderRef.current), rootMargin: '150% 50%' },
     );
     observer.observe(holderRef.current);
     return () => observer.disconnect();
@@ -135,7 +144,28 @@ export function SmartImage({
   };
 
   useEffect(() => {
-    if (!near || src !== undefined || list.length === 0 || startedRef.current) return;
+    if (!near || list.length === 0 || startedRef.current) return;
+    if (src !== undefined) {
+      // Showing a smaller version from the cache: fetch the wanted one behind
+      // it and swap it in place, no fade (a picture is already there).
+      const shown = shownIndexRef.current;
+      if (shown <= 0 || !progressive) return;
+      startedRef.current = true;
+      const key = listKeyRef.current;
+      const upgrade = (index: number) => {
+        const candidate = list[index];
+        if (index >= shown || candidate === undefined) return;
+        const apply = (url: string) => {
+          if (key !== listKeyRef.current) return;
+          shownIndexRef.current = index;
+          setSrc(url);
+        };
+        if (isDirect(candidate)) apply(candidate);
+        else loadImage(candidate).then(apply).catch(() => upgrade(index + 1));
+      };
+      upgrade(0);
+      return;
+    }
     startedRef.current = true;
     startRef.current = performance.now();
     tryFrom(0);
@@ -179,4 +209,15 @@ export function SmartImage({
       )}
     </span>
   );
+}
+
+/** The nearest ancestor that really scrolls, or null for the window. */
+function scrollParent(el: Element): Element | null {
+  for (let node = el.parentElement; node && node !== document.documentElement; node = node.parentElement) {
+    const { overflowY, overflowX } = getComputedStyle(node);
+    const down = /(auto|scroll|overlay)/.test(overflowY) && node.scrollHeight > node.clientHeight + 1;
+    const across = /(auto|scroll|overlay)/.test(overflowX) && node.scrollWidth > node.clientWidth + 1;
+    if (down || across) return node;
+  }
+  return null;
 }
