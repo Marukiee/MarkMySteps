@@ -333,8 +333,10 @@
 }
 
 
+/* The people on the trip always in the bottom right corner of the card. */
 .trip-card-meta .trip-card-members {
   flex-shrink: 0;
+  justify-content: flex-end;
   margin-top: 0;
   margin-right: -0.25rem;
   margin-left: auto;
