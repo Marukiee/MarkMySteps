@@ -47,6 +47,9 @@ class MainActivity : ComponentActivity() {
             MapDebug.ongoing = intent.getBooleanExtra("mapOngoing", false)
             MapDebug.openPoints = intent.getBooleanExtra("mapPoints", false)
             MapDebug.fakeLive = intent.getBooleanExtra("mapLive", false)
+            // Test only: plays the old app's sign-in into the WebView storage and reads it back the way an update
+            // does, without any network; logs only whether it was found, never the values.
+            if (intent.getBooleanExtra("oldAppProbe", false)) OldApp.probe(this)
         }
         ThemePref.init(applicationContext)
         MapStylePref.init(applicationContext)
