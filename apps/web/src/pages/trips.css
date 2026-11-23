@@ -136,11 +136,11 @@
   }
 }
 
-/* Big cards, two in a row on a desktop window (three made them so narrow that the pills and the faces no longer
-   fitted side by side). */
+/* Three in a row on a desktop window, as before; never narrower than 320 px, where the pills, the kilometres
+   and the faces still fit side by side (narrower windows get two, a phone one). */
 .trips-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.25rem;
 }
 
@@ -205,10 +205,11 @@
   pointer-events: none;
 }
 
+/* Large and well into the corner, as the apps' compass: the ⋯ sits on its open middle rather than on its rim. */
 .trip-card-glyph {
   position: absolute;
-  right: -14px;
-  top: -10px;
+  right: -46px;
+  top: -40px;
   /* Opacity on the element, not on the stroke colour: a translucent stroke
      doubles up wherever two lines of the same icon meet, and the glyph shows
      its own construction. */
@@ -568,6 +569,8 @@
   background: rgb(255 255 255 / 0.18);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
+  /* A soft shadow lifts it off the compass and the photo behind it (Mark). */
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.18), 0 0 0 1px rgb(255 255 255 / 0.14) inset;
 }
 
 /* Android draws no blur (global.css), so the glass gets a darker veil of its

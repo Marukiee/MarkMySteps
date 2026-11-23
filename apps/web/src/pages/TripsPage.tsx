@@ -79,7 +79,7 @@ function rememberedShape(): TripShape {
  * a wide window the top of every list is photographs, and the tail folds into
  * rows.
  */
-const LEAD_LARGE = 2;
+const LEAD_LARGE = 3;
 
 /**
  * Whether the window is wide enough for the grid to lay trips side by side.
@@ -932,7 +932,7 @@ function TripCard({
         <span className="trip-card-glyph" data-glyph={tripGlyph(trip.title)} aria-hidden="true">
           <Icon
                 name={tripGlyph(trip.title)}
-                size={tripGlyphSize(trip.title, 120)}
+                size={tripGlyphSize(trip.title, 190)}
                 strokeWidth={tripGlyphStroke(trip.title)}
               />
         </span>
