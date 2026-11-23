@@ -125,25 +125,57 @@ private fun lines(aspects: List<Float>, cut: List<Int>, boxAspect: Float, gap: F
 data class BookPage<T>(val photos: List<T>, val layout: PageLayout)
 
 /**
- * Splits photos (in the order they were taken) into pages of one to [maxPer]
- * photos, so the pages together score best: a dynamic programme over where
- * each page ends. Two or three per page is the sweet spot; a single photo
- * only gets a page alone when nothing pairs well with it.
+ * How many photos a book page holds unless the reader picks another number:
+ * six, about what the web's book always held, so a book stays a book and not
+ * a stack of pages with two photos each.
  */
-fun <T> paginate(photos: List<T>, aspect: (T) -> Float, boxAspect: Float, maxPer: Int = 4): List<BookPage<T>> {
-    if (photos.isEmpty()) return emptyList()
+const val DEFAULT_PER_PAGE = 6
+const val MAX_PER_PAGE = 8
+
+/** What a page costs for being off the chosen number, squared: two pages one off beat one page two off. */
+private const val OFF_TARGET = 0.6f
+
+/**
+ * Splits photos (in the order they were taken) into pages of about [perPage]
+ * photos, so the pages together score best: a dynamic programme over where
+ * each page ends. A page may take one more or fewer when the shapes fit far
+ * better that way, but every photo off the chosen number costs something.
+ *
+ * Every page costs what it falls short of a perfect page (1 minus its score),
+ * so the sum never rewards simply having more pages. Adding up the scores
+ * themselves did: two pages of two always beat one page of four, which is why
+ * the book never went past three photos a page.
+ */
+fun <T> paginate(photos: List<T>, aspect: (T) -> Float, boxAspect: Float, perPage: Int = DEFAULT_PER_PAGE): List<BookPage<T>> =
+    plan(photos, aspect, boxAspect, perPage).first
+
+/**
+ * What one page costs: what it falls short of a perfect page, plus how far it
+ * is off the chosen number, plus a little more for a photo alone on a page
+ * when the reader asked for more than one.
+ */
+private fun pageCost(layout: PageLayout, k: Int, target: Int): Float =
+    0.5f * (1f - layout.score) + OFF_TARGET * (k - target).sq() + if (k == 1 && target > 1) OFF_TARGET else 0f
+
+/** The most photos a page may take: one more than chosen, except that one a page never doubles up. */
+private fun mostFor(target: Int) = if (target <= 1) 1 else target + 1
+
+/** [paginate], with what the pages cost together. */
+private fun <T> plan(photos: List<T>, aspect: (T) -> Float, boxAspect: Float, perPage: Int): Pair<List<BookPage<T>>, Float> {
+    if (photos.isEmpty()) return emptyList<BookPage<T>>() to 0f
+    val target = perPage.coerceAtLeast(1)
     val n = photos.size
-    val best = FloatArray(n + 1) { Float.NEGATIVE_INFINITY }
+    val best = FloatArray(n + 1) { Float.POSITIVE_INFINITY }
     val from = IntArray(n + 1)
     val cache = HashMap<Long, PageLayout>()
     best[0] = 0f
-    val perPhoto = floatArrayOf(0f, -0.75f, 0.12f, 0.38f, 0.48f, 0f)
-    for (end in 1..n) for (k in 1..min(maxPer, end)) {
+    val most = mostFor(target)
+    for (end in 1..n) for (k in 1..min(most, end)) {
         val begin = end - k
-        if (best[begin] == Float.NEGATIVE_INFINITY) continue
+        if (best[begin] == Float.POSITIVE_INFINITY) continue
         val layout = cache.getOrPut(begin.toLong() * 1000 + end) { arrange(photos.subList(begin, end).map(aspect), boxAspect) }
-        val v = best[begin] + layout.score + perPhoto[min(k, perPhoto.lastIndex)]
-        if (v > best[end]) {
+        val v = best[begin] + pageCost(layout, k, target)
+        if (v < best[end]) {
             best[end] = v
             from[end] = begin
         }
@@ -155,7 +187,28 @@ fun <T> paginate(photos: List<T>, aspect: (T) -> Float, boxAspect: Float, maxPer
         pages += BookPage(photos.subList(begin, end), cache[begin.toLong() * 1000 + end]!!)
         end = begin
     }
-    return pages.reversed()
+    return pages.reversed() to best[n]
+}
+
+/**
+ * A day without an opener: a heading page with the first photos, then the
+ * rest in pages. The heading's box is shorter, so it aims a little under
+ * [perPage], but how many it takes is chosen together with the pages after
+ * it: six photos at six a page is one full heading page, not five and then a
+ * page with one photo left over.
+ */
+fun <T> chapter(photos: List<T>, aspect: (T) -> Float, headAspect: Float, bodyAspect: Float, perPage: Int = DEFAULT_PER_PAGE): Pair<BookPage<T>, List<BookPage<T>>> {
+    require(photos.isNotEmpty())
+    val target = perPage.coerceAtLeast(1)
+    val headTarget = kotlin.math.round(target * 0.83f).toInt().coerceAtLeast(1)
+    var best: Triple<BookPage<T>, List<BookPage<T>>, Float>? = null
+    for (k in 1..min(mostFor(target), photos.size)) {
+        val head = arrange(photos.take(k).map(aspect), headAspect)
+        val (rest, restCost) = plan(photos.drop(k), aspect, bodyAspect, target)
+        val cost = pageCost(head, k, headTarget) + restCost
+        if (best == null || cost < best.third) best = Triple(BookPage(photos.take(k), head), rest, cost)
+    }
+    return best!!.first to best.second
 }
 
 /** How well a photo fills a frame of [frame] aspect when cropped to it: 1 is a perfect fit. */
@@ -165,4 +218,5 @@ fun fitTo(photo: Float, frame: Float): Float = min(photo, frame) / max(photo, fr
 fun aspectDistance(a: Float, b: Float): Float = abs(kotlin.math.ln(a / b))
 
 internal fun Float.sq() = this * this
+internal fun Int.sq() = (this * this).toFloat()
 internal fun hypot2(a: Float, b: Float) = sqrt(a * a + b * b)

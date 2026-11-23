@@ -136,8 +136,26 @@ sealed interface Sheet {
     data object End : Sheet { override val key = "end" }
 }
 
-/** Turns the picked photos into pages. */
-fun buildBook(picked: Picked): List<Sheet> {
+/** How many photos a page of the book holds, chosen in the book's options and kept for every book. */
+object BookPrefs {
+    private var prefs: android.content.SharedPreferences? = null
+    var perPage by androidx.compose.runtime.mutableIntStateOf(DEFAULT_PER_PAGE)
+        private set
+
+    fun init(context: android.content.Context) {
+        if (prefs != null) return
+        prefs = context.applicationContext.getSharedPreferences("mms.next.ui", android.content.Context.MODE_PRIVATE)
+        perPage = prefs?.getInt("bookPerPage", DEFAULT_PER_PAGE)?.coerceIn(1, MAX_PER_PAGE) ?: DEFAULT_PER_PAGE
+    }
+
+    fun choose(n: Int) {
+        perPage = n.coerceIn(1, MAX_PER_PAGE)
+        prefs?.edit()?.putInt("bookPerPage", perPage)?.apply()
+    }
+}
+
+/** Turns the picked photos into pages of about [perPage] photos each. */
+fun buildBook(picked: Picked, perPage: Int = DEFAULT_PER_PAGE): List<Sheet> {
     val sheets = mutableListOf<Sheet>(Sheet.Cover, Sheet.Route)
     val bodyAspect = INNER_W / INNER_H
     val headAspect = INNER_W / (INNER_H - HEADER)
@@ -150,14 +168,13 @@ fun buildBook(picked: Picked): List<Sheet> {
             sheets += Sheet.Opener(day, hero)
             rest = rest - hero
         } else if (rest.isNotEmpty()) {
-            // The heading page takes one to three photos, whichever fits its shorter box best.
-            val k = (1..min(3, rest.size)).maxBy { n ->
-                arrange(rest.take(n).map { it.aspect }, headAspect).score + floatArrayOf(0f, 0f, 0.12f, 0.08f)[n]
-            }
-            sheets += Sheet.Photos(day, rest.take(k), arrange(rest.take(k).map { it.aspect }, headAspect), heading = true)
-            rest = rest.drop(k)
+            // The heading page and the pages after it, their counts chosen together (BookLayout.kt).
+            val (head, pages) = chapter(rest, { it.aspect }, headAspect, bodyAspect, perPage)
+            sheets += Sheet.Photos(day, head.photos, head.layout, heading = true)
+            pages.forEach { sheets += Sheet.Photos(day, it.photos, it.layout, heading = false) }
+            continue
         }
-        paginate(rest, { it.aspect }, bodyAspect).forEach { sheets += Sheet.Photos(day, it.photos, it.layout, heading = false) }
+        paginate(rest, { it.aspect }, bodyAspect, perPage).forEach { sheets += Sheet.Photos(day, it.photos, it.layout, heading = false) }
     }
     sheets += Sheet.End
     return sheets
@@ -242,7 +259,10 @@ private val cachedPicks = HashMap<String, Picked>()
 fun PhotoBook(trip: Trip, dark: Boolean, onBack: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val (picked, reading) = rememberPicked(trip)
-    val sheets = remember(picked) { picked?.let { buildBook(it) } ?: emptyList() }
+    val context = LocalContext.current
+    remember { BookPrefs.init(context) }
+    val perPage = BookPrefs.perPage
+    val sheets = remember(picked, perPage) { picked?.let { buildBook(it, perPage) } ?: emptyList() }
     val pager = rememberPagerState { sheets.size }
     // The book's photos in page order, for the trip page's own viewer (it grows from the tile and flies back).
     val all = remember(sheets) {
@@ -324,11 +344,23 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
     val cs = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     val motion = MaterialTheme.motionScheme
+    var optionsOpen by remember { mutableStateOf(false) }
+    var keep by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(sheets) {
+        val id = keep ?: return@LaunchedEffect
+        keep = null
+        val i = sheets.indexOfFirst { s -> (s is Sheet.Photos && s.photos.any { it.photo.id == id }) || (s is Sheet.Opener && s.photo.photo.id == id) }
+        if (i >= 0) pager.scrollToPage(i)
+    }
+    // A tap on a day far away fades the book out and back in on that day, so the pages between never flash past.
+    var goingTo by remember { mutableStateOf<Int?>(null) }
+    val veil = remember { androidx.compose.animation.core.Animatable(1f) }
+    var jump by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     Column(Modifier.fillMaxSize()) {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             CircleButton(onBack) { LineIcon(listOf(P("M19 12H5"), P("m12 19-7-7 7-7")), cs.onSurface, size = 22.dp, stroke = 2.2f) }
-            Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+            Column(Modifier.weight(1f).padding(start = 14.dp, end = 8.dp)) {
                 Text(betaTitle(androidx.compose.ui.res.stringResource(R.string.book_title), cs.onSurfaceVariant, 13.sp), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 22.sp, color = cs.onSurface))
                 val chosen = ctx.picked.days.sumOf { it.photos.size }
                 Text(
@@ -338,16 +370,35 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
                 )
             }
             val page by remember { derivedStateOf { pager.currentPage } }
-            Box(Modifier.clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 14.dp, vertical = 9.dp)) {
-                Text("${page + 1} / ${sheets.size}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurface))
+            Box(Modifier.clip(CircleShape).background(cs.surfaceContainerHighest).padding(horizontal = 12.dp, vertical = 9.dp)) {
+                Text("${page + 1} / ${sheets.size}", style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 14.sp, color = cs.onSurface, fontFeatureSettings = "tnum"))
             }
-            // Save as PDF, Snel or Print, made in the background (BookPdf.kt).
-            Spacer(Modifier.width(8.dp))
-            BookSaveButton(ctx.trip, ctx.picked, sheets)
+            // The options and Save as PDF (Snel or Print, made in the background, BookPdf.kt), joined into one group as on the summary.
+            Spacer(Modifier.width(6.dp))
+            Box(
+                Modifier.size(48.dp).clip(RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 8.dp, bottomEnd = 8.dp))
+                    .background(cs.surfaceContainerHighest).clickable { optionsOpen = true },
+                contentAlignment = Alignment.Center,
+            ) { LineIcon(Glyphs.pencil, cs.onSurface, size = 21.dp, stroke = 2.1f) }
+            Spacer(Modifier.width(3.dp))
+            BookSaveButton(ctx.trip, ctx.picked, sheets, RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp, topEnd = 24.dp, bottomEnd = 24.dp))
         }
+        if (optionsOpen) BookOptionsSheet(
+            onPick = pick@{ n ->
+                if (n == BookPrefs.perPage) return@pick
+                // The photo at the top of this page stays in view while the pages are laid out again.
+                keep = when (val s = sheets.getOrNull(pager.currentPage)) {
+                    is Sheet.Photos -> s.photos.first().photo.id
+                    is Sheet.Opener -> s.photo.photo.id
+                    else -> null
+                }
+                BookPrefs.choose(n)
+            },
+            onDismiss = { optionsOpen = false },
+        )
         BookSaveBar(ctx.trip)
 
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().graphicsLayer { alpha = veil.value; val s = 0.97f + 0.03f * veil.value; scaleX = s; scaleY = s }) {
             val pageW = min(maxWidth.value - 44f, (maxHeight.value - 24f) * PAGE_ASPECT).dp
             HorizontalPager(
                 pager,
@@ -355,7 +406,8 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
                 pageSpacing = 14.dp,
                 beyondViewportPageCount = 1,
                 modifier = Modifier.fillMaxSize(),
-                key = { sheets[it].key },
+                // Laid out again (another number per page), the pager can ask for a page of the new count a moment before it has the new pages.
+                key = { sheets.getOrNull(it)?.key ?: "page-$it" },
             ) { i ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Box(
@@ -370,13 +422,14 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
                             .background(if (ctx.dark) MaterialTheme.colorScheme.surfaceContainerLow else Color.White)
                             // A card as on the web: raised paper with a thin line, no shadow.
                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp)),
-                    ) { SheetView(sheets[i], i, ctx) }
+                    ) { sheets.getOrNull(i)?.let { SheetView(it, i, ctx) } }
                 }
             }
         }
 
         // The days as a strip: the current one opens up with its place, a tap leafs there.
-        val current by remember { derivedStateOf { sheets.getOrNull(pager.currentPage)?.day?.number ?: 0 } }
+        // While leafing to a tapped day only that day is lit, never the days on the way.
+        val current by remember(sheets) { derivedStateOf { goingTo ?: sheets.getOrNull(pager.currentPage)?.day?.number ?: 0 } }
         val days = remember(sheets) { listOf<BookDay?>(null) + ctx.picked.days }
         val strip = rememberLazyListState()
         LaunchedEffect(current) {
@@ -397,7 +450,25 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
                     Modifier.height(44.dp).clip(CircleShape).background(bg)
                         .clickable {
                             val target = if (d == null) 0 else sheets.indexOfFirst { it.day == d }
-                            if (target >= 0) scope.launch { pager.animateScrollToPage(target, animationSpec = motion.defaultSpatialSpec()) }
+                            val number = d?.number ?: 0
+                            if (target >= 0 && target != pager.currentPage) {
+                                jump?.cancel()
+                                goingTo = number
+                                jump = scope.launch {
+                                    try {
+                                        // The next or previous page glides; anything further fades over in one step.
+                                        if (kotlin.math.abs(target - pager.currentPage) <= 1) pager.animateScrollToPage(target, animationSpec = motion.defaultSpatialSpec())
+                                        else {
+                                            veil.animateTo(0f, motion.fastEffectsSpec())
+                                            pager.scrollToPage(target)
+                                            veil.animateTo(1f, motion.defaultEffectsSpec())
+                                        }
+                                    } finally {
+                                        if (goingTo == number) goingTo = null
+                                        if (veil.value < 1f && goingTo == null) scope.launch { veil.animateTo(1f, motion.defaultEffectsSpec()) }
+                                    }
+                                }
+                            }
                         }
                         .animateContentSize(motion.defaultSpatialSpec())
                         .padding(horizontal = if (on) 16.dp else 0.dp)
@@ -420,6 +491,24 @@ private fun BookPages(sheets: List<Sheet>, pager: PagerState, ctx: BookContext, 
             }
         }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+}
+
+/** The book's options: how many photos go on a page. */
+@Composable
+private fun BookOptionsSheet(onPick: (Int) -> Unit, onDismiss: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    AppSheet(onDismiss = onDismiss) {
+        Column(Modifier.padding(horizontal = 16.dp)) {
+            Text(androidx.compose.ui.res.stringResource(R.string.summary_adjust), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(650), fontSize = 24.sp, color = cs.onSurface), modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+            Header(androidx.compose.ui.res.stringResource(R.string.book_per_page), top = true)
+            Panel {
+                Choices((1..MAX_PER_PAGE).map { it to "$it" }, BookPrefs.perPage, onPick)
+                Hint(androidx.compose.ui.res.stringResource(R.string.book_per_page_hint))
+            }
+            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
     }
 }
 

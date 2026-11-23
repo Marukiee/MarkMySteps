@@ -7,6 +7,7 @@
   "book.progress": "Pagina {done} van {total}",
   "book.quick": "Snel",
   "book.print": "Print",
+  "book.perPage": "Foto's per pagina",
   "book.runningNote": "Je kunt de app gewoon blijven gebruiken; hij zegt het als het boek klaar is.",
   "book.busyOther": "Er wordt al een ander fotoboek gemaakt.",
   "book.pages_one": "{count} pagina",

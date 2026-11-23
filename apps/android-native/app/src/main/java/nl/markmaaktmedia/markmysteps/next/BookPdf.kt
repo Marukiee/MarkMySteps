@@ -302,7 +302,7 @@ fun BookJobHost() {
 
 /** The book's save button: a menu with Snel and Print. */
 @Composable
-fun BookSaveButton(trip: Trip, picked: Picked, sheets: List<Sheet>) {
+fun BookSaveButton(trip: Trip, picked: Picked, sheets: List<Sheet>, shape: androidx.compose.ui.graphics.Shape = androidx.compose.foundation.shape.CircleShape) {
     val cs = androidx.compose.material3.MaterialTheme.colorScheme
     val context = androidx.compose.ui.platform.LocalContext.current
     var menu by androidx.compose.runtime.remember { mutableStateOf(false) }
@@ -310,7 +310,7 @@ fun BookSaveButton(trip: Trip, picked: Picked, sheets: List<Sheet>) {
     val busyOther = BookJob.state is BookJob.State.Running && !BookJob.busyWith(trip.id)
     Box {
         Box(
-            Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(cs.surfaceContainerHighest).dip { menu = true },
+            Modifier.size(48.dp).clip(shape).background(cs.surfaceContainerHighest).dip { menu = true },
             contentAlignment = androidx.compose.ui.Alignment.Center,
         ) { LineIcon(Glyphs.download, cs.onSurface, size = 21.dp, stroke = 2.1f) }
         fun go(print: Boolean) {

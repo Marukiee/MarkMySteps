@@ -307,6 +307,8 @@
     <string name="book_reading">Foto\'s bekijken</string>
     <string name="book_wait">Even geduld</string>
     <string name="book_of">%1$d van %2$d</string>
+    <string name="book_per_page">Foto\'s per pagina</string>
+    <string name="book_per_page_hint">De PDF volgt dezelfde pagina\'s.</string>
     <string name="cache_custom_short">Eigen</string>
     <string name="auth_use_app_code">Toch een code uit de app gebruiken</string>
     <string name="auth_use_recovery">Ik heb mijn telefoon niet: herstelcode gebruiken</string>

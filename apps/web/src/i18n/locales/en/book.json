@@ -7,6 +7,7 @@
   "book.progress": "Page {done} of {total}",
   "book.quick": "Quick",
   "book.print": "Print",
+  "book.perPage": "Photos per page",
   "book.runningNote": "Carry on using the app; it’ll tell you when the book is ready.",
   "book.busyOther": "Another photo book is already being made.",
   "book.pages_one": "{count} page",

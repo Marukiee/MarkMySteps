@@ -121,6 +121,7 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     androidx.compose.runtime.LaunchedEffect(Unit) { if (Data.peopleFor == base.id) Data.peopleFor = null }
     // The photo book or the summary over the page (PhotoBook.kt, Summary.kt), from the people sheet.
     var extra by remember { androidx.compose.runtime.mutableStateOf(startExtra?.takeIf { it == "book" || it == "summary" || it == "posters" }) }
+    var fromPeople by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var bigMap by remember { androidx.compose.runtime.mutableStateOf(false) }
     // The big map is full screen: the navigation bar on "Altijd" stays away from it (AppCore.kt).
     Chrome.Immersive(bigMap)
@@ -526,8 +527,10 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
         )
         if (people) PeopleSheet(
             trip, onDismiss = { people = false }, onChanged = { scope.launch { Data.load() } },
-            onMake = if (!trip.upcoming && media?.isNotEmpty() == true) ({ which -> people = false; extra = which }) else null,
+            // The sheet stays open under the book or the summary, so back comes back to it as it was.
+            onMake = if (!trip.upcoming && media?.isNotEmpty() == true) ({ which -> fromPeople = which }) else null,
         )
+        fromPeople?.let { which -> if (people) ExtraOverSheet(trip, dark, which, onClose = { fromPeople = null }) else fromPeople = null }
         // While paging in the viewer the timeline brings that photo to the middle, so closing flies back into it.
         // Not for the photo just tapped: that tile is on screen already, and the page must not move under the opening photo.
         var paged by remember { androidx.compose.runtime.mutableStateOf(false) }
