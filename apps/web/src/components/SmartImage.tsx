@@ -1,0 +1,227 @@
+import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { cachedImage, loadImage, retainImage } from './AuthImage';
+import './smartimage.css';
+
+/** A picture that arrives within this long after it was asked for just appears. */
+const QUICK_MS = 250;
+
+/** A path through the app's image proxy, or an address an <img> can load as it is. */
+const looksDirect = (src: string) => /^(https?:|blob:|data:)/.test(src);
+
+/**
+ * A photo as the native apps load it.
+ *
+ * - Already in hand (cached), or there within 250 ms: on screen at once, no
+ *   fade. A fade over a picture that was already there only reads as a blink.
+ * - Slower than that: it fades in over its own tile.
+ * - A candidate that fails (deleted, a size the server cannot make) moves on
+ *   to the next one instead of leaving a flickering empty tile.
+ *
+ * `candidates` are tried in order: proxy paths (`/media/<id>/thumbnail...`)
+ * or plain URLs (the share page hands those in).
+ */
+export function SmartImage({
+  candidates,
+  className,
+  style,
+  alt = '',
+  eager = false,
+  draggable,
+  onLoad,
+  onMissing,
+  progressive = false,
+  direct = false,
+}: {
+  candidates: string[];
+  className?: string;
+  style?: CSSProperties;
+  alt?: string;
+  eager?: boolean;
+  draggable?: boolean;
+  onLoad?: () => void;
+  /** Every candidate failed: the caller may have something else to show. */
+  onMissing?: () => void;
+  /**
+   * The candidates run from large to small: a smaller one already cached is
+   * shown at once and the first one replaces it when it arrives.
+   */
+  progressive?: boolean;
+  /**
+   * The candidates are addresses to load as they are (the share page's own
+   * links), never paths for the app's authorized image proxy.
+   */
+  direct?: boolean;
+}) {
+  const isDirect = (src: string) => direct || looksDirect(src);
+  const cachedFor = (src: string) => (isDirect(src) ? undefined : cachedImage(src));
+  const missingRef = useRef(onMissing);
+  missingRef.current = onMissing;
+  const list = candidates.filter(Boolean);
+  const listKey = list.join('|');
+  const listKeyRef = useRef(listKey);
+  listKeyRef.current = listKey;
+  const cachedIndex = () => list.findIndex((c) => cachedFor(c) !== undefined);
+  const firstCached = () => {
+    const i = cachedIndex();
+    return i === -1 ? undefined : cachedFor(list[i]!);
+  };
+  const [src, setSrc] = useState<string | undefined>(firstCached);
+  // Instant: cached, or quick enough that a fade would only be a blink.
+  const [instant, setInstant] = useState(() => src !== undefined);
+  const [loaded, setLoaded] = useState(() => src !== undefined);
+  const [near, setNear] = useState(eager || src !== undefined);
+  const [failedAll, setFailedAll] = useState(false);
+  const holderRef = useRef<HTMLSpanElement>(null);
+  const indexRef = useRef(0);
+  /** A smaller version in hand: shown at once, and the wanted one replaces it. */
+  const shownIndexRef = useRef(cachedIndex());
+  /** Set once the candidates have started loading, so a failure never starts over. */
+  const startedRef = useRef(false);
+  const startRef = useRef(performance.now());
+
+  // A new photo (paging, another trip): start over with what is cached for it.
+  useEffect(() => {
+    const hit = firstCached();
+    shownIndexRef.current = cachedIndex();
+    indexRef.current = 0;
+    startedRef.current = false;
+    startRef.current = performance.now();
+    setSrc(hit);
+    setInstant(hit !== undefined);
+    setLoaded(hit !== undefined);
+    setFailedAll(false);
+    setNear((n) => n || eager || hit !== undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listKey]);
+
+  // Hold on to every candidate while shown, so the cache never drops one
+  // that is on screen.
+  useEffect(() => {
+    const releases = list.filter((c) => !isDirect(c)).map((c) => retainImage(c));
+    return () => releases.forEach((r) => r());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listKey]);
+
+  useEffect(() => {
+    if (failedAll) missingRef.current?.();
+  }, [failedAll]);
+
+  useEffect(() => {
+    if (near || !holderRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setNear(true);
+          observer.disconnect();
+        }
+      },
+      // Measured from what actually scrolls: the trip page scrolls inside an
+      // element, and a margin on the window is cut off at its edge.
+      { root: scrollParent(holderRef.current), rootMargin: '150% 50%' },
+    );
+    observer.observe(holderRef.current);
+    return () => observer.disconnect();
+  }, [near]);
+
+  const tryFrom = (index: number) => {
+    const candidate = list[index];
+    if (candidate === undefined) {
+      setSrc(undefined);
+      setFailedAll(true);
+      return;
+    }
+    indexRef.current = index;
+    const key = listKeyRef.current;
+    const done = (url: string) => {
+      if (key !== listKeyRef.current) return;
+      if (performance.now() - startRef.current <= QUICK_MS) setInstant(true);
+      setSrc(url);
+    };
+    if (isDirect(candidate)) done(candidate);
+    else
+      loadImage(candidate)
+        .then(done)
+        .catch(() => {
+          if (key === listKeyRef.current) tryFrom(index + 1);
+        });
+  };
+
+  useEffect(() => {
+    if (!near || list.length === 0 || startedRef.current) return;
+    if (src !== undefined) {
+      // Showing a smaller version from the cache: fetch the wanted one behind
+      // it and swap it in place, no fade (a picture is already there).
+      const shown = shownIndexRef.current;
+      if (shown <= 0 || !progressive) return;
+      startedRef.current = true;
+      const key = listKeyRef.current;
+      const upgrade = (index: number) => {
+        const candidate = list[index];
+        if (index >= shown || candidate === undefined) return;
+        const apply = (url: string) => {
+          if (key !== listKeyRef.current) return;
+          shownIndexRef.current = index;
+          setSrc(url);
+        };
+        if (isDirect(candidate)) apply(candidate);
+        else loadImage(candidate).then(apply).catch(() => upgrade(index + 1));
+      };
+      upgrade(0);
+      return;
+    }
+    startedRef.current = true;
+    startRef.current = performance.now();
+    tryFrom(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [near, src, listKey]);
+
+  return (
+    <span
+      ref={holderRef}
+      className={`smart-img ${className ?? ''} ${failedAll ? 'missing' : ''}`}
+      style={style}
+    >
+      {src && (
+        <img
+          ref={(el) => {
+            if (el?.complete && el.naturalWidth > 0 && !loaded) {
+              if (performance.now() - startRef.current <= QUICK_MS) setInstant(true);
+              setLoaded(true);
+            }
+          }}
+          src={src}
+          alt={alt}
+          draggable={draggable}
+          decoding="async"
+          className={`${loaded ? 'loaded' : ''} ${instant ? 'instant' : ''}`}
+          onLoad={() => {
+            if (performance.now() - startRef.current <= QUICK_MS) setInstant(true);
+            setLoaded(true);
+            onLoad?.();
+          }}
+          onError={() => {
+            // This one cannot be drawn: on to the next candidate.
+            setLoaded(false);
+            const next = indexRef.current + 1;
+            if (next >= list.length) {
+              setSrc(undefined);
+              setFailedAll(true);
+            } else tryFrom(next);
+          }}
+        />
+      )}
+    </span>
+  );
+}
+
+/** The nearest ancestor that really scrolls, or null for the window. */
+function scrollParent(el: Element): Element | null {
+  for (let node = el.parentElement; node && node !== document.documentElement; node = node.parentElement) {
+    const { overflowY, overflowX } = getComputedStyle(node);
+    const down = /(auto|scroll|overlay)/.test(overflowY) && node.scrollHeight > node.clientHeight + 1;
+    const across = /(auto|scroll|overlay)/.test(overflowX) && node.scrollWidth > node.clientWidth + 1;
+    if (down || across) return node;
+  }
+  return null;
+}

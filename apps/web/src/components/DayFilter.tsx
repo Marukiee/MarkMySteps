@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type React from 'react';
 import { createPortal } from 'react-dom';
 import { t, intlLocale } from '../i18n';
 import { useExit } from '../lib/useExit';
@@ -27,10 +28,16 @@ export function DayFilter({
   days,
   value,
   onChange,
+  placeOf,
+  tripStart,
 }: {
   days: TripDay[];
   value: string | null;
   onChange: (day: string | null) => void;
+  /** Where the trip was that day, for the title of its row. */
+  placeOf?: (day: string) => string | null;
+  /** The first day of the trip, so a row can say which day of it this was. */
+  tripStart?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [mounted, closing] = useExit(open, 160);
@@ -183,38 +190,101 @@ export function DayFilter({
               maxHeight: anchor.maxHeight,
             }}
           >
-            <button
-              type="button"
-              className={`day-filter-item ${value === null ? 'active' : ''}`}
+            {/* As the native day sheet: a tile on the left (the calendar for
+                the whole trip, the date for a day), the place as the title
+                with "Dag N" under it, and a check on the chosen one. The
+                date is on the tile, so it is never written twice. */}
+            <DayRow
+              chosen={value === null}
+              tile={<Icon name="calendar" size={20} />}
+              title={t('trip.dayFilter.wholeTrip')}
+              subtitle={t('common.days', { count: days.length })}
               onClick={() => pick(null)}
-            >
-              <span className="day-filter-item-name">{t('trip.dayFilter.wholeTrip')}</span>
-              <span className="day-filter-count">{t('common.days', { count: days.length })}</span>
-            </button>
+            />
             <div className="day-filter-rule" />
-            {days.map((day, index) => (
-              <button
-                key={day.day}
-                type="button"
-                className={`day-filter-item ${value === day.day ? 'active' : ''}`}
-                // Staggered so the list unrolls instead of appearing whole. Capped,
-                // because on a three-month trip the last row would arrive next week.
-                style={{ animationDelay: `${Math.min(index, 12) * 16}ms` }}
-                onClick={() => pick(day.day)}
-              >
-                <span className="day-filter-item-name">{longDay(day.day)}</span>
-                {/* A day that was tracked but not photographed says nothing at
-                    all otherwise, which reads as a missing number. */}
-                <span className="day-filter-count">
-                  <Icon name="camera" size={12} /> {day.photos}
-                </span>
-              </button>
-            ))}
+            {days.map((day, index) => {
+              const place = placeOf?.(day.day) ?? null;
+              const first = tripStart ?? days[0]!.day;
+              const nth = Math.round((Date.parse(`${day.day}T12:00:00Z`) - Date.parse(`${first.slice(0, 10)}T12:00:00Z`)) / 86_400_000) + 1;
+              const dayN = t('trip.dayFilter.dayN', { n: nth });
+              return (
+                <DayRow
+                  key={day.day}
+                  delay={Math.min(index, 12) * 16}
+                  chosen={value === day.day}
+                  tile={
+                    <span className="day-tile-date">
+                      <strong>{Number(day.day.slice(8, 10))}</strong>
+                      <small>{weekday(day.day)}</small>
+                    </span>
+                  }
+                  title={place ?? dayN}
+                  subtitle={place ? dayN : monthName(day.day)}
+                  photos={day.photos}
+                  onClick={() => pick(day.day)}
+                />
+              );
+            })}
           </div>,
           document.body,
         )}
     </div>
   );
+}
+
+/** One row of the list: tile, title and subtitle, and a check or the photo count. */
+function DayRow({
+  chosen,
+  tile,
+  title,
+  subtitle,
+  photos,
+  delay = 0,
+  onClick,
+}: {
+  chosen: boolean;
+  tile: React.ReactNode;
+  title: string;
+  subtitle: string;
+  photos?: number;
+  delay?: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`day-filter-item ${chosen ? 'active' : ''}`}
+      style={{ animationDelay: `${delay}ms` }}
+      onClick={onClick}
+      aria-pressed={chosen}
+    >
+      <span className="day-tile">{tile}</span>
+      <span className="day-filter-text">
+        <span className="day-filter-item-name">{title}</span>
+        <span className="day-filter-sub">{subtitle}</span>
+      </span>
+      <span className="day-filter-end">
+        {chosen ? (
+          <span className="day-filter-check" key="check">
+            <Icon name="check" size={18} />
+          </span>
+        ) : photos !== undefined ? (
+          // A day that was tracked but not photographed says 0, not nothing.
+          <span className="day-filter-count" key="count">
+            <Icon name="camera" size={12} /> {photos}
+          </span>
+        ) : null}
+      </span>
+    </button>
+  );
+}
+
+function weekday(day: string): string {
+  return new Date(`${day}T12:00:00Z`).toLocaleDateString(intlLocale(), { weekday: 'short', timeZone: 'UTC' });
+}
+
+function monthName(day: string): string {
+  return new Date(`${day}T12:00:00Z`).toLocaleDateString(intlLocale(), { month: 'long', timeZone: 'UTC' });
 }
 
 /** "di 12 aug" — short enough for the pill, unambiguous in a list. */

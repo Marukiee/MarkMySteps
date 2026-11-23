@@ -18,6 +18,7 @@ import { nativeViewerAvailable } from '../lib/nativeViewer';
 import { cachedImage, decoded, loadImage, preloadImage, retainImage } from './AuthImage';
 import { Icon } from './Icon';
 import { NativeLightbox } from './NativeLightbox';
+import { ViewerStrip } from './ViewerStrip';
 import { PhotoCommentsAdapter, PhotoCommentsPanel } from './PhotoComments';
 import { useExit } from '../lib/useExit';
 import { ReactionBar, ReactionsAdapter } from './PhotoReactions';
@@ -133,6 +134,28 @@ function WebLightbox({
   // The comments slide back down before they unmount, as they came up.
   const [commentsShown, commentsClosing] = useExit(commentsOpen, 220);
   const [reactionsOpen, setReactionsOpen] = useState(false);
+  /** The buttons over the photo: a tap on the photo shows or hides them at once. */
+  const [chrome, setChrome] = useState(true);
+  /** How far a finger has dragged the photo sideways, for the strip to follow. */
+  const [swipeDx, setSwipeDx] = useState(0);
+  /** How far the strip stands higher while the reaction choices are open. */
+  const [stripLift, setStripLift] = useState(0);
+  /**
+   * After a swipe has paged: the next photo comes in from the side it was
+   * swiped from, a short way, rather than the dragged frame sliding back.
+   */
+  const [enterFrom, setEnterFrom] = useState<number | null>(null);
+  useEffect(() => {
+    if (enterFrom === null) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setEnterFrom(null));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [enterFrom]);
   // Read by the back gesture below, which is registered once per session.
   const layersRef = useRef({ comments: false, reactions: false });
   layersRef.current = { comments: commentsOpen, reactions: reactionsOpen };
@@ -237,9 +260,10 @@ function WebLightbox({
   }, [menu]);
 
   // Animate out before unmounting; closing used to be an abrupt cut.
+  // Closing glides out calmly, in one movement (see .lightbox.closing).
   const close = () => {
     setClosing(true);
-    window.setTimeout(onClose, 200);
+    window.setTimeout(onClose, 300);
   };
   const item = items[index];
   const place = usePlaceName(item, placeFallbackFor);
@@ -366,6 +390,20 @@ function WebLightbox({
     return () => window.removeEventListener('keydown', onKey);
   }, [index, items.length, onClose, onNavigate, commentsOpen, reactionsOpen]);
 
+  // The strip moves up with the reaction choices as they open, and back down
+  // as they close, so the two never overlap.
+  useEffect(() => {
+    if (!reactionsOpen) {
+      setStripLift(0);
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      const picker = document.querySelector<HTMLElement>('.lightbox .reaction-picker');
+      setStripLift(picker ? picker.offsetHeight + 8 : 0);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [reactionsOpen, item?.id]);
+
   if (!item) return null;
   const onDevice = isDeviceMediaId(item.id);
   const actions = actionsFor(item);
@@ -483,6 +521,14 @@ function WebLightbox({
 
     if (g.mode === 'pan') {
       setView(clamp({ scale: g.start.scale, x: g.start.x + dx, y: g.start.y + dy }));
+      return;
+    }
+
+    // Paging: the photo, and the strip under it, follow the finger exactly.
+    // Past the first or last photo it only gives a little.
+    if (g.mode === 'swipe' && g.moved && Math.abs(dx) > Math.abs(dy)) {
+      const edge = (dx > 0 && index === 0) || (dx < 0 && index === items.length - 1);
+      setSwipeDx(edge ? dx * 0.25 : dx);
     }
   };
 
@@ -508,11 +554,21 @@ function WebLightbox({
       settle(view);
       // Consumed, so a third tap starts a fresh pair rather than toggling again.
       tap.current = { at: 0, x: 0, y: 0 };
+      // A plain double tap zooms; its first tap already flipped the buttons,
+      // so this one flips them back and they are as they were.
+      if (!g.moved) setChrome((c) => !c);
       g.mode = 'none';
       return;
     }
 
-    if (!g.moved && now - g.at < 320) tap.current = { at: now, x: t.clientX, y: t.clientY };
+    if (!g.moved && now - g.at < 320) {
+      tap.current = { at: now, x: t.clientX, y: t.clientY };
+      // A tap shows or hides the buttons at once, without waiting to see
+      // whether a second tap follows. With the reaction choices open, the tap
+      // only closes those.
+      if (reactionsOpen) setReactionsOpen(false);
+      else setChrome((c) => !c);
+    }
 
     if (g.mode === 'pan') {
       settle(view);
@@ -523,13 +579,19 @@ function WebLightbox({
     // Fitted: the old paging and dismiss gestures, untouched.
     const s = touchRef.current;
     g.mode = 'none';
+    setSwipeDx(0);
     if (!s) return;
     touchRef.current = null;
     const dx = t.clientX - s.x;
     const dy = t.clientY - s.y;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx > 0 && index > 0) onNavigate(index - 1);
-      else if (dx < 0 && index < items.length - 1) onNavigate(index + 1);
+      if (dx > 0 && index > 0) {
+        setEnterFrom(-60);
+        onNavigate(index - 1);
+      } else if (dx < 0 && index < items.length - 1) {
+        setEnterFrom(60);
+        onNavigate(index + 1);
+      }
     } else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5) {
       close(); // swipe down to dismiss
     }
@@ -574,7 +636,9 @@ function WebLightbox({
   // context (the trip detail is itself position:fixed on mobile).
   return createPortal(
     <div
-      className={`lightbox ${closing ? 'closing' : ''}`}
+      className={`lightbox ${closing ? 'closing' : ''} ${chrome ? '' : 'chrome-off'} ${
+        items.length > 1 ? 'has-strip' : ''
+      }`}
       // With the menu open, a tap outside it means "never mind" — not "close
       // the photo I was about to act on".
       onClick={() => (menuOpen ? closeMenu() : close())}
@@ -644,11 +708,28 @@ function WebLightbox({
         className="lightbox-stage"
         onClick={(e) => {
           e.stopPropagation();
-          closeMenu();
+          if (menuOpen) {
+            closeMenu();
+            return;
+          }
+          // A mouse click on the photo shows or hides the buttons, as a tap
+          // does (a touch already did that in onTouchEnd).
+          if (Date.now() - lastTouch.current < 700) return;
+          if ((e.target as Element).closest('.lightbox-imgwrap')) setChrome((c) => !c);
         }}
       >
         <div
-          className={`lightbox-imgwrap ${zoomed ? 'zoomed' : ''}`}
+          className={`lightbox-imgwrap ${zoomed ? 'zoomed' : ''} ${
+            swipeDx !== 0 || enterFrom !== null ? 'following' : ''
+          }`}
+          style={{
+            transform:
+              swipeDx !== 0
+                ? `translateX(${swipeDx}px)`
+                : enterFrom !== null
+                  ? `translateX(${enterFrom}px)`
+                  : undefined,
+          }}
           ref={wrapRef}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
@@ -756,6 +837,18 @@ function WebLightbox({
         </figcaption>
       </figure>
 
+      {/* Every photo in this viewer as a strip of tiles, full width. */}
+      {(
+        <ViewerStrip
+          hidden={commentsShown}
+          items={items}
+          position={index - swipeDx / Math.max(1, window.innerWidth)}
+          following={swipeDx !== 0}
+          onNavigate={onNavigate}
+          srcFor={srcFor}
+          lift={stripLift}
+        />
+      )}
       {comments && !onDevice && !commentsShown && (
         <button
           type="button"

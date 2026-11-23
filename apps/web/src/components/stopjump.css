@@ -20,7 +20,7 @@
    * lose, and starting it further out than the days below would read as a
    * hanging indent nobody asked for.
    */
-  --stop-jump-inset: calc(var(--page-pad, 1.25rem) - 2px);
+  --stop-jump-inset: var(--page-pad, 1.25rem);
   --stop-jump-title-inset: var(--page-pad, 1.25rem);
   /* Runs to both edges of the screen: a rail that stops one gutter short looks
      like a list that has ended, and there is usually more of it. The gutter is
@@ -33,12 +33,12 @@
    this page, and a second serif line above them was competing with them.
    Indented to the same line as the tiles under it. */
 .stop-jump-title {
-  margin: 0.35rem 0 0.35rem;
+  margin: 0.5rem 0 12px;
   padding-left: var(--stop-jump-title-inset);
-  font-family: var(--font-body);
-  font-size: 0.84rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-family: var(--font-brand);
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0;
   /* Full ink: at this size the faint grey read as a disabled label rather than
      as the name of the row under it. */
   color: var(--ink);
@@ -46,7 +46,7 @@
 
 .stop-jump-rail {
   display: flex;
-  gap: 0.45rem;
+  gap: 8px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
   /* The inset above on the left, and a full gutter's worth of room after the
@@ -59,113 +59,48 @@
      line the tiles snap to onto the gutter. */
   scroll-padding-left: var(--stop-jump-inset);
   scrollbar-width: none;
-  /* See the fade below. */
-  --stop-jump-fade: 2.4rem;
-  -webkit-mask-image: var(--stop-jump-mask, none);
-  mask-image: var(--stop-jump-mask, none);
 }
 
 .stop-jump-rail::-webkit-scrollbar {
   display: none;
 }
 
-/*
- * The ends of the rail, softened.
- *
- * A tile cut in half against the side of the column reads as something broken
- * rather than as "there is more of this". Only the end that is actually
- * hiding a tile is faded (the component works out which), so at rest the first
- * tile is as solid as the rest of them and nothing is dimmed for decoration.
- */
-.stop-jump-rail[data-edge='end'] {
-  --stop-jump-mask: linear-gradient(
-    to right,
-    #000 calc(100% - var(--stop-jump-fade)),
-    transparent 100%
-  );
-}
-
-.stop-jump-rail[data-edge='start'] {
-  --stop-jump-mask: linear-gradient(to right, transparent 0, #000 var(--stop-jump-fade));
-}
-
-.stop-jump-rail[data-edge='both'] {
-  --stop-jump-mask: linear-gradient(
-    to right,
-    transparent 0,
-    #000 var(--stop-jump-fade),
-    #000 calc(100% - var(--stop-jump-fade)),
-    transparent 100%
-  );
-}
-
-/*
- * Small and upright, with the place's own photo behind the name.
- *
- * Wide enough for a city name at a glance, narrow enough that five or six of
- * them fit on a phone — the point of the rail is that you can see there is
- * more of it without it becoming a second timeline.
- */
 .stop-jump-tile {
   position: relative;
   flex: 0 0 auto;
   scroll-snap-align: start;
-  /* A shade wider than it was. Names like "Sankt Petersburg" were being cut
-     off mid-word, and the flag that used to sit in front of them has gone to
-     pay for most of the extra room. */
-  width: 96px;
+  /* 92 x 116 with a radius of 18, as on the native apps. A tonal tile, no
+     outline and no shadow. */
+  width: 92px;
   height: 116px;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  border: 0;
+  border-radius: 18px;
   background: var(--paper-sunken);
   cursor: pointer;
   isolation: isolate;
-  transition: transform 0.16s var(--ease), border-color 0.2s var(--ease);
-  /*
-   * The row arrives rather than being there.
-   *
-   * It is the first thing at the top of the timeline, and it was the only
-   * thing on the page that was simply present the instant you switched to the
-   * tab. The tiles come up one after another, left to right, the way the days
-   * below them do.
-   */
-  animation: stopJumpIn 0.44s var(--ease) backwards;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+  animation: stopJumpIn 0.4s cubic-bezier(0.2, 0, 0, 1) backwards;
   animation-delay: calc(var(--i, 0) * 45ms);
 }
 
 @keyframes stopJumpIn {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.97);
+    transform: translateY(8px);
   }
 }
 
 .stop-jump-tile:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
-/* Room for a name and a photograph, in a window that has room for both. On a
-   phone the tile is as wide as it can be without the rail becoming a second
-   timeline; beside the map that limit is not the one that binds. */
-@media (min-width: 901px) {
-  .stop-jump-tile {
-    width: 124px;
-    height: 150px;
-  }
-
-  .stop-jump-label {
-    padding: 1.1rem 0.55rem 0.5rem;
-    font-size: 0.82rem;
-  }
+:root[data-theme='dark'] .stop-jump-tile {
+  background: var(--paper-raised);
 }
 
 @media (hover: hover) {
-  .stop-jump-tile:hover {
-    border-color: var(--accent);
-  }
-
   .stop-jump-tile:hover .stop-jump-photo img {
     transform: scale(1.06);
   }
@@ -177,12 +112,17 @@
   z-index: -1;
 }
 
+.stop-jump-photo .smart-img {
+  width: 100%;
+  height: 100%;
+}
+
 .stop-jump-photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.4s var(--ease), opacity 0.35s var(--ease);
+  transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1), opacity 0.28s cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* The name sits on the photo, so it needs its own ground to stand on. */
@@ -191,10 +131,11 @@
   inset: auto 0 0 0;
   display: flex;
   align-items: center;
-  padding: 0.9rem 0.45rem 0.4rem;
-  font-size: 0.76rem;
-  font-weight: 700;
-  line-height: 1.2;
+  padding: 8px 9px;
+  font-family: var(--font-brand);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 16px;
   text-align: left;
   color: var(--ink);
 }
@@ -203,20 +144,35 @@
    without one it is ordinary ink on the sunken paper. */
 .stop-jump-tile.has-photo .stop-jump-label {
   color: #fff;
-  background: linear-gradient(to top, rgb(8 11 15 / 0.82), rgb(8 11 15 / 0.42) 55%, transparent);
-  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+}
+
+/* Clear over the top 45 %, then to black at 0.62, over the whole tile. */
+.stop-jump-tile.has-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(to bottom, rgb(0 0 0 / 0) 45%, rgb(0 0 0 / 0.62) 100%);
+  pointer-events: none;
 }
 
 .stop-jump-name {
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .stop-jump-tile,
-  .stop-jump-photo img {
+  .stop-jump-photo .smart-img {
+  width: 100%;
+  height: 100%;
+}
+
+.stop-jump-photo img {
     transition: none;
   }
 

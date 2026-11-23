@@ -1,0 +1,259 @@
+/* The top of a trip page, after the native apps (TripPage.kt, CoverCard and
+   Facts): a 236 px cover card, round on top and tight at the bottom, with the
+   figures joined under it as tiles in the cover's tone. No shadows: the card
+   and the tiles stand off the page by colour alone. */
+
+.td-cover-block {
+  /* The tone the tiles mix with: the low tonal surface of the page. */
+  --td-surface-low: var(--paper-sunken);
+  --td-tone-mix: 26%;
+  display: grid;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+:root[data-theme='dark'] .td-cover-block {
+  --td-surface-low: var(--paper-raised);
+  --td-tone-mix: 34%;
+}
+
+.td-cover {
+  position: relative;
+  height: 236px;
+  border-radius: 32px 32px 6px 6px;
+  overflow: hidden;
+  background: var(--td-surface-low);
+  color: #fff;
+  isolation: isolate;
+}
+
+.td-cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Clear over the top third, then down to black at 0.62 (never to
+   "transparent", which is black at alpha 0 already, so this is the same
+   colour fading out). */
+.td-cover.has-photo .td-cover-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgb(0 0 0 / 0) 35%, rgb(0 0 0 / 0.62) 100%);
+  pointer-events: none;
+}
+
+/* No photo: the trip's own colour, deepened, with the compass. */
+.td-cover.no-photo .td-cover-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgb(27 36 64 / 0), rgb(27 36 64 / 0.55));
+  pointer-events: none;
+}
+
+.td-cover-glyph {
+  position: absolute;
+  right: -50px;
+  top: -26px;
+  color: #fff;
+  opacity: 0.16;
+  transform: rotate(-12deg);
+  pointer-events: none;
+}
+
+.td-cover-text {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20px;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+
+.td-cover-text h1 {
+  margin: 0;
+  font-family: var(--font-brand);
+  font-size: 32px;
+  line-height: 35px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 0 10px rgb(0 0 0 / 0.3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.td-cover-text p {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 500;
+  color: rgb(255 255 255 / 0.88);
+}
+
+/* Top right, 14 px in: two faces and then "+n", each in a white ring. */
+.td-cover-faces {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 999px;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.td-cover-faces:disabled {
+  cursor: default;
+}
+
+.td-face {
+  width: 36px;
+  height: 36px;
+  padding: 2px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.9);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.td-face + .td-face {
+  margin-left: -12px;
+}
+
+.td-face-more {
+  font-family: var(--font-brand);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--ink);
+  background:
+    linear-gradient(var(--paper-sunken), var(--paper-sunken)) content-box,
+    rgb(255 255 255 / 0.9);
+}
+
+/* ---- The figures, joined to the cover ---- */
+
+.td-facts {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 3px;
+  --td-tile: var(--td-surface-low);
+  animation: tdFactsIn 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.td-facts.toned {
+  --td-tile: color-mix(in srgb, var(--td-tone) var(--td-tone-mix), var(--td-surface-low));
+}
+
+.td-fact {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--td-tile);
+  transition: background-color 0.5s cubic-bezier(0.2, 0, 0, 1);
+  display: grid;
+  gap: 1px;
+}
+
+.td-fact:first-child {
+  border-bottom-left-radius: 24px;
+}
+
+.td-fact:last-child {
+  border-bottom-right-radius: 24px;
+}
+
+.td-fact-value {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  font-family: var(--font-brand);
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 26px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* Empty space of the number's own height while it is not known. */
+.td-fact-sizer {
+  visibility: hidden;
+}
+
+.td-fact-num {
+  position: absolute;
+  inset: 0;
+}
+
+.td-fact-label {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The roll: 420 ms emphasized, up for more and down for less; the new number
+   fades in over 300 ms, the old one out over 200 ms. */
+.td-fact-value.up .td-fact-num.entering {
+  animation: tdRollInUp 0.42s cubic-bezier(0.2, 0, 0, 1) both, tdFadeIn 0.3s linear both;
+}
+.td-fact-value.up .td-fact-num.leaving {
+  animation: tdRollOutUp 0.42s cubic-bezier(0.2, 0, 0, 1) both, tdFadeOut 0.2s linear both;
+}
+.td-fact-value.down .td-fact-num.entering {
+  animation: tdRollInDown 0.42s cubic-bezier(0.2, 0, 0, 1) both, tdFadeIn 0.3s linear both;
+}
+.td-fact-value.down .td-fact-num.leaving {
+  animation: tdRollOutDown 0.42s cubic-bezier(0.2, 0, 0, 1) both, tdFadeOut 0.2s linear both;
+}
+
+@keyframes tdRollInUp {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes tdRollOutUp {
+  from { transform: none; }
+  to { transform: translateY(-100%); }
+}
+@keyframes tdRollInDown {
+  from { transform: translateY(-100%); }
+  to { transform: none; }
+}
+@keyframes tdRollOutDown {
+  from { transform: none; }
+  to { transform: translateY(100%); }
+}
+@keyframes tdFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes tdFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes tdFactsIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .td-fact-num.entering,
+  .td-fact-num.leaving,
+  .td-facts {
+    animation: none !important;
+  }
+}

@@ -92,13 +92,47 @@
 
 .layer-actions {
   display: flex;
-  gap: 0.5rem;
-  padding-top: 0.5rem;
+  gap: 2px;
+  padding-top: 10px;
 }
 
-.layer-actions .btn {
+/* All on and all off as connected toggle buttons: round outside, tight where
+   they meet; the lit one is filled. */
+.layer-toggle {
   flex: 1;
+  height: 48px;
+  border: 0;
+  border-radius: 6px;
+  /* A tonal step off the sheet, in light and dark alike. */
+  background: color-mix(in srgb, var(--ink) 8%, var(--paper-raised));
+  color: var(--ink-soft);
+  font-family: var(--font-brand);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    border-radius 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
+
+.layer-toggle:first-child {
+  border-radius: 24px 6px 6px 24px;
+}
+
+.layer-toggle:last-child {
+  border-radius: 6px 24px 24px 6px;
+}
+
+.layer-toggle.lit {
+  background: var(--accent);
+  color: #fff;
+}
+
+.layer-toggle:disabled {
+  cursor: default;
+}
+
 
 /* The note on the map itself when nothing's photos are on it. */
 .map-photos-off {
@@ -120,4 +154,22 @@
 .map-photos-off svg {
   flex: 0 0 auto;
   color: var(--ink-faint);
+}
+
+.map-photos-off {
+  background: var(--td-btn, var(--glass));
+  border-color: var(--td-btn, var(--line));
+  box-shadow: none;
+}
+
+.map-photos-off.leaving {
+  animation: photosOffOut 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes photosOffOut {
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }

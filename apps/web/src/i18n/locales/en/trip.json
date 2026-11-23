@@ -15,6 +15,7 @@
   "trip.tracking.error.noGps": "No GPS available in this browser",
   "trip.weather.current": "Current weather",
   "trip.dayFilter.wholeTrip": "Whole trip",
+  "trip.dayFilter.dayN": "Day {n}",
   "trip.trackEdit.titleToday": "Today’s points",
   "trip.trackEdit.titleDay": "Points from {day}",
   "trip.trackEdit.points_one": "{count} point",

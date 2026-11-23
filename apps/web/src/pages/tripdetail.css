@@ -1270,3 +1270,62 @@ body.side-resizing .trip-detail > :not(.side-resizer) {
     top: var(--safe-top);
   }
 }
+
+/* ---- The native look over the map: tonal buttons, no shadows ----
+   As the native apps: a solid tone (surface container highest) sets the
+   buttons off the map, no drop shadows anywhere on the trip page. The three
+   buttons at the top are one connected group: round outside, tight where they
+   meet. */
+:root {
+  --td-btn: color-mix(in srgb, var(--ink) 9%, var(--paper-sunken));
+}
+
+:root[data-theme='dark'] {
+  --td-btn: color-mix(in srgb, var(--ink) 13%, var(--paper-raised));
+}
+
+.trip-fab,
+.map-locate,
+.map-foldable:not(.map-full) .map-expand,
+.trip-backtop,
+.person-select-btn,
+.person-chip,
+.map-edge-grab span {
+  background: var(--td-btn);
+  border-color: var(--td-btn);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.trip-fab:hover,
+.map-locate:hover {
+  box-shadow: none;
+}
+
+.trip-detail .trip-map-panel,
+.side-tabs-thumb,
+.add-point-panel {
+  box-shadow: none;
+}
+
+.trip-fabs {
+  gap: 2px;
+}
+
+.trip-fabs .trip-fab {
+  border-radius: 6px;
+  transition: border-radius 0.2s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.trip-fabs .trip-fab:first-child {
+  border-radius: 21px 6px 6px 21px;
+}
+
+.trip-fabs .trip-fab:last-child {
+  border-radius: 6px 21px 21px 6px;
+}
+
+.trip-fabs .trip-fab:only-child {
+  border-radius: 21px;
+}

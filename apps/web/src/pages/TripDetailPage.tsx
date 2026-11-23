@@ -4,7 +4,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client';
 import type { LiveFix, MediaItem, PhotoComment, RouteCollection, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { AuthImage } from '../components/AuthImage';
 import { ChoiceOption, chooseModal, confirmModal } from '../components/confirm';
 import { DayFilter, type TripDay } from '../components/DayFilter';
 import { Icon } from '../components/Icon';
@@ -22,18 +21,16 @@ import { SummaryPanel } from '../components/SummaryPanel';
 import { Timeline } from '../components/Timeline';
 import { TrackPointsEditor } from '../components/TrackPointsEditor';
 import { TripMap, TripMapApi, Waypoint } from '../components/TripMap';
-import { TripFacts } from '../components/TripFacts';
+import { TripCover } from '../components/TripCover';
 import { TripPlanner } from '../components/TripPlanner';
 import type { TripNote } from '../components/DayNote';
 import { countStopPlaces, haversineKm, STOP_NEAR_KM, type PlannedStop } from '../lib/arc';
 import { popWasOurs, useBackToClose } from '../lib/backStack';
 import { useExit } from '../lib/useExit';
 import { useSheetDismiss } from '../lib/useSheetDismiss';
-import { formatDate, tripCoverBg } from '../lib/colors';
 import { listDeviceMedia } from '../lib/deviceMedia';
 import { useNow } from '../lib/lastSeen';
 import { canEditTrip } from '../lib/perm';
-import { tripGlyph, tripGlyphSize, tripGlyphStroke } from '../lib/tripGlyph';
 import { stableViewportHeight } from '../lib/native';
 import { getMapStyle, getTripFacts } from '../lib/prefs';
 import { countTravellers, FactId, resolveFacts } from '../lib/tripFacts';
@@ -43,6 +40,9 @@ import { jumpToDay, stopLanding } from '../components/StopJump';
 import { t } from '../i18n';
 import { legTitle } from '../lib/legs';
 import './tripdetail.css';
+
+/** The legs to and from home: not places the trip was at. */
+const LEG_STOP_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
 
 interface TripStats {
   distanceKm: number;
@@ -67,6 +67,12 @@ export function TripDetailPage() {
   const [noAccess, setNoAccess] = useState(false);
   const [addPointMode, setAddPointMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  /**
+   * Opened from a group on the map: the viewer pages through only that
+   * group, the photo in front first, as on the native apps. Null for the
+   * whole timeline.
+   */
+  const [lightboxGroup, setLightboxGroup] = useState<MediaItem[] | null>(null);
   /** Read by the scroll handler, which is set up once per trip. */
   const lightboxOpenRef = useRef(false);
   lightboxOpenRef.current = lightboxIndex !== null;
@@ -111,6 +117,8 @@ export function TripDetailPage() {
    * trip, not something about the trip itself.
    */
   const [photoUsers, setPhotoUsers] = useState<Set<string>>(new Set());
+  // The word on the map when the photos are off comes and goes with a fade.
+  const [photosOffShown, photosOffLeaving] = useExit(photoUsers.size === 0, 200);
   /** Where the pinned map currently ends, for anything that has to clear it. */
   const mapBottomRef = useRef(0);
   const mapTopOffset = useCallback(() => mapBottomRef.current, []);
@@ -126,6 +134,7 @@ export function TripDetailPage() {
   const [pendingPoint, setPendingPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [pointTime, setPointTime] = useState('');
   const [stops, setStops] = useState<PlannedStop[]>([]);
+  const [stopsLoaded, setStopsLoaded] = useState(false);
   const [tab, setTab] = useState<'timeline' | 'plan'>('timeline');
   /**
    * Phone only: the map over the whole screen. Folded, it is a strip above the
@@ -489,7 +498,12 @@ export function TripDetailPage() {
         ),
       )
       .catch(() => undefined);
-    api<PlannedStop[]>(`/trips/${tripId}/stops`).then(setStops).catch(() => undefined);
+    api<PlannedStop[]>(`/trips/${tripId}/stops`)
+      .then(setStops)
+      .catch(() => undefined)
+      // Counted only once they are in: on an empty list the stops tile would be
+      // missing first and pop in a moment later.
+      .finally(() => setStopsLoaded(true));
     api<TripStats>(`/trips/${tripId}/stats`).then(setStats).catch(() => undefined);
     api<TripNote[]>(`/trips/${tripId}/notes`).then(setNotes).catch(() => undefined);
     api<PhotoComment[]>(`/trips/${tripId}/comments`).then(setComments).catch(() => undefined);
@@ -817,6 +831,27 @@ export function TripDetailPage() {
     };
   }, [peopleOpen, peopleClosing, closePeople]);
 
+  /** Where the trip was on a day: the last real stop it was at, for the day list. */
+  const placeOfDay = useCallback(
+    (d: string) => {
+      const at = stops.filter(
+        (s) =>
+          !s.parentStopId &&
+          !LEG_STOP_NAMES.has(s.name) &&
+          s.arrivalDate.slice(0, 10) <= d &&
+          (d < s.departureDate.slice(0, 10) || s.arrivalDate.slice(0, 10) === d),
+      );
+      return at.length > 0 ? at[at.length - 1]!.name : null;
+    },
+    [stops],
+  );
+
+  /**
+   * The choice before "all on" or "all off", so a second tap on the lit one
+   * puts it back, as on the native apps.
+   */
+  const photosBeforeAll = useRef<string[] | null>(null);
+
   const setAllPhotoUsers = useCallback(
     (ids: string[]) => {
       setPhotoUsers(new Set(ids));
@@ -984,6 +1019,7 @@ export function TripDetailPage() {
     (mediaId: string) => {
       const idx = visibleMedia.findIndex((m) => m.id === mediaId);
       if (idx >= 0) {
+        setLightboxGroup(null);
         setLightboxIndex(idx);
         return;
       }
@@ -1066,12 +1102,13 @@ export function TripDetailPage() {
     return () => window.clearTimeout(timer);
   }, [searchParams, setSearchParams, stops, media, visibleMedia, tab, day]);
 
+  const lightboxItems = lightboxGroup ?? visibleMedia;
   useEffect(() => {
     if (lightboxIndex === null) return;
-    const item = visibleMedia[lightboxIndex];
+    const item = lightboxItems[lightboxIndex];
     if (!item) return;
     scrollTimelineTo(item.id);
-  }, [lightboxIndex, visibleMedia, scrollTimelineTo]);
+  }, [lightboxIndex, lightboxItems, scrollTimelineTo]);
 
   if (noAccess && tripId) return <TripAccessPage tripId={tripId} />;
 
@@ -1166,6 +1203,16 @@ export function TripDetailPage() {
           onSelfClick={canEdit ? () => setPointsOpen(true) : undefined}
           onPhotoOpen={openPhoto}
           onPhotoFocus={scrollTimelineTo}
+          onPhotoGroup={(ids, frontId) => {
+            const byId = new Map(media.map((m) => [m.id, m]));
+            const group = [frontId, ...ids.filter((id) => id !== frontId)]
+              .map((id) => byId.get(id))
+              .filter((m): m is MediaItem => Boolean(m));
+            if (group.length === 0) return;
+            setLightboxComments(false);
+            setLightboxGroup(group);
+            setLightboxIndex(0);
+          }}
           clickMode={addPointMode}
           styleUrl={getMapStyle()}
           // Shown whenever this trip is the one being tracked, so you can see
@@ -1233,17 +1280,23 @@ export function TripDetailPage() {
         {/* Bottom left: which day the map is showing, and a word when the
             photos have been switched off. */}
         <div className="map-bottom-left">
-          <DayFilter days={days} value={day} onChange={setDay} />
+          <DayFilter
+            days={days}
+            value={day}
+            onChange={setDay}
+            placeOf={placeOfDay}
+            tripStart={trip?.startDate}
+          />
 
         {/* Nothing else is pinned to the map any more: whose route and whose
             photos are on it is a choice you make once, and it lives in the map
             settings rather than permanently over the map. What does belong
             here is a word when the photos are switched off, because an empty
             map is otherwise indistinguishable from a broken one. */}
-        {photoUsers.size === 0 && (
+        {photosOffShown && (
           <button
             type="button"
-            className="map-photos-off"
+            className={`map-photos-off ${photosOffLeaving ? 'leaving' : ''}`}
             onClick={() => setLayersOpen(true)}
           >
             <Icon name="camera" size={13} />
@@ -1323,57 +1376,30 @@ export function TripDetailPage() {
           </button>,
           document.body,
         )}
-        {/* One header block: cover photo, title, dates and the trip's numbers —
-            rather than a photo followed by a row of separate stat boxes. */}
-        {/* A trip without a photo gets what its card on the home page gets: its
-            own colour and the compass. A blank panel with the numbers floating
-            on it looked like a cover that had failed to load. */}
-        <div
-          className={`trip-headcard ${trip ? 'has-cover' : ''} ${
-            trip && !trip.resolvedCoverId ? 'no-photo' : ''
-          }`}
-          style={trip && !trip.resolvedCoverId ? { background: tripCoverBg(trip) } : undefined}
-        >
-          {trip?.resolvedCoverId && (
-            <AuthImage
-              path={`/media/${trip.resolvedCoverId}/thumbnail`}
-              alt=""
-              className="trip-hero-img"
-            />
-          )}
-          {trip && !trip.resolvedCoverId && (
-            <span className="trip-headcard-glyph" data-glyph={tripGlyph(trip.title)} aria-hidden="true">
-              <Icon
-                name={tripGlyph(trip.title)}
-                size={tripGlyphSize(trip.title, 130)}
-                strokeWidth={tripGlyphStroke(trip.title)}
-              />
-            </span>
-          )}
-          <div className="trip-headcard-body">
-            <h1>{trip?.title ?? '…'}</h1>
-            {trip && (
-              <p className="trip-headcard-dates">
-                {t('common.dateRange', { from: formatDate(trip.startDate), to: formatDate(trip.endDate) })}
-              </p>
-            )}
-            {(
-              <TripFacts
-                facts={!stats ? [] : resolveFacts(
-                  {
-                    distanceKm: stats.distanceKm,
-                    days: stats.days,
-                    stops: countStopPlaces(stops),
-                    photoCount: stats.photoCount,
-                    travellers: countTravellers(trip?.members ?? []),
-                    countries: stats.countries.length,
-                  },
-                  (getTripFacts(tripId ?? '') as FactId[] | null) ?? null,
-                )}
-              />
-            )}
-          </div>
-        </div>
+        {/* The cover as a card with the name, dates and faces, and the figures
+            joined under it in its tone, as on the native apps. */}
+        {trip && (
+          <TripCover
+            key={trip.id}
+            trip={trip}
+            facts={
+              !stats || !stopsLoaded
+                ? null
+                : resolveFacts(
+                    {
+                      distanceKm: stats.distanceKm,
+                      days: stats.days,
+                      stops: countStopPlaces(stops),
+                      photoCount: stats.photoCount,
+                      travellers: countTravellers(trip.members),
+                      countries: stats.countries.length,
+                    },
+                    (getTripFacts(tripId ?? '') as FactId[] | null) ?? null,
+                  )
+            }
+            onPeople={() => setPeopleOpen(true)}
+          />
+        )}
         {trip?.description && <p>{trip.description}</p>}
 
         <div className="side-tabs" role="tablist" data-tab={tab}>
@@ -1404,6 +1430,7 @@ export function TripDetailPage() {
             visibleUsers={visibleUsers}
             showOwner={(trip?.members.length ?? 0) > 1}
             onPhotoClick={(item) => {
+              setLightboxGroup(null);
               setLightboxComments(false);
               setLightboxIndex(visibleMedia.indexOf(item));
             }}
@@ -1411,6 +1438,7 @@ export function TripDetailPage() {
             dayComments={commentsAdapter}
             reactionSummary={reactions.summary}
             onCommentsClick={(item) => {
+              setLightboxGroup(null);
               setLightboxComments(true);
               setLightboxIndex(visibleMedia.indexOf(item));
             }}
@@ -1465,12 +1493,19 @@ export function TripDetailPage() {
           ownUserId={user?.id}
           onToggleRoute={toggleUser}
           onTogglePhoto={togglePhotoUser}
-          onAllPhotos={() =>
+          onAllPhotos={(on, lit) => {
+            if (lit) {
+              // Second tap on the lit one: back to the choice before it.
+              if (photosBeforeAll.current) setAllPhotoUsers(photosBeforeAll.current);
+              photosBeforeAll.current = null;
+              return;
+            }
+            photosBeforeAll.current = [...photoUsers];
             setAllPhotoUsers(
-              (shownMembers.length > 0 ? shownMembers : trip.members).map((m) => m.userId),
-            )
-          }
-          onNoPhotos={() => setAllPhotoUsers([])}
+              on ? (shownMembers.length > 0 ? shownMembers : trip.members).map((m) => m.userId) : [],
+            );
+          }}
+          canUndoAll={photosBeforeAll.current !== null}
           onClose={() => setLayersOpen(false)}
           closing={layersClosing}
         />
@@ -1554,9 +1589,12 @@ export function TripDetailPage() {
 
       {lightboxIndex !== null && (
         <Lightbox
-          items={visibleMedia}
+          items={lightboxItems}
           index={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
+          onClose={() => {
+            setLightboxIndex(null);
+            setLightboxGroup(null);
+          }}
           onNavigate={setLightboxIndex}
           comments={commentsAdapter}
           startWithComments={lightboxComments}
