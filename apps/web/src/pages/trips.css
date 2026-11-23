@@ -142,45 +142,6 @@
   gap: 1.25rem;
 }
 
-/* The next trip leads, as the apps' big card: the whole row wide on a wide window, so it lines up with the
-   cards under it instead of leaving a gap beside it. */
-@media (min-width: 900px) {
-  .trips-upcoming > .trip-card:first-child {
-    grid-column: 1 / -1;
-    aspect-ratio: 3 / 1;
-  }
-
-  .trips-upcoming > .trip-card:first-child .trip-card-count strong {
-    font-size: 6rem;
-  }
-
-  .trips-upcoming > .trip-card:first-child .trip-card-count b {
-    font-size: 2rem;
-  }
-
-  .trips-upcoming > .trip-card:first-child .trip-card-count small {
-    font-size: 1.5rem;
-  }
-
-  .trips-upcoming > .trip-card:first-child .trip-card-overlay {
-    padding: 1.5rem 1.7rem;
-  }
-
-  .trips-upcoming > .trip-card:first-child .trip-card-overlay h2 {
-    font-size: 2.5rem;
-  }
-
-  .trips-upcoming > .trip-card:first-child .tcm {
-    font-size: 1.08rem;
-    padding: 0.4rem 0.95rem;
-  }
-
-  .trips-upcoming > .trip-card:first-child .trip-card-count {
-    top: 1.5rem;
-    left: 1.7rem;
-  }
-}
-
 /* Full-bleed photo card, Polarsteps style. */
 .trip-card {
   position: relative;
