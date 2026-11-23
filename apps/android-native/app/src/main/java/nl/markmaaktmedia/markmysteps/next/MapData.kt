@@ -228,6 +228,4 @@ object MapDebug {
     var ongoing = false
     var openPoints = false
     var fakeLive = false
-    /** Test only: which look the country chips on Reizigers try (0 = the current one), to show Mark the options. */
-    var chipStyle = 0
 }

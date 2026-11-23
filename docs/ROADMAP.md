@@ -45,7 +45,7 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
       - [x] 17 "Geldt voor alle kaarten op dit apparaat." weg (Android, web)
       - [x] 19 "Organisator" overal (iPhone zei Eigenaar)
       - [x] 21 gekleurde cijfertegels bij Reizigers: iPhone en web, Androids tonen
-      - [ ] 22 landen-chips: vijf opties als screenshot voorgelegd (A tot E), Mark kiest
+      - [x] 22 landen-chips: Mark koos B, dieper beige (Android, iPhone had het al, web)
       - [x] 23 iPhone-startscherm beige (donker #14181D) met oranje kompas
       - Blijven zo: 2 (regel "Deze reis is afgelopen"), 7, 9, 10, 18, 20
 - [x] Reispagina: cijfers rollen niet meer bij openen; wat de pagina in de

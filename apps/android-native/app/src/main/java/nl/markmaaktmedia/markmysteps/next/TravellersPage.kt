@@ -4,7 +4,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
@@ -240,21 +239,12 @@ private fun TravellersList(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     (list.map { it to (countryFlags == null && it.first !in visited) } + plannedList.map { it to true }).forEach { (country, planned) ->
                         val (flag, countryName) = country
-                        // The looks offered to Mark (test only, MapDebug.chipStyle): 1 a deeper tone, 2 a fine outline,
-                        // 3 the warm accent container, 4 the teal one.
-                        val style = MapDebug.chipStyle
-                        val (chipBg, chipInk) = when {
-                            planned -> (if (style == 2) Color.Transparent else cs.surfaceContainerHigh) to cs.onSurfaceVariant
-                            style == 1 -> cs.surfaceContainerHighest to cs.onSurface
-                            style == 2 -> Color.Transparent to cs.onSurface
-                            style == 3 -> cs.primaryContainer to cs.onPrimaryContainer
-                            style == 4 -> cs.tertiaryContainer to cs.onTertiaryContainer
-                            else -> cs.surface to cs.onSurface
-                        }
+                        // A deeper tone than the panel, so each chip stands off it (Mark chose this of five); planned quieter.
+                        val chipBg = cs.surfaceContainerHighest
+                        val chipInk = if (planned) cs.onSurfaceVariant else cs.onSurface
                         Row(
                             Modifier.height(40.dp).clip(CircleShape)
                                 .background(chipBg)
-                                .then(if (style == 2) Modifier.border(1.dp, cs.outlineVariant.copy(alpha = if (planned) 0.5f else 1f), CircleShape) else Modifier)
                                 .padding(start = 10.dp, end = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {

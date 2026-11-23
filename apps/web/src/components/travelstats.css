@@ -121,7 +121,7 @@
   gap: 0.9rem;
   padding: 1rem;
   border-radius: var(--radius-m);
-  background: var(--surface-high);
+  background: var(--surface-low);
 }
 
 /* Holds the globe's place from the first frame, sea and all, so nothing below
@@ -199,8 +199,9 @@
   gap: 0.35rem;
   padding: 0.2rem 0.55rem 0.2rem 0.45rem;
   border-radius: 999px;
-  background: var(--paper);
-  border: 1px solid var(--line);
+  /* A deeper tone than the panel it sits on, as the apps (Mark's choice). */
+  background: var(--surface-highest);
+  border: 1px solid transparent;
   font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
