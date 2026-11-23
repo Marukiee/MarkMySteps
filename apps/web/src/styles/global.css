@@ -1,7 +1,8 @@
 /* ==========================================================
    MarkMySteps design system
-   Warm paper tones, deep ink, coral accent — travel-journal
-   feel rather than dashboard. Fonts are bundled (fontsource),
+   Warm paper tones, deep ink, coral accent: the native apps'
+   Material 3 Expressive look (tonal surfaces, no shadows apart
+   from the floating tab bar, concentric corners). Fonts are bundled (fontsource),
    nothing loads from a CDN.
    ========================================================== */
 
@@ -42,6 +43,37 @@
   --font-brand: 'Outfit Variable', var(--font-body);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* The native apps' motion (docs/STIJLGIDS.md). Emphasized for anything that
+     changes size or place, never a spring that overshoots; standard
+     (FastOutSlowIn) for closing; decelerate for things unfolding. */
+  --ease-emph: cubic-bezier(0.2, 0, 0, 1);
+  --ease-std: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-decel: cubic-bezier(0, 0, 0.2, 1);
+  --ease-emph-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --dur-menu-in: 240ms;
+  --dur-menu-out: 220ms;
+  --dur-sheet-in: 450ms;
+  --dur-sheet-out: 380ms;
+  --dur-nav: 260ms;
+
+  /* Tonal surfaces, the same tones as the native colour scheme (HomeNew.kt):
+     each a step darker than the page, so a card always stands off it without
+     a shadow. */
+  --surface-lowest: #ffffff;
+  --surface-low: #f3ece2;
+  --surface: #efe7db;
+  --surface-high: #eae1d4;
+  --surface-highest: #e4dacb;
+  --outline-variant: rgb(228 220 206 / 0.55);
+  --on-surface: #1b2530;
+  --on-surface-variant: #5e6b77;
+  --primary-container: #ffdbcf;
+  --on-primary-container: #7a2610;
+  --danger: #b3402a;
+  /* The accent at alpha 0: what an orange fill fades to, so it never passes
+     through brown or grey on its way out. */
+  --accent-0: rgb(232 97 60 / 0);
   /* Bars and floating buttons over the page. Solid: they carried a blur, and
      redrawing it on every scrolled frame is what made Android stutter; without
      it, any see-through let the text passing underneath show through sharp. */
@@ -87,8 +119,7 @@ select {
   );
   border-radius: 999px;
   background: var(--paper-raised);
-  box-shadow: var(--shadow-s);
-  transition: transform 0.32s var(--ease), opacity 0.2s var(--ease);
+  transition: transform 0.32s var(--ease-emph), opacity 0.2s var(--ease);
   transform: translateX(calc(var(--i) * (100% + var(--pill-gap))));
 }
 
@@ -174,7 +205,7 @@ input[type='checkbox']:checked::after {
   opacity: 1;
 }
 
-/* Dark theme — set by JS (applyTheme) via <html data-theme="dark">. */
+/* Dark theme, set by JS (applyTheme) via <html data-theme="dark">. */
 :root[data-theme='dark'] {
   --paper: #14181d;
   --paper-raised: #1d242c;
@@ -194,6 +225,19 @@ input[type='checkbox']:checked::after {
 
   --glass: rgb(24 30 37);
   --glass-border: #2b333d;
+
+  --surface-lowest: #0f141a;
+  --surface-low: #1a2027;
+  --surface: #1d242c;
+  --surface-high: #242c35;
+  --surface-highest: #2d3640;
+  --outline-variant: rgb(43 51 61 / 0.55);
+  --on-surface: #eef1f4;
+  --on-surface-variant: #a7b2bd;
+  --primary-container: #5a2717;
+  --on-primary-container: #ffdbce;
+  --danger: #f2826b;
+  --accent-0: rgb(240 113 77 / 0);
   color-scheme: dark;
 }
 
@@ -424,22 +468,21 @@ textarea {
 .btn-primary {
   background: var(--accent);
   color: #fff;
-  box-shadow: var(--shadow-s);
 }
 
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-ink);
-  box-shadow: var(--shadow-m);
 }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--ink-soft);
-  border: 1px solid var(--line);
+  background: var(--surface-high);
+  color: var(--ink);
+  border: 1px solid var(--surface-high);
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: var(--paper-sunken);
+  background: var(--surface-highest);
+  border-color: var(--surface-highest);
   color: var(--ink);
 }
 
@@ -489,11 +532,11 @@ textarea {
 
 /* ---------- Cards & layout ---------- */
 
+/* A card stands off the page by its own tone and a fine edge, never a shadow. */
 .card {
-  background: var(--paper-raised);
-  border: 1px solid var(--line);
+  background: var(--surface-low);
+  border: 1px solid var(--outline-variant);
   border-radius: var(--radius-m);
-  box-shadow: var(--shadow-s);
 }
 
 .page {
@@ -623,8 +666,8 @@ textarea {
 }
 
 /* A sheet being pushed back down with your thumb is positioned from script,
-   frame by frame. Whatever the stylesheet had planned for it — the way it came
-   up, the way it normally leaves — would win over an inline transform, so
+   frame by frame. Whatever the stylesheet had planned for it: the way it came
+   up, the way it normally leaves, would win over an inline transform, so
    while the gesture owns the sheet, nothing else does. */
 .sheet-swiping {
   animation: none !important;
