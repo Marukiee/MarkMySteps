@@ -261,8 +261,8 @@
 /* A trip still to come: its countdown large in the top left, as the apps. */
 .trip-card-count {
   position: absolute;
-  /* The digits' top on the top of the ⋯ button, as the apps (the font's room above them pulled up). */
-  top: 0.35rem;
+  /* The digits just under the top of the ⋯ button, as the apps (the font's room above them pulled up). */
+  top: 0.95rem;
   left: 1.3rem;
   z-index: 2;
   display: flex;

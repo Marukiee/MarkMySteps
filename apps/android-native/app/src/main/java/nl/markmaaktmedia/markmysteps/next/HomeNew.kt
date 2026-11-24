@@ -654,8 +654,8 @@ private fun NextTripContent(trip: Trip, onOpen: () -> Unit, onPeopleTrip: (Trip)
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             // "to go" stands on the same line as the number: the baseline of both (where the t and the o sit, not the
             // bottom of the g), and "days" close above it (Mark).
-            // The number big, its digits' top on the top of the ⋯ button beside it (the font's own room above the digits
-            // is pulled away), as a hero figure may be above Material's Display Large (Mark).
+            // The number big, lifted into the font's own room above the digits so it starts just under the top of the
+            // ⋯ button beside it; a hero figure may be above Material's Display Large (Mark).
             Row(Modifier.offset(y = (-NumberLift).dp)) {
                 Text(big, modifier = Modifier.alignByBaseline(), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(800), fontSize = 76.sp, lineHeight = 76.sp, letterSpacing = (-0.03).em, color = Color.White))
                 Column(Modifier.padding(start = 10.dp).alignBy(androidx.compose.ui.layout.LastBaseline)) {
@@ -683,8 +683,8 @@ private fun NextTripContent(trip: Trip, onOpen: () -> Unit, onPeopleTrip: (Trip)
     }
 }
 
-/** How far the countdown's number is lifted, so its digits start where the ⋯ button starts. */
-private const val NumberLift = 24
+/** How far the countdown's number is lifted: its digits just under the top of the ⋯ button (Mark's pick of three). */
+private const val NumberLift = 14
 
 @Composable
 private fun Chip(text: String) {

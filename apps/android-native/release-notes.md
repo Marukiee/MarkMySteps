@@ -1,2 +1,2 @@
-- Aftelkaart: groter getal, netjes uitgelijnd met de knop ernaast
+- Aftelkaart: groter getal, beter uitgelijnd
 - "dagen" en "tot vertrek" dicht bij elkaar, op de lijn van het getal
