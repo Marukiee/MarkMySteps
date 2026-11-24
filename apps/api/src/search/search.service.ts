@@ -24,6 +24,8 @@ export interface SearchResults {
     tripId: string;
     tripTitle: string;
     takenAt: string;
+    /** The clock where it was taken, as if UTC (media/photo-day.ts); null when not known. */
+    takenAtLocal: string | null;
     assetType: string;
   }[];
 }
@@ -232,6 +234,7 @@ export class SearchService {
         tripId: p.tripId,
         tripTitle: titleOf.get(p.tripId) ?? '',
         takenAt: p.takenAt.toISOString(),
+        takenAtLocal: p.takenAtLocal?.toISOString() ?? null,
         assetType: p.assetType,
       })),
     };
@@ -332,7 +335,7 @@ export class SearchService {
             }
           : {}),
       },
-      select: { id: true, tripId: true, takenAt: true, assetType: true },
+      select: { id: true, tripId: true, takenAt: true, takenAtLocal: true, assetType: true },
       orderBy: { takenAt: 'desc' },
       take: PHOTO_LIMIT,
     });

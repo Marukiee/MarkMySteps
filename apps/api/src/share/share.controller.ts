@@ -261,6 +261,7 @@ export class SharePublicController {
         userId: true,
         assetType: true,
         takenAt: true,
+        takenAtLocal: true,
         latitude: true,
         longitude: true,
         width: true,
