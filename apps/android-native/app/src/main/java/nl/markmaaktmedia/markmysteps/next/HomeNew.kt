@@ -657,7 +657,8 @@ private fun NextTripContent(trip: Trip, onOpen: () -> Unit, onPeopleTrip: (Trip)
             Row {
                 Text(big, modifier = Modifier.alignByBaseline(), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(800), fontSize = 60.sp, lineHeight = 60.sp, letterSpacing = (-0.03).em, color = Color.White))
                 Column(Modifier.padding(start = 10.dp).alignBy(androidx.compose.ui.layout.LastBaseline)) {
-                    Text(top, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, lineHeight = 18.sp, color = Color.White))
+                    // Drawn 3 dp lower than its line: the two lines read as one label instead of two with a gap.
+                    Text(top, modifier = Modifier.offset(y = 3.dp), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, lineHeight = 18.sp, color = Color.White))
                     Text(bottom, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, lineHeight = 14.sp, color = Color.White.copy(alpha = 0.8f)))
                 }
             }

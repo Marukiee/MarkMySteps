@@ -283,7 +283,7 @@
 
 .trip-card-count span {
   display: grid;
-  line-height: 1;
+  line-height: 0.92;
 }
 
 .trip-card-count b {

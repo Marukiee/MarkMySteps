@@ -77,7 +77,9 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: Build ${{ github.run_number }}
-          body: 'MarkMySteps heeft een nieuwe look: de app is opnieuw gebouwd als echte Android-app. Alles blijft hetzelfde, alleen even een opfrisbeurt. (build ${{ github.run_number }})'
+          # What is new in this build, a few short lines (apps/android-native/release-notes.md, updated with every
+          # release): the update card shows the first two. It used to be one fixed sentence for every build.
+          body_path: apps/android-native/release-notes.md
           make_latest: true
           files: |
             ${{ runner.temp }}/markmysteps.apk
