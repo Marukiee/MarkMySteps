@@ -40,6 +40,7 @@ import { jumpToDay, stopLanding } from '../components/StopJump';
 import { t } from '../i18n';
 import { legTitle } from '../lib/legs';
 import './tripdetail.css';
+import { photoDay } from '../lib/photoDay';
 
 /** The legs to and from home: not places the trip was at. */
 const LEG_STOP_NAMES = new Set(['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht']);
@@ -932,7 +933,7 @@ export function TripDetailPage() {
   const visibleMedia = useMemo(
     () =>
       media.filter(
-        (m) => visibleUsers.has(m.userId) && (day === null || m.takenAt.slice(0, 10) === day),
+        (m) => visibleUsers.has(m.userId) && (day === null || photoDay(m) === day),
       ),
     [media, visibleUsers, day],
   );
@@ -944,7 +945,7 @@ export function TripDetailPage() {
   const mapMedia = useMemo(
     () =>
       media.filter(
-        (m) => photoUsers.has(m.userId) && (day === null || m.takenAt.slice(0, 10) === day),
+        (m) => photoUsers.has(m.userId) && (day === null || photoDay(m) === day),
       ),
     [media, photoUsers, day],
   );
@@ -977,12 +978,12 @@ export function TripDetailPage() {
    * were, and it wears a face of its own above the timeline.
    */
   const stopForPhoto = useCallback(
-    (item: { takenAt: string; latitude?: number | null; longitude?: number | null }) => {
+    (item: { takenAt: string; takenAtLocal?: string | null; latitude?: number | null; longitude?: number | null }) => {
       // The way there and back is never the place a photo was taken (a photo near home landed on "Heenreis").
       const places = stops.filter(
         (s) => !['Heenreis', 'Terugreis', 'Heenvlucht', 'Terugvlucht'].includes(s.name),
       );
-      const day = item.takenAt.slice(0, 10);
+      const day = photoDay(item);
       const covers = (s: PlannedStop) =>
         s.arrivalDate.slice(0, 10) <= day && day <= s.departureDate.slice(0, 10);
 
@@ -1705,7 +1706,7 @@ function dayCoords(routes: RouteCollection | null, media: MediaItem[], day: stri
     }
   }
   for (const item of media) {
-    if (item.takenAt.slice(0, 10) !== day) continue;
+    if (photoDay(item) !== day) continue;
     if (item.latitude === null || item.longitude === null) continue;
     coords.push([item.longitude, item.latitude]);
   }

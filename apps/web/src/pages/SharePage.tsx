@@ -5,7 +5,7 @@ import type { MediaItem, PhotoComment, RouteCollection } from '../api/types';
 import type { PlannedStop } from '../lib/arc';
 import { ArcOverlay, createArcOverlay, drawPlannedStops, groundRuns } from '../lib/mapRoute';
 import { PhotoLayer } from '../lib/photoGroups';
-import { colorForUser, formatDay } from '../lib/colors';
+import { colorForUser, formatDay, formatPhotoDay } from '../lib/colors';
 import { getMapStyle } from '../lib/prefs';
 import { FastScroll } from '../components/FastScroll';
 import { useExit } from '../lib/useExit';
@@ -32,6 +32,7 @@ import './share-page.css';
 import { Flag } from '../components/Flag';
 import { t } from '../i18n';
 import { tr } from '../i18n/rich';
+import { photoDay } from '../lib/photoDay';
 
 interface SharedTrip {
   title: string;
@@ -518,7 +519,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
     const added = orderedMedia.filter((m) => m.takenAt > seen!);
     remember();
     if (added.length === 0) return;
-    setFresh({ count: added.length, day: added[0]!.takenAt.slice(0, 10) });
+    setFresh({ count: added.length, day: photoDay(added[0]!) });
     setFreshOpen(true);
   }, [orderedMedia, slug]);
 
@@ -573,7 +574,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
   const entries = useMemo<DayEntry[]>(() => {
     const days = new Map<string, SharedMedia[]>();
     for (const item of orderedMedia) {
-      const day = item.takenAt.slice(0, 10);
+      const day = photoDay(item);
       days.set(day, [...(days.get(day) ?? []), item]);
     }
     // A day with only a story and no photos still gets its section, as in the app.
@@ -726,7 +727,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
                   <span className="timeline-dot" />
                   <span className="timeline-day-label">
                     <span className="timeline-day-top">
-                      {formatDay(entry.items[0]?.takenAt ?? entry.date)}
+                      {formatPhotoDay(entry.date)}
                     </span>
                     {(entry.place || entry.lat !== null) && (
                       <span className="timeline-day-meta">
@@ -869,7 +870,7 @@ function SharedTripView({ slug, token }: { slug: string; token: string }) {
           reactions={reactions}
           // The day's own places, for a photo whose coordinate the map cannot
           // put a name to.
-          placeFallbackFor={(item) => placeByDay.get(item.takenAt.slice(0, 10)) ?? null}
+          placeFallbackFor={(item) => placeByDay.get(photoDay(item)) ?? null}
         />
       )}
     </div>

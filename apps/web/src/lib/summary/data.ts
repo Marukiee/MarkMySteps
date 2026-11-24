@@ -7,6 +7,7 @@ import { reversePlaceName } from '../geocode';
 import { fetchWeather, type Weather } from '../weather';
 import { getLang, intlLocale, t, type TKey } from '../../i18n';
 import type { Fact, PageData, RouteShape, Scope, SummarySource, SummarySpec } from './types';
+import { photoDay } from '../photoDay';
 
 /**
  * A trip without a colour of its own still gets a consistent one: the same hue
@@ -18,8 +19,13 @@ function accentFromId(id: string): string {
   return `hsl(${hash % 360} 62% 58%)`;
 }
 
-/** yyyy-mm-dd in the viewer's own timezone: the day you would call it. */
+/**
+ * yyyy-mm-dd. A string is a day from the server (a trip's or a stop's date,
+ * midnight UTC) and keeps its own date: read in the viewer's timezone it came
+ * out a day early west of Greenwich. A Date is a moment on this device's clock.
+ */
 export function dayKey(iso: string | Date): string {
+  if (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}/.test(iso)) return iso.slice(0, 10);
   const d = typeof iso === 'string' ? new Date(iso) : iso;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -51,7 +57,7 @@ export function defaultScope(
   const end = dayKey(trip.endDate);
   if (today > end) return { kind: 'trip', from: start, to: end };
   if (today < start) return { kind: 'trip', from: start, to: end };
-  const withPhotos = new Set(media.map((m) => dayKey(m.takenAt)));
+  const withPhotos = new Set(media.map((m) => photoDay(m)));
   if (withPhotos.has(today)) return { kind: 'day', from: today, to: today };
   const last = [...withPhotos].filter((d) => d <= today).sort().pop();
   return last ? { kind: 'day', from: last, to: last } : { kind: 'day', from: today, to: today };
@@ -312,7 +318,7 @@ function pickPhotosPerStop(
         haversineKm([m.longitude!, m.latitude!], [stop.lng, stop.lat]) <= 30,
     );
     const byDay = usable.filter((m) => {
-      const day = dayKey(m.takenAt);
+      const day = photoDay(m);
       return !taken.has(m.id) && day >= stop.from && day <= stop.to;
     });
     const pool = near.length > 0 ? near : byDay;
@@ -406,7 +412,7 @@ export async function buildPages(source: SummarySource, spec: SummarySpec): Prom
   if (spec.series) {
     const chapters = stopsIn(source, spec.scope.from, spec.scope.to)
       .filter((stop) => source.media.some((m) => {
-        const day = dayKey(m.takenAt);
+        const day = photoDay(m);
         return day >= stop.from && day <= stop.to && m.assetType === 'IMAGE';
       }))
       .slice(0, 10);
@@ -427,7 +433,7 @@ export async function buildPages(source: SummarySource, spec: SummarySpec): Prom
       const isCover = spec.series && i === 0;
       const isEnd = spec.series && i === periods.length - 1;
       const photosIn = source.media.filter((m) => {
-        const day = dayKey(m.takenAt);
+        const day = photoDay(m);
         return day >= scope.from && day <= scope.to;
       });
 

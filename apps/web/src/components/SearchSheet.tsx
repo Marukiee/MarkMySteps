@@ -11,6 +11,7 @@ import { Flag } from './Flag';
 import { Icon } from './Icon';
 import { legTitle } from '../lib/legs';
 import './searchsheet.css';
+import { photoDay } from '../lib/photoDay';
 
 export interface SearchFacets {
   people: { id: string; name: string }[];
@@ -22,7 +23,7 @@ interface SearchResults {
   trips: { id: string; title: string; startDate: string; endDate: string }[];
   stops: { id: string; tripId: string; tripTitle: string; name: string; countryCode: string | null }[];
   notes: { tripId: string; tripTitle: string; day: string; snippet: string }[];
-  photos: { id: string; tripId: string; tripTitle: string; takenAt: string; assetType: string }[];
+  photos: { id: string; tripId: string; tripTitle: string; takenAt: string; takenAtLocal?: string | null; assetType: string }[];
 }
 
 const EMPTY: SearchResults = {
@@ -273,7 +274,7 @@ export function SearchSheet({ onClose }: { onClose: () => void }) {
                 <button
                   key={photo.id}
                   className="search-photo"
-                  title={`${photo.tripTitle} · ${photo.takenAt.slice(0, 10)}`}
+                  title={`${photo.tripTitle} · ${photoDay(photo)}`}
                   onClick={() => go(`/trips/${photo.tripId}?photo=${photo.id}`)}
                 >
                   <AuthImage path={`/media/${photo.id}/thumbnail?size=thumbnail`} alt="" />

@@ -10,7 +10,8 @@ import { createPortal } from 'react-dom';
 import { api, getServerBase } from '../api/client';
 import type { MediaItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { formatDay } from '../lib/colors';
+import { formatPhotoDay } from '../lib/colors';
+import { photoDay } from '../lib/photoDay';
 import { deviceMediaUri, isDeviceMediaId } from '../lib/deviceMedia';
 import { mediaSrc } from '../lib/gallery';
 import { isNativeApp } from '../lib/native';
@@ -646,7 +647,7 @@ function WebLightbox({
       aria-modal="true"
     >
       <div className="lightbox-date">
-        {formatDay(item.takenAt)}
+        {formatPhotoDay(photoDay(item))}
         {/* Keyed on the name: the same place keeps the same element and stays
             put, a different one is a new element and fades in. */}
         {place && (

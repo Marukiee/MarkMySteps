@@ -1,6 +1,7 @@
 import { getAccessToken, getServerBase } from '../api/client';
 import type { MediaItem } from '../api/types';
 import { shareOrSaveFiles, type ShareOutcome } from './fileShare';
+import { photoDay } from './photoDay';
 
 /** Extension for a downloaded file when its name has to be invented. */
 const EXTENSIONS: Record<string, string> = {
@@ -74,7 +75,7 @@ export async function savePhoto(
 
   const blob = await res.blob();
   const type = blob.type || res.headers.get('content-type') || 'image/jpeg';
-  const fallback = `${item.takenAt.slice(0, 10)}-${item.id.slice(0, 8)}.${
+  const fallback = `${photoDay(item)}-${item.id.slice(0, 8)}.${
     EXTENSIONS[type.split(';')[0]!.trim()] ?? 'jpg'
   }`;
   const name = safeName(nameFromDisposition(res.headers.get('content-disposition')) ?? fallback);

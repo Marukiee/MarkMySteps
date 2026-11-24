@@ -2,6 +2,7 @@ import { CSSProperties, ReactNode, useCallback, useLayoutEffect, useMemo, useRef
 import { haversineKm, STOP_NEAR_KM } from '../lib/arc';
 import { t } from '../i18n';
 import './stopjump.css';
+import { photoDay } from '../lib/photoDay';
 
 export interface JumpStop {
   name: string;
@@ -20,6 +21,7 @@ export interface JumpStop {
 export interface JumpPhoto {
   id: string;
   takenAt: string;
+  takenAtLocal?: string | null;
   latitude?: number | null;
   longitude?: number | null;
 }
@@ -100,7 +102,7 @@ function faceOf(
   day: string,
 ): { id: string; near: boolean } | null {
   const inRange = media.filter((m) => {
-    const taken = m.takenAt.slice(0, 10);
+    const taken = photoDay(m);
     return taken >= from && taken <= to;
   });
   if (stop.latitude != null && stop.longitude != null) {
@@ -119,7 +121,7 @@ function faceOf(
       return { id: closest.item.id, near: false };
     }
   }
-  const any = inRange[0] ?? media.find((m) => m.takenAt.slice(0, 10) === day);
+  const any = inRange[0] ?? media.find((m) => photoDay(m) === day);
   return any ? { id: any.id, near: false } : null;
 }
 
