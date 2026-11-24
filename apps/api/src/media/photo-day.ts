@@ -39,8 +39,13 @@ export function onTripDays(day: string, firstDay: string, lastDay: string): bool
 /**
  * Of the photos Immich found in the widened search window, the ones that
  * belong to a trip: those whose own day falls on one of its days (DATE
- * columns, midnight UTC). The sync drops every ref not in this list, so a
- * photo whose local day lies outside the trip leaves it.
+ * columns, midnight UTC), or whose UTC date does, as it always did.
+ *
+ * The sync drops every ref NOT in this list, with its comments and reactions.
+ * So nothing that was on a trip before the local day was known may fall out
+ * of it now: the local day only ever adds photos (the first morning in
+ * Bangkok), it never takes one away. A photo kept by its UTC date that was
+ * taken the morning after the trip simply shows on that day.
  */
 export function photosOnTrip<T extends { takenAt: Date; takenAtLocal: Date | null }>(
   photos: T[],
@@ -49,5 +54,9 @@ export function photosOnTrip<T extends { takenAt: Date; takenAtLocal: Date | nul
 ): T[] {
   const firstDay = startDate.toISOString().slice(0, 10);
   const lastDay = endDate.toISOString().slice(0, 10);
-  return photos.filter((p) => onTripDays(photoDay(p.takenAt, p.takenAtLocal), firstDay, lastDay));
+  return photos.filter(
+    (p) =>
+      onTripDays(photoDay(p.takenAt, p.takenAtLocal), firstDay, lastDay) ||
+      onTripDays(photoDay(p.takenAt), firstDay, lastDay),
+  );
 }

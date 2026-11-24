@@ -84,9 +84,15 @@ describe('photosOnTrip', () => {
     expect(kept.map((p) => p.id)).toEqual(['dawn']);
   });
 
-  it('drops a photo whose local day is after the trip, even with its UTC date inside', () => {
-    // 06:00 on 11 April in Bangkok is 23:00 UTC on 10 April, the last day.
+  it('never drops a photo the UTC date kept before: the local day only adds', () => {
+    // 06:00 on 11 April in Bangkok is 23:00 UTC on 10 April, the last day. It was on the trip before the local
+    // day was known; dropping it would take its comments and reactions with it.
     const kept = photosOnTrip([photo('after', '2026-04-10T23:00:00.000Z', '2026-04-11T06:00:00.000Z')], start, end);
+    expect(kept.map((p) => p.id)).toEqual(['after']);
+  });
+
+  it('drops a photo outside the trip by both its local day and its UTC date', () => {
+    const kept = photosOnTrip([photo('later', '2026-04-12T10:00:00.000Z', '2026-04-12T17:00:00.000Z')], start, end);
     expect(kept).toEqual([]);
   });
 

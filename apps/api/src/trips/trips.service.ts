@@ -633,19 +633,25 @@ export class TripsService {
     }
 
     // Shortening a trip must drop the photos that now fall outside it, or the
-    // timeline keeps showing days the trip no longer covers. By the day each
-    // photo was taken where it was taken (takenAtLocal, see media/photo-day.ts),
-    // else by its UTC date.
+    // timeline keeps showing days the trip no longer covers. A photo goes only
+    // when it is outside by its UTC date AND by the day it was taken where it
+    // was taken (takenAtLocal, see media/photo-day.ts), the same rule the sync
+    // keeps photos by (photosOnTrip): neither ever drops one the other keeps.
     if (dto.startDate !== undefined || dto.endDate !== undefined) {
       const until = new Date(endDate.getTime() + 86_400_000); // end date inclusive
+      const outsideUtc = { OR: [{ takenAt: { lt: startDate } }, { takenAt: { gte: until } }] };
       await this.prisma.mediaRef.deleteMany({
         where: {
           tripId,
-          OR: [
-            { takenAtLocal: { lt: startDate } },
-            { takenAtLocal: { gte: until } },
-            { takenAtLocal: null, takenAt: { lt: startDate } },
-            { takenAtLocal: null, takenAt: { gte: until } },
+          AND: [
+            outsideUtc,
+            {
+              OR: [
+                { takenAtLocal: null },
+                { takenAtLocal: { lt: startDate } },
+                { takenAtLocal: { gte: until } },
+              ],
+            },
           ],
         },
       });
