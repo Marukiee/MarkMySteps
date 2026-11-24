@@ -425,7 +425,14 @@ export class UsersService {
       const photos = await this.prisma.mediaRef.count({
         where: {
           tripId: trip.id,
-          takenAt: { gte: new Date(`${from}T00:00:00Z`), lt: new Date(`${addDays(to, 1)}T00:00:00Z`) },
+          // By the day each photo was taken where it was taken, else its UTC date.
+          OR: [
+            { takenAtLocal: { gte: new Date(`${from}T00:00:00Z`), lt: new Date(`${addDays(to, 1)}T00:00:00Z`) } },
+            {
+              takenAtLocal: null,
+              takenAt: { gte: new Date(`${from}T00:00:00Z`), lt: new Date(`${addDays(to, 1)}T00:00:00Z`) },
+            },
+          ],
         },
       });
       photoCount += photos;

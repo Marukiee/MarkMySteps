@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { MediaItem } from '../api/types';
-import { colorForUser, formatDay } from '../lib/colors';
+import { colorForUser, formatPhotoDay } from '../lib/colors';
 import { GRID_ZOOM_PREVIEW, useGridZoom } from '../lib/gridZoom';
 import { SmartImage } from './SmartImage';
 import { DayNote, TripNote } from './DayNote';
@@ -13,6 +13,7 @@ import { WeatherBadge } from './WeatherBadge';
 import './timeline.css';
 import { Flag } from './Flag';
 import { t } from '../i18n';
+import { photoDay } from '../lib/photoDay';
 
 export interface TimelineStop {
   name: string;
@@ -105,7 +106,7 @@ export function Timeline({
     const groups = new Map<string, MediaItem[]>();
     for (const item of media) {
       if (!visibleUsers.has(item.userId)) continue;
-      const day = item.takenAt.slice(0, 10);
+      const day = photoDay(item);
       const list = groups.get(day) ?? [];
       list.push(item);
       groups.set(day, list);
@@ -185,7 +186,7 @@ export function Timeline({
             <span className="timeline-dot" />
             <span className="timeline-day-label">
               <span className="timeline-day-top">
-                {formatDay(items[0]?.takenAt ?? day)}
+                {formatPhotoDay(day)}
                 {/* A day without a story yet: the app's own pencil starts one. */}
                 {canEditNotes && onSaveNote && editingDay !== day && !(notesByDay.get(day)?.length) && (
                   <button

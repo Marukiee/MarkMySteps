@@ -2,6 +2,7 @@ import type { MediaItem } from '../api/types';
 import { galleryAvailable, queryGallery, requestGalleryPermission } from './gallery';
 import { dbByTrip, dbDeleteMany, dbPutMany } from './localDb';
 import { t } from '../i18n';
+import { localClock } from './photoDay';
 
 /**
  * Photos from the phone's own library on a trip that lives on a server.
@@ -83,6 +84,8 @@ export async function importDeviceMedia(
       immichAssetId: item.uri,
       assetType: item.video ? 'VIDEO' : 'IMAGE',
       takenAt: new Date(item.takenAt).toISOString(),
+      // The phone's own clock: a photo from its gallery was taken in the zone it is in.
+      takenAtLocal: localClock(new Date(item.takenAt).getTime()),
       latitude: item.latitude ?? null,
       longitude: item.longitude ?? null,
       // The gallery already knows the shape, so a phone's own photos lay out in

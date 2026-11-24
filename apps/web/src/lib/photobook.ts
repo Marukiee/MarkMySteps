@@ -29,6 +29,7 @@ import {
   type Palette,
 } from './summary/canvas';
 import { intlLocale, t } from '../i18n';
+import { photoDay } from './photoDay';
 
 export interface BookNote {
   day: string;
@@ -1324,7 +1325,7 @@ function drawBitmapCover(
 function groupByDay(media: MediaItem[]): Map<string, MediaItem[]> {
   const byDay = new Map<string, MediaItem[]>();
   for (const item of [...media].sort((a, b) => a.takenAt.localeCompare(b.takenAt))) {
-    const day = item.takenAt.slice(0, 10);
+    const day = photoDay(item);
     const list = byDay.get(day);
     if (list) list.push(item);
     else byDay.set(day, [item]);

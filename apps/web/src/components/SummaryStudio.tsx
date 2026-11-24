@@ -35,6 +35,7 @@ import { SummarySchematic } from './SummarySchematic';
 import { Icon } from './Icon';
 import { t } from '../i18n';
 import './summary.css';
+import { photoDay } from '../lib/photoDay';
 
 /**
  * Where a summary is made.
@@ -186,7 +187,7 @@ export function SummaryStudio({
       media
         .filter((m) => m.assetType === 'IMAGE')
         .filter((m) => {
-          const day = dayKey(m.takenAt);
+          const day = photoDay(m);
           return day >= scope.from && day <= scope.to;
         })
         .sort((a, b) => a.takenAt.localeCompare(b.takenAt)),

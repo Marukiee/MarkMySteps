@@ -52,6 +52,15 @@ export function formatDay(iso: string): string {
   return new Date(iso).toLocaleDateString(intlLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
+/**
+ * A day ('YYYY-MM-DD', see photoDay) as text. Read at noon on this device's own
+ * clock, so it says the same day in any time zone: a bare date would be read
+ * as midnight UTC and come out a day early west of Greenwich.
+ */
+export function formatPhotoDay(day: string): string {
+  return formatDay(`${day.slice(0, 10)}T12:00:00`);
+}
+
 /** "NL" → 🇳🇱 (regional indicator pair); empty for unknown codes. */
 export function flagEmoji(countryCode?: string | null): string {
   if (!countryCode || countryCode.length !== 2) return '';

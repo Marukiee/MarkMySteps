@@ -11,6 +11,7 @@ export type MediaItem = Pick<
   | 'immichAssetId'
   | 'assetType'
   | 'takenAt'
+  | 'takenAtLocal'
   | 'latitude'
   | 'longitude'
   | 'width'
@@ -43,6 +44,7 @@ export class MediaService {
         immichAssetId: true,
         assetType: true,
         takenAt: true,
+        takenAtLocal: true,
         latitude: true,
         longitude: true,
         width: true,

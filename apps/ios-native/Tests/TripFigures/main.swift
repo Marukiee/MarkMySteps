@@ -30,5 +30,13 @@ check("day trip once per place", TripFigures.stopPlaceCount(route: [saltsjobaden
 check("nearby places stay two", TripFigures.stopPlaceCount(route: [granada], dayTrips: [monachil]), 2)
 check("day trip to a route stop", TripFigures.stopPlaceCount(route: [granada, sevilla], dayTrips: [sevilla]), 2)
 
+// The day a photo was taken where it was taken.
+let iso = ISO8601DateFormatter()
+check("Bangkok morning on the Bangkok day", PhotoDay.of(takenAt: "2026-04-01T22:30:00.000Z", takenAtLocal: "2026-04-02T05:30:00.000Z"), iso.date(from: "2026-04-02T00:00:00Z"))
+check("New York evening on the New York day", PhotoDay.of(takenAt: "2026-07-05T00:00:00.000Z", takenAtLocal: "2026-07-04T20:00:00.000Z"), iso.date(from: "2026-07-04T00:00:00Z"))
+check("no local time: the UTC date", PhotoDay.of(takenAt: "2026-04-01T22:30:00.000Z", takenAtLocal: nil), iso.date(from: "2026-04-01T00:00:00Z"))
+check("unreadable local time: the UTC date", PhotoDay.of(takenAt: "2026-04-01T22:30:00.000Z", takenAtLocal: "soon"), iso.date(from: "2026-04-01T00:00:00Z"))
+check("no takenAt at all", PhotoDay.of(takenAt: nil, takenAtLocal: nil), Date?.none)
+
 print("\(passed) passed, \(failures) failed")
 exit(failures == 0 ? 0 : 1)

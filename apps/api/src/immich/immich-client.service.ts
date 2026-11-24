@@ -1,11 +1,14 @@
 import { BadGatewayException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { guardedFetch } from './guarded-fetch';
+import { parseLocalDateTime } from '../media/photo-day';
 
 /** Subset of an Immich asset that MarkMySteps cares about. */
 export interface ImmichAsset {
   id: string;
   type: 'IMAGE' | 'VIDEO';
   takenAt: Date;
+  /** The clock where it was taken, as if UTC (see media/photo-day.ts); null when Immich does not say. */
+  takenAtLocal: Date | null;
   latitude: number | null;
   longitude: number | null;
   /** Displayed size in pixels (EXIF orientation already applied). */
@@ -30,7 +33,7 @@ interface SearchPageResponse {
   };
 }
 
-interface RawAsset {
+export interface RawAsset {
   id: string;
   type: string;
   fileCreatedAt: string;
@@ -275,12 +278,13 @@ export class ImmichClientService {
   }
 }
 
-function toAsset(raw: RawAsset): ImmichAsset {
+export function toAsset(raw: RawAsset): ImmichAsset {
   const { width, height } = displayedSize(raw.exifInfo);
   return {
     id: raw.id,
     type: raw.type === 'VIDEO' ? 'VIDEO' : 'IMAGE',
     takenAt: new Date(raw.exifInfo?.dateTimeOriginal ?? raw.fileCreatedAt),
+    takenAtLocal: parseLocalDateTime(raw.localDateTime),
     latitude: raw.exifInfo?.latitude ?? null,
     longitude: raw.exifInfo?.longitude ?? null,
     width,

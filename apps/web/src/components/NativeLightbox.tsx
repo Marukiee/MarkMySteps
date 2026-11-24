@@ -3,7 +3,8 @@ import type { PluginListenerHandle } from '@capacitor/core';
 import { api, ApiError, getAccessToken, getServerBase, tryRefresh } from '../api/client';
 import type { MediaItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { formatDay } from '../lib/colors';
+import { formatPhotoDay } from '../lib/colors';
+import { photoDay } from '../lib/photoDay';
 import { deviceMediaUri, isDeviceMediaId } from '../lib/deviceMedia';
 import { toBase64 } from '../lib/fileShare';
 import { isLocalMode } from '../lib/localMode';
@@ -109,7 +110,7 @@ export function NativeLightbox({
     const onDevice = isDeviceMediaId(media.id);
     const state: NativeViewerState = {
       id: media.id,
-      title: formatDay(media.takenAt),
+      title: formatPhotoDay(photoDay(media)),
       subtitle: places[media.id] ?? undefined,
       actions: tools.actionsFor(media).map((a) => ({ id: a.id, title: a.label, symbol: a.symbol })),
     };

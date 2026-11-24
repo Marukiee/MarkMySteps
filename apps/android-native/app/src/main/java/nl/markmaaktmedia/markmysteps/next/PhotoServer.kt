@@ -32,6 +32,7 @@ suspend fun serverMedia(trip: Trip): List<TripPhoto> {
             aspect = if (w > 0 && h > 0) w.toFloat() / h else null,
             video = o.optString("assetType") == "VIDEO",
             at = if (lat.isNaN() || lon.isNaN()) null else lon to lat,
+            localDay = PhotoDay.local(o.optString("takenAtLocal").takeIf { !o.isNull("takenAtLocal") }),
         )
     }.sortedBy { it.takenAt }
 }

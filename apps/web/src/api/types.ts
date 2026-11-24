@@ -115,6 +115,8 @@ export interface MediaItem {
   immichAssetId: string;
   assetType: 'IMAGE' | 'VIDEO';
   takenAt: string;
+  /** The clock where it was taken, written as if UTC; its date is the photo's day (lib/photoDay.ts). */
+  takenAtLocal?: string | null;
   latitude: number | null;
   longitude: number | null;
   /** Displayed pixel size, EXIF orientation applied. Null on older refs and on

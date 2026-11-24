@@ -473,6 +473,13 @@ model MediaRef {
   immichAssetId String
   assetType     String // IMAGE | VIDEO
   takenAt       DateTime
+  /// The same moment on the clock where the photo was taken (Immich's
+  /// localDateTime), stored as if it were UTC: its date is the day the photo
+  /// was taken there. A photo at 05:30 in Bangkok is 22:30 UTC the day before;
+  /// this says 05:30 on the right day. Null for refs synced before this was
+  /// recorded (the next sync fills it in) and when Immich does not know it;
+  /// then the UTC date of takenAt stands in.
+  takenAtLocal  DateTime?
   latitude      Float?
   longitude     Float?
   /// Pixel dimensions after EXIF orientation, so a gallery can lay a photo out

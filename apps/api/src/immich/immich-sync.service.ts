@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { TripRole } from '@prisma/client';
 import { coverSuccessor, DeadRef } from '../media/cover-succession';
+import { MAX_UTC_OFFSET_MS, photosOnTrip } from '../media/photo-day';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImmichAsset, ImmichClientService } from './immich-client.service';
 import { ImmichConnectionService } from './immich-connection.service';
@@ -82,9 +83,13 @@ export class ImmichSyncService {
       await this.prisma.mediaRef.deleteMany({ where: { tripId, userId: { in: guestIds } } });
     }
 
-    // Trip dates are DATE columns: extend `to` to the end of that day.
-    const from = trip.startDate;
-    const to = new Date(trip.endDate.getTime() + DAY_MS);
+    // Trip dates are DATE columns: extend `to` to the end of that day. A trip's
+    // days are the days where its photos were taken, not UTC days, so Immich is
+    // asked for the widest stretch any clock can make of them (05:30 on the first
+    // day in Bangkok is 22:30 UTC the day before), and each photo is then kept
+    // when its own day falls inside the trip (photosOnTrip).
+    const from = new Date(trip.startDate.getTime() - MAX_UTC_OFFSET_MS);
+    const to = new Date(trip.endDate.getTime() + DAY_MS + MAX_UTC_OFFSET_MS);
 
     // References this sync takes away, kept so a cover that pointed at one can
     // be handed to the photo that replaced it.
@@ -105,12 +110,13 @@ export class ImmichSyncService {
       if (!credentials) continue;
 
       try {
-        const assets = await this.client.searchAssets(
+        const found = await this.client.searchAssets(
           credentials.serverUrl,
           credentials.apiKey,
           from,
           to,
         );
+        const assets = photosOnTrip(found, trip.startDate, trip.endDate);
         result.usersSynced++;
         result.assetsFound += assets.length;
 
@@ -123,6 +129,7 @@ export class ImmichSyncService {
                 immichAssetId: asset.id,
                 assetType: asset.type,
                 takenAt: asset.takenAt,
+                takenAtLocal: asset.takenAtLocal,
                 latitude: asset.latitude,
                 longitude: asset.longitude,
                 width: asset.width,
@@ -138,12 +145,13 @@ export class ImmichSyncService {
         // assets we just fetched. Only rows still missing them are touched, so
         // this costs nothing from the second sync onwards.
         await this.backfillDimensions(tripId, userId, assets);
+        await this.backfillLocalTime(tripId, userId, assets);
 
         // Reconcile: drop references that Immich no longer returns for this
         // range — assets that were archived or deleted since the last sync.
         // (searchAssets caps at MAX_PAGES; the guard prevents mass-deletion
         // on a truncated result.)
-        if (assets.length < 250 * 40) {
+        if (found.length < 250 * 40) {
           // Read before dropping: a cover pointing at one of these needs to
           // know when the photo was taken to recognise its replacement.
           const doomed = await this.prisma.mediaRef.findMany({
@@ -271,6 +279,33 @@ export class ImmichSyncService {
         where: { id: ref.id },
         data: { width: asset.width, height: asset.height },
       });
+    }
+  }
+  /**
+   * Refs synced before the local clock was recorded get it from the assets
+   * just fetched, so they move to the day they were taken there. Only rows
+   * still without it are read, and only those Immich now gives one for are
+   * written: from the second sync onwards this costs one query.
+   */
+  private async backfillLocalTime(
+    tripId: string,
+    userId: string,
+    assets: ImmichAsset[],
+  ): Promise<void> {
+    const local = new Map(
+      assets.filter((a) => a.takenAtLocal).map((a) => [a.id, a.takenAtLocal!] as const),
+    );
+    if (local.size === 0) return;
+
+    const missing = await this.prisma.mediaRef.findMany({
+      where: { tripId, userId, takenAtLocal: null },
+      select: { id: true, immichAssetId: true },
+    });
+
+    for (const ref of missing) {
+      const takenAtLocal = local.get(ref.immichAssetId);
+      if (!takenAtLocal) continue;
+      await this.prisma.mediaRef.update({ where: { id: ref.id }, data: { takenAtLocal } });
     }
   }
 }

@@ -118,7 +118,7 @@ fun scoped(trip: Trip, picked: Picked, o: SummaryOptions): Pair<Trip, Picked> {
     val inRange = { d: LocalDate -> !d.isBefore(from) && !d.isAfter(to) }
     val stops = trip.stops.filter { s -> val a = s.start; val b = stopEnd(s); a != null && b != null && !b.isBefore(from) && !a.isAfter(to) }
     val days = picked.days.filter { inRange(it.date) }
-    val highlights = picked.highlights.filter { inRange(localDay(it.photo.takenAt, it.photo.at, trip.stops)) }
+    val highlights = picked.highlights.filter { inRange(it.photo.day(trip.stops)) }
     val pool = days.flatMap { it.photos }
     val photos = (highlights + pool).distinctBy { it.photo.id }
     val count = (ChronoUnit.DAYS.between(from, to) + 1).toInt()

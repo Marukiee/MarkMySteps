@@ -1018,7 +1018,8 @@ object Remote {
             val w = o.optInt("width", 0); val h = o.optInt("height", 0)
             Media(
                 id = o.getString("id"),
-                takenAt = LocalDate.parse(o.getString("takenAt").take(10)),
+                // The day it was taken where it was taken (PhotoDay), else its UTC date.
+                takenAt = PhotoDay.of(o.getString("takenAt"), o.optString("takenAtLocal").takeIf { !o.isNull("takenAtLocal") }),
                 video = o.optString("assetType") == "VIDEO",
                 ratio = if (w > 0 && h > 0) w.toFloat() / h else 1f,
                 sized = w > 0 && h > 0,

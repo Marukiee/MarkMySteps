@@ -5,6 +5,7 @@ import { dbAll, dbByTrip, dbDelete, dbDeleteMany, dbGet, dbPut, dbPutMany } from
 import { LOCAL_USER, localUser, setLocalName } from './localMode';
 import { localCreate, localDelete, localReorder, localUpdate } from './plannerLocal';
 import { t } from '../i18n';
+import { photoDay } from './photoDay';
 
 /**
  * The API, served from the device.
@@ -474,7 +475,7 @@ route('PATCH', '/trips/:id', async (req, [id]) => {
   if (req.body.startDate !== undefined || req.body.endDate !== undefined) {
     const media = await dbByTrip<StoredMedia>('media', next.id);
     const outside = media.filter(
-      (m) => m.takenAt.slice(0, 10) < next.startDate || m.takenAt.slice(0, 10) > next.endDate,
+      (m) => photoDay(m) < next.startDate || photoDay(m) > next.endDate,
     );
     await dbDeleteMany('media', outside.map((m) => m.id));
   }

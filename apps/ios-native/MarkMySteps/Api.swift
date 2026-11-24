@@ -921,7 +921,8 @@ enum Remote {
         guard let rid = trip.remoteId else { return [] }
         let list = try JSONSerialization.jsonObject(with: await Api.shared.get("/api/trips/\(rid)/media")) as? [[String: Any]] ?? []
         return list.compactMap { o -> Media? in
-            guard let id = o["id"] as? String, let taken = day(o["takenAt"]) else { return nil }
+            // The day it was taken where it was taken (PhotoDay), else its UTC date.
+            guard let id = o["id"] as? String, let taken = PhotoDay.of(takenAt: o["takenAt"] as? String, takenAtLocal: o["takenAtLocal"] as? String) else { return nil }
             let w = o["width"] as? Double ?? 0, h = o["height"] as? Double ?? 0
             // Where it was taken, for the photos on the trip map.
             let lat = (o["latitude"] as? NSNumber)?.doubleValue, lon = (o["longitude"] as? NSNumber)?.doubleValue
@@ -929,7 +930,8 @@ enum Remote {
             return Media(id: id, takenAt: taken, video: (o["assetType"] as? String) == "VIDEO", ratio: w > 0 && h > 0 ? w / h : 1, lat: lat, lon: lon,
                          userId: o["userId"] as? String, immichAssetId: asset)
         }
-        .sorted { $0.takenAt < $1.takenAt }
+        // By day; within a day the server's order stands, which is the order they were taken in.
+        .enumerated().sorted { ($0.element.takenAt, $0.offset) < ($1.element.takenAt, $1.offset) }.map(\.element)
     }
 }
 
