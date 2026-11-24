@@ -131,7 +131,18 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     // The trip's settings, a page that slides over this one (TripSettingsPage.kt).
     var tripSettings by remember { androidx.compose.runtime.mutableStateOf<Boolean?>(null) }
     val media by androidx.compose.runtime.produceState<List<Media>?>(null, base.id, Data.version, DeviceMedia.version.intValue) {
-        if (base.remoteId != null) value = runCatching { Remote.media(base) }.getOrNull() ?: emptyList()
+        // A failed load is not "no photos": it tries again (the first call after a while can be slow on the
+        // server), keeps what it already showed, and only an empty list from the server says there are none.
+        if (base.remoteId != null) {
+            var tries = 0
+            while (true) {
+                val got = runCatching { Remote.media(base) }
+                got.getOrNull()?.let { value = it; return@produceState }
+                android.util.Log.w("MmsMedia", "photos of ${base.remoteId} not loaded (try ${tries + 1})", got.exceptionOrNull())
+                if (++tries >= 3) { if (value == null) value = emptyList(); return@produceState }
+                kotlinx.coroutines.delay(1_500L * tries)
+            }
+        }
     }
     val screenH = LocalConfiguration.current.screenHeightDp
     val mapH = (screenH * 0.46f).dp

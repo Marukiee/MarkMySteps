@@ -77,6 +77,12 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] Fotodag in de tijdzone waar de foto genomen is (server bewaart Immich
+      localDateTime, migratie voegt alleen een kolom toe). De lokale dag voegt
+      alleen foto's toe; sync en inkorten halen niets weg dat er al stond.
+      Android, iPhone, web en server. Nog open: kaart per dag gaat op UTC-dag.
+- [x] Android: mislukt laden van foto's is niet meer "Nog geen foto's", de
+      app probeert het tot drie keer opnieuw.
 - [x] Restpunten logicacontrole: heen/terug alleen op exacte naam (een stop
       "Heenvliet" blijft een plaats), stopdatums op Android van de server zoals
       iPhone en web, "foto's komen zodra de reis begint" niet meer tijdens de
