@@ -1,2 +1,2 @@
-- Aftelkaart netter: "dagen" en "tot vertrek" dicht bij elkaar, op de lijn van het getal
-- Plaatsen tonen alleen je eigen stops en dagtochten
+- Aftelkaart: groter getal, netjes uitgelijnd met de knop ernaast
+- "dagen" en "tot vertrek" dicht bij elkaar, op de lijn van het getal

@@ -458,8 +458,9 @@ struct NextTripCard: View {
                 let left = trip.startsInDays
                 let today = min(max((trip.start ?? trip.firstDay).map { (Format.calendar.dateComponents([.day], from: $0, to: Date()).day ?? 0) + 1 } ?? 1, 1), trip.days)
                 HStack(alignment: .lastTextBaseline, spacing: 10) {
+                    // Big, its digits' top on the top of the ⋯ button (the font's room above them pulled away), as on Android.
                     Text(left.map { "\($0)" } ?? "\(today)e")
-                        .font(.outfit(60, 800))
+                        .font(.outfit(76, 800))
                         .tracking(-1.8)
                         .foregroundStyle(.white)
                     // Close together, and "tot vertrek" on the number's baseline (lastTextBaseline), as on Android.
@@ -468,6 +469,7 @@ struct NextTripCard: View {
                         Text(left == nil ? "van \(trip.days)" : "tot vertrek").font(.inter(13, 500)).foregroundStyle(.white.opacity(0.8))
                     }
                 }
+                .padding(.top, -14)
                 Text(trip.title)
                     .font(.outfit(25, 600))
                     .tracking(-0.4)

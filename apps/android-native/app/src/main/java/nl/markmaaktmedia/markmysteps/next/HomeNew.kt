@@ -654,15 +654,17 @@ private fun NextTripContent(trip: Trip, onOpen: () -> Unit, onPeopleTrip: (Trip)
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             // "to go" stands on the same line as the number: the baseline of both (where the t and the o sit, not the
             // bottom of the g), and "days" close above it (Mark).
-            Row {
-                Text(big, modifier = Modifier.alignByBaseline(), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(800), fontSize = 60.sp, lineHeight = 60.sp, letterSpacing = (-0.03).em, color = Color.White))
+            // The number big, its digits' top on the top of the ⋯ button beside it (the font's own room above the digits
+            // is pulled away), as a hero figure may be above Material's Display Large (Mark).
+            Row(Modifier.offset(y = (-NumberLift).dp)) {
+                Text(big, modifier = Modifier.alignByBaseline(), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(800), fontSize = 76.sp, lineHeight = 76.sp, letterSpacing = (-0.03).em, color = Color.White))
                 Column(Modifier.padding(start = 10.dp).alignBy(androidx.compose.ui.layout.LastBaseline)) {
                     // Drawn 3 dp lower than its line: the two lines read as one label instead of two with a gap.
                     Text(top, modifier = Modifier.offset(y = 3.dp), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, lineHeight = 18.sp, color = Color.White))
                     Text(bottom, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, lineHeight = 14.sp, color = Color.White.copy(alpha = 0.8f)))
                 }
             }
-            Row(Modifier.padding(top = 26.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(top = (26 - NumberLift).dp.coerceAtLeast(0.dp)), verticalAlignment = Alignment.CenterVertically) {
                 // At most two lines, then an ellipsis, on every card and row (as on the iPhone).
                 Text(
                     trip.title, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
@@ -680,6 +682,9 @@ private fun NextTripContent(trip: Trip, onOpen: () -> Unit, onPeopleTrip: (Trip)
         }
     }
 }
+
+/** How far the countdown's number is lifted, so its digits start where the ⋯ button starts. */
+private const val NumberLift = 24
 
 @Composable
 private fun Chip(text: String) {
