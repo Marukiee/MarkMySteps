@@ -77,6 +77,11 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] Restpunten logicacontrole: heen/terug alleen op exacte naam (een stop
+      "Heenvliet" blijft een plaats), stopdatums op Android van de server zoals
+      iPhone en web, "foto's komen zodra de reis begint" niet meer tijdens de
+      reis, Reizigers offline en lokale modus tellen landen en plaatsen als de
+      server.
 - [x] Plaatsfoto's op locatie: elke foto hoort bij de dichtstbijzijnde plaats
       (Granada en Monachil hadden dezelfde foto), de foto het dichtst bij het
       hart van de plaats wint, een zelfgekozen cover (viewer › Cover van ...)

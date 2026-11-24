@@ -90,7 +90,8 @@ struct TimelineRows: View {
                 .background(Brand.raised, in: .rect(cornerRadius: 20))
                 .plainRow(top: 26)
         } else if media != nil && days.isEmpty {
-            Text(trip.upcoming ? "De foto's komen hier vanzelf zodra de reis begint" : "Nog geen foto's bij deze reis")
+            // "Once the trip starts" only before it has: `upcoming` is also true while it is under way.
+            Text(trip.startsInDays != nil ? "De foto's komen hier vanzelf zodra de reis begint" : "Nog geen foto's bij deze reis")
                 .font(.inter(14, 500))
                 .foregroundStyle(Brand.inkSoft)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -127,8 +128,9 @@ struct TimelineRows: View {
                 .timelineLine(show: !(lastDay && rows.isEmpty), bottom: rows.isEmpty ? 30 : 12)
                 .plainRow()
             }
-            if trip.upcoming {
-                // Nothing taken yet: the photos arrive here by themselves once the trip starts.
+            // A day still to come (or today) without photos yet: they arrive here by themselves. During the trip a
+            // day that has been never says so (it simply had no photos).
+            if trip.upcoming && rows.isEmpty && Calendar.current.startOfDay(for: day.day.date) >= Calendar.current.startOfDay(for: Date()) {
                 Text("De foto's van deze dag komen hier vanzelf")
                     .font(.inter(13.5, 500))
                     .foregroundStyle(Brand.inkSoft)

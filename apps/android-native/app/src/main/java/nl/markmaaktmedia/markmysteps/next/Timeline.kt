@@ -304,7 +304,8 @@ private fun LiveTimeline(
     if (photos.isEmpty() && notes.isEmpty()) {
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainerLow).padding(18.dp)) {
             Text(
-                if (trip.upcoming) stringResource(R.string.timeline_photos_upcoming) else stringResource(R.string.timeline_no_photos),
+                // "Once the trip starts" only before it has: `upcoming` is also true while it is under way.
+                if (trip.startsInDays != null) stringResource(R.string.timeline_photos_upcoming) else stringResource(R.string.timeline_no_photos),
                 style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 14.sp, color = cs.onSurfaceVariant),
             )
         }

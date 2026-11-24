@@ -76,8 +76,6 @@ object ViewerApi {
     }
 
     private const val NEAR_KM = 30.0
-    /** The way there and back, by the exact names the server and the web use. */
-    private val LegNames = setOf("Heenreis", "Terugreis", "Heenvlucht", "Terugvlucht")
     /** Taken at a place (as the places row, Places.kt). */
     private const val AT_KM = 8.0
 

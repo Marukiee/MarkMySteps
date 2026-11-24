@@ -564,6 +564,9 @@ data class Media(
 /** The order photos stand in: by day, then by the moment they were taken (the server's and the phone's mixed). */
 fun List<Media>.inTakenOrder(): List<Media> = sortedWith(compareBy<Media>({ it.takenAt }, { it.at }))
 
+/** The way there and back, by the exact names the apps, the web and the server use. */
+val LegNames = setOf("Heenreis", "Terugreis", "Heenvlucht", "Terugvlucht")
+
 /** Reads the signed-in account's trips into the same shapes the demo uses. */
 object Remote {
     /** [mustChange]: still on a temporary password an admin set; the app asks for an own one. */
@@ -970,8 +973,10 @@ object Remote {
             val nights = o.optInt("nights")
             val name = o.optString("name")
             val lat = o.optDouble("latitude"); val lon = o.optDouble("longitude")
-            // The way there and back are stops of their own with no nights, at the ends.
-            if (nights == 0 && (index == 0 || index == rows.lastIndex) && (name.startsWith("Heen") || name.startsWith("Terug"))) {
+            // The way there and back are stops of their own with no nights, at the ends, by the exact names the
+            // apps and the web give them (as the server and the web tell them apart): a real first stop called
+            // "Heenvliet" is a place, not the way there.
+            if (nights == 0 && (index == 0 || index == rows.lastIndex) && name in LegNames) {
                 val leg = Leg(
                     mode, o.optString("fromAirport").ifBlank { Lang.text(R.string.leg_home) }, o.optString("toAirport").ifBlank { "" }, 0,
                     id = o.optString("id"), flightNumber = text(o, "flightNumber"), fromAirport = text(o, "fromAirport"), toAirport = text(o, "toAirport"),
@@ -980,8 +985,11 @@ object Remote {
                 if (index == 0) { outbound = leg; outboundId = o.optString("id") } else { back = leg; backId = o.optString("id") }
                 return@forEachIndexed
             }
-            val from = day
-            day = day.plusDays(nights.toLong())
+            // The server's own dates when it gives them, as the iPhone and the web, so a gap in the plan does not
+            // shift every stop after it; otherwise counted on from the trip's first day.
+            fun date(key: String) = text(o, key)?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() }
+            val from = date("arrivalDate") ?: day
+            day = date("departureDate") ?: from.plusDays(nights.toLong())
             stops += Stop(
                 name = name,
                 flag = flag(o.optString("countryCode").takeIf { it.isNotBlank() && it != "null" }),

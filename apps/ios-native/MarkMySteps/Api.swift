@@ -556,7 +556,7 @@ enum Remote {
             let name = o["name"] as? String ?? ""
             let via = (o["viaAirports"] as? [String] ?? []).filter { !$0.isEmpty }
             // The way there and back are stops of their own with no nights, at the ends.
-            if nights == 0 && (index == 0 || index == rows.count - 1) && (name.hasPrefix("Heen") || name.hasPrefix("Terug")) {
+            if nights == 0 && (index == 0 || index == rows.count - 1) && ["Heenreis", "Terugreis", "Heenvlucht", "Terugvlucht"].contains(name) {
                 let from = text(o, "fromAirport") ?? "Thuis"
                 let leg = Leg(mode: mode, from: from, to: text(o, "toAirport") ?? "", km: 0, serverId: o["id"] as? String,
                               flightNumber: text(o, "flightNumber"), fromAirport: text(o, "fromAirport"), toAirport: text(o, "toAirport"), via: via)

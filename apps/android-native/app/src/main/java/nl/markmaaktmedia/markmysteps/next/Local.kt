@@ -191,9 +191,11 @@ object LocalBackend {
         val today = LocalDate.now()
         val past = all.filter { runCatching { !LocalDate.parse(it.getString("startDate")).isAfter(today) }.getOrDefault(false) }
         val days = past.sumOf { t -> runCatching { ChronoUnit.DAYS.between(LocalDate.parse(t.getString("startDate")), minOf(today, LocalDate.parse(t.getString("endDate")))) + 1 }.getOrDefault(0L) }
-        val countries = past.flatMap { t -> ordered(t.getString("id")).mapNotNull { it.optString("countryCode").takeIf { c -> c.length == 2 } } }.distinct()
+        // As the server's travel stats: the country you live in is not a country visited, the way there and back
+        // is not a place, and a place is one per country and name (going back is one more visit, not a place).
+        val countries = past.flatMap { t -> ordered(t.getString("id")).mapNotNull { it.optString("countryCode").lowercase().takeIf { c -> c.length == 2 && c != "nl" } } }.distinct()
         return JSONObject().put("trips", past.size).put("days", days).put("countries", JSONArray(countries))
-            .put("places", past.sumOf { ordered(it.getString("id")).count { s -> s.optInt("nights") > 0 } })
+            .put("places", past.flatMap { t -> ordered(t.getString("id")).filter { s -> s.optString("name") !in LegNames }.map { s -> "${s.optString("countryCode").lowercase()}/${s.optString("name").trim().lowercase()}" } }.distinct().size)
             .put("flights", 0).put("distanceKm", past.sumOf { dressed(it).optDouble("distanceKm", 0.0) })
             .put("photoCount", past.sumOf { DeviceMedia.count(fakeTrip(it.getString("id"))) }).put("ongoing", all.size - past.size)
     }

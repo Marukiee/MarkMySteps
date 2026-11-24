@@ -153,12 +153,14 @@ private fun TravellersList(
     val trips = Data.past
     // The list behind a tile, when the server sent the lists.
     var list by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<StatsKind?>(null) }
-    val countries = Data.all.flatMap { t -> t.stops.map { it.flag } }.distinct()
+    // A country you went to: not the 📍 of a stop without one, not the country you live in (as the server counts).
+    fun abroad(flag: String) = TripFigures.codeOfFlag(flag)?.let { it != "nl" } == true
+    val countries = Data.all.flatMap { t -> t.stops.map { it.flag } }.filter(::abroad).distinct()
     val names = mapOf(
         "🇮🇸" to "IJsland", "🇩🇰" to "Denemarken", "🇸🇪" to "Zweden", "🇮🇹" to "Italië", "🇵🇹" to "Portugal",
         "🇲🇦" to "Marokko", "🇳🇴" to "Noorwegen", "🇬🇪" to "Georgië",
     )
-    val visited = trips.flatMap { t -> t.stops.map { it.flag } }.distinct()
+    val visited = trips.flatMap { t -> t.stops.map { it.flag } }.filter(::abroad).distinct()
     // Signed in, the figures come from the server (as on the web); the demo counts its own trips.
     val me = Data.me
     val stats = listOf(
