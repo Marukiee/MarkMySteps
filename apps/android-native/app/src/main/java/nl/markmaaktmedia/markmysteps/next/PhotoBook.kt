@@ -275,7 +275,7 @@ fun PhotoBook(trip: Trip, dark: Boolean, onBack: () -> Unit) {
             }
         }.distinctBy { it.photo.id }
     }
-    val media = remember(all) { all.map { Media(it.photo.id, localDay(it.photo.takenAt, it.photo.at, trip.stops), it.photo.video, it.aspect, userId = it.photo.userId, lat = it.photo.at?.second, lon = it.photo.at?.first) } }
+    val media = remember(all) { all.map { Media(it.photo.id, it.photo.day(trip.stops), it.photo.video, it.aspect, userId = it.photo.userId, lat = it.photo.at?.second, lon = it.photo.at?.first, at = it.photo.takenAt.toEpochMilli()) } }
     val tiles = remember(trip.id) { TileBounds() }
     var viewing by remember { mutableStateOf<String?>(null) }
     var shown by remember { mutableStateOf<String?>(null) }

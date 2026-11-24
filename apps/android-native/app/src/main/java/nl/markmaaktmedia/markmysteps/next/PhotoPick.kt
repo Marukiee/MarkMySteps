@@ -42,6 +42,8 @@ data class TripPhoto(
     /** Demo only: the drawn landscape that stands in for the photo. */
     val scene: Scene? = null,
     val mirrored: Boolean = false,
+    /** The day it was taken where it was taken, as the server knows it (PhotoDay); null when it does not. */
+    val localDay: LocalDate? = null,
 )
 
 /** A photo once its thumbnail has been looked at. */
@@ -127,6 +129,12 @@ private fun countryOf(flag: String): String? {
 
 fun localDay(at: Instant, where: LonLat?, stops: List<Stop> = emptyList()): LocalDate = at.atZone(zoneAt(where, stops, at)).toLocalDate()
 
+/**
+ * The day a photo belongs to in the book and the summary: the server's own (the day it was taken where it was
+ * taken, the same day the timeline shows), else worked out from the place as [localDay] does.
+ */
+fun TripPhoto.day(stops: List<Stop>): LocalDate = localDay ?: localDay(takenAt, at, stops)
+
 /** Nearest stop within about 60 km, for "which place is this". */
 fun nearestStop(at: LonLat?, stops: List<Stop>): Int? {
     if (at == null || stops.isEmpty()) return null
@@ -149,7 +157,7 @@ fun pickPhotos(
     /** The cover chosen for the trip on the web, which wins when it is a photo of the trip. */
     coverId: String? = null,
 ): Picked {
-    fun dayOf(p: TripPhoto) = localDay(p.takenAt, p.at, stops)
+    fun dayOf(p: TripPhoto) = p.day(stops)
     val photos = media.filter { !it.video }
     val videos = media.filter { it.video }
 

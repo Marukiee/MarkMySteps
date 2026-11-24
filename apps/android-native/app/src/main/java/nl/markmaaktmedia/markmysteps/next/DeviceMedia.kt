@@ -46,9 +46,9 @@ object DeviceMedia {
 
     fun list(trip: Trip): List<Media> {
         val a = rows(trip)
-        // The day as the server and the web give it for every photo (the date of takenAt in UTC), so a photo from
-        // this phone lands on the same day as the ones from Immich, and on the same day as on the web.
-        val zone = java.time.ZoneOffset.UTC
+        // The day it was taken where it was taken, as the server's photos have it (PhotoDay): a photo from this
+        // phone was taken in the zone the phone is in.
+        val zone = ZoneId.systemDefault()
         return (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { o ->
             val w = o.optInt("w"); val h = o.optInt("h")
             Media(
