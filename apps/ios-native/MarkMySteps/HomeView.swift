@@ -462,7 +462,8 @@ struct NextTripCard: View {
                         .font(.outfit(60, 800))
                         .tracking(-1.8)
                         .foregroundStyle(.white)
-                    VStack(alignment: .leading, spacing: 0) {
+                    // Close together, and "tot vertrek" on the number's baseline (lastTextBaseline), as on Android.
+                    VStack(alignment: .leading, spacing: -2) {
                         Text(left == 1 || left == nil ? "dag" : "dagen").font(.outfit(17, 600)).foregroundStyle(.white)
                         Text(left == nil ? "van \(trip.days)" : "tot vertrek").font(.inter(13, 500)).foregroundStyle(.white.opacity(0.8))
                     }

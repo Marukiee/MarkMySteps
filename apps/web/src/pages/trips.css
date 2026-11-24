@@ -265,7 +265,9 @@
   left: 1.3rem;
   z-index: 2;
   display: flex;
-  align-items: center;
+  /* "tot vertrek" on the number's baseline (the t and the o, not the bottom
+     of a g), as the apps (Mark). */
+  align-items: last baseline;
   gap: 0.7rem;
   color: #fff;
   pointer-events: none;
@@ -281,7 +283,7 @@
 
 .trip-card-count span {
   display: grid;
-  line-height: 1.05;
+  line-height: 1;
 }
 
 .trip-card-count b {

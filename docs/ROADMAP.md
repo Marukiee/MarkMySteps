@@ -77,6 +77,9 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] Aftelkaart: "dagen" en "tot vertrek" dichter op elkaar, "tot vertrek"
+      op de basislijn van het getal (niet de onderkant van de g). Android,
+      iPhone en web.
 - [x] Web: muiswiel zoomt alleen boven de bol zelf (vierkant eromheen),
       naast de bol scrolt de pagina gewoon.
 - [x] Plaatsenrij alleen met de stops en dagtochten die Mark zelf invulde

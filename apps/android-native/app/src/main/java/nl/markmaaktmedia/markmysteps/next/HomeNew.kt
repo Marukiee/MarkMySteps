@@ -652,11 +652,13 @@ private fun NextTripContent(trip: Trip, onOpen: () -> Unit, onPeopleTrip: (Trip)
         }
         MenuDots(trip, Modifier.align(Alignment.TopEnd).padding(14.dp), onOpen = onOpen, onPeople = if (trip.remoteId != null) ({ onPeopleTrip(trip) }) else null, autoBig = autoBig, lightCover = lightCorner(trip, NextCardRatio, shade = 0.35f))
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(big, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(800), fontSize = 60.sp, lineHeight = 60.sp, letterSpacing = (-0.03).em, color = Color.White))
-                Column(Modifier.padding(start = 10.dp, bottom = 9.dp)) {
-                    Text(top, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, color = Color.White))
-                    Text(bottom, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, color = Color.White.copy(alpha = 0.8f)))
+            // "to go" stands on the same line as the number: the baseline of both (where the t and the o sit, not the
+            // bottom of the g), and "days" close above it (Mark).
+            Row {
+                Text(big, modifier = Modifier.alignByBaseline(), style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(800), fontSize = 60.sp, lineHeight = 60.sp, letterSpacing = (-0.03).em, color = Color.White))
+                Column(Modifier.padding(start = 10.dp).alignBy(androidx.compose.ui.layout.LastBaseline)) {
+                    Text(top, style = TextStyle(fontFamily = Outfit, fontWeight = FontWeight(600), fontSize = 17.sp, lineHeight = 18.sp, color = Color.White))
+                    Text(bottom, style = TextStyle(fontFamily = Inter, fontWeight = FontWeight(500), fontSize = 13.sp, lineHeight = 14.sp, color = Color.White.copy(alpha = 0.8f)))
                 }
             }
             Row(Modifier.padding(top = 26.dp), verticalAlignment = Alignment.CenterVertically) {
