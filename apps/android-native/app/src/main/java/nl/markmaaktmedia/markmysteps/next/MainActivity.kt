@@ -60,7 +60,6 @@ class MainActivity : ComponentActivity() {
         AirportPref.init(applicationContext)
         TripFactsPref.init(applicationContext)
         FactsMemory.init(applicationContext)
-        TripPlaces.init(applicationContext)
         UiPrefs.init(applicationContext)
         AppPrefs.init(applicationContext)
         Onboarding.init(applicationContext)

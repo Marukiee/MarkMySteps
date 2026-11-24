@@ -77,6 +77,9 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] Plaatsenrij alleen met de stops en dagtochten die Mark zelf invulde
+      (geen Rauma en Lesja meer op weg naar Åndalsnes). Android en iPhone; het
+      web deed dit al.
 - [x] Fotodag in de tijdzone waar de foto genomen is (server bewaart Immich
       localDateTime, migratie voegt alleen een kolom toe). De lokale dag voegt
       alleen foto's toe; sync en inkorten halen niets weg dat er al stond.

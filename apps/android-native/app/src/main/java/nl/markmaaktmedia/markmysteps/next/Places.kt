@@ -12,18 +12,14 @@ import kotlin.math.sqrt
  *
  * By date, a stop you only passed through (Gränna on the way to Stockholm, no night there) never had a photo: its
  * day belonged to the stop after it. And a city you photographed without it being a stop (Stockholm from
- * Saltsjöbaden) had no tile at all. So: a stop wears the first photo taken at it, wherever that falls in the trip;
- * photos taken away from every stop are gathered into places of their own, named after where they were taken.
+ * Saltsjöbaden) had no tile at all. So: a stop wears a photo taken at it, wherever that falls in the trip. Only
+ * the places in the plan get a tile (stops and day trips); towns passed on the way do not (Mark).
  */
 object TripPlaces {
     /** A photo this close to a stop was taken at it. */
     private const val AT_KM = 8.0
     /** Further out, still the stop's surroundings when nothing closer was taken (as the web's STOP_NEAR_KM). */
     private const val AROUND_KM = 30.0
-    /** Photos this close together, away from the stops, are one place. */
-    private const val GROUP_KM = 10.0
-    /** A place of its own needs at least this many photos: a few shots from the road are not a visit. */
-    private const val GROUP_MIN = 4
 
     data class Tile(
         val name: String,
@@ -35,24 +31,6 @@ object TripPlaces {
         /** Order in the trip: the index of its first photo, else where the stop sits. */
         val order: Int,
     )
-
-    /** A spot away from every stop where enough photos were taken to count as a place; named later. */
-    data class Extra(val at: LonLat, val photos: List<Media>, val order: Int)
-
-    // The names of the extra places, kept on the phone, so the row opens with them instead of growing a moment later.
-    private var prefs: android.content.SharedPreferences? = null
-    fun init(context: android.content.Context) { prefs = context.getSharedPreferences("mms.next.places", android.content.Context.MODE_PRIVATE) }
-    private fun key(at: LonLat) = "%.2f,%.2f".format(java.util.Locale.ROOT, at.second, at.first)
-    /** The city's name already known for a spot ("" for nowhere), without asking. */
-    fun knownName(at: LonLat): String? = prefs?.getString(key(at), null)
-    /** The city's name for a spot (Photon, as the viewer's place line), null when the lookup failed. */
-    suspend fun name(at: LonLat): String? {
-        knownName(at)?.let { return it }
-        val full = runCatching { ViewerApi.placeName(at.second, at.first) }.getOrElse { return null }
-        val city = full?.substringBefore(", ")?.trim().orEmpty()
-        prefs?.edit()?.putString(key(at), city)?.apply()
-        return city
-    }
 
     fun km(a: LonLat, b: LonLat): Double {
         val r = Math.PI / 180
@@ -112,17 +90,5 @@ object TripPlaces {
             out += Tile(spot.name, spot.flag, photos, firstThere?.value?.takenAt ?: chosen?.takenAt ?: spot.start, firstThere?.index ?: spot.fallbackOrder)
         }
         return out
-    }
-
-    /** Places where photos were taken away from every stop and day trip, in the order you were there. */
-    fun extras(trip: Trip, media: List<Media>): List<Extra> {
-        val known = trip.stops.flatMap { s -> listOf(s.at) + s.dayTrips.mapNotNull { it.at } }
-        val away = media.withIndex().filter { (_, m) -> !m.video && m.at() != null && known.none { km(it, m.at()!!) <= AT_KM } }
-        val groups = mutableListOf<MutableList<IndexedValue<Media>>>()
-        away.forEach { p ->
-            val g = groups.firstOrNull { km(it.first().value.at()!!, p.value.at()!!) <= GROUP_KM }
-            if (g != null) g += p else groups += mutableListOf(p)
-        }
-        return groups.filter { it.size >= GROUP_MIN }.map { g -> Extra(g.first().value.at()!!, g.map { it.value }, g.first().index) }
     }
 }

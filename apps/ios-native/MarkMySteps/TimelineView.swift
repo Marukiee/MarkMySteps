@@ -73,7 +73,7 @@ struct TimelineRows: View {
 
     var body: some View {
         // The places row only earns its place when there are several.
-        if trip.mapStops.count > 1 || media.map({ !TripPlaces.extras(trip, $0).isEmpty }) == true {
+        if trip.mapStops.count > 1 || media.map({ TripPlaces.stops(trip, $0).count > 1 }) == true {
             Text("Plaatsen")
                 .font(.outfit(18, 650))
                 .foregroundStyle(Brand.ink)
@@ -167,8 +167,6 @@ private struct PlacesRow: View {
     let media: [Media]?
     let onPlace: (Date) -> Void
     @State private var position: ScrollPosition
-    /// The names of the extra places, by their order in the trip.
-    @State private var names: [Int: String] = [:]
 
     /// How far each trip's row was scrolled, while the app runs.
     @MainActor private static var offsets: [String: CGFloat] = [:]
@@ -181,8 +179,7 @@ private struct PlacesRow: View {
     }
 
     var body: some View {
-        let extras = media.map { TripPlaces.extras(trip, $0) } ?? []
-        let tiles = tiles(extras)
+        let tiles = tiles()
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(Array(tiles.enumerated()), id: \.element.id) { i, place in
@@ -205,27 +202,17 @@ private struct PlacesRow: View {
         .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x + $0.contentInsets.leading } action: { _, x in
             PlacesRow.offsets[trip.id] = max(0, x)
         }
-        .task(id: extras.map(\.order)) {
-            for e in extras where names[e.order] == nil {
-                if let n = TripPlaces.knownName(e.at) { names[e.order] = n; continue }
-                if let n = await TripPlaces.name(e.at) { names[e.order] = n }
-            }
-        }
     }
 
-    /// The stops by where their photos were taken, then the places photographed away from them, in trip order.
-    private func tiles(_ extras: [TripPlaces.Extra]) -> [TripPlaces.Tile] {
+    /// The places you put in the plan yourself, the stops and the day trips you photographed, by where their photos
+    /// were taken, in trip order. Towns passed on the way (Rauma, Lesja on the road to Åndalsnes) are no place of
+    /// their own (Mark): only what you filled in, as on Android and the web.
+    private func tiles() -> [TripPlaces.Tile] {
         guard let media else {
             return trip.mapStops.enumerated().map { i, s in TripPlaces.Tile(name: s.stop.name, flag: s.stop.flag, photos: [], day: s.stop.start, order: i) }
         }
-        let stops = TripPlaces.stops(trip, media)
-        let more = extras.compactMap { e -> TripPlaces.Tile? in
-            guard let n = names[e.order] ?? TripPlaces.knownName(e.at), !n.isEmpty,
-                  !stops.contains(where: { $0.name.caseInsensitiveCompare(n) == .orderedSame }) else { return nil }
-            return TripPlaces.Tile(name: n, flag: nil, photos: e.photos.prefix(8).map(\.id), day: e.photos.first?.takenAt, order: e.order)
-        }
         var seen = Set<String>()
-        return (stops + more).filter { seen.insert($0.name).inserted }.sorted { $0.order < $1.order }
+        return TripPlaces.stops(trip, media).filter { seen.insert($0.name).inserted }.sorted { $0.order < $1.order }
     }
 
     @ViewBuilder private func tile(_ place: TripPlaces.Tile, index: Int) -> some View {

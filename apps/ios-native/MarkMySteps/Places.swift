@@ -2,18 +2,13 @@ import Foundation
 
 /// The places of a trip as tiles above the timeline, chosen by where the photos were taken rather than by date
 /// (as Android's Places.kt). By date, a stop you only passed through never had a photo (its day belonged to the
-/// stop after it), and a city you photographed without it being a stop had no tile at all. So a stop wears the
-/// first photo taken at it, wherever that falls in the trip, and photos taken away from every stop are gathered
-/// into places of their own, named after where they were taken.
+/// stop after it). So a stop wears a photo taken at it, wherever that falls in the trip. Only the places in the
+/// plan get a tile (stops and day trips); towns passed on the way do not (Mark).
 enum TripPlaces {
     /// A photo this close to a stop was taken at it.
     static let atKm = 8.0
     /// Further out, still the stop's surroundings when nothing closer was taken (the web's STOP_NEAR_KM).
     static let aroundKm = 30.0
-    /// Photos this close together, away from the stops, are one place.
-    static let groupKm = 10.0
-    /// A place of its own needs at least this many photos: a few shots from the road are not a visit.
-    static let groupMin = 4
 
     struct Tile: Identifiable {
         let name: String
@@ -25,12 +20,6 @@ enum TripPlaces {
         /// Order in the trip: the index of its first photo, else where the stop sits.
         let order: Int
         var id: String { name }
-    }
-
-    struct Extra {
-        let at: LonLat
-        let photos: [Media]
-        let order: Int
     }
 
     static func km(_ a: LonLat, _ b: LonLat) -> Double {
@@ -92,32 +81,5 @@ enum TripPlaces {
             out.append(Tile(name: spot.name, flag: spot.flag, photos: ids, day: firstThere?.1.takenAt ?? chosenDay ?? spot.start, order: firstThere?.0 ?? spot.fallbackOrder))
         }
         return out
-    }
-
-    /// Places where photos were taken away from every stop and day trip, in the order you were there.
-    static func extras(_ trip: Trip, _ media: [Media]) -> [Extra] {
-        let known = trip.stops.flatMap { s in [s.at] + s.dayTrips.map(\.at) }
-        var groups: [[(Int, Media, LonLat)]] = []
-        for (i, m) in media.enumerated() where !m.video {
-            guard let p = at(m), !known.contains(where: { km($0, p) <= atKm }) else { continue }
-            if let g = groups.firstIndex(where: { km($0[0].2, p) <= groupKm }) { groups[g].append((i, m, p)) } else { groups.append([(i, m, p)]) }
-        }
-        return groups.filter { $0.count >= groupMin }.map { g in Extra(at: g[0].2, photos: g.map(\.1), order: g[0].0) }
-    }
-
-    // MARK: Names of the extra places, kept on the phone so the row opens with them
-
-    private static func key(_ p: LonLat) -> String { "place." + String(format: "%.2f,%.2f", p.lat, p.lon) }
-
-    /// The city's name already known for a spot ("" for nowhere), without asking.
-    static func knownName(_ p: LonLat) -> String? { UserDefaults.standard.string(forKey: key(p)) }
-
-    /// The city's name for a spot (Photon, as the viewer's place line), nil when the lookup failed.
-    static func name(_ p: LonLat) async -> String? {
-        if let known = knownName(p) { return known }
-        guard let full = try? await ViewerApi.placeName(lat: p.lat, lon: p.lon) else { return nil }
-        let city = (full ?? "").components(separatedBy: ", ").first?.trimmingCharacters(in: .whitespaces) ?? ""
-        UserDefaults.standard.set(city, forKey: key(p))
-        return city
     }
 }

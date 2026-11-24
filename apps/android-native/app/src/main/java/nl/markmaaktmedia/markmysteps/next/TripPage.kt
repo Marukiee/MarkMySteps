@@ -100,7 +100,9 @@ fun TripPage(base: Trip, dark: Boolean, onBack: () -> Unit, startExtra: String? 
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     // A trip from the server brings its stops and photos in only when it is opened.
     val trip by androidx.compose.runtime.produceState(base, base.id, Data.version) {
-        if (base.remoteId != null) runCatching { Remote.stops(base) }.getOrNull()?.let { (stops, legs) ->
+        if (base.remoteId != null) runCatching { Remote.stops(base) }
+            .onFailure { android.util.Log.w("MmsStops", "stops of ${base.remoteId} not loaded", it) }
+            .getOrNull()?.let { (stops, legs) ->
             value = base.copy(stops = stops, outbound = legs.first, back = legs.second)
         }
     }

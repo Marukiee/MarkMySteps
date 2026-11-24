@@ -237,19 +237,10 @@ private fun LiveTimeline(
     val photos = media
     fun stopOn(date: LocalDate): Stop? = trip.stops.lastOrNull { s -> s.start != null && !s.start.isAfter(date) } ?: trip.stops.firstOrNull()
 
-    // The places by where the photos were taken (Places.kt): the stops, each wearing a photo taken there, and the
-    // spots you photographed away from them (a city near your stay) as places of their own.
-    val stopTiles = androidx.compose.runtime.remember(trip, photos) { TripPlaces.stops(trip, photos, ::stopOn) }
-    val extras = androidx.compose.runtime.remember(trip, photos) { TripPlaces.extras(trip, photos) }
-    val names = androidx.compose.runtime.remember(trip.id) { androidx.compose.runtime.mutableStateMapOf<Int, String>() }
-    androidx.compose.runtime.remember(extras) { extras.forEach { e -> TripPlaces.knownName(e.at)?.let { names[e.order] = it } }; 0 }
-    androidx.compose.runtime.LaunchedEffect(extras) {
-        extras.forEach { e -> if (!names.containsKey(e.order)) TripPlaces.name(e.at)?.let { names[e.order] = it } }
-    }
-    val tiles = (stopTiles + extras.mapNotNull { e ->
-        val n = names[e.order]?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-        if (stopTiles.any { it.name.equals(n, ignoreCase = true) }) null else TripPlaces.Tile(n, null, e.photos.take(8), e.photos.first().takenAt, e.order)
-    }).distinctBy { it.name }.sortedBy { it.order }
+    // The places you put in the plan yourself (Places.kt): the stops and the day trips you photographed, each
+    // wearing a photo taken there. Towns passed on the way (Rauma, Lesja on the road to Åndalsnes) are no place of
+    // their own any more (Mark): only what you filled in, as on the web.
+    val tiles = androidx.compose.runtime.remember(trip, photos) { TripPlaces.stops(trip, photos, ::stopOn).distinctBy { it.name }.sortedBy { it.order } }
     // A row of places only when there is more than one: a single place says nothing a row would add.
     if (tiles.size > 1) {
         Text(
