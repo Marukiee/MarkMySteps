@@ -77,6 +77,8 @@ De iPhone-kolom zegt of het ook in de iOS-app zit.
 
 ### Gebouwd, wacht op Marks akkoord
 
+- [x] Web: muiswiel zoomt alleen boven de bol zelf (vierkant eromheen),
+      naast de bol scrolt de pagina gewoon.
 - [x] Plaatsenrij alleen met de stops en dagtochten die Mark zelf invulde
       (geen Rauma en Lesja meer op weg naar Åndalsnes). Android en iPhone; het
       web deed dit al.

@@ -1812,6 +1812,18 @@ export function GlobeBackdrop({
       canvas!.releasePointerCapture?.(e.pointerId);
     }
     function onWheel(e: WheelEvent) {
+      // Only over the globe itself (the square around it) does the wheel zoom.
+      // The canvas spans the whole width, and beside the globe the wheel has to
+      // scroll the page as it does everywhere else (Mark).
+      // Where the globe sits, as draw() places it (in CSS pixels: the shared
+      // projection can hold another drawing's numbers at this moment).
+      const rect = canvas!.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2 + 10;
+      // Half the canvas's shorter side: the square the globe sits in at rest,
+      // and still the place to zoom back out from when it is zoomed in.
+      const r = Math.min(rect.width, rect.height) / 2;
+      if (Math.abs(e.clientX - cx) > r || Math.abs(e.clientY - cy) > r) return;
       e.preventDefault();
       lastInteract = performance.now();
       targetScale = Math.min(MAX_ZOOM, Math.max(1, targetScale * (1 - e.deltaY * 0.0015)));
