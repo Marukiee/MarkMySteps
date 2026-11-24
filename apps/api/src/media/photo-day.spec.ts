@@ -1,5 +1,5 @@
 import { toAsset } from '../immich/immich-client.service';
-import { onTripDays, parseLocalDateTime, photoDay } from './photo-day';
+import { onTripDays, parseLocalDateTime, photoDay, photosOnTrip } from './photo-day';
 
 describe('photoDay', () => {
   it('puts 05:30 in Bangkok (22:30 UTC the day before) on the Bangkok day', () => {
@@ -67,5 +67,44 @@ describe('toAsset', () => {
 
   it('has no local time when Immich gives none', () => {
     expect(toAsset(raw).takenAtLocal).toBeNull();
+  });
+});
+
+describe('photosOnTrip', () => {
+  const start = new Date('2026-04-02T00:00:00.000Z');
+  const end = new Date('2026-04-10T00:00:00.000Z');
+  const photo = (id: string, takenAt: string, local: string | null) => ({
+    id,
+    takenAt: new Date(takenAt),
+    takenAtLocal: parseLocalDateTime(local),
+  });
+
+  it('keeps 05:30 on the first morning in Bangkok, the day before in UTC', () => {
+    const kept = photosOnTrip([photo('dawn', '2026-04-01T22:30:00.000Z', '2026-04-02T05:30:00.000Z')], start, end);
+    expect(kept.map((p) => p.id)).toEqual(['dawn']);
+  });
+
+  it('drops a photo whose local day is after the trip, even with its UTC date inside', () => {
+    // 06:00 on 11 April in Bangkok is 23:00 UTC on 10 April, the last day.
+    const kept = photosOnTrip([photo('after', '2026-04-10T23:00:00.000Z', '2026-04-11T06:00:00.000Z')], start, end);
+    expect(kept).toEqual([]);
+  });
+
+  it('keeps the last evening in New York, the day after in UTC', () => {
+    const kept = photosOnTrip([photo('dusk', '2026-04-11T01:00:00.000Z', '2026-04-10T21:00:00.000Z')], start, end);
+    expect(kept.map((p) => p.id)).toEqual(['dusk']);
+  });
+
+  it('goes by the UTC date for a photo without a local time', () => {
+    const kept = photosOnTrip(
+      [
+        photo('before', '2026-04-01T22:30:00.000Z', null),
+        photo('first', '2026-04-02T08:00:00.000Z', null),
+        photo('after', '2026-04-11T01:00:00.000Z', null),
+      ],
+      start,
+      end,
+    );
+    expect(kept.map((p) => p.id)).toEqual(['first']);
   });
 });

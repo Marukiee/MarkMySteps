@@ -35,3 +35,19 @@ export function parseLocalDateTime(raw: string | null | undefined): Date | null 
 export function onTripDays(day: string, firstDay: string, lastDay: string): boolean {
   return day >= firstDay && day <= lastDay;
 }
+
+/**
+ * Of the photos Immich found in the widened search window, the ones that
+ * belong to a trip: those whose own day falls on one of its days (DATE
+ * columns, midnight UTC). The sync drops every ref not in this list, so a
+ * photo whose local day lies outside the trip leaves it.
+ */
+export function photosOnTrip<T extends { takenAt: Date; takenAtLocal: Date | null }>(
+  photos: T[],
+  startDate: Date,
+  endDate: Date,
+): T[] {
+  const firstDay = startDate.toISOString().slice(0, 10);
+  const lastDay = endDate.toISOString().slice(0, 10);
+  return photos.filter((p) => onTripDays(photoDay(p.takenAt, p.takenAtLocal), firstDay, lastDay));
+}

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { TripRole } from '@prisma/client';
 import { coverSuccessor, DeadRef } from '../media/cover-succession';
-import { MAX_UTC_OFFSET_MS, onTripDays, photoDay } from '../media/photo-day';
+import { MAX_UTC_OFFSET_MS, photosOnTrip } from '../media/photo-day';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImmichAsset, ImmichClientService } from './immich-client.service';
 import { ImmichConnectionService } from './immich-connection.service';
@@ -87,12 +87,9 @@ export class ImmichSyncService {
     // days are the days where its photos were taken, not UTC days, so Immich is
     // asked for the widest stretch any clock can make of them (05:30 on the first
     // day in Bangkok is 22:30 UTC the day before), and each photo is then kept
-    // when its own day falls inside the trip (inTrip below).
+    // when its own day falls inside the trip (photosOnTrip).
     const from = new Date(trip.startDate.getTime() - MAX_UTC_OFFSET_MS);
     const to = new Date(trip.endDate.getTime() + DAY_MS + MAX_UTC_OFFSET_MS);
-    const firstDay = trip.startDate.toISOString().slice(0, 10);
-    const lastDay = trip.endDate.toISOString().slice(0, 10);
-    const inTrip = (a: ImmichAsset) => onTripDays(photoDay(a.takenAt, a.takenAtLocal), firstDay, lastDay);
 
     // References this sync takes away, kept so a cover that pointed at one can
     // be handed to the photo that replaced it.
@@ -119,7 +116,7 @@ export class ImmichSyncService {
           from,
           to,
         );
-        const assets = found.filter(inTrip);
+        const assets = photosOnTrip(found, trip.startDate, trip.endDate);
         result.usersSynced++;
         result.assetsFound += assets.length;
 

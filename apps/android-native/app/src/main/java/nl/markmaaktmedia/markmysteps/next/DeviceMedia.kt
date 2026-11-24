@@ -47,13 +47,16 @@ object DeviceMedia {
     fun list(trip: Trip): List<Media> {
         val a = rows(trip)
         // The day it was taken where it was taken, as the server's photos have it (PhotoDay): a photo from this
-        // phone was taken in the zone the phone is in.
+        // phone was taken in the zone the phone was in, kept when it was linked so the day does not move when the
+        // phone is back home. Rows linked before that was kept use the zone the phone is in now.
         val zone = ZoneId.systemDefault()
         return (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { o ->
             val w = o.optInt("w"); val h = o.optInt("h")
             Media(
                 id = PREFIX + Uri.encode(o.getString("uri")),
-                takenAt = java.time.Instant.ofEpochMilli(o.getLong("at")).atZone(zone).toLocalDate(),
+                takenAt = java.time.Instant.ofEpochMilli(o.getLong("at")).atZone(
+                    if (o.has("offset")) java.time.ZoneOffset.ofTotalSeconds(o.getInt("offset")) else zone,
+                ).toLocalDate(),
                 video = o.optBoolean("video"),
                 ratio = if (w > 0 && h > 0) w.toFloat() / h else 1f,
                 sized = w > 0 && h > 0,
@@ -115,7 +118,8 @@ object DeviceMedia {
                     val uri = ContentUris.withAppendedId(collection, c.getLong(0))
                     var w = c.getInt(2); var h = c.getInt(3)
                     if (c.getInt(4) % 180 == 90) { val t = w; w = h; h = t }
-                    val o = JSONObject().put("uri", uri.toString()).put("at", c.getLong(1)).put("video", video).put("w", w).put("h", h)
+                    val o = JSONObject().put("uri", uri.toString()).put("at", c.getLong(1))
+                        .put("offset", zone.rules.getOffset(java.time.Instant.ofEpochMilli(c.getLong(1))).totalSeconds).put("video", video).put("w", w).put("h", h)
                     if (!video && hasLocation) runCatching {
                         context.contentResolver.openInputStream(MediaStore.setRequireOriginal(uri))?.use { input ->
                             val ll = FloatArray(2)
