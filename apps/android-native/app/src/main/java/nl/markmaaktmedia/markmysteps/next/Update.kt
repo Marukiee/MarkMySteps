@@ -104,5 +104,11 @@ fun MmsUpdateCard(modifier: Modifier = Modifier) {
         LaunchedEffect(s) { u.reset() }
         return
     }
-    UpdateCard(modifier, style = UpdateCardStyle(shape = RoundedCornerShape(28.dp)))
+    // The card's title and "what's new" lines take the surrounding content colour, which this page never sets, so
+    // they came out black on the dark card in the dark scheme (Mark). The scheme's onSurface is the right ink.
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.material3.LocalContentColor provides androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+    ) {
+        UpdateCard(modifier, style = UpdateCardStyle(shape = RoundedCornerShape(28.dp)))
+    }
 }
